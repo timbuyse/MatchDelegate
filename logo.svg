@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 90">
+  <rect width="320" height="90" fill="none"/>
+  <!-- shield -->
+  <g transform="translate(45,45)">
+    <path d="M0,-34 L28,-23 L28,9 Q28,28 0,37 Q-28,28 -28,9 L-28,-23 Z" fill="#101010" stroke="#fff" stroke-width="3"/>
+    <path d="M0,-27 L21,-19 L21,8 Q21,22 0,29 Q-21,22 -21,8 L-21,-19 Z" fill="none" stroke="#fff" stroke-width="1.5"/>
+    <path d="M-28,-23 L-15,-23 L-28,-13 Z" fill="#1f9d4d"/>
+    <path d="M28,-23 L15,-23 L28,-13 Z" fill="#f5821f"/>
+    <path d="M-28,9 L-28,-5 L-21,-5 L-21,13 Z" fill="#f5821f"/>
+    <text x="0" y="10" font-family="Georgia,serif" font-size="32" font-weight="bold" fill="#fff" text-anchor="middle">SD</text>
+  </g>
+  <!-- text -->
+  <text x="92" y="34" font-family="Arial,sans-serif" font-size="26" font-weight="800" fill="#fff" letter-spacing="1">SPARTA</text>
+  <text x="170" y="50" font-family="Georgia,serif" font-size="20" font-style="italic" fill="#1f9d4d">Petegem</text>
+  <text x="92" y="74" font-family="Arial,sans-serif" font-size="26" font-weight="800" fill="#fff" letter-spacing="1">DEINZE</text>
+</svg>
