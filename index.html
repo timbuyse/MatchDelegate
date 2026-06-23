@@ -1210,7 +1210,7 @@ const views = {
     setTimeout(updateCloudChip, 0);
     const switchBtn = Object.keys(userTeams).length > 1
       ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">⇄</button>` : '';
-    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="logo"><span class="hdr-clubname">${esc(getClubName())}</span>${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
+    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="logo"><span class="hdr-clubname">MatchDelegate</span>${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
       <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>
       <div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>`;
   },
