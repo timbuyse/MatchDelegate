@@ -1,7 +1,7 @@
 {
-  "name": "Voetbal Score",
-  "short_name": "Voetbal",
-  "description": "Wedstrijden van je ploeg bijhouden",
+  "name": "MatchDelegate",
+  "short_name": "MatchDelegate",
+  "description": "Beheer je ploeg, volg wedstrijden live",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0f172a",

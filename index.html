@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Sparta Petegem">
+  <meta name="apple-mobile-web-app-title" content="MatchDelegate">
   <meta name="theme-color" content="#101010">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.svg">
-  <title>Football Score Tracking App</title>
+  <title>MatchDelegate</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
@@ -294,6 +294,33 @@
     .cloud-chip.admin{background:#1f9d55;color:#fff}
     .cloud-chip.viewer{background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45)}
     .viewer-banner{background:#eef4ff;border:1px solid #c7dafc;color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px}
+    /* Auth / team-select schermen */
+    .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+    .auth-logo{font-size:52px;margin-bottom:8px}
+    .auth-title{font-size:26px;font-weight:900;margin-bottom:4px;text-align:center}
+    .auth-sub{font-size:14px;color:var(--txt2);margin-bottom:28px;text-align:center}
+    .auth-box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:400px}
+    .auth-tabs{display:flex;border:2px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:20px}
+    .auth-tab{flex:1;padding:11px;border:none;background:#fff;font-size:14px;font-weight:700;cursor:pointer;color:var(--txt2)}
+    .auth-tab.act{background:var(--grn);color:#fff}
+    .auth-err{color:var(--rd);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px}
+    .ts-wrap{min-height:100dvh;background:var(--bg);display:flex;flex-direction:column}
+    .ts-hdr{background:var(--blk);color:#fff;padding:16px;text-align:center;border-bottom:3px solid var(--org)}
+    .ts-hdr h1{font-size:20px;font-weight:900}
+    .ts-hdr p{font-size:13px;opacity:.7;margin-top:4px}
+    .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
+    .ts-team-row{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn);transition:transform .1s}
+    .ts-team-row:active{transform:scale(.98)}
+    .ts-team-row .ts-name{font-size:17px;font-weight:800;flex:1}
+    .ts-team-row .ts-role{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+    .ts-role.admin{background:var(--grnp);color:var(--grn2)}
+    .ts-role.viewer{background:var(--orgp);color:var(--org2)}
+    .team-switch-btn{background:none;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;opacity:.8;padding:4px 8px;border-radius:6px;white-space:nowrap}
+    .invite-code{font-size:28px;font-weight:900;letter-spacing:6px;text-align:center;padding:16px;background:var(--grnp);border-radius:12px;color:var(--grn2);margin:12px 0;font-family:monospace}
+    body.dark .auth-box{background:var(--card)}
+    body.dark .auth-tab{background:var(--card);color:var(--txt)}
+    body.dark .auth-tab.act{background:var(--grn);color:#fff}
+    body.dark .ts-team-row{background:var(--card)}
   </style>
 </head>
 <body>
@@ -354,7 +381,7 @@ function getTeams() { try { return JSON.parse(localStorage.getItem('voetbal_team
 function saveTeam(name) { name = (name || '').trim(); if (!name) return; const t = getTeams(); if (!t.includes(name)) { t.push(name); t.sort(); localStorage.setItem('voetbal_teams', JSON.stringify(t)); } }
 function lastTeam() { return localStorage.getItem('voetbal_last_team') || ''; }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
-function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Sparta Petegem Deinze'; }
+function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 function getClubLogo() { return localStorage.getItem('voetbal_club_logo') || 'logo-default.svg'; }
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
@@ -525,24 +552,32 @@ function dbDelLocal(id) {
 }
 
 // ===================== CLOUD SYNC (Firebase) =====================
-// Model: lezen mag iedereen (kijkers), schrijven enkel ingelogde beheerders (jij + trainers).
-// Gedeelde matchen/ploegen krijgen lokaal de vlag fromCloud:true zodat ze los staan van
-// wat een kijker eventueel zelf lokaal aanmaakt.
+// Multi-ploeg model: elke ploeg is een eigen afgeschermde ruimte in Firebase.
+// Beheerder (admin) kan schrijven, kijkers (viewer) kunnen alleen lezen.
+// Toegang via uitnodigingscode per ploeg.
 const FB_CONFIG = {
-  apiKey: "AIzaSyDZ9-WRwd8KJcIwMn_8f2T4EFr35j45Wxc",
-  authDomain: "voetbalapp-fc20d.firebaseapp.com",
-  databaseURL: "https://voetbalapp-fc20d-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "voetbalapp-fc20d",
-  storageBucket: "voetbalapp-fc20d.firebasestorage.app",
-  messagingSenderId: "89493655886",
-  appId: "1:89493655886:web:2c9e9989ee8694059f4e1f"
+  apiKey: "AIzaSyByL7E3q7YH0hinfI7xRLl_QXHCZG4QywE",
+  authDomain: "matchdelegate-v2.firebaseapp.com",
+  databaseURL: "https://matchdelegate-v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "matchdelegate-v2",
+  storageBucket: "matchdelegate-v2.firebasestorage.app",
+  messagingSenderId: "950872304129",
+  appId: "1:950872304129:web:e9d5b1e03a41bd9d9bae00"
 };
-// Vast beheer-account: trainers typen enkel het wachtwoord, het e-mailadres staat vast.
-const ADMIN_EMAIL = "trainers@voetbalapp.be";
+
 let cloudReady = false, isAdmin = false, fbdb = null, fbauth = null;
+let activeTeamId = null;   // welke ploeg is actief
+let currentUser = null;    // ingelogde Firebase user
+let userTeams = {};        // { teamId: 'admin'|'viewer' }
+let teamListeners = [];    // actieve Firebase .on() listeners
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
 function jclone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function teamRef(path) {
+  if (!fbdb || !activeTeamId) return null;
+  return fbdb.ref('teams/' + activeTeamId + (path ? '/' + path : ''));
+}
 
 function cloudInit() {
   if (!cloudAvailable()) return;
@@ -551,57 +586,102 @@ function cloudInit() {
     fbdb = firebase.database();
     fbauth = firebase.auth();
     cloudReady = true;
-    fbauth.onAuthStateChanged(u => { isAdmin = !!u; updateCloudChip(); cloudRefreshUI(); });
-    cloudListen();
+    fbauth.onAuthStateChanged(onAuthChanged);
   } catch (e) { cloudReady = false; }
 }
 
-// ---- schrijven (enkel beheerders) ----
-function cloudOnLocalMatchSave(m) {
-  if (!cloudReady || !isAdmin || !m || !m.id) return;
-  try { fbdb.ref('matches/' + m.id).set(jclone(m)); } catch (e) {}
-}
-function cloudOnLocalMatchDelete(id) {
-  if (!cloudReady || !isAdmin || !id) return;
-  try { fbdb.ref('matches/' + id).remove(); } catch (e) {}
-}
-function cloudOnLocalTeamsSave(arr) {
-  if (!cloudReady || !isAdmin) return;
-  try { fbdb.ref('teams').set(jclone(arr || [])); } catch (e) {}
-}
-function cloudOnLocalTournamentsSave(arr) {
-  if (!cloudReady || !isAdmin) return;
-  try { fbdb.ref('tournaments').set(jclone(arr || [])); } catch (e) {}
+async function onAuthChanged(user) {
+  currentUser = user;
+  if (!user) {
+    // Niet ingelogd → toon auth scherm
+    isAdmin = false; activeTeamId = null; userTeams = {};
+    stopTeamListeners();
+    view = 'auth'; render(); return;
+  }
+  // Ingelogd → laad ploegen van deze gebruiker
+  await loadUserTeams(user.uid);
+  const teamIds = Object.keys(userTeams);
+  if (teamIds.length === 0) {
+    // Geen ploegen → toon teamselect zodat gebruiker een ploeg kan aanmaken of vervoegen
+    view = 'teamselect'; render(); return;
+  }
+  if (teamIds.length === 1 && !activeTeamId) {
+    // Precies 1 ploeg → meteen activeren
+    await selectTeam(teamIds[0]); return;
+  }
+  if (!activeTeamId || !userTeams[activeTeamId]) {
+    // Meerdere ploegen of actieve ploeg niet meer beschikbaar → keuze tonen
+    view = 'teamselect'; render(); return;
+  }
+  updateCloudChip(); cloudRefreshUI();
 }
 
-// ---- lezen (iedereen) ----
-function cloudListen() {
-  if (!cloudReady) return;
-  fbdb.ref('matches').on('value', s => applyCloudMatches(s.val() || {}));
-  fbdb.ref('teams').on('value', s => applyCloudTeams(s.val() || []));
-  fbdb.ref('club').on('value', s => applyCloudClub(s.val()));
-  fbdb.ref('tournaments').on('value', s => applyCloudTournaments(s.val() || []));
+async function loadUserTeams(uid) {
+  const snap = await fbdb.ref('users/' + uid + '/teams').once('value');
+  userTeams = snap.val() || {};
 }
-// Club-identiteit (naam/logo/thema) delen → kijkers hoeven niets in te stellen.
+
+async function selectTeam(teamId) {
+  stopTeamListeners();
+  activeTeamId = teamId;
+  isAdmin = (userTeams[teamId] === 'admin');
+  localStorage.setItem('voetbal_activeTeamId', teamId);
+  // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup)
+  if (currentUser) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId] || 'viewer');
+  cloudListen();
+  // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
+  localStorage.setItem('voetbal_setup_done', '1');
+  view = 'home'; render();
+}
+
+// ---- schrijven (enkel admins van de actieve ploeg) ----
+function cloudOnLocalMatchSave(m) {
+  const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
+  try { r.set(jclone(m)); } catch (e) {}
+}
+function cloudOnLocalMatchDelete(id) {
+  const r = teamRef('matches/' + id); if (!r || !isAdmin || !id) return;
+  try { r.remove(); } catch (e) {}
+}
+function cloudOnLocalTeamsSave(arr) {
+  const r = teamRef('roster'); if (!r || !isAdmin) return;
+  try { r.set(jclone(arr || [])); } catch (e) {}
+}
+function cloudOnLocalTournamentsSave(arr) {
+  const r = teamRef('tournaments'); if (!r || !isAdmin) return;
+  try { r.set(jclone(arr || [])); } catch (e) {}
+}
 function cloudOnLocalClubSave() {
-  if (!cloudReady || !isAdmin) return;
+  const r = teamRef('club'); if (!r || !isAdmin) return;
   const theme = localStorage.getItem('voetbal_theme');
-  try { fbdb.ref('club').set({
-    name: localStorage.getItem('voetbal_club_name') || '',
-    logo: localStorage.getItem('voetbal_club_logo') || '',
-    theme: theme || null
-  }); } catch (e) {}
+  try { r.set({ name: localStorage.getItem('voetbal_club_name') || '', logo: localStorage.getItem('voetbal_club_logo') || '', theme: theme || null }); } catch (e) {}
 }
+
+// ---- lezen ----
+function stopTeamListeners() {
+  for (const { ref, event } of teamListeners) { try { ref.off(event); } catch (e) {} }
+  teamListeners = [];
+}
+function cloudListen() {
+  if (!cloudReady || !activeTeamId) return;
+  const addL = (path, event, fn) => {
+    const r = teamRef(path); r.on(event, fn);
+    teamListeners.push({ ref: r, event });
+  };
+  addL('matches', 'value', s => applyCloudMatches(s.val() || {}));
+  addL('roster',  'value', s => applyCloudTeams(s.val() || []));
+  addL('club',    'value', s => applyCloudClub(s.val()));
+  addL('tournaments', 'value', s => applyCloudTournaments(s.val() || {}));
+}
+
 function applyCloudClub(val) {
   if (!val) return;
   if (val.name) localStorage.setItem('voetbal_club_name', val.name);
   if (val.logo) localStorage.setItem('voetbal_club_logo', val.logo);
   if (val.theme) localStorage.setItem('voetbal_theme', val.theme); else localStorage.removeItem('voetbal_theme');
-  localStorage.setItem('voetbal_setup_done', '1'); // kijkers hoeven de setup niet te doorlopen
   applyStoredTheme();
   if (view === 'home' || view === 'setup') { view = 'home'; render(); } else cloudRefreshUI();
 }
-
 async function applyCloudMatches(obj) {
   if (!db) return;
   const cloudIds = new Set(Object.keys(obj));
@@ -641,65 +721,236 @@ function cloudRefreshUI() {
   else if (view === 'teams') render();
   else if (view === 'tournaments') render();
   else if (view === 'tournament') loadTournamentDetail();
-  // Live/detail/prep: kijkers (geen beheer) volgen de cloud automatisch; de beheerder
-  // die zelf invoert laten we ongemoeid zodat zijn invoer niet onderbroken wordt.
   else if ((view === 'detail' || view === 'live' || view === 'prep') && match && !isAdmin) {
     dbGet(match.id).then(m => { if (m) { match = m; render(); } });
   }
 }
 
-// ---- login / status ----
+// ---- rechten ----
 function canEditMatch() { return !match || !match.fromCloud || isAdmin; }
-// Mag deze gebruiker nieuwe dingen aanmaken/bewerken? Zonder cloud = gewoon lokaal (alles mag).
-// Met cloud actief: enkel ingelogde beheerders. Kijkers zijn alleen-lezen.
 function canManage() { return !cloudReady || isAdmin; }
+
+// ---- UI chip + account modal ----
 function updateCloudChip() {
   const el = document.getElementById('cloud-chip');
   if (!el) return;
-  if (!cloudReady) { el.style.display = 'none'; return; }
+  if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
   el.textContent = isAdmin ? '✏️ Beheer' : '👁 Kijken';
   el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
-  if (!cloudReady) { openModal(`<h3>Geen verbinding</h3><p style="text-align:center;color:var(--txt2)">De cloud is niet bereikbaar (offline?). De app werkt gewoon lokaal verder.</p><button class="btn btn-gray" onclick="closeModal()">Sluiten</button>`); return; }
-  if (isAdmin) {
-    openModal(`<h3>✏️ Beheermodus actief</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Je ploegen en wedstrijden worden gedeeld en live bijgewerkt voor iedereen.</p>
-      <button class="btn btn-green" onclick="cloudPushAll()">⬆ Al mijn lokale data nu delen</button>
-      <div id="cl-push" style="text-align:center;font-size:13px;color:var(--txt2);min-height:18px;margin-top:6px"></div>
-      <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden (terug naar kijken)</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
-    return;
+  if (!currentUser) { view = 'auth'; render(); return; }
+  const teamIds = Object.keys(userTeams);
+  const switchBtn = teamIds.length > 1 ? `<button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();view='teamselect';render()">🔄 Van ploeg wisselen</button>` : '';
+  openModal(`<h3>👤 Mijn account</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">${esc(currentUser.email)}</p>
+    ${isAdmin ? `<button class="btn btn-green" onclick="closeModal();showInviteModal()">🔗 Uitnodigingslink delen</button>` : ''}
+    ${switchBtn}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+function cloudLogout() {
+  try { fbauth.signOut(); } catch (e) {}
+  activeTeamId = null; userTeams = {}; isAdmin = false;
+  localStorage.removeItem('voetbal_activeTeamId');
+  closeModal();
+}
+
+// ---- Ploeg aanmaken ----
+async function createTeam(name) {
+  if (!currentUser || !fbdb) return;
+  name = (name || '').trim(); if (!name) return;
+  const teamId = fbdb.ref('teams').push().key;
+  const uid = currentUser.uid;
+  const token = Math.random().toString(36).slice(2, 8).toUpperCase();
+  await fbdb.ref('teams/' + teamId).set({
+    info: { name, createdBy: uid, createdAt: Date.now(), inviteToken: token },
+    members: { [uid]: 'admin' }
+  });
+  await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
+  userTeams[teamId] = 'admin';
+  await selectTeam(teamId);
+}
+
+// ---- Ploeg vervoegen via uitnodigingscode ----
+async function joinTeamByToken(token) {
+  if (!currentUser || !fbdb) return null;
+  token = (token || '').trim().toUpperCase();
+  // Zoek welke ploeg dit token heeft
+  const snap = await fbdb.ref('teams').orderByChild('info/inviteToken').equalTo(token).once('value');
+  if (!snap.exists()) return 'not_found';
+  const teamId = Object.keys(snap.val())[0];
+  const uid = currentUser.uid;
+  // Voeg toe als viewer (als nog geen lid)
+  const existing = await fbdb.ref('teams/' + teamId + '/members/' + uid).once('value');
+  if (!existing.exists()) {
+    await fbdb.ref('teams/' + teamId + '/members/' + uid).set('viewer');
+    await fbdb.ref('users/' + uid + '/teams/' + teamId).set('viewer');
+    userTeams[teamId] = 'viewer';
+  } else {
+    userTeams[teamId] = existing.val();
   }
-  openModal(`<h3>🔑 Beheer aanmelden</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Voor trainers. Geef de beheercode in om ploegen en wedstrijden te delen. Kijkers hoeven niets in te geven.</p>
-    <div class="fg"><label>Beheercode</label><input id="cl-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"></div>
-    <div id="cl-err" style="color:var(--red,#d33);font-size:13px;text-align:center;min-height:18px"></div>
-    <button class="btn btn-green" onclick="cloudDoLogin()">Aanmelden</button>
+  await selectTeam(teamId);
+  return 'ok';
+}
+
+// ---- Uitnodigingslink tonen ----
+async function showInviteModal() {
+  if (!isAdmin || !activeTeamId) return;
+  const snap = await teamRef('info/inviteToken').once('value');
+  const token = snap.val() || '???';
+  openModal(`<h3>🔗 Uitnodiging delen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Deel deze code met ouders of volgers. Ze voeren hem in bij "Ploeg vervoegen".</p>
+    <div class="invite-code">${token}</div>
+    <button class="btn btn-green" onclick="navigator.share ? navigator.share({title:'MatchDelegate uitnodiging',text:'Gebruik code ${token} om mijn ploeg te volgen in MatchDelegate.'}) : navigator.clipboard.writeText('${token}').then(()=>alert('Code gekopieerd!'))">📤 Delen / Kopiëren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+
+// ===================== AUTH VIEWS =====================
+function renderAuth() {
+  return `<div class="auth-wrap">
+    <div class="auth-logo">⚽</div>
+    <div class="auth-title">MatchDelegate</div>
+    <div class="auth-sub">Beheer je ploeg, volg wedstrijden live</div>
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab act" id="tab-login" onclick="authSwitchTab('login')">Aanmelden</button>
+        <button class="auth-tab" id="tab-register" onclick="authSwitchTab('register')">Registreren</button>
+      </div>
+      <div id="auth-login-form">
+        <div class="fg"><label>E-mailadres</label><input id="auth-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
+        <div class="fg"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"></div>
+        <div class="auth-err" id="auth-err"></div>
+        <button class="btn btn-green" onclick="authDoLogin()">Aanmelden</button>
+      </div>
+      <div id="auth-register-form" style="display:none">
+        <div class="fg"><label>Naam</label><input id="reg-name" type="text" autocomplete="name" placeholder="Jan Peeters"></div>
+        <div class="fg"><label>E-mailadres</label><input id="reg-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
+        <div class="fg"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
+        <div class="auth-err" id="reg-err"></div>
+        <button class="btn btn-green" onclick="authDoRegister()">Account aanmaken</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function authSwitchTab(t) {
+  document.getElementById('tab-login').classList.toggle('act', t === 'login');
+  document.getElementById('tab-register').classList.toggle('act', t === 'register');
+  document.getElementById('auth-login-form').style.display = t === 'login' ? '' : 'none';
+  document.getElementById('auth-register-form').style.display = t === 'register' ? '' : 'none';
+}
+
+function authDoLogin() {
+  const email = (document.getElementById('auth-email') || {}).value || '';
+  const pwd = (document.getElementById('auth-pwd') || {}).value || '';
+  const err = document.getElementById('auth-err');
+  if (err) err.textContent = 'Bezig...';
+  fbauth.signInWithEmailAndPassword(email, pwd)
+    .then(() => { if (err) err.textContent = ''; })
+    .catch(e => { if (err) err.textContent = authErrMsg(e.code); });
+}
+
+async function authDoRegister() {
+  const name = (document.getElementById('reg-name') || {}).value || '';
+  const email = (document.getElementById('reg-email') || {}).value || '';
+  const pwd = (document.getElementById('reg-pwd') || {}).value || '';
+  const err = document.getElementById('reg-err');
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = await fbauth.createUserWithEmailAndPassword(email, pwd);
+    await cred.user.updateProfile({ displayName: name.trim() });
+    await fbdb.ref('users/' + cred.user.uid).set({ email, displayName: name.trim(), createdAt: Date.now() });
+    if (err) err.textContent = '';
+  } catch (e) { if (err) err.textContent = authErrMsg(e.code); }
+}
+
+function authErrMsg(code) {
+  const map = {
+    'auth/user-not-found': 'Geen account gevonden met dit e-mailadres.',
+    'auth/wrong-password': 'Onjuist wachtwoord.',
+    'auth/invalid-email': 'Ongeldig e-mailadres.',
+    'auth/email-already-in-use': 'Dit e-mailadres is al in gebruik.',
+    'auth/weak-password': 'Wachtwoord moet minstens 6 tekens zijn.',
+    'auth/invalid-credential': 'Onjuist e-mailadres of wachtwoord.',
+    'auth/too-many-requests': 'Te veel pogingen. Probeer later opnieuw.',
+  };
+  return map[code] || 'Er ging iets mis. Probeer opnieuw.';
+}
+
+// ===================== TEAM SELECT VIEW =====================
+function renderTeamSelect() {
+  const teamIds = Object.keys(userTeams);
+  const teamRows = teamIds.length
+    ? teamIds.map(id => {
+        const role = userTeams[id];
+        return `<div class="ts-team-row" onclick="selectTeam('${id}')">
+          <span class="ts-name" id="tsname-${id}">Ploeg laden...</span>
+          <span class="ts-role ${role}">${role === 'admin' ? '✏️ Beheerder' : '👁 Kijker'}</span>
+        </div>`;
+      }).join('')
+    : `<div class="empty"><div class="ei">👥</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+
+  // Laad ploegnamen asynchroon
+  setTimeout(() => {
+    teamIds.forEach(id => {
+      const el = document.getElementById('tsname-' + id);
+      if (!el) return;
+      fbdb.ref('teams/' + id + '/info/name').once('value').then(s => { if (el) el.textContent = s.val() || id; });
+    });
+  }, 0);
+
+  return `<div class="ts-wrap">
+    <div class="ts-hdr">
+      <h1>⚽ Mijn ploegen</h1>
+      <p>${esc((currentUser && currentUser.email) || '')}</p>
+    </div>
+    <div class="ts-content">
+      ${teamRows}
+      <div style="margin-top:20px">
+        <button class="btn btn-org" onclick="showCreateTeamModal()">➕ Nieuwe ploeg aanmaken</button>
+        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">🔗 Ploeg vervoegen via code</button>
+        <button class="btn btn-pale" style="margin-top:10px" onclick="cloudLogout()">Afmelden</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function showCreateTeamModal() {
+  openModal(`<h3>➕ Nieuwe ploeg</h3>
+    <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
+    <div class="auth-err" id="ct-err"></div>
+    <button class="btn btn-org" onclick="doCreateTeam()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-function cloudDoLogin() {
-  const pwd = (document.getElementById('cl-pwd') || {}).value || '';
-  const err = document.getElementById('cl-err');
+
+async function doCreateTeam() {
+  const name = (document.getElementById('new-team-name') || {}).value || '';
+  const err = document.getElementById('ct-err');
+  if (!name.trim()) { if (err) err.textContent = 'Geef een naam in.'; return; }
   if (err) err.textContent = 'Bezig...';
-  fbauth.signInWithEmailAndPassword(ADMIN_EMAIL, pwd)
-    .then(() => { closeModal(); })
-    .catch(() => { if (err) err.textContent = 'Onjuiste code.'; });
+  closeModal();
+  await createTeam(name);
 }
-function cloudLogout() { try { fbauth.signOut(); } catch (e) {} closeModal(); }
-// Eenmalig: alle bestaande lokale matchen + ploegen naar de cloud duwen (initiële vulling).
-async function cloudPushAll() {
-  if (!cloudReady || !isAdmin) return;
-  const el = document.getElementById('cl-push'); if (el) el.textContent = 'Bezig met delen...';
-  try {
-    const all = await dbAll();
-    for (const m of all) { try { await fbdb.ref('matches/' + m.id).set(jclone(m)); } catch (e) {} }
-    try { await fbdb.ref('teams').set(jclone(getTeamsV2())); } catch (e) {}
-    try { await fbdb.ref('tournaments').set(jclone(getTournaments())); } catch (e) {}
-    cloudOnLocalClubSave();
-    if (el) el.textContent = `✓ ${all.length} wedstrijd(en) + ploegen gedeeld.`;
-  } catch (e) { if (el) el.textContent = 'Er ging iets mis.'; }
+
+function showJoinTeamModal() {
+  openModal(`<h3>🔗 Ploeg vervoegen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Vraag de uitnodigingscode aan de beheerder van de ploeg.</p>
+    <div class="fg"><label>Uitnodigingscode</label><input id="join-token" type="text" placeholder="bv. AB12CD" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;font-size:22px;text-align:center" autofocus></div>
+    <div class="auth-err" id="jt-err"></div>
+    <button class="btn btn-green" onclick="doJoinTeam()">Vervoegen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+
+async function doJoinTeam() {
+  const token = (document.getElementById('join-token') || {}).value || '';
+  const err = document.getElementById('jt-err');
+  if (!token.trim()) { if (err) err.textContent = 'Voer een code in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  const result = await joinTeamByToken(token);
+  if (result === 'not_found') { if (err) err.textContent = 'Code niet gevonden. Controleer de code.'; return; }
+  closeModal();
 }
 
 // ===================== STATE =====================
@@ -940,12 +1191,16 @@ function pitchSVG(m, players) {
 
 // ===================== HOME =====================
 const views = {
+  auth: renderAuth,
+  teamselect: renderTeamSelect,
   home: () => {
     loadHome();
     setTimeout(updateCloudChip, 0);
-    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="logo"><span class="hdr-clubname">${esc(getClubName())}</span><span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
+    const switchBtn = Object.keys(userTeams).length > 1
+      ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">⇄</button>` : '';
+    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="logo"><span class="hdr-clubname">${esc(getClubName())}</span>${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
       <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>
-      <div class="credit">App created by <b>Tim Buyse</b></div>`;
+      <div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>`;
   },
   matches: () => {
     loadMatches();
@@ -1184,7 +1439,7 @@ function renderSettings(isFirst) {
     ${isFirst ? `<div class="welcome"><h2>Welkom! 👋</h2><p>Geef je club of ploeg een naam en een logo.<br>De kleuren van de app passen zich automatisch aan je logo aan.</p></div>` : ''}
     ${(isFirst || canManage()) ? `<div class="card">
       <div class="fg"><label>Naam van de club / ploeg</label>
-        <input id="s-name" type="text" placeholder="bv. KFC Sparta Petegem Deinze" value="${esc(localStorage.getItem('voetbal_club_name') || '')}"></div>
+        <input id="s-name" type="text" placeholder="bv. KFC Eendracht" value="${esc(localStorage.getItem('voetbal_club_name') || '')}"></div>
       <div class="fg"><label>Logo</label>
         <div class="logo-preview">${src ? `<img id="s-logo-img" src="${src}" alt="logo">` : `<div id="s-logo-img" class="logo-empty">Nog geen logo gekozen</div>`}</div>
         <label class="file-btn">📷 Eigen logo opladen<input type="file" id="s-logo-file" accept="image/*" onchange="handleLogoFile(this)"></label>
@@ -3090,7 +3345,7 @@ function exportPDF() {
     ${m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
     <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
-    <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">${esc(getClubName())} · app created by Tim Buyse</p>
+    <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">MatchDelegate · ${esc(getClubName())} · app created by Tim Buyse</p>
     <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
     </body></html>`;
 
@@ -3110,6 +3365,9 @@ async function init() {
   db = await openDB();
   applyStoredTheme(); applyDark();
   migrateTeams();
+  // Toon laadscherm terwijl Firebase auth-status bepaald wordt
+  view = 'home';
+  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo">⚽</div><p style="color:var(--txt2)">Laden...</p></div>`;
   cloudInit();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   document.addEventListener('visibilitychange', () => {
@@ -3118,12 +3376,15 @@ async function init() {
       if (q && q.startTime && !q.pausedAt && !q.endTime) requestWake();
     }
   });
-  // Met cloud: identiteit komt van de beheerder → kijkers slaan de setup over.
-  if (!setupDone() && !cloudReady) { view = 'setup'; render(); return; }
-  const all = await dbAll();
-  const live = all.find(m => m.status === 'live');
-  if (live) { match = live; view = 'live'; startTimer(); }
-  render();
+  // Als Firebase niet beschikbaar is (offline), val terug op lokale modus
+  if (!cloudReady) {
+    if (!setupDone()) { view = 'setup'; render(); return; }
+    const all = await dbAll();
+    const live = all.find(m => m.status === 'live');
+    if (live) { match = live; view = 'live'; startTimer(); }
+    render();
+  }
+  // Met cloud: onAuthChanged() neemt de flow over zodra Firebase reageert
 }
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
