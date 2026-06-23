@@ -1442,25 +1442,9 @@ let pendingTheme = null;
 function mapStoredLogo() { const s = localStorage.getItem('voetbal_club_logo'); if (!s) return null; if (s === 'logo-default.svg' || s === 'logo.svg') return 'DEFAULT'; return s; }
 function previewSrc() { if (pendingLogo === 'DEFAULT') return 'logo-default.svg'; if (pendingLogo && pendingLogo !== 'DEFAULT') return pendingLogo; return ''; }
 function renderSettings(isFirst) {
-  const src = previewSrc();
   return `
-  ${isFirst
-    ? `<div class="hdr hdr-home"><span class="hdr-clubname">⚽ Voetbal Score</span></div>`
-    : `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>Instellingen</h1></div>`}
+  <div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
-    ${isFirst ? `<div class="welcome"><h2>Welkom! 👋</h2><p>Geef je club of ploeg een naam en een logo.<br>De kleuren van de app passen zich automatisch aan je logo aan.</p></div>` : ''}
-    ${(isFirst || canManage()) ? `<div class="card">
-      <div class="fg"><label>Naam van de club / ploeg</label>
-        <input id="s-name" type="text" placeholder="bv. KFC Eendracht" value="${esc(localStorage.getItem('voetbal_club_name') || '')}"></div>
-      <div class="fg"><label>Logo</label>
-        <div class="logo-preview">${src ? `<img id="s-logo-img" src="${src}" alt="logo">` : `<div id="s-logo-img" class="logo-empty">Nog geen logo gekozen</div>`}</div>
-        <label class="file-btn">📷 Eigen logo opladen<input type="file" id="s-logo-file" accept="image/*" onchange="handleLogoFile(this)"></label>
-        <button class="btn btn-gray btn-sm" style="width:100%;margin-top:8px" onclick="useDefaultLogo()">⚽ Gebruik standaardlogo</button>
-        <p style="font-size:12px;color:var(--txt2);margin-top:8px">De app-kleuren volgen automatisch de kleuren van je logo.</p>
-      </div>
-    </div>
-    <button class="btn btn-green" onclick="saveSettings(${isFirst})">✓ ${isFirst ? 'Aan de slag' : 'Opslaan'}</button>` : '<div class="viewer-banner">👁 Je kijkt mee — naam en logo worden door de beheerder ingesteld</div>'}
-    ${isFirst ? '' : `
     <div class="sec">Weergave</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">🌙 Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
@@ -1468,12 +1452,17 @@ function renderSettings(isFirst) {
     </div>
     ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Alle wedstrijden en instellingen (ook je ploegen) staan enkel op dit toestel. Maak een back-up om niets te verliezen, of zet ze terug op een ander toestel.</p>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
       ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):'⚠ Nog geen back-up gemaakt.'}</p>`; })()}
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
-      <p style="font-size:12px;color:var(--txt2);margin-top:8px">Bij herstellen kan je kiezen tussen samenvoegen (toevoegen) of alles vervangen.</p>
-    </div>` : ''}`}
+    </div>` : ''}
+    <div class="sec">Account</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
+      <button class="btn btn-gray" onclick="cloudLogout()">Afmelden</button>
+      <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
+    </div>
   </div>`;
 }
 async function exportBackup() {
@@ -1591,19 +1580,36 @@ function useDefaultLogo() {
   setLogoPreview('logo-default.svg');
 }
 function saveSettings(isFirst) {
-  const name = (document.getElementById('s-name').value || '').trim();
-  if (!name) { alert('Geef de naam van je club of ploeg in.'); return; }
-  if (pendingLogo === null) { alert('Kies een logo: laad er een op of kies het standaardlogo.'); return; }
-  localStorage.setItem('voetbal_club_name', name);
-  if (pendingLogo === 'DEFAULT') { localStorage.setItem('voetbal_club_logo', 'logo-default.svg'); localStorage.removeItem('voetbal_theme'); }
-  else {
-    try { localStorage.setItem('voetbal_club_logo', pendingLogo); } catch (e) { alert('Het logo is te groot om te bewaren. Probeer een kleinere afbeelding.'); return; }
-    if (pendingTheme) localStorage.setItem('voetbal_theme', JSON.stringify(pendingTheme)); else localStorage.removeItem('voetbal_theme');
-  }
   localStorage.setItem('voetbal_setup_done', '1');
   applyStoredTheme();
-  cloudOnLocalClubSave();
   go('home');
+}
+
+function confirmDeleteAccount() {
+  openModal(`<h3>Account verwijderen</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">Je account wordt permanent verwijderd. Je ploegen en data in de cloud blijven bewaard voor andere leden.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:16px">Geef je wachtwoord in ter bevestiging:</p>
+    <div class="fg"><input id="del-pwd" type="password" placeholder="wachtwoord"></div>
+    <div class="auth-err" id="del-err"></div>
+    <button class="btn btn-red" onclick="doDeleteAccount()">Permanent verwijderen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+
+async function doDeleteAccount() {
+  const pwd = (document.getElementById('del-pwd') || {}).value || '';
+  const err = document.getElementById('del-err');
+  if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
+    await currentUser.reauthenticateWithCredential(cred);
+    await currentUser.delete();
+    closeModal();
+    activeTeamId = null; userTeams = {}; isAdmin = false;
+    localStorage.removeItem('voetbal_activeTeamId');
+  } catch (e) {
+    if (err) err.textContent = e.code === 'auth/wrong-password' ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
+  }
 }
 
 // ===================== PLOEGEN BEHEREN =====================
