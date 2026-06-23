@@ -15,8 +15,12 @@
           // Admin mag leden beheren
           ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
 
-          // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging)
           "$memberId": {
+            // Een gebruiker mag ALTIJD zijn eigen lidmaatschap lezen (ook vóór hij lid is),
+            // zodat hij bij het vervoegen kan checken of hij al lid is.
+            ".read": "auth != null && $memberId === auth.uid",
+
+            // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging)
             ".write": "auth != null && $memberId === auth.uid && !data.exists() && newData.val() === 'viewer'"
           }
         }
