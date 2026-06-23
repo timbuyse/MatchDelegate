@@ -921,17 +921,25 @@ function showCreateTeamModal() {
   openModal(`<h3>➕ Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="auth-err" id="ct-err"></div>
-    <button class="btn btn-org" onclick="doCreateTeam()">Aanmaken</button>
+    <button class="btn btn-org" id="ct-btn" onclick="doCreateTeam()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 
 async function doCreateTeam() {
   const name = (document.getElementById('new-team-name') || {}).value || '';
   const err = document.getElementById('ct-err');
+  const btn = document.getElementById('ct-btn');
   if (!name.trim()) { if (err) err.textContent = 'Geef een naam in.'; return; }
   if (err) err.textContent = 'Bezig...';
-  closeModal();
-  await createTeam(name);
+  if (btn) btn.disabled = true;
+  try {
+    await createTeam(name);
+    closeModal();
+  } catch (e) {
+    console.error('createTeam fout:', e);
+    if (err) err.textContent = 'Fout: ' + (e.message || 'onbekend. Controleer je internetverbinding.');
+    if (btn) btn.disabled = false;
+  }
 }
 
 function showJoinTeamModal() {

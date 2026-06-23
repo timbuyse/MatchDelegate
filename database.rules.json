@@ -4,61 +4,39 @@
     "teams": {
       "$teamId": {
 
-        // Lezen: enkel leden van de ploeg
-        // Schrijven (info, roster, matches, tournaments): enkel admin
+        // Lezen: leden van de ploeg
         ".read": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()",
 
-        "info": {
-          ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'"
-        },
+        // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
+        // Bestaande ploeg aanpassen: enkel bestaande admin
+        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin') || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
 
         "members": {
           // Admin mag leden beheren
           ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
 
           // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging)
-          // (wordt afgehandeld via Cloud Function of aparte invite-logica)
           "$memberId": {
             ".write": "auth != null && $memberId === auth.uid && !data.exists() && newData.val() === 'viewer'"
           }
-        },
-
-        "club": {
-          ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'"
-        },
-
-        "roster": {
-          ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'"
-        },
-
-        "matches": {
-          ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'"
-        },
-
-        "tournaments": {
-          ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'"
         }
       }
     },
 
     "users": {
       "$userId": {
-        // Elke gebruiker leest/schrijft alleen zijn eigen profiel
         ".read":  "auth != null && auth.uid === $userId",
         ".write": "auth != null && auth.uid === $userId"
       }
     },
 
     "invites": {
-      // Iedereen mag een uitnodiging lezen (nodig om in te kunnen schrijven)
       "$token": {
         ".read": "auth != null",
-        // Alleen de admin van de ploeg mag een uitnodiging aanmaken/verwijderen
-        ".write": "auth != null && root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin'"
+        ".write": "auth != null && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin'"
       }
     },
 
-    // Alles wat hier niet staat: blokkeer
     "$other": {
       ".read": false,
       ".write": false
