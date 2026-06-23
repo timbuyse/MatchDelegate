@@ -764,9 +764,13 @@ async function createTeam(name) {
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = Math.random().toString(36).slice(2, 8).toUpperCase();
+  // Maak initiële spelerslijst met dezelfde naam als de ploeg
+  const initialRosterId = fbdb.ref('teams/' + teamId + '/roster').push().key;
   await fbdb.ref('teams/' + teamId).set({
     info: { name, createdBy: uid, createdAt: Date.now(), inviteToken: token },
-    members: { [uid]: 'admin' }
+    members: { [uid]: 'admin' },
+    club: { name, logo: '', theme: null },
+    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], fromCloud: true } }
   });
   await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
   userTeams[teamId] = 'admin';
