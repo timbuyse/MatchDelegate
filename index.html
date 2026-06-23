@@ -770,7 +770,6 @@ async function createTeam(name) {
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = Math.random().toString(36).slice(2, 8).toUpperCase();
-  // Maak initiële spelerslijst met dezelfde naam als de ploeg
   const initialRosterId = fbdb.ref('teams/' + teamId + '/roster').push().key;
   await fbdb.ref('teams/' + teamId).set({
     info: { name, createdBy: uid, createdAt: Date.now(), inviteToken: token },
@@ -778,6 +777,8 @@ async function createTeam(name) {
     club: { name, logo: '', theme: null },
     roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], fromCloud: true } }
   });
+  // Sla uitnodigingstoken ook op als directe lookup (geen query nodig bij vervoegen)
+  await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
   await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
   userTeams[teamId] = 'admin';
   await selectTeam(teamId);
@@ -787,12 +788,12 @@ async function createTeam(name) {
 async function joinTeamByToken(token) {
   if (!currentUser || !fbdb) return null;
   token = (token || '').trim().toUpperCase();
-  // Zoek welke ploeg dit token heeft
-  const snap = await fbdb.ref('teams').orderByChild('info/inviteToken').equalTo(token).once('value');
+  // Directe lookup via /invites/{token} — geen query nodig
+  const snap = await fbdb.ref('invites/' + token).once('value');
   if (!snap.exists()) return 'not_found';
-  const teamId = Object.keys(snap.val())[0];
+  const teamId = snap.val().teamId;
+  if (!teamId) return 'not_found';
   const uid = currentUser.uid;
-  // Voeg toe als viewer (als nog geen lid)
   const existing = await fbdb.ref('teams/' + teamId + '/members/' + uid).once('value');
   if (!existing.exists()) {
     await fbdb.ref('teams/' + teamId + '/members/' + uid).set('viewer');
@@ -923,7 +924,7 @@ function renderTeamSelect() {
 
   return `<div class="ts-wrap">
     <div class="ts-hdr">
-      <h1>⚽ Mijn ploegen</h1>
+      <h1>MatchDelegate</h1>
       <p>${esc((currentUser && currentUser.email) || '')}</p>
     </div>
     <div class="ts-content">
