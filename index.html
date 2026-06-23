@@ -698,10 +698,16 @@ async function applyCloudMatches(obj) {
   cloudRefreshUI();
 }
 function applyCloudTeams(val) {
-  const cloud = Array.isArray(val) ? val : Object.values(val || {});
+  const raw = Array.isArray(val) ? val : Object.values(val || {});
+  // Firebase slaat [] op als null — normaliseer terug naar array
+  const cloud = raw.map(t => Object.assign({}, t, {
+    players: Array.isArray(t.players) ? t.players : [],
+    trainers: Array.isArray(t.trainers) ? t.trainers : [],
+    fromCloud: true
+  }));
   const cloudIds = new Set(cloud.map(t => t && t.id).filter(Boolean));
   const localOnly = getTeamsV2().filter(t => !t.fromCloud && !cloudIds.has(t.id));
-  const merged = localOnly.concat(cloud.map(t => Object.assign({}, t, { fromCloud: true })));
+  const merged = localOnly.concat(cloud);
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   cloudRefreshUI();
 }
@@ -827,6 +833,7 @@ function renderAuth() {
         <div class="fg"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"></div>
         <div class="auth-err" id="auth-err"></div>
         <button class="btn btn-green" onclick="authDoLogin()">Aanmelden</button>
+        <button class="btn btn-gray" style="margin-top:8px" onclick="authForgotPassword()">Wachtwoord vergeten?</button>
       </div>
       <div id="auth-register-form" style="display:none">
         <div class="fg"><label>Naam</label><input id="reg-name" type="text" autocomplete="name" placeholder="Jan Peeters"></div>
@@ -856,6 +863,14 @@ function authDoLogin() {
     .catch(e => { if (err) err.textContent = authErrMsg(e.code); });
 }
 
+function authForgotPassword() {
+  const email = (document.getElementById('auth-email') || {}).value || '';
+  if (!email) { alert('Vul eerst je e-mailadres in.'); return; }
+  fbauth.sendPasswordResetEmail(email)
+    .then(() => alert('Resetmail verstuurd naar ' + email + '. Controleer ook je spammap.'))
+    .catch(e => alert(authErrMsg(e.code)));
+}
+
 async function authDoRegister() {
   const name = (document.getElementById('reg-name') || {}).value || '';
   const email = (document.getElementById('reg-email') || {}).value || '';
@@ -866,7 +881,8 @@ async function authDoRegister() {
     const cred = await fbauth.createUserWithEmailAndPassword(email, pwd);
     await cred.user.updateProfile({ displayName: name.trim() });
     await fbdb.ref('users/' + cred.user.uid).set({ email, displayName: name.trim(), createdAt: Date.now() });
-    if (err) err.textContent = '';
+    await cred.user.sendEmailVerification();
+    if (err) err.textContent = '✓ Account aangemaakt! Controleer je e-mail voor een bevestigingslink.';
   } catch (e) { if (err) err.textContent = authErrMsg(e.code); }
 }
 
