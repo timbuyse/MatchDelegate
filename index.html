@@ -1513,6 +1513,11 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
+    ${(isAdmin && activeTeamId) ? `<div class="sec">Oude app overzetten</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Zet je ploeg, spelers en wedstrijden over naar deze cloud-ploeg. Ze worden meteen gedeeld met je kijkers.</p>
+      <label class="file-btn">📂 Oude back-up kiezen en overzetten<input type="file" accept="application/json,.json" onchange="handleOldBackupFile(this)"></label>
+    </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
@@ -1563,6 +1568,90 @@ function importBackup(input) {
   };
   reader.readAsText(f);
 }
+// ---- Oude back-up overzetten naar de actieve cloud-ploeg ----
+let oldBackupData = null;
+function handleOldBackupFile(input) {
+  if (!isAdmin || !activeTeamId) { alert('Enkel de beheerder van een actieve ploeg kan overzetten.'); return; }
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try { data = JSON.parse(e.target.result); } catch (err) { alert('Ongeldig back-upbestand.'); input.value = ''; return; }
+    if (!data || data.app !== 'voetbal' || !Array.isArray(data.matches)) { alert('Dit lijkt geen geldige back-up van de voetbalapp.'); input.value = ''; return; }
+    oldBackupData = data;
+    input.value = '';
+    let rosters = [];
+    try { rosters = JSON.parse((data.settings && data.settings.teamsV2) || '[]') || []; } catch (e) {}
+    showOldBackupPick(rosters);
+  };
+  reader.readAsText(f);
+}
+function showOldBackupPick(rosters) {
+  const data = oldBackupData;
+  if (!rosters.length) {
+    // Geen ploegen in back-up: enkel losse wedstrijden overzetten
+    const n = (data.matches || []).length;
+    openModal(`<h3>Overzetten naar deze ploeg</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Er zijn geen ploegen in deze back-up, enkel ${n} wedstrijd(en). Wil je die overzetten naar de actieve ploeg?</p>
+      <button class="btn btn-green" onclick="doImportOldBackup(-1)">Alle wedstrijden overzetten</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
+  const btns = rosters.map((r, i) => {
+    const mc = (data.matches || []).filter(m => m.teamName === r.name).length;
+    return `<button class="btn btn-pale" style="margin-bottom:8px;text-align:left" onclick="doImportOldBackup(${i})">${esc(r.name)}<br><small style="color:var(--txt2)">${(r.players||[]).length} spelers · ${mc} wedstrijd(en)</small></button>`;
+  }).join('');
+  openModal(`<h3>Welke ploeg overzetten?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Kies welke ploeg uit de back-up je naar deze cloud-ploeg wil overzetten. Spelers, wedstrijden en tornooien gaan mee.</p>
+    ${btns}
+    <button class="btn btn-gray" style="margin-top:4px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doImportOldBackup(rosterIndex) {
+  const data = oldBackupData;
+  if (!data || !isAdmin || !activeTeamId) return;
+  const tid = activeTeamId;
+  openModal(`<h3>Bezig met overzetten...</h3><p style="text-align:center;color:var(--txt2)" id="imp-status">Even geduld.</p>`);
+  const status = () => document.getElementById('imp-status');
+  try {
+    let rosters = [];
+    try { rosters = JSON.parse((data.settings && data.settings.teamsV2) || '[]') || []; } catch (e) {}
+    let tournaments = [];
+    try { tournaments = JSON.parse((data.settings && data.settings.tournaments) || '[]') || []; } catch (e) {}
+
+    let matches, roster = null, trn = [];
+    if (rosterIndex === -1) {
+      matches = data.matches || [];
+    } else {
+      roster = rosters[rosterIndex];
+      if (!roster) { closeModal(); return; }
+      matches = (data.matches || []).filter(m => m.teamName === roster.name);
+      trn = tournaments.filter(t => t.teamId === roster.id || t.teamName === roster.name);
+    }
+
+    // 1. Spelerslijst overzetten (behoud id zodat tornooi-koppeling klopt)
+    if (roster) {
+      const clean = Object.assign({}, roster, { fromCloud: true });
+      await fbdb.ref('teams/' + tid + '/roster/' + roster.id).set(jclone(clean));
+    }
+    // 2. Wedstrijden overzetten
+    if (status()) status().textContent = `${matches.length} wedstrijd(en) overzetten...`;
+    for (const m of matches) {
+      await fbdb.ref('teams/' + tid + '/matches/' + m.id).set(jclone(m));
+    }
+    // 3. Tornooien overzetten
+    for (const t of trn) {
+      await fbdb.ref('teams/' + tid + '/tournaments/' + t.id).set(jclone(t));
+    }
+    closeModal();
+    alert(`✓ Overgezet:\n${roster ? (roster.players||[]).length + ' spelers\n' : ''}${matches.length} wedstrijd(en)${trn.length ? '\n' + trn.length + ' tornooi(en)' : ''}`);
+    go('home');
+  } catch (e) {
+    console.error('Overzetten mislukt:', e);
+    if (status()) status().textContent = 'Fout: ' + (e.message || 'probeer opnieuw.');
+  }
+}
+
 let pendingRestore = null;
 async function doRestore(mode) {
   const data = pendingRestore;
