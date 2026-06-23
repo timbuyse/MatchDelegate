@@ -807,14 +807,48 @@ async function joinTeamByToken(token) {
 }
 
 // ---- Uitnodigingslink tonen ----
-async function showInviteModal() {
-  if (!isAdmin || !activeTeamId) return;
-  const snap = await teamRef('info/inviteToken').once('value');
-  const token = snap.val() || '???';
-  openModal(`<h3>🔗 Uitnodiging delen</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Deel deze code met ouders of volgers. Ze voeren hem in bij "Ploeg vervoegen".</p>
+async function showInviteModal(teamId) {
+  // Bepaal welke ploeg: meegegeven of actieve ploeg
+  const tid = teamId || activeTeamId;
+  if (!tid) return;
+
+  // Als beheerder meerdere ploegen heeft, toon eerst een keuze
+  const adminTeams = Object.entries(userTeams).filter(([, role]) => role === 'admin');
+  if (!teamId && adminTeams.length > 1) {
+    // Laad namen van alle beheerde ploegen
+    openModal(`<h3>🔗 Kies een ploeg</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor welke ploeg wil je de uitnodigingscode delen?</p>
+      <div id="invite-team-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    const listEl = document.getElementById('invite-team-list');
+    if (listEl) {
+      const items = await Promise.all(adminTeams.map(async ([id]) => {
+        const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
+        return { id, name: s.val() || id };
+      }));
+      if (listEl) listEl.innerHTML = items.map(t =>
+        `<button class="btn btn-pale" style="margin-bottom:8px" onclick="showInviteModal('${t.id}')">${esc(t.name)}</button>`
+      ).join('');
+    }
+    return;
+  }
+
+  // Haal token op en zorg dat het ook in /invites/ staat
+  const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
+  const info = infoSnap.val() || {};
+  const token = info.inviteToken || '???';
+  const teamName = info.name || 'Ploeg';
+
+  // Zorg dat /invites/{token} bestaat (voor ploegen aangemaakt vóór deze fix)
+  const invSnap = await fbdb.ref('invites/' + token).once('value');
+  if (!invSnap.exists() && currentUser) {
+    await fbdb.ref('invites/' + token).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
+  }
+
+  openModal(`<h3>🔗 Uitnodiging — ${esc(teamName)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Deel deze code met ouders of volgers.<br>Ze voeren hem in bij "Ploeg vervoegen".</p>
     <div class="invite-code">${token}</div>
-    <button class="btn btn-green" onclick="navigator.share ? navigator.share({title:'MatchDelegate uitnodiging',text:'Gebruik code ${token} om mijn ploeg te volgen in MatchDelegate.'}) : navigator.clipboard.writeText('${token}').then(()=>alert('Code gekopieerd!'))">📤 Delen / Kopiëren</button>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',text:'Gebruik code ${token} om ${esc(teamName)} te volgen in MatchDelegate.'}) : navigator.clipboard.writeText('${token}').then(()=>alert('Code gekopieerd!')))">📤 Delen / Kopiëren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -977,9 +1011,14 @@ async function doJoinTeam() {
   const err = document.getElementById('jt-err');
   if (!token.trim()) { if (err) err.textContent = 'Voer een code in.'; return; }
   if (err) err.textContent = 'Bezig...';
-  const result = await joinTeamByToken(token);
-  if (result === 'not_found') { if (err) err.textContent = 'Code niet gevonden. Controleer de code.'; return; }
-  closeModal();
+  try {
+    const result = await joinTeamByToken(token);
+    if (result === 'not_found') { if (err) err.textContent = 'Code niet gevonden. Controleer de code en probeer opnieuw.'; return; }
+    closeModal();
+  } catch (e) {
+    console.error('joinTeam fout:', e);
+    if (err) err.textContent = 'Fout: ' + (e.message || 'controleer je internetverbinding.');
+  }
 }
 
 // ===================== STATE =====================
