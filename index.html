@@ -570,6 +570,9 @@ let activeTeamId = null;   // welke ploeg is actief
 let currentUser = null;    // ingelogde Firebase user
 let userTeams = {};        // { teamId: 'admin'|'viewer' }
 let teamListeners = [];    // actieve Firebase .on() listeners
+let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
+let isOwner = false;       // is de huidige gebruiker de eigenaar?
+let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
 function jclone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -598,7 +601,8 @@ async function onAuthChanged(user) {
     stopTeamListeners();
     view = 'auth'; render(); return;
   }
-  // Ingelogd → laad ploegen van deze gebruiker
+  // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
+  await loadOwnerStatus(user);
   await loadUserTeams(user.uid);
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {
@@ -614,6 +618,103 @@ async function onAuthChanged(user) {
     view = 'teamselect'; render(); return;
   }
   updateCloudChip(); cloudRefreshUI();
+}
+
+// Eigenaar- en goedkeuringsstatus laden.
+async function loadOwnerStatus(user) {
+  ownerUid = null; isOwner = false; isApprovedAdmin = false;
+  if (!user || !fbdb) return;
+  try {
+    ownerUid = (await fbdb.ref('owner').once('value')).val() || null;
+    isOwner = !!(ownerUid && ownerUid === user.uid);
+    if (isOwner) { isApprovedAdmin = true; return; }
+    isApprovedAdmin = !!(await fbdb.ref('approvedAdmins/' + user.uid).once('value')).val();
+  } catch (e) { /* geen rechten / offline → standaard niet goedgekeurd */ }
+}
+
+// De maker legt zichzelf eenmalig vast als eigenaar (kan daarna niet meer overgenomen worden).
+async function claimOwner() {
+  if (!currentUser || !fbdb) return;
+  try {
+    const snap = await fbdb.ref('owner').once('value');
+    if (snap.exists()) { alert('Er is al een eigenaar ingesteld.'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); return; }
+    await fbdb.ref('owner').set(currentUser.uid);
+    ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
+    closeModal();
+    alert('✓ Je bent nu ingesteld als eigenaar van MatchDelegate. Voortaan moet wie een ploeg wil aanmaken jouw goedkeuring krijgen.');
+  } catch (e) {
+    alert('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'));
+  }
+}
+
+// Een gebruiker vraagt beheerdersrechten (ploegen mogen aanmaken) aan bij de eigenaar.
+function showRequestAdminModal() {
+  if (!currentUser) return;
+  openModal(`<h3>Beheerder worden</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Om zelf een ploeg te kunnen aanmaken heb je toestemming nodig van de maker. Verstuur een aanvraag — je hoort het zodra ze goedgekeurd is.</p>
+    <div class="auth-err" id="req-err"></div>
+    <button class="btn btn-org" onclick="doRequestAdmin()">Aanvraag versturen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doRequestAdmin() {
+  const err = document.getElementById('req-err');
+  if (!currentUser || !fbdb) return;
+  if (err) err.textContent = 'Bezig...';
+  try {
+    await fbdb.ref('adminRequests/' + currentUser.uid).set({
+      email: currentUser.email || '',
+      name: currentUser.displayName || '',
+      createdAt: Date.now()
+    });
+    closeModal();
+    alert('✓ Aanvraag verstuurd. Je krijgt toegang zodra de maker ze goedkeurt.');
+  } catch (e) {
+    if (err) err.textContent = 'Versturen mislukt: ' + (e.message || 'probeer opnieuw.');
+  }
+}
+
+// Eigenaar: openstaande beheerdersaanvragen bekijken en goed-/afkeuren.
+function renderAdminRequests() {
+  setTimeout(loadAdminRequests, 0);
+  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>🛡 Beheerdersaanvragen</h1></div>
+  <div class="content" id="adminreq-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
+}
+async function loadAdminRequests() {
+  const el = document.getElementById('adminreq-content');
+  if (!el) return;
+  try {
+    const snap = await fbdb.ref('adminRequests').once('value');
+    const reqs = snap.val() || {};
+    const uids = Object.keys(reqs);
+    if (!uids.length) { el.innerHTML = '<div class="empty"><div class="ei">✅</div><p>Geen openstaande aanvragen.</p></div>'; return; }
+    el.innerHTML = uids.map(uid => {
+      const r = reqs[uid] || {};
+      return `<div class="card" style="margin-bottom:10px">
+        <div style="font-weight:700">${esc(r.name || '(geen naam)')}</div>
+        <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${esc(r.email || '')}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-green btn-sm" onclick="approveAdmin('${uid}')">✓ Goedkeuren</button>
+          <button class="btn btn-red btn-sm" onclick="rejectAdmin('${uid}')">✕ Weigeren</button>
+        </div></div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty"><div class="ei">⚠</div><p>Kon de aanvragen niet laden.</p></div>';
+  }
+}
+async function approveAdmin(uid) {
+  if (!isOwner || !fbdb) return;
+  try {
+    await fbdb.ref('approvedAdmins/' + uid).set(true);
+    await fbdb.ref('adminRequests/' + uid).remove();
+    loadAdminRequests();
+  } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
+async function rejectAdmin(uid) {
+  if (!isOwner || !fbdb) return;
+  try {
+    await fbdb.ref('adminRequests/' + uid).remove();
+    loadAdminRequests();
+  } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 
 // Een verwijderde/onbereikbare ploeg opruimen uit de lijst van de gebruiker.
@@ -782,9 +883,13 @@ function updateCloudChip() {
 function cloudLoginModal() {
   if (!currentUser) { view = 'auth'; render(); return; }
   const switchBtn = `<button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();view='teamselect';render()">🔄 ${isAdmin ? 'Ploegen beheren / wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
+  const ownerBtn = !ownerUid
+    ? `<button class="btn btn-org" onclick="claimOwner()">👑 Ik ben de maker (eigenaar instellen)</button>`
+    : (isOwner ? `<button class="btn btn-org" onclick="closeModal();go('adminRequests')">🛡 Beheerdersaanvragen</button>` : '');
   openModal(`<h3>👤 Mijn account</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">${esc(currentUser.email)}</p>
-    ${isAdmin ? `<button class="btn btn-green" onclick="closeModal();showInviteModal()">🔗 Uitnodigingslink delen</button>` : ''}
+    ${ownerBtn}
+    ${isAdmin ? `<button class="btn btn-green" style="margin-top:8px" onclick="closeModal();showInviteModal()">🔗 Uitnodigingslink delen</button>` : ''}
     ${isAdmin && activeTeamId ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">👥 Kijkers van deze ploeg</button>` : ''}
     ${switchBtn}
     ${isAdmin && activeTeamId ? `<button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()">🗑 Deze ploeg verwijderen</button>` : ''}
@@ -1053,6 +1158,8 @@ function renderTeamSelect() {
 }
 
 function showCreateTeamModal() {
+  // Als er een eigenaar is ingesteld en je bent niet goedgekeurd → eerst toestemming vragen.
+  if (ownerUid && !isApprovedAdmin) { showRequestAdminModal(); return; }
   openModal(`<h3>➕ Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="auth-err" id="ct-err"></div>
@@ -1072,7 +1179,11 @@ async function doCreateTeam() {
     closeModal();
   } catch (e) {
     console.error('createTeam fout:', e);
-    if (err) err.textContent = 'Fout: ' + (e.message || 'onbekend. Controleer je internetverbinding.');
+    if (e && e.code === 'PERMISSION_DENIED') {
+      if (err) err.textContent = 'Je hebt nog geen toestemming om ploegen aan te maken. Vraag ze aan via "Beheerder worden".';
+    } else if (err) {
+      err.textContent = 'Fout: ' + (e.message || 'onbekend. Controleer je internetverbinding.');
+    }
     if (btn) btn.disabled = false;
   }
 }
@@ -1607,7 +1718,8 @@ function renderSettings(isFirst) {
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
-      <button class="btn btn-gray" onclick="cloudLogout()">Afmelden</button>
+      <button class="btn btn-pale" onclick="confirmChangeEmail()">✉ E-mailadres wijzigen</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
   </div>`;
@@ -1825,6 +1937,36 @@ function saveSettings(isFirst) {
   localStorage.setItem('voetbal_setup_done', '1');
   applyStoredTheme();
   go('home');
+}
+
+function confirmChangeEmail() {
+  openModal(`<h3>E-mailadres wijzigen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Je krijgt een bevestigingsmail op je <b>nieuwe</b> adres. Pas nadat je die link aanklikt, wordt je e-mailadres aangepast. Je rol en ploegen blijven behouden.</p>
+    <div class="fg"><label>Nieuw e-mailadres</label><input id="ce-email" type="email" placeholder="nieuw@example.com"></div>
+    <div class="fg"><label>Huidig wachtwoord</label><input id="ce-pwd" type="password" placeholder="wachtwoord"></div>
+    <div class="auth-err" id="ce-err"></div>
+    <button class="btn btn-green" onclick="doChangeEmail()">Bevestigingsmail versturen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doChangeEmail() {
+  const email = (document.getElementById('ce-email') || {}).value || '';
+  const pwd = (document.getElementById('ce-pwd') || {}).value || '';
+  const err = document.getElementById('ce-err');
+  if (!email.trim()) { if (err) err.textContent = 'Geef een nieuw e-mailadres in.'; return; }
+  if (!pwd) { if (err) err.textContent = 'Geef je huidige wachtwoord in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
+    await currentUser.reauthenticateWithCredential(cred);
+    await currentUser.verifyBeforeUpdateEmail(email.trim());
+    closeModal();
+    alert('✓ Bevestigingsmail verstuurd naar ' + email.trim() + '. Klik de link in die mail (kijk ook in spam) om de wijziging te voltooien.');
+  } catch (e) {
+    if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Onjuist wachtwoord.'
+      : e.code === 'auth/invalid-email' ? 'Ongeldig e-mailadres.'
+      : e.code === 'auth/email-already-in-use' ? 'Dit e-mailadres is al in gebruik.'
+      : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
+  }
 }
 
 function confirmDeleteAccount() {
@@ -3700,6 +3842,7 @@ async function init() {
 }
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
+views.adminRequests = renderAdminRequests;
 views.tournaments = renderTournamentList;
 views.tournament = renderTournament;
 views.tournamentNew = renderTournamentNew;

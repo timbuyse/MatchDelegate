@@ -8,8 +8,9 @@
         ".read": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()",
 
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
-        // Bestaande ploeg aanpassen: enkel bestaande admin
-        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin') || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        //   EN is eigenaar of goedgekeurd beheerder.
+        // Bestaande ploeg aanpassen: enkel bestaande admin.
+        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && (root.child('owner').val() === auth.uid || root.child('approvedAdmins/' + auth.uid).val() === true)) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
 
         "members": {
           // Admin mag leden beheren
@@ -45,6 +46,34 @@
       "$userId": {
         ".read":  "auth != null && auth.uid === $userId",
         ".write": "auth != null && auth.uid === $userId"
+      }
+    },
+
+    "owner": {
+      // Iedereen die ingelogd is kan lezen wie de eigenaar is.
+      // Schrijven kan enkel zolang er nog GEEN eigenaar is (eenmalig claimen).
+      ".read":  "auth != null",
+      ".write": "auth != null && !data.exists()"
+    },
+
+    "approvedAdmins": {
+      // Enkel de eigenaar beheert de lijst van goedgekeurde beheerders.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      ".write": "auth != null && root.child('owner').val() === auth.uid",
+      "$uid": {
+        // Elke gebruiker mag zijn eigen goedkeuringsstatus lezen.
+        ".read": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "adminRequests": {
+      // Eigenaar leest/beheert alle aanvragen.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      ".write": "auth != null && root.child('owner').val() === auth.uid",
+      "$uid": {
+        // Een gebruiker mag enkel zijn eigen aanvraag lezen/schrijven.
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
       }
     },
 
