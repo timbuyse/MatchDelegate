@@ -616,9 +616,30 @@ async function onAuthChanged(user) {
   updateCloudChip(); cloudRefreshUI();
 }
 
+// Een verwijderde/onbereikbare ploeg opruimen uit de lijst van de gebruiker.
+function pruneDeadTeam(id) {
+  delete userTeams[id];
+  if (currentUser) fbdb.ref('users/' + currentUser.uid + '/teams/' + id).remove().catch(() => {});
+  if (activeTeamId === id) { activeTeamId = null; localStorage.removeItem('voetbal_activeTeamId'); }
+  if (view === 'teamselect') render();
+}
+
 async function loadUserTeams(uid) {
   const snap = await fbdb.ref('users/' + uid + '/teams').once('value');
-  userTeams = snap.val() || {};
+  const raw = snap.val() || {};
+  userTeams = {};
+  // Valideer elke ploeg: bestaat ze nog? Zo niet (verwijderd door beheerder),
+  // ruim de verwijzing op zodat ze niet meer in de lijst blijft staan.
+  await Promise.all(Object.keys(raw).map(async id => {
+    try {
+      const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
+      if (s.exists()) userTeams[id] = raw[id];
+      else fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
+    } catch (e) {
+      // permission denied = ploeg weg of geen toegang meer → opruimen
+      fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
+    }
+  }));
 }
 
 async function selectTeam(teamId) {
@@ -766,6 +787,7 @@ function cloudLoginModal() {
     ${isAdmin ? `<button class="btn btn-green" onclick="closeModal();showInviteModal()">🔗 Uitnodigingslink delen</button>` : ''}
     ${isAdmin && activeTeamId ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">👥 Kijkers van deze ploeg</button>` : ''}
     ${switchBtn}
+    ${isAdmin && activeTeamId ? `<button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()">🗑 Deze ploeg verwijderen</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -1003,12 +1025,14 @@ function renderTeamSelect() {
       }).join('')
     : `<div class="empty"><div class="ei">👥</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
 
-  // Laad ploegnamen asynchroon
+  // Laad ploegnamen asynchroon; ruim verdwenen ploegen op
   setTimeout(() => {
     teamIds.forEach(id => {
       const el = document.getElementById('tsname-' + id);
       if (!el) return;
-      fbdb.ref('teams/' + id + '/info/name').once('value').then(s => { if (el) el.textContent = s.val() || id; });
+      fbdb.ref('teams/' + id + '/info/name').once('value')
+        .then(s => { if (!s.exists()) { pruneDeadTeam(id); return; } if (el) el.textContent = s.val() || id; })
+        .catch(() => pruneDeadTeam(id));
     });
   }, 0);
 
@@ -1580,11 +1604,6 @@ function renderSettings(isFirst) {
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Elke ploeg in de back-up wordt overgezet als een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Zo deel je elke ploeg met andere personen.</p>
       <label class="file-btn">📂 Oude back-up kiezen en overzetten<input type="file" accept="application/json,.json" onchange="handleOldBackupFile(this)"></label>
     </div>` : ''}
-    ${(isAdmin && activeTeamId) ? `<div class="sec">Deze ploeg</div>
-    <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Verwijder deze ploeg volledig uit de cloud. Spelers, wedstrijden, tornooien en de toegangscode worden gewist voor jou én alle kijkers. Dit kan niet ongedaan gemaakt worden.</p>
-      <button class="btn btn-red" onclick="confirmDeleteCloudTeam()">🗑 Deze ploeg verwijderen</button>
-    </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
@@ -1957,8 +1976,8 @@ function renderTeamEdit() {
         <button class="btn btn-pale btn-sm" onclick="teamAddPlayer()">+ Speler</button>
         <button class="btn btn-pale btn-sm" onclick="teamPasteModal()">📋 Lijst plakken</button>
       </div></div>
-    <button class="btn btn-green" onclick="saveTeamEdit()">✓ Ploeg opslaan</button>
-    ${editingTeam.isNew ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">🗑 Ploeg verwijderen</button></div>`}
+    <button class="btn btn-green" onclick="saveTeamEdit()">✓ ${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
+    ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">🗑 Ploeg verwijderen</button></div>`}
   </div>`;
 }
 function teamAddPlayer() { editingTeam.players.push({ id: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
