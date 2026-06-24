@@ -15,8 +15,8 @@
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
       --blk:#0f172a;--blk2:#1e293b;--blk3:#334155;
-      --grn:#2563eb;--grn2:#1d4ed8;--grnp:#e8eefc;--grnb:#c3d4f7;
-      --org:#f59e0b;--org2:#d97706;--orgp:#fdf0d9;--orgb:#f8d79a;
+      --grn:#16a34a;--grn2:#15803d;--grnp:#dcfce7;--grnb:#bbf7d0;
+      --org:#2563eb;--org2:#1d4ed8;--orgp:#e8eefc;--orgb:#c3d4f7;
       --yl:#eab308;--ylp:#fef9c3;--rd:#dc2626;--rdp:#fee2e2;--bl:#2563eb;--blp:#eff6ff;
       --bg:#f5f6f5;--card:#fff;--txt:#171717;--txt2:#6b7280;--bdr:#e5e7eb;
       --shadow:0 2px 8px rgba(0,0,0,.1)
@@ -389,7 +389,7 @@ function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mi
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-logo, niet wijzigbaar
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
-const GENERIC_THEME = { primary: '#2563eb', accent: '#f59e0b', dark: '#0f172a' };
+const GENERIC_THEME = { primary: '#16a34a', accent: '#2563eb', dark: '#0f172a' };
 function clamp255(n) { return Math.max(0, Math.min(255, Math.round(n))); }
 function parseHex(h) { h = h.replace('#', ''); return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) }; }
 function toHex(r, g, b) { return '#' + [r,g,b].map(v => clamp255(v).toString(16).padStart(2,'0')).join(''); }
@@ -1607,10 +1607,7 @@ async function loadHome() {
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">🕑 Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">⚽ + Nieuwe wedstrijd</button>` : '';
-  const lastB = localStorage.getItem('voetbal_last_backup');
-  const ageDays = lastB ? (Date.now() - +lastB) / 864e5 : Infinity;
-  const backupBanner = (canManage() && looseMatches.length && ageDays > 14) ? `<div class="backup-banner"><span>💾 ${lastB ? 'Je laatste back-up is meer dan 2 weken oud.' : 'Maak een back-up zodat je niets verliest.'}</span><button class="btn btn-org btn-sm" onclick="go('settings')">Back-up</button></div>` : '';
-  el.innerHTML = tiles + newBtn + backupBanner + `<div class="sec">📅 Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">🏆 Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  el.innerHTML = tiles + newBtn + `<div class="sec">📅 Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">🏆 Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -2664,7 +2661,7 @@ function wizStep1() {
           <select id="n-comp">${['Competitie','Vriendschappelijk','Beker'].map(c => `<option ${wiz.competition===c?'selected':''}>${c}</option>`).join('')}</select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="fg"><label>Speeldag</label><input id="n-md" type="text" value="${esc(wiz.matchday)}" placeholder="bv. 5"></div>
-          <div class="fg"><label>Truitkleur</label><input id="n-jersey" type="text" value="${esc(wiz.jersey)}" placeholder="bv. zwart-groen"></div>
+          <div class="fg"><label>Truikleur</label><input id="n-jersey" type="text" value="${esc(wiz.jersey)}" placeholder="bv. zwart-groen"></div>
         </div>
         <div class="fg"><label>Scheidsrechter</label><input id="n-ref" type="text" value="${esc(wiz.referee)}" placeholder="Naam"></div>
         <div class="fg"><label>Weer / veld</label><input id="n-weather" type="text" value="${esc(wiz.weather)}" placeholder="bv. droog, kunstgras"></div>
@@ -2934,7 +2931,7 @@ function renderPrep() {
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && !isAdmin); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
-  const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truitkleur', m.jersey], ['Weer / veld', m.weather]].filter(([k, v]) => v);
+  const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Weer / veld', m.weather]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
@@ -3106,13 +3103,21 @@ function renderLive() {
   const curKeeper = (match.keeperByQ && match.keeperByQ[qNum]) ? pName(match, match.keeperByQ[qNum]) : null;
   const keeperChip = canEvent ? `<div style="text-align:center;margin-bottom:12px"><span class="keeper-chip" onclick="modalKeeper()">🧤 Keeper: ${curKeeper ? esc(curKeeper) : 'kies'} ✏️</span></div>` : '';
 
+  // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
+  if (ro && tab === 'wedstrijd') tab = 'log';
+  const statusLine = isDone ? '✅ Afgelopen' : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
+  const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
+        <div class="sb-teams"><span>${esc(tName(match))}</span><span>${esc(match.opponent)}</span></div>
+        <div class="sb-score"><span class="us">${match.scoreUs}</span> – ${match.scoreThem}</div>
+        <div class="sb-info">${statusLine}</div>
+      </div>`;
   let tabContent = '';
   if (tab === 'wedstrijd') {
     tabContent = `
       <div class="scoreboard">
         <div class="sb-teams"><span>${esc(tName(match))}</span><span>${esc(match.opponent)}</span></div>
         <div class="sb-score"><span class="us">${match.scoreUs}</span> – ${match.scoreThem}</div>
-        <div class="sb-info">${isDone ? '✅ Afgelopen' : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))}</div>
+        <div class="sb-info">${statusLine}</div>
       </div>
       <div class="timer-card">
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
@@ -3151,6 +3156,7 @@ function renderLive() {
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), mins = calcMinutes(match);
     tabContent = `
+      ${miniScore}
       <div class="card">${renderPitch(match, on)}</div>
       <div class="card">
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
@@ -3159,7 +3165,7 @@ function renderLive() {
       </div>
       ${ro ? '' : `<button class="btn btn-orgpale" onclick="modalEditPlayers()">✏️ Spelers bewerken</button>`}`;
   } else {
-    tabContent = (match.events.length
+    tabContent = miniScore + (match.events.length
       ? `<div class="card">${renderEventLog(match)}</div>`
       : `<div class="empty"><div class="ei">📋</div><p>Nog geen events.</p></div>`)
       + (ro ? '' : `<button class="btn btn-pale" style="margin-top:4px" onclick="modalEditMatchInfo()">📋 Wedstrijdinfo bewerken</button>`);
@@ -3172,7 +3178,7 @@ function renderLive() {
   </div>
   <div class="content">${ro ? '<div class="viewer-banner">👁 Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
   <div class="ltabs">
-    <button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">⚽</span>Wedstrijd</button>
+    ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">⚽</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">👥</span>Opstelling</button>
     <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">📋</span>Log</button>
   </div>`;
@@ -3295,19 +3301,62 @@ function modalNotes() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function modalEditMatchInfo() {
+  const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
+  const partsBlock = notStarted ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label>Indeling</label>
+        <select id="ei-pt" onchange="eiPeriodChange()">${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+      <div class="fg"><label>Duur per deel</label>
+        <select id="ei-qd">${(DURATIONS[match.periodKey]||[15]).map(v=>`<option value="${v}" ${v===match.quarterDuration?'selected':''}>${v} min</option>`).join('')}</select></div>
+    </div>` : '';
   openModal(`<h3>✏️ Wedstrijdinfo bewerken</h3>
-    <div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
-    <div class="fg"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>
-    <div class="fg"><label>Scheidsrechter</label><input id="ei-ref" type="text" value="${esc(match.referee||'')}" placeholder="Naam" autocomplete="off"></div>
-    <div class="fg"><label>Soort</label><select id="ei-comp">${['Competitie','Vriendschappelijk','Beker'].map(c=>`<option ${(match.competition||'')=== c?'selected':''}>${c}</option>`).join('')}</select></div>
-    <div class="fg"><label>Speeldag</label><input id="ei-md" type="text" value="${esc(match.matchday||'')}" placeholder="bv. 5" autocomplete="off"></div>
-    <div class="fg"><label>Truitkleur</label><input id="ei-jersey" type="text" value="${esc(match.jersey||'')}" placeholder="bv. zwart-groen" autocomplete="off"></div>
-    <div class="fg"><label>Weer / veld</label><input id="ei-weather" type="text" value="${esc(match.weather||'')}" placeholder="bv. droog, kunstgras" autocomplete="off"></div>
-    <button class="btn btn-green" onclick="saveMatchInfo()">✓ Opslaan</button>
+    <input type="hidden" id="ei-loc" value="${esc(match.location||'')}">
+    <div class="fg"><label>Tegenstander</label><input id="ei-opp" type="text" value="${esc(match.opponent||'')}" placeholder="Naam ploeg" autocomplete="off"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label>Datum</label><input id="ei-date" type="date" value="${match.date||''}"></div>
+      <div class="fg"><label>Startuur</label><input id="ei-time" type="time" value="${match.time||''}"></div>
+    </div>
+    <div class="fg"><label>Thuis of uit?</label>
+      <div class="tgl" id="ei-loc-tgl">
+        <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">🏠 Thuismatch</button>
+        <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">✈️ Uitmatch</button>
+      </div></div>
+    ${partsBlock}
+    <details class="more-details" open>
+      <summary>Meer details</summary>
+      <div class="fg" style="margin-top:12px"><label>Soort</label><select id="ei-comp">${['Competitie','Vriendschappelijk','Beker'].map(c=>`<option ${(match.competition||'')=== c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg"><label>Speeldag</label><input id="ei-md" type="text" value="${esc(match.matchday||'')}" placeholder="bv. 5" autocomplete="off"></div>
+        <div class="fg"><label>Truikleur</label><input id="ei-jersey" type="text" value="${esc(match.jersey||'')}" placeholder="bv. zwart-groen" autocomplete="off"></div>
+      </div>
+      <div class="fg"><label>Scheidsrechter</label><input id="ei-ref" type="text" value="${esc(match.referee||'')}" placeholder="Naam" autocomplete="off"></div>
+      <div class="fg"><label>Weer / veld</label><input id="ei-weather" type="text" value="${esc(match.weather||'')}" placeholder="bv. droog, kunstgras" autocomplete="off"></div>
+      <div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
+      <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>
+    </details>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">✓ Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function eiSetLoc(val, btn) {
+  const h = document.getElementById('ei-loc'); if (h) h.value = val;
+  [...btn.parentElement.children].forEach(b => b.classList.toggle('act', b === btn));
+}
+function eiPeriodChange() {
+  const pk = (document.getElementById('ei-pt') || {}).value || 'kwarten';
+  const sel = document.getElementById('ei-qd');
+  if (sel) sel.innerHTML = (DURATIONS[pk] || [15]).map(v => `<option value="${v}">${v} min</option>`).join('');
 }
 async function saveMatchInfo() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
+  const opp = v('ei-opp').trim(); if (opp) match.opponent = opp;
+  match.date = v('ei-date') || match.date;
+  match.time = v('ei-time');
+  const loc = v('ei-loc'); if (loc) match.location = loc;
+  if (document.getElementById('ei-pt')) {
+    match.periodKey = v('ei-pt') || match.periodKey;
+    match.numQuarters = PERIOD_TYPES[match.periodKey].count;
+    match.quarterDuration = parseInt(v('ei-qd')) || match.quarterDuration;
+  }
   match.trainer = v('ei-trainer').trim();
   match.responsible = v('ei-responsible').trim();
   match.referee = v('ei-ref').trim();
@@ -3734,7 +3783,7 @@ function renderDetail() {
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truitkleur',match.jersey],['Weer / veld',match.weather],['Kapitein',match.captainId?pName(match,match.captainId):'']].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Weer / veld',match.weather],['Kapitein',match.captainId?pName(match,match.captainId):'']].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">⭐ Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     <div class="sec">Notities</div>
