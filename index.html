@@ -293,6 +293,7 @@
     .cloud-chip{cursor:pointer;font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;margin-left:auto;margin-right:42px;white-space:nowrap;user-select:none}
     .cloud-chip.admin{background:#1f9d55;color:#fff}
     .cloud-chip.viewer{background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45)}
+    .req-badge{display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 4px;margin-left:5px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;text-align:center;vertical-align:middle}
     .viewer-banner{background:#eef4ff;border:1px solid #c7dafc;color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px}
     /* Auth / team-select schermen */
     .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
@@ -573,6 +574,7 @@ let teamListeners = [];    // actieve Firebase .on() listeners
 let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
 let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
+let pendingAdminCount = 0; // aantal openstaande beheerdersaanvragen (enkel voor eigenaar)
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
 function jclone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -598,7 +600,8 @@ async function onAuthChanged(user) {
   if (!user) {
     // Niet ingelogd → toon auth scherm
     isAdmin = false; activeTeamId = null; userTeams = {};
-    stopTeamListeners();
+    ownerUid = null; isOwner = false; isApprovedAdmin = false;
+    stopTeamListeners(); listenAdminRequests();
     view = 'auth'; render(); return;
   }
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
@@ -630,6 +633,22 @@ async function loadOwnerStatus(user) {
     if (isOwner) { isApprovedAdmin = true; return; }
     isApprovedAdmin = !!(await fbdb.ref('approvedAdmins/' + user.uid).once('value')).val();
   } catch (e) { /* geen rechten / offline → standaard niet goedgekeurd */ }
+  listenAdminRequests();
+}
+
+// Live meeluisteren naar openstaande aanvragen (enkel eigenaar) voor de teller.
+function onAdminReqValue(s) {
+  const v = s.val() || {};
+  pendingAdminCount = Object.keys(v).length;
+  updateCloudChip();
+  const b = document.getElementById('owner-req-btn');
+  if (b) b.textContent = '🛡 Beheerdersaanvragen' + (pendingAdminCount ? ` (${pendingAdminCount})` : '');
+}
+function listenAdminRequests() {
+  if (!fbdb) return;
+  try { fbdb.ref('adminRequests').off('value', onAdminReqValue); } catch (e) {}
+  pendingAdminCount = 0;
+  if (isOwner) { try { fbdb.ref('adminRequests').on('value', onAdminReqValue); } catch (e) {} }
 }
 
 // De maker legt zichzelf eenmalig vast als eigenaar (kan daarna niet meer overgenomen worden).
@@ -640,6 +659,7 @@ async function claimOwner() {
     if (snap.exists()) { alert('Er is al een eigenaar ingesteld.'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); return; }
     await fbdb.ref('owner').set(currentUser.uid);
     ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
+    listenAdminRequests();
     closeModal();
     alert('✓ Je bent nu ingesteld als eigenaar van MatchDelegate. Voortaan moet wie een ploeg wil aanmaken jouw goedkeuring krijgen.');
   } catch (e) {
@@ -877,7 +897,8 @@ function updateCloudChip() {
   if (!el) return;
   if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.textContent = isAdmin ? '✏️ Beheer' : '👁 Kijken';
+  const badge = (isOwner && pendingAdminCount > 0) ? `<span class="req-badge">${pendingAdminCount}</span>` : '';
+  el.innerHTML = (isAdmin ? '✏️ Beheer' : '👁 Kijken') + badge;
   el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
@@ -886,7 +907,7 @@ function cloudLoginModal() {
   // Eigenaar: aanvragen beheren (of eenmalig eigenaar claimen)
   const ownerBlock = !ownerUid
     ? `<button class="btn btn-org" onclick="claimOwner()">👑 Ik ben de maker (eigenaar instellen)</button>`
-    : (isOwner ? `<button class="btn btn-org" onclick="closeModal();go('adminRequests')">🛡 Beheerdersaanvragen</button>` : '');
+    : (isOwner ? `<button class="btn btn-org" id="owner-req-btn" onclick="closeModal();go('adminRequests')">🛡 Beheerdersaanvragen${pendingAdminCount ? ` (${pendingAdminCount})` : ''}</button>` : '');
 
   // Deze ploeg beheren: uitnodigen, kijkers, verwijderen
   const manageBlock = (isAdmin && activeTeamId) ? `
