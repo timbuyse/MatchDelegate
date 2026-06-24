@@ -626,12 +626,12 @@ async function onAuthChanged(user) {
 // Eigenaar- en goedkeuringsstatus laden.
 async function loadOwnerStatus(user) {
   ownerUid = null; isOwner = false; isApprovedAdmin = false;
-  if (!user || !fbdb) return;
+  if (!user || !fbdb) { listenAdminRequests(); return; }
   try {
     ownerUid = (await fbdb.ref('owner').once('value')).val() || null;
     isOwner = !!(ownerUid && ownerUid === user.uid);
-    if (isOwner) { isApprovedAdmin = true; return; }
-    isApprovedAdmin = !!(await fbdb.ref('approvedAdmins/' + user.uid).once('value')).val();
+    if (isOwner) isApprovedAdmin = true;
+    else isApprovedAdmin = !!(await fbdb.ref('approvedAdmins/' + user.uid).once('value')).val();
   } catch (e) { /* geen rechten / offline → standaard niet goedgekeurd */ }
   listenAdminRequests();
 }
