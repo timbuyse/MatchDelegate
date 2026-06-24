@@ -37,7 +37,7 @@
     "invites": {
       "$token": {
         ".read": "auth != null",
-        ".write": "auth != null && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin'"
+        ".write": "auth != null && ((newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && data.child('createdBy').val() === auth.uid))"
       }
     },
 

@@ -1513,10 +1513,15 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
-    ${(isAdmin && activeTeamId) ? `<div class="sec">Oude app overzetten</div>
+    ${currentUser ? `<div class="sec">Oude app overzetten</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Zet je ploeg, spelers en wedstrijden over naar deze cloud-ploeg. Ze worden meteen gedeeld met je kijkers.</p>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Elke ploeg in de back-up wordt overgezet als een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Zo deel je elke ploeg met andere personen.</p>
       <label class="file-btn">📂 Oude back-up kiezen en overzetten<input type="file" accept="application/json,.json" onchange="handleOldBackupFile(this)"></label>
+    </div>` : ''}
+    ${(isAdmin && activeTeamId) ? `<div class="sec">Deze ploeg</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Verwijder deze ploeg volledig uit de cloud. Spelers, wedstrijden, tornooien en de toegangscode worden gewist voor jou én alle kijkers. Dit kan niet ongedaan gemaakt worden.</p>
+      <button class="btn btn-red" onclick="confirmDeleteTeam()">🗑 Deze ploeg verwijderen</button>
     </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
@@ -1571,7 +1576,7 @@ function importBackup(input) {
 // ---- Oude back-up overzetten naar de actieve cloud-ploeg ----
 let oldBackupData = null;
 function handleOldBackupFile(input) {
-  if (!isAdmin || !activeTeamId) { alert('Enkel de beheerder van een actieve ploeg kan overzetten.'); return; }
+  if (!currentUser || !fbdb) { alert('Meld je eerst aan om over te zetten.'); return; }
   const f = input.files && input.files[0];
   if (!f) return;
   const reader = new FileReader();
@@ -1590,11 +1595,11 @@ function handleOldBackupFile(input) {
 function showOldBackupPick(rosters) {
   const data = oldBackupData;
   if (!rosters.length) {
-    // Geen ploegen in back-up: enkel losse wedstrijden overzetten
+    // Geen ploegen in back-up: enkel losse wedstrijden -> nieuwe ploeg
     const n = (data.matches || []).length;
-    openModal(`<h3>Overzetten naar deze ploeg</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Er zijn geen ploegen in deze back-up, enkel ${n} wedstrijd(en). Wil je die overzetten naar de actieve ploeg?</p>
-      <button class="btn btn-green" onclick="doImportOldBackup(-1)">Alle wedstrijden overzetten</button>
+    openModal(`<h3>Nieuwe ploeg uit back-up</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Er zijn geen ploegen in deze back-up, enkel ${n} wedstrijd(en). Wil je een nieuwe ploeg aanmaken met deze wedstrijden?</p>
+      <button class="btn btn-green" onclick="doImportOldBackup(-1)">Nieuwe ploeg aanmaken</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
@@ -1603,14 +1608,13 @@ function showOldBackupPick(rosters) {
     return `<button class="btn btn-pale" style="margin-bottom:8px;text-align:left" onclick="doImportOldBackup(${i})">${esc(r.name)}<br><small style="color:var(--txt2)">${(r.players||[]).length} spelers · ${mc} wedstrijd(en)</small></button>`;
   }).join('');
   openModal(`<h3>Welke ploeg overzetten?</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Kies welke ploeg uit de back-up je naar deze cloud-ploeg wil overzetten. Spelers, wedstrijden en tornooien gaan mee.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Elke ploeg wordt een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Kies welke je nu wil overzetten — je kunt nadien de andere ook nog overzetten.</p>
     ${btns}
     <button class="btn btn-gray" style="margin-top:4px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doImportOldBackup(rosterIndex) {
   const data = oldBackupData;
-  if (!data || !isAdmin || !activeTeamId) return;
-  const tid = activeTeamId;
+  if (!data || !currentUser || !fbdb) return;
   openModal(`<h3>Bezig met overzetten...</h3><p style="text-align:center;color:var(--txt2)" id="imp-status">Even geduld.</p>`);
   const status = () => document.getElementById('imp-status');
   try {
@@ -1619,33 +1623,45 @@ async function doImportOldBackup(rosterIndex) {
     let tournaments = [];
     try { tournaments = JSON.parse((data.settings && data.settings.tournaments) || '[]') || []; } catch (e) {}
 
-    let matches, roster = null, trn = [];
+    const uid = currentUser.uid;
+    let matches, roster = null, trn = [], teamName;
     if (rosterIndex === -1) {
       matches = data.matches || [];
+      teamName = 'Geïmporteerde ploeg';
     } else {
       roster = rosters[rosterIndex];
       if (!roster) { closeModal(); return; }
+      teamName = roster.name;
       matches = (data.matches || []).filter(m => m.teamName === roster.name);
       trn = tournaments.filter(t => t.teamId === roster.id || t.teamName === roster.name);
     }
 
-    // 1. Spelerslijst overzetten (behoud id zodat tornooi-koppeling klopt)
-    if (roster) {
-      const clean = Object.assign({}, roster, { fromCloud: true });
-      await fbdb.ref('teams/' + tid + '/roster/' + roster.id).set(jclone(clean));
-    }
-    // 2. Wedstrijden overzetten
-    if (status()) status().textContent = `${matches.length} wedstrijd(en) overzetten...`;
-    for (const m of matches) {
-      await fbdb.ref('teams/' + tid + '/matches/' + m.id).set(jclone(m));
-    }
-    // 3. Tornooien overzetten
-    for (const t of trn) {
-      await fbdb.ref('teams/' + tid + '/tournaments/' + t.id).set(jclone(t));
-    }
+    // Nieuwe Firebase-ploeg met eigen toegangscode en eigen ledenlijst
+    const teamId = fbdb.ref('teams').push().key;
+    const token = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const rosterId = (roster && roster.id) || fbdb.ref('teams/' + teamId + '/roster').push().key;
+    const rosterClean = roster
+      ? Object.assign({}, roster, { fromCloud: true })
+      : { id: rosterId, name: teamName, players: [], trainers: [], fromCloud: true };
+
+    if (status()) status().textContent = `Ploeg "${teamName}" aanmaken...`;
+    const teamData = {
+      info: { name: teamName, createdBy: uid, createdAt: Date.now(), inviteToken: token },
+      members: { [uid]: 'admin' },
+      club: { name: teamName, logo: '', theme: null },
+      roster: { [rosterId]: jclone(rosterClean) }
+    };
+    if (matches.length) { teamData.matches = {}; for (const m of matches) teamData.matches[m.id] = jclone(m); }
+    if (trn.length)     { teamData.tournaments = {}; for (const t of trn) teamData.tournaments[t.id] = jclone(t); }
+
+    await fbdb.ref('teams/' + teamId).set(teamData);
+    await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
+    await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
+    userTeams[teamId] = 'admin';
+
     closeModal();
-    alert(`✓ Overgezet:\n${roster ? (roster.players||[]).length + ' spelers\n' : ''}${matches.length} wedstrijd(en)${trn.length ? '\n' + trn.length + ' tornooi(en)' : ''}`);
-    go('home');
+    alert(`✓ Nieuwe ploeg aangemaakt: ${teamName}\n${roster ? (roster.players||[]).length + ' spelers\n' : ''}${matches.length} wedstrijd(en)${trn.length ? '\n' + trn.length + ' tornooi(en)' : ''}\n\nToegangscode om te delen: ${token}`);
+    await selectTeam(teamId);
   } catch (e) {
     console.error('Overzetten mislukt:', e);
     if (status()) status().textContent = 'Fout: ' + (e.message || 'probeer opnieuw.');
@@ -1757,6 +1773,41 @@ async function doDeleteAccount() {
   }
 }
 
+// ---- Hele ploeg (Firebase-team) verwijderen ----
+function confirmDeleteTeam() {
+  if (!isAdmin || !activeTeamId) return;
+  const naam = getClubName() || 'deze ploeg';
+  openModal(`<h3>Ploeg verwijderen</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
+    <div class="auth-err" id="delteam-err"></div>
+    <button class="btn btn-red" onclick="doDeleteTeam()">Permanent verwijderen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doDeleteTeam() {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  const tid = activeTeamId;
+  const err = document.getElementById('delteam-err');
+  if (err) err.textContent = 'Bezig met verwijderen...';
+  try {
+    const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
+    const token = (infoSnap.val() || {}).inviteToken;
+    // Uitnodiging eerst proberen wissen (terwijl team-lidmaatschap nog bestaat)
+    if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
+    // Het hele team verwijderen
+    await fbdb.ref('teams/' + tid).remove();
+    if (currentUser) { try { await fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).remove(); } catch (e) {} }
+    delete userTeams[tid];
+    stopTeamListeners();
+    activeTeamId = null; isAdmin = false;
+    localStorage.removeItem('voetbal_activeTeamId');
+    closeModal();
+    view = 'teamselect'; render();
+  } catch (e) {
+    console.error('Ploeg verwijderen mislukt:', e);
+    if (err) err.textContent = 'Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.');
+  }
+}
+
 // ===================== PLOEGEN BEHEREN =====================
 let editingTeam = null;
 function renderTeamsList() {
@@ -1764,7 +1815,11 @@ function renderTeamsList() {
   return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>👥 Ploegen</h1></div>
   <div class="content">
     ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : '<div class="empty"><div class="ei">👥</div><p>Nog geen ploegen.</p></div>'}
-    ${canManage() ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>' : '<div class="viewer-banner" style="margin-top:8px">👁 Je kijkt mee — ploegen worden door de beheerder beheerd</div>'}
+    ${!cloudReady && canManage()
+      ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
+      : (cloudReady && isAdmin)
+        ? '<div class="viewer-banner" style="margin-top:8px">➕ Een aparte ploeg met eigen toegangscode maak je via het ploegmenu (👤 → Van ploeg wisselen → Nieuwe ploeg).</div>'
+        : '<div class="viewer-banner" style="margin-top:8px">👁 Je kijkt mee — ploegen worden door de beheerder beheerd</div>'}
   </div>`;
 }
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; go('teamEdit'); }
