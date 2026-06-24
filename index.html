@@ -8,7 +8,8 @@
   <meta name="apple-mobile-web-app-title" content="MatchDelegate">
   <meta name="theme-color" content="#101010">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="icon" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <title>MatchDelegate</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -298,6 +299,7 @@
     /* Auth / team-select schermen */
     .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
     .auth-logo{font-size:52px;margin-bottom:8px}
+    .auth-logo-img{height:104px;width:104px;object-fit:contain}
     .auth-title{font-size:26px;font-weight:900;margin-bottom:4px;text-align:center}
     .auth-sub{font-size:14px;color:var(--txt2);margin-bottom:28px;text-align:center}
     .auth-box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:400px}
@@ -383,7 +385,7 @@ function saveTeam(name) { name = (name || '').trim(); if (!name) return; const t
 function lastTeam() { return localStorage.getItem('voetbal_last_team') || ''; }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
-function getClubLogo() { return localStorage.getItem('voetbal_club_logo') || 'logo-default.svg'; }
+function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-logo, niet wijzigbaar
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
 const GENERIC_THEME = { primary: '#2563eb', accent: '#f59e0b', dark: '#0f172a' };
@@ -607,6 +609,7 @@ async function onAuthChanged(user) {
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
   await loadUserTeams(user.uid);
+  maybeNotifyApproved();
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {
     // Geen ploegen → toon teamselect zodat gebruiker een ploeg kan aanmaken of vervoegen
@@ -667,6 +670,20 @@ async function claimOwner() {
   }
 }
 
+// Toon eenmalig een melding wanneer een eerdere aanvraag werd goedgekeurd.
+function maybeNotifyApproved() {
+  if (!isApprovedAdmin || isOwner) return;
+  if (localStorage.getItem('voetbal_adminRequested') !== '1') return;
+  if (localStorage.getItem('voetbal_adminApprovedSeen') === '1') return;
+  localStorage.setItem('voetbal_adminApprovedSeen', '1');
+  setTimeout(() => {
+    openModal(`<h3>✅ Aanvraag goedgekeurd</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je hebt nu beheerdersrechten. Je kunt een eigen ploeg aanmaken via <b>Van ploeg wisselen → Nieuwe ploeg aanmaken</b>.</p>
+      <button class="btn btn-green" onclick="closeModal();view='teamselect';render()">➕ Ploeg aanmaken</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Later</button>`);
+  }, 700);
+}
+
 // Een gebruiker vraagt beheerdersrechten (ploegen mogen aanmaken) aan bij de eigenaar.
 function showRequestAdminModal() {
   if (!currentUser) return;
@@ -686,6 +703,9 @@ async function doRequestAdmin() {
       name: currentUser.displayName || '',
       createdAt: Date.now()
     });
+    // Onthoud dat we een aanvraag deden + reset "gezien" zodat de goedkeuring later getoond wordt
+    localStorage.setItem('voetbal_adminRequested', '1');
+    localStorage.removeItem('voetbal_adminApprovedSeen');
     closeModal();
     alert('✓ Aanvraag verstuurd. Je krijgt toegang zodra de maker ze goedkeurt.');
   } catch (e) {
@@ -1070,7 +1090,7 @@ async function showMembersModal() {
 // ===================== AUTH VIEWS =====================
 function renderAuth() {
   return `<div class="auth-wrap">
-    <div class="auth-logo">⚽</div>
+    <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
     <div class="auth-title">MatchDelegate</div>
     <div class="auth-sub">Beheer je ploeg, volg wedstrijden live</div>
     <div class="auth-box">
@@ -3853,7 +3873,7 @@ async function init() {
   migrateTeams();
   // Toon laadscherm terwijl Firebase auth-status bepaald wordt
   view = 'home';
-  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo">⚽</div><p style="color:var(--txt2)">Laden...</p></div>`;
+  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div><p style="color:var(--txt2)">Laden...</p></div>`;
   cloudInit();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   document.addEventListener('visibilitychange', () => {
