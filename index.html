@@ -240,6 +240,7 @@
     .tile .ti{font-size:27px;line-height:1}
     .ti svg{width:1em;height:1em;display:block;margin:0 auto}
     .evtbtn .ei svg{width:1em;height:1em;display:inline-block;vertical-align:middle}
+    .ei svg,.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.1em}
     .tile .tl{font-size:13px;font-weight:800}
     .tile .tc{font-size:11px;color:var(--txt2);font-weight:600}
     .tile.tile-org{border-bottom-color:var(--org)}
@@ -260,7 +261,7 @@
     .selrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr)}
     .selrow:last-child{border-bottom:none}
     .selrow .pn{width:30px;height:30px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
-    .cap-btn{width:30px;height:30px;border-radius:50%;border:2px solid var(--bdr);background:#fff;color:var(--txt2);font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0;line-height:1;padding:0}
+    .cap-btn{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);background:#fff;color:var(--txt2);font-weight:800;font-size:10px;cursor:pointer;flex-shrink:0;line-height:1;padding:0}
     .cap-btn.on{background:#f5821f;border-color:#f5821f;color:#fff}
     .selrow .nm{flex:1;font-size:15px;font-weight:600;line-height:1.15}
     .selrow .nm small{display:block;font-weight:400;color:var(--txt2);font-size:11px}
@@ -386,11 +387,11 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
 const IC = {
-  ball: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.2l3.5 2.5-1.3 4.1H9.8L8.5 9.7z" fill="currentColor" stroke="none"/><path d="M12 7.2V3.2M15.5 9.7l3.6-1.1M14.2 13.8l2.3 3.3M9.8 13.8l-2.3 3.3M8.5 9.7L4.9 8.6"/>'),
+  ball: _svg('<circle cx="12" cy="12" r="9"/><polygon points="12,8.5 15.3,10.9 14.1,14.8 9.9,14.8 8.7,10.9" fill="currentColor" stroke="none"/><line x1="12" y1="8.5" x2="12" y2="3"/><line x1="15.3" y1="10.9" x2="20.5" y2="9.2"/><line x1="14.1" y1="14.8" x2="17.3" y2="19.3"/><line x1="9.9" y1="14.8" x2="6.7" y2="19.3"/><line x1="8.7" y1="10.9" x2="3.5" y2="9.2"/>'),
   players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
   trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
   chart: _svg('<path d="M4 20h16"/><path d="M6.5 20v-6" stroke-width="2.4"/><path d="M12 20V6" stroke-width="2.4"/><path d="M17.5 20v-9" stroke-width="2.4"/>'),
-  goal: _svg('<path d="M3 9.5l9-5 9 5v9H3z"/><path d="M3 9.5h18M8 9.5v9M16 9.5v9M3 14h18"/><circle cx="12" cy="14.5" r="1.6" fill="currentColor" stroke="none"/>'),
+  goal: _svg('<path d="M3 20V6h18v14" stroke-width="2.2"/><path d="M3 9.5h4M3 13h3M7 6v4M11 6v3M15 6v3"/><circle cx="15.5" cy="14.5" r="3" fill="currentColor" stroke="none"/>'),
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
   cardR: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/>'),
@@ -399,7 +400,21 @@ const IC = {
   injury: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8.5v7M8.5 12h7" stroke-width="2.4"/>'),
   more: _svg('<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>'),
   log: _svg('<path d="M5 4.5h14v15H5z"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/>'),
+  shot: _svg('<circle cx="7.5" cy="14.5" r="3.5"/><path d="M10.5 11.5l7.5-7.5M14.5 4h4.5v4.5"/>'),
+  save: _svg('<path d="M7 20V9a2 2 0 0 1 4 0v5"/><path d="M11 12.5a2 2 0 0 1 4 0v3.5"/><path d="M15 15.5a2 2 0 0 1 4 0V20"/>'),
+  disallowed: _svg('<circle cx="12" cy="12" r="9"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6" stroke-width="2.2"/>'),
+  calendar: _svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  history: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 3"/>'),
+  live: _svg('<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="9.5" stroke-opacity=".35"/>'),
+  done: _svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8 5-5.8"/>'),
+  search: _svg('<circle cx="11" cy="10.5" r="7"/><line x1="16.5" y1="16" x2="21" y2="20.5"/>'),
+  assist: _svg('<path d="M5 12.5h11M13.5 8l3.5 4.5-3.5 4.5"/><circle cx="5" cy="12.5" r="2.5" fill="currentColor" stroke="none"/>'),
+  timer: _svg('<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5V14l2.5 2.5"/><path d="M9.5 3.5h5M12 3.5V6"/>'),
+  balance: _svg('<path d="M12 4v17M4 6h16"/><path d="M6 6l-3 7h6l-3-7"/><path d="M18 6l-3 7h6l-3-7"/>'),
+  compass: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 4l3 8H9z" fill="currentColor" stroke="none"/><path d="M12 20l-3-8h6z" fill="currentColor" stroke="none" opacity=".4"/>'),
+  clipboard: _svg('<path d="M9 2h6l1 3H8l1-3zM4 5h16a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 11h8M8 15h5"/>'),
 };
+const icI = ic => `<span class="ic-i">${ic}</span>`;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
 // Opgeslagen ploegnamen (localStorage)
 function getTeams() { try { return JSON.parse(localStorage.getItem('voetbal_teams') || '[]'); } catch (e) { return []; } }
@@ -1355,25 +1370,25 @@ function calcMinutes(m) {
 function pName(m, id){ const p = m.players.find(x=>x.id===id); return p ? p.name : '?'; }
 function evtLabel(e, m) {
   switch(e.type) {
-    case 'goal_us': { let s = `⚽ Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
-    case 'goal_them': return `⚽ Tegendoel`;
-    case 'own_goal': return `⚽ Eigen doel (${pName(m,e.playerId)})`;
-    case 'corner_us': { let s = '🚩 Hoekschop voor ons'; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
-    case 'corner_them': { let s = '🚩 Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
-    case 'substitution': return `🔄 ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
-    case 'yellow_card': return `🟨 Gele kaart ${pName(m,e.playerId)}`;
-    case 'red_card': return `🟥 Rode kaart ${pName(m,e.playerId)}`;
-    case 'penalty_us': return `🎯 Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
-    case 'penalty_them': return `🎯 Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
+    case 'goal_them': return `${icI(IC.goal)} Tegendoel`;
+    case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pName(m,e.playerId)})`;
+    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
+    case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pName(m,e.playerId)}`;
+    case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
+    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `⚡ Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return `⚡ Vrije trap tegen`;
-    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `🤕 ${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
-    case 'shot_us': return `🥅 Schot voor ons${e.onTarget?' (op doel)':''}`;
-    case 'shot_them': return `🥅 Schot tegen${e.onTarget?' (op doel)':''}`;
-    case 'save_us': return `🧤 Redding (onze keeper)`;
-    case 'save_them': return `🧤 Redding tegenstander`;
-    case 'disallowed_us': return `🚫 Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
-    case 'disallowed_them': return `🚫 Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
+    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
+    case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
+    case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
+    case 'save_them': return `${icI(IC.save)} Redding tegenstander`;
+    case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
+    case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
     case 'quarter_start': return `▶ ${pSing(m)} ${e.quarterNum} gestart`;
     case 'quarter_end': return `⏹ ${pSing(m)} ${e.quarterNum} afgelopen`;
     default: return e.type;
@@ -1540,7 +1555,7 @@ const views = {
   },
   matches: () => {
     loadMatches();
-    return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>⚽ Wedstrijden</h1></div>
+    return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.ball)} Wedstrijden</h1></div>
       <div class="content" id="matches-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
   },
   setup: () => { pendingLogo = mapStoredLogo() || 'DEFAULT'; pendingTheme = null; return renderSettings(true); },
@@ -1548,7 +1563,7 @@ const views = {
   new: renderNew,
   live: renderLive,
   detail: renderDetail,
-  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>📊 Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">⏳</div></div></div>`; },
+  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">⏳</div></div></div>`; },
 };
 let homeFilter = 'all';
 function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }
@@ -1556,7 +1571,7 @@ function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(
 function matchItemHtml(m) {
   const st = m.status, target = st === 'live' ? 'live' : st === 'planned' ? 'prep' : 'detail';
   const border = st === 'live' ? 'live-border' : st === 'planned' ? 'plan-border' : '';
-  const badge = st === 'live' ? '<span class="badge badge-live">🔴 Live</span>' : st === 'planned' ? '<span class="badge badge-plan">🗓 Gepland</span>' : '<span class="badge badge-done">✅ Gespeeld</span>';
+  const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
   const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.time || ''}</div>` : `<div class="mi-score">${m.scoreUs}–${m.scoreThem}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
@@ -1590,7 +1605,7 @@ async function loadHome() {
     <button class="tile" onclick="go('stats')"><span class="ti">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
-    el.innerHTML = tiles + `<div class="empty"><div class="ei">⚽</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
+    el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.ball}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
   const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
@@ -1618,7 +1633,7 @@ async function loadHome() {
           <div class="mi-info">
             <div class="mi-opp">🏆 ${esc(t.name)}</div>
             <div class="mi-date">${team ? '<b>'+esc(team.name)+'</b> · ' : ''}${t.date ? fmtDate(new Date(t.date+'T00:00:00').getTime()) : ''}${t.location ? ' · '+esc(t.location) : ''}</div>
-            <span class="badge badge-plan">🗓 Gepland</span><span class="badge badge-type">Tornooi</span>
+            <span class="badge badge-plan">${icI(IC.calendar)} Gepland</span><span class="badge badge-type">Tornooi</span>
           </div>
         </div>`;
       }).join('')
@@ -1627,9 +1642,9 @@ async function loadHome() {
   let recent = looseMatches.filter(m => m.status === 'done');
   if (homeFilter !== 'all') recent = recent.filter(m => m.teamName === homeFilter);
   recent = recent.slice(0, 1);
-  const recentHtml = recent.length ? `<div class="sec">🕑 Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
-  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">⚽ + Nieuwe wedstrijd</button>` : '';
-  el.innerHTML = tiles + newBtn + `<div class="sec">📅 Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">🏆 Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
+  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  el.innerHTML = tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.trophy)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -1637,7 +1652,7 @@ async function loadMatches() {
   const el = document.getElementById('matches-content');
   if (!el) return;
   if (!all.length) {
-    el.innerHTML = `<div class="empty"><div class="ei">⚽</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b>.</p></div>`;
+    el.innerHTML = `<div class="empty"><div class="ei">${IC.ball}</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b>.</p></div>`;
     return;
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
@@ -1655,10 +1670,10 @@ async function loadMatches() {
   const done = list.filter(m => m.status === 'done').sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
   const sec = (title, arr) => arr.length ? `<div class="sec">${title}</div>${arr.map(matchItemHtml).join('')}` : '';
   const items = list.length
-    ? sec('🔴 Live', live) + sec('🗓 Geplande wedstrijden', planned) + sec('✅ Gespeelde wedstrijden', done)
-    : `<div class="empty"><div class="ei">🔍</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
+    ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done)
+    : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="🔍 Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
-  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:12px">⚽ + Nieuwe wedstrijd</button>` : '';
+  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   el.innerHTML = newBtn + filterBar + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
@@ -1676,7 +1691,7 @@ function filterHomeItems(q) {
   });
   let none = document.getElementById('search-none');
   if (!shown && term) {
-    if (!none) { none = document.createElement('div'); none.id = 'search-none'; none.className = 'empty'; none.innerHTML = '<div class="ei">🔍</div><p>Geen wedstrijden gevonden.</p>'; list.appendChild(none); }
+    if (!none) { none = document.createElement('div'); none.id = 'search-none'; none.className = 'empty'; none.innerHTML = `<div class="ei">${IC.search}</div><p>Geen wedstrijden gevonden.</p>`; list.appendChild(none); }
   } else if (none) { none.remove(); }
 }
 
@@ -1756,14 +1771,14 @@ async function loadStats() {
         <div class="stat-box"><div class="v">${gf-ga>=0?'+':''}${gf-ga}</div><div class="l">Saldo</div></div>
       </div>
     </div>
-    <div class="sec">⚽ Topschutters</div><div class="card">${topList(scorers, p => p.goals, '')}</div>
-    <div class="sec">🎯 Meeste assists</div><div class="card">${topList(assisters, p => p.assists, '')}</div>
-    <div class="sec">⏱ Meeste speelminuten</div><div class="card">${minutes.length ? minutes.map((p,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
-    <div class="sec">⚖️ Fair-play · minste speeltijd</div><div class="card"><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gesorteerd op laagste gemiddelde speeltijd per wedstrijd — zo zie je snel wie meer speelkansen verdient.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp} wd</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.mp/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
-    <div class="sec">🧤 Clean sheets</div><div class="card"><div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}</div>
-    ${carded.length ? `<div class="sec">🟨 Kaarten</div><div class="card">${carded.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc?'🟨'.repeat(p.yc):''}${p.rc?'🟥'.repeat(p.rc):''}</span></div>`).join('')}</div>` : ''}
-    ${posList.length ? `<div class="sec">🧭 Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span></div><div class="card">${posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')}</div>` : ''}
-    ${anyAbsent ? `<div class="sec">📋 Aanwezigheid <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span></div><div class="card">${attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')}</div>` : ''}`;
+    <div class="sec">${icI(IC.ball)} Topschutters</div><div class="card">${topList(scorers, p => p.goals, '')}</div>
+    <div class="sec">${icI(IC.assist)} Meeste assists</div><div class="card">${topList(assisters, p => p.assists, '')}</div>
+    <div class="sec">${icI(IC.timer)} Meeste speelminuten</div><div class="card">${minutes.length ? minutes.map((p,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
+    <div class="sec">${icI(IC.balance)} Fair-play · minste speeltijd</div><div class="card"><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gesorteerd op laagste gemiddelde speeltijd per wedstrijd — zo zie je snel wie meer speelkansen verdient.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp} wd</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.mp/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
+    <div class="sec">${icI(IC.save)} Clean sheets</div><div class="card"><div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}</div>
+    ${carded.length ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card">${carded.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc?'🟨'.repeat(p.yc):''}${p.rc?'🟥'.repeat(p.rc):''}</span></div>`).join('')}</div>` : ''}
+    ${posList.length ? `<div class="sec">${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span></div><div class="card">${posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')}</div>` : ''}
+    ${anyAbsent ? `<div class="sec">${icI(IC.clipboard)} Aanwezigheid <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span></div><div class="card">${attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')}</div>` : ''}`;
 }
 
 // ===================== SETUP / SETTINGS (club-branding) =====================
@@ -2265,19 +2280,19 @@ function setTrainer(i, val) {
 // ===================== TORNOOIEN =====================
 function renderTournamentList() {
   const trns = getTournaments().slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const newBtn = canManage() ? `<button class="btn btn-green" style="margin-top:8px" onclick="newTournament()">🏆 + Nieuw tornooi</button>` : '';
-  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>🏆 Tornooien</h1></div>
+  const newBtn = canManage() ? `<button class="btn btn-green" style="margin-top:8px" onclick="newTournament()">${icI(IC.trophy)} + Nieuw tornooi</button>` : '';
+  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.trophy)} Tornooien</h1></div>
   <div class="content">
     ${trns.length ? trns.map(t => {
       const team = teamById(t.teamId);
       return `<div class="team-row" onclick="goTournament('${t.id}')">
         <div>
-          <div class="tn">🏆 ${esc(t.name)}</div>
+          <div class="tn">${icI(IC.trophy)} ${esc(t.name)}</div>
           <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}</div>
         </div>
         <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
       </div>`;
-    }).join('') : '<div class="empty"><div class="ei">🏆</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>'}
+    }).join('') : `<div class="empty"><div class="ei">${IC.trophy}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`}
     ${newBtn}
   </div>`;
 }
@@ -2324,7 +2339,7 @@ async function loadTournamentDetail() {
   </div>` : '';
   const noSquad = !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
-  const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">⚽ + Wedstrijd toevoegen</button>` : '';
+  const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
     ? matches.map(matchItemHtml).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">⚽</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
@@ -2488,7 +2503,7 @@ function renderTrnStep1() {
     </div>
   </div>
   <button class="btn btn-green" onclick="trnWizNext()">Volgende → Selectie</button>
-  <button class="btn btn-orgpale" onclick="saveTournamentWizStep1Only()" style="margin-top:8px">🗓 Opslaan zonder selectie</button>`;
+  <button class="btn btn-orgpale" onclick="saveTournamentWizStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Opslaan zonder selectie</button>`;
 }
 function renderTrnStep2() {
   const team = teamById(trnWiz.teamId);
@@ -2563,7 +2578,7 @@ function renderTrnMatchStep1() {
       </select></div>
   </div>
   <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
-  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">🗓 Plannen zonder opstelling</button>`;
+  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder opstelling</button>`;
 }
 function trnWizTypeChange() {
   wiz.matchType = document.getElementById('n-type').value;
@@ -2704,7 +2719,7 @@ function wizStep1() {
       </details>
     </div>
     <button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
-    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">🗓 Plannen zonder selectie</button>`;
+    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder selectie</button>`;
 }
 function captureStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -2758,9 +2773,10 @@ function setSel(pid, val) {
 }
 function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
+  const isSelected = p.sel === 'basis' || p.sel === 'bank';
   return `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
-    <button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">©</button>
+    ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">©</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${p.pos || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
@@ -2863,9 +2879,9 @@ function wizStep3() {
     </div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="finishWizard(true)">⚽ ${wiz.editId?'Opslaan & starten':'Nu starten'}</button>
+      <button class="btn btn-green" onclick="finishWizard(true)">${icI(IC.ball)} ${wiz.editId?'Opslaan & starten':'Nu starten'}</button>
     </div>
-    <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">🗓 ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
+    <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">${icI(IC.calendar)} ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
 }
 async function finishWizard(startNow) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
@@ -2969,7 +2985,7 @@ function renderPrep() {
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
-    <div><h1>${esc(tName(m))} vs ${esc(m.opponent)}</h1><div class="hdr-sub">🗓 Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
+    <div><h1>${esc(tName(m))} vs ${esc(m.opponent)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
     ${ro ? '<div class="viewer-banner">👁 Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">▶ Wedstrijd starten</button>
@@ -3130,7 +3146,7 @@ function renderLive() {
   }).join('');
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
   if (ro && tab === 'wedstrijd') tab = 'log';
-  const statusLine = isDone ? '✅ Afgelopen' : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
+  const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(tName(match))}</span><span>${esc(match.opponent)}</span></div>
         <div class="sb-score"><span class="us">${match.scoreUs}</span> – ${match.scoreThem}</div>
@@ -3505,20 +3521,20 @@ async function saveEditEvent(id) {
 // Extra registraties: schoten, reddingen, afgekeurd doelpunt.
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
-  openModal(`<h3>📊 Extra registreren</h3>
+  openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
     <div class="sec" style="margin-top:0">Kapitein</div>
-    ${opt('Ⓒ Kapitein wijzigen', "modalSetCaptain()")}
-    <div class="sec">Schoten</div>
-    ${opt('🥅 Schot voor ons — op doel', "logExtra('shot_us',{onTarget:true})")}
-    ${opt('🥅 Schot voor ons — naast', "logExtra('shot_us',{onTarget:false})")}
-    ${opt('🥅 Schot tegen — op doel', "logExtra('shot_them',{onTarget:true})")}
-    ${opt('🥅 Schot tegen — naast', "logExtra('shot_them',{onTarget:false})")}
-    <div class="sec">Reddingen</div>
-    ${opt('🧤 Redding onze keeper', "logExtra('save_us')")}
-    ${opt('🧤 Redding tegenstander', "logExtra('save_them')")}
-    <div class="sec">Afgekeurd doelpunt</div>
-    ${opt('🚫 Afgekeurd voor ons', "logExtra('disallowed_us')")}
-    ${opt('🚫 Afgekeurd tegen', "logExtra('disallowed_them')")}
+    ${opt(`${icI(IC.players)} Kapitein wijzigen`, "modalSetCaptain()")}
+    <div class="sec">${icI(IC.shot)} Schoten</div>
+    ${opt(`${icI(IC.shot)} Schot voor ons — op doel`, "logExtra('shot_us',{onTarget:true})")}
+    ${opt(`${icI(IC.shot)} Schot voor ons — naast`, "logExtra('shot_us',{onTarget:false})")}
+    ${opt(`${icI(IC.shot)} Schot tegen — op doel`, "logExtra('shot_them',{onTarget:true})")}
+    ${opt(`${icI(IC.shot)} Schot tegen — naast`, "logExtra('shot_them',{onTarget:false})")}
+    <div class="sec">${icI(IC.save)} Reddingen</div>
+    ${opt(`${icI(IC.save)} Redding onze keeper`, "logExtra('save_us')")}
+    ${opt(`${icI(IC.save)} Redding tegenstander`, "logExtra('save_them')")}
+    <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
+    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
+    ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 function modalSetCaptain() {
@@ -3551,7 +3567,7 @@ function modalGoal() {
   const on = playersOnField(match);
   goalTeam = 'us'; goalPlayerId = null; goalAssistId = null;
   openModal(`
-    <h3>⚽ Goal</h3>
+    <h3>${icI(IC.goal)} Goal</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="goal-team">
       <button class="act" onclick="tglGoalTeam('us',this)">${esc(tName(match))}</button>
@@ -3677,7 +3693,7 @@ let penTeam = 'us', penPlayerId = null;
 function modalPenalty() {
   penTeam = 'us'; penPlayerId = null;
   const on = playersOnField(match);
-  openModal(`<h3>🎯 Penalty</h3>
+  openModal(`<h3>${icI(IC.penalty)} Penalty</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="pen-team"><button class="act" onclick="tglPen('us',this)">${esc(tName(match))}</button><button onclick="tglPen('them',this)">Tegenstander</button></div>
     <div id="pen-player-section">
@@ -3688,7 +3704,7 @@ function modalPenalty() {
       </div>
     </div>
     <div class="sec">Resultaat?</div>
-    <div class="mopt" onclick="logPenalty(true)"><div class="mopt-num">⚽</div>Gescoord</div>
+    <div class="mopt" onclick="logPenalty(true)">${icI(IC.goal)} Gescoord</div>
     <div class="mopt" onclick="logPenalty(false)"><div class="mopt-num mopt-num-off">✗</div>Gemist / gestopt</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -3705,7 +3721,7 @@ let injPlayerId = null, injType = 'kramp';
 function modalInjury() {
   const on = playersOnField(match);
   injPlayerId = null; injType = 'kramp';
-  openModal(`<h3>🤕 Blessure</h3>
+  openModal(`<h3>${icI(IC.injury)} Blessure</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
     <div id="inj-players">${on.map(p=>`<div class="mopt" onclick="selectInjuryPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}</div>
     <div class="sec">Type</div>
