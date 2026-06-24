@@ -310,6 +310,7 @@
     .ts-wrap{min-height:100dvh;background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:var(--blk);color:#fff;padding:16px;text-align:center;border-bottom:3px solid var(--org)}
     .ts-hdr h1{font-size:20px;font-weight:900}
+    .ts-logo{height:88px;width:88px;object-fit:contain}
     .ts-hdr p{font-size:13px;opacity:.7;margin-top:4px}
     .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
     .ts-team-row{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn);transition:transform .1s}
@@ -1091,7 +1092,6 @@ async function showMembersModal() {
 function renderAuth() {
   return `<div class="auth-wrap">
     <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
-    <div class="auth-title">MatchDelegate</div>
     <div class="auth-sub">Beheer je ploeg, volg wedstrijden live</div>
     <div class="auth-box">
       <div class="auth-tabs">
@@ -1109,6 +1109,7 @@ function renderAuth() {
         <div class="fg"><label>Naam</label><input id="reg-name" type="text" autocomplete="name" placeholder="Jan Peeters"></div>
         <div class="fg"><label>E-mailadres</label><input id="reg-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
         <div class="fg"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
+        <div class="fg"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"></div>
         <div class="auth-err" id="reg-err"></div>
         <button class="btn btn-green" onclick="authDoRegister()">Account aanmaken</button>
       </div>
@@ -1145,7 +1146,10 @@ async function authDoRegister() {
   const name = (document.getElementById('reg-name') || {}).value || '';
   const email = (document.getElementById('reg-email') || {}).value || '';
   const pwd = (document.getElementById('reg-pwd') || {}).value || '';
+  const pwd2 = (document.getElementById('reg-pwd2') || {}).value || '';
   const err = document.getElementById('reg-err');
+  if (pwd.length < 6) { if (err) err.textContent = 'Wachtwoord moet minstens 6 tekens zijn.'; return; }
+  if (pwd !== pwd2) { if (err) err.textContent = 'De twee wachtwoorden zijn niet gelijk.'; return; }
   if (err) err.textContent = 'Bezig...';
   try {
     const cred = await fbauth.createUserWithEmailAndPassword(email, pwd);
@@ -1195,7 +1199,7 @@ function renderTeamSelect() {
 
   return `<div class="ts-wrap">
     <div class="ts-hdr">
-      <h1>MatchDelegate</h1>
+      <img src="logo.png" alt="MatchDelegate" class="ts-logo">
       <p>${esc((currentUser && currentUser.email) || '')}</p>
     </div>
     <div class="ts-content">
@@ -1509,7 +1513,7 @@ const views = {
     setTimeout(updateCloudChip, 0);
     const switchBtn = (cloudReady && currentUser && activeTeamId)
       ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">⇄ ${esc(getClubName() || 'Ploeg')}</button>` : '';
-    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="logo"><span class="hdr-clubname">MatchDelegate</span>${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
+    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="MatchDelegate">${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
       <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>
       <div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>`;
   },
