@@ -27,6 +27,20 @@
       }
     },
 
+    "memberInfo": {
+      "$teamId": {
+        // Enkel de beheerder van de ploeg leest de volledige ledenlijst (naam + e-mail).
+        // De beheerder mag het knooppunt ook opruimen bij verwijderen van de ploeg.
+        ".read":  "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        "$memberId": {
+          // Elk lid leest/schrijft enkel zijn eigen info, en enkel als hij lid is.
+          ".read":  "auth != null && $memberId === auth.uid",
+          ".write": "auth != null && $memberId === auth.uid && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()"
+        }
+      }
+    },
+
     "users": {
       "$userId": {
         ".read":  "auth != null && auth.uid === $userId",

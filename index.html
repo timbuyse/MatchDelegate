@@ -628,10 +628,23 @@ async function selectTeam(teamId) {
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup)
   if (currentUser) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId] || 'viewer');
+  // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is
+  writeMemberInfo(teamId, userTeams[teamId] || 'viewer');
   cloudListen();
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
   view = 'home'; render();
+}
+
+// Naam + e-mail van een lid bewaren zodat de beheerder de kijkers kan zien.
+function writeMemberInfo(teamId, role) {
+  if (!currentUser || !fbdb || !teamId) return Promise.resolve();
+  return fbdb.ref('memberInfo/' + teamId + '/' + currentUser.uid).set({
+    email: currentUser.email || '',
+    name: currentUser.displayName || '',
+    role: role || 'viewer',
+    joinedAt: Date.now()
+  }).catch(() => {});
 }
 
 // ---- schrijven (enkel admins van de actieve ploeg) ----
@@ -751,6 +764,7 @@ function cloudLoginModal() {
   openModal(`<h3>👤 Mijn account</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">${esc(currentUser.email)}</p>
     ${isAdmin ? `<button class="btn btn-green" onclick="closeModal();showInviteModal()">🔗 Uitnodigingslink delen</button>` : ''}
+    ${isAdmin && activeTeamId ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">👥 Kijkers van deze ploeg</button>` : ''}
     ${switchBtn}
     <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
@@ -848,7 +862,50 @@ async function showInviteModal(teamId) {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Deel deze code met ouders of volgers.<br>Ze voeren hem in bij "Ploeg vervoegen".</p>
     <div class="invite-code">${token}</div>
     <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',text:'Gebruik code ${token} om ${esc(teamName)} te volgen in MatchDelegate.'}) : navigator.clipboard.writeText('${token}').then(()=>alert('Code gekopieerd!')))">📤 Delen / Kopiëren</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">👥 Wie is al vervoegd?</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+
+// ---- Kijkers van de actieve ploeg tonen (enkel beheerder) ----
+async function showMembersModal() {
+  const tid = activeTeamId;
+  if (!tid || !isAdmin) return;
+  const teamName = getClubName() || 'deze ploeg';
+  openModal(`<h3>👥 Leden — ${esc(teamName)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie heeft toegang tot deze ploeg.</p>
+    <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
+  try {
+    const [miSnap, memSnap] = await Promise.all([
+      fbdb.ref('memberInfo/' + tid).once('value'),
+      fbdb.ref('teams/' + tid + '/members').once('value')
+    ]);
+    const info = miSnap.val() || {};
+    const members = memSnap.val() || {};
+    // Sorteer: beheerders eerst, dan kijkers
+    const uids = Object.keys(members).sort((a, b) =>
+      (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
+    const rows = uids.map(uid => {
+      const role = members[uid];
+      const mi = info[uid] || {};
+      const naam = mi.name || '(naam nog niet gekend)';
+      const email = mi.email || '(e-mail nog niet gekend)';
+      const badge = role === 'admin'
+        ? '<span class="ts-role admin">✏️ Beheerder</span>'
+        : '<span class="ts-role viewer">👁 Kijker</span>';
+      return `<div class="ts-team-row" style="cursor:default">
+        <span class="ts-name"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small></span>
+        ${badge}</div>`;
+    });
+    const viewers = uids.filter(u => members[u] !== 'admin').length;
+    const el = document.getElementById('members-list');
+    if (el) el.innerHTML = (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
+      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} vervoegd</p>`;
+  } catch (e) {
+    console.error('Leden laden mislukt:', e);
+    const el = document.getElementById('members-list');
+    if (el) el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de lijst niet laden.</p>';
+  }
 }
 
 // ===================== AUTH VIEWS =====================
@@ -1803,8 +1860,9 @@ async function doDeleteCloudTeam() {
     await currentUser.reauthenticateWithCredential(cred);
     const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
     const token = (infoSnap.val() || {}).inviteToken;
-    // Uitnodiging eerst proberen wissen (terwijl team-lidmaatschap nog bestaat)
+    // Uitnodiging + ledeninfo eerst proberen wissen (terwijl team-lidmaatschap nog bestaat)
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
+    try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
     // Het hele team verwijderen
     await fbdb.ref('teams/' + tid).remove();
     if (currentUser) { try { await fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).remove(); } catch (e) {} }
