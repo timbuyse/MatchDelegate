@@ -1306,14 +1306,11 @@ async function loadHome() {
   const rosters = getTeamsV2();
   const teamCount = rosters.length;
   const playerCount = rosters.reduce((n, t) => n + ((t.players || []).length), 0);
-  const viewerTeamCount = Object.keys(userTeams).length;
   const trnCount = getTournaments().length;
-  // Beheerder beheert de spelers van zijn huidige ploeg; kijker schakelt tussen ploegen.
-  const teamTile = (cloudReady && isAdmin)
+  // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
+  const teamTile = cloudReady
     ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">👥</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : (cloudReady && !isAdmin)
-      ? `<button class="tile tile-org" onclick="view='teamselect';render()"><span class="ti">👥</span><span class="tl">Ploegen</span><span class="tc">${viewerTeamCount} ${viewerTeamCount===1?'ploeg':'ploegen'}</span></button>`
-      : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">👥</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">👥</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
