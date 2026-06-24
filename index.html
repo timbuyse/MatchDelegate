@@ -15,8 +15,8 @@
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
       --blk:#0f172a;--blk2:#1e293b;--blk3:#334155;
-      --grn:#0b7d5a;--grn2:#0a6349;--grnp:#d8efe7;--grnb:#a8ddcc;
-      --org:#1d4ed8;--org2:#1840ad;--orgp:#e2e9fb;--orgb:#bccef5;
+      --grn:#2f9e57;--grn2:#247d44;--grnp:#dcf1e3;--grnb:#aedcbd;
+      --org:#2f74bd;--org2:#255f9c;--orgp:#e1edf8;--orgb:#bdd6ef;
       --yl:#eab308;--ylp:#fef9c3;--rd:#dc2626;--rdp:#fee2e2;--bl:#2563eb;--blp:#eff6ff;
       --bg:#f5f6f5;--card:#fff;--txt:#171717;--txt2:#6b7280;--bdr:#e5e7eb;
       --shadow:0 2px 8px rgba(0,0,0,.1)
@@ -238,6 +238,8 @@
     .tile{background:var(--card);border:none;border-radius:14px;box-shadow:var(--shadow);padding:15px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--txt);border-bottom:3px solid var(--grn)}
     .tile:active{transform:scale(.96)}
     .tile .ti{font-size:27px;line-height:1}
+    .ti svg{width:1em;height:1em;display:block;margin:0 auto}
+    .evtbtn .ei svg{width:1em;height:1em;display:inline-block;vertical-align:middle}
     .tile .tl{font-size:13px;font-weight:800}
     .tile .tc{font-size:11px;color:var(--txt2);font-weight:600}
     .tile.tile-org{border-bottom-color:var(--org)}
@@ -381,6 +383,23 @@ const FORMATIONS = {
   ],
 };
 const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'A' };
+// ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
+const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
+const IC = {
+  ball: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.2l3.5 2.5-1.3 4.1H9.8L8.5 9.7z" fill="currentColor" stroke="none"/><path d="M12 7.2V3.2M15.5 9.7l3.6-1.1M14.2 13.8l2.3 3.3M9.8 13.8l-2.3 3.3M8.5 9.7L4.9 8.6"/>'),
+  players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
+  trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
+  chart: _svg('<path d="M4 20h16"/><path d="M6.5 20v-6" stroke-width="2.4"/><path d="M12 20V6" stroke-width="2.4"/><path d="M17.5 20v-9" stroke-width="2.4"/>'),
+  goal: _svg('<path d="M3 9.5l9-5 9 5v9H3z"/><path d="M3 9.5h18M8 9.5v9M16 9.5v9M3 14h18"/><circle cx="12" cy="14.5" r="1.6" fill="currentColor" stroke="none"/>'),
+  swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
+  cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
+  cardR: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/>'),
+  penalty: _svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>'),
+  corner: _svg('<path d="M7 21V3.5"/><path d="M7 4h9.5l-2.6 2.8L16.5 9.6H7z" fill="currentColor" stroke="none"/>'),
+  injury: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8.5v7M8.5 12h7" stroke-width="2.4"/>'),
+  more: _svg('<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>'),
+  log: _svg('<path d="M5 4.5h14v15H5z"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/>'),
+};
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
 // Opgeslagen ploegnamen (localStorage)
 function getTeams() { try { return JSON.parse(localStorage.getItem('voetbal_teams') || '[]'); } catch (e) { return []; } }
@@ -391,7 +410,7 @@ function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mi
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-logo, niet wijzigbaar
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
-const GENERIC_THEME = { primary: '#0b7d5a', accent: '#1d4ed8', dark: '#0f172a' };
+const GENERIC_THEME = { primary: '#2f9e57', accent: '#2f74bd', dark: '#0f172a' };
 function clamp255(n) { return Math.max(0, Math.min(255, Math.round(n))); }
 function parseHex(h) { h = h.replace('#', ''); return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) }; }
 function toHex(r, g, b) { return '#' + [r,g,b].map(v => clamp255(v).toString(16).padStart(2,'0')).join(''); }
@@ -409,7 +428,7 @@ function applyTheme(t) {
 }
 function applyStoredTheme() { let t = null; try { t = JSON.parse(localStorage.getItem('voetbal_theme') || 'null'); } catch (e) {} applyTheme(t || GENERIC_THEME); }
 // Donkere modus (per toestel)
-function darkOn() { return localStorage.getItem('voetbal_dark') === '1'; } // standaard UIT (light); enkel '1' = donker
+function darkOn() { return localStorage.getItem('voetbal_dark') !== '0'; } // standaard AAN (donker); enkel '0' = licht
 function applyDark() { document.body.classList.toggle('dark', darkOn()); }
 function toggleDark() { localStorage.setItem('voetbal_dark', darkOn() ? '0' : '1'); applyDark(); render(); }
 // Dominante kleuren uit een canvas halen -> {primary, accent, dark}
@@ -1559,21 +1578,22 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">👥</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">👥</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">${IC.players}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">${IC.players}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
+  if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
-    <button class="tile" onclick="go('matches')"><span class="ti">⚽</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
+    <button class="tile" onclick="go('matches')"><span class="ti">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
-    <button class="tile tile-dark" onclick="go('tournaments')"><span class="ti">🏆</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
-    <button class="tile" onclick="go('stats')"><span class="ti">📊</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    <button class="tile tile-dark" onclick="go('tournaments')"><span class="ti">${IC.trophy}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
+    <button class="tile" onclick="go('stats')"><span class="ti">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
     el.innerHTML = tiles + `<div class="empty"><div class="ei">⚽</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
-  const filterBar = teams.length > 1 ? `<div class="filterbar">
+  const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
       <option value="all" ${homeFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${homeFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
@@ -1621,9 +1641,10 @@ async function loadMatches() {
     return;
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
+  if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const list = (homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter)).slice();
-  const filterBar = teams.length ? `<div class="filterbar">
+  const filterBar = (!cloudReady && teams.length) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
       <option value="all" ${homeFilter==='all'?'selected':''}>Alle ploegen (${all.length})</option>
       ${teams.map(t => `<option value="${esc(t)}" ${homeFilter===t?'selected':''}>${esc(t)} (${all.filter(m=>m.teamName===t).length})</option>`).join('')}
@@ -1675,10 +1696,11 @@ async function loadStats() {
   if (!el) return;
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
   const seasons = [...new Set(all.map(seasonOf))].sort().reverse();
+  if (cloudReady) statsFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
   if (seasonFilter !== 'all' && !seasons.includes(seasonFilter)) seasonFilter = 'all';
   const list = all.filter(m => m.status === 'done' && (statsFilter === 'all' || m.teamName === statsFilter) && (seasonFilter === 'all' || seasonOf(m) === seasonFilter));
-  const filterBar = `${teams.length ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
+  const filterBar = `${(!cloudReady && teams.length) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
     </select></div>` : ''}${seasons.length > 1 ? `<div class="filterbar"><select onchange="setSeasonFilter(this.value)">
@@ -3143,14 +3165,14 @@ function renderLive() {
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">➕ Pauzewissel toevoegen</button>
       </div>` : ''}
       ${ro ? '' : `<div class="evtbtns">
-        <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">⚽</span><span class="el">Goal</span></div>
-        <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">🔄</span><span class="el">Wissel</span></div>
-        ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">🟨</span><span class="el">Gele kaart</span></div>
-        <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">🟥</span><span class="el">Rode kaart</span></div>`}
-        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">🎯</span><span class="el">Penalty</span></div>
-        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">🚩</span><span class="el">Hoekschop</span></div>
-        <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">🤕</span><span class="el">Blessure</span></div>
-        <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">📊</span><span class="el">Meer</span></div>
+        <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
+        <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
+        ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
+        <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}
+        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
+        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">Hoekschop</span></div>
+        <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
+        <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>`}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">↩ Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">📊 Wedstrijd bekijken</button>` : ''}`;
@@ -3178,9 +3200,9 @@ function renderLive() {
   </div>
   <div class="content">${ro ? '<div class="viewer-banner">👁 Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
   <div class="ltabs">
-    ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">⚽</span>Wedstrijd</button>`}
-    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">👥</span>Opstelling</button>
-    <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">📋</span>Log</button>
+    ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
+    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.players}</span>Opstelling</button>
+    <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">${IC.log}</span>Log</button>
   </div>`;
 }
 

@@ -1,4 +1,4 @@
-const CACHE = 'voetbal-v23';
+const CACHE = 'voetbal-v24';
 const ASSETS = ['./', './index.html', './manifest.json', './logo.png'];
 
 self.addEventListener('install', e => {
