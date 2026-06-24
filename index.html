@@ -258,6 +258,8 @@
     .selrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr)}
     .selrow:last-child{border-bottom:none}
     .selrow .pn{width:30px;height:30px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+    .cap-btn{width:30px;height:30px;border-radius:50%;border:2px solid var(--bdr);background:#fff;color:var(--txt2);font-weight:800;font-size:14px;cursor:pointer;flex-shrink:0;line-height:1;padding:0}
+    .cap-btn.on{background:#f5821f;border-color:#f5821f;color:#fff}
     .selrow .nm{flex:1;font-size:15px;font-weight:600;line-height:1.15}
     .selrow .nm small{display:block;font-weight:400;color:var(--txt2);font-size:11px}
     .guest-badge{font-size:10px;font-weight:700;background:var(--orgp);color:var(--org2);padding:1px 6px;border-radius:10px;margin-left:6px}
@@ -273,7 +275,7 @@
     /* Pitch slots */
     .pslot{position:absolute;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;border:2px dashed rgba(255,255,255,.85);background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
     .pslot.filled{border-style:solid;background:var(--blk);box-shadow:0 2px 5px rgba(0,0,0,.4)}
-    .pslot.filled.gk{background:var(--org)}
+    .pslot.filled.gk{background:#f5821f}
     .pslot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:74px;overflow:hidden;text-overflow:ellipsis}
     /* Pitch (visual field) */
     .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:linear-gradient(#1c8a46,#23a653);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
@@ -283,7 +285,7 @@
     .pitch-box.top{top:0;border-top:2px solid rgba(255,255,255,.45);border-bottom:none}
     .pdot{position:absolute;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.4)}
     .pdot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:70px;overflow:hidden;text-overflow:ellipsis}
-    .pdot-org{background:var(--org)}
+    .pdot-org{background:#f5821f}
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}
     /* Print */
     @media print{
@@ -2733,8 +2735,10 @@ function setSel(pid, val) {
   render();
 }
 function selRow(p) {
+  const isCap = wiz.captainPid === p.pid;
   return `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
+    <button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">©</button>
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${p.pos || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
@@ -2743,6 +2747,7 @@ function selRow(p) {
     </div></div>`;
 }
 function setPoolNum(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
+function setWizCaptain(pid) { wiz.captainPid = (wiz.captainPid === pid) ? null : pid; render(); }
 function wizStep2() {
   const own = wiz.pool.filter(p => !p.guest), guests = wiz.pool.filter(p => p.guest);
   const team = teamById(wiz.teamId);
@@ -2845,8 +2850,12 @@ async function finishWizard(startNow) {
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
   if (unplaced.length) { alert(`Plaats nog ${unplaced.length} speler(s) op het veld.`); return; }
   const team = teamById(wiz.teamId);
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: '', starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ id: uid(), name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: '', starting: true, onField: true, x: s.x, y: s.y }; });
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  const allP = starters.concat(bench);
+  let capId = null;
+  if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
+  allP.forEach(x => delete x._pid);
   const common = {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: form.name,
     competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, weather: wiz.weather,
@@ -2854,7 +2863,7 @@ async function finishWizard(startNow) {
     opponent: wiz.opponent, date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
-    players: starters.concat(bench),
+    players: allP,
     absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => p.name),
   };
   let m;
@@ -2862,9 +2871,10 @@ async function finishWizard(startNow) {
     const existing = await dbGet(wiz.editId);
     m = Object.assign(existing || {}, common);
     m.status = startNow ? 'live' : (m.status === 'live' ? 'live' : 'planned');
-    m.captainId = null; m.motmId = null; // spelers kregen nieuwe id's
+    m.captainId = capId; m.motmId = null; // spelers kregen nieuwe id's
   } else {
     m = Object.assign({ id: uid(), createdAt: Date.now(), notes: '', motmId: null, captainId: null, quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [] }, common);
+    m.captainId = capId;
     m.status = startNow ? 'live' : 'planned';
   }
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
@@ -2886,6 +2896,8 @@ function editMatchWizard(m) {
     formationIndex: fi, selPlace: null,
   };
   wiz.poolTeamId = m.players.length ? wiz.teamId : null; // lege pool → herbouwen vanuit ploeg
+  // Bewaar de bestaande kapitein (pool volgt de volgorde van m.players)
+  wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
   const form = FORMATIONS[m.matchType][fi];
   wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
   go('new');
@@ -3094,17 +3106,6 @@ function renderLive() {
     const cls = i < completed ? 'done' : (i === qNum-1 && !isBetween && !isDone && qNum > 0 ? 'active' : '');
     return `<div class="qdot ${cls}"></div>`;
   }).join('');
-  // Speeltijd-nudge: bankspelers die nog 0 minuten hebben zodra de match bezig is.
-  const mNudge = (() => {
-    if (isDone || qNum === 0) return '';
-    const mins = calcMinutes(match);
-    const zero = playersOnBench(match).filter(p => (mins[p.id] ? mins[p.id].ms : 0) === 0);
-    return zero.length ? `<div class="nudge">⏱ Nog niet gespeeld: <b>${zero.map(p => esc(p.name)).join(', ')}</b></div>` : '';
-  })();
-  const curKeeperId = currentKeeperId(match);
-  const curKeeper = curKeeperId ? pName(match, curKeeperId) : null;
-  const keeperChip = (qNum > 0 && curKeeper && !ro) ? `<div style="text-align:center;margin-bottom:12px"><span class="keeper-chip" style="cursor:default">🧤 Keeper: ${esc(curKeeper)}</span></div>` : '';
-
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
   if (ro && tab === 'wedstrijd') tab = 'log';
   const statusLine = isDone ? '✅ Afgelopen' : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
@@ -3127,8 +3128,6 @@ function renderLive() {
         <div class="qdots">${dots}</div>
         <div style="margin-top:10px"><span class="start-chip ${countdownOn()?'on':''}" onclick="toggleCountdown()" style="font-size:12px;padding:5px 12px">⏱ ${countdownOn()?'Aftellen':'Optellen'}</span></div>
       </div>
-      ${keeperChip}
-      ${mNudge}
       ${(!isDone && !ro) ? `<div class="qctrl">
         ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">▶ Start wedstrijd</button>` : ''}
         ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">▶ Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
@@ -3145,11 +3144,11 @@ function renderLive() {
       </div>` : ''}
       ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">⚽</span><span class="el">Goal</span></div>
-        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">🚩</span><span class="el">Hoekschop</span></div>
         <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">🔄</span><span class="el">Wissel</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">🟨</span><span class="el">Gele kaart</span></div>
         <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">🟥</span><span class="el">Rode kaart</span></div>`}
         <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">🎯</span><span class="el">Penalty</span></div>
+        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">🚩</span><span class="el">Hoekschop</span></div>
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">🤕</span><span class="el">Blessure</span></div>
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">📊</span><span class="el">Meer</span></div>
       </div>`}
@@ -3164,8 +3163,7 @@ function renderLive() {
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match))).join('')}` : ''}
-      </div>
-      ${ro ? '' : `<button class="btn btn-orgpale" onclick="modalEditPlayers()">✏️ Spelers bewerken</button>`}`;
+      </div>`;
   } else {
     tabContent = miniScore + (match.events.length
       ? `<div class="card">${renderEventLog(match)}</div>`
@@ -3486,7 +3484,9 @@ async function saveEditEvent(id) {
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>📊 Extra registreren</h3>
-    <div class="sec" style="margin-top:0">Schoten</div>
+    <div class="sec" style="margin-top:0">Kapitein</div>
+    ${opt('Ⓒ Kapitein wijzigen', "modalSetCaptain()")}
+    <div class="sec">Schoten</div>
     ${opt('🥅 Schot voor ons — op doel', "logExtra('shot_us',{onTarget:true})")}
     ${opt('🥅 Schot voor ons — naast', "logExtra('shot_us',{onTarget:false})")}
     ${opt('🥅 Schot tegen — op doel', "logExtra('shot_them',{onTarget:true})")}
@@ -3499,6 +3499,16 @@ function modalExtra() {
     ${opt('🚫 Afgekeurd tegen', "logExtra('disallowed_them')")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
+function modalSetCaptain() {
+  const on = playersOnField(match);
+  const cur = match.captainId;
+  openModal(`<h3>Ⓒ Kapitein</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
+    ${on.map(p => `<div class="mopt ${cur===p.id?'sel':''}" onclick="setMatchCaptain('${p.id}')"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}
+    <div class="mopt mopt-skip" onclick="setMatchCaptain(null)">Geen / wissen</div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+async function setMatchCaptain(id) { match.captainId = id; await dbSave(match); closeModal(); render(); }
 async function logExtra(type, extra = {}) {
   if (type === 'disallowed_us' || type === 'disallowed_them') { const r = prompt('Reden van afkeuring? (bv. buitenspel)', 'buitenspel'); extra.reason = (r || '').trim(); }
   addEvent(type, extra); await dbSave(match); closeModal(); render();
