@@ -3069,14 +3069,22 @@ function ensurePosNums(m) {
 }
 function playersAtPeriodStart(m, qNum) {
   const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
+  const fallback = {};
   // include break subs that fired at the START of qNum (quarterNum === qNum, atBreak: true)
   m.events.filter(e => e.type === 'substitution' && e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs)
     .forEach(e => {
       if (e.playerOutId) on[e.playerOutId] = false;
-      if (e.playerInId) on[e.playerInId] = true;
+      if (e.playerInId) {
+        on[e.playerInId] = true;
+        const out = m.players.find(p => p.id === e.playerOutId);
+        if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
+      }
     });
-  return m.players.filter(p => on[p.id]);
+  // fallback only applied when the player genuinely has no x/y (edge case: old match data)
+  return m.players.filter(p => on[p.id]).map(p =>
+    (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p
+  );
 }
 let _lcIdx = 0;
 function _lcNav(dir) {
@@ -4190,10 +4198,20 @@ function exportPDF() {
     ${m.players.some(p=>p.starting)?(()=>{
       function playersAtStart(qNum) {
         const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
-        m.events.filter(e => e.type==='substitution' && e.quarterNum != null && e.quarterNum < qNum)
+        const fallback = {};
+        m.events.filter(e => e.type==='substitution' && e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
           .sort((a,b) => a.gameTimeMs - b.gameTimeMs)
-          .forEach(e => { if(e.playerOutId) on[e.playerOutId]=false; if(e.playerInId) on[e.playerInId]=true; });
-        return m.players.filter(p => on[p.id]);
+          .forEach(e => {
+            if(e.playerOutId) on[e.playerOutId]=false;
+            if(e.playerInId) {
+              on[e.playerInId]=true;
+              const out = m.players.find(p => p.id === e.playerOutId);
+              if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
+            }
+          });
+        return m.players.filter(p => on[p.id]).map(p =>
+          (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p
+        );
       }
       const numQ = m.quarters.length || 1;
       const legend = '<p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = positienummer · © kapitein</p>';
