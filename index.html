@@ -3256,12 +3256,12 @@ function renderPrep() {
     <div><h1>${esc(tName(m))} vs ${esc(m.opponent)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">▶ Wedstrijd starten</button>
+    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
     <div class="wiz-nav" style="margin-top:8px">
       <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
-      <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">👤 Selectie &amp; opstelling</button>
+      <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">${icI(IC.players)} Selectie &amp; opstelling</button>
     </div>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="modalQuickResult()">⚡ Snel resultaat invoeren</button>`}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalQuickResult()">${icI(IC.timer)} Snel resultaat invoeren</button>`}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
     <div class="sec">Opstelling (${starters.length})</div>
