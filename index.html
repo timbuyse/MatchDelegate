@@ -1492,9 +1492,18 @@ async function go(v, id) {
 function render() { document.getElementById('app').innerHTML = views[view](); }
 
 // ===================== VISUAL PITCH =====================
+function shortName(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return name;
+  const last = parts[parts.length - 1];
+  const firsts = parts.slice(0, -1).join(' ');
+  const initials = firsts.split(/[\s-]+/).filter(Boolean).map(p => p[0].toUpperCase() + '.').join('');
+  return initials + ' ' + last;
+}
 function pitchDot(m, p, x, y) {
   const cap = (m && m.captainId === p.id) ? '© ' : '';
-  const lbl = `${cap}${esc(p.name)}`;
+  const lbl = `${cap}${esc(shortName(p.name))}`;
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
     ${p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
 }
@@ -1531,7 +1540,7 @@ function pitchSVG(m, players) {
     const gk = p.line === 'Doel', cap = (m.captainId === p.id) ? '© ' : '';
     return `<g><circle cx="${cx}" cy="${cy}" r="${R}" fill="${gk ? '#f5821f' : '#101010'}" stroke="#fff" stroke-width="2"/>` +
       `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.number || '?')}</text>` +
-      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc(cap + (p.name || ''))}</text></g>`;
+      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc(cap + shortName(p.name || ''))}</text></g>`;
   }).join('');
   return `<svg viewBox="-3 -3 ${W + 6} ${H + 6}" width="280" style="max-width:100%">
     <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="#1c8a46" stroke="#fff" stroke-width="3"/>
