@@ -822,7 +822,9 @@ async function loadAdminRequests() {
 async function approveAdmin(uid) {
   if (!isOwner || !fbdb) return;
   try {
-    await fbdb.ref('approvedAdmins/' + uid).set(true);
+    const reqSnap = await fbdb.ref('adminRequests/' + uid).once('value');
+    const req = reqSnap.val() || {};
+    await fbdb.ref('approvedAdmins/' + uid).set({ approved: true, name: req.name || '', email: req.email || '' });
     await fbdb.ref('adminRequests/' + uid).remove();
     loadAdminRequests();
   } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
@@ -848,9 +850,15 @@ async function showApprovedAdminsModal() {
     const el = document.getElementById('approved-list');
     if (!uids.length) { if (el) el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen goedgekeurde beheerders.</p>'; return; }
     const users = await Promise.all(uids.map(async uid => {
-      const s = await fbdb.ref('users/' + uid).once('value');
-      const u = s.val() || {};
-      return { uid, name: u.displayName || '(geen naam)', email: u.email || '(geen e-mail)' };
+      const entry = approved[uid];
+      // Nieuw formaat: naam/email zit al in approvedAdmins
+      if (typeof entry === 'object' && entry.name) return { uid, name: entry.name, email: entry.email || '' };
+      // Oud formaat (true): haal naam op uit users-node (eigenaar heeft nu leesrecht)
+      try {
+        const s = await fbdb.ref('users/' + uid).once('value');
+        const u = s.val() || {};
+        return { uid, name: u.displayName || uid, email: u.email || '' };
+      } catch (_) { return { uid, name: uid, email: '' }; }
     }));
     if (el) el.innerHTML = users.map(u => `
       <div class="ts-team-row" style="cursor:default;margin-bottom:8px">

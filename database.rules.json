@@ -10,7 +10,7 @@
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
         //   EN is eigenaar of goedgekeurd beheerder.
         // Bestaande ploeg aanpassen: enkel bestaande admin.
-        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && (root.child('owner').val() === auth.uid || root.child('approvedAdmins/' + auth.uid).val() === true)) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && (root.child('owner').val() === auth.uid || root.child('approvedAdmins/' + auth.uid).exists())) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
 
         "members": {
           // Admin mag leden beheren
@@ -44,7 +44,7 @@
 
     "users": {
       "$userId": {
-        ".read":  "auth != null && auth.uid === $userId",
+        ".read":  "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)",
         ".write": "auth != null && auth.uid === $userId"
       }
     },
