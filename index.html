@@ -251,6 +251,10 @@
     .tile .ti{font-size:27px;line-height:1}
     .ti svg{width:1em;height:1em;display:block;margin:0 auto}
     .tile-fi{font-size:24px;display:block;margin:0 auto 2px;line-height:1}
+    .ti i,.ltab i{font-size:1.1em;display:block;line-height:1;margin:0 auto}
+    .ic-i i,.ei i{font-size:1em;display:inline-block;vertical-align:-.12em;line-height:1}
+    .evtbtn .ei i{display:inline-block;vertical-align:middle}
+    .empty .ei i{font-size:52px;display:block;margin:0 auto 8px}
     .evtbtn .ei svg{width:1em;height:1em;display:inline-block;vertical-align:middle}
     .ei svg,.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.1em}
     .tile .tl{font-size:13px;font-weight:800}
@@ -304,7 +308,7 @@
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}
     /* Splash */
     #splash{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;pointer-events:none}
-    #splash img{width:140px;height:140px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
+    #splash img{width:180px;height:180px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
     #splash-bar{width:0;height:3px;background:var(--grn);border-radius:2px;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
     #splash-name{color:#fff;font-size:20px;font-weight:800;letter-spacing:.5px;opacity:0;animation:splashFade .5s .7s ease forwards}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
@@ -355,7 +359,7 @@
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
-<div id="splash"><img src="logo.png" alt="MatchDelegate"><div id="splash-bar"></div><div id="splash-name">MatchDelegate</div></div>
+<div id="splash"><img src="logo.png" alt="MatchDelegate"><div id="splash-bar"></div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div>
 <!-- Firebase (cloud delen). Faalt stil als offline: app blijft lokaal werken. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -408,12 +412,12 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
 const IC = {
-  ball: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7l4.5 3v5L12 17.5 7.5 15v-5z"/><path d="M12 7V3M16.5 10l3.5-2.5M16.5 15l3.5 2.5M12 17.5V21M7.5 15l-3.5 2.5M7.5 10 4 7.5"/>'),
+  ball: '<i class="ti ti-ball-football" aria-hidden="true"></i>',
   players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
-  shirt: _svg('<path d="M15 4l6 2-2 14H5L3 6l6-2a3 3 0 0 0 6 0"/>'),
+  shirt: '<i class="ti ti-shirt" aria-hidden="true"></i>',
   trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
-  medal: _svg('<circle cx="12" cy="15" r="5"/><path d="M8.5 8.5 5 4h14l-3.5 4.5H8.5"/>'),
-  chart: _svg('<rect x="3" y="13" width="4" height="7" rx="1"/><rect x="9.5" y="9" width="4" height="11" rx="1"/><rect x="16" y="5" width="4" height="15" rx="1"/><path d="M2 20h20"/>'),
+  medal: '<i class="ti ti-medal" aria-hidden="true"></i>',
+  chart: '<i class="ti ti-chart-bar" aria-hidden="true"></i>',
   goal: _svg('<path d="M3 20V6h18v14" stroke-width="2.2"/><path d="M3 9.5h4M3 13h3M7 6v4M11 6v3M15 6v3"/><circle cx="15.5" cy="14.5" r="3" fill="currentColor" stroke="none"/>'),
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
@@ -1069,22 +1073,22 @@ function cloudLoginModal() {
 
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
-    ? `<button class="btn btn-org" onclick="claimOwner()">👑 Ik ben de maker (eigenaar instellen)</button>`
+    ? `<button class="btn btn-org" onclick="claimOwner()"><i class="ti ti-crown" style="font-size:1.1em"></i> Ik ben de maker (eigenaar instellen)</button>`
     : '';
 
   // Deze ploeg beheren: uitnodigen, kijkers, verwijderen
   const manageBlock = (isAdmin && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
-    <button class="btn btn-green" onclick="closeModal();showInviteModal()">🔗 Kijkers uitnodigen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">👥 Kijkers bekijken</button>
-    <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()">🗑 Ploeg verwijderen</button>` : '';
+    <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Kijkers uitnodigen</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()"><i class="ti ti-users" style="font-size:1.1em"></i> Kijkers bekijken</button>
+    <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1.1em"></i> Ploeg verwijderen</button>` : '';
 
   // Van ploeg wisselen
   const switchBlock = `
     <div class="sec" style="margin-top:14px">Ploegen</div>
-    <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()">🔄 ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
+    <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()"><i class="ti ti-arrows-exchange" style="font-size:1.1em"></i> ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
 
-  openModal(`<h3>👤 Mijn account</h3>
+  openModal(`<h3><i class="ti ti-user-circle" style="font-size:1.1em;vertical-align:-.1em"></i> Mijn account</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px">${esc(currentUser.displayName || currentUser.email)}</p>
     ${ownerBlock}
     ${manageBlock}
@@ -1701,7 +1705,7 @@ const views = {
     setTimeout(updateCloudChip, 0);
     const switchBtn = (cloudReady && currentUser && activeTeamId)
       ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">⇄ ${esc(getClubName() || 'Ploeg')}</button>` : '';
-    return `<div class="hdr hdr-home"><img src="${getClubLogo()}" class="hdr-crest" alt="MatchDelegate">${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
+    return `<div class="hdr hdr-home"><img src="MD_cropped.png" class="hdr-crest" alt="MatchDelegate">${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
       <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>
       <div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>`;
   },
