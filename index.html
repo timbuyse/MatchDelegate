@@ -3924,6 +3924,7 @@ function exportPDF() {
       .stats div{background:#f5f6f5;padding:8px 14px;border-radius:8px}
       .stats b{color:#1f9d4d}
       @media print{body{padding:0}}
+      .ic-i{display:inline-block}.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.15em}
     </style></head><body>
     <div class="top"><img src="${getClubLogo()}" style="width:54px;height:54px;object-fit:contain;border-radius:10px;background:${(JSON.parse(localStorage.getItem('voetbal_theme')||'null')||GENERIC_THEME).dark}">
       <div><h1>${esc(tName(m))} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(m.opponent)}</h1>
