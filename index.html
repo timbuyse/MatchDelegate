@@ -297,11 +297,8 @@
     .pslot.filled.gk{background:#f5821f}
     .pslot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:74px;overflow:hidden;text-overflow:ellipsis}
     /* Pitch (visual field) */
-    .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:linear-gradient(#1c8a46,#23a653);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
-    .pitch::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(255,255,255,.45);pointer-events:none}
-    .pitch::after{content:'';position:absolute;top:50%;left:50%;width:60px;height:60px;border:2px solid rgba(255,255,255,.45);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
-    .pitch-box{position:absolute;left:50%;transform:translateX(-50%);width:46%;height:13%;border:2px solid rgba(255,255,255,.45);border-top:none}
-    .pitch-box.top{top:0;border-top:2px solid rgba(255,255,255,.45);border-bottom:none}
+    .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:repeating-linear-gradient(to bottom,#1b8040 0px,#1b8040 30px,#1e9449 30px,#1e9449 60px);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
+    .pitch-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     .pdot{position:absolute;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.4)}
     .pdot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:70px;overflow:hidden;text-overflow:ellipsis}
     .pdot-org{background:#f5821f}
@@ -310,7 +307,7 @@
     #splash{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;pointer-events:none}
     #splash img{width:180px;height:180px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
     #splash-bar{width:0;height:3px;background:var(--grn);border-radius:2px;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
-    #splash-name{color:#fff;font-size:20px;font-weight:800;letter-spacing:.5px;opacity:0;animation:splashFade .5s .7s ease forwards}
+    #splash-name{color:#fff;font-size:16px;font-weight:600;letter-spacing:2px;text-transform:uppercase;opacity:0;animation:splashFade .5s .7s ease forwards}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
     @keyframes splashBar{from{width:0}to{width:150px}}
     @keyframes splashFade{from{opacity:0}to{opacity:.65}}
@@ -1065,7 +1062,7 @@ function updateCloudChip() {
   if (!el) return;
   if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.innerHTML = (isAdmin ? `${icI(IC.edit)} Beheer` : '👁 Kijken');
+  el.innerHTML = (isAdmin ? `${icI(IC.edit)} Beheer` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijken');
   el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
@@ -1223,7 +1220,7 @@ async function showMembersModal() {
       const email = mi.email || '(e-mail nog niet gekend)';
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
-        : '<span class="ts-role viewer">👁 Kijker</span>';
+        : '<span class="ts-role viewer"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker</span>';
       const removeBtn = role !== 'admin'
         ? `<button class="btn btn-red btn-sm" style="margin-left:8px;flex-shrink:0" onclick="removeMember('${uid}')">Verwijderen</button>`
         : '';
@@ -1267,7 +1264,7 @@ function renderAuth() {
         <div class="fg"><label>E-mailadres</label><input id="auth-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
         <div class="fg"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"></div>
         <div class="auth-err" id="auth-err"></div>
-        <button class="btn btn-green" onclick="authDoLogin()">Aanmelden</button>
+        <button class="btn btn-org" onclick="authDoLogin()">Aanmelden</button>
         <button class="btn btn-gray" style="margin-top:8px" onclick="authForgotPassword()">Wachtwoord vergeten?</button>
       </div>
       <div id="auth-register-form" style="display:none">
@@ -1276,7 +1273,7 @@ function renderAuth() {
         <div class="fg"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
         <div class="fg"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"></div>
         <div class="auth-err" id="reg-err"></div>
-        <button class="btn btn-green" onclick="authDoRegister()">Account aanmaken</button>
+        <button class="btn btn-org" onclick="authDoRegister()">Account aanmaken</button>
       </div>
     </div>
   </div>`;
@@ -1346,7 +1343,7 @@ function renderTeamSelect() {
         const role = userTeams[id];
         return `<div class="ts-team-row" onclick="selectTeam('${id}')">
           <span class="ts-name" id="tsname-${id}">Ploeg laden...</span>
-          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : '👁 Kijker'}</span>
+          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker'}</span>
         </div>`;
       }).join('')
     : `<div class="empty"><div class="ei">👥</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
@@ -1521,8 +1518,8 @@ function evtLabel(e, m) {
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `⚡ Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
-    case 'freekick_them': return `⚡ Vrije trap tegen`;
+    case 'freekick_us': return `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
+    case 'freekick_them': return `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trap tegen`;
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
@@ -1645,11 +1642,28 @@ function shortName(name) {
   const initials = firsts.split(/[\s-]+/).filter(Boolean).map(p => p[0].toUpperCase() + '.').join('');
   return initials + ' ' + last;
 }
+function pitchLines() {
+  return `<svg class="pitch-lines" viewBox="0 0 320 480">
+    <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <circle cx="160" cy="240" r="43" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <circle cx="160" cy="240" r="3" fill="rgba(255,255,255,.7)"/>
+    <rect x="65.5" y="0" width="189" height="75" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <rect x="65.5" y="405" width="189" height="75" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <rect x="117" y="0" width="86" height="25" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <rect x="117" y="455" width="86" height="25" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <circle cx="160" cy="50" r="3" fill="rgba(255,255,255,.7)"/>
+    <circle cx="160" cy="430" r="3" fill="rgba(255,255,255,.7)"/>
+    <path d="M 8 0 A 8 8 0 0 0 0 8" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <path d="M 312 0 A 8 8 0 0 1 320 8" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <path d="M 0 472 A 8 8 0 0 0 8 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+    <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
+  </svg>`;
+}
 function pitchDot(m, p, x, y) {
-  const cap = (m && m.captainId === p.id) ? '© ' : '';
-  const lbl = `${cap}${esc(shortName(p.name))}`;
+  const cap = (m && m.captainId === p.id) ? ' ©' : '';
+  const lbl = `${esc(shortName(p.name))}${cap}`;
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
-    ${p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
+    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
 }
 function renderPitch(m, players) {
   let dots = '';
@@ -1663,10 +1677,8 @@ function renderPitch(m, players) {
     const n = ps.length;
     ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y); });
   }
-  return `<div class="pitch">
-    <div class="pitch-box top"></div><div class="pitch-box" style="bottom:0"></div>${dots}
-  </div>
-  <div class="field-legend">🟠 = doelman · cijfer in bol = rugnummer · onder = naam</div>`;
+  return `<div class="pitch">${pitchLines()}${dots}</div>
+  <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
 }
 // Zelfstandige SVG-veldweergave voor de PDF (los venster, zonder de app-CSS).
 function pitchSVG(m, players) {
@@ -1681,17 +1693,38 @@ function pitchSVG(m, players) {
   });
   const dots = pts.map(({ p, x, y }) => {
     const cx = (x / 100 * W).toFixed(1), cy = (y / 100 * H).toFixed(1);
-    const gk = p.line === 'Doel', cap = (m.captainId === p.id) ? '© ' : '';
+    const gk = p.line === 'Doel', cap = (m.captainId === p.id) ? ' ©' : '';
     return `<g><circle cx="${cx}" cy="${cy}" r="${R}" fill="${gk ? '#f5821f' : '#101010'}" stroke="#fff" stroke-width="2"/>` +
-      `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.number || '?')}</text>` +
-      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc(cap + shortName(p.name || ''))}</text></g>`;
+      `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.posNum || p.number || '?')}</text>` +
+      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc(shortName(p.name || '') + cap)}</text></g>`;
   }).join('');
-  return `<svg viewBox="-3 -3 ${W + 6} ${H + 6}" width="280" style="max-width:100%">
-    <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="#1c8a46" stroke="#fff" stroke-width="3"/>
-    <line x1="0" y1="${H / 2}" x2="${W}" y2="${H / 2}" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
-    <circle cx="${W / 2}" cy="${H / 2}" r="36" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
-    <rect x="${W * 0.27}" y="0" width="${W * 0.46}" height="${H * 0.13}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
-    <rect x="${W * 0.27}" y="${H * 0.87}" width="${W * 0.46}" height="${H * 0.13}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
+  const PAW=189,PAD=75,GAW=86,GAD=25,GW=36,GD=10,CCR=43,PENY=50,CR=8;
+  const pax=((W-PAW)/2).toFixed(1), gax=((W-GAW)/2).toFixed(1), gx=((W-GW)/2).toFixed(1);
+  const adx=Math.sqrt(CCR*CCR-(PAD-PENY)*(PAD-PENY)).toFixed(1);
+  const ax1=(W/2-adx).toFixed(1), ax2=(W/2+ +adx).toFixed(1);
+  return `<svg viewBox="-3 -${GD+2} ${W+6} ${H+GD*2+4}" width="280" style="max-width:100%">
+    <defs>
+      <pattern id="grass" x="0" y="0" width="${W}" height="60" patternUnits="userSpaceOnUse">
+        <rect width="${W}" height="30" fill="#1b8040"/>
+        <rect y="30" width="${W}" height="30" fill="#1e9449"/>
+      </pattern>
+      <clipPath id="fc"><rect x="0" y="0" width="${W}" height="${H}" rx="8"/></clipPath>
+    </defs>
+    <g clip-path="url(#fc)"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#grass)"/></g>
+    <rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="#fff" stroke-width="2.5"/>
+    <line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#fff" stroke-width="2"/>
+    <circle cx="${W/2}" cy="${H/2}" r="${CCR}" fill="none" stroke="#fff" stroke-width="2"/>
+    <circle cx="${W/2}" cy="${H/2}" r="3" fill="#fff"/>
+    <rect x="${pax}" y="0" width="${PAW}" height="${PAD}" fill="none" stroke="#fff" stroke-width="2"/>
+    <rect x="${pax}" y="${H-PAD}" width="${PAW}" height="${PAD}" fill="none" stroke="#fff" stroke-width="2"/>
+    <rect x="${gax}" y="0" width="${GAW}" height="${GAD}" fill="none" stroke="#fff" stroke-width="2"/>
+    <rect x="${gax}" y="${H-GAD}" width="${GAW}" height="${GAD}" fill="none" stroke="#fff" stroke-width="2"/>
+    <circle cx="${W/2}" cy="${PENY}" r="3" fill="#fff"/>
+    <circle cx="${W/2}" cy="${H-PENY}" r="3" fill="#fff"/>
+    <path d="M ${CR} 0 A ${CR} ${CR} 0 0 0 0 ${CR}" fill="none" stroke="#fff" stroke-width="2"/>
+    <path d="M ${W-CR} 0 A ${CR} ${CR} 0 0 1 ${W} ${CR}" fill="none" stroke="#fff" stroke-width="2"/>
+    <path d="M 0 ${H-CR} A ${CR} ${CR} 0 0 0 ${CR} ${H}" fill="none" stroke="#fff" stroke-width="2"/>
+    <path d="M ${W} ${H-CR} A ${CR} ${CR} 0 0 1 ${W-CR} ${H}" fill="none" stroke="#fff" stroke-width="2"/>
     ${dots}
   </svg>`;
 }
@@ -1972,7 +2005,7 @@ function renderSettings(isFirst) {
   <div class="content">
     <div class="sec">Weergave</div>
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">🌙 Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
+      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-moon" style="font-size:1em;vertical-align:-.1em"></i> Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
         <span class="start-chip ${darkOn()?'on':''}" onclick="toggleDark()">${darkOn()?'Aan':'Uit'}</span></div>
     </div>
     ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
@@ -2247,7 +2280,7 @@ function renderTeamsList() {
       ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
       : (cloudReady && isAdmin)
         ? '<div class="viewer-banner" style="margin-top:8px">➕ Een andere ploeg aanmaken of ernaar wisselen doe je via de ploegknop (⇄) bovenaan het startscherm.</div>'
-        : '<div class="viewer-banner" style="margin-top:8px">👁 Je kijkt mee — spelers worden door de beheerder beheerd</div>'}
+        : '<div class="viewer-banner" style="margin-top:8px"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — spelers worden door de beheerder beheerd</div>'}
   </div>`;
 }
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; go('teamEdit'); }
@@ -2266,7 +2299,7 @@ function renderTeamView() {
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
-    <div class="viewer-banner">👁 Je kijkt mee — ploegen worden door de beheerder beheerd</div>
+    <div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — ploegen worden door de beheerder beheerd</div>
     ${(t.responsible || trainers.length) ? `<div class="card">
       ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantwoordelijke</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
@@ -2987,7 +3020,7 @@ function wizPitch(form) {
     if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${p.number || '?'}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
     return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${LINE_SHORT[s.line] || ''}</div>`;
   }).join('');
-  return `<div class="pitch"><div class="pitch-box top"></div><div class="pitch-box" style="bottom:0"></div>${slots}</div>`;
+  return `<div class="pitch">${pitchLines()}${slots}</div>`;
 }
 function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];
@@ -3011,12 +3044,38 @@ function wizStep3() {
     </div>
     <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">${icI(IC.calendar)} ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
 }
+function computePosNum(matchType, slotIdx, slots) {
+  const slot = slots[slotIdx];
+  const line = slot.line;
+  const lineSlots = slots.map((s, i) => ({ ...s, origIdx: i })).filter(s => s.line === line).sort((a, b) => a.x - b.x);
+  const pos = lineSlots.findIndex(s => s.origIdx === slotIdx);
+  const n = lineSlots.length;
+  if (matchType === '11v11') {
+    if (line === 'Doel') return 1;
+    if (line === 'Verdediging') return ([5,3,4,2])[pos] || pos + 2;
+    if (line === 'Middenveld') return ({ 3:[6,8,10], 4:[11,6,8,7], 5:[11,6,8,10,7] }[n] || [])[pos] || pos + 6;
+    if (line === 'Aanval')     return ({ 1:[9], 2:[9,10], 3:[11,9,7] }[n] || [])[pos] || pos + 9;
+  }
+  if (matchType === '8v8') {
+    if (line === 'Doel') return 1;
+    if (line === 'Verdediging') return ({ 1:[3], 2:[5,2], 3:[5,3,2] }[n] || [])[pos] || pos + 2;
+    if (line === 'Middenveld')  return ({ 1:[10], 2:[6,10], 3:[6,10,8] }[n] || [])[pos] || pos + 6;
+    if (line === 'Aanval')      return ({ 1:[9], 2:[11,7], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
+  }
+  if (matchType === '5v5') {
+    if (line === 'Doel') return 1;
+    if (line === 'Verdediging') return ({ 1:[3], 2:[3,4] }[n] || [])[pos] || 3;
+    if (line === 'Middenveld')  return ({ 1:[10], 2:[11,7] }[n] || [])[pos] || pos + 6;
+    if (line === 'Aanval')      return ({ 1:[9], 2:[11,7], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
+  }
+  return pos + 1;
+}
 async function finishWizard(startNow) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
   if (unplaced.length) { alert(`Plaats nog ${unplaced.length} speler(s) op het veld.`); return; }
   const team = teamById(wiz.teamId);
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: '', starting: true, onField: true, x: s.x, y: s.y }; });
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
   const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
   const allP = starters.concat(bench);
   let capId = null;
@@ -3116,7 +3175,7 @@ function renderPrep() {
     <div><h1>${esc(tName(m))} vs ${esc(m.opponent)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? '<div class="viewer-banner">👁 Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">▶ Wedstrijd starten</button>
+    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">▶ Wedstrijd starten</button>
     <div class="wiz-nav" style="margin-top:8px">
       <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
       <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">👤 Selectie &amp; opstelling</button>
@@ -3343,7 +3402,7 @@ function renderLive() {
     <div><h1>${esc(tName(match))} vs ${esc(match.opponent)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
   </div>
-  <div class="content">${ro ? '<div class="viewer-banner">👁 Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
+  <div class="content">${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling</button>
@@ -4025,7 +4084,7 @@ function exportPDF() {
     const a = m.events.filter(e=>e.type==='goal_us'&&e.assistId===p.id).length;
     const yc = m.events.filter(e=>e.type==='yellow_card'&&e.playerId===p.id).length;
     const rc = m.events.filter(e=>e.type==='red_card'&&e.playerId===p.id).length;
-    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td>${p.line}${p.posNum?' ('+p.posNum+')':''}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
+    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${p.posNum||'—'}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
   const infoBits = [m.formation, m.competition, m.matchday && ('speeldag ' + m.matchday), m.trainer && ('trainer ' + m.trainer), m.responsible && ('afgevaardigde ' + m.responsible), m.referee && ('ref. ' + m.referee), m.jersey && ('trui ' + m.jersey), m.weather, m.captainId && ('kapitein ' + pName(m, m.captainId))].filter(Boolean);
@@ -4044,6 +4103,7 @@ function exportPDF() {
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"><title>${esc(tName(m))} vs ${esc(m.opponent)}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
     <style>
       body{font-family:Arial,sans-serif;color:#171717;padding:24px;max-width:800px;margin:0 auto}
       .top{display:flex;align-items:center;gap:14px;border-bottom:3px solid #f5821f;padding-bottom:14px;margin-bottom:18px}
@@ -4069,9 +4129,25 @@ function exportPDF() {
     </div>
     <div class="score"><span class="us">${m.scoreUs}</span> – ${m.scoreThem}</div>
     ${m.motmId?`<p style="text-align:center;font-weight:700;margin:-8px 0 10px">${icI(IC.motm)} Man van de match: ${esc(pName(m,m.motmId))}</p>`:''}
-    ${m.players.some(p=>p.starting)?`<h2>Basisopstelling${m.formation?` · ${esc(m.formation)}`:''}</h2>
-    <div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>
-    <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = rugnummer · © kapitein</p>`:''}
+    ${m.players.some(p=>p.starting)?(()=>{
+      function playersAtStart(qNum) {
+        const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
+        m.events.filter(e => e.type==='substitution' && e.quarterNum != null && e.quarterNum < qNum)
+          .sort((a,b) => a.gameTimeMs - b.gameTimeMs)
+          .forEach(e => { if(e.playerOutId) on[e.playerOutId]=false; if(e.playerInId) on[e.playerInId]=true; });
+        return m.players.filter(p => on[p.id]);
+      }
+      const numQ = m.quarters.length || 1;
+      const legend = '<p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = positienummer · © kapitein</p>';
+      if (numQ <= 1) {
+        return `<h2>Opstelling${m.formation?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>${legend}`;
+      }
+      return Array.from({length: numQ}, (_,i) => {
+        const qNum = i + 1;
+        const ps = playersAtStart(qNum);
+        return `<h2>${pSing(m)} ${qNum}${m.formation&&qNum===1?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, ps)}</div>${legend}`;
+      }).join('');
+    })():''}
     ${m.quarters.length?`<h2>Tussenstand per ${pSingLow(m)}</h2>
     <table><thead><tr><th>${pSing(m)}</th><th>Tussenstand</th><th>Duur</th><th>Doelpunten</th></tr></thead>
     <tbody>${perQuarterRows}</tbody></table>`:''}
@@ -4086,7 +4162,7 @@ function exportPDF() {
       <div>🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}</div>
     </div>
     <h2>Spelers</h2>
-    <table><thead><tr><th>#</th><th>Naam</th><th>Positie</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
+    <table><thead><tr><th>#</th><th>Naam</th><th style="text-align:center">Pos#</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
     ${m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     ${m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
