@@ -1323,8 +1323,7 @@ async function authDoRegister() {
     const cred = await fbauth.createUserWithEmailAndPassword(email, pwd);
     await cred.user.updateProfile({ displayName: name.trim() });
     await fbdb.ref('users/' + cred.user.uid).set({ email, displayName: name.trim(), createdAt: Date.now() });
-    await cred.user.sendEmailVerification();
-    if (err) err.textContent = '✓ Account aangemaakt! Controleer je e-mail voor een bevestigingslink.';
+    if (err) err.textContent = '✓ Account aangemaakt!';
   } catch (e) { if (err) err.textContent = authErrMsg(e.code); }
 }
 
@@ -1520,6 +1519,7 @@ function evtLabel(e, m) {
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+    case 'posSwap': return `↔ ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -3070,21 +3070,31 @@ function ensurePosNums(m) {
 function playersAtPeriodStart(m, qNum) {
   const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
   const fallback = {};
-  // include break subs that fired at the START of qNum (quarterNum === qNum, atBreak: true)
-  m.events.filter(e => e.type === 'substitution' && e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
-    .sort((a, b) => a.gameTimeMs - b.gameTimeMs)
-    .forEach(e => {
+  const posOverride = {}; // positieoverschrijvingen door posSwap-events
+  const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
+    .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
+  for (const e of relevant) {
+    if (e.type === 'substitution') {
       if (e.playerOutId) on[e.playerOutId] = false;
       if (e.playerInId) {
         on[e.playerInId] = true;
         const out = m.players.find(p => p.id === e.playerOutId);
         if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
       }
-    });
+    } else if (e.type === 'posSwap' && e.pA && e.pB) {
+      const prev = { a: posOverride[e.pA] || null, b: posOverride[e.pB] || null };
+      const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
+      const posA = prev.a || (pA ? { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum } : null);
+      const posB = prev.b || (pB ? { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum } : null);
+      if (posA) posOverride[e.pB] = posA;
+      if (posB) posOverride[e.pA] = posB;
+    }
+  }
   // fallback only applied when the player genuinely has no x/y (edge case: old match data)
-  return m.players.filter(p => on[p.id]).map(p =>
-    (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p
-  );
+  return m.players.filter(p => on[p.id]).map(p => {
+    const base = (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p;
+    return posOverride[p.id] ? { ...base, ...posOverride[p.id] } : base;
+  });
 }
 let _lcIdx = 0;
 function _lcNav(dir) {
@@ -3438,6 +3448,8 @@ function renderLive() {
         <div class="sec" style="margin-top:0">🔄 Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
         ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">🔄 <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">➕ Pauzewissel toevoegen</button>
+        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">↔ Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">↔ <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">↔</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}` : ''}
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">↔ Positiewissel toevoegen</button>
       </div>` : ''}
       ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
@@ -3521,6 +3533,15 @@ async function startQuarter() {
     pIn.onField = true; pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum;
   }
   match.pendingSubs = [];
+  for (const s of (match.pendingPosSwaps || [])) {
+    const pA = match.players.find(p => p.id === s.pA), pB = match.players.find(p => p.id === s.pB);
+    if (!pA || !pB) continue;
+    addEvent('posSwap', { pA: s.pA, pB: s.pB, atBreak: true });
+    const tmp = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+    pA.x = pB.x; pA.y = pB.y; pA.line = pB.line; pA.posNum = pB.posNum;
+    pB.x = tmp.x; pB.y = tmp.y; pB.line = tmp.line; pB.posNum = tmp.posNum;
+  }
+  match.pendingPosSwaps = [];
   // Keeper voor dit deel = automatisch de speler op de doellijn.
   syncKeeper();
   requestWake();
@@ -3783,7 +3804,8 @@ async function saveEditEvent(id) {
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
-    <div class="sec" style="margin-top:0">Kapitein</div>
+    <div class="sec" style="margin-top:0">Opstelling</div>
+    ${opt(`↔ Positiewissel`, "modalPosSwap()")}
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <div class="sec">${icI(IC.shot)} Schoten</div>
     ${opt(`${icI(IC.shot)} Schot voor ons — op doel`, "logExtra('shot_us',{onTarget:true})")}
@@ -3936,6 +3958,59 @@ async function confirmSub() {
   await dbSave(match); closeModal(); render();
 }
 async function removePendingSub(i) { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); }
+
+// ===================== MODAL: POSITIEWISSEL =====================
+let posSwapA = null, posSwapB = null;
+function modalPosSwap() {
+  posSwapA = null; posSwapB = null;
+  const isBetween = match.quarterStatus === 'between';
+  const on = isBetween ? playersOnField(match) : playersOnField(match);
+  const title = isBetween ? `↔ Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}` : '↔ Positiewissel';
+  const hint = isBetween
+    ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>'
+    : '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselen.</p>';
+  openModal(`<h3>${title}</h3>${hint}
+    <div class="sec" style="margin-top:0">Eerste speler</div>
+    <div id="psw-a">${on.map(p => `<div class="mopt" onclick="selectPosSwapA('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}</div>
+    <div class="sec" id="psw-b-lbl" style="display:none">Tweede speler</div>
+    <div id="psw-b" style="display:none"></div>
+    <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">✓ Positiewissel doorvoeren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function selectPosSwapA(id, el) {
+  posSwapA = id; posSwapB = null;
+  document.querySelectorAll('#psw-a .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel');
+  const on = playersOnField(match).filter(p => p.id !== id);
+  const bDiv = document.getElementById('psw-b');
+  const bLbl = document.getElementById('psw-b-lbl');
+  const btn = document.getElementById('psw-confirm');
+  if (!bDiv || !bLbl || !btn) return;
+  bDiv.innerHTML = on.map(p => `<div class="mopt" onclick="selectPosSwapB('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('');
+  bLbl.style.display = ''; bDiv.style.display = ''; btn.style.display = 'none';
+}
+function selectPosSwapB(id, el) {
+  posSwapB = id;
+  document.querySelectorAll('#psw-b .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel');
+  const btn = document.getElementById('psw-confirm'); if (btn) btn.style.display = '';
+}
+async function confirmPosSwap() {
+  if (!posSwapA || !posSwapB) return;
+  if (match.quarterStatus === 'between') {
+    match.pendingPosSwaps = match.pendingPosSwaps || [];
+    match.pendingPosSwaps.push({ pA: posSwapA, pB: posSwapB });
+    await dbSave(match); closeModal(); render();
+    return;
+  }
+  addEvent('posSwap', { pA: posSwapA, pB: posSwapB });
+  const pA = match.players.find(p => p.id === posSwapA), pB = match.players.find(p => p.id === posSwapB);
+  if (pA && pB) {
+    const tmp = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+    pA.x = pB.x; pA.y = pB.y; pA.line = pB.line; pA.posNum = pB.posNum;
+    pB.x = tmp.x; pB.y = tmp.y; pB.line = tmp.line; pB.posNum = tmp.posNum;
+  }
+  await dbSave(match); closeModal(); render();
+}
+async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); }
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
@@ -4198,20 +4273,30 @@ function exportPDF() {
     ${m.players.some(p=>p.starting)?(()=>{
       function playersAtStart(qNum) {
         const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
-        const fallback = {};
-        m.events.filter(e => e.type==='substitution' && e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
-          .sort((a,b) => a.gameTimeMs - b.gameTimeMs)
-          .forEach(e => {
+        const fallback = {}, posOverride = {};
+        const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
+          .sort((a,b) => a.gameTimeMs - b.gameTimeMs);
+        for (const e of relevant) {
+          if (e.type === 'substitution') {
             if(e.playerOutId) on[e.playerOutId]=false;
             if(e.playerInId) {
               on[e.playerInId]=true;
               const out = m.players.find(p => p.id === e.playerOutId);
               if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
             }
-          });
-        return m.players.filter(p => on[p.id]).map(p =>
-          (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p
-        );
+          } else if (e.type === 'posSwap' && e.pA && e.pB) {
+            const prev = { a: posOverride[e.pA]||null, b: posOverride[e.pB]||null };
+            const pA = m.players.find(p=>p.id===e.pA), pB = m.players.find(p=>p.id===e.pB);
+            const posA = prev.a||(pA?{x:pA.x,y:pA.y,line:pA.line,posNum:pA.posNum}:null);
+            const posB = prev.b||(pB?{x:pB.x,y:pB.y,line:pB.line,posNum:pB.posNum}:null);
+            if (posA) posOverride[e.pB] = posA;
+            if (posB) posOverride[e.pA] = posB;
+          }
+        }
+        return m.players.filter(p => on[p.id]).map(p => {
+          const base = (typeof p.x !== 'number' && fallback[p.id]) ? {...p,...fallback[p.id]} : p;
+          return posOverride[p.id] ? {...base,...posOverride[p.id]} : base;
+        });
       }
       const numQ = m.quarters.length || 1;
       const legend = '<p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = positienummer · © kapitein</p>';
