@@ -1013,8 +1013,8 @@ function showLiveBanner(title, matchId) {
 }
 function applyCloudTeams(val) {
   const raw = Array.isArray(val) ? val : Object.values(val || {});
-  // Firebase slaat [] op als null — normaliseer terug naar array
-  const cloud = raw.map(t => Object.assign({}, t, {
+  // Firebase slaat [] op als null — normaliseer terug naar array, filter nulls
+  const cloud = raw.filter(t => t && t.id).map(t => Object.assign({}, t, {
     players: Array.isArray(t.players) ? t.players : [],
     trainers: Array.isArray(t.trainers) ? t.trainers : [],
     fromCloud: true
