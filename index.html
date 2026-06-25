@@ -1803,7 +1803,7 @@ async function loadHome() {
         const team = teamById(t.teamId);
         return `<div class="match-item" onclick="goTournament('${t.id}')" style="border-left-color:var(--org)">
           <div class="mi-info">
-            <div class="mi-opp">${icI(IC.trophy)} ${esc(t.name)}</div>
+            <div class="mi-opp">${icI(IC.medal)} ${esc(t.name)}</div>
             <div class="mi-date">${team ? '<b>'+esc(team.name)+'</b> · ' : ''}${t.date ? fmtDate(new Date(t.date+'T00:00:00').getTime()) : ''}${t.location ? ' · '+esc(t.location) : ''}</div>
             <span class="badge badge-plan">${icI(IC.calendar)} Gepland</span><span class="badge badge-type">Tornooi</span>
           </div>
@@ -1816,7 +1816,7 @@ async function loadHome() {
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
-  el.innerHTML = viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.trophy)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  el.innerHTML = viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -2374,19 +2374,19 @@ function setTrainer(i, val) {
 // ===================== TORNOOIEN =====================
 function renderTournamentList() {
   const trns = getTournaments().slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const newBtn = canManage() ? `<button class="btn btn-green" style="margin-top:8px" onclick="newTournament()">${icI(IC.trophy)} + Nieuw tornooi</button>` : '';
-  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.trophy)} Tornooien</h1></div>
+  const newBtn = canManage() ? `<button class="btn btn-green" style="margin-top:8px" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
+  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.medal)} Tornooien</h1></div>
   <div class="content">
     ${trns.length ? trns.map(t => {
       const team = teamById(t.teamId);
       return `<div class="team-row" onclick="goTournament('${t.id}')">
         <div>
-          <div class="tn">${icI(IC.trophy)} ${esc(t.name)}</div>
+          <div class="tn">${icI(IC.medal)} ${esc(t.name)}</div>
           <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}</div>
         </div>
         <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
       </div>`;
-    }).join('') : `<div class="empty"><div class="ei">${IC.trophy}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`}
+    }).join('') : `<div class="empty"><div class="ei">${IC.medal}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`}
     ${newBtn}
   </div>`;
 }
@@ -2396,7 +2396,7 @@ function renderTournament() {
   if (!t) return '<div class="content"><p>Niet gevonden.</p></div>';
   setTimeout(loadTournamentDetail, 0);
   const editBtn = canManage() ? `<button class="hdr-btn" onclick="editTournament('${t.id}')">${icI(IC.edit)}</button>` : '';
-  return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.trophy)} ${esc(t.name)}</h1>${editBtn}</div>
+  return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
   <div class="content" id="trn-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
 }
 
@@ -3338,7 +3338,7 @@ function renderLive() {
   <div class="content">${ro ? '<div class="viewer-banner">👁 Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
-    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.players}</span>Opstelling</button>
+    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling</button>
     <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">${IC.log}</span>Log</button>
   </div>`;
 }
@@ -3646,7 +3646,7 @@ function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
     <div class="sec" style="margin-top:0">Kapitein</div>
-    ${opt(`${icI(IC.players)} Kapitein wijzigen`, "modalSetCaptain()")}
+    ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <div class="sec">${icI(IC.shot)} Schoten</div>
     ${opt(`${icI(IC.shot)} Schot voor ons — op doel`, "logExtra('shot_us',{onTarget:true})")}
     ${opt(`${icI(IC.shot)} Schot voor ons — naast`, "logExtra('shot_us',{onTarget:false})")}
