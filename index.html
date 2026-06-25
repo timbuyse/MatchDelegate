@@ -303,6 +303,12 @@
     .pdot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:70px;overflow:hidden;text-overflow:ellipsis}
     .pdot-org{background:#f5821f}
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}
+    /* Lineup carousel */
+    .lc-wrap{position:relative}
+    .lc-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .lc-nav-lbl{font-size:13px;font-weight:700;color:var(--txt2)}
+    .lc-btn{background:var(--blk2);color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .lc-btn:disabled{opacity:.25;cursor:default}
     /* Splash */
     #splash{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;pointer-events:none}
     #splash img{width:180px;height:180px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
@@ -3044,6 +3050,56 @@ function wizStep3() {
     </div>
     <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">${icI(IC.calendar)} ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
 }
+function ensurePosNums(m) {
+  if (!m || !m.matchType) return false;
+  const fi = (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation);
+  if (fi < 0) return false;
+  const slots = FORMATIONS[m.matchType][fi].slots;
+  let changed = false;
+  m.players.forEach(p => {
+    if (p.starting && (p.posNum === '' || p.posNum == null)) {
+      const idx = slots.findIndex(s => s.x === p.x && s.y === p.y);
+      if (idx >= 0) { p.posNum = computePosNum(m.matchType, idx, slots); changed = true; }
+    }
+  });
+  return changed;
+}
+function playersAtPeriodStart(m, qNum) {
+  const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
+  m.events.filter(e => e.type === 'substitution' && e.quarterNum != null && e.quarterNum < qNum)
+    .sort((a, b) => a.gameTimeMs - b.gameTimeMs)
+    .forEach(e => { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId) on[e.playerInId] = true; });
+  return m.players.filter(p => on[p.id]);
+}
+let _lcIdx = 0;
+function _lcNav(dir) {
+  const total = Math.max(1, match.quarters.length);
+  const car = document.getElementById('lc-wrap');
+  if (!car) return;
+  car.querySelectorAll('.lc-slide').forEach((s, i) => s.style.display = 'none');
+  _lcIdx = (_lcIdx + dir + total) % total;
+  car.querySelectorAll('.lc-slide')[_lcIdx].style.display = '';
+  document.getElementById('lc-lbl').textContent = `${pSing(match)} ${_lcIdx + 1} / ${total}`;
+  document.getElementById('lc-prev').disabled = _lcIdx === 0;
+  document.getElementById('lc-next').disabled = _lcIdx === total - 1;
+}
+function renderLineupCarousel(m) {
+  const total = Math.max(1, m.quarters.length);
+  _lcIdx = 0;
+  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting));
+  const slides = Array.from({length: total}, (_, i) => {
+    const ps = playersAtPeriodStart(m, i + 1);
+    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps)}</div>`;
+  }).join('');
+  return `<div class="lc-wrap" id="lc-wrap">
+    <div class="lc-nav">
+      <button class="lc-btn" id="lc-prev" onclick="_lcNav(-1)" disabled>‹</button>
+      <span class="lc-nav-lbl" id="lc-lbl">${pSing(m)} 1 / ${total}</span>
+      <button class="lc-btn" id="lc-next" onclick="_lcNav(1)">›</button>
+    </div>
+    ${slides}
+  </div>`;
+}
 function computePosNum(matchType, slotIdx, slots) {
   const slot = slots[slotIdx];
   const line = slot.line;
@@ -3997,6 +4053,7 @@ async function confirmFreekick() {
 // ===================== DETAIL VIEW =====================
 function renderDetail() {
   if (!match) return '<div class="content"><p>Niet gevonden.</p></div>';
+  if (ensurePosNums(match)) dbSave(match);
   const ro = !!(match.fromCloud && !isAdmin); // kijker: alleen-lezen
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
@@ -4038,7 +4095,7 @@ function renderDetail() {
       ${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
     </div>
     <div class="sec">Opstelling</div>
-    <div class="card">${renderPitch(match, match.players.filter(p=>p.starting))}</div>
+    <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     ${(match.keeperByQ && Object.keys(match.keeperByQ).length) ? (() => {
       const km = keeperMinutes(match);
@@ -4142,11 +4199,16 @@ function exportPDF() {
       if (numQ <= 1) {
         return `<h2>Opstelling${m.formation?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>${legend}`;
       }
-      return Array.from({length: numQ}, (_,i) => {
-        const qNum = i + 1;
-        const ps = playersAtStart(qNum);
-        return `<h2>${pSing(m)} ${qNum}${m.formation&&qNum===1?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, ps)}</div>${legend}`;
-      }).join('');
+      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtStart(q)}; });
+      const rows = [];
+      for (let i=0; i<items.length; i+=2) rows.push(items.slice(i,i+2));
+      return rows.map(row =>
+        `<div style="display:flex;gap:12px;align-items:flex-start;margin:10px 0">` +
+        row.map(({q,ps}) =>
+          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}${m.formation&&q===1?' · '+esc(m.formation):''}</h3>${pitchSVG(m,ps)}${legend}</div>`
+        ).join('') +
+        `</div>`
+      ).join('');
     })():''}
     ${m.quarters.length?`<h2>Tussenstand per ${pSingLow(m)}</h2>
     <table><thead><tr><th>${pSing(m)}</th><th>Tussenstand</th><th>Duur</th><th>Doelpunten</th></tr></thead>
