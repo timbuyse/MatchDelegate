@@ -119,6 +119,7 @@
     .sb-teams{display:flex;justify-content:space-between;font-size:12px;opacity:.7;margin-bottom:4px}
     .sb-score{font-size:64px;font-weight:900;line-height:1;letter-spacing:6px;font-variant-numeric:tabular-nums}
     .sb-score .us{color:var(--grn)}
+    .grn{color:var(--grn)}
     .sb-info{font-size:13px;opacity:.7;margin-top:6px}
     /* Timer */
     .timer-card{background:var(--blk2);color:#fff;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
@@ -449,6 +450,22 @@ const IC = {
 };
 const icI = ic => `<span class="ic-i">${ic}</span>`;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
+function isAway(m) { return !!(m && m.location && m.location.toLowerCase() !== 'thuis'); }
+function matchTitle(m) {
+  const own = esc(tName(m)), opp = esc(m.opponent || '');
+  return isAway(m) ? `${opp} vs ${own}` : `${own} vs ${opp}`;
+}
+// Score in thuisploeg-eerst volgorde. cls = CSS-klasse voor eigen score (groen).
+function scoreHtml(m, cls) {
+  const c = cls || 'us';
+  return isAway(m)
+    ? `${m.scoreThem} – <span class="${c}">${m.scoreUs}</span>`
+    : `<span class="${c}">${m.scoreUs}</span> – ${m.scoreThem}`;
+}
+// Platte tekst voor score (bv. in share/PDF-titel).
+function scoreTxt(m) {
+  return isAway(m) ? `${m.scoreThem}-${m.scoreUs}` : `${m.scoreUs}-${m.scoreThem}`;
+}
 // Opgeslagen ploegnamen (localStorage)
 function getTeams() { try { return JSON.parse(localStorage.getItem('voetbal_teams') || '[]'); } catch (e) { return []; } }
 function saveTeam(name) { name = (name || '').trim(); if (!name) return; const t = getTeams(); if (!t.includes(name)) { t.push(name); t.sort(); localStorage.setItem('voetbal_teams', JSON.stringify(t)); } }
@@ -537,7 +554,7 @@ function migrateTeams() {
 function recomputeScore(m) {
   let us = 0, them = 0;
   for (const e of m.events) {
-    if (e.type === 'goal_us') us++;
+    if (e.type === 'goal_us' || e.type === 'own_goal_them') us++;
     else if (e.type === 'goal_them' || e.type === 'own_goal') them++;
     else if (e.type === 'penalty_us' && e.scored) us++;
     else if (e.type === 'penalty_them' && e.scored) them++;
@@ -549,7 +566,7 @@ function scoreUpToQuarter(m, qNum) {
   let us = 0, them = 0;
   for (const e of m.events) {
     if (e.quarterNum == null || e.quarterNum > qNum) continue;
-    if (e.type === 'goal_us') us++;
+    if (e.type === 'goal_us' || e.type === 'own_goal_them') us++;
     else if (e.type === 'goal_them' || e.type === 'own_goal') them++;
     else if (e.type === 'penalty_us' && e.scored) us++;
     else if (e.type === 'penalty_them' && e.scored) them++;
@@ -1487,6 +1504,23 @@ function getQElapsed(m) {
   return Math.max(0, ref - q.startTime - (q.totalPaused || 0));
 }
 function gameMin(ms) { return Math.floor(ms / 60000) + 1; }
+// Cumulatieve werkelijke speeltijd vóór het begin van kwart qNum.
+function gameTimeMsAtStartOfQuarter(m, qNum) {
+  let t = 0;
+  for (const q of [...m.quarters].sort((a,b) => a.num - b.num)) {
+    if (q.num >= qNum) break;
+    if (q.endTime && q.startTime) t += q.endTime - q.startTime - (q.totalPaused || 0);
+    else t += (m.quarterDuration || 15) * 60000;
+  }
+  return t;
+}
+// Minuut binnen het kwart (reset naar 1 bij elk nieuw kwart).
+function eventMin(e, m) {
+  if (!e.quarterNum) return gameMin(e.gameTimeMs);
+  const actualStart = gameTimeMsAtStartOfQuarter(m, e.quarterNum);
+  const withinQuarter = Math.max(0, e.gameTimeMs - actualStart);
+  return Math.floor(withinQuarter / 60000) + 1;
+}
 function playersOnField(m) { return m.players.filter(p => p.onField); }
 function playersOnBench(m) { return m.players.filter(p => !p.onField); }
 // Veldbezetting inclusief reeds ingeplande pauzewissels (voor het plannen van meerdere wissels op rij).
@@ -1524,6 +1558,7 @@ function evtLabel(e, m) {
     case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
     case 'goal_them': return `${icI(IC.goal)} Tegendoel`;
     case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pName(m,e.playerId)})`;
+    case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
@@ -1565,10 +1600,10 @@ function renderEventLog(m) {
   if (!groups.length) return '<p style="color:var(--txt2);font-size:14px">Geen events.</p>';
   return groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
-    const score = g.cum ? `<span class="qgroup-score"><span class="us">${g.cum.us}</span>–${g.cum.them}</span>` : '';
+    const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
     const elog_ro = !!(m.fromCloud && !isAdmin);
     const items = g.list.length
-      ? g.list.map(e => `<li><span class="emin">${gameMin(e.gameTimeMs)}'</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
+      ? g.list.map(e => `<li><span class="emin">${eventMin(e,m)}'</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
       : '<li class="qgroup-empty">Geen events in dit deel.</li>';
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
@@ -1634,6 +1669,7 @@ function openModal(html) {
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modal').innerHTML = '';
+  _postEventQuarter = null;
 }
 
 // ===================== NAVIGATION =====================
@@ -1787,30 +1823,30 @@ function matchItemHtml(m) {
   const st = m.status, target = st === 'live' ? 'live' : st === 'planned' ? 'prep' : 'detail';
   const border = st === 'live' ? 'live-border' : st === 'planned' ? 'plan-border' : '';
   const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
-  const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.time || ''}</div>` : `<div class="mi-score">${m.scoreUs}–${m.scoreThem}</div>`;
+  const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>` : `<div class="mi-score">${scoreTxt(m)}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   if (st === 'live') {
     const qNum = m.quarters ? m.quarters.length : 0;
     const periodLabel = qNum > 0 ? `${pSingLow(m)} ${qNum}` : 'gestart';
     return `<div class="match-item live-border" data-s="${esc(sdata)}" onclick="go('live','${m.id}')" style="padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span class="live-pulse-dot"></span>
-        <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live · ${periodLabel}</span>
-        <span class="badge badge-type" style="margin-left:auto">${m.matchType||''}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <span class="live-pulse-dot"></span>
+          <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live · ${periodLabel}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+          <span style="font-size:15px;font-weight:700">${esc(isAway(m)?m.opponent:tName(m))}</span>
+          <span style="font-size:24px;font-weight:800;letter-spacing:3px">${scoreHtml(m,'')}</span>
+          <span style="font-size:15px;font-weight:700">${esc(isAway(m)?tName(m):m.opponent)}</span>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:14px;font-weight:600;flex:1">${esc(tName(m))}</span>
-        <span style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--txt);padding:0 12px"><span style="color:var(--grn)">${m.scoreUs}</span> – ${m.scoreThem}</span>
-        <span style="font-size:14px;font-weight:600;flex:1;text-align:right">${esc(m.opponent)}</span>
-      </div>
-      ${m.location ? `<div style="font-size:12px;color:var(--txt2)">${esc(m.location)}</div>` : ''}
     </div>`;
   }
   return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
-      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+'</b> · ':''}${matchWhen(m)} · ${m.location}</div>
-      ${badge}<span class="badge badge-type">${m.matchType||''}</span>
+      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+'</b> · ':''}${matchWhen(m)}${st!=='planned'&&m.location?' · '+esc(m.location):''}</div>
+      ${badge}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
     </div>${right}</div>`;
 }
 // HOME = dashboard: tegels + komende wedstrijd (filterbaar per ploeg) + recent.
@@ -1872,7 +1908,7 @@ async function loadHome() {
           <div class="mi-info">
             <div class="mi-opp">${icI(IC.medal)} ${esc(t.name)}</div>
             <div class="mi-date">${team ? '<b>'+esc(team.name)+'</b> · ' : ''}${t.date ? fmtDate(new Date(t.date+'T00:00:00').getTime()) : ''}${t.location ? ' · '+esc(t.location) : ''}</div>
-            <span class="badge badge-plan">${icI(IC.calendar)} Gepland</span><span class="badge badge-type">Tornooi</span>
+            <span class="badge badge-plan">${icI(IC.calendar)} Gepland</span><span class="badge badge-type">Tornooi</span>${t.matchType?`<span class="badge badge-type">${t.matchType}</span>`:''}
           </div>
         </div>`;
       }).join('')
@@ -2487,9 +2523,11 @@ async function loadTournamentDetail() {
     ['Trainer', t.trainer],
     ['Ploegverantwoordelijke', t.responsible],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
-  const squad = t.squad || { base: [], bench: [], absent: [] };
-  const squadBase = (squad.base || []).length, squadBench = (squad.bench || []).length;
-  const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${squadBase} basis · ${squadBench} bank</span></div>`;
+  const squad = t.squad || {};
+  const squadMee = squad.players
+    ? squad.players.filter(s => s.sel !== 'absent').length
+    : (squad.base||[]).length + (squad.bench||[]).length;
+  const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${squadMee} spelers${t.matchType?' · '+t.matchType:''}</span></div>`;
   const statsHtml = done.length ? `<div class="card" style="margin-bottom:12px">
     <div class="stat-big">
       <div class="stat-box"><div class="v" style="color:var(--grn)">${w}</div><div class="l">Gewonnen</div></div>
@@ -2498,7 +2536,7 @@ async function loadTournamentDetail() {
       <div class="stat-box"><div class="v">${gf}–${ga}</div><div class="l">Doelpunten</div></div>
     </div>
   </div>` : '';
-  const noSquad = !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
+  const noSquad = squad.players ? !squad.players.length : !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
@@ -2536,6 +2574,7 @@ function newTournament() {
     step: 1, id: uid(), isNew: true,
     name: '', date: now.toISOString().split('T')[0],
     location: '', teamId: (team || {}).id || '',
+    matchType: '8v8',
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
     trainerIsOther: false, pool: [], poolTeamId: null,
@@ -2545,12 +2584,19 @@ function newTournament() {
 function editTournament(id) {
   if (!canManage()) return;
   const t = tournamentById(id); if (!t) return;
-  trnWiz = Object.assign({}, t, { step: 1, isNew: false, pool: [], poolTeamId: null });
+  trnWiz = Object.assign({}, t, { step: 1, isNew: false, pool: [], poolTeamId: null, matchType: t.matchType || '8v8' });
   trnWizBuildPool();
-  const squad = t.squad || { base: [], bench: [], absent: [] };
+  const squad = t.squad || {};
+  // Nieuw formaat: squad.players; oud formaat: squad.base + squad.bench + squad.absent
+  const allSquad = squad.players
+    ? squad.players
+    : [...(squad.base||[]), ...(squad.bench||[]), ...(squad.absent||[])];
   const byKey = {};
-  [...(squad.base||[]), ...(squad.bench||[]), ...(squad.absent||[])].forEach(s => { byKey[s.srcId || s.name] = s.sel; });
-  trnWiz.pool.forEach(p => { if (byKey[p.srcId]) p.sel = byKey[p.srcId]; else if (byKey[p.name]) p.sel = byKey[p.name]; });
+  allSquad.forEach(s => { byKey[s.srcId || s.name] = s.sel || 'mee'; });
+  trnWiz.pool.forEach(p => {
+    const val = byKey[p.srcId] || byKey[p.name];
+    p.sel = val === 'absent' ? 'absent' : (val ? 'mee' : 'none');
+  });
   trnWiz.poolTeamId = trnWiz.teamId;
   go('tournamentNew');
 }
@@ -2586,6 +2632,7 @@ function captureTrnStep1() {
   trnWiz.name = (v('trn-name') || '').trim();
   trnWiz.date = v('trn-date');
   trnWiz.location = (v('trn-location') || '').trim();
+  const mt = document.getElementById('trn-matchtype'); if (mt) trnWiz.matchType = mt.value;
   const trainerSel = document.getElementById('trn-trainer-sel');
   if (trainerSel) { trnWiz.trainerIsOther = trainerSel.value === '_other'; if (!trnWiz.trainerIsOther) trnWiz.trainer = trainerSel.value; }
   const trainerOther = document.getElementById('trn-trainer-other');
@@ -2611,14 +2658,15 @@ function setTrnSel(pid, val) {
 function setTrnPoolNum(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
 async function saveTournamentWiz() {
   const squad = {
-    base:   trnWiz.pool.filter(p => p.sel === 'basis') .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, sel: 'basis'  })),
-    bench:  trnWiz.pool.filter(p => p.sel === 'bank')  .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, sel: 'bank'   })),
-    absent: trnWiz.pool.filter(p => p.sel === 'absent').map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, sel: 'absent' })),
+    players: trnWiz.pool
+      .filter(p => p.sel === 'mee' || p.sel === 'absent')
+      .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, sel: p.sel })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
     id: trnWiz.id, name: trnWiz.name, date: trnWiz.date, location: trnWiz.location,
     teamId: trnWiz.teamId, teamName: team ? team.name : '',
+    matchType: trnWiz.matchType || '8v8',
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '', squad,
   };
   const arr = getTournaments();
@@ -2650,6 +2698,7 @@ function renderTrnStep1() {
     <div class="fg"><label>Ploeg</label>${teamSel}</div>
     <div class="fg"><label>Datum</label><input id="trn-date" type="date" value="${esc(trnWiz.date)}"></div>
     <div class="fg"><label>Locatie</label><input id="trn-location" type="text" placeholder="bv. Sportpark Gent" value="${esc(trnWiz.location)}" autocomplete="off"></div>
+    <div class="fg"><label>Type wedstrijd</label><select id="trn-matchtype">${['3v3','5v5','8v8','11v11'].map(t=>`<option value="${t}" ${(trnWiz.matchType||'8v8')===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
     <div class="fg"><label>Trainer</label>
       <select id="trn-trainer-sel" onchange="trnTrainerSelChange(this.value)">
         ${trainerOpts}
@@ -2668,21 +2717,18 @@ function renderTrnStep1() {
 }
 function renderTrnStep2() {
   const team = teamById(trnWiz.teamId);
-  const bc = trnWiz.pool.filter(p => p.sel === 'basis').length;
-  const bk = trnWiz.pool.filter(p => p.sel === 'bank').length;
-  const ab = trnWiz.pool.filter(p => p.sel === 'absent').length;
+  const mee = trnWiz.pool.filter(p => p.sel === 'mee').length;
+  const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     <div class="nm">${esc(p.name)}<small>${p.pos || '—'}</small></div>
     <div class="seg">
-      <button class="${p.sel==='basis'?'basis':''}" onclick="setTrnSel('${p.pid}','basis')">Basis</button>
-      <button class="${p.sel==='bank'?'bank':''}" onclick="setTrnSel('${p.pid}','bank')">Bank</button>
+      <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig">✗</button>
     </div></div>`;
   return `
     <div class="card" style="display:flex;gap:10px;text-align:center;margin-bottom:12px">
-      <div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--grn)">${bc}</div><div style="font-size:11px;color:var(--txt2)">BASIS</div></div>
-      <div style="flex:1"><div style="font-size:22px;font-weight:900">${bk}</div><div style="font-size:11px;color:var(--txt2)">BANK</div></div>
+      <div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--grn)">${mee}</div><div style="font-size:11px;color:var(--txt2)">MEE</div></div>
       ${ab ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${ab}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
@@ -2698,8 +2744,14 @@ function addTournamentMatch(trnId) {
   if (!canManage()) return;
   const t = tournamentById(trnId); if (!t) return;
   const team = teamById(t.teamId);
-  const squad = t.squad || { base: [], bench: [], absent: [] };
-  const totalSquad = (squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length;
+  const squad = t.squad || {};
+  // Nieuw formaat: squad.players; oud formaat: squad.base/bench/absent
+  const allSquadPlayers = squad.players
+    ? squad.players.filter(s => s.sel !== 'absent')
+    : [...(squad.base||[]), ...(squad.bench||[])];
+  const totalSquad = squad.players
+    ? squad.players.length
+    : (squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length;
   if (!totalSquad) {
     openModal(`<h3>Selectie ontbreekt</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Geef eerst een selectie in voor dit tornooi voor je wedstrijden toevoegt.</p>
@@ -2707,18 +2759,21 @@ function addTournamentMatch(trnId) {
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
-  const pool = [
-    ...(squad.base   || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos, fromName: team ? team.name : '', guest: false, sel: 'basis',  slot: null })),
-    ...(squad.bench  || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos, fromName: team ? team.name : '', guest: false, sel: 'bank',   slot: null })),
-    ...(squad.absent || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos, fromName: team ? team.name : '', guest: false, sel: 'absent', slot: null })),
-  ];
+  // Bepaal het aantal basisspelers op basis van matchType (bv. 8v8 → 8 basis)
+  const matchType = t.matchType || '8v8';
+  const numStarters = parseInt(matchType) || 8;
+  const pool = allSquadPlayers.map((s, i) => ({
+    pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos,
+    fromName: team ? team.name : '', guest: false,
+    sel: i < numStarters ? 'basis' : 'bank', slot: null,
+  }));
   const now = new Date();
   wiz = {
     step: 1, trnMode: true, tournamentId: trnId,
     teamId: t.teamId, teamNameFallback: team ? team.name : '',
     opponent: '', date: t.date || now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-    location: t.location || 'Thuis', matchType: '8v8',
+    location: t.location || 'Thuis', matchType,
     periodKey: 'delen', quarterDuration: 20, numQuarters: 1,
     competition: 'Tornooi', matchday: '', referee: '', jersey: '', weather: '',
     trainer: t.trainer || '', responsible: t.responsible || '', trainerIsOther: false,
@@ -3273,7 +3328,7 @@ function renderPrep() {
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
-    <div><h1>${esc(tName(m))} vs ${esc(m.opponent)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
+    <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
     ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
@@ -3436,16 +3491,16 @@ function renderLive() {
   if (ro && tab === 'wedstrijd') tab = 'log';
   const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
-        <div class="sb-teams"><span>${esc(tName(match))}</span><span>${esc(match.opponent)}</span></div>
-        <div class="sb-score"><span class="us">${match.scoreUs}</span> – ${match.scoreThem}</div>
+        <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
+        <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
       </div>`;
   let tabContent = '';
   if (tab === 'wedstrijd') {
     tabContent = `
       <div class="scoreboard">
-        <div class="sb-teams"><span>${esc(tName(match))}</span><span>${esc(match.opponent)}</span></div>
-        <div class="sb-score"><span class="us">${match.scoreUs}</span> – ${match.scoreThem}</div>
+        <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
+        <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
       </div>
       <div class="timer-card">
@@ -3502,7 +3557,7 @@ function renderLive() {
 
   return `
   <div class="hdr"><button class="back" onclick="confirmLeave()">‹</button>
-    <div><h1>${esc(tName(match))} vs ${esc(match.opponent)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
+    <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
   </div>
   <div class="content">${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
@@ -3726,7 +3781,7 @@ async function shareReport() {
   const asLine = tally(e => e.type === 'goal_us' && e.assistId, 'assistId');
   const ycLine = tally(e => e.type === 'yellow_card', 'playerId');
   const rcLine = tally(e => e.type === 'red_card', 'playerId');
-  const lines = [`${tName(m)} ${m.scoreUs}-${m.scoreThem} ${m.opponent}`, `${matchWhen(m)} · ${m.location}${m.competition ? ' · ' + m.competition : ''}`];
+  const lines = [`${isAway(m)?m.opponent:tName(m)} ${scoreTxt(m)} ${isAway(m)?tName(m):m.opponent}`, `${matchWhen(m)} · ${m.location}${m.competition ? ' · ' + m.competition : ''}`];
   if (scLine) lines.push(`⚽ ${scLine}`);
   if (asLine) lines.push(`🎯 Assists: ${asLine}`);
   if (ycLine) lines.push(`🟨 ${ycLine}`);
@@ -3761,8 +3816,23 @@ async function forceEndMatch() {
   match.status = 'done'; match.quarterStatus = 'done';
   stopTimer(); releaseWake(); await dbSave(match); render();
 }
+let _postEventQuarter = null; // null = gebruik match.currentQuarter (live), anders: kwart-override (detail)
+// Cumulatieve speeltijd t/m het EINDE van kwart qNum (voor retrograde events).
+function gameTimeMsAtEndOfQuarter(m, qNum) {
+  let t = 0;
+  for (const q of [...m.quarters].sort((a,b) => a.num - b.num)) {
+    if (q.num > qNum) break;
+    if (q.endTime && q.startTime) t += q.endTime - q.startTime - (q.totalPaused || 0);
+    else t += (m.quarterDuration || 15) * 60000; // fallback: nominale kwartduur
+  }
+  return Math.max(0, t);
+}
 function addEvent(type, extra={}) {
-  match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: getGameTimeMs(match), quarterNum: match.currentQuarter, type, ...extra });
+  const qn = _postEventQuarter !== null ? _postEventQuarter : match.currentQuarter;
+  const gms = _postEventQuarter !== null && _postEventQuarter
+    ? Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1)
+    : getGameTimeMs(match);
+  match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: gms, quarterNum: qn, type, ...extra });
 }
 // Events corrigeren / verwijderen
 function confirmDeleteEvent(id) {
@@ -3780,12 +3850,13 @@ async function doDeleteEvent(id) {
 // Een bestaand event bewerken (speler/assist/minuut/details).
 function modalEditEvent(id) {
   const e = match.events.find(x => x.id === id); if (!e) return;
-  const minute = gameMin(e.gameTimeMs);
+  const minute = eventMin(e, match);
   const opts = (sel, withNone) => `${withNone ? '<option value="">—</option>' : ''}${match.players.map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('')}`;
   const t = e.type; let fields = '';
   if (t === 'goal_us') fields = `<div class="fg"><label>Doelpuntenmaker</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Assist</label><select id="ee-assist">${opts(e.assistId, true)}</select></div>`;
   else if (t === 'yellow_card' || t === 'red_card') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div>`;
-  else if (t === 'own_goal' || t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
+  else if (t === 'own_goal') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
+  else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
   else if (t === 'corner_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Type</label><select id="ee-ctype"><option value="lang" ${e.cornerType === 'lang' ? 'selected' : ''}>Lang</option><option value="kort" ${e.cornerType === 'kort' ? 'selected' : ''}>Kort</option></select></div>`;
   else if (t === 'corner_them') fields = `<div class="fg"><label>Type</label><select id="ee-ctype"><option value="lang" ${e.cornerType === 'lang' ? 'selected' : ''}>Lang</option><option value="kort" ${e.cornerType === 'kort' ? 'selected' : ''}>Kort</option></select></div>`;
   else if (t === 'penalty_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Gescoord</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
@@ -3865,10 +3936,10 @@ async function undoLast() {
 }
 
 // ===================== MODALS: GOAL (+ assist) =====================
-let goalTeam = 'us', goalPlayerId = null, goalAssistId = null;
+let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false;
 function modalGoal() {
   const on = playersOnField(match);
-  goalTeam = 'us'; goalPlayerId = null; goalAssistId = null;
+  goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
   openModal(`
     <h3>${icI(IC.goal)} Goal</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
@@ -3876,11 +3947,11 @@ function modalGoal() {
       <button class="act" onclick="tglGoalTeam('us',this)">${esc(tName(match))}</button>
       <button onclick="tglGoalTeam('them',this)">Tegenstander</button>
     </div>
-    <div id="goal-detail">
+    <div id="goal-us-section">
       <div class="sec">Welke speler scoorde?</div>
       <div id="goal-players">
         ${on.map(p=>`<div class="mopt" onclick="selectGoalPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}
-        <div class="mopt" onclick="selectGoalPlayer('own',this)"><div class="mopt-num" style="background:var(--rd)">!</div>Eigen doel</div>
+        <div class="mopt" onclick="selectGoalPlayer('own_them',this)"><div class="mopt-num" style="background:var(--txt2);font-size:10px">OG</div>Eigen doel tegenstander</div>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
@@ -3890,23 +3961,50 @@ function modalGoal() {
         </div>
       </div>
     </div>
+    <div id="goal-them-section" class="hidden">
+      <div class="sec">Soort tegendoel?</div>
+      <div class="tgl" id="goal-own-tgl">
+        <button class="act" onclick="tglOwnGoal(false,this)">Tegendoel</button>
+        <button onclick="tglOwnGoal(true,this)">Eigen doel (onze speler)</button>
+      </div>
+      <div id="own-goal-players" class="hidden">
+        <div class="sec">Welke speler?</div>
+        <div id="own-goal-player-list">
+          ${on.map(p=>`<div class="mopt" onclick="selectOwnGoalPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
+        </div>
+      </div>
+    </div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmGoal()">✓ Bevestigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function tglGoalTeam(team, btn) {
-  goalTeam = team; goalPlayerId = null; goalAssistId = null;
+  goalTeam = team; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
   document.querySelectorAll('#goal-team button').forEach(b => b.classList.remove('act'));
   btn.classList.add('act');
-  document.getElementById('goal-detail').style.display = team === 'us' ? '' : 'none';
+  document.getElementById('goal-us-section').classList.toggle('hidden', team !== 'us');
+  document.getElementById('goal-them-section').classList.toggle('hidden', team !== 'them');
+}
+function tglOwnGoal(isOwn, btn) {
+  goalIsOwnGoal = isOwn; goalPlayerId = null;
+  document.querySelectorAll('#goal-own-tgl button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  document.getElementById('own-goal-players').classList.toggle('hidden', !isOwn);
+  document.querySelectorAll('#own-goal-player-list .mopt').forEach(o => o.classList.remove('sel'));
 }
 function selectGoalPlayer(id, el) {
-  goalPlayerId = id; goalAssistId = null;
+  goalIsOwnGoal = id === 'own_them';
+  goalPlayerId = goalIsOwnGoal ? null : id;
+  goalAssistId = null;
   document.querySelectorAll('#goal-players .mopt').forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
   const as = document.getElementById('assist-section');
-  if (id === 'own') { as.classList.add('hidden'); }
-  else { as.classList.remove('hidden'); }
+  as.classList.toggle('hidden', goalIsOwnGoal);
   document.querySelectorAll('#assist-players .mopt').forEach(o => o.classList.remove('sel'));
+}
+function selectOwnGoalPlayer(id, el) {
+  goalPlayerId = id;
+  document.querySelectorAll('#own-goal-player-list .mopt').forEach(o => o.classList.remove('sel'));
+  el.classList.add('sel');
 }
 function selectAssist(id, el) {
   goalAssistId = id;
@@ -3914,11 +4012,16 @@ function selectAssist(id, el) {
   el.classList.add('sel');
 }
 async function confirmGoal() {
-  if (goalTeam === 'us' && !goalPlayerId) { alert('Kies een speler.'); return; }
   if (goalTeam === 'us') {
-    if (goalPlayerId === 'own') { addEvent('own_goal', { playerId: null }); match.scoreThem++; }
+    if (!goalPlayerId && !goalIsOwnGoal) { alert('Kies een speler.'); return; }
+    if (goalIsOwnGoal) { addEvent('own_goal_them', {}); match.scoreUs++; }
     else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
-  } else { addEvent('goal_them'); match.scoreThem++; }
+  } else {
+    if (goalIsOwnGoal) {
+      if (!goalPlayerId) { alert('Kies een speler.'); return; }
+      addEvent('own_goal', { playerId: goalPlayerId }); match.scoreThem++;
+    } else { addEvent('goal_them'); match.scoreThem++; }
+  }
   await dbSave(match); closeModal(); render();
   requestAnimationFrame(() => {
     const sb = document.querySelector('.scoreboard .sb-score');
@@ -4160,6 +4263,39 @@ async function confirmFreekick() {
   await dbSave(match); closeModal(); render();
 }
 
+// Event toevoegen achteraf (detail view): kies eerst het kwart, dan het event-type
+function modalAddPostEvent() {
+  const quarters = match.quarters || [];
+  const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
+  _postEventQuarter = lastQ;
+  const qBtns = quarters.map(q => {
+    const act = q.num === lastQ ? ' act' : '';
+    return `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${pSing(match)} ${q.num}</button>`;
+  }).join('') + `<button class="tgl-btn${lastQ===null?' act':''}" onclick="selPostQ(null,this)">Onbekend</button>`;
+  openModal(`
+    <h3>${icI(IC.log)} Event toevoegen</h3>
+    <div class="sec" style="margin-top:0">In welk deel?</div>
+    <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:4px">${qBtns}</div>
+    <div class="sec">Wat wil je toevoegen?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-pale" onclick="postEvt(modalGoal)">${icI(IC.goal)} Goal</button>
+      <button class="btn btn-pale" onclick="postEvt(()=>modalCard('yellow'))">${icI(IC.cardY)} Kaart</button>
+      <button class="btn btn-pale" onclick="postEvt(modalPenalty)">${icI(IC.penalty)} Penalty</button>
+      <button class="btn btn-pale" onclick="postEvt(modalCorner)">${icI(IC.corner)} Hoekschop</button>
+      <button class="btn btn-pale" onclick="postEvt(modalInjury)">${icI(IC.injury)} Blessure</button>
+      <button class="btn btn-pale" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
+    </div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
+function selPostQ(num, btn) {
+  _postEventQuarter = num;
+  document.querySelectorAll('#post-q-tgl .tgl-btn').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+}
+function postEvt(fn) {
+  fn();
+}
+
 // ===================== DETAIL VIEW =====================
 function renderDetail() {
   if (!match) return '<div class="content"><p>Niet gevonden.</p></div>';
@@ -4168,11 +4304,11 @@ function renderDetail() {
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
-    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
+    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='own_goal_them'||e.type==='goal_them'||e.type==='own_goal'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
     const cum = scoreUpToQuarter(match, q.num);
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
-      <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums"><span style="color:var(--grn)">${cum.us}</span>–${cum.them}</div>
+      <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       <div style="flex:1;font-size:13px;color:var(--txt2)">${fmtTime(dur)}</div>
       <div style="font-size:13px;text-align:right">${goals.map(e=>evtLabel(e,match)).join('<br>')||'–'}</div>
     </div>`;
@@ -4181,13 +4317,13 @@ function renderDetail() {
   const detailBack = match.tournamentId ? `goTournament('${match.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${detailBack}">‹</button>
-    <div><h1>${esc(tName(match))} vs ${esc(match.opponent)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
+    <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
   </div>
   <div class="content">
     <div class="card" style="text-align:center">
       <div style="font-size:13px;color:var(--txt2);margin-bottom:4px">Eindscore</div>
-      <div style="font-size:50px;font-weight:900;color:var(--txt)"><span style="color:var(--grn)">${match.scoreUs}</span> – ${match.scoreThem}</div>
-      <div style="font-size:14px;color:var(--txt2)">${esc(tName(match))} – ${esc(match.opponent)}</div>
+      <div style="font-size:50px;font-weight:900;color:var(--txt)">${scoreHtml(match,'grn')}</div>
+      <div style="font-size:14px;color:var(--txt2)">${esc(isAway(match)?match.opponent:tName(match))} – ${esc(isAway(match)?tName(match):match.opponent)}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">⬆ Delen</button>
@@ -4212,6 +4348,9 @@ function renderDetail() {
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(match.fromCloud && !isAdmin) ? '' : `<div class="no-print">
+      <div style="margin-bottom:8px">
+        <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-orgpale" onclick="modalEditPlayers()">${icI(IC.edit)} Spelers bewerken</button>
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
@@ -4254,16 +4393,17 @@ function exportPDF() {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
     const cum = scoreUpToQuarter(m, q.num);
     const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => evtLabel(e, m)).join('<br>') || '–';
-    return `<tr><td><b>${pAbbr(m)}${q.num}</b></td><td style="font-weight:900;white-space:nowrap"><span style="color:#1f9d4d">${cum.us}</span> – ${cum.them}</td><td style="white-space:nowrap">${Math.round(dur / 60000)} min</td><td>${gs}</td></tr>`;
+    const cumHtml = isAway(m) ? `${cum.them} – <span style="color:#1f9d4d">${cum.us}</span>` : `<span style="color:#1f9d4d">${cum.us}</span> – ${cum.them}`;
+    return `<tr><td><b>${pAbbr(m)}${q.num}</b></td><td style="font-weight:900;white-space:nowrap">${cumHtml}</td><td style="white-space:nowrap">${Math.round(dur / 60000)} min</td><td>${gs}</td></tr>`;
   }).join('');
 
   const timelineRows = eventsByQuarter(m).map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${g.cum ? ` — tussenstand ${g.cum.us}–${g.cum.them}` : ''}`;
-    const rows = g.list.length ? g.list.map(e => `<tr><td style="white-space:nowrap">${gameMin(e.gameTimeMs)}'</td><td>${evtLabel(e, m)}</td></tr>`).join('') : `<tr><td></td><td style="color:#9ca3af">Geen events</td></tr>`;
+    const rows = g.list.length ? g.list.map(e => `<tr><td style="white-space:nowrap">${eventMin(e,m)}'</td><td>${evtLabel(e, m)}</td></tr>`).join('') : `<tr><td></td><td style="color:#9ca3af">Geen events</td></tr>`;
     return `<tr><td colspan="2" style="background:#f1f3f5;font-weight:700;border-top:2px solid #d1d5db">${head}</td></tr>${rows}`;
   }).join('');
 
-  const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"><title>${esc(tName(m))} vs ${esc(m.opponent)}</title>
+  const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"><title>${matchTitle(m)}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
     <style>
       body{font-family:Arial,sans-serif;color:#171717;padding:24px;max-width:800px;margin:0 auto}
@@ -4284,11 +4424,11 @@ function exportPDF() {
       .ic-i{display:inline-block}.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.15em}
     </style></head><body>
     <div class="top"><img src="${getClubLogo()}" style="width:54px;height:54px;object-fit:contain;border-radius:10px;background:${(JSON.parse(localStorage.getItem('voetbal_theme')||'null')||GENERIC_THEME).dark}">
-      <div><h1>${esc(tName(m))} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(m.opponent)}</h1>
+      <div><h1>${m.location && m.location.toLowerCase() !== 'thuis' ? `${esc(m.opponent)} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(tName(m))}` : `${esc(tName(m))} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(m.opponent)}`}</h1>
       <div class="sub">${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min</div>
       ${infoBits.length?`<div class="sub">${infoBits.map(esc).join(' · ')}</div>`:''}</div>
     </div>
-    <div class="score"><span class="us">${m.scoreUs}</span> – ${m.scoreThem}</div>
+    <div class="score">${isAway(m) ? `${m.scoreThem} – <span class="us">${m.scoreUs}</span>` : `<span class="us">${m.scoreUs}</span> – ${m.scoreThem}`}</div>
     ${m.motmId?`<p style="text-align:center;font-weight:700;margin:-8px 0 10px">${icI(IC.motm)} Man van de match: ${esc(pName(m,m.motmId))}</p>`:''}
     ${m.players.some(p=>p.starting)?(()=>{
       function playersAtStart(qNum) {
