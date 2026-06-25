@@ -406,7 +406,9 @@ const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const IC = {
   ball: _svg('<circle cx="12" cy="12" r="9"/><polygon points="12,8.5 15.3,10.9 14.1,14.8 9.9,14.8 8.7,10.9" fill="currentColor" stroke="none"/><line x1="12" y1="8.5" x2="12" y2="3"/><line x1="15.3" y1="10.9" x2="20.5" y2="9.2"/><line x1="14.1" y1="14.8" x2="17.3" y2="19.3"/><line x1="9.9" y1="14.8" x2="6.7" y2="19.3"/><line x1="8.7" y1="10.9" x2="3.5" y2="9.2"/>'),
   players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
+  shirt: _svg('<path d="M3 6.5L7.5 4l1.5 2.5a3 3 0 0 0 6 0L16.5 4 21 6.5l-2 3.5H17V20H7V10H5L3 6.5z"/>'),
   trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
+  medal: _svg('<circle cx="12" cy="14.5" r="5"/><path d="M9 4h6L17 9.5a7 7 0 0 0-10 0L9 4z"/><path d="M12 12v2.5l1.5 1.5" stroke-width="1.5"/>'),
   chart: _svg('<path d="M4 20h16"/><path d="M6.5 20v-6" stroke-width="2.4"/><path d="M12 20V6" stroke-width="2.4"/><path d="M17.5 20v-9" stroke-width="2.4"/>'),
   goal: _svg('<path d="M3 20V6h18v14" stroke-width="2.2"/><path d="M3 9.5h4M3 13h3M7 6v4M11 6v3M15 6v3"/><circle cx="15.5" cy="14.5" r="3" fill="currentColor" stroke="none"/>'),
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
@@ -1756,15 +1758,15 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">${IC.players}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">${IC.players}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
     <button class="tile" onclick="go('matches')"><span class="ti">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
-    <button class="tile tile-dark" onclick="go('tournaments')"><span class="ti">${IC.trophy}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
+    <button class="tile tile-dark" onclick="go('tournaments')"><span class="ti">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><span class="ti">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
