@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MatchDelegate">
   <meta name="theme-color" content="#101010">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
@@ -249,12 +250,13 @@
     .tile:active{transform:scale(.96)}
     .tile .ti{font-size:27px;line-height:1}
     .ti svg{width:1em;height:1em;display:block;margin:0 auto}
+    .tile-fi{font-size:24px;display:block;margin:0 auto 2px;line-height:1}
     .evtbtn .ei svg{width:1em;height:1em;display:inline-block;vertical-align:middle}
     .ei svg,.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.1em}
     .tile .tl{font-size:13px;font-weight:800}
     .tile .tc{font-size:11px;color:var(--txt2);font-weight:600}
     .tile.tile-org{border-bottom-color:var(--org)}
-    .tile.tile-dark{border-bottom-color:var(--blk2)}
+    .tile.tile-dark{border-bottom-color:var(--orn)}
     /* Live: speeltijd-nudge + keeperkeuze */
     .nudge{background:var(--orgp);color:var(--org2);border:1px solid var(--orgb);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.4}
     .keeper-chip{display:inline-flex;align-items:center;gap:6px;background:var(--orgp);color:var(--org2);border:2px solid var(--orgb);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer}
@@ -1760,16 +1762,16 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile tile-org" onclick="openSquad()"><span class="ti">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : `<button class="tile tile-org" onclick="go('teams')"><span class="ti">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    ? `<button class="tile tile-org" onclick="openSquad()"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    : `<button class="tile tile-org" onclick="go('teams')"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
-    <button class="tile" onclick="go('matches')"><span class="ti">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
+    <button class="tile" onclick="go('matches')"><i class="ti ti-ball-football tile-fi" aria-hidden="true"></i><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
-    <button class="tile tile-dark" onclick="go('tournaments')"><span class="ti">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
-    <button class="tile" onclick="go('stats')"><span class="ti">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    <button class="tile tile-dark" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
+    <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
     el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.ball}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
