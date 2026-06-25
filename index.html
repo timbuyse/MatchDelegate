@@ -675,7 +675,7 @@ async function onAuthChanged(user) {
     isAdmin = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     stopTeamListeners(); listenAdminRequests();
-    view = 'auth'; render(); return;
+    await go('auth', undefined, true); return;
   }
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
@@ -691,7 +691,7 @@ async function onAuthChanged(user) {
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {
     // Geen ploegen → toon teamselect zodat gebruiker een ploeg kan aanmaken of vervoegen
-    view = 'teamselect'; render(); return;
+    await go('teamselect', undefined, true); return;
   }
   if (teamIds.length === 1 && !activeTeamId) {
     // Precies 1 ploeg → meteen activeren
@@ -699,7 +699,7 @@ async function onAuthChanged(user) {
   }
   if (!activeTeamId || !userTeams[activeTeamId]) {
     // Meerdere ploegen of actieve ploeg niet meer beschikbaar → keuze tonen
-    view = 'teamselect'; render(); return;
+    await go('teamselect', undefined, true); return;
   }
   updateCloudChip(); cloudRefreshUI();
 }
@@ -910,7 +910,7 @@ async function selectTeam(teamId) {
   cloudListen();
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
-  view = 'home'; render();
+  go('home');
 }
 
 // Naam + e-mail van een lid bewaren zodat de beheerder de kijkers kan zien.
@@ -974,7 +974,7 @@ function applyCloudClub(val) {
   if (val.logo) localStorage.setItem('voetbal_club_logo', val.logo);
   if (val.theme) localStorage.setItem('voetbal_theme', val.theme); else localStorage.removeItem('voetbal_theme');
   applyStoredTheme();
-  if (view === 'home' || view === 'setup') { view = 'home'; render(); } else cloudRefreshUI();
+  if (view === 'home' || view === 'setup') { go('home'); } else cloudRefreshUI();
 }
 async function applyCloudMatches(obj) {
   if (!db) return;
@@ -1072,7 +1072,7 @@ function updateCloudChip() {
   el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
-  if (!currentUser) { view = 'auth'; render(); return; }
+  if (!currentUser) { go('auth', undefined, true); return; }
 
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
@@ -1629,13 +1629,25 @@ function closeModal() {
 }
 
 // ===================== NAVIGATION =====================
-async function go(v, id) {
+async function go(v, id, _histReplace) {
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);
   if (v === 'live') startTimer();
+  // Sla navigatiestatus op in de browser history zodat de back-knop werkt binnen de app.
+  // Auth en teamselect zijn geen echte navigatiestappen — die vervangen de huidige state.
+  const noHistory = v === 'auth' || v === 'teamselect';
+  const state = { v, id: id || null };
+  if (noHistory || _histReplace) history.replaceState(state, '');
+  else history.pushState(state, '');
   render();
 }
+window.addEventListener('popstate', async e => {
+  const s = e.state;
+  if (!s || !s.v) return;
+  // Navigeer intern zonder opnieuw een history-entry te maken.
+  await go(s.v, s.id || undefined, true);
+});
 function render() { document.getElementById('app').innerHTML = views[view](); }
 
 // ===================== VISUAL PITCH =====================
@@ -2265,7 +2277,7 @@ async function doDeleteCloudTeam() {
     activeTeamId = null; isAdmin = false;
     localStorage.removeItem('voetbal_activeTeamId');
     closeModal();
-    view = 'teamselect'; render();
+    go('teamselect', undefined, true);
   } catch (e) {
     console.error('Ploeg verwijderen mislukt:', e);
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
@@ -4377,7 +4389,7 @@ async function init() {
   });
   // Als Firebase niet beschikbaar is (offline), val terug op lokale modus
   if (!cloudReady) {
-    if (!setupDone()) { view = 'setup'; render(); return; }
+    if (!setupDone()) { await go('setup', undefined, true); return; }
     const all = await dbAll();
     const live = all.find(m => m.status === 'live');
     if (live) { match = live; view = 'live'; startTimer(); }
