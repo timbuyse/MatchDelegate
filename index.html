@@ -175,7 +175,7 @@
     .qgroup-empty{color:var(--txt2);font-size:13px;padding:8px 4px}
     /* Modal */
     .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end}
-    .modal{background:#fff;border-radius:22px 22px 0 0;padding:20px;width:100%;max-height:88vh;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+    .modal{background:var(--card);border-radius:22px 22px 0 0;padding:20px;width:100%;max-height:88vh;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
     .modal h3{font-size:18px;font-weight:800;margin-bottom:16px;text-align:center}
     .mopt{display:flex;align-items:center;gap:12px;padding:13px;border-radius:10px;border:2px solid var(--bdr);margin-bottom:8px;cursor:pointer;font-weight:600;font-size:15px;transition:all .15s}
     .mopt:active{transform:scale(.98)}
@@ -982,7 +982,7 @@ function cloudLoginModal() {
     <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()">🔄 ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
 
   openModal(`<h3>👤 Mijn account</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px">${esc(currentUser.email)}</p>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px">${esc(currentUser.displayName || currentUser.email)}</p>
     ${ownerBlock}
     ${manageBlock}
     ${switchBlock}
@@ -1131,7 +1131,7 @@ async function showMembersModal() {
 function renderAuth() {
   return `<div class="auth-wrap">
     <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
-    <div class="auth-sub">Beheer je ploeg, volg wedstrijden live</div>
+    <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     <div class="auth-box">
       <div class="auth-tabs">
         <button class="auth-tab act" id="tab-login" onclick="authSwitchTab('login')">Aanmelden</button>
@@ -1239,7 +1239,7 @@ function renderTeamSelect() {
   return `<div class="ts-wrap">
     <div class="ts-hdr">
       <img src="logo.png" alt="MatchDelegate" class="ts-logo">
-      <p>${esc((currentUser && currentUser.email) || '')}</p>
+      <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
     </div>
     <div class="ts-content">
       ${teamRows}
@@ -1805,15 +1805,17 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
-    ${currentUser ? `<div class="sec">Oude app overzetten</div>
+    ${isAdmin ? `<div class="sec">Oude app overzetten</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Elke ploeg in de back-up wordt overgezet als een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Zo deel je elke ploeg met andere personen.</p>
       <label class="file-btn">📂 Oude back-up kiezen en overzetten<input type="file" accept="application/json,.json" onchange="handleOldBackupFile(this)"></label>
     </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
-      <button class="btn btn-pale" onclick="confirmChangeEmail()">✉ E-mailadres wijzigen</button>
+      <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser ? (currentUser.displayName || currentUser.email) : '')}</p>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
+      <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">✉ E-mailadres wijzigen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
@@ -2062,6 +2064,25 @@ async function doChangeEmail() {
       : e.code === 'auth/email-already-in-use' ? 'Dit e-mailadres is al in gebruik.'
       : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
   }
+}
+
+function confirmChangeName() {
+  openModal(`<h3>${icI(IC.edit)} Naam wijzigen</h3>
+    <div class="fg"><label>Nieuwe naam</label><input id="cn-name" type="text" value="${esc(currentUser.displayName || '')}" placeholder="Jouw naam" autocomplete="off"></div>
+    <div class="auth-err" id="cn-err"></div>
+    <button class="btn btn-green" onclick="doChangeName()">Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doChangeName() {
+  const name = ((document.getElementById('cn-name') || {}).value || '').trim();
+  const err = document.getElementById('cn-err');
+  if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    await currentUser.updateProfile({ displayName: name });
+    await fbdb.ref('users/' + currentUser.uid).update({ displayName: name });
+    closeModal(); render();
+  } catch (e) { if (err) err.textContent = 'Fout: ' + (e.message || 'probeer opnieuw.'); }
 }
 
 function confirmDeleteAccount() {
@@ -3828,7 +3849,7 @@ function renderDetail() {
       <div style="font-size:14px;color:var(--txt2)">${esc(tName(match))} – ${esc(match.opponent)}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="shareReport()">📤 Delen</button>
+      <button class="btn btn-green btn-sm" onclick="shareReport()">⬆ Delen</button>
       <button class="btn btn-org btn-sm" onclick="exportPDF()">📄 PDF</button>
       <button class="btn btn-pale btn-sm" onclick="exportMatch()">⬇ Export</button>
     </div>
