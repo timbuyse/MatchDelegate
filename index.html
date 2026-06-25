@@ -2942,7 +2942,7 @@ function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
   const isSelected = p.sel === 'basis' || p.sel === 'bank';
   return `<div class="selrow">
-    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
+    <div class="pn">${esc(p.number) || '?'}</div>
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">©</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${p.pos || '—'}</small></div>
     <div class="seg">
@@ -3022,9 +3022,10 @@ function autoPlace() {
 function clearPlacement() { wiz.pool.forEach(p => p.slot = null); wiz.selPlace = null; render(); }
 function wizPitch(form) {
   const slots = form.slots.map((s, i) => {
+    const posNum = computePosNum(wiz.matchType, i, form.slots);
     const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${p.number || '?'}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
-    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${LINE_SHORT[s.line] || ''}</div>`;
+    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}</div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;
 }
@@ -3057,18 +3058,24 @@ function ensurePosNums(m) {
   const slots = FORMATIONS[m.matchType][fi].slots;
   let changed = false;
   m.players.forEach(p => {
-    if (p.starting && (p.posNum === '' || p.posNum == null)) {
+    if (p.starting && typeof p.x === 'number') {
       const idx = slots.findIndex(s => s.x === p.x && s.y === p.y);
-      if (idx >= 0) { p.posNum = computePosNum(m.matchType, idx, slots); changed = true; }
+      if (idx < 0) return;
+      if (p.posNum === '' || p.posNum == null) { p.posNum = computePosNum(m.matchType, idx, slots); changed = true; }
+      if (p.line !== slots[idx].line) { p.line = slots[idx].line; changed = true; }
     }
   });
   return changed;
 }
 function playersAtPeriodStart(m, qNum) {
   const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
-  m.events.filter(e => e.type === 'substitution' && e.quarterNum != null && e.quarterNum < qNum)
+  // include break subs that fired at the START of qNum (quarterNum === qNum, atBreak: true)
+  m.events.filter(e => e.type === 'substitution' && e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs)
-    .forEach(e => { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId) on[e.playerInId] = true; });
+    .forEach(e => {
+      if (e.playerOutId) on[e.playerOutId] = false;
+      if (e.playerInId) on[e.playerInId] = true;
+    });
   return m.players.filter(p => on[p.id]);
 }
 let _lcIdx = 0;
@@ -3115,8 +3122,8 @@ function computePosNum(matchType, slotIdx, slots) {
   if (matchType === '8v8') {
     if (line === 'Doel') return 1;
     if (line === 'Verdediging') return ({ 1:[3], 2:[5,2], 3:[5,3,2] }[n] || [])[pos] || pos + 2;
-    if (line === 'Middenveld')  return ({ 1:[10], 2:[6,10], 3:[6,10,8] }[n] || [])[pos] || pos + 6;
-    if (line === 'Aanval')      return ({ 1:[9], 2:[11,7], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
+    if (line === 'Middenveld')  return ({ 1:[10], 2:[11,7], 3:[11,10,7] }[n] || [])[pos] || pos + 7;
+    if (line === 'Aanval')      return ({ 1:[9], 2:[9,10], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
   }
   if (matchType === '5v5') {
     if (line === 'Doel') return 1;
@@ -3476,7 +3483,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
   const bar = pct !== null ? `<div class="fairbar ${low?'low':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
   return `<div class="prow">
     <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
-    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div><div class="ppos">${p.line}${p.posNum?' · pos '+p.posNum:''}${p.note?' · '+esc(p.note):''}</div>${bar}</div>
+    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${p.note?`<div class="ppos">${esc(p.note)}</div>`:''}${bar}</div>
     <div class="pmins ${low?'pmins-warn':''}">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
   </div>`;
 }
@@ -3503,7 +3510,7 @@ async function startQuarter() {
     if (!pOut || !pIn) continue;
     addEvent('substitution', { playerOutId: s.outId, playerInId: s.inId, atBreak: true });
     pOut.onField = false;
-    pIn.onField = true; pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line;
+    pIn.onField = true; pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum;
   }
   match.pendingSubs = [];
   // Keeper voor dit deel = automatisch de speler op de doellijn.
@@ -3916,7 +3923,7 @@ async function confirmSub() {
   addEvent('substitution', { playerOutId: subOut, playerInId: subIn });
   const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
   if (pOut) pOut.onField = false;
-  if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; } }
+  if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; } }
   syncKeeper(); // keeper volgt automatisch de doellijn
   await dbSave(match); closeModal(); render();
 }
@@ -4097,12 +4104,6 @@ function renderDetail() {
     <div class="sec">Opstelling</div>
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
-    ${(match.keeperByQ && Object.keys(match.keeperByQ).length) ? (() => {
-      const km = keeperMinutes(match);
-      const perQ = match.quarters.map(q => { const kid = match.keeperByQ[q.num]; return `<div class="stat-row"><span style="min-width:40px;font-weight:800">${pAbbr(match)}${q.num}</span><span style="flex:1">${kid?esc(pName(match,kid)):'—'}</span></div>`; }).join('');
-      const totals = Object.entries(km).map(([id,ms]) => `<div class="stat-row"><span style="flex:1">${esc(pName(match,id))}</span><span style="font-weight:800">${Math.round(ms/60000)}' in doel</span></div>`).join('');
-      return `<div class="sec">${icI(IC.keeper)} Keeper per ${pSingLow(match)}</div><div class="card">${perQ}${totals?`<hr>${totals}`:''}</div>`;
-    })() : ''}
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · rood < 50%)</span></div>
     <div class="card">${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}</div>
     <div class="sec">Events (${match.events.length})</div>
@@ -4141,7 +4142,7 @@ function exportPDF() {
     const a = m.events.filter(e=>e.type==='goal_us'&&e.assistId===p.id).length;
     const yc = m.events.filter(e=>e.type==='yellow_card'&&e.playerId===p.id).length;
     const rc = m.events.filter(e=>e.type==='red_card'&&e.playerId===p.id).length;
-    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${p.posNum||'—'}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
+    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
   const infoBits = [m.formation, m.competition, m.matchday && ('speeldag ' + m.matchday), m.trainer && ('trainer ' + m.trainer), m.responsible && ('afgevaardigde ' + m.responsible), m.referee && ('ref. ' + m.referee), m.jersey && ('trui ' + m.jersey), m.weather, m.captainId && ('kapitein ' + pName(m, m.captainId))].filter(Boolean);
@@ -4224,7 +4225,7 @@ function exportPDF() {
       <div>🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}</div>
     </div>
     <h2>Spelers</h2>
-    <table><thead><tr><th>#</th><th>Naam</th><th style="text-align:center">Pos#</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
+    <table><thead><tr><th>#</th><th>Naam</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
     ${m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     ${m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
