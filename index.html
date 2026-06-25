@@ -17,13 +17,15 @@
       --blk:#0f172a;--blk2:#1e293b;--blk3:#334155;
       --grn:#2f9e57;--grn2:#247d44;--grnp:#dcf1e3;--grnb:#aedcbd;
       --org:#2f74bd;--org2:#255f9c;--orgp:#e1edf8;--orgb:#bdd6ef;
+      --tel:#0d9488;--tel2:#0f766e;--telp:#ccfbf1;
+      --orn:#f97316;--orn2:#c2410c;--ornp:#ffedd5;
       --yl:#eab308;--ylp:#fef9c3;--rd:#dc2626;--rdp:#fee2e2;--bl:#2563eb;--blp:#eff6ff;
       --bg:#f5f6f5;--card:#fff;--txt:#171717;--txt2:#6b7280;--bdr:#e5e7eb;
       --shadow:0 2px 8px rgba(0,0,0,.1)
     }
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);min-height:100dvh;overflow-x:hidden}
     /* Header */
-    .hdr{background:var(--blk);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.3);border-bottom:3px solid var(--org)}
+    .hdr{background:var(--blk);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.3);border-bottom:3px solid var(--grn)}
     .hdr h1{font-size:17px;font-weight:700;flex:1}
     .hdr-sub{font-size:12px;opacity:.7}
     .back{background:none;border:none;color:#fff;font-size:26px;cursor:pointer;padding:2px 4px;line-height:1}
@@ -90,7 +92,7 @@
     /* Section label */
     .sec{font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px}
     /* Match list */
-    .match-item{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn)}
+    .match-item{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--tel)}
     .match-item:active{transform:scale(.99)}
     .match-item.live-border{border-left-color:var(--rd)}
     .live-pulse-dot{width:10px;height:10px;border-radius:50%;background:var(--rd);display:inline-block;flex-shrink:0;animation:livePulse 1.4s ease-in-out infinite}
@@ -101,15 +103,15 @@
     .card-anim{animation:cardFlip .4s ease both}
     .timer-progress-wrap{height:4px;background:var(--bdr);border-radius:2px;margin-top:8px;overflow:hidden}
     .timer-progress-bar{height:4px;background:var(--grn);border-radius:2px;transition:width .9s linear}
-    .match-item.plan-border{border-left-color:var(--org)}
+    .match-item.plan-border{border-left-color:var(--orn)}
     .mi-info{flex:1}
     .mi-opp{font-size:16px;font-weight:700}
     .mi-date{font-size:12px;color:var(--txt2);margin-top:2px}
     .mi-score{font-size:28px;font-weight:900;color:var(--blk);font-variant-numeric:tabular-nums}
     .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:4px}
     .badge-live{background:var(--rdp);color:var(--rd)}
-    .badge-done{background:var(--grnp);color:var(--grn2)}
-    .badge-plan{background:var(--orgp);color:var(--org2)}
+    .badge-done{background:var(--telp);color:var(--tel2)}
+    .badge-plan{background:var(--ornp);color:var(--orn2)}
     .badge-type{background:var(--blk2);color:#fff;margin-left:5px}
     /* Scoreboard */
     .scoreboard{background:var(--blk);color:#fff;border-radius:16px;padding:18px;text-align:center;margin-bottom:12px;border-bottom:3px solid var(--org)}
@@ -404,12 +406,12 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
 const IC = {
-  ball: _svg('<circle cx="12" cy="12" r="9"/><polygon points="12,8.5 15.3,10.9 14.1,14.8 9.9,14.8 8.7,10.9" fill="currentColor" stroke="none"/><line x1="12" y1="8.5" x2="12" y2="3"/><line x1="15.3" y1="10.9" x2="20.5" y2="9.2"/><line x1="14.1" y1="14.8" x2="17.3" y2="19.3"/><line x1="9.9" y1="14.8" x2="6.7" y2="19.3"/><line x1="8.7" y1="10.9" x2="3.5" y2="9.2"/>'),
+  ball: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7l4.5 3v5L12 17.5 7.5 15v-5z"/><path d="M12 7V3M16.5 10l3.5-2.5M16.5 15l3.5 2.5M12 17.5V21M7.5 15l-3.5 2.5M7.5 10 4 7.5"/>'),
   players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
-  shirt: _svg('<path d="M3 6.5L7.5 4l1.5 2.5a3 3 0 0 0 6 0L16.5 4 21 6.5l-2 3.5H17V20H7V10H5L3 6.5z"/>'),
+  shirt: _svg('<path d="M15 4l6 2-2 14H5L3 6l6-2a3 3 0 0 0 6 0"/>'),
   trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
-  medal: _svg('<circle cx="12" cy="14.5" r="5"/><path d="M9 4h6L17 9.5a7 7 0 0 0-10 0L9 4z"/><path d="M12 12v2.5l1.5 1.5" stroke-width="1.5"/>'),
-  chart: _svg('<path d="M4 20h16"/><path d="M6.5 20v-6" stroke-width="2.4"/><path d="M12 20V6" stroke-width="2.4"/><path d="M17.5 20v-9" stroke-width="2.4"/>'),
+  medal: _svg('<circle cx="12" cy="15" r="5"/><path d="M8.5 8.5 5 4h14l-3.5 4.5H8.5"/>'),
+  chart: _svg('<rect x="3" y="13" width="4" height="7" rx="1"/><rect x="9.5" y="9" width="4" height="11" rx="1"/><rect x="16" y="5" width="4" height="15" rx="1"/><path d="M2 20h20"/>'),
   goal: _svg('<path d="M3 20V6h18v14" stroke-width="2.2"/><path d="M3 9.5h4M3 13h3M7 6v4M11 6v3M15 6v3"/><circle cx="15.5" cy="14.5" r="3" fill="currentColor" stroke="none"/>'),
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
@@ -1815,7 +1817,7 @@ async function loadHome() {
   if (homeFilter !== 'all') recent = recent.filter(m => m.teamName === homeFilter);
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
-  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   el.innerHTML = viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
@@ -1845,7 +1847,7 @@ async function loadMatches() {
     ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done)
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="🔍 Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
-  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   el.innerHTML = newBtn + filterBar + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
@@ -2433,7 +2435,7 @@ async function loadTournamentDetail() {
   </div>` : '';
   const noSquad = !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
-  const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
+  const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
     ? matches.map(matchItemHtml).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
