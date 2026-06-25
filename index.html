@@ -93,6 +93,14 @@
     .match-item{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn)}
     .match-item:active{transform:scale(.99)}
     .match-item.live-border{border-left-color:var(--rd)}
+    .live-pulse-dot{width:10px;height:10px;border-radius:50%;background:var(--rd);display:inline-block;flex-shrink:0;animation:livePulse 1.4s ease-in-out infinite}
+    @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+    @keyframes goalShake{0%,100%{transform:none}20%{transform:scale(1.08) rotate(-2deg)}40%{transform:scale(1.06) rotate(2deg)}60%{transform:scale(1.04) rotate(-1deg)}80%{transform:scale(1.02) rotate(1deg)}}
+    .goal-anim{animation:goalShake .55s cubic-bezier(.36,.07,.19,.97) both}
+    @keyframes cardFlip{0%{transform:rotateY(0)}50%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
+    .card-anim{animation:cardFlip .4s ease both}
+    .timer-progress-wrap{height:4px;background:var(--bdr);border-radius:2px;margin-top:8px;overflow:hidden}
+    .timer-progress-bar{height:4px;background:var(--grn);border-radius:2px;transition:width .9s linear}
     .match-item.plan-border{border-left-color:var(--org)}
     .mi-info{flex:1}
     .mi-opp{font-size:16px;font-weight:700}
@@ -290,6 +298,14 @@
     .pdot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:70px;overflow:hidden;text-overflow:ellipsis}
     .pdot-org{background:#f5821f}
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}
+    /* Splash */
+    #splash{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;pointer-events:none}
+    #splash img{width:140px;height:140px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
+    #splash-bar{width:0;height:3px;background:var(--grn);border-radius:2px;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
+    #splash-name{color:#fff;font-size:20px;font-weight:800;letter-spacing:.5px;opacity:0;animation:splashFade .5s .7s ease forwards}
+    @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+    @keyframes splashBar{from{width:0}to{width:150px}}
+    @keyframes splashFade{from{opacity:0}to{opacity:.65}}
     /* Print */
     @media print{
       .ltabs,.fab,.hdr,.no-print{display:none!important}
@@ -335,6 +351,7 @@
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
+<div id="splash"><img src="logo.png" alt="MatchDelegate"><div id="splash-bar"></div><div id="splash-name">MatchDelegate</div></div>
 <!-- Firebase (cloud delen). Faalt stil als offline: app blijft lokaal werken. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -613,6 +630,7 @@ let activeTeamId = null;   // welke ploeg is actief
 let currentUser = null;    // ingelogde Firebase user
 let userTeams = {};        // { teamId: 'admin'|'viewer' }
 let teamListeners = [];    // actieve Firebase .on() listeners
+let knownLiveMatchIds = new Set(); // bijhouden welke matches al als 'live' gekend zijn
 let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
 let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
@@ -640,7 +658,7 @@ function cloudInit() {
 async function onAuthChanged(user) {
   currentUser = user;
   if (!user) {
-    // Niet ingelogd → toon auth scherm
+    // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
     isAdmin = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     stopTeamListeners(); listenAdminRequests();
@@ -650,6 +668,13 @@ async function onAuthChanged(user) {
   await loadOwnerStatus(user);
   await loadUserTeams(user.uid);
   maybeNotifyApproved();
+  // Pending join via QR/link afhandelen
+  const pendingJoin = localStorage.getItem('voetbal_pending_join');
+  if (pendingJoin) {
+    localStorage.removeItem('voetbal_pending_join');
+    await joinTeamByToken(pendingJoin);
+    return;
+  }
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {
     // Geen ploegen → toon teamselect zodat gebruiker een ploeg kan aanmaken of vervoegen
@@ -797,6 +822,43 @@ async function rejectAdmin(uid) {
   } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 
+async function showApprovedAdminsModal() {
+  if (!isOwner || !fbdb) return;
+  openModal(`<h3>👥 Goedgekeurde beheerders</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Deze personen mogen ploegen aanmaken. Klik "Intrekken" om hun recht te verwijderen — hun bestaande ploeg en data blijven bewaard.</p>
+    <div id="approved-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
+  try {
+    const snap = await fbdb.ref('approvedAdmins').once('value');
+    const approved = snap.val() || {};
+    const uids = Object.keys(approved);
+    const el = document.getElementById('approved-list');
+    if (!uids.length) { if (el) el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen goedgekeurde beheerders.</p>'; return; }
+    const users = await Promise.all(uids.map(async uid => {
+      const s = await fbdb.ref('users/' + uid).once('value');
+      const u = s.val() || {};
+      return { uid, name: u.displayName || '(geen naam)', email: u.email || '(geen e-mail)' };
+    }));
+    if (el) el.innerHTML = users.map(u => `
+      <div class="ts-team-row" style="cursor:default;margin-bottom:8px">
+        <span class="ts-name" style="font-size:15px"><b>${esc(u.name)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(u.email)}</small></span>
+        <button class="btn btn-red btn-sm" onclick="revokeAdmin('${u.uid}')">Intrekken</button>
+      </div>`).join('');
+  } catch (e) {
+    const el = document.getElementById('approved-list');
+    if (el) el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de lijst niet laden.</p>';
+  }
+}
+
+async function revokeAdmin(uid) {
+  if (!isOwner || !fbdb) return;
+  if (!confirm('Ben je zeker dat je de beheerdersrechten van deze persoon wil intrekken?')) return;
+  try {
+    await fbdb.ref('approvedAdmins/' + uid).remove();
+    showApprovedAdminsModal();
+  } catch (e) { alert('Intrekken mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
+
 // Een verwijderde/onbereikbare ploeg opruimen uit de lijst van de gebruiker.
 function pruneDeadTeam(id) {
   delete userTeams[id];
@@ -876,9 +938,13 @@ function cloudOnLocalClubSave() {
 function stopTeamListeners() {
   for (const { ref, event } of teamListeners) { try { ref.off(event); } catch (e) {} }
   teamListeners = [];
+  knownLiveMatchIds = new Set();
 }
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
+  if (!isAdmin && 'Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
   const addL = (path, event, fn) => {
     const r = teamRef(path); r.on(event, fn);
     teamListeners.push({ ref: r, event });
@@ -909,8 +975,41 @@ async function applyCloudMatches(obj) {
     if (!Array.isArray(m.players)) m.players = [];
     if (!Array.isArray(m.quarters)) m.quarters = [];
     await dbPutLocal(m);
+    // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
+    if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
+      knownLiveMatchIds.add(id);
+      notifyLiveMatch(m);
+    } else if (m.status !== 'live') {
+      knownLiveMatchIds.delete(id);
+    }
   }
+  if (!isAdmin) knownLiveMatchIds.forEach(id => { if (!cloudIds.has(id)) knownLiveMatchIds.delete(id); });
   cloudRefreshUI();
+}
+function notifyLiveMatch(m) {
+  const club = getClubName() || 'je ploeg';
+  const opp = m.opponent ? ` — ${m.opponent}` : '';
+  const title = `⚽ Live: ${club}${opp}`;
+  const body = 'De wedstrijd is gestart. Tik om te volgen.';
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: 'logo.png', tag: 'live-' + m.id }); } catch (e) {}
+  }
+  // In-app banner als fallback (ook als notificaties geblokkeerd zijn)
+  showLiveBanner(title, m.id);
+}
+function showLiveBanner(title, matchId) {
+  if (view === 'live' && match && match.id === matchId) return; // al op live scherm
+  let banner = document.getElementById('live-notify-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'live-notify-banner';
+    banner.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#2f9e57;color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35);z-index:9000;cursor:pointer;display:flex;align-items:center;gap:10px;max-width:320px;text-align:center;animation:splashFade .3s ease';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `<span>${title}</span><span style="font-size:11px;opacity:.8">Tik om te volgen</span>`;
+  banner.onclick = () => { banner.remove(); go('live', matchId); };
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => banner && banner.remove(), 12000);
 }
 function applyCloudTeams(val) {
   const raw = Array.isArray(val) ? val : Object.values(val || {});
@@ -921,8 +1020,7 @@ function applyCloudTeams(val) {
     fromCloud: true
   }));
   const cloudIds = new Set(cloud.map(t => t && t.id).filter(Boolean));
-  const localOnly = getTeamsV2().filter(t => !t.fromCloud && !cloudIds.has(t.id));
-  const merged = localOnly.concat(cloud);
+  const merged = cloud; // in cloud-modus enkel cloud-ploegen bewaren
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   cloudRefreshUI();
 }
@@ -957,17 +1055,16 @@ function updateCloudChip() {
   if (!el) return;
   if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
-  const badge = (isOwner && pendingAdminCount > 0) ? `<span class="req-badge">${pendingAdminCount}</span>` : '';
-  el.innerHTML = (isAdmin ? `${icI(IC.edit)} Beheer` : '👁 Kijken') + badge;
+  el.innerHTML = (isAdmin ? `${icI(IC.edit)} Beheer` : '👁 Kijken');
   el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
   if (!currentUser) { view = 'auth'; render(); return; }
 
-  // Eigenaar: aanvragen beheren (of eenmalig eigenaar claimen)
+  // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
     ? `<button class="btn btn-org" onclick="claimOwner()">👑 Ik ben de maker (eigenaar instellen)</button>`
-    : (isOwner ? `<button class="btn btn-org" id="owner-req-btn" onclick="closeModal();go('adminRequests')">🛡 Beheerdersaanvragen${pendingAdminCount ? ` (${pendingAdminCount})` : ''}</button>` : '');
+    : '';
 
   // Deze ploeg beheren: uitnodigen, kijkers, verwijderen
   const manageBlock = (isAdmin && activeTeamId) ? `
@@ -1046,7 +1143,7 @@ async function showInviteModal(teamId) {
 
   // Als beheerder meerdere ploegen heeft, toon eerst een keuze
   const adminTeams = Object.entries(userTeams).filter(([, role]) => role === 'admin');
-  if (!teamId && adminTeams.length > 1) {
+  if (!teamId && !activeTeamId && adminTeams.length > 1) {
     // Laad namen van alle beheerde ploegen
     openModal(`<h3>🔗 Kies een ploeg</h3>
       <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor welke ploeg wil je de uitnodigingscode delen?</p>
@@ -1077,11 +1174,16 @@ async function showInviteModal(teamId) {
     await fbdb.ref('invites/' + token).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
   }
 
+  const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&data=' + encodeURIComponent(joinUrl);
+  const shareText = 'Volg ' + teamName + ' via MatchDelegate. Open de link of gebruik code ' + token + '.';
   openModal(`<h3>🔗 Uitnodiging — ${esc(teamName)}</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Deel deze code met ouders of volgers.<br>Ze voeren hem in bij "Ploeg vervoegen".</p>
-    <div class="invite-code">${token}</div>
-    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',text:'Gebruik code ${token} om ${esc(teamName)} te volgen in MatchDelegate.'}) : navigator.clipboard.writeText('${token}').then(()=>alert('Code gekopieerd!')))">📤 Delen / Kopiëren</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">👥 Wie is al vervoegd?</button>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Scan de QR-code of deel de link. Werkt ook voor mensen zonder account.</p>
+    <div style="display:flex;justify-content:center;margin-bottom:12px">
+      <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
+    </div>
+    <div class="invite-code" style="margin-bottom:8px">${token}</div>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">📤 Delen / Link kopiëren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -1112,9 +1214,12 @@ async function showMembersModal() {
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
         : '<span class="ts-role viewer">👁 Kijker</span>';
+      const removeBtn = role !== 'admin'
+        ? `<button class="btn btn-red btn-sm" style="margin-left:8px;flex-shrink:0" onclick="removeMember('${uid}')">Verwijderen</button>`
+        : '';
       return `<div class="ts-team-row" style="cursor:default">
         <span class="ts-name"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small></span>
-        ${badge}</div>`;
+        ${badge}${removeBtn}</div>`;
     });
     const viewers = uids.filter(u => members[u] !== 'admin').length;
     const el = document.getElementById('members-list');
@@ -1125,6 +1230,17 @@ async function showMembersModal() {
     const el = document.getElementById('members-list');
     if (el) el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de lijst niet laden.</p>';
   }
+}
+
+async function removeMember(uid) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  if (!confirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.')) return;
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
+    await fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove();
+    await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
+    showMembersModal();
+  } catch (e) { alert('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 
 // ===================== AUTH VIEWS =====================
@@ -1242,12 +1358,24 @@ function renderTeamSelect() {
       <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
     </div>
     <div class="ts-content">
+      ${ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1'
+        ? `<div class="nudge" style="margin-bottom:16px">⏳ <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
+        : ''}
       ${teamRows}
       <div style="margin-top:20px">
-        <button class="btn btn-org" onclick="showCreateTeamModal()">➕ Nieuwe ploeg aanmaken (als beheerder)</button>
+        ${isApprovedAdmin
+          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">➕ Nieuwe ploeg aanmaken (als beheerder)</button>`
+          : localStorage.getItem('voetbal_adminRequested') !== '1'
+            ? `<button class="btn btn-org" onclick="showRequestAdminModal()">➕ Beheerder worden & ploeg aanmaken</button>`
+            : ''}
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">🔗 Ploeg vervoegen via code (als kijker)</button>
         <button class="btn btn-pale" style="margin-top:10px" onclick="cloudLogout()">Afmelden</button>
       </div>
+      ${isOwner ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🛡 Beheerstools</div>
+        <button class="btn btn-dark" onclick="go('adminRequests')" style="margin-bottom:8px">🛡 Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
+        <button class="btn btn-dark" onclick="showApprovedAdminsModal()">👥 Goedgekeurde beheerders</button>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -1468,6 +1596,12 @@ function updateTimerDisplay() {
     const isPaused = q && q.pausedAt;
     lb.textContent = `Totale speeltijd: ${fmtTime(getGameTimeMs(match))}${isPaused ? ' · GEPAUZEERD' : (overtime ? ' · ⏰ tijd voorbij' : '')}`;
   }
+  const bar = document.getElementById('timer-progress-bar');
+  if (bar && durMs) {
+    const pct = Math.min(100, (elapsed / durMs) * 100).toFixed(1);
+    bar.style.width = pct + '%';
+    bar.style.background = overtime ? 'var(--org)' : 'var(--grn)';
+  }
 }
 
 // ===================== MODAL =====================
@@ -1586,6 +1720,23 @@ function matchItemHtml(m) {
   const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
   const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.time || ''}</div>` : `<div class="mi-score">${m.scoreUs}–${m.scoreThem}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
+  if (st === 'live') {
+    const qNum = m.quarters ? m.quarters.length : 0;
+    const periodLabel = qNum > 0 ? `${pSingLow(m)} ${qNum}` : 'gestart';
+    return `<div class="match-item live-border" data-s="${esc(sdata)}" onclick="go('live','${m.id}')" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span class="live-pulse-dot"></span>
+        <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live · ${periodLabel}</span>
+        <span class="badge badge-type" style="margin-left:auto">${m.matchType||''}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:14px;font-weight:600;flex:1">${esc(tName(m))}</span>
+        <span style="font-size:28px;font-weight:800;letter-spacing:4px;color:var(--txt);padding:0 12px"><span style="color:var(--grn)">${m.scoreUs}</span> – ${m.scoreThem}</span>
+        <span style="font-size:14px;font-weight:600;flex:1;text-align:right">${esc(m.opponent)}</span>
+      </div>
+      ${m.location ? `<div style="font-size:12px;color:var(--txt2)">${esc(m.location)}</div>` : ''}
+    </div>`;
+  }
   return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
@@ -1620,6 +1771,13 @@ async function loadHome() {
     el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.ball}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
+  const welcomeKey = 'voetbal_viewer_welcomed_' + activeTeamId;
+  const viewerWelcome = (!isAdmin && cloudReady && !localStorage.getItem(welcomeKey))
+    ? `<div class="card" style="border-left:4px solid var(--grn);margin-bottom:16px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">👋 Welkom bij ${esc(getClubName() || 'de ploeg')}!</div>
+        <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Je volgt deze ploeg live. Je kan wedstrijden en tornooien bekijken, de score en events live volgen, en de opstelling raadplegen.</p>
+        <button class="btn btn-green btn-sm" onclick="localStorage.setItem('${welcomeKey}','1');this.closest('.card').remove()">Begrepen</button>
+      </div>` : '';
   const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
       <option value="all" ${homeFilter==='all'?'selected':''}>Alle ploegen</option>
@@ -1656,7 +1814,7 @@ async function loadHome() {
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
-  el.innerHTML = tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.trophy)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  el.innerHTML = viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.trophy)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -1814,11 +1972,6 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
-    ${isAdmin ? `<div class="sec">Oude app overzetten</div>
-    <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Heb je een back-up van de vorige app? Elke ploeg in de back-up wordt overgezet als een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Zo deel je elke ploeg met andere personen.</p>
-      <label class="file-btn">📂 Oude back-up kiezen en overzetten<input type="file" accept="application/json,.json" onchange="handleOldBackupFile(this)"></label>
-    </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser ? (currentUser.displayName || currentUser.email) : '')}</p>
@@ -1871,100 +2024,6 @@ function importBackup(input) {
     input.value = '';
   };
   reader.readAsText(f);
-}
-// ---- Oude back-up overzetten naar de actieve cloud-ploeg ----
-let oldBackupData = null;
-function handleOldBackupFile(input) {
-  if (!currentUser || !fbdb) { alert('Meld je eerst aan om over te zetten.'); return; }
-  const f = input.files && input.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    let data;
-    try { data = JSON.parse(e.target.result); } catch (err) { alert('Ongeldig back-upbestand.'); input.value = ''; return; }
-    if (!data || data.app !== 'voetbal' || !Array.isArray(data.matches)) { alert('Dit lijkt geen geldige back-up van de voetbalapp.'); input.value = ''; return; }
-    oldBackupData = data;
-    input.value = '';
-    let rosters = [];
-    try { rosters = JSON.parse((data.settings && data.settings.teamsV2) || '[]') || []; } catch (e) {}
-    showOldBackupPick(rosters);
-  };
-  reader.readAsText(f);
-}
-function showOldBackupPick(rosters) {
-  const data = oldBackupData;
-  if (!rosters.length) {
-    // Geen ploegen in back-up: enkel losse wedstrijden -> nieuwe ploeg
-    const n = (data.matches || []).length;
-    openModal(`<h3>Nieuwe ploeg uit back-up</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Er zijn geen ploegen in deze back-up, enkel ${n} wedstrijd(en). Wil je een nieuwe ploeg aanmaken met deze wedstrijden?</p>
-      <button class="btn btn-green" onclick="doImportOldBackup(-1)">Nieuwe ploeg aanmaken</button>
-      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
-    return;
-  }
-  const btns = rosters.map((r, i) => {
-    const mc = (data.matches || []).filter(m => m.teamName === r.name).length;
-    return `<button class="btn btn-pale" style="margin-bottom:8px;text-align:left" onclick="doImportOldBackup(${i})">${esc(r.name)}<br><small style="color:var(--txt2)">${(r.players||[]).length} spelers · ${mc} wedstrijd(en)</small></button>`;
-  }).join('');
-  openModal(`<h3>Welke ploeg overzetten?</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Elke ploeg wordt een <b>aparte nieuwe ploeg</b> met eigen toegangscode. Kies welke je nu wil overzetten — je kunt nadien de andere ook nog overzetten.</p>
-    ${btns}
-    <button class="btn btn-gray" style="margin-top:4px" onclick="closeModal()">Annuleren</button>`);
-}
-async function doImportOldBackup(rosterIndex) {
-  const data = oldBackupData;
-  if (!data || !currentUser || !fbdb) return;
-  openModal(`<h3>Bezig met overzetten...</h3><p style="text-align:center;color:var(--txt2)" id="imp-status">Even geduld.</p>`);
-  const status = () => document.getElementById('imp-status');
-  try {
-    let rosters = [];
-    try { rosters = JSON.parse((data.settings && data.settings.teamsV2) || '[]') || []; } catch (e) {}
-    let tournaments = [];
-    try { tournaments = JSON.parse((data.settings && data.settings.tournaments) || '[]') || []; } catch (e) {}
-
-    const uid = currentUser.uid;
-    let matches, roster = null, trn = [], teamName;
-    if (rosterIndex === -1) {
-      matches = data.matches || [];
-      teamName = 'Geïmporteerde ploeg';
-    } else {
-      roster = rosters[rosterIndex];
-      if (!roster) { closeModal(); return; }
-      teamName = roster.name;
-      matches = (data.matches || []).filter(m => m.teamName === roster.name);
-      trn = tournaments.filter(t => t.teamId === roster.id || t.teamName === roster.name);
-    }
-
-    // Nieuwe Firebase-ploeg met eigen toegangscode en eigen ledenlijst
-    const teamId = fbdb.ref('teams').push().key;
-    const token = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const rosterId = (roster && roster.id) || fbdb.ref('teams/' + teamId + '/roster').push().key;
-    const rosterClean = roster
-      ? Object.assign({}, roster, { fromCloud: true })
-      : { id: rosterId, name: teamName, players: [], trainers: [], fromCloud: true };
-
-    if (status()) status().textContent = `Ploeg "${teamName}" aanmaken...`;
-    const teamData = {
-      info: { name: teamName, createdBy: uid, createdAt: Date.now(), inviteToken: token },
-      members: { [uid]: 'admin' },
-      club: { name: teamName, logo: '', theme: null },
-      roster: { [rosterId]: jclone(rosterClean) }
-    };
-    if (matches.length) { teamData.matches = {}; for (const m of matches) teamData.matches[m.id] = jclone(m); }
-    if (trn.length)     { teamData.tournaments = {}; for (const t of trn) teamData.tournaments[t.id] = jclone(t); }
-
-    await fbdb.ref('teams/' + teamId).set(teamData);
-    await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
-    await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
-    userTeams[teamId] = 'admin';
-
-    closeModal();
-    alert(`✓ Nieuwe ploeg aangemaakt: ${teamName}\n${roster ? (roster.players||[]).length + ' spelers\n' : ''}${matches.length} wedstrijd(en)${trn.length ? '\n' + trn.length + ' tornooi(en)' : ''}\n\nToegangscode om te delen: ${token}`);
-    await selectTeam(teamId);
-  } catch (e) {
-    console.error('Overzetten mislukt:', e);
-    if (status()) status().textContent = 'Fout: ' + (e.message || 'probeer opnieuw.');
-  }
 }
 
 let pendingRestore = null;
@@ -2169,7 +2228,7 @@ async function doDeleteCloudTeam() {
 // ===================== PLOEGEN BEHEREN =====================
 let editingTeam = null;
 function renderTeamsList() {
-  const teams = getTeamsV2();
+  const teams = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2();
   const title = cloudReady ? '👥 Spelers' : '👥 Ploegen';
   return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${title}</h1></div>
   <div class="content">
@@ -2184,7 +2243,7 @@ function renderTeamsList() {
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; go('teamEdit'); }
 function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); go('teamEdit'); }
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
-function openSquad() { const arr = getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
+function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
 function closeTeamEdit() { editingTeam = null; go(cloudReady ? 'home' : 'teams'); }
 function renderTeamView() {
   const t = editingTeam;
@@ -2609,6 +2668,13 @@ function renderTrnMatchStep1() {
       <select id="n-type" onchange="trnWizTypeChange()">
         ${['3v3','5v5','8v8','11v11'].map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${tp.replace('v',' tegen ')}</option>`).join('')}
       </select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label>Indeling</label>
+        <select id="n-pt" onchange="onPeriodChange()">${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+      <div class="fg"><label>Duur per deel</label>
+        <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
+        <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;display:none;width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value=""></div>
+    </div>
   </div>
   <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
   <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder opstelling</button>`;
@@ -2623,6 +2689,8 @@ function trnMatchNext() {
   wiz.date = document.getElementById('n-date')?.value || wiz.date;
   wiz.time = document.getElementById('n-time')?.value || wiz.time;
   wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
+  const pt = document.getElementById('n-pt'); if (pt) wiz.periodKey = pt.value;
+  wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   if (!wiz.opponent) { alert('Vul de naam van de tegenstander in.'); return; }
   wiz.step = 2; render();
 }
@@ -2662,13 +2730,28 @@ function wizTrainerSelChange(val) {
   const fg = document.getElementById('n-trainer-other-fg');
   if (fg) fg.style.display = wiz.trainerIsOther ? '' : 'none';
 }
+function durOptsHtml(periodKey, currentDur) {
+  const fixed = DURATIONS[periodKey] || [15];
+  const isCustom = !!currentDur && !fixed.includes(currentDur);
+  return fixed.map(v => `<option value="${v}" ${v===currentDur?'selected':''}>${v} min</option>`).join('')
+    + `<option value="0" ${isCustom?'selected':''}>Vrij...</option>`;
+}
+function onDurChange(selId, inpId) {
+  const s = document.getElementById(selId), i = document.getElementById(inpId);
+  if (s && i) i.style.display = s.value === '0' ? '' : 'none';
+}
+function readDur(selId, inpId, fallback) {
+  const s = document.getElementById(selId); if (!s) return fallback;
+  if (s.value === '0') { const i = document.getElementById(inpId); return (i && parseInt(i.value)) || fallback; }
+  return parseInt(s.value) || fallback;
+}
 function onPeriodChange() {
   const pt = document.getElementById('n-pt').value;
   const qd = document.getElementById('n-qd');
   if (!qd) return;
-  const opts = DURATIONS[pt] || [15];
   const def = DUR_DEFAULT[pt];
-  qd.innerHTML = opts.map(v => `<option value="${v}" ${v===def?'selected':''}>${v} min</option>`).join('');
+  qd.innerHTML = durOptsHtml(pt, def);
+  const ci = document.getElementById('n-qd-custom'); if (ci) ci.style.display = 'none';
   if (wiz) { wiz.periodKey = pt; wiz.quarterDuration = def; }
 }
 function fieldSizeW() { return MATCH_TYPES[wiz.matchType].field; }
@@ -2704,7 +2787,7 @@ function wizStep1() {
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
   const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(t => t.name) : [];
   const trainerOpts = teamTrainers.map(t => `<option value="${esc(t.name)}" ${!wiz.trainerIsOther&&wiz.trainer===t.name?'selected':''}>${esc(t.name)}</option>`).join('');
-  const durOpts = (DURATIONS[wiz.periodKey] || [15]).map(v => `<option value="${v}" ${v===wiz.quarterDuration?'selected':''}>${v} min</option>`).join('');
+  const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
   return `
     <div class="card">
       <div class="fg"><label>Eigen ploeg</label>${teamSel}</div>
@@ -2725,7 +2808,9 @@ function wizStep1() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Indeling</label>
           <select id="n-pt" onchange="onPeriodChange()">${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
-        <div class="fg"><label>Duur per deel</label><select id="n-qd">${durOpts}</select></div>
+        <div class="fg"><label>Duur per deel</label>
+          <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
+          <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${isCustomDur?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${isCustomDur?wiz.quarterDuration:''}"></div>
       </div>
       <details class="more-details">
         <summary>+ Meer details (optioneel)</summary>
@@ -2760,7 +2845,7 @@ function captureStep1() {
   wiz.opponent = (v('n-opp') || '').trim();
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
-  wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = parseInt(v('n-qd')) || wiz.quarterDuration;
+  wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   wiz.competition = v('n-comp'); wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.weather = (v('n-weather') || '').trim();
   const trainerSel = document.getElementById('n-trainer-sel');
@@ -3196,6 +3281,7 @@ function renderLive() {
       <div class="timer-card">
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
         <div class="timer-lbl" id="timer-lbl">Totale speeltijd: ${fmtTime(getGameTimeMs(match))}</div>
+        ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
         <div style="margin-top:10px"><span class="start-chip ${countdownOn()?'on':''}" onclick="toggleCountdown()" style="font-size:12px;padding:5px 12px">⏱ ${countdownOn()?'Aftellen':'Optellen'}</span></div>
       </div>
@@ -3375,7 +3461,8 @@ function modalEditMatchInfo() {
       <div class="fg"><label>Indeling</label>
         <select id="ei-pt" onchange="eiPeriodChange()">${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
       <div class="fg"><label>Duur per deel</label>
-        <select id="ei-qd">${(DURATIONS[match.periodKey]||[15]).map(v=>`<option value="${v}" ${v===match.quarterDuration?'selected':''}>${v} min</option>`).join('')}</select></div>
+        <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
+        <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>
     </div>` : '';
   openModal(`<h3>${icI(IC.edit)} Wedstrijdinfo bewerken</h3>
     <input type="hidden" id="ei-loc" value="${esc(match.location||'')}">
@@ -3412,7 +3499,8 @@ function eiSetLoc(val, btn) {
 function eiPeriodChange() {
   const pk = (document.getElementById('ei-pt') || {}).value || 'kwarten';
   const sel = document.getElementById('ei-qd');
-  if (sel) sel.innerHTML = (DURATIONS[pk] || [15]).map(v => `<option value="${v}">${v} min</option>`).join('');
+  if (sel) sel.innerHTML = durOptsHtml(pk, DUR_DEFAULT[pk]);
+  const ci = document.getElementById('ei-qd-custom'); if (ci) ci.style.display = 'none';
 }
 async function saveMatchInfo() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -3423,7 +3511,7 @@ async function saveMatchInfo() {
   if (document.getElementById('ei-pt')) {
     match.periodKey = v('ei-pt') || match.periodKey;
     match.numQuarters = PERIOD_TYPES[match.periodKey].count;
-    match.quarterDuration = parseInt(v('ei-qd')) || match.quarterDuration;
+    match.quarterDuration = readDur('ei-qd', 'ei-qd-custom', match.quarterDuration);
   }
   match.trainer = v('ei-trainer').trim();
   match.responsible = v('ei-responsible').trim();
@@ -3650,6 +3738,10 @@ async function confirmGoal() {
     else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
   } else { addEvent('goal_them'); match.scoreThem++; }
   await dbSave(match); closeModal(); render();
+  requestAnimationFrame(() => {
+    const sb = document.querySelector('.scoreboard .sb-score');
+    if (sb) { sb.classList.remove('goal-anim'); void sb.offsetWidth; sb.classList.add('goal-anim'); }
+  });
 }
 
 // ===================== MODAL: CORNER =====================
@@ -3719,6 +3811,10 @@ async function logCard(color, pid) {
   if (color === 'red') { addEvent('red_card', { playerId: pid }); const p = match.players.find(x=>x.id===pid); if (p) p.onField = false; }
   else addEvent('yellow_card', { playerId: pid });
   await dbSave(match); closeModal(); render();
+  requestAnimationFrame(() => {
+    const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
+    if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
+  });
 }
 
 // ===================== MODAL: PENALTY =====================
@@ -4006,10 +4102,20 @@ async function init() {
   db = await openDB();
   applyStoredTheme(); applyDark();
   migrateTeams();
+  // ?join=TOKEN uit URL opvangen (QR-code flow)
+  const joinParam = new URLSearchParams(window.location.search).get('join');
+  if (joinParam) {
+    localStorage.setItem('voetbal_pending_join', joinParam.trim().toUpperCase());
+    window.history.replaceState({}, '', window.location.pathname);
+  }
   // Toon laadscherm terwijl Firebase auth-status bepaald wordt
   view = 'home';
   document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div><p style="color:var(--txt2)">Laden...</p></div>`;
   cloudInit();
+  setTimeout(() => {
+    const s = document.getElementById('splash');
+    if (s) { s.style.transition = 'opacity .4s ease'; s.style.opacity = '0'; setTimeout(() => s && s.remove(), 420); }
+  }, 1600);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && view === 'live' && match) {
