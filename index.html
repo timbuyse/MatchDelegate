@@ -453,6 +453,12 @@ const IC = {
   motm: _svg('<polygon points="12,2.5 14.9,9 22,9 16.4,13.5 18.7,20.5 12,16.5 5.3,20.5 7.6,13.5 2,9 9.1,9" fill="currentColor" stroke="none" opacity=".85"/>'),
   keeper: _svg('<path d="M8 20.5V9a2 2 0 0 1 4 0v5"/><path d="M12 12.5a2 2 0 0 1 4 0v4"/><path d="M16 15.5a2 2 0 0 1 4 0v2a4.5 4.5 0 0 1-4.5 4.5H8.5A4.5 4.5 0 0 1 4 17.5v-2"/><path d="M4 15.5a2 2 0 0 1 4 0"/>'),
   admins: _svg('<circle cx="9" cy="7.5" r="3.2"/><path d="M3.5 19.5c0-3.2 2.5-5.2 5.5-5.2 1.1 0 2.1.3 3 .8"/><path d="M14.5 14l2 2 4-3.5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'),
+  plus:   _svg('<path d="M12 4v16M4 12h16" stroke-width="2.2" stroke-linecap="round"/>'),
+  shield: _svg('<path d="M12 3l8 3v5c0 4.5-3.5 8.5-8 9.5C7.5 19.5 4 15.5 4 11V6l8-3z"/>'),
+  wrench: _svg('<path d="M14.7 3.3a5 5 0 0 0-6.3 6.3L3.3 14.7a2.3 2.3 0 0 0 3.2 3.2l5.1-5.1a5 5 0 0 0 6.3-6.3l-2.9 2.9-1.5-1.5 2.9-2.9z" fill="currentColor" stroke="none"/>'),
+  trash:  _svg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13"/><path d="M9 7V4h6v3"/>'),
+  share:  _svg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'),
+  link:   _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
 };
 const icI = ic => `<span class="ic-i">${ic}</span>`;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
@@ -668,6 +674,7 @@ let currentUser = null;    // ingelogde Firebase user
 let userTeams = {};        // { teamId: 'admin'|'viewer' }
 let teamListeners = [];    // actieve Firebase .on() listeners
 let knownLiveMatchIds = new Set(); // bijhouden welke matches al als 'live' gekend zijn
+let teamNames = {};                // { teamId: naam } cache voor ploegselect
 let knownScores = {};              // { matchId: { us, them } } voor doelpunt-detectie
 let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
@@ -742,15 +749,13 @@ async function onAuthChanged(user) {
   }
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {
-    // Geen ploegen → toon teamselect zodat gebruiker een ploeg kan aanmaken of vervoegen
     await go('teamselect', undefined, true); return;
   }
   if (teamIds.length === 1 && !activeTeamId) {
-    // Precies 1 ploeg → meteen activeren
     await selectTeam(teamIds[0]); return;
   }
   if (!activeTeamId || !userTeams[activeTeamId]) {
-    // Meerdere ploegen of actieve ploeg niet meer beschikbaar → keuze tonen
+    await preloadTeamNames();
     await go('teamselect', undefined, true); return;
   }
   updateCloudChip(); cloudRefreshUI();
@@ -775,7 +780,7 @@ function onAdminReqValue(s) {
   pendingAdminCount = Object.keys(v).length;
   updateCloudChip();
   const b = document.getElementById('owner-req-btn');
-  if (b) b.textContent = '🛡 Beheerdersaanvragen' + (pendingAdminCount ? ` (${pendingAdminCount})` : '');
+  if (b) b.innerHTML = `${icI(IC.shield)} Beheerdersaanvragen` + (pendingAdminCount ? ` (${pendingAdminCount})` : '');
 }
 function listenAdminRequests() {
   if (!fbdb) return;
@@ -809,7 +814,7 @@ function maybeNotifyApproved() {
   setTimeout(() => {
     openModal(`<h3>✅ Aanvraag goedgekeurd</h3>
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je hebt nu beheerdersrechten. Je kunt een eigen ploeg aanmaken via <b>Van ploeg wisselen → Nieuwe ploeg aanmaken</b>.</p>
-      <button class="btn btn-green" onclick="closeModal();view='teamselect';render()">➕ Ploeg aanmaken</button>
+      <button class="btn btn-green" onclick="closeModal();view='teamselect';render()">${icI(IC.plus)} Ploeg aanmaken</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Later</button>`);
   }, 700);
 }
@@ -865,7 +870,7 @@ async function doRequestAdmin() {
 // Eigenaar: openstaande beheerdersaanvragen bekijken en goed-/afkeuren (als modal).
 async function showAdminRequestsModal() {
   if (!isOwner || !fbdb) return;
-  openModal(`<h3>🛡 Beheerdersaanvragen</h3>
+  openModal(`<h3>${icI(IC.shield)} Beheerdersaanvragen</h3>
     <div id="adminreq-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   await loadAdminRequestsList();
@@ -961,6 +966,16 @@ function pruneDeadTeam(id) {
   if (view === 'teamselect') render();
 }
 
+async function preloadTeamNames() {
+  const ids = Object.keys(userTeams);
+  await Promise.all(ids.map(async id => {
+    if (teamNames[id]) return;
+    try {
+      const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
+      if (s.exists()) teamNames[id] = s.val();
+    } catch (e) {}
+  }));
+}
 async function loadUserTeams(uid) {
   const snap = await fbdb.ref('users/' + uid + '/teams').once('value');
   const raw = snap.val() || {};
@@ -1280,7 +1295,7 @@ async function showInviteModal(teamId) {
   const adminTeams = Object.entries(userTeams).filter(([, role]) => role === 'admin');
   if (!teamId && !activeTeamId && adminTeams.length > 1) {
     // Laad namen van alle beheerde ploegen
-    openModal(`<h3>🔗 Kies een ploeg</h3>
+    openModal(`<h3>${icI(IC.link)} Kies een ploeg</h3>
       <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor welke ploeg wil je de uitnodigingscode delen?</p>
       <div id="invite-team-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -1312,7 +1327,7 @@ async function showInviteModal(teamId) {
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
   const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&data=' + encodeURIComponent(joinUrl);
   const shareText = 'Volg ' + teamName + ' via MatchDelegate. Open de link of gebruik code ' + token + '.';
-  openModal(`<h3>🔗 Uitnodiging — ${esc(teamName)}</h3>
+  openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(teamName)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Scan de QR-code of deel de link. Werkt ook voor mensen zonder account.</p>
     <div style="display:flex;justify-content:center;margin-bottom:12px">
       <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
@@ -1506,20 +1521,21 @@ function renderTeamSelect() {
   const teamRows = teamIds.length
     ? teamIds.map(id => {
         const role = userTeams[id];
+        const name = teamNames[id] || id;
         return `<div class="ts-team-row" onclick="selectTeam('${id}')">
-          <span class="ts-name" id="tsname-${id}">Ploeg laden...</span>
+          <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
           <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker'}</span>
         </div>`;
       }).join('')
     : `<div class="empty"><div class="ei">👥</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
 
-  // Laad ploegnamen asynchroon; ruim verdwenen ploegen op
+  // Ververs namen asynchroon voor ploegen die nog niet in de cache zitten
   setTimeout(() => {
     teamIds.forEach(id => {
+      if (teamNames[id]) return;
       const el = document.getElementById('tsname-' + id);
-      if (!el) return;
       fbdb.ref('teams/' + id + '/info/name').once('value')
-        .then(s => { if (!s.exists()) { pruneDeadTeam(id); return; } if (el) el.textContent = s.val() || id; })
+        .then(s => { if (!s.exists()) { pruneDeadTeam(id); return; } teamNames[id] = s.val(); if (el) el.textContent = s.val() || id; })
         .catch(() => pruneDeadTeam(id));
     });
   }, 0);
@@ -1536,18 +1552,18 @@ function renderTeamSelect() {
       ${teamRows}
       <div style="margin-top:20px">
         ${isApprovedAdmin
-          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">➕ Nieuwe ploeg aanmaken (als beheerder)</button>`
+          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken (als beheerder)</button>`
           : localStorage.getItem('voetbal_adminRequested') !== '1'
-            ? `<button class="btn btn-org" onclick="showRequestAdminModal()">➕ Beheerder worden & ploeg aanmaken</button>`
+            ? `<button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden & ploeg aanmaken</button>`
             : ''}
-        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">🔗 Ploeg vervoegen via code (als kijker)</button>
+        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg vervoegen via code (als kijker)</button>
         <button class="btn btn-pale" style="margin-top:10px" onclick="cloudLogout()">Afmelden</button>
       </div>
       ${isOwner ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🛡 Beheerstools</div>
-        <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">🛡 Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
+        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
+        <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
         <button class="btn btn-dark" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
-        <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?'🔧 Onderhoud UIT-zetten':'🔧 Onderhoud AAN-zetten'}</button>
+        <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
       </div>` : ''}
     </div>
   </div>`;
@@ -1556,7 +1572,7 @@ function renderTeamSelect() {
 function showCreateTeamModal() {
   // Als er een eigenaar is ingesteld en je bent niet goedgekeurd → eerst toestemming vragen.
   if (ownerUid && !isApprovedAdmin) { showRequestAdminModal(); return; }
-  openModal(`<h3>➕ Nieuwe ploeg</h3>
+  openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="auth-err" id="ct-err"></div>
     <button class="btn btn-org" id="ct-btn" onclick="doCreateTeam()">Aanmaken</button>
@@ -1585,7 +1601,7 @@ async function doCreateTeam() {
 }
 
 function showJoinTeamModal() {
-  openModal(`<h3>🔗 Ploeg vervoegen</h3>
+  openModal(`<h3>${icI(IC.link)} Ploeg vervoegen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Vraag de uitnodigingscode aan de beheerder van de ploeg.</p>
     <div class="fg"><label>Uitnodigingscode</label><input id="join-token" type="text" placeholder="bv. AB12CD" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;font-size:22px;text-align:center" autofocus></div>
     <div class="auth-err" id="jt-err"></div>
@@ -2592,7 +2608,7 @@ function renderTeamEdit() {
         <button class="btn btn-pale btn-sm" onclick="teamPasteModal()">${icI(IC.clipboard)} Lijst plakken</button>
       </div></div>
     <button class="btn btn-green" onclick="saveTeamEdit()">✓ ${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
-    ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">🗑 Ploeg verwijderen</button></div>`}
+    ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
 }
 function teamAddPlayer() { editingTeam.players.push({ id: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
@@ -2648,7 +2664,7 @@ function saveTeamEdit() {
 }
 function deleteTeamConfirm() {
   openModal(`<h3>Ploeg verwijderen?</h3><p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(editingTeam.name)}" en alle spelers worden verwijderd. Bestaande wedstrijden blijven behouden.</p>
-    <button class="btn btn-red" onclick="doDeleteTeam()">🗑 Ja, verwijderen</button>
+    <button class="btn btn-red" onclick="doDeleteTeam()">${icI(IC.trash)} Ja, verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function doDeleteTeam() { saveTeamsV2(getTeamsV2().filter(t => t.id !== editingTeam.id)); editingTeam = null; closeModal(); go('teams'); }
@@ -2733,14 +2749,14 @@ async function loadTournamentDetail() {
     ${newMatchBtn}
     <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}
-    ${canManage() ? `<div class="danger"><button class="btn btn-red" onclick="deleteTournamentConfirm('${t.id}')">🗑 Tornooi verwijderen</button></div>` : ''}`;
+    ${canManage() ? `<div class="danger"><button class="btn btn-red" onclick="deleteTournamentConfirm('${t.id}')">${icI(IC.trash)} Tornooi verwijderen</button></div>` : ''}`;
 }
 
 function deleteTournamentConfirm(id) {
   const t = tournamentById(id); if (!t) return;
   openModal(`<h3>Tornooi verwijderen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd. De wedstrijden blijven bewaard maar zijn niet meer gelinkt aan dit tornooi.</p>
-    <button class="btn btn-red" onclick="doDeleteTournament('${id}')">🗑 Ja, verwijderen</button>
+    <button class="btn btn-red" onclick="doDeleteTournament('${id}')">${icI(IC.trash)} Ja, verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function doDeleteTournament(id) {
@@ -3566,7 +3582,7 @@ function renderPrep() {
     <div class="card">${renderPitch(m, starters)}</div>
     <div class="sec">Bank (${bench.length})</div>
     <div class="card">${bench.length ? bench.map(p => `<div class="prow"><div class="pnum pnum-off">${p.number || '?'}</div><div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
-    ${ro ? '' : `<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">🗑 Wedstrijd verwijderen</button></div>`}
+    ${ro ? '' : `<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
 async function finishStep1Only() {
@@ -3744,7 +3760,7 @@ function renderLive() {
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <div class="sec" style="margin-top:0">🔄 Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
         ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">🔄 <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">➕ Pauzewissel toevoegen</button>
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">${icI(IC.plus)} Pauzewissel toevoegen</button>
         ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">↔ Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">↔ <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">↔</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}` : ''}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">↔ Positiewissel toevoegen</button>
       </div>` : ''}
@@ -3760,7 +3776,7 @@ function renderLive() {
       </div>`}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">↩ Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
-      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">💬 Deel score via WhatsApp</button>`;
+      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score via WhatsApp</button>`;
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), mins = calcMinutes(match);
     tabContent = `
@@ -4084,12 +4100,12 @@ function shareWhatsApp(m) {
     navigator.share({ text }).catch(() => {});
   } else {
     navigator.clipboard.writeText(text).then(() => {
-      openModal(`<h3>💬 Gekopieerd!</h3>
+      openModal(`<h3>${icI(IC.share)} Gekopieerd!</h3>
         <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De tekst staat op je klembord. Plak hem in WhatsApp.</p>
         <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
         <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
     }).catch(() => {
-      openModal(`<h3>💬 Deel via WhatsApp</h3>
+      openModal(`<h3>${icI(IC.share)} Deel via WhatsApp</h3>
         <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
         <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
     });
@@ -4164,7 +4180,7 @@ function confirmDeleteEvent(id) {
   const e = match.events.find(x => x.id === id); if (!e) return;
   openModal(`<h3>Event verwijderen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${evtLabel(e, match)}"<br>De score en opstelling worden herberekend.</p>
-    <button class="btn btn-red" onclick="doDeleteEvent('${id}')">🗑 Verwijderen</button>
+    <button class="btn btn-red" onclick="doDeleteEvent('${id}')">${icI(IC.trash)} Verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doDeleteEvent(id) {
@@ -4669,7 +4685,7 @@ function renderDetail() {
       <button class="btn btn-org btn-sm" onclick="exportPDF()">📄 PDF</button>
       <button class="btn btn-pale btn-sm" onclick="exportMatch()">⬇ Export</button>
     </div>
-    <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">💬 Deel via WhatsApp</button>
+    <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel via WhatsApp</button>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
       ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Weer / veld',match.weather],['Kapitein',match.captainId?pName(match,match.captainId):'']].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
@@ -4695,14 +4711,14 @@ function renderDetail() {
         <button class="btn btn-orgpale" onclick="modalEditPlayers()">${icI(IC.edit)} Spelers bewerken</button>
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
       </div>
-      <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">🗑 Wedstrijd verwijderen</button></div>
+      <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
   </div>`;
 }
 function confirmDelete() {
   openModal(`<h3>Wedstrijd verwijderen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Dit kan niet ongedaan gemaakt worden.</p>
-    <button class="btn btn-red" onclick="deleteCurrentMatch()">🗑 Ja, verwijderen</button>
+    <button class="btn btn-red" onclick="deleteCurrentMatch()">${icI(IC.trash)} Ja, verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function deleteCurrentMatch() { await dbDel(match.id); match = null; closeModal(); go('home'); }
