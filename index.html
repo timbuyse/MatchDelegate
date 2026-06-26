@@ -357,7 +357,9 @@
     .ts-team-row .ts-role{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
     .ts-role.admin{background:var(--grnp);color:var(--grn2)}
     .ts-role.viewer{background:var(--orgp);color:var(--org2)}
-    .team-switch-btn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:12px;font-weight:700;cursor:pointer;padding:4px 9px;border-radius:999px;white-space:nowrap;max-width:42vw;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:4px}
+    .team-switch-btn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:12px;font-weight:700;cursor:pointer;padding:5px 14px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;margin-top:4px}
+    .team-switch-btn:active{background:rgba(255,255,255,.3)}
+    .hdr-club-name{font-size:18px;font-weight:900;color:#fff;line-height:1.1}
     .invite-code{font-size:28px;font-weight:900;letter-spacing:6px;text-align:center;padding:16px;background:var(--grnp);border-radius:12px;color:var(--grn2);margin:12px 0;font-family:monospace}
     body.dark .auth-box{background:var(--card)}
     body.dark .auth-tab{background:var(--card);color:var(--txt)}
@@ -669,6 +671,7 @@ const FB_CONFIG = {
 
 let cloudReady = false, isAdmin = false, fbdb = null, fbauth = null;
 let isGuest = false;       // anoniem ingelogde gast (beperkte toegang)
+let viewerMode = false;    // beheerder kijkt als kijker (tijdelijk)
 let activeTeamId = null;   // welke ploeg is actief
 let currentUser = null;    // ingelogde Firebase user
 let userTeams = {};        // { teamId: 'admin'|'viewer' }
@@ -716,7 +719,7 @@ async function onAuthChanged(user) {
   currentUser = user;
   if (!user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
-    isAdmin = false; isGuest = false; activeTeamId = null; userTeams = {};
+    isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     stopTeamListeners(); listenAdminRequests();
     await go('auth', undefined, true); return;
@@ -821,20 +824,28 @@ function maybeNotifyApproved() {
 async function maybeNotifyRejected() {
   if (!currentUser || !fbdb) return;
   if (localStorage.getItem('voetbal_adminRequested') !== '1') return;
-  if (isApprovedAdmin) return; // goedgekeurd → geen weigeringsmelding
+  if (isApprovedAdmin) return;
   try {
-    const snap = await fbdb.ref('rejectedAdmins/' + currentUser.uid).once('value');
-    if (!snap.exists()) return;
-    // Opruimen: node verwijderen + localStorage resetten
-    await fbdb.ref('rejectedAdmins/' + currentUser.uid).remove().catch(() => {});
+    const [rejSnap, reqSnap] = await Promise.all([
+      fbdb.ref('rejectedAdmins/' + currentUser.uid).once('value'),
+      fbdb.ref('adminRequests/' + currentUser.uid).once('value'),
+    ]);
+    const wasRejected = rejSnap.exists();
+    const stillPending = reqSnap.exists();
+    if (!wasRejected && stillPending) return; // aanvraag loopt nog
+    // Opruimen
+    if (wasRejected) await fbdb.ref('rejectedAdmins/' + currentUser.uid).remove().catch(() => {});
     localStorage.removeItem('voetbal_adminRequested');
     localStorage.removeItem('voetbal_adminApprovedSeen');
-    setTimeout(() => {
-      openModal(`<h3>Aanvraag geweigerd</h3>
-        <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je aanvraag om beheerder te worden is geweigerd. Je kan een nieuwe aanvraag indienen als je dit wil.</p>
-        <button class="btn btn-org" onclick="closeModal();showRequestAdminModal()">Nieuwe aanvraag indienen</button>
-        <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
-    }, 700);
+    if (wasRejected) {
+      setTimeout(() => {
+        openModal(`<h3>Aanvraag geweigerd</h3>
+          <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je aanvraag om beheerder te worden is geweigerd. Je kan een nieuwe aanvraag indienen als je dit wil.</p>
+          <button class="btn btn-org" onclick="closeModal();showRequestAdminModal()">Nieuwe aanvraag indienen</button>
+          <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+      }, 700);
+    }
+    // Stilletjes resetten als aanvraag verdween zonder formele weigering
   } catch (e) {}
 }
 
@@ -1192,7 +1203,7 @@ function cloudRefreshUI() {
 
 // ---- rechten ----
 function canEditMatch() { return !match || !match.fromCloud || isAdmin; }
-function canManage() { return !isGuest && (!cloudReady || isAdmin); }
+function canManage() { return !isGuest && !viewerMode && (!cloudReady || isAdmin); }
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {
@@ -1200,8 +1211,9 @@ function updateCloudChip() {
   if (!el) return;
   if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.innerHTML = (isAdmin ? `${icI(IC.edit)} Beheer` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijken');
-  el.className = 'cloud-chip ' + (isAdmin ? 'admin' : 'viewer');
+  const effectiveAdmin = isAdmin && !viewerMode;
+  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> ' + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
   if (!currentUser) { go('auth', undefined, true); return; }
@@ -1214,8 +1226,8 @@ function cloudLoginModal() {
   // Deze ploeg beheren: uitnodigen, kijkers, verwijderen
   const manageBlock = (isAdmin && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
-    <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Kijkers uitnodigen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()"><i class="ti ti-users" style="font-size:1.1em"></i> Kijkers bekijken</button>
+    <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Kijkers</button>
     <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1.1em"></i> Ploeg verwijderen</button>` : '';
 
   // Van ploeg wisselen
@@ -1223,22 +1235,32 @@ function cloudLoginModal() {
     <div class="sec" style="margin-top:14px">Ploegen</div>
     <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()"><i class="ti ti-arrows-exchange" style="font-size:1.1em"></i> ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
 
-  openModal(`<h3><i class="ti ti-user-circle" style="font-size:1.1em;vertical-align:-.1em"></i> Mijn account</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px">${esc(currentUser.displayName || currentUser.email)}</p>
+  const viewerToggle = isAdmin ? `<button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? '👁 Kijker' : '👁 Kijkmodus'}</button>` : '';
+  openModal(`<h3>${icI(IC.edit)} Beheer</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+      <p style="color:var(--txt2);font-size:14px;margin:0">${esc(currentUser.displayName || currentUser.email)}</p>
+      ${viewerToggle}
+    </div>
     ${ownerBlock}
     ${manageBlock}
     ${switchBlock}
     <button class="btn btn-pale" style="margin-top:16px" onclick="closeModal()">Sluiten</button>`);
 }
+function toggleViewerMode() {
+  viewerMode = !viewerMode;
+  closeModal();
+  updateCloudChip();
+  if (view === 'live' || view === 'detail' || view === 'home') render();
+}
 function cloudLogout() {
   try { fbauth.signOut(); } catch (e) {}
-  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false;
+  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
   localStorage.removeItem('voetbal_activeTeamId');
   closeModal();
 }
 function authDoSignOut() {
   try { fbauth.signOut(); } catch (e) {}
-  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false;
+  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
   localStorage.removeItem('voetbal_activeTeamId');
 }
 
@@ -1342,7 +1364,7 @@ async function showMembersModal() {
   const tid = activeTeamId;
   if (!tid || !isAdmin) return;
   const teamName = getClubName() || 'deze ploeg';
-  openModal(`<h3>👥 Leden — ${esc(teamName)}</h3>
+  openModal(`<h3>${icI(IC.players)} Kijkers — ${esc(teamName)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie heeft toegang tot deze ploeg.</p>
     <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
@@ -1546,18 +1568,21 @@ function renderTeamSelect() {
       <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
     </div>
     <div class="ts-content">
+      ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Welke ploeg wil je bekijken?</div>` : ''}
       ${ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1'
         ? `<div class="nudge" style="margin-bottom:16px">⏳ <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
         : ''}
       ${teamRows}
-      <div style="margin-top:20px">
-        ${isApprovedAdmin
-          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken (als beheerder)</button>`
-          : localStorage.getItem('voetbal_adminRequested') !== '1'
+      <div class="sec" style="margin-top:20px;margin-bottom:10px">Een andere ploeg toevoegen</div>
+      <div>
+        ${!viewerMode && isApprovedAdmin
+          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken</button>`
+          : !viewerMode && localStorage.getItem('voetbal_adminRequested') !== '1'
             ? `<button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden & ploeg aanmaken</button>`
             : ''}
-        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg vervoegen via code (als kijker)</button>
-        <button class="btn btn-pale" style="margin-top:10px" onclick="cloudLogout()">Afmelden</button>
+        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
+        <div class="sec" style="margin-top:20px;margin-bottom:10px">Afmelden</div>
+        <button class="btn btn-pale" onclick="cloudLogout()">Afmelden</button>
       </div>
       ${isOwner ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
         <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
@@ -1753,7 +1778,7 @@ function renderEventLog(m) {
   return groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
-    const elog_ro = !!(m.fromCloud && !isAdmin);
+    const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
     const items = g.list.length
       ? g.list.map(e => `<li><span class="emin">${eventMin(e,m)}'</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
       : '<li class="qgroup-empty">Geen events in dit deel.</li>';
@@ -1844,7 +1869,7 @@ window.addEventListener('popstate', async e => {
   // Navigeer intern zonder opnieuw een history-entry te maken.
   await go(s.v, s.id || undefined, true);
 });
-function render() { document.getElementById('app').innerHTML = views[view](); }
+function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>'; }
 
 // ===================== VISUAL PITCH =====================
 function shortName(name) {
@@ -1985,11 +2010,23 @@ const views = {
   home: () => {
     loadHome();
     setTimeout(updateCloudChip, 0);
-    const switchBtn = (cloudReady && currentUser && activeTeamId)
-      ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">⇄ ${esc(getClubName() || 'Ploeg')}</button>` : '';
-    return `<div class="hdr hdr-home"><img src="MD_cropped.png" class="hdr-crest" alt="MatchDelegate">${switchBtn}<span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span><button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button></div>
-      <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>
-      <div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>`;
+    const canSwitch = cloudReady && currentUser && activeTeamId;
+    const clubName = canSwitch ? esc(getClubName() || 'Ploeg') : '';
+    const switchBtn = canSwitch
+      ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">${icI(IC.swap)} Ploegwissel</button>`
+      : '';
+    return `<div class="hdr hdr-home">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+        <img src="MD_cropped.png" class="hdr-crest" alt="MatchDelegate">
+        ${clubName ? `<span class="hdr-club-name">${clubName}</span>` : ''}
+      </div>
+      <div style="position:absolute;left:50%;transform:translateX(-50%)">${switchBtn}</div>
+      <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
+        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span>
+        <button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button>
+      </div>
+    </div>
+      <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
   },
   matches: () => {
     loadMatches();
@@ -2478,7 +2515,7 @@ async function doDeleteAccount() {
     await currentUser.reauthenticateWithCredential(cred);
     await currentUser.delete();
     closeModal();
-    activeTeamId = null; userTeams = {}; isAdmin = false;
+    activeTeamId = null; userTeams = {}; isAdmin = false; viewerMode = false;
     localStorage.removeItem('voetbal_activeTeamId');
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
@@ -3561,7 +3598,7 @@ function startSelectieWizard() {
 function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
-  const ro = !!(m.fromCloud && !isAdmin); // kijker: alleen-lezen
+  const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
   const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Weer / veld', m.weather]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
@@ -3709,7 +3746,7 @@ async function saveEditPlayers() {
 // ===================== LIVE MATCH =====================
 function renderLive() {
   if (!match) return '<div class="content"><p>Geen wedstrijd.</p></div>';
-  const ro = !!(match.fromCloud && !isAdmin); // kijker: alleen-lezen
+  const ro = !!(match.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const q = match.quarters[match.quarters.length - 1];
   const isRunning = q && q.startTime && !q.pausedAt && !q.endTime;
   const isPaused = q && q.pausedAt;
@@ -4655,7 +4692,7 @@ function postEvt(fn) {
 function renderDetail() {
   if (!match) return '<div class="content"><p>Niet gevonden.</p></div>';
   if (ensurePosNums(match)) dbSave(match);
-  const ro = !!(match.fromCloud && !isAdmin); // kijker: alleen-lezen
+  const ro = !!(match.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
@@ -4703,7 +4740,7 @@ function renderDetail() {
     <div class="card">${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}</div>
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
-    ${(match.fromCloud && !isAdmin) ? '' : `<div class="no-print">
+    ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
       <div style="margin-bottom:8px">
         <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
       </div>
