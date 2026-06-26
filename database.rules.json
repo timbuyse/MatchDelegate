@@ -84,6 +84,20 @@
       }
     },
 
+    "maintenance": {
+      // Iedereen die ingelogd is mag lezen (om onderhoudsmodus te detecteren).
+      // Enkel de eigenaar mag schrijven.
+      ".read":  "auth != null",
+      ".write": "auth != null && root.child('owner').val() === auth.uid"
+    },
+
+    "rejectedAdmins": {
+      "$uid": {
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || auth.uid === $uid)"
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false

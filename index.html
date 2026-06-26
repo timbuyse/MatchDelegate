@@ -732,6 +732,7 @@ async function onAuthChanged(user) {
   }
   await loadUserTeams(user.uid);
   maybeNotifyApproved();
+  maybeNotifyRejected();
   // Pending join via QR/link afhandelen
   const pendingJoin = localStorage.getItem('voetbal_pending_join');
   if (pendingJoin) {
@@ -812,6 +813,25 @@ function maybeNotifyApproved() {
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Later</button>`);
   }, 700);
 }
+async function maybeNotifyRejected() {
+  if (!currentUser || !fbdb) return;
+  if (localStorage.getItem('voetbal_adminRequested') !== '1') return;
+  if (isApprovedAdmin) return; // goedgekeurd → geen weigeringsmelding
+  try {
+    const snap = await fbdb.ref('rejectedAdmins/' + currentUser.uid).once('value');
+    if (!snap.exists()) return;
+    // Opruimen: node verwijderen + localStorage resetten
+    await fbdb.ref('rejectedAdmins/' + currentUser.uid).remove().catch(() => {});
+    localStorage.removeItem('voetbal_adminRequested');
+    localStorage.removeItem('voetbal_adminApprovedSeen');
+    setTimeout(() => {
+      openModal(`<h3>Aanvraag geweigerd</h3>
+        <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je aanvraag om beheerder te worden is geweigerd. Je kan een nieuwe aanvraag indienen als je dit wil.</p>
+        <button class="btn btn-org" onclick="closeModal();showRequestAdminModal()">Nieuwe aanvraag indienen</button>
+        <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+    }, 700);
+  } catch (e) {}
+}
 
 // Een gebruiker vraagt beheerdersrechten (ploegen mogen aanmaken) aan bij de eigenaar.
 function showRequestAdminModal() {
@@ -842,32 +862,33 @@ async function doRequestAdmin() {
   }
 }
 
-// Eigenaar: openstaande beheerdersaanvragen bekijken en goed-/afkeuren.
-function renderAdminRequests() {
-  setTimeout(loadAdminRequests, 0);
-  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>🛡 Beheerdersaanvragen</h1></div>
-  <div class="content" id="adminreq-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
+// Eigenaar: openstaande beheerdersaanvragen bekijken en goed-/afkeuren (als modal).
+async function showAdminRequestsModal() {
+  if (!isOwner || !fbdb) return;
+  openModal(`<h3>🛡 Beheerdersaanvragen</h3>
+    <div id="adminreq-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
+  await loadAdminRequestsList();
 }
-async function loadAdminRequests() {
-  const el = document.getElementById('adminreq-content');
+async function loadAdminRequestsList() {
+  const el = document.getElementById('adminreq-list');
   if (!el) return;
   try {
     const snap = await fbdb.ref('adminRequests').once('value');
     const reqs = snap.val() || {};
     const uids = Object.keys(reqs);
-    if (!uids.length) { el.innerHTML = '<div class="empty"><div class="ei">✅</div><p>Geen openstaande aanvragen.</p></div>'; return; }
+    if (!uids.length) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen openstaande aanvragen.</p>'; return; }
     el.innerHTML = uids.map(uid => {
       const r = reqs[uid] || {};
-      return `<div class="card" style="margin-bottom:10px">
-        <div style="font-weight:700">${esc(r.name || '(geen naam)')}</div>
-        <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${esc(r.email || '')}</div>
+      return `<div class="ts-team-row" style="cursor:default;margin-bottom:8px;flex-direction:column;align-items:stretch;gap:8px">
+        <div><b>${esc(r.name || '(geen naam)')}</b><br><small style="color:var(--txt2)">${esc(r.email || '')}</small></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button class="btn btn-green btn-sm" onclick="approveAdmin('${uid}')">✓ Goedkeuren</button>
           <button class="btn btn-red btn-sm" onclick="rejectAdmin('${uid}')">✕ Weigeren</button>
         </div></div>`;
     }).join('');
   } catch (e) {
-    el.innerHTML = '<div class="empty"><div class="ei">⚠</div><p>Kon de aanvragen niet laden.</p></div>';
+    el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de aanvragen niet laden.</p>';
   }
 }
 async function approveAdmin(uid) {
@@ -877,14 +898,15 @@ async function approveAdmin(uid) {
     const req = reqSnap.val() || {};
     await fbdb.ref('approvedAdmins/' + uid).set({ approved: true, name: req.name || '', email: req.email || '' });
     await fbdb.ref('adminRequests/' + uid).remove();
-    loadAdminRequests();
+    loadAdminRequestsList();
   } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 async function rejectAdmin(uid) {
   if (!isOwner || !fbdb) return;
   try {
+    await fbdb.ref('rejectedAdmins/' + uid).set({ rejectedAt: Date.now() });
     await fbdb.ref('adminRequests/' + uid).remove();
-    loadAdminRequests();
+    loadAdminRequestsList();
   } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 
@@ -1523,7 +1545,7 @@ function renderTeamSelect() {
       </div>
       ${isOwner ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
         <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🛡 Beheerstools</div>
-        <button class="btn btn-dark" onclick="go('adminRequests')" style="margin-bottom:8px">🛡 Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
+        <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">🛡 Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
         <button class="btn btn-dark" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
         <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?'🔧 Onderhoud UIT-zetten':'🔧 Onderhoud AAN-zetten'}</button>
       </div>` : ''}
@@ -4865,7 +4887,6 @@ async function init() {
 }
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
-views.adminRequests = renderAdminRequests;
 views.tournaments = renderTournamentList;
 views.tournament = renderTournament;
 views.tournamentNew = renderTournamentNew;
