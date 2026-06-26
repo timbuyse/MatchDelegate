@@ -207,6 +207,11 @@
     /* FAB */
     .fab{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;width:62px;height:62px;border-radius:31px;background:var(--org);color:#fff;border:none;font-size:30px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
     .fab:active{transform:scale(.9)}
+    .fab-note{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 12px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--card);border:2px solid var(--bdr);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:49;padding:0;color:var(--txt)}
+    .fab-note:active{transform:scale(.9)}
+    .fab-note svg,.fab-mark svg{width:20px;height:20px;display:block}
+    .fab-mark{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 68px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--ylp,#fef9c3);border:2px solid var(--yl,#ca8a04);color:var(--yl,#ca8a04);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:49;padding:0}
+    .fab-mark:active{transform:scale(.9)}
     /* Player input row */
     .pirow{display:grid;grid-template-columns:56px 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
     .pirow input,.pirow select{padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;width:100%;-webkit-appearance:none;background:#fff}
@@ -320,7 +325,7 @@
     @keyframes splashFade{from{opacity:0}to{opacity:.65}}
     /* Print */
     @media print{
-      .ltabs,.fab,.hdr,.no-print{display:none!important}
+      .ltabs,.fab,.fab-note,.fab-mark,.hdr,.no-print{display:none!important}
       body{background:#fff}
       .content{max-width:100%;padding:0}
     }
@@ -657,11 +662,13 @@ const FB_CONFIG = {
 };
 
 let cloudReady = false, isAdmin = false, fbdb = null, fbauth = null;
+let isGuest = false;       // anoniem ingelogde gast (beperkte toegang)
 let activeTeamId = null;   // welke ploeg is actief
 let currentUser = null;    // ingelogde Firebase user
 let userTeams = {};        // { teamId: 'admin'|'viewer' }
 let teamListeners = [];    // actieve Firebase .on() listeners
 let knownLiveMatchIds = new Set(); // bijhouden welke matches al als 'live' gekend zijn
+let knownScores = {};              // { matchId: { us, them } } voor doelpunt-detectie
 let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
 let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
@@ -702,11 +709,22 @@ async function onAuthChanged(user) {
   currentUser = user;
   if (!user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
-    isAdmin = false; activeTeamId = null; userTeams = {};
+    isAdmin = false; isGuest = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     stopTeamListeners(); listenAdminRequests();
     await go('auth', undefined, true); return;
   }
+  // Anonieme gast
+  if (user.isAnonymous) {
+    isGuest = true; isAdmin = false;
+    ownerUid = null; isOwner = false; isApprovedAdmin = false;
+    await loadUserTeams(user.uid);
+    const teamIds = Object.keys(userTeams);
+    if (teamIds.length === 0) { await go('guestjoin', undefined, true); return; }
+    if (!activeTeamId || !userTeams[activeTeamId]) await selectTeam(teamIds[0]);
+    return;
+  }
+  isGuest = false;
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
   if (maintenanceActive && !isOwner && !isApprovedAdmin) {
@@ -993,6 +1011,7 @@ function stopTeamListeners() {
   for (const { ref, event } of teamListeners) { try { ref.off(event); } catch (e) {} }
   teamListeners = [];
   knownLiveMatchIds = new Set();
+  knownScores = {};
 }
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
@@ -1032,9 +1051,17 @@ async function applyCloudMatches(obj) {
     // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
     if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
       knownLiveMatchIds.add(id);
+      knownScores[id] = { us: m.scoreUs || 0, them: m.scoreThem || 0 };
       notifyLiveMatch(m);
     } else if (m.status !== 'live') {
       knownLiveMatchIds.delete(id);
+      delete knownScores[id];
+    } else if (!isAdmin && m.status === 'live' && knownScores[id]) {
+      const prev = knownScores[id];
+      const newUs = m.scoreUs || 0, newThem = m.scoreThem || 0;
+      if (newUs > prev.us) notifyGoal(m, true, newUs, newThem);
+      else if (newThem > prev.them) notifyGoal(m, false, newUs, newThem);
+      knownScores[id] = { us: newUs, them: newThem };
     }
   }
   if (!isAdmin) knownLiveMatchIds.forEach(id => { if (!cloudIds.has(id)) knownLiveMatchIds.delete(id); });
@@ -1050,6 +1077,33 @@ function notifyLiveMatch(m) {
   }
   // In-app banner als fallback (ook als notificaties geblokkeerd zijn)
   showLiveBanner(title, m.id);
+}
+function notifyGoal(m, scoredUs, newUs, newThem) {
+  const club = getClubName() || tName(m);
+  const home = !isAway(m);
+  const usLabel = home ? club : m.opponent;
+  const themLabel = home ? m.opponent : club;
+  const usScore = home ? newUs : newThem;
+  const themScore = home ? newThem : newUs;
+  const title = scoredUs ? `⚽ GOAL! ${usLabel} ${usScore}–${themScore} ${themLabel}` : `⚽ Tegendoel — ${usLabel} ${usScore}–${themScore} ${themLabel}`;
+  const body = scoredUs ? `${club} scoort!` : `${m.opponent} scoort.`;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: 'logo.png', tag: 'goal-' + m.id, renotify: true }); } catch (e) {}
+  }
+  showGoalBanner(title, m.id, scoredUs);
+}
+function showGoalBanner(title, matchId, scoredUs) {
+  let banner = document.getElementById('goal-notify-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'goal-notify-banner';
+    document.body.appendChild(banner);
+  }
+  banner.style.cssText = `position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:${scoredUs ? '#2f9e57' : '#dc2626'};color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35);z-index:9000;cursor:pointer;max-width:320px;text-align:center;animation:splashFade .3s ease`;
+  banner.textContent = title;
+  banner.onclick = () => { banner.remove(); if (view !== 'live') go('live', matchId); };
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => banner && banner.remove(), 8000);
 }
 function showLiveBanner(title, matchId) {
   if (view === 'live' && match && match.id === matchId) return; // al op live scherm
@@ -1101,7 +1155,7 @@ function cloudRefreshUI() {
 
 // ---- rechten ----
 function canEditMatch() { return !match || !match.fromCloud || isAdmin; }
-function canManage() { return !cloudReady || isAdmin; }
+function canManage() { return !isGuest && (!cloudReady || isAdmin); }
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {
@@ -1141,9 +1195,14 @@ function cloudLoginModal() {
 }
 function cloudLogout() {
   try { fbauth.signOut(); } catch (e) {}
-  activeTeamId = null; userTeams = {}; isAdmin = false;
+  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false;
   localStorage.removeItem('voetbal_activeTeamId');
   closeModal();
+}
+function authDoSignOut() {
+  try { fbauth.signOut(); } catch (e) {}
+  activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false;
+  localStorage.removeItem('voetbal_activeTeamId');
 }
 
 // ---- Ploeg aanmaken ----
@@ -1323,6 +1382,10 @@ function renderAuth() {
         <button class="btn btn-org" onclick="authDoRegister()">Account aanmaken</button>
       </div>
     </div>
+    <div style="margin-top:16px;text-align:center">
+      <button class="btn btn-gray" style="width:100%;opacity:.4" disabled>👁 Verder als gast</button>
+      <p style="font-size:11px;color:var(--txt2);margin-top:6px">Inloggen als gast is momenteel nog niet mogelijk</p>
+    </div>
   </div>`;
 }
 
@@ -1379,6 +1442,40 @@ function authErrMsg(code) {
     'auth/too-many-requests': 'Te veel pogingen. Probeer later opnieuw.',
   };
   return map[code] || 'Er ging iets mis. Probeer opnieuw.';
+}
+
+function authSignInAsGuest() {
+  if (!fbauth) { alert('Geen verbinding beschikbaar.'); return; }
+  fbauth.signInAnonymously().catch(e => alert('Aanmelden als gast mislukt: ' + e.message));
+}
+
+async function guestJoinWithCode() {
+  const code = ((document.getElementById('guest-code') || {}).value || '').trim().toUpperCase();
+  const err = document.getElementById('guest-err');
+  if (!code) { if (err) err.textContent = 'Voer een code in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  const result = await joinTeamByToken(code);
+  if (result === 'ok') { /* selectTeam navigeert automatisch */ }
+  else if (err) err.textContent = 'Code niet gevonden. Controleer de code en probeer opnieuw.';
+}
+
+function renderGuestJoin() {
+  return `<div class="auth-wrap">
+    <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
+    <div class="auth-title">Gastmodus</div>
+    <div class="auth-sub">Volg een live wedstrijd zonder account</div>
+    <div class="auth-box">
+      <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:16px">
+        👁 Je bekijkt als gast. Enkel live wedstrijden volgen is mogelijk.
+      </div>
+      <div class="fg"><label>Uitnodigingscode</label>
+        <input id="guest-code" type="text" autocomplete="off" placeholder="bv. ABC123" style="text-transform:uppercase;letter-spacing:2px;font-size:18px;text-align:center">
+      </div>
+      <div class="auth-err" id="guest-err"></div>
+      <button class="btn btn-green" onclick="guestJoinWithCode()">✓ Verbinden</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="authDoSignOut()">← Terug naar aanmelden</button>
+    </div>
+  </div>`;
 }
 
 // ===================== TEAM SELECT VIEW =====================
@@ -1667,7 +1764,7 @@ function updateTimerDisplay() {
   el.style.color = overtime ? 'var(--org)' : '';
   if (lb) {
     const isPaused = q && q.pausedAt;
-    lb.textContent = `Totale speeltijd: ${fmtTime(getGameTimeMs(match))}${isPaused ? ' · GEPAUZEERD' : (overtime ? ' · ⏰ tijd voorbij' : '')}`;
+    if (lb) lb.textContent = isPaused ? 'GEPAUZEERD' : (overtime ? '⏰ tijd voorbij' : '');
   }
   const bar = document.getElementById('timer-progress-bar');
   if (bar && durMs) {
@@ -1844,6 +1941,7 @@ async function toggleMaintenance() {
 }
 const views = {
   auth: renderAuth,
+  guestjoin: renderGuestJoin,
   maintenance: renderMaintenance,
   teamselect: renderTeamSelect,
   home: () => {
@@ -1927,8 +2025,13 @@ async function loadHome() {
     el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.ball}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
+  const guestBanner = isGuest
+    ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span>👁 Gastmodus · enkel live wedstrijden volgen</span>
+        <button class="btn btn-gray btn-sm" style="white-space:nowrap" onclick="authDoSignOut()">Afmelden</button>
+      </div>` : '';
   const welcomeKey = 'voetbal_viewer_welcomed_' + activeTeamId;
-  const viewerWelcome = (!isAdmin && cloudReady && !localStorage.getItem(welcomeKey))
+  const viewerWelcome = (!isGuest && !isAdmin && cloudReady && !localStorage.getItem(welcomeKey))
     ? `<div class="card" style="border-left:4px solid var(--grn);margin-bottom:16px">
         <div style="font-size:15px;font-weight:700;margin-bottom:6px">👋 Welkom bij ${esc(getClubName() || 'de ploeg')}!</div>
         <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Je volgt deze ploeg live. Je kan wedstrijden en tornooien bekijken, de score en events live volgen, en de opstelling raadplegen.</p>
@@ -1970,7 +2073,15 @@ async function loadHome() {
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
-  el.innerHTML = viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  if (isGuest) {
+    const liveMatches = all.filter(m => m.status === 'live');
+    const liveHtml = liveMatches.length
+      ? liveMatches.map(matchItemHtml).join('')
+      : `<div class="empty" style="padding:24px 0"><div class="ei">${IC.ball}</div><p>Geen live wedstrijden op dit moment.</p></div>`;
+    el.innerHTML = guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml;
+    return;
+  }
+  el.innerHTML = guestBanner + viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -2591,7 +2702,7 @@ async function loadTournamentDetail() {
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
-    ? matches.map(matchItemHtml).join('')
+    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">⎘ Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
     <div class="card">${infoRows}${squadRow}</div>
@@ -2829,6 +2940,45 @@ function addTournamentMatch(trnId) {
     competition: 'Tornooi', matchday: '', referee: '', jersey: '', weather: '',
     trainer: t.trainer || '', responsible: t.responsible || '', trainerIsOther: false,
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
+  };
+  go('new');
+}
+async function cloneTournamentMatch(matchId, trnId) {
+  if (!canManage()) return;
+  const src = await dbGet(matchId);
+  if (!src) return;
+  const t = tournamentById(trnId); if (!t) return;
+  const team = teamById(t.teamId);
+  const now = new Date();
+  const pool = (src.players || []).map(p => ({
+    pid: uid(),
+    srcId: p.srcId || p.id,
+    name: p.name,
+    number: p.number,
+    pos: p.line || p.pos || '',
+    fromName: src.teamName || (team ? team.name : ''),
+    guest: !!p.guest,
+    sel: p.starting ? 'basis' : 'bank',
+    slot: null,
+    x: p.x, y: p.y, line: p.line, posNum: p.posNum,
+  }));
+  wiz = {
+    step: 1, trnMode: true, tournamentId: trnId,
+    teamId: t.teamId, teamNameFallback: team ? team.name : '',
+    opponent: '',
+    date: t.date || now.toISOString().split('T')[0],
+    time: src.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    location: src.location || t.location || 'Thuis',
+    matchType: src.matchType || t.matchType || '8v8',
+    periodKey: src.periodKey || 'delen',
+    quarterDuration: src.quarterDuration || 20,
+    numQuarters: src.numQuarters || 1,
+    competition: src.competition || 'Tornooi',
+    matchday: '', referee: src.referee || '', jersey: src.jersey || '',
+    weather: '', trainer: src.trainer || t.trainer || '',
+    responsible: src.responsible || t.responsible || '',
+    trainerIsOther: false,
+    pool, poolTeamId: t.teamId, formationIndex: src.formationIndex || 0, selPlace: null,
   };
   go('new');
 }
@@ -3556,10 +3706,9 @@ function renderLive() {
       </div>
       <div class="timer-card">
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
-        <div class="timer-lbl" id="timer-lbl">Totale speeltijd: ${fmtTime(getGameTimeMs(match))}</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
-        <div style="margin-top:10px"><span class="start-chip ${countdownOn()?'on':''}" onclick="toggleCountdown()" style="font-size:12px;padding:5px 12px">⏱ ${countdownOn()?'Aftellen':'Optellen'}</span></div>
+        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">⏱ ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
       </div>
       ${(!isDone && !ro) ? `<div class="qctrl">
         ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">▶ Start wedstrijd</button>` : ''}
@@ -3580,15 +3729,16 @@ function renderLive() {
       ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
         <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
+        <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">↔</span><span class="el">Positie</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}
         <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
-        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">Hoekschop</span></div>
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>`}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">↩ Laatste actie ongedaan maken</button>` : ''}
-      ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}`;
+      ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
+      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">💬 Deel score via WhatsApp</button>`;
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), mins = calcMinutes(match);
     tabContent = `
@@ -3612,6 +3762,7 @@ function renderLive() {
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
   </div>
   <div class="content">${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
+  ${!ro ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling</button>
@@ -3635,13 +3786,13 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
 }
 function setTab(t) { tab = t; render(); if (t==='wedstrijd') startTimer(); else stopTimer(); }
 function confirmLeave() {
-  const backFn = (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go('matches')`;
+  const backFn = isGuest ? `go('home')` : (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go('matches')`;
   if (match && match.status === 'live') {
     openModal(`<h3>Wedstrijd verlaten?</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd loopt nog. Je kan later terugkomen.</p>
       <button class="btn btn-pale" onclick="closeModal();${backFn}">✓ Terug naar overzicht</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
-  } else { if (match && match.tournamentId) goTournament(match.tournamentId); else go('matches'); }
+  } else { if (isGuest) go('home'); else if (match && match.tournamentId) goTournament(match.tournamentId); else go('matches'); }
 }
 
 // ===================== QUARTER CONTROLS =====================
@@ -3741,6 +3892,31 @@ function modalNotes() {
     <button class="btn btn-green" onclick="saveNotes()">✓ Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+function modalQuickNote() {
+  const gameTime = fmtTime(getGameTimeMs(match));
+  openModal(`<h3>✏️ Snelle notitie</h3>
+    <div class="fg"><textarea id="qn-area" rows="3" placeholder="Jouw notitie..." autofocus style="font-size:16px"></textarea></div>
+    <button class="btn btn-green" onclick="saveQuickNote()">✓ Toevoegen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  setTimeout(() => document.getElementById('qn-area')?.focus(), 50);
+}
+async function saveQuickNote() {
+  const txt = (document.getElementById('qn-area')?.value || '').trim();
+  if (!txt) { closeModal(); return; }
+  const gameTime = fmtTime(getGameTimeMs(match));
+  const stamp = `[${gameTime}] ${txt}`;
+  match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+  await dbSave(match);
+  closeModal();
+}
+async function markMoment() {
+  const gameTime = fmtTime(getGameTimeMs(match));
+  const stamp = `[${gameTime}] ★`;
+  match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+  await dbSave(match);
+  const btn = document.querySelector('.fab-mark');
+  if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '★'; }, 800); }
+}
 function modalEditMatchInfo() {
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
   const partsBlock = notStarted ? `
@@ -3764,8 +3940,8 @@ function modalEditMatchInfo() {
         <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">✈️ Uitmatch</button>
       </div></div>
     ${partsBlock}
-    <details class="more-details" open>
-      <summary>Meer details</summary>
+    <details class="more-details">
+      <summary>+ Meer details (optioneel)</summary>
       <div class="fg" style="margin-top:12px"><label>Soort</label><select id="ei-comp">${['Competitie','Vriendschappelijk','Beker'].map(c=>`<option ${(match.competition||'')=== c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Speeldag</label><input id="ei-md" type="text" value="${esc(match.matchday||'')}" placeholder="bv. 5" autocomplete="off"></div>
@@ -3821,6 +3997,82 @@ function modalMotm() {
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 async function setMotm(id) { match.motmId = id; await dbSave(match); closeModal(); render(); }
+function shareWhatsApp(m) {
+  if (!m) return;
+  const home = !isAway(m);
+  const us = home ? tName(m) : m.opponent;
+  const them = home ? m.opponent : tName(m);
+  const usScore = home ? m.scoreUs : m.scoreThem;
+  const themScore = home ? m.scoreThem : m.scoreUs;
+
+  // Status
+  const isDone = m.status === 'done';
+  const qNum = m.currentQuarter || 0;
+  const statusTxt = isDone
+    ? 'Afgelopen'
+    : (m.quarterStatus === 'between' ? `Pauze na ${pSingLow(m)} ${qNum}` : (qNum > 0 ? `${pSing(m)} ${qNum}/${m.numQuarters}` : 'Nog niet gestart'));
+
+  // Doelpunten voor ons (met minuut)
+  const goalEvents = m.events.filter(e =>
+    e.type === 'goal_us' || e.type === 'own_goal_them' ||
+    (e.type === 'penalty_us' && e.scored)
+  );
+  const goalLines = goalEvents.map(e => {
+    const min = e.gameTimeMs != null ? `${gameMin(e.gameTimeMs)}'` : '';
+    if (e.type === 'own_goal_them') return `  ⚽ ${min} Eigen doel tegenstander`;
+    const scorer = e.playerId ? pName(m, e.playerId) : '?';
+    const assist = e.assistId ? ` (assist ${pName(m, e.assistId)})` : '';
+    const isPen = e.type === 'penalty_us' ? ' (pen.)' : '';
+    return `  ⚽ ${min} ${scorer}${isPen}${assist}`;
+  });
+
+  // Eigen doelen door onze spelers
+  const ownGoals = m.events.filter(e => e.type === 'own_goal');
+  const ownGoalLines = ownGoals.map(e => {
+    const min = e.gameTimeMs != null ? `${gameMin(e.gameTimeMs)}'` : '';
+    return `  🔴 ${min} Eigen doel ${pName(m, e.playerId)}`;
+  });
+
+  // Kaarten
+  const yellowCards = m.events.filter(e => e.type === 'yellow_card');
+  const redCards = m.events.filter(e => e.type === 'red_card');
+  const cardLines = [
+    ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
+    ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
+  ];
+
+  // Samenstellen
+  const lines = [];
+  lines.push(`⚽ ${us} ${usScore}–${themScore} ${them}`);
+  lines.push(`📍 ${statusTxt} · ${m.location}`);
+  if (goalLines.length || ownGoalLines.length) {
+    lines.push('');
+    lines.push('Doelpunten:');
+    lines.push(...goalLines, ...ownGoalLines);
+  }
+  if (cardLines.length) {
+    lines.push('');
+    lines.push('Kaarten:');
+    lines.push(...cardLines);
+  }
+
+  const text = lines.join('\n');
+
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      openModal(`<h3>💬 Gekopieerd!</h3>
+        <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De tekst staat op je klembord. Plak hem in WhatsApp.</p>
+        <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
+        <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+    }).catch(() => {
+      openModal(`<h3>💬 Deel via WhatsApp</h3>
+        <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
+        <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+    });
+  }
+}
 async function shareReport() {
   const m = match;
   const tally = (filter, key) => {
@@ -3946,20 +4198,22 @@ async function saveEditEvent(id) {
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
-    <div class="sec" style="margin-top:0">Opstelling</div>
-    ${opt(`↔ Positiewissel`, "modalPosSwap()")}
-    ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
+    <div class="sec" style="margin-top:0">${icI(IC.save)} Reddingen</div>
+    ${opt(`${icI(IC.save)} Redding onze keeper`, "logExtra('save_us')")}
+    ${opt(`${icI(IC.save)} Redding tegenstander`, "logExtra('save_them')")}
+    <div class="sec">${icI(IC.corner)} Hoekschop</div>
+    ${opt(`${icI(IC.corner)} Hoekschop voor ons`, "logCorner('us')")}
+    ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
     <div class="sec">${icI(IC.shot)} Schoten</div>
     ${opt(`${icI(IC.shot)} Schot voor ons — op doel`, "logExtra('shot_us',{onTarget:true})")}
     ${opt(`${icI(IC.shot)} Schot voor ons — naast`, "logExtra('shot_us',{onTarget:false})")}
     ${opt(`${icI(IC.shot)} Schot tegen — op doel`, "logExtra('shot_them',{onTarget:true})")}
     ${opt(`${icI(IC.shot)} Schot tegen — naast`, "logExtra('shot_them',{onTarget:false})")}
-    <div class="sec">${icI(IC.save)} Reddingen</div>
-    ${opt(`${icI(IC.save)} Redding onze keeper`, "logExtra('save_us')")}
-    ${opt(`${icI(IC.save)} Redding tegenstander`, "logExtra('save_them')")}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
+    <div class="sec">${icI(IC.shirt)} Opstelling</div>
+    ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 function modalSetCaptain() {
@@ -3967,9 +4221,9 @@ function modalSetCaptain() {
   const cur = match.captainId;
   openModal(`<h3>Ⓒ Kapitein</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
-    ${on.map(p => `<div class="mopt ${cur===p.id?'sel':''}" onclick="setMatchCaptain('${p.id}')"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}
-    <div class="mopt mopt-skip" onclick="setMatchCaptain(null)">Geen / wissen</div>
-    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+    ${pgGrid(on.map(p => pgBtn(p, 'cap-pb', `setMatchCaptain('${p.id}')`, cur===p.id ? `<span style="font-size:10px;color:var(--grn);font-weight:700">© nu</span>` : '')).join(''))}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="setMatchCaptain(null)">Geen / wissen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 async function setMatchCaptain(id) { match.captainId = id; await dbSave(match); closeModal(); render(); }
 async function logExtra(type, extra = {}) {
@@ -4000,15 +4254,15 @@ function modalGoal() {
     </div>
     <div id="goal-us-section">
       <div class="sec">Welke speler scoorde?</div>
-      <div id="goal-players">
-        ${on.map(p=>`<div class="mopt" onclick="selectGoalPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}
-        <div class="mopt" onclick="selectGoalPlayer('own_them',this)"><div class="mopt-num" style="background:var(--txt2);font-size:10px">OG</div>Eigen doel tegenstander</div>
+      <div id="goal-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
+        <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">eigen doel teg.</span></button>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
-        <div id="assist-players">
-          ${on.map(p=>`<div class="mopt" onclick="selectAssist('${p.id}',this)"><div class="mopt-num mopt-num-off">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
-          <div class="mopt mopt-skip" onclick="selectAssist(null,this)">Geen assist</div>
+        <div id="assist-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt2);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
+          <button type="button" class="ap-btn" data-id="none" onclick="selectAssist(null,this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:18px;color:var(--txt2)">—</span><span style="font-size:10px;color:var(--txt2)">geen</span></button>
         </div>
       </div>
     </div>
@@ -4020,8 +4274,8 @@ function modalGoal() {
       </div>
       <div id="own-goal-players" class="hidden">
         <div class="sec">Welke speler?</div>
-        <div id="own-goal-player-list">
-          ${on.map(p=>`<div class="mopt" onclick="selectOwnGoalPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
+        <div id="own-goal-player-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
         </div>
       </div>
     </div>
@@ -4046,21 +4300,38 @@ function selectGoalPlayer(id, el) {
   goalIsOwnGoal = id === 'own_them';
   goalPlayerId = goalIsOwnGoal ? null : id;
   goalAssistId = null;
-  document.querySelectorAll('#goal-players .mopt').forEach(o => o.classList.remove('sel'));
-  el.classList.add('sel');
+  document.querySelectorAll('#goal-players .gp-btn').forEach(o => gpDesel(o));
+  gpSel(el);
   const as = document.getElementById('assist-section');
   as.classList.toggle('hidden', goalIsOwnGoal);
-  document.querySelectorAll('#assist-players .mopt').forEach(o => o.classList.remove('sel'));
+  document.querySelectorAll('#assist-players .ap-btn').forEach(o => gpDesel(o));
 }
 function selectOwnGoalPlayer(id, el) {
   goalPlayerId = id;
-  document.querySelectorAll('#own-goal-player-list .mopt').forEach(o => o.classList.remove('sel'));
-  el.classList.add('sel');
+  document.querySelectorAll('#own-goal-player-list .ogp-btn').forEach(o => gpDesel(o));
+  gpSel(el);
 }
 function selectAssist(id, el) {
   goalAssistId = id;
-  document.querySelectorAll('#assist-players .mopt').forEach(o => o.classList.remove('sel'));
-  el.classList.add('sel');
+  document.querySelectorAll('#assist-players .ap-btn').forEach(o => gpDesel(o));
+  gpSel(el);
+}
+function lastName(n) { const p = n.trim().split(' '); return p.length > 1 ? p.slice(1).join(' ') : n; }
+function pgBtn(p, cls, onclick, extra = '') {
+  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span>${extra}</button>`;
+}
+function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${btns}</div>`; }
+function gpSel(el) {
+  el.style.background = 'var(--grn)'; el.style.borderColor = 'var(--grn)';
+  el.querySelectorAll('span').forEach(s => s.style.color = '#fff');
+}
+function gpDesel(el) {
+  el.style.background = 'var(--card)'; el.style.borderColor = 'var(--bdr)';
+  el.querySelectorAll('span').forEach(s => s.style.color = 'var(--txt2)');
+}
+function gpSelIn(containerId, el) {
+  document.querySelectorAll(`#${containerId} button`).forEach(o => gpDesel(o));
+  gpSel(el);
 }
 async function confirmGoal() {
   if (goalTeam === 'us') {
@@ -4107,14 +4378,14 @@ function modalSub() {
   const hint = between ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>' : '';
   openModal(`<h3>${title}</h3>${hint}
     <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
-    <div id="sub-out">${on.map(p=>`<div class="mopt" onclick="selectSubOut('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px;margin-left:auto">${mm(p.id)}'</span></div>`).join('')}</div>
+    <div id="sub-out">${pgGrid(on.map(p=>pgBtn(p,'sub-ob',`selectSubOut('${p.id}',this)`,`<span style="font-size:10px;color:var(--txt2)">${mm(p.id)}'</span>`)).join(''))}</div>
     <div class="sec">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
-    <div id="sub-in">${off.length ? off.map(p=>{ const low = (mins[p.id]?.ms||0)===minMs; return `<div class="mopt" onclick="selectSubIn('${p.id}',this)"><div class="mopt-num mopt-num-off">${p.number||'?'}</div>${esc(p.name)} ${low?'<span style="color:var(--org);font-size:12px;font-weight:700">💤 minst</span>':''}<span class="${low?'pmins-low':''}" style="color:var(--txt2);font-size:13px;margin-left:auto">${mm(p.id)}'</span></div>`; }).join('') : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
+    <div id="sub-in">${off.length ? pgGrid(off.map(p=>{ const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${cta}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-function selectSubOut(id, el) { subOut = id; document.querySelectorAll('#sub-out .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); }
-function selectSubIn(id, el) { subIn = id; document.querySelectorAll('#sub-in .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); }
+function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
+function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
   if (!subOut || !subIn) { alert('Kies wie eraf gaat en wie erin komt.'); return; }
   // Tijdens de pauze: wissel inplannen i.p.v. meteen doorvoeren.
@@ -4145,7 +4416,7 @@ function modalPosSwap() {
     : '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselen.</p>';
   openModal(`<h3>${title}</h3>${hint}
     <div class="sec" style="margin-top:0">Eerste speler</div>
-    <div id="psw-a">${on.map(p => `<div class="mopt" onclick="selectPosSwapA('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}</div>
+    <div id="psw-a">${pgGrid(on.map(p=>pgBtn(p,'psw-ab',`selectPosSwapA('${p.id}',this)`)).join(''))}</div>
     <div class="sec" id="psw-b-lbl" style="display:none">Tweede speler</div>
     <div id="psw-b" style="display:none"></div>
     <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">✓ Positiewissel doorvoeren</button>
@@ -4153,18 +4424,18 @@ function modalPosSwap() {
 }
 function selectPosSwapA(id, el) {
   posSwapA = id; posSwapB = null;
-  document.querySelectorAll('#psw-a .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel');
+  gpSelIn('psw-a', el);
   const on = playersOnField(match).filter(p => p.id !== id);
   const bDiv = document.getElementById('psw-b');
   const bLbl = document.getElementById('psw-b-lbl');
   const btn = document.getElementById('psw-confirm');
   if (!bDiv || !bLbl || !btn) return;
-  bDiv.innerHTML = on.map(p => `<div class="mopt" onclick="selectPosSwapB('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('');
+  bDiv.innerHTML = pgGrid(on.map(p => pgBtn(p, 'psw-bb', `selectPosSwapB('${p.id}',this)`)).join(''));
   bLbl.style.display = ''; bDiv.style.display = ''; btn.style.display = 'none';
 }
 function selectPosSwapB(id, el) {
   posSwapB = id;
-  document.querySelectorAll('#psw-b .mopt').forEach(o => o.classList.remove('sel')); el.classList.add('sel');
+  gpSelIn('psw-b', el);
   const btn = document.getElementById('psw-confirm'); if (btn) btn.style.display = '';
 }
 async function confirmPosSwap() {
@@ -4193,7 +4464,7 @@ function modalCard(color) {
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
     <div class="sec" style="margin-top:0">Voor welke speler?</div>
-    ${on.map(p=>`<div class="mopt" onclick="logCard('${color}','${p.id}')"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)} <span style="color:var(--txt2);font-size:13px">${p.line}</span></div>`).join('')}
+    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCard(color, pid) {
@@ -4217,8 +4488,7 @@ function modalPenalty() {
     <div id="pen-player-section">
       <div class="sec">Wie neemt de penalty?</div>
       <div id="pen-players">
-        ${on.map(p=>`<div class="mopt" onclick="selectPenPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
-        <div class="mopt mopt-skip" onclick="selectPenPlayer(null,this)">Niet ingeven</div>
+        ${pgGrid(on.map(p=>pgBtn(p,'pen-pb',`selectPenPlayer('${p.id}',this)`)).join(''))}
       </div>
     </div>
     <div class="sec">Resultaat?</div>
@@ -4227,7 +4497,7 @@ function modalPenalty() {
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 function tglPen(team, btn){ penTeam = team; document.querySelectorAll('#pen-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('pen-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
-function selectPenPlayer(id, el){ penPlayerId = id; document.querySelectorAll('#pen-players .mopt').forEach(o=>o.classList.remove('sel')); el.classList.add('sel'); }
+function selectPenPlayer(id, el){ penPlayerId = id; gpSelIn('pen-players', el); }
 async function logPenalty(scored) {
   if (penTeam === 'us') { addEvent('penalty_us', { scored, playerId: penPlayerId || null }); if (scored) match.scoreUs++; }
   else { addEvent('penalty_them', { scored }); if (scored) match.scoreThem++; }
@@ -4241,7 +4511,7 @@ function modalInjury() {
   injPlayerId = null; injType = 'kramp';
   openModal(`<h3>${icI(IC.injury)} Blessure</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
-    <div id="inj-players">${on.map(p=>`<div class="mopt" onclick="selectInjuryPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}</div>
+    <div id="inj-players">${pgGrid(on.map(p=>pgBtn(p,'inj-pb',`selectInjuryPlayer('${p.id}',this)`)).join(''))}</div>
     <div class="sec">Type</div>
     <div class="tgl" id="inj-type">
       <button class="act" onclick="tglInjType('kramp',this)">Kramp</button>
@@ -4252,11 +4522,7 @@ function modalInjury() {
     <button class="btn btn-green" onclick="confirmInjury()">✓ Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-function selectInjuryPlayer(id, el) {
-  injPlayerId = id;
-  document.querySelectorAll('#inj-players .mopt').forEach(o => o.classList.remove('sel'));
-  el.classList.add('sel');
-}
+function selectInjuryPlayer(id, el) { injPlayerId = id; gpSelIn('inj-players', el); }
 function tglInjType(type, btn) {
   injType = type;
   document.querySelectorAll('#inj-type button').forEach(b => b.classList.remove('act'));
@@ -4280,7 +4546,7 @@ function modalSubAfterInjury(outId) {
   openModal(`<h3>🔄 Wissel na blessure</h3>
     <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">🤕 ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
-    <div id="sub-in">${off.length ? off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return `<div class="mopt" onclick="selectSubIn('${p.id}',this)"><div class="mopt-num mopt-num-off">${p.number||'?'}</div>${esc(p.name)} ${low?'<span style="color:var(--org);font-size:12px;font-weight:700">💤 minst</span>':''}<span class="${low?'pmins-low':''}" style="color:var(--txt2);font-size:13px;margin-left:auto">${mm(p.id)}'</span></div>`; }).join('') : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
+    <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">✓ Wissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Geen wissel</button>`);
 }
@@ -4381,6 +4647,7 @@ function renderDetail() {
       <button class="btn btn-org btn-sm" onclick="exportPDF()">📄 PDF</button>
       <button class="btn btn-pale btn-sm" onclick="exportMatch()">⬇ Export</button>
     </div>
+    <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">💬 Deel via WhatsApp</button>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
       ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Weer / veld',match.weather],['Kapitein',match.captainId?pName(match,match.captainId):'']].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
