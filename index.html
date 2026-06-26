@@ -1584,7 +1584,7 @@ function renderTeamSelect() {
         <div class="sec" style="margin-top:20px;margin-bottom:10px">Afmelden</div>
         <button class="btn btn-pale" onclick="cloudLogout()">Afmelden</button>
       </div>
-      ${isOwner ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
+      ${isOwner && !viewerMode ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
         <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
         <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
         <button class="btn btn-dark" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
@@ -1869,7 +1869,7 @@ window.addEventListener('popstate', async e => {
   // Navigeer intern zonder opnieuw een history-entry te maken.
   await go(s.v, s.id || undefined, true);
 });
-function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit">MatchDelegate · App created by <b>Tim Buyse</b></div>'; }
+function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit">Match Delegate · App created by <b>Tim Buyse</b></div>'; }
 
 // ===================== VISUAL PITCH =====================
 function shortName(name) {
