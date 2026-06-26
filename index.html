@@ -1355,7 +1355,7 @@ async function showInviteModal(teamId) {
       <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
     </div>
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
-    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">📤 Delen / Link kopiëren</button>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">${icI(IC.share)} Delen / Link kopiëren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -1409,8 +1409,8 @@ async function removeMember(uid) {
   if (!confirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.')) return;
   try {
     await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
-    await fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove();
     await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
+    fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
     showMembersModal();
   } catch (e) { alert('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
@@ -1549,7 +1549,7 @@ function renderTeamSelect() {
           <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker'}</span>
         </div>`;
       }).join('')
-    : `<div class="empty"><div class="ei">👥</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+    : `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
 
   // Ververs namen asynchroon voor ploegen die nog niet in de cache zitten
   setTimeout(() => {
@@ -2097,7 +2097,7 @@ async function loadHome() {
     <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
-    el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.ball}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
+    el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.players}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
   const guestBanner = isGuest
