@@ -460,9 +460,20 @@ const IC = {
   wrench: _svg('<path d="M14.7 3.3a5 5 0 0 0-6.3 6.3L3.3 14.7a2.3 2.3 0 0 0 3.2 3.2l5.1-5.1a5 5 0 0 0 6.3-6.3l-2.9 2.9-1.5-1.5 2.9-2.9z" fill="currentColor" stroke="none"/>'),
   trash:  _svg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13"/><path d="M9 7V4h6v3"/>'),
   share:  _svg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'),
-  link:   _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+  link:    _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+  gear:    _svg('<circle cx="12" cy="12" r="2.8"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'),
+  eye:     _svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="2.8"/>'),
+  bolt:    _svg('<path d="M13 2L3 14h9l-1 8 10-12h-9z" fill="currentColor" stroke="none"/>'),
+  home:    _svg('<path d="M3 10.5l9-7 9 7V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V13h6v8"/>'),
+  plane:   _svg('<path d="M21 3L3 11l7 3 9-7-7 9 3 7z" fill="currentColor" stroke="none"/>'),
+  finish:  _svg('<path d="M4 3v18M4 3h12l-3 4.5 3 4.5H4"/>'),
+  auto:    _svg('<circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>'),
+  captain: _svg('<circle cx="12" cy="12" r="9"/><path d="M15.5 9a5 5 0 1 0 0 6" stroke-width="2.2"/>'),
+  warn:    _svg('<path d="M10.3 4L1.7 19a2 2 0 0 0 1.7 3h17.2a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0z"/><path d="M12 9v5"/><circle cx="12" cy="17.5" r=".8" fill="currentColor" stroke="none"/>'),
+  close:   _svg('<path d="M18 6L6 18M6 6l12 12" stroke-width="2.2"/>'),
+  check:   _svg('<path d="M4 13l5 5L20 7" stroke-width="2.4"/>'),
 };
-const icI = ic => `<span class="ic-i">${ic}</span>`;
+const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
 function isAway(m) { return !!(m && m.location && m.location.toLowerCase() !== 'thuis'); }
 function matchTitle(m) {
@@ -815,7 +826,7 @@ function maybeNotifyApproved() {
   if (localStorage.getItem('voetbal_adminApprovedSeen') === '1') return;
   localStorage.setItem('voetbal_adminApprovedSeen', '1');
   setTimeout(() => {
-    openModal(`<h3>✅ Aanvraag goedgekeurd</h3>
+    openModal(`<h3>${icI(IC.done)} Aanvraag goedgekeurd</h3>
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je hebt nu beheerdersrechten. Je kunt een eigen ploeg aanmaken via <b>Van ploeg wisselen → Nieuwe ploeg aanmaken</b>.</p>
       <button class="btn btn-green" onclick="closeModal();view='teamselect';render()">${icI(IC.plus)} Ploeg aanmaken</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Later</button>`);
@@ -899,8 +910,8 @@ async function loadAdminRequestsList() {
       return `<div class="ts-team-row" style="cursor:default;margin-bottom:8px;flex-direction:column;align-items:stretch;gap:8px">
         <div><b>${esc(r.name || '(geen naam)')}</b><br><small style="color:var(--txt2)">${esc(r.email || '')}</small></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn btn-green btn-sm" onclick="approveAdmin('${uid}')">✓ Goedkeuren</button>
-          <button class="btn btn-red btn-sm" onclick="rejectAdmin('${uid}')">✕ Weigeren</button>
+          <button class="btn btn-green btn-sm" onclick="approveAdmin('${uid}')">${icI(IC.check)} Goedkeuren</button>
+          <button class="btn btn-red btn-sm" onclick="rejectAdmin('${uid}')">${icI(IC.close)} Weigeren</button>
         </div></div>`;
     }).join('');
   } catch (e) {
@@ -1235,7 +1246,7 @@ function cloudLoginModal() {
     <div class="sec" style="margin-top:14px">Ploegen</div>
     <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()"><i class="ti ti-arrows-exchange" style="font-size:1.1em"></i> ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
 
-  const viewerToggle = isAdmin ? `<button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? '👁 Kijker' : '👁 Kijkmodus'}</button>` : '';
+  const viewerToggle = isAdmin ? `<button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>` : '';
   openModal(`<h3>${icI(IC.edit)} Beheer</h3>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
       <p style="color:var(--txt2);font-size:14px;margin:0">${esc(currentUser.displayName || currentUser.email)}</p>
@@ -1442,7 +1453,7 @@ function renderAuth() {
       </div>
     </div>
     <div style="margin-top:16px;text-align:center">
-      <button class="btn btn-gray" style="width:100%;opacity:.4" disabled>👁 Verder als gast</button>
+      <button class="btn btn-gray" style="width:100%;opacity:.4" disabled>${icI(IC.eye)} Verder als gast</button>
       <p style="font-size:11px;color:var(--txt2);margin-top:6px">Inloggen als gast is momenteel nog niet mogelijk</p>
     </div>
   </div>`;
@@ -1525,13 +1536,13 @@ function renderGuestJoin() {
     <div class="auth-sub">Volg een live wedstrijd zonder account</div>
     <div class="auth-box">
       <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:16px">
-        👁 Je bekijkt als gast. Enkel live wedstrijden volgen is mogelijk.
+        ${icI(IC.eye)} Je bekijkt als gast. Enkel live wedstrijden volgen is mogelijk.
       </div>
       <div class="fg"><label>Uitnodigingscode</label>
         <input id="guest-code" type="text" autocomplete="off" placeholder="bv. ABC123" style="text-transform:uppercase;letter-spacing:2px;font-size:18px;text-align:center">
       </div>
       <div class="auth-err" id="guest-err"></div>
-      <button class="btn btn-green" onclick="guestJoinWithCode()">✓ Verbinden</button>
+      <button class="btn btn-green" onclick="guestJoinWithCode()">${icI(IC.check)}Verbinden</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="authDoSignOut()">← Terug naar aanmelden</button>
     </div>
   </div>`;
@@ -2023,22 +2034,22 @@ const views = {
       <div style="position:absolute;left:50%;transform:translateX(-50%)">${switchBtn}</div>
       <div style="display:flex;align-items:center;gap:4px;margin-left:auto">
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span>
-        <button class="hdr-gear" onclick="go('settings')" title="Instellingen">⚙</button>
+        <button class="hdr-gear" onclick="go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>
-      <div class="content" id="home-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
+      <div class="content" id="home-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   matches: () => {
     loadMatches();
     return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.ball)} Wedstrijden</h1></div>
-      <div class="content" id="matches-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
+      <div class="content" id="matches-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   setup: () => { pendingLogo = mapStoredLogo() || 'DEFAULT'; pendingTheme = null; return renderSettings(true); },
   settings: () => { pendingLogo = mapStoredLogo() || 'DEFAULT'; pendingTheme = null; return renderSettings(false); },
   new: renderNew,
   live: renderLive,
   detail: renderDetail,
-  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">⏳</div></div></div>`; },
+  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
 };
 let homeFilter = 'all';
 function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }
@@ -2102,13 +2113,13 @@ async function loadHome() {
   }
   const guestBanner = isGuest
     ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <span>👁 Gastmodus · enkel live wedstrijden volgen</span>
+        <span>${icI(IC.eye)} Gastmodus · enkel live wedstrijden volgen</span>
         <button class="btn btn-gray btn-sm" style="white-space:nowrap" onclick="authDoSignOut()">Afmelden</button>
       </div>` : '';
   const welcomeKey = 'voetbal_viewer_welcomed_' + activeTeamId;
   const viewerWelcome = (!isGuest && !isAdmin && cloudReady && !localStorage.getItem(welcomeKey))
     ? `<div class="card" style="border-left:4px solid var(--grn);margin-bottom:16px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:6px">👋 Welkom bij ${esc(getClubName() || 'de ploeg')}!</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px">Welkom bij ${esc(getClubName() || 'de ploeg')}!</div>
         <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Je volgt deze ploeg live. Je kan wedstrijden en tornooien bekijken, de score en events live volgen, en de opstelling raadplegen.</p>
         <button class="btn btn-green btn-sm" onclick="localStorage.setItem('${welcomeKey}','1');this.closest('.card').remove()">Begrepen</button>
       </div>` : '';
@@ -2184,7 +2195,7 @@ async function loadMatches() {
   const items = list.length
     ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done)
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
-  const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="🔍 Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
+  const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   el.innerHTML = newBtn + filterBar + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
@@ -2310,7 +2321,7 @@ function renderSettings(isFirst) {
     ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
-      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):'⚠ Nog geen back-up gemaakt.'}</p>`; })()}
+      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
       <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
       <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
@@ -2360,8 +2371,8 @@ function importBackup(input) {
     pendingRestore = data;
     openModal(`<h3>Back-up gevonden</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${data.matches.length} wedstrijden in dit bestand.<br>Wil je ze <b>samenvoegen</b> met je huidige data, of <b>alles vervangen</b>?</p>
-      <button class="btn btn-green" onclick="doRestore('merge')">🔗 Samenvoegen (toevoegen)</button>
-      <button class="btn btn-red" style="margin-top:8px" onclick="doRestore('replace')">⚠ Alles vervangen</button>
+      <button class="btn btn-green" onclick="doRestore('merge')">${icI(IC.link)} Samenvoegen (toevoegen)</button>
+      <button class="btn btn-red" style="margin-top:8px" onclick="doRestore('replace')">${icI(IC.warn)} Alles vervangen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     input.value = '';
   };
@@ -2571,10 +2582,10 @@ async function doDeleteCloudTeam() {
 let editingTeam = null;
 function renderTeamsList() {
   const teams = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2();
-  const title = cloudReady ? '👥 Spelers' : '👥 Ploegen';
+  const title = cloudReady ? `${icI(IC.players)} Spelers` : `${icI(IC.players)} Ploegen`;
   return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${title}</h1></div>
   <div class="content">
-    ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : '<div class="empty"><div class="ei">👥</div><p>Nog geen spelers.</p></div>'}
+    ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : `<div class="empty"><div class="ei">${IC.players}</div><p>Nog geen spelers.</p></div>`}
     ${!cloudReady && canManage()
       ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
       : (cloudReady && isAdmin)
@@ -2637,14 +2648,14 @@ function renderTeamEdit() {
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
     <div class="sec">Spelers (${editingTeam.players.length})</div>
-    ${(() => { const nums = editingTeam.players.map(p => (p.number || '').trim()).filter(Boolean); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">⚠ Dubbel rugnummer: ${dup.map(esc).join(', ')}</div>` : ''; })()}
+    ${(() => { const nums = editingTeam.players.map(p => (p.number || '').trim()).filter(Boolean); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer: ${dup.map(esc).join(', ')}</div>` : ''; })()}
     ${editingTeam.players.length > 1 ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('nr')">↕ Sorteer op nr</button><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('name')">↕ Sorteer op naam</button></div>` : ''}
     <div class="card">${editingTeam.players.length ? colHead : ''}<div id="t-rows">${rows || '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
         <button class="btn btn-pale btn-sm" onclick="teamAddPlayer()">+ Speler</button>
         <button class="btn btn-pale btn-sm" onclick="teamPasteModal()">${icI(IC.clipboard)} Lijst plakken</button>
       </div></div>
-    <button class="btn btn-green" onclick="saveTeamEdit()">✓ ${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
+    <button class="btn btn-green" onclick="saveTeamEdit()">${icI(IC.check)}${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
     ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
 }
@@ -2737,7 +2748,7 @@ function renderTournament() {
   setTimeout(loadTournamentDetail, 0);
   const editBtn = canManage() ? `<button class="hdr-btn" onclick="editTournament('${t.id}')">${icI(IC.edit)}</button>` : '';
   return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
-  <div class="content" id="trn-content"><div class="empty"><div class="ei">⏳</div><p>Laden...</p></div></div>`;
+  <div class="content" id="trn-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 
 async function loadTournamentDetail() {
@@ -2774,7 +2785,7 @@ async function loadTournamentDetail() {
     </div>
   </div>` : '';
   const noSquad = squad.players ? !squad.players.length : !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
-  const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
+  const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
     ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">⎘ Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
@@ -2972,7 +2983,7 @@ function renderTrnStep2() {
     <div class="card">${trnWiz.pool.length ? trnWiz.pool.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="trnWizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="saveTournamentWiz()">✓ Tornooi opslaan</button>
+      <button class="btn btn-green" onclick="saveTournamentWiz()">${icI(IC.check)}Tornooi opslaan</button>
     </div>`;
 }
 
@@ -3198,8 +3209,8 @@ function wizStep1() {
       </div>
       <div class="fg"><label>Thuis of uit?</label>
         <div class="tgl" id="n-loc-tgl">
-          <button type="button" class="${wiz.location==='Thuis'?'act':''}" onclick="wizSetLoc('Thuis',this)">🏠 Thuismatch</button>
-          <button type="button" class="${wiz.location==='Uit'?'act':''}" onclick="wizSetLoc('Uit',this)">✈️ Uitmatch</button>
+          <button type="button" class="${wiz.location==='Thuis'?'act':''}" onclick="wizSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
+          <button type="button" class="${wiz.location==='Uit'?'act':''}" onclick="wizSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
         </div></div>
       <div class="fg"><label>Soort wedstrijd</label>
         <select id="n-type" onchange="wizTypeChange()">
@@ -3294,7 +3305,7 @@ function selRow(p) {
   const isSelected = p.sel === 'basis' || p.sel === 'bank';
   return `<div class="selrow">
     <div class="pn">${esc(p.number) || '?'}</div>
-    ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">©</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
+    ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${p.pos || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
@@ -3333,7 +3344,7 @@ function addGuestsModal() {
   openModal(`<h3>Gastspelers toevoegen</h3>
     <div class="fg"><label>Ploeg</label><select onchange="guestModalTeam=this.value;guestPick=[];document.getElementById('guest-list').innerHTML=guestListHtml()">${teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
     <div id="guest-list">${guestListHtml()}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmGuests()">✓ Toevoegen</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="confirmGuests()">${icI(IC.check)}Toevoegen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function guestListHtml() {
@@ -3391,9 +3402,9 @@ function wizStep3() {
       <div class="field-legend">Tik een speler hieronder, tik dan een plaats. Tik een bezette plaats om weg te halen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : '<span style="color:var(--grn);font-weight:700;font-size:14px">✓ Iedereen geplaatst</span>'}</div>
+    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
     <div class="wiz-nav" style="margin-top:14px">
-      <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">✨ Auto-plaats</button>
+      <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">↺ Wissen</button>
     </div>
     <div class="wiz-nav">
@@ -3607,7 +3618,7 @@ function renderPrep() {
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? '<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">⚠ Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>' : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
+    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>` : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
     <div class="wiz-nav" style="margin-top:8px">
       <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
       <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">${icI(IC.players)} Selectie &amp; opstelling</button>
@@ -3673,7 +3684,7 @@ async function startPlanned() {
 let qrScorers = {};
 function modalQuickResult() {
   const m = match; qrScorers = {};
-  openModal(`<h3>⚡ Snel resultaat</h3>
+  openModal(`<h3>${icI(IC.bolt)} Snel resultaat</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Voor een wedstrijd die al gespeeld is. Vul de eindstand in; speeltijd wordt niet bijgehouden.</p>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:14px">
       <div class="fg" style="margin:0"><label>${esc(tName(m))}</label><input id="qr-us" type="number" inputmode="numeric" value="0" style="text-align:center;font-size:22px;font-weight:800"></div>
@@ -3682,7 +3693,7 @@ function modalQuickResult() {
     </div>
     <div class="sec" style="margin-top:0">Doelpuntenmakers (optioneel)</div>
     <div>${m.players.map(p => `<div class="selrow"><div class="nm">${esc(p.name)}</div><div class="seg"><button type="button" onclick="qrAdj('${p.id}',-1)">−</button><span id="qr-c-${p.id}" style="min-width:34px;text-align:center;font-weight:800;padding:0 6px;align-self:center">0</span><button type="button" onclick="qrAdj('${p.id}',1)">+</button></div></div>`).join('')}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="saveQuickResult()">✓ Opslaan als gespeeld</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveQuickResult()">${icI(IC.check)}Opslaan als gespeeld</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function qrAdj(id, d) { qrScorers[id] = Math.max(0, (qrScorers[id] || 0) + d); const el = document.getElementById('qr-c-' + id); if (el) el.textContent = qrScorers[id]; }
@@ -3714,11 +3725,11 @@ function modalEditPlayers() {
       <input type="number" value="${esc(p.posNum)}" placeholder="pos#" onchange="match.players[${i}].posNum=this.value" inputmode="numeric">
     </div>
     <input type="text" value="${esc(p.note||'')}" placeholder="Notitie over deze speler (optioneel)" onchange="match.players[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;margin-bottom:6px">
-    <div style="margin:0 0 14px"><span class="start-chip ${match.captainId===p.id?'on':''}" onclick="setCaptain('${p.id}')">© Kapitein</span></div>`).join('');
+    <div style="margin:0 0 14px"><span class="start-chip ${match.captainId===p.id?'on':''}" onclick="setCaptain('${p.id}')">${icI(IC.captain)} Kapitein</span></div>`).join('');
   openModal(`<h3>${icI(IC.edit)} Spelers bewerken</h3>
     <div id="edit-rows">${rows}</div>
     <button class="btn btn-pale" onclick="addPlayerToMatch()" style="margin-top:6px">+ Speler toevoegen</button>
-    <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">✓ Opslaan</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function addPlayerToMatch() {
@@ -3791,20 +3802,20 @@ function renderLive() {
         ${isRunning ? `<button class="qbtn qbtn-pause" onclick="pauseQuarter()">⏸ Pauze</button>` : ''}
         ${isPaused ? `<button class="qbtn qbtn-resume" onclick="resumeQuarter()">▶ Hervatten</button>` : ''}
         ${(isRunning||isPaused) ? (isLastPeriod
-            ? `<button class="qbtn qbtn-end" onclick="endMatch()">🏁 Einde match</button>`
+            ? `<button class="qbtn qbtn-end" onclick="endMatch()">${icI(IC.finish)} Einde match</button>`
             : `<button class="qbtn qbtn-end" onclick="endPeriod()">⏹ Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <div class="sec" style="margin-top:0">🔄 Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
         ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">🔄 <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">${icI(IC.plus)} Pauzewissel toevoegen</button>
-        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">↔ Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">↔ <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">↔</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}` : ''}
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">↔ Positiewissel toevoegen</button>
+        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">${icI(IC.swap)} Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">${icI(IC.swap)}</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">${icI(IC.close)}</button></div>`).join('')}` : ''}
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">${icI(IC.swap)} Positiewissel toevoegen</button>
       </div>` : ''}
       ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
         <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
-        <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">↔</span><span class="el">Positie</span></div>
+        <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">${IC.swap}</span><span class="el">Positie</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}
         <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
@@ -3848,7 +3859,7 @@ function renderLive() {
 function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
   const ms = minsData ? minsData.ms : 0;
   const m = Math.floor(ms / 60000);
-  const cap = (match && match.captainId === p.id) ? ' <b style="color:var(--org)">©</b>' : '';
+  const cap = (match && match.captainId === p.id) ? ` ${icI(IC.captain)}` : '';
   const motm = (match && match.motmId === p.id) ? ` ${icI(IC.motm)}` : '';
   const pct = totalMs > 0 ? Math.round(ms / totalMs * 100) : null;
   const low = pct !== null && pct < 50;
@@ -3865,7 +3876,7 @@ function confirmLeave() {
   if (match && match.status === 'live') {
     openModal(`<h3>Wedstrijd verlaten?</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd loopt nog. Je kan later terugkomen.</p>
-      <button class="btn btn-pale" onclick="closeModal();${backFn}">✓ Terug naar overzicht</button>
+      <button class="btn btn-pale" onclick="closeModal();${backFn}">${icI(IC.check)}Terug naar overzicht</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   } else { if (isGuest) go('home'); else if (match && match.tournamentId) goTournament(match.tournamentId); else go('matches'); }
 }
@@ -3953,7 +3964,7 @@ function endMatch() {
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     <div class="fg"><label>Notities (optioneel)</label>
       <textarea id="end-notes" rows="4" placeholder="Aanvullingen over de wedstrijd, bv. weer, blessures, opmerkingen...">${esc(match.notes||'')}</textarea></div>
-    <button class="btn btn-red" onclick="confirmEndMatch()">🏁 Afsluiten &amp; opslaan</button>
+    <button class="btn btn-red" onclick="confirmEndMatch()">${icI(IC.finish)} Afsluiten &amp; opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function confirmEndMatch() {
@@ -3964,14 +3975,14 @@ async function confirmEndMatch() {
 function modalNotes() {
   openModal(`<h3>📝 Notities</h3>
     <div class="fg"><textarea id="note-area" rows="6" placeholder="Aanvullingen over de wedstrijd...">${esc(match.notes||'')}</textarea></div>
-    <button class="btn btn-green" onclick="saveNotes()">✓ Opslaan</button>
+    <button class="btn btn-green" onclick="saveNotes()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function modalQuickNote() {
   const gameTime = fmtTime(getGameTimeMs(match));
-  openModal(`<h3>✏️ Snelle notitie</h3>
+  openModal(`<h3>${icI(IC.edit)} Snelle notitie</h3>
     <div class="fg"><textarea id="qn-area" rows="3" placeholder="Jouw notitie..." autofocus style="font-size:16px"></textarea></div>
-    <button class="btn btn-green" onclick="saveQuickNote()">✓ Toevoegen</button>
+    <button class="btn btn-green" onclick="saveQuickNote()">${icI(IC.check)}Toevoegen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   setTimeout(() => document.getElementById('qn-area')?.focus(), 50);
 }
@@ -4011,8 +4022,8 @@ function modalEditMatchInfo() {
     </div>
     <div class="fg"><label>Thuis of uit?</label>
       <div class="tgl" id="ei-loc-tgl">
-        <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">🏠 Thuismatch</button>
-        <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">✈️ Uitmatch</button>
+        <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
+        <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
       </div></div>
     ${partsBlock}
     <details class="more-details">
@@ -4027,7 +4038,7 @@ function modalEditMatchInfo() {
       <div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
       <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>
     </details>
-    <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">✓ Opslaan</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function eiSetLoc(val, btn) {
@@ -4247,7 +4258,7 @@ function modalEditEvent(id) {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
     <div class="fg"><label>Minuut</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>
     ${fields}
-    <button class="btn btn-green" onclick="saveEditEvent('${id}')">✓ Opslaan</button>
+    <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function saveEditEvent(id) {
@@ -4296,7 +4307,7 @@ function modalSetCaptain() {
   const cur = match.captainId;
   openModal(`<h3>Ⓒ Kapitein</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
-    ${pgGrid(on.map(p => pgBtn(p, 'cap-pb', `setMatchCaptain('${p.id}')`, cur===p.id ? `<span style="font-size:10px;color:var(--grn);font-weight:700">© nu</span>` : '')).join(''))}
+    ${pgGrid(on.map(p => pgBtn(p, 'cap-pb', `setMatchCaptain('${p.id}')`, cur===p.id ? `<span style="font-size:10px;color:var(--grn);font-weight:700">${icI(IC.captain)} nu</span>` : '')).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="setMatchCaptain(null)">Geen / wissen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -4354,7 +4365,7 @@ function modalGoal() {
         </div>
       </div>
     </div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmGoal()">✓ Bevestigen</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="confirmGoal()">${icI(IC.check)}Bevestigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function tglGoalTeam(team, btn) {
@@ -4429,10 +4440,10 @@ async function confirmGoal() {
 // ===================== MODAL: CORNER =====================
 // Hoekschop: één tik per ploeg (geen nemer/type meer — overbodig voor jeugd).
 function modalCorner() {
-  openModal(`<h3>🚩 Hoekschop</h3>
+  openModal(`<h3>${icI(IC.corner)} Hoekschop</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Voor wie was de hoekschop?</p>
-    <div class="mopt" onclick="logCorner('us')"><div class="mopt-num">🚩</div>${esc(tName(match))}</div>
-    <div class="mopt" onclick="logCorner('them')"><div class="mopt-num mopt-num-off">🚩</div>Tegenstander</div>
+    <div class="mopt" onclick="logCorner('us')"><div class="mopt-num">${icI(IC.corner)}</div>${esc(tName(match))}</div>
+    <div class="mopt" onclick="logCorner('them')"><div class="mopt-num mopt-num-off">${icI(IC.corner)}</div>Tegenstander</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCorner(team) { addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render(); }
@@ -4485,7 +4496,7 @@ function modalPosSwap() {
   posSwapA = null; posSwapB = null;
   const isBetween = match.quarterStatus === 'between';
   const on = isBetween ? playersOnField(match) : playersOnField(match);
-  const title = isBetween ? `↔ Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}` : '↔ Positiewissel';
+  const title = isBetween ? `${icI(IC.swap)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.swap)} Positiewissel`;
   const hint = isBetween
     ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>'
     : '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselen.</p>';
@@ -4494,7 +4505,7 @@ function modalPosSwap() {
     <div id="psw-a">${pgGrid(on.map(p=>pgBtn(p,'psw-ab',`selectPosSwapA('${p.id}',this)`)).join(''))}</div>
     <div class="sec" id="psw-b-lbl" style="display:none">Tweede speler</div>
     <div id="psw-b" style="display:none"></div>
-    <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">✓ Positiewissel doorvoeren</button>
+    <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">${icI(IC.check)}Positiewissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function selectPosSwapA(id, el) {
@@ -4594,7 +4605,7 @@ function modalInjury() {
       <button onclick="tglInjType('ernstig',this)">Ernstig</button>
     </div>
     <label class="chkrow" style="margin-bottom:16px"><input type="checkbox" id="inj-off"> Speler verlaat het veld</label>
-    <button class="btn btn-green" onclick="confirmInjury()">✓ Registreren</button>
+    <button class="btn btn-green" onclick="confirmInjury()">${icI(IC.check)}Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function selectInjuryPlayer(id, el) { injPlayerId = id; gpSelIn('inj-players', el); }
@@ -4622,7 +4633,7 @@ function modalSubAfterInjury(outId) {
     <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">🤕 ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
     <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">✓ Wissel doorvoeren</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${icI(IC.check)}Wissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Geen wissel</button>`);
 }
 
@@ -4631,7 +4642,7 @@ let fkTeam = 'us', fkPlayerId = null;
 function modalFreekick() {
   fkTeam = 'us'; fkPlayerId = null;
   const on = playersOnField(match);
-  openModal(`<h3>⚡ Vrije trap</h3>
+  openModal(`<h3>${icI(IC.bolt)} Vrije trap</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="fk-team">
       <button class="act" onclick="tglFk('us',this)">${esc(tName(match))}</button>
@@ -4644,7 +4655,7 @@ function modalFreekick() {
         <div class="mopt mopt-skip" onclick="selectFkPlayer(null,this)">Niet ingeven</div>
       </div>
     </div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmFreekick()">✓ Bevestigen</button>
+    <button class="btn btn-green" style="margin-top:12px" onclick="confirmFreekick()">${icI(IC.check)}Bevestigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function tglFk(team, btn){ fkTeam = team; document.querySelectorAll('#fk-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('fk-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
