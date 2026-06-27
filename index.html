@@ -1711,6 +1711,25 @@ function eventMin(e, m) {
   const withinQuarter = Math.max(0, e.gameTimeMs - actualStart);
   return Math.floor(withinQuarter / 60000) + 1;
 }
+// Globale voetbaltijd voor de samenvatting: extra time als "45' + 1'", nieuwe kwarten starten na nominale duur.
+function eventMinGlobal(e, m) {
+  if (!e.quarterNum) { const min = gameMin(e.gameTimeMs); return { min, extra: 0 }; }
+  const nomMs = (m.quarterDuration || 15) * 60000;
+  const nomStartMs = (e.quarterNum - 1) * nomMs;
+  const actualStart = gameTimeMsAtStartOfQuarter(m, e.quarterNum);
+  const withinQ = Math.max(0, e.gameTimeMs - actualStart);
+  if (withinQ <= nomMs) {
+    return { min: Math.floor((nomStartMs + withinQ) / 60000) + 1, extra: 0 };
+  } else {
+    const nomEndMin = Math.floor((nomStartMs + nomMs) / 60000);
+    const extraMin = Math.ceil((withinQ - nomMs) / 60000);
+    return { min: nomEndMin, extra: extraMin };
+  }
+}
+function eventMinSummaryText(e, m) {
+  const { min, extra } = eventMinGlobal(e, m);
+  return extra > 0 ? `${min}' + ${extra}'` : `${min}'`;
+}
 function playersOnField(m) { return m.players.filter(p => p.onField); }
 function playersOnBench(m) { return m.players.filter(p => !p.onField); }
 // Veldbezetting inclusief reeds ingeplande pauzewissels (voor het plannen van meerdere wissels op rij).
@@ -1833,7 +1852,8 @@ function countdownOn() { return localStorage.getItem('voetbal_countdown') === '1
 function toggleCountdown() { localStorage.setItem('voetbal_countdown', countdownOn() ? '0' : '1'); render(); }
 function timerText(m) {
   const elapsed = getQElapsed(m), durMs = (m.quarterDuration || 0) * 60000;
-  if (countdownOn() && durMs) return elapsed < durMs ? '-' + fmtTime(durMs - elapsed) : '+' + fmtTime(elapsed - durMs);
+  if (durMs && elapsed >= durMs) return fmtTime(durMs) + ' + ' + fmtTime(elapsed - durMs);
+  if (countdownOn() && durMs) return '-' + fmtTime(durMs - elapsed);
   return fmtTime(elapsed);
 }
 function updateTimerDisplay() {
@@ -4763,7 +4783,7 @@ function renderDetail() {
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
       <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       <div style="flex:1;font-size:13px;color:var(--txt2)">${fmtTime(dur)}</div>
-      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMin(e,match)}'</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
+      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
   }).join('');
 
@@ -4846,7 +4866,7 @@ function exportPDF() {
   const perQuarterRows = m.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
     const cum = scoreUpToQuarter(m, q.num);
-    const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => `${e.gameTimeMs != null ? `${eventMin(e, m)}' ` : ''}${evtLabel(e, m)}`).join('<br>') || '–';
+    const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => `${e.gameTimeMs != null ? `${eventMinSummaryText(e, m)} ` : ''}${evtLabel(e, m)}`).join('<br>') || '–';
     const cumHtml = isAway(m) ? `${cum.them} – <span style="color:#1f9d4d">${cum.us}</span>` : `<span style="color:#1f9d4d">${cum.us}</span> – ${cum.them}`;
     return `<tr><td><b>${pAbbr(m)}${q.num}</b></td><td style="font-weight:900;white-space:nowrap">${cumHtml}</td><td style="white-space:nowrap">${Math.round(dur / 60000)} min</td><td>${gs}</td></tr>`;
   }).join('');
