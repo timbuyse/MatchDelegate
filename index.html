@@ -1401,7 +1401,8 @@ async function showMembersModal() {
         ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
         : '<span class="ts-role viewer"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker</span>';
       const removeBtn = role !== 'admin'
-        ? `<button class="btn btn-red btn-sm" style="margin-left:8px;flex-shrink:0" onclick="removeMember('${uid}')">Verwijderen</button>`
+        ? `<button class="btn btn-pale btn-sm" style="margin-left:8px;flex-shrink:0" onclick="promoteMember('${uid}')">Maak beheerder</button>
+           <button class="btn btn-red btn-sm" style="margin-left:4px;flex-shrink:0" onclick="removeMember('${uid}')">Verwijderen</button>`
         : '';
       return `<div class="ts-team-row" style="cursor:default">
         <span class="ts-name"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small></span>
@@ -1418,6 +1419,15 @@ async function showMembersModal() {
   }
 }
 
+async function promoteMember(uid) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  if (!confirm('Wil je deze persoon promoveren tot mede-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.')) return;
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
+    await fbdb.ref('users/' + uid + '/teams/' + activeTeamId).set('admin');
+    showMembersModal();
+  } catch (e) { alert('Promoveren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
 async function removeMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
   if (!confirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.')) return;
