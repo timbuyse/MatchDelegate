@@ -338,15 +338,20 @@
     .req-badge{display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 4px;margin-left:5px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;text-align:center;vertical-align:middle}
     .viewer-banner{background:#eef4ff;border:1px solid #c7dafc;color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px}
     /* Auth / team-select schermen */
-    .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+    .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg);gap:12px}
+    .auth-hero{width:100%;max-width:400px;background:linear-gradient(145deg,#0b1f42 0%,#0e2d4a 45%,#0b2e1a 100%);border-radius:18px;padding:28px 24px 22px;text-align:center;position:relative;overflow:hidden}
+    .auth-hero-dot1{position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:#2f74bd;border-radius:50%;opacity:.15}
+    .auth-hero-dot2{position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;background:#2f9e57;border-radius:50%;opacity:.18}
     .auth-logo{font-size:52px;margin-bottom:8px}
-    .auth-logo-img{height:104px;width:104px;object-fit:contain}
-    .auth-title{font-size:26px;font-weight:900;margin-bottom:4px;text-align:center}
-    .auth-sub{font-size:14px;color:var(--txt2);margin-bottom:28px;text-align:center}
+    .auth-logo-img{height:90px;width:90px;object-fit:contain;border-radius:14px}
+    .auth-title{font-size:24px;font-weight:900;color:#fff;margin:12px 0 2px;letter-spacing:-.3px}
+    .auth-sub{font-size:12px;color:rgba(255,255,255,.5);letter-spacing:1.2px;text-transform:uppercase}
     .auth-box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:400px}
-    .auth-tabs{display:flex;border:2px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:20px}
-    .auth-tab{flex:1;padding:11px;border:none;background:#fff;font-size:14px;font-weight:700;cursor:pointer;color:var(--txt2)}
-    .auth-tab.act{background:var(--grn);color:#fff}
+    .auth-welcome{font-size:16px;font-weight:800;color:var(--txt);margin-bottom:2px}
+    .auth-welcome-sub{font-size:13px;color:var(--txt2);margin-bottom:18px}
+    .auth-tabs{display:flex;gap:6px;margin-bottom:20px}
+    .auth-tab{flex:1;padding:11px;border:none;background:var(--bg);border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;color:var(--txt2)}
+    .auth-tab.act{background:var(--blk);color:#fff}
     .auth-err{color:var(--rd);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px}
     .ts-wrap{min-height:100dvh;background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:var(--blk);color:#fff;padding:16px;text-align:center;border-bottom:3px solid var(--org)}
@@ -365,8 +370,8 @@
     .hdr-club-name{font-size:18px;font-weight:900;color:#fff;line-height:1.1}
     .invite-code{font-size:28px;font-weight:900;letter-spacing:6px;text-align:center;padding:16px;background:var(--grnp);border-radius:12px;color:var(--grn2);margin:12px 0;font-family:monospace}
     body.dark .auth-box{background:var(--card)}
-    body.dark .auth-tab{background:var(--card);color:var(--txt)}
-    body.dark .auth-tab.act{background:var(--grn);color:#fff}
+    body.dark .auth-tab{background:var(--blk2);color:var(--txt)}
+    body.dark .auth-tab.act{background:#fff;color:var(--blk)}
     body.dark .ts-team-row{background:var(--card)}
     /* Handleiding */
     .hdl-tabs{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--card);border-bottom:1px solid var(--bdr)}
@@ -1563,9 +1568,16 @@ async function removeMember(uid) {
 // ===================== AUTH VIEWS =====================
 function renderAuth() {
   return `<div class="auth-wrap">
-    <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
-    <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
-    <div class="auth-box">
+    <div class="auth-hero">
+      <div class="auth-hero-dot1"></div>
+      <div class="auth-hero-dot2"></div>
+      <img src="MD_cropped.png" alt="Match Delegate" class="auth-logo-img">
+      <div class="auth-title">Match Delegate</div>
+      <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
+    </div>
+    <div class="auth-box" style="max-width:400px;width:100%">
+      <div class="auth-welcome">Welkom</div>
+      <div class="auth-welcome-sub">Meld aan om verder te gaan</div>
       <div class="auth-tabs">
         <button class="auth-tab act" id="tab-login" onclick="authSwitchTab('login')">Aanmelden</button>
         <button class="auth-tab" id="tab-register" onclick="authSwitchTab('register')">Registreren</button>
@@ -1585,13 +1597,14 @@ function renderAuth() {
         <div class="auth-err" id="reg-err"></div>
         <button class="btn btn-org" onclick="authDoRegister()">Account aanmaken</button>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
+        <div style="flex:1;height:1px;background:var(--bdr)"></div>
+        <span style="font-size:12px;color:var(--txt2)">of</span>
+        <div style="flex:1;height:1px;background:var(--bdr)"></div>
+      </div>
+      <button class="btn" style="width:100%;border:2px solid var(--bdr);background:transparent;color:var(--txt2)" disabled>${icI(IC.eye)} Verder als gast (binnenkort)</button>
     </div>
-    <div style="margin-top:16px;text-align:center">
-      <button class="btn btn-gray" style="width:100%;opacity:.4" disabled>${icI(IC.eye)} Verder als gast</button>
-      <p style="font-size:11px;color:var(--txt2);margin-top:6px">Inloggen als gast is momenteel nog niet mogelijk</p>
-    </div>
-    <div style="margin-top:24px;text-align:center">
-      <p style="font-size:12px;color:var(--txt2);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Help</p>
+    <div style="width:100%;max-width:400px">
       <button class="btn btn-pale" style="width:100%" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
     </div>
   </div>`;
