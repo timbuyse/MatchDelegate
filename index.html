@@ -255,21 +255,19 @@
     .searchbar input{width:100%;padding:11px;border:2px solid var(--bdr);border-radius:10px;font-size:15px;background:var(--card);color:var(--txt);-webkit-appearance:none;margin-bottom:10px}
     /* Home dashboard-tegels */
     .home-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px}
-    .tile{background:var(--card);border:none;border-radius:14px;box-shadow:var(--shadow);padding:15px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--txt);border-bottom:3px solid var(--grn)}
+    .tile{background:var(--card);border:none;border-radius:14px;box-shadow:var(--shadow);padding:11px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:var(--txt);border-bottom:3px solid #475569}
     .tile:active{transform:scale(.96)}
-    .tile .ti{font-size:27px;line-height:1}
+    .tile .ti{font-size:24px;line-height:1}
     .ti svg{width:1em;height:1em;display:block;margin:0 auto}
-    .tile-fi{font-size:24px;display:block;margin:0 auto 2px;line-height:1}
+    .tile-fi{font-size:22px;display:block;margin:0 auto 1px;line-height:1}
     .ti i,.ltab i{font-size:1.1em;display:block;line-height:1;margin:0 auto}
     .ic-i i,.ei i{font-size:1em;display:inline-block;vertical-align:-.12em;line-height:1}
     .evtbtn .ei i{display:inline-block;vertical-align:middle}
     .empty .ei i{font-size:52px;display:block;margin:0 auto 8px}
     .evtbtn .ei svg{width:1em;height:1em;display:inline-block;vertical-align:middle}
     .ei svg,.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.1em}
-    .tile .tl{font-size:13px;font-weight:800}
-    .tile .tc{font-size:11px;color:var(--txt2);font-weight:600}
-    .tile.tile-org{border-bottom-color:var(--org)}
-    .tile.tile-dark{border-bottom-color:var(--orn)}
+    .tile .tl{font-size:14px;font-weight:800}
+    .tile .tc{font-size:12px;color:var(--txt2);font-weight:600}
     /* Live: speeltijd-nudge + keeperkeuze */
     .nudge{background:var(--orgp);color:var(--org2);border:1px solid var(--orgb);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.4}
     .keeper-chip{display:inline-flex;align-items:center;gap:6px;background:var(--orgp);color:var(--org2);border:2px solid var(--orgb);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer}
@@ -354,10 +352,10 @@
     .auth-tab.act{background:var(--blk);color:#fff}
     .auth-err{color:var(--rd);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px}
     .ts-wrap{min-height:100dvh;background:var(--bg);display:flex;flex-direction:column}
-    .ts-hdr{background:var(--blk);color:#fff;padding:16px;text-align:center;border-bottom:3px solid var(--org)}
+    .ts-hdr{background:var(--bg);color:var(--txt);padding:24px 16px 0;text-align:center;border-bottom:2px solid var(--bdr)}
     .ts-hdr h1{font-size:20px;font-weight:900}
-    .ts-logo{height:88px;width:88px;object-fit:contain}
-    .ts-hdr p{font-size:13px;opacity:.7;margin-top:4px}
+    .ts-logo{height:88px;width:auto;object-fit:contain;margin-bottom:8px}
+    .ts-hdr p{font-size:13px;color:var(--txt2);margin-bottom:14px}
     .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
     .ts-team-row{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn);transition:transform .1s}
     .ts-team-row:active{transform:scale(.98)}
@@ -365,8 +363,8 @@
     .ts-team-row .ts-role{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
     .ts-role.admin{background:var(--grnp);color:var(--grn2)}
     .ts-role.viewer{background:var(--orgp);color:var(--org2)}
-    .team-switch-btn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-size:12px;font-weight:700;cursor:pointer;padding:5px 14px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;margin-top:4px}
-    .team-switch-btn:active{background:rgba(255,255,255,.3)}
+    .team-switch-btn{background:var(--org);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;padding:7px 16px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .team-switch-btn:active{background:var(--org2);transform:scale(.97)}
     .hdr-club-name{font-size:18px;font-weight:900;color:#fff;line-height:1.1}
     .invite-code{font-size:28px;font-weight:900;letter-spacing:6px;text-align:center;padding:16px;background:var(--grnp);border-radius:12px;color:var(--grn2);margin:12px 0;font-family:monospace}
     body.dark .auth-box{background:var(--card)}
@@ -469,7 +467,7 @@ const IC = {
   shot: _svg('<circle cx="7.5" cy="14.5" r="3.5"/><path d="M10.5 11.5l7.5-7.5M14.5 4h4.5v4.5"/>'),
   save: _svg('<path d="M7 20V9a2 2 0 0 1 4 0v5"/><path d="M11 12.5a2 2 0 0 1 4 0v3.5"/><path d="M15 15.5a2 2 0 0 1 4 0V20"/>'),
   disallowed: _svg('<circle cx="12" cy="12" r="9"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6" stroke-width="2.2"/>'),
-  calendar: _svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  calendar: '<i class="ti ti-calendar-event" aria-hidden="true"></i>',
   history: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 3"/>'),
   live: _svg('<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="9.5" stroke-opacity=".35"/>'),
   done: _svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8 5-5.8"/>'),
@@ -1290,15 +1288,12 @@ function cloudLoginModal() {
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
     <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
-    <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1.1em"></i> Ploeg verwijderen</button>`
+    <button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>`
   : (!isAdmin && !isGuest && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg</div>
     <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>` : '';
 
-  // Van ploeg wisselen
-  const switchBlock = `
-    <div class="sec" style="margin-top:14px">Ploegen</div>
-    <button class="btn btn-gray" onclick="closeModal();view='teamselect';render()"><i class="ti ti-arrows-exchange" style="font-size:1.1em"></i> ${isAdmin ? 'Van ploeg wisselen' : 'Andere ploeg bekijken / toevoegen'}</button>`;
+  const switchBlock = '';
 
   const viewerToggle = isAdmin ? `<button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>` : '';
   openModal(`<h3>${icI(IC.edit)} Beheer</h3>
@@ -1726,16 +1721,16 @@ function renderTeamSelect() {
 
   return `<div class="ts-wrap">
     <div class="ts-hdr">
-      <img src="logo.png" alt="MatchDelegate" class="ts-logo">
+      <img src="logo.png" alt="Match Delegate" class="ts-logo">
       <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
     </div>
     <div class="ts-content">
-      ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Welke ploeg wil je bekijken?</div>` : ''}
+      ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
       ${ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1'
         ? `<div class="nudge" style="margin-bottom:16px">⏳ <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
         : ''}
       ${teamRows}
-      <div class="sec" style="margin-top:20px;margin-bottom:10px">Een andere ploeg toevoegen</div>
+      <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
       <div>
         ${!viewerMode && isApprovedAdmin
           ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken</button>`
@@ -1743,10 +1738,10 @@ function renderTeamSelect() {
             ? `<button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden & ploeg aanmaken</button>`
             : ''}
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
-        <div class="sec" style="margin-top:20px;margin-bottom:10px">Afmelden</div>
-        <button class="btn btn-pale" onclick="cloudLogout()">Afmelden</button>
-        <div class="sec" style="margin-top:20px;margin-bottom:10px">Help</div>
-        <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
+          <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
+        </div>
       </div>
       ${isOwner && !viewerMode ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
         <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
@@ -2345,7 +2340,7 @@ async function loadHome() {
   const upcomingTrnHtml = upcomingTrn.length
     ? upcomingTrn.map(t => {
         const team = teamById(t.teamId);
-        return `<div class="match-item" onclick="goTournament('${t.id}')" style="border-left-color:var(--org)">
+        return `<div class="match-item plan-border" onclick="goTournament('${t.id}')">
           <div class="mi-info">
             <div class="mi-opp">${icI(IC.medal)} ${esc(t.name)}</div>
             <div class="mi-date">${team ? '<b>'+esc(team.name)+'</b> · ' : ''}${t.date ? fmtDate(new Date(t.date+'T00:00:00').getTime()) : ''}${t.location ? ' · '+esc(t.location) : ''}</div>
@@ -3235,21 +3230,34 @@ function setTrainer(i, val) {
 
 // ===================== TORNOOIEN =====================
 function renderTournamentList() {
-  const trns = getTournaments().slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const newBtn = canManage() ? `<button class="btn btn-green" style="margin-top:8px" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
+  const today = new Date().toISOString().split('T')[0];
+  const all = getTournaments().slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const planned = all.filter(t => !t.date || t.date >= today);
+  const done    = all.filter(t => t.date && t.date < today).reverse();
+  const newBtn = canManage() ? `<button class="btn btn-green" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
+  const trnRow = (t, borderColor) => {
+    const team = teamById(t.teamId);
+    return `<div class="team-row" style="border-left-color:${borderColor}" onclick="goTournament('${t.id}')">
+      <div>
+        <div class="tn">${icI(IC.medal)} ${esc(t.name)}</div>
+        <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}</div>
+      </div>
+      <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
+    </div>`;
+  };
+  const plannedHtml = planned.length
+    ? planned.map(t => trnRow(t, 'var(--orn)')).join('')
+    : `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--txt2)">Geen geplande tornooien.</p></div>`;
+  const doneHtml = done.length
+    ? done.map(t => trnRow(t, 'var(--tel)')).join('')
+    : `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--txt2)">Geen gespeelde tornooien.</p></div>`;
+  const body = all.length
+    ? `<div class="sec">${icI(IC.calendar)} Geplande tornooien</div>${plannedHtml}<div class="sec">${icI(IC.done)} Gespeelde tornooien</div>${doneHtml}`
+    : `<div class="empty"><div class="ei">${IC.medal}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`;
   return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.medal)} Tornooien</h1></div>
   <div class="content">
-    ${trns.length ? trns.map(t => {
-      const team = teamById(t.teamId);
-      return `<div class="team-row" onclick="goTournament('${t.id}')">
-        <div>
-          <div class="tn">${icI(IC.medal)} ${esc(t.name)}</div>
-          <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}</div>
-        </div>
-        <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
-      </div>`;
-    }).join('') : `<div class="empty"><div class="ei">${IC.medal}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`}
     ${newBtn}
+    ${body}
   </div>`;
 }
 
