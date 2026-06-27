@@ -4361,6 +4361,9 @@ function modalExtra() {
     ${opt(`${icI(IC.shot)} Schot voor ons — naast`, "logExtra('shot_us',{onTarget:false})")}
     ${opt(`${icI(IC.shot)} Schot tegen — op doel`, "logExtra('shot_them',{onTarget:true})")}
     ${opt(`${icI(IC.shot)} Schot tegen — naast`, "logExtra('shot_them',{onTarget:false})")}
+    <div class="sec">${icI(IC.bolt)} Vrije trap</div>
+    ${opt(`${icI(IC.bolt)} Vrije trap voor ons`, "modalFreekick()")}
+    ${opt(`${icI(IC.bolt)} Vrije trap tegen`, "logExtra('freekick_them')")}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
