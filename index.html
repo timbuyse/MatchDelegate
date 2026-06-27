@@ -341,12 +341,14 @@
     .viewer-banner{background:#eef4ff;border:1px solid #c7dafc;color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px}
     /* Auth / team-select schermen */
     .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg);gap:12px}
-    .auth-hero{width:100%;max-width:400px;background:linear-gradient(145deg,#0b1f42 0%,#0e2d4a 45%,#0b2e1a 100%);border-radius:18px;padding:28px 24px 22px;text-align:center;position:relative;overflow:hidden}
-    .auth-hero-dot1{position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:#2f74bd;border-radius:50%;opacity:.15}
-    .auth-hero-dot2{position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;background:#2f9e57;border-radius:50%;opacity:.18}
+    .auth-hero{width:100%;max-width:400px;background:url('background_logo.png') center/cover no-repeat;border-radius:18px;padding:12px 24px 12px;text-align:center;position:relative;overflow:hidden}
+    .auth-hero::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:18px}
+    .auth-hero>*{position:relative;z-index:1}
+    .auth-hero-dot1{display:none}
+    .auth-hero-dot2{display:none}
     .auth-logo{font-size:52px;margin-bottom:8px}
-    .auth-logo-img{height:90px;width:90px;object-fit:contain;border-radius:14px}
-    .auth-title{font-size:24px;font-weight:900;color:#fff;margin:12px 0 2px;letter-spacing:-.3px}
+    .auth-logo-img{height:110px;width:110px;object-fit:contain;border-radius:0}
+    .auth-title{font-size:24px;font-weight:900;color:#fff;margin:4px 0 2px;letter-spacing:-.3px}
     .auth-sub{font-size:12px;color:rgba(255,255,255,.5);letter-spacing:1.2px;text-transform:uppercase}
     .auth-box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:400px}
     .auth-welcome{font-size:16px;font-weight:800;color:var(--txt);margin-bottom:2px}
@@ -1574,7 +1576,7 @@ function renderAuth() {
     <div class="auth-hero">
       <div class="auth-hero-dot1"></div>
       <div class="auth-hero-dot2"></div>
-      <img src="MD_cropped.png" alt="Match Delegate" class="auth-logo-img">
+      <img src="logo_no_background.png" alt="Match Delegate" class="auth-logo-img">
       <div class="auth-title">Match Delegate</div>
       <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     </div>
