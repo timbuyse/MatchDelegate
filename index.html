@@ -5047,7 +5047,7 @@ function exportPDF() {
     return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
-  const infoBits = [m.formation, m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein: ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  const infoBits = [m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein: ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const perQuarterRows = m.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
@@ -5155,7 +5155,7 @@ function exportPDF() {
     ${m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
     <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
-    <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">MatchDelegate · ${esc(getClubName())} · app created by Tim Buyse</p>
+    <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">Match Delegate · ${esc(getClubName())} · app created by Tim Buyse</p>
     <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
     </body></html>`;
 
