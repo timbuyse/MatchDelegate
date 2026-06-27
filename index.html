@@ -249,6 +249,7 @@
     .pmins-warn{color:var(--rd)!important;font-weight:800}
     .fairbar{height:6px;border-radius:3px;background:var(--bdr);overflow:hidden;margin-top:4px}
     .fairbar span{display:block;height:100%;background:var(--grn)}
+    .fairbar.mid span{background:var(--org)}
     .fairbar.low span{background:var(--rd)}
     .evt-edit{background:var(--grnp);border:none;color:var(--grn2);width:28px;height:28px;border-radius:7px;font-size:14px;cursor:pointer;flex-shrink:0}
     .searchbar input{width:100%;padding:11px;border:2px solid var(--bdr);border-radius:10px;font-size:15px;background:var(--card);color:var(--txt);-webkit-appearance:none;margin-bottom:10px}
@@ -3919,7 +3920,8 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
   const motm = (match && match.motmId === p.id) ? ` ${icI(IC.motm)}` : '';
   const pct = totalMs > 0 ? Math.round(ms / totalMs * 100) : null;
   const low = pct !== null && pct < 50;
-  const bar = pct !== null ? `<div class="fairbar ${low?'low':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
+  const mid = pct !== null && pct >= 50 && pct < 75;
+  const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
   return `<div class="prow">
     <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
     <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${p.note?`<div class="ppos">${esc(p.note)}</div>`:''}${bar}</div>
@@ -4834,7 +4836,7 @@ function renderDetail() {
     <div class="sec">Opstelling</div>
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
-    <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · rood < 50%)</span></div>
+    <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}</div>
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
