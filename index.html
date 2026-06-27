@@ -416,11 +416,10 @@ const FORMATIONS = {
     { name: '2-3-2', slots: [{line:D,x:50,y:92},{line:V,x:32,y:73},{line:V,x:68,y:73},{line:M,x:20,y:50},{line:M,x:50,y:52},{line:M,x:80,y:50},{line:A,x:32,y:26},{line:A,x:68,y:26}] },
   ],
   '11v11': [
-    { name: '1-4-3-3', slots: [{line:D,x:50,y:93},{line:V,x:14,y:75},{line:V,x:38,y:78},{line:V,x:62,y:78},{line:V,x:86,y:75},{line:M,x:28,y:52},{line:M,x:50,y:54},{line:M,x:72,y:52},{line:A,x:22,y:26},{line:A,x:50,y:24},{line:A,x:78,y:26}] },
+    { name: '1-4-3-3', slots: [{line:D,x:50,y:93},{line:V,x:14,y:75},{line:V,x:38,y:78},{line:V,x:62,y:78},{line:V,x:86,y:75},{line:M,x:28,y:54},{line:M,x:50,y:44},{line:M,x:72,y:54},{line:A,x:22,y:26},{line:A,x:50,y:24},{line:A,x:78,y:26}] },
     { name: '1-4-2-3-1', slots: [{line:D,x:50,y:93},{line:V,x:14,y:75},{line:V,x:38,y:78},{line:V,x:62,y:78},{line:V,x:86,y:75},{line:M,x:36,y:60},{line:M,x:64,y:60},{line:M,x:20,y:40},{line:M,x:50,y:38},{line:M,x:80,y:40},{line:A,x:50,y:22}] },
     { name: '1-4-4-2', slots: [{line:D,x:50,y:93},{line:V,x:14,y:75},{line:V,x:38,y:78},{line:V,x:62,y:78},{line:V,x:86,y:75},{line:M,x:14,y:52},{line:M,x:38,y:52},{line:M,x:62,y:52},{line:M,x:86,y:52},{line:A,x:35,y:26},{line:A,x:65,y:26}] },
     { name: '1-3-4-3', slots: [{line:D,x:50,y:93},{line:V,x:26,y:77},{line:V,x:50,y:78},{line:V,x:74,y:77},{line:M,x:14,y:52},{line:M,x:38,y:54},{line:M,x:62,y:54},{line:M,x:86,y:52},{line:A,x:24,y:26},{line:A,x:50,y:24},{line:A,x:76,y:26}] },
-    { name: '1-5-3-2', slots: [{line:D,x:50,y:93},{line:V,x:10,y:75},{line:V,x:28,y:78},{line:V,x:50,y:79},{line:V,x:72,y:78},{line:V,x:90,y:75},{line:M,x:26,y:52},{line:M,x:50,y:50},{line:M,x:74,y:52},{line:A,x:35,y:26},{line:A,x:65,y:26}] },
   ],
 };
 const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'A' };
@@ -1925,6 +1924,22 @@ function shortName(name) {
   const initials = firsts.split(/[\s-]+/).filter(Boolean).map(p => p[0].toUpperCase() + '.').join('');
   return initials + ' ' + last;
 }
+// Achternaam = alles na het eerste woord (voornaam), incl. tussenvoegsel (De, Van, ...).
+function _lastName(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+}
+// Map van speler-id → veldnaam: enkel achternaam, met initiaal als er duplicaten zijn.
+function fieldDisplayNames(players) {
+  const lastNames = players.map(p => _lastName(p.name || ''));
+  return new Map(players.map((p, i) => {
+    const ln = lastNames[i];
+    const isDup = lastNames.filter(l => l.toLowerCase() === ln.toLowerCase()).length > 1;
+    const initial = isDup ? ((p.name||'').trim()[0]||'').toUpperCase() + '. ' : '';
+    return [p.id, initial + ln];
+  }));
+}
 function pitchLines() {
   return `<svg class="pitch-lines" viewBox="0 0 320 480">
     <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
@@ -1942,23 +1957,24 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y) {
+function pitchDot(m, p, x, y, dn) {
   const cap = (m && m.captainId === p.id) ? ' ©' : '';
-  const lbl = `${esc(shortName(p.name))}${cap}`;
+  const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
     ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
 }
 function renderPitch(m, players) {
+  const dns = fieldDisplayNames(players);
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y);
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id));
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id)); });
   }
   return `<div class="pitch">${pitchLines()}${dots}</div>
   <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
@@ -1974,12 +1990,13 @@ function pitchSVG(m, players, svgWidth = 280) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50, n = ps.length;
     ps.forEach((p, i) => pts.push({ p, x: n === 1 ? 50 : 18 + i * (64 / (n - 1)), y }));
   });
+  const dns = fieldDisplayNames(pts.map(({p}) => p));
   const dots = pts.map(({ p, x, y }) => {
     const cx = (x / 100 * W).toFixed(1), cy = (y / 100 * H).toFixed(1);
     const gk = p.line === 'Doel', cap = (m.captainId === p.id) ? ' ©' : '';
     return `<g><circle cx="${cx}" cy="${cy}" r="${R}" fill="${gk ? '#f5821f' : '#101010'}" stroke="#fff" stroke-width="2"/>` +
       `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.posNum || p.number || '?')}</text>` +
-      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc(shortName(p.name || '') + cap)}</text></g>`;
+      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc((dns.get(p.id) || _lastName(p.name || '')) + cap)}</text></g>`;
   }).join('');
   const PAW=189,PAD=75,GAW=86,GAD=25,GW=36,GD=10,CCR=43,PENY=50,CR=8;
   const pax=((W-PAW)/2).toFixed(1), gax=((W-GAW)/2).toFixed(1), gx=((W-GW)/2).toFixed(1);
@@ -3571,10 +3588,21 @@ function computePosNum(matchType, slotIdx, slots) {
   const pos = lineSlots.findIndex(s => s.origIdx === slotIdx);
   const n = lineSlots.length;
   if (matchType === '11v11') {
-    if (line === 'Doel') return 1;
-    if (line === 'Verdediging') return ([5,3,4,2])[pos] || pos + 2;
-    if (line === 'Middenveld') return ({ 3:[6,8,10], 4:[11,6,8,7], 5:[11,6,8,10,7] }[n] || [])[pos] || pos + 6;
-    if (line === 'Aanval')     return ({ 1:[9], 2:[9,10], 3:[11,9,7] }[n] || [])[pos] || pos + 9;
+    const nd = slots.filter(s => s.line === V).length;
+    const nm = slots.filter(s => s.line === M).length;
+    const na = slots.filter(s => s.line === A).length;
+    if (line === D) return 1;
+    if (line === V) {
+      if (n === 3 && nm === 4 && na === 3) return ([5,3,2])[pos] ?? pos+2; // 1-3-4-3: #4 zit op middenveld
+      if (n === 4) return ([5,4,3,2])[pos] ?? pos+2;
+      return pos + 2;
+    }
+    if (line === M) {
+      if (nd===4 && nm===4 && na===2) return ([11,8,10,6])[pos] ?? pos+6; // 1-4-4-2
+      if (nd===3 && nm===4 && na===3) return ([8,4,10,6])[pos] ?? pos+6;  // 1-3-4-3
+      return ({ 3:[8,10,6], 5:[11,8,10,6,7] }[n] || [])[pos] ?? pos+6;
+    }
+    if (line === A) return ({ 1:[9], 2:[9,7], 3:[11,9,7] }[n] || [])[pos] ?? pos+9;
   }
   if (matchType === '8v8') {
     if (line === 'Doel') return 1;
@@ -4167,29 +4195,99 @@ async function saveMatchInfo() {
   }
 }
 function applyFormationPositions() {
-  const slots = (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
-  if (!slots) { closeModal(); render(); return; }
+  modalEditPositions();
+}
+
+// ===================== MANUELE HERPLAATSING =====================
+let _ep = null; // { slots, assign: Map<slotIdx,playerId>, sel: playerId|null }
+function modalEditPositions() {
+  const forms = FORMATIONS[match.matchType] || [];
+  if (!forms.length) { closeModal(); render(); return; }
+  const fi = Math.max(0, forms.findIndex(f => f.name === match.formation));
+  const slots = forms[fi].slots;
+  // Initialiseer toewijzingen op basis van huidige spelerposities
+  const assign = new Map();
+  match.players.filter(p => p.starting && typeof p.x === 'number').forEach(p => {
+    const si = slots.findIndex(s => s.x === p.x && s.y === p.y);
+    if (si >= 0 && !assign.has(si)) assign.set(si, p.id);
+  });
+  _ep = { fi, slots, assign, sel: null };
+  _renderEpModal();
+}
+function _epChangeFormation(fi) {
+  const forms = FORMATIONS[match.matchType] || [];
+  _ep.fi = parseInt(fi);
+  _ep.slots = forms[_ep.fi].slots;
+  _ep.assign = new Map();
+  _ep.sel = null;
+  _renderEpModal();
+}
+function _epSelectPlayer(pid) {
+  _ep.sel = (_ep.sel === pid) ? null : pid;
+  _renderEpModal();
+}
+function _epClickSlot(si) {
+  if (_ep.sel) {
+    // Verwijder speler uit vorige slot
+    for (const [k,v] of _ep.assign) if (v === _ep.sel) { _ep.assign.delete(k); break; }
+    // Bezette slot: wissel
+    if (_ep.assign.has(si)) {
+      const prev = _ep.assign.get(si);
+      _ep.assign.delete(si);
+      // Zet vorige terug in het lege slot als die er was
+    }
+    _ep.assign.set(si, _ep.sel);
+    _ep.sel = null;
+  } else if (_ep.assign.has(si)) {
+    _ep.assign.delete(si);
+  }
+  _renderEpModal();
+}
+function _renderEpModal() {
+  const forms = FORMATIONS[match.matchType] || [];
+  const form = forms[_ep.fi];
   const starters = match.players.filter(p => p.starting);
-  const byLine = {};
-  for (const s of slots) (byLine[s.line] = byLine[s.line] || []).push(s);
-  // Groepeer huidige starters per lijn (op basis van hun huidige line of positie)
-  const playersByLine = {};
-  for (const p of starters) {
-    const line = p.line || 'Middenveld';
-    (playersByLine[line] = playersByLine[line] || []).push(p);
+  const placedIds = new Set(_ep.assign.values());
+  const unplaced = starters.filter(p => !placedIds.has(p.id));
+  // Veld
+  const slotsHtml = _ep.slots.map((s, i) => {
+    const posNum = computePosNum(match.matchType, i, _ep.slots);
+    const pid = _ep.assign.get(i);
+    const p = pid ? match.players.find(x => x.id === pid) : null;
+    const gk = s.line === 'Doel';
+    if (p) return `<div class="pslot filled ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    return `<div class="pslot ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}</div>`;
+  }).join('');
+  const chipsHtml = unplaced.length
+    ? unplaced.map(p => `<span class="place-chip ${_ep.sel===p.id?'sel':''}" onclick="_epSelectPlayer('${p.id}')"><span class="pcn">${p.number||'?'}</span>${esc(p.name)}</span>`).join('')
+    : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`;
+  const formSel = forms.map((f,i) => `<option value="${i}" ${i===_ep.fi?'selected':''}>${esc(f.name)}</option>`).join('');
+  document.getElementById('modal').innerHTML = `<div class="modal-ov"><div class="modal">
+    <h3>${icI(IC.shirt)} Posities herplaatsen</h3>
+    <div class="fg" style="margin-bottom:8px"><label>Formatie</label><select onchange="_epChangeFormation(this.value)">${formSel}</select></div>
+    <div class="card" style="padding:8px">${`<div class="pitch">${pitchLines()}${slotsHtml}</div>`}
+      <div class="field-legend">Tik een speler hieronder, tik dan een positie. Tik een bezette positie om te verwijderen.</div>
+    </div>
+    <div class="sec" style="margin-top:8px">Nog te plaatsen (${unplaced.length})</div>
+    <div class="place-chips">${chipsHtml}</div>
+    <button class="btn btn-green" style="margin-top:12px" onclick="_saveEpPositions()">${icI(IC.check)} Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>
+  </div></div>`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+async function _saveEpPositions() {
+  const forms = FORMATIONS[match.matchType] || [];
+  const form = forms[_ep.fi];
+  match.formation = form.name;
+  // Reset alle starter-posities
+  match.players.filter(p => p.starting).forEach(p => { p.x = undefined; p.y = undefined; p.line = undefined; p.posNum = undefined; });
+  for (const [si, pid] of _ep.assign) {
+    const p = match.players.find(x => x.id === pid);
+    const s = _ep.slots[si];
+    if (p && s) { p.x = s.x; p.y = s.y; p.line = s.line; p.posNum = computePosNum(match.matchType, si, _ep.slots); }
   }
-  // Wijs spelers toe aan slots per lijn; overschot gaat naar middenveld
-  const assigned = new Set();
-  const LINE_ORDER = [D, V, M, A];
-  for (const line of LINE_ORDER) {
-    const lineSlots = byLine[line] || [];
-    const linePlayers = (playersByLine[line] || []).filter(p => !assigned.has(p.id));
-    lineSlots.forEach((slot, i) => {
-      const p = linePlayers[i];
-      if (p) { p.line = slot.line; p.x = slot.x; p.y = slot.y; p.posNum = i + 1; assigned.add(p.id); }
-    });
-  }
-  dbSave(match); closeModal(); render();
+  _ep = null;
+  await dbSave(match); closeModal(); render();
 }
 async function saveNotes() {
   const t = document.getElementById('note-area');
@@ -4394,7 +4492,10 @@ async function saveEditEvent(id) {
   const has = i => document.getElementById(i);
   const val = i => { const el = has(i); return el ? el.value : undefined; };
   const min = parseInt(val('ee-min'));
-  if (!isNaN(min) && min > 0) e.gameTimeMs = (min - 1) * 60000;
+  if (!isNaN(min) && min > 0) {
+    const qStart = e.quarterNum ? gameTimeMsAtStartOfQuarter(match, e.quarterNum) : 0;
+    e.gameTimeMs = qStart + (min - 1) * 60000;
+  }
   if (has('ee-player')) e.playerId = val('ee-player') || null;
   if (has('ee-assist')) e.assistId = val('ee-assist') || null;
   if (has('ee-ctype')) e.cornerType = val('ee-ctype');
@@ -4906,6 +5007,7 @@ function renderDetail() {
         <button class="btn btn-orgpale" onclick="modalEditPlayers()">${icI(IC.edit)} Spelers bewerken</button>
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
       </div>
+      ${(FORMATIONS[match.matchType]||[]).length ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Posities herplaatsen</button>` : ''}
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
   </div>`;
