@@ -3362,7 +3362,10 @@ function wizStep2() {
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via 👥 Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
-    ${wiz.noGuests ? '' : `<button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>`}
+    ${wiz.noGuests ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
+      <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
+    </div>`}
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
       <button class="btn btn-green" onclick="wizNext()">Volgende →</button>
@@ -3416,6 +3419,23 @@ function confirmGuests() {
   const t = guestTeamById(guestModalTeam);
   guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !wiz.pool.some(pp => pp.srcId === srcId)) wiz.pool.push({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', fromName: t.name, guest: true, sel: 'bank', slot: null }); });
   guestPick = []; closeModal(); render();
+}
+function addLoosePlayerModal() {
+  openModal(`<h3>Losse speler toevoegen</h3>
+    <div class="fg"><label>Voornaam</label><input id="lp-first" type="text" placeholder="Voornaam" autocomplete="off"></div>
+    <div class="fg"><label>Naam</label><input id="lp-last" type="text" placeholder="Naam" autocomplete="off"></div>
+    <button class="btn btn-green" style="margin-top:4px" onclick="confirmLoosePlayer()">${icI(IC.check)} Toevoegen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  setTimeout(() => document.getElementById('lp-first')?.focus(), 50);
+}
+function confirmLoosePlayer() {
+  const first = (document.getElementById('lp-first')?.value || '').trim();
+  const last = (document.getElementById('lp-last')?.value || '').trim();
+  if (!first && !last) { alert('Geef minstens een naam in.'); return; }
+  const name = [first, last].filter(Boolean).join(' ');
+  const id = uid();
+  wiz.pool.push({ pid: id, srcId: id, name, number: '', pos: '', fromName: 'Losse speler', guest: true, sel: 'bank', slot: null });
+  closeModal(); render();
 }
 // ----- Stap 3: opstelling -----
 function setFormation(idx) { wiz.formationIndex = parseInt(idx); wiz.pool.forEach(p => p.slot = null); wiz.selPlace = null; render(); }
@@ -4357,11 +4377,6 @@ function modalExtra() {
     <div class="sec">${icI(IC.corner)} Hoekschop</div>
     ${opt(`${icI(IC.corner)} Hoekschop voor ons`, "logCorner('us')")}
     ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
-    <div class="sec">${icI(IC.shot)} Schoten</div>
-    ${opt(`${icI(IC.shot)} Schot voor ons — op doel`, "logExtra('shot_us',{onTarget:true})")}
-    ${opt(`${icI(IC.shot)} Schot voor ons — naast`, "logExtra('shot_us',{onTarget:false})")}
-    ${opt(`${icI(IC.shot)} Schot tegen — op doel`, "logExtra('shot_them',{onTarget:true})")}
-    ${opt(`${icI(IC.shot)} Schot tegen — naast`, "logExtra('shot_them',{onTarget:false})")}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
