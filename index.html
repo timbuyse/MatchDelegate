@@ -1009,11 +1009,19 @@ async function loadUserTeams(uid) {
   // ruim de verwijzing op zodat ze niet meer in de lijst blijft staan.
   await Promise.all(Object.keys(raw).map(async id => {
     try {
-      const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
-      if (s.exists()) userTeams[id] = raw[id];
-      else fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
+      const [nameSnap, roleSnap] = await Promise.all([
+        fbdb.ref('teams/' + id + '/info/name').once('value'),
+        fbdb.ref('teams/' + id + '/members/' + uid).once('value'),
+      ]);
+      if (nameSnap.exists() && roleSnap.exists()) {
+        const role = roleSnap.val();
+        userTeams[id] = role;
+        // Cache bijwerken als de rol veranderd is
+        if (role !== raw[id]) fbdb.ref('users/' + uid + '/teams/' + id).set(role).catch(() => {});
+      } else {
+        fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
+      }
     } catch (e) {
-      // permission denied = ploeg weg of geen toegang meer → opruimen
       fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
     }
   }));
@@ -1424,7 +1432,6 @@ async function promoteMember(uid) {
   if (!confirm('Wil je deze persoon promoveren tot mede-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.')) return;
   try {
     await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
-    await fbdb.ref('users/' + uid + '/teams/' + activeTeamId).set('admin');
     showMembersModal();
   } catch (e) { alert('Promoveren mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
