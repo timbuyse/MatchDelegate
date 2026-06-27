@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="MatchDelegate">
+  <meta name="apple-mobile-web-app-title" content="Match Delegate">
   <meta name="theme-color" content="#101010">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
-  <title>MatchDelegate</title>
+  <title>Match Delegate</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
@@ -393,7 +393,7 @@
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
-<div id="splash"><img src="logo.png" alt="MatchDelegate"><div id="splash-bar"></div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div>
+<div id="splash"><img src="logo.png" alt="Match Delegate"><div id="splash-bar"></div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div>
 <!-- Handleiding screenshots (base64) — genereer via: handleiding\generate-b64.ps1 -->
 <script>var HANDLEIDING_SCREENSHOTS = {};</script>
 <script src="handleiding-screenshots.js" onerror="console.info('handleiding-screenshots.js niet gevonden')"></script>
@@ -852,7 +852,7 @@ async function claimOwner() {
     ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
     listenAdminRequests();
     closeModal();
-    alert('✓ Je bent nu ingesteld als eigenaar van MatchDelegate. Voortaan moet wie een ploeg wil aanmaken jouw goedkeuring krijgen.');
+    alert('✓ Je bent nu ingesteld als eigenaar van Match Delegate. Voortaan moet wie een ploeg wil aanmaken jouw goedkeuring krijgen.');
   } catch (e) {
     alert('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'));
   }
@@ -1411,14 +1411,14 @@ async function showInviteModal(teamId) {
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
   const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&data=' + encodeURIComponent(joinUrl);
-  const shareText = 'Volg ' + teamName + ' via MatchDelegate. Open de link of gebruik code ' + token + '.';
+  const shareText = 'Volg ' + teamName + ' via Match Delegate. Open de link of gebruik code ' + token + '.';
   openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(teamName)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Scan de QR-code of deel de link. Werkt ook voor mensen zonder account.</p>
     <div style="display:flex;justify-content:center;margin-bottom:12px">
       <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
     </div>
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
-    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">${icI(IC.share)} Delen / Link kopiëren</button>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">${icI(IC.share)} Delen / Link kopiëren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -1677,7 +1677,7 @@ async function guestJoinWithCode() {
 
 function renderGuestJoin() {
   return `<div class="auth-wrap">
-    <div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div>
+    <div class="auth-logo"><img src="logo.png" alt="Match Delegate" class="auth-logo-img"></div>
     <div class="auth-title">Gastmodus</div>
     <div class="auth-sub">Volg een live wedstrijd zonder account</div>
     <div class="auth-box">
@@ -1727,7 +1727,7 @@ function renderTeamSelect() {
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
       ${ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1'
-        ? `<div class="nudge" style="margin-bottom:16px">⏳ <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
+        ? `<div class="nudge" style="margin-bottom:16px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
         : ''}
       ${teamRows}
       <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
@@ -1917,7 +1917,7 @@ function evtLabel(e, m) {
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
-    case 'posSwap': return `↔ ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
+    case 'posSwap': return `${icI(IC.swap)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -1932,8 +1932,8 @@ function evtLabel(e, m) {
     case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
     case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
     case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pName(m,e.playerId)}`;
-    case 'quarter_start': return `▶ ${pSing(m)} ${e.quarterNum} gestart`;
-    case 'quarter_end': return `⏹ ${pSing(m)} ${e.quarterNum} afgelopen`;
+    case 'quarter_start': return `<i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} gestart`;
+    case 'quarter_end': return `<i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} afgelopen`;
     default: return e.type;
   }
 }
@@ -2223,7 +2223,7 @@ const views = {
       : '';
     return `<div class="hdr hdr-home">
       <div style="display:flex;align-items:center;gap:8px;min-width:0">
-        <img src="MD_cropped.png" class="hdr-crest" alt="MatchDelegate">
+        <img src="MD_cropped.png" class="hdr-crest" alt="Match Delegate">
         ${clubName ? `<span class="hdr-club-name">${clubName}</span>` : ''}
       </div>
       <div style="position:absolute;left:50%;transform:translateX(-50%)">${switchBtn}</div>
@@ -2292,15 +2292,15 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile tile-org" onclick="openSquad()"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : `<button class="tile tile-org" onclick="go('teams')"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    ? `<button class="tile" onclick="openSquad()"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    : `<button class="tile" onclick="go('teams')"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
     <button class="tile" onclick="go('matches')"><i class="ti ti-ball-football tile-fi" aria-hidden="true"></i><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
-    <button class="tile tile-dark" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
+    <button class="tile" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   if (!all.length && !teamCount) {
@@ -2495,7 +2495,7 @@ async function loadStats() {
     <div class="sec">${icI(IC.timer)} Meeste speelminuten</div><div class="card">${minutes.length ? minutes.map((p,i)=>`<div class="stat-row"><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
     <div class="sec">${icI(IC.balance)} Fair-play · minste speeltijd</div><div class="card"><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gesorteerd op laagste gemiddelde speeltijd per wedstrijd — zo zie je snel wie meer speelkansen verdient.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp} wd</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.mp/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
     <div class="sec">${icI(IC.save)} Clean sheets</div><div class="card"><div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}</div>
-    ${carded.length ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card">${carded.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc?'🟨'.repeat(p.yc):''}${p.rc?'🟥'.repeat(p.rc):''}</span></div>`).join('')}</div>` : ''}
+    ${carded.length ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card">${carded.map(p=>`<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')}</div>` : ''}
     ${posList.length ? `<div class="sec">${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span></div><div class="card">${posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')}</div>` : ''}
     ${anyAbsent ? `<div class="sec">${icI(IC.clipboard)} Aanwezigheid <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span></div><div class="card">${attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')}</div>` : ''}`;
 }
@@ -2518,15 +2518,15 @@ function renderSettings(isFirst) {
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
       ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
-      <button class="btn btn-pale" onclick="exportBackup()">⬇ Back-up downloaden</button>
-      <label class="file-btn" style="margin-top:8px">⬆ Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
+      <button class="btn btn-pale" onclick="exportBackup()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Back-up downloaden</button>
+      <label class="file-btn" style="margin-top:8px"><i class="ti ti-upload" style="font-size:1em;vertical-align:-.1em"></i> Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser ? (currentUser.displayName || currentUser.email) : '')}</p>
       <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">✉ E-mailadres wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> E-mailadres wijzigen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
@@ -3094,7 +3094,7 @@ function renderTeamsList() {
     ${!cloudReady && canManage()
       ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
       : (cloudReady && isAdmin)
-        ? '<div class="viewer-banner" style="margin-top:8px">➕ Een andere ploeg aanmaken of ernaar wisselen doe je via de ploegknop (⇄) bovenaan het startscherm.</div>'
+        ? `<div class="viewer-banner" style="margin-top:8px">${icI(IC.plus)} Een andere ploeg aanmaken of ernaar wisselen doe je via de ploegknop (${icI(IC.swap)}) bovenaan het startscherm.</div>`
         : '<div class="viewer-banner" style="margin-top:8px"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — spelers worden door de beheerder beheerd</div>'}
   </div>`;
 }
@@ -3307,7 +3307,7 @@ async function loadTournamentDetail() {
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
-    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">⎘ Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
+    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')"><i class="ti ti-copy" style="font-size:1em;vertical-align:-.1em"></i> Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
     <div class="card">${infoRows}${squadRow}</div>
@@ -3849,7 +3849,7 @@ function wizStep2() {
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
-    <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via 👥 Ploegen.</p>'}</div>
+    <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
     ${wiz.noGuests ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
@@ -3970,7 +3970,7 @@ function wizStep3() {
     <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
     <div class="wiz-nav" style="margin-top:14px">
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
-      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">↺ Wissen</button>
+      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()"><i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Wissen</button>
     </div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
@@ -4366,7 +4366,7 @@ function renderLive() {
   }).join('');
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
   if (ro && tab === 'wedstrijd') tab = 'log';
-  const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `⏸ Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
+  const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>
@@ -4384,20 +4384,20 @@ function renderLive() {
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
-        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">⏱ ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
+        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff"><i class="ti ti-stopwatch" style="font-size:1em;vertical-align:-.1em"></i> ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
       </div>
       ${(!isDone && !ro) ? `<div class="qctrl">
-        ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">▶ Start wedstrijd</button>` : ''}
-        ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">▶ Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
-        ${isRunning ? `<button class="qbtn qbtn-pause" onclick="pauseQuarter()">⏸ Pauze</button>` : ''}
-        ${isPaused ? `<button class="qbtn qbtn-resume" onclick="resumeQuarter()">▶ Hervatten</button>` : ''}
+        ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Start wedstrijd</button>` : ''}
+        ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
+        ${isRunning ? `<button class="qbtn qbtn-pause" onclick="pauseQuarter()"><i class="ti ti-player-pause-filled" style="font-size:1em;vertical-align:-.1em"></i> Pauze</button>` : ''}
+        ${isPaused ? `<button class="qbtn qbtn-resume" onclick="resumeQuarter()"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Hervatten</button>` : ''}
         ${(isRunning||isPaused) ? (isLastPeriod
             ? `<button class="qbtn qbtn-end" onclick="endMatch()">${icI(IC.finish)} Einde match</button>`
-            : `<button class="qbtn qbtn-end" onclick="endPeriod()">⏹ Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
+            : `<button class="qbtn qbtn-end" onclick="endPeriod()"><i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
-        <div class="sec" style="margin-top:0">🔄 Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
-        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">🔄 <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
+        <div class="sec" style="margin-top:0">${icI(IC.swap)} Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
+        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">${icI(IC.plus)} Pauzewissel toevoegen</button>
         ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">${icI(IC.swap)} Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">${icI(IC.swap)}</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">${icI(IC.close)}</button></div>`).join('')}` : ''}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">${icI(IC.swap)} Positiewissel toevoegen</button>
@@ -4413,7 +4413,7 @@ function renderLive() {
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>`}
-      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">↩ Laatste actie ongedaan maken</button>` : ''}
+      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()"><i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score via WhatsApp</button>`;
   } else if (tab === 'opstelling') {
@@ -4540,7 +4540,7 @@ function endPeriod() {
   const label = pSingLow(match);
   openModal(`<h3>Einde ${label} ${match.currentQuarter}?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De klok stopt en je kan dit ${label} niet meer hervatten.</p>
-    <button class="btn btn-red" onclick="doEndPeriod()">⏹ Ja, beëindig ${label}</button>
+    <button class="btn btn-red" onclick="doEndPeriod()"><i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> Ja, beëindig ${label}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doEndPeriod() {
@@ -4565,7 +4565,7 @@ async function confirmEndMatch() {
   closeModal(); await forceEndMatch();
 }
 function modalNotes() {
-  openModal(`<h3>📝 Notities</h3>
+  openModal(`<h3>${icI(IC.edit)} Notities</h3>
     <div class="fg"><textarea id="note-area" rows="6" placeholder="Aanvullingen over de wedstrijd...">${esc(match.notes||'')}</textarea></div>
     <button class="btn btn-green" onclick="saveNotes()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -4593,7 +4593,7 @@ async function markMoment() {
   match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
   await dbSave(match);
   const btn = document.querySelector('.fab-mark');
-  if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '★'; }, 800); }
+  if (btn) { btn.innerHTML = IC.check; setTimeout(() => { btn.innerHTML = IC.motm; }, 800); }
 }
 function modalEditMatchInfo() {
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
@@ -5044,7 +5044,7 @@ async function undoLast() {
   match.events.splice(idx, 1);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
-  showUndoToast(`↩ Ongedaan: ${evtLabel(removed, match)}`);
+  showUndoToast(`<i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Ongedaan: ${evtLabel(removed, match)}`);
 }
 function showUndoToast(html) {
   let t = document.getElementById('undo-toast');
@@ -5187,8 +5187,8 @@ function modalSub() {
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => Math.floor((mins[id]?.ms || 0) / 60000);
   subOut = null; subIn = null;
-  const title = between ? `🔄 Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}` : '🔄 Wissel';
-  const cta = between ? '✓ Pauzewissel inplannen' : '✓ Wissel doorvoeren';
+  const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.swap)} Wissel`;
+  const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
   const hint = between ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>' : '';
   openModal(`<h3>${title}</h3>${hint}
     <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
@@ -5274,7 +5274,7 @@ async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendin
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
   const on = playersOnField(match);
-  const ico = color === 'yellow' ? '🟨' : '🟥';
+  const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
     <div class="sec" style="margin-top:0">Voor welke speler?</div>
@@ -5307,7 +5307,7 @@ function modalPenalty() {
     </div>
     <div class="sec">Resultaat?</div>
     <div class="mopt" onclick="logPenalty(true)">${icI(IC.goal)} Gescoord</div>
-    <div class="mopt" onclick="logPenalty(false)"><div class="mopt-num mopt-num-off">✗</div>Gemist / gestopt</div>
+    <div class="mopt" onclick="logPenalty(false)"><div class="mopt-num mopt-num-off"><span class="ic-i">${IC.close}</span></div>Gemist / gestopt</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 function tglPen(team, btn){ penTeam = team; document.querySelectorAll('#pen-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('pen-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
@@ -5357,7 +5357,7 @@ function modalSubAfterInjury(outId) {
   const off = playersOnBench(match).slice().sort((a,b) => (mins[a.id]?.ms||0) - (mins[b.id]?.ms||0));
   const minMs = off.length ? (mins[off[0].id]?.ms||0) : 0;
   const mm = id => Math.floor((mins[id]?.ms||0)/60000);
-  openModal(`<h3>🔄 Wissel na blessure</h3>
+  openModal(`<h3>${icI(IC.swap)} Wissel na blessure</h3>
     <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">🤕 ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
     <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
@@ -5466,9 +5466,9 @@ function renderDetail() {
       <div style="font-size:14px;color:var(--txt2)">${esc(isAway(match)?match.opponent:tName(match))} – ${esc(isAway(match)?tName(match):match.opponent)}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="shareReport()">⬆ Delen</button>
-      <button class="btn btn-org btn-sm" onclick="exportPDF()">📄 PDF</button>
-      <button class="btn btn-pale btn-sm" onclick="exportMatch()">⬇ Export</button>
+      <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
+      <button class="btn btn-org btn-sm" onclick="exportPDF()"><i class="ti ti-file-text" style="font-size:1em;vertical-align:-.1em"></i> PDF</button>
+      <button class="btn btn-pale btn-sm" onclick="exportMatch()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Export</button>
     </div>
     <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel via WhatsApp</button>
     <div class="sec">Wedstrijdinfo</div>
@@ -5665,7 +5665,7 @@ async function init() {
   }
   // Toon laadscherm terwijl Firebase auth-status bepaald wordt
   view = 'home';
-  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo"><img src="logo.png" alt="MatchDelegate" class="auth-logo-img"></div><p style="color:var(--txt2)">Laden...</p></div>`;
+  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo"><img src="logo.png" alt="Match Delegate" class="auth-logo-img"></div><p style="color:var(--txt2)">Laden...</p></div>`;
   cloudInit();
   setTimeout(() => {
     const s = document.getElementById('splash');
