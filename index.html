@@ -4952,29 +4952,80 @@ function exportMatchCSV() {
   const opp = m.opponent || '';
   const safe = `${team}-${opp}-${m.date || ''}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const rows = [];
-  const q = v => (v == null ? '' : String(v).replace(/"/g, '""'));
-  const row = (...cols) => rows.push(cols.map(c => `"${q(c)}"`).join(';'));
+  const esc2 = v => (v == null ? '' : String(v).replace(/"/g, '""'));
+  const row = (...cols) => rows.push(cols.map(c => `"${esc2(c)}"`).join(';'));
+  const blank = () => rows.push('');
+  const mins = calcMinutes(m);
 
-  row('Match Delegate — wedstrijdverslag');
+  // WEDSTRIJDINFO
+  row('WEDSTRIJDINFO');
   row('Ploeg', team);
   row('Tegenstander', opp);
   row('Datum', m.date || '');
+  row('Tijdstip', m.time || '');
   row('Locatie', m.location || '');
+  row('Wedstrijdtype', m.matchType || '');
+  row('Competitie', m.competition || '');
+  row('Speeldag', m.matchday || '');
+  row('Opstelling', m.formation || '');
+  row('Aantal periodes', m.numQuarters || '');
+  row('Duur per periode (min)', m.quarterDuration || '');
+  row('Trainer', m.trainer || '');
+  row('Afgevaardigde', m.responsible || '');
+  row('Scheidsrechter', m.referee || '');
+  row('Truitkleur', m.jersey || '');
+  row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));
   row('Score', `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
-  rows.push('');
+  row('Man v/d match', m.motmId ? pName(m, m.motmId) : '');
+  blank();
 
-  row('EVENTS', 'Kwart', 'Minuut', 'Type', 'Speler', 'Extra');
-  for (const e of (m.events || [])) {
-    const player = e.playerName || e.subInName || '';
-    const extra = e.subOutName ? `Uit: ${e.subOutName}` : e.isOwnGoal ? 'Eigen doel' : e.scored === false ? 'Gemist' : '';
-    const typeLabels = { goal_us:'Doelpunt', goal_them:'Doelpunt tegen', own_goal:'Eigen doel', own_goal_them:'Eigen doel (teg.)', yellow:'Gele kaart', red:'Rode kaart', sub:'Wissel', injury:'Blessure', freeKick:'Vrije trap', penalty_us:'Penalty voor', penalty_them:'Penalty tegen', position:'Positiewisseling', motm:'Man v/d match', note:'Notitie' };
-    row('', e.quarter || '', e.minute != null ? e.minute + "'" : '', typeLabels[e.type] || e.type, player, extra);
+  // EVENTS
+  const typeLabels = {
+    goal_us: 'Doelpunt', goal_them: 'Doelpunt tegen',
+    own_goal: 'Eigen doel', own_goal_them: 'Eigen doel (teg.)',
+    yellow_card: 'Gele kaart', red_card: 'Rode kaart',
+    substitution: 'Wissel', posSwap: 'Positiewisseling',
+    injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
+    freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
+    corner_us: 'Hoekschop voor', corner_them: 'Hoekschop tegen',
+    motm: 'Man v/d match', note: 'Notitie'
+  };
+  row('EVENTS', 'Periode', 'Minuut', 'Speeltijd (ms)', 'Type', 'Speler', 'Extra info');
+  for (const e of [...(m.events || [])].sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))) {
+    const type = typeLabels[e.type] || e.type;
+    const { min, extra } = eventMinExtra(m, e);
+    const minStr = min != null ? min + (extra ? '+' + extra : '') + "'" : '';
+    let player = '';
+    let extraInfo = '';
+    if (e.type === 'substitution') {
+      player = pName(m, e.playerInId);
+      extraInfo = 'Uit: ' + pName(m, e.playerOutId) + (e.atBreak ? ' (pauzewissel)' : '');
+    } else if (e.type === 'posSwap') {
+      player = pName(m, e.pA) + ' ↔ ' + pName(m, e.pB);
+      extraInfo = e.atBreak ? 'Pauze-positiewissel' : '';
+    } else if (e.playerId) {
+      player = pName(m, e.playerId);
+      if (e.assistId) extraInfo = 'Assist: ' + pName(m, e.assistId);
+      if (e.scored === true) extraInfo = 'Goal';
+      if (e.scored === false) extraInfo = 'Gemist';
+      if (e.isOwnGoal) extraInfo = 'Eigen doel';
+      if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
+    }
+    if (e.type === 'note' && e.text) extraInfo = e.text;
+    row('', e.quarterNum || '', minStr, e.gameTimeMs || '', type, player, extraInfo);
   }
-  rows.push('');
+  blank();
 
-  row('SELECTIE', 'Naam', 'Nummer', 'Positie', 'Status');
+  // SELECTIE
+  row('SELECTIE', 'Naam', 'Nummer', 'Positie', 'Status', 'Speelminuten', 'Goals', 'Assists', 'Gele kaarten', 'Rode kaarten');
   for (const p of (m.players || [])) {
-    row('', p.name || '', p.number || '', p.pos || '', p.basis ? 'Basis' : p.status === 'out' ? 'Niet geselecteerd' : 'Bank');
+    const minMs = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
+    const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
+    const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
+    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+    const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
+    const status = p.starting ? 'Basis' : p.status === 'out' ? 'Niet geselecteerd' : 'Bank';
+    row('', p.name || '', p.number || '', p.pos || '', status, minMs ? minMs + "'" : '', g || '', a || '', yc || '', rc || '');
   }
 
   const csv = '﻿' + rows.join('\r\n');
