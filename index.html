@@ -697,6 +697,7 @@ let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /o
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
 let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
 let pendingAdminCount = 0; // aantal openstaande beheerdersaanvragen (enkel voor eigenaar)
+let pendingCoAdminCount = 0; // openstaande co-beheer aanvragen voor actieve ploeg
 let maintenanceActive = false; // is onderhoudsmodus actief?
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
@@ -804,6 +805,18 @@ function listenAdminRequests() {
   try { fbdb.ref('adminRequests').off('value', onAdminReqValue); } catch (e) {}
   pendingAdminCount = 0;
   if (isOwner) { try { fbdb.ref('adminRequests').on('value', onAdminReqValue); } catch (e) {} }
+}
+
+function onCoAdminReqValue(s) {
+  const v = s.val() || {};
+  pendingCoAdminCount = Object.keys(v).length;
+  updateCloudChip();
+}
+function listenCoAdminRequests() {
+  if (!fbdb || !activeTeamId) return;
+  try { fbdb.ref('teamAdminRequests/' + activeTeamId).off('value', onCoAdminReqValue); } catch (e) {}
+  pendingCoAdminCount = 0;
+  if (isAdmin) { try { fbdb.ref('teamAdminRequests/' + activeTeamId).on('value', onCoAdminReqValue); } catch (e) {} }
 }
 
 // De maker legt zichzelf eenmalig vast als eigenaar (kan daarna niet meer overgenomen worden).
@@ -1005,25 +1018,25 @@ async function loadUserTeams(uid) {
   const snap = await fbdb.ref('users/' + uid + '/teams').once('value');
   const raw = snap.val() || {};
   userTeams = {};
-  // Valideer elke ploeg: bestaat ze nog? Zo niet (verwijderd door beheerder),
-  // ruim de verwijzing op zodat ze niet meer in de lijst blijft staan.
   await Promise.all(Object.keys(raw).map(async id => {
     try {
-      const [nameSnap, roleSnap] = await Promise.all([
-        fbdb.ref('teams/' + id + '/info/name').once('value'),
-        fbdb.ref('teams/' + id + '/members/' + uid).once('value'),
-      ]);
-      if (nameSnap.exists() && roleSnap.exists()) {
-        const role = roleSnap.val();
-        userTeams[id] = role;
-        // Cache bijwerken als de rol veranderd is
-        if (role !== raw[id]) fbdb.ref('users/' + uid + '/teams/' + id).set(role).catch(() => {});
-      } else {
+      const nameSnap = await fbdb.ref('teams/' + id + '/info/name').once('value');
+      if (!nameSnap.exists()) {
+        // Ploeg bestaat niet meer → opruimen
         fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
+        return;
       }
-    } catch (e) {
-      fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
-    }
+      // Werkelijke rol ophalen; val terug op gecachede rol als de read faalt
+      let role = raw[id];
+      try {
+        const roleSnap = await fbdb.ref('teams/' + id + '/members/' + uid).once('value');
+        if (roleSnap.exists()) {
+          role = roleSnap.val();
+          if (role !== raw[id]) fbdb.ref('users/' + uid + '/teams/' + id).set(role).catch(() => {});
+        }
+      } catch (e) { /* geen toegang tot members-node: gecachede rol gebruiken */ }
+      userTeams[id] = role;
+    } catch (e) { /* netwerk- of permissiefout: ploeg overslaan maar NIET verwijderen */ }
   }));
 }
 
@@ -1037,6 +1050,7 @@ async function selectTeam(teamId) {
   // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is
   writeMemberInfo(teamId, userTeams[teamId] || 'viewer');
   cloudListen();
+  listenCoAdminRequests();
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
   go('home');
@@ -1234,7 +1248,8 @@ function updateCloudChip() {
   if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
   el.style.display = '';
   const effectiveAdmin = isAdmin && !viewerMode;
-  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> ' + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  const coBadge = (effectiveAdmin && pendingCoAdminCount) ? `<span class="req-badge">${pendingCoAdminCount}</span>` : '';
+  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer${coBadge}` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> ' + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }
 function cloudLoginModal() {
@@ -1249,8 +1264,11 @@ function cloudLoginModal() {
   const manageBlock = (isAdmin && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
     <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Kijkers</button>
-    <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1.1em"></i> Ploeg verwijderen</button>` : '';
+    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
+    <button class="btn btn-red" style="margin-top:8px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1.1em"></i> Ploeg verwijderen</button>`
+  : (!isAdmin && !isGuest && activeTeamId) ? `
+    <div class="sec" style="margin-top:14px">Deze ploeg</div>
+    <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>` : '';
 
   // Van ploeg wisselen
   const switchBlock = `
@@ -1323,7 +1341,10 @@ async function joinTeamByToken(token) {
     await fbdb.ref('users/' + uid + '/teams/' + teamId).set('viewer');
     userTeams[teamId] = 'viewer';
   } else {
-    userTeams[teamId] = existing.val();
+    const role = existing.val();
+    userTeams[teamId] = role;
+    // Cache herstellen (kan leeg zijn na een bug of herinstallatie)
+    await fbdb.ref('users/' + uid + '/teams/' + teamId).set(role).catch(() => {});
   }
   await selectTeam(teamId);
   return 'ok';
@@ -1381,22 +1402,51 @@ async function showInviteModal(teamId) {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
+// ---- Kijker vraagt co-beheer aan ----
+function confirmRequestCoAdmin() {
+  openModal(`<h3>${icI(IC.edit)} Co-beheer aanvragen</h3>
+    <p style="color:var(--txt2);font-size:14px;margin-bottom:16px">Je vraagt de beheerder van <b>${esc(getClubName() || 'deze ploeg')}</b> om co-beheerder te worden. De beheerder moet dit eerst goedkeuren voordat je wedstrijden kan aanmaken of bewerken.</p>
+    <button class="btn btn-green" onclick="closeModal();requestCoAdmin()">Aanvraag versturen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function requestCoAdmin() {
+  const tid = activeTeamId;
+  if (!tid || !currentUser || !fbdb) return;
+  const ref = fbdb.ref('teamAdminRequests/' + tid + '/' + currentUser.uid);
+  const snap = await ref.once('value');
+  if (snap.exists()) { alert('Je aanvraag is al verstuurd. Wacht op goedkeuring van de beheerder.'); return; }
+  try {
+    await ref.set({ name: currentUser.displayName || '', email: currentUser.email || '', requestedAt: Date.now() });
+    alert('✓ Aanvraag verstuurd. De beheerder ontvangt een melding.');
+  } catch (e) { alert('Aanvraag mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
+
 // ---- Kijkers van de actieve ploeg tonen (enkel beheerder) ----
 async function showMembersModal() {
   const tid = activeTeamId;
   if (!tid || !isAdmin) return;
   const teamName = getClubName() || 'deze ploeg';
-  openModal(`<h3>${icI(IC.players)} Kijkers — ${esc(teamName)}</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie heeft toegang tot deze ploeg.</p>
+  openModal(`<h3>${icI(IC.players)} Leden — ${esc(teamName)}</h3>
     <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   try {
-    const [miSnap, memSnap] = await Promise.all([
+    const [miSnap, memSnap, reqSnap] = await Promise.all([
       fbdb.ref('memberInfo/' + tid).once('value'),
-      fbdb.ref('teams/' + tid + '/members').once('value')
+      fbdb.ref('teams/' + tid + '/members').once('value'),
+      fbdb.ref('teamAdminRequests/' + tid).once('value'),
     ]);
     const info = miSnap.val() || {};
     const members = memSnap.val() || {};
+    const requests = reqSnap.val() || {};
+    // Haal ontbrekende memberInfo op via users-node (enkel voor leden zonder info)
+    const missingUids = Object.keys(members).filter(u => !info[u]);
+    await Promise.all(missingUids.map(async u => {
+      try {
+        const s = await fbdb.ref('users/' + u).once('value');
+        const d = s.val();
+        if (d) info[u] = { name: d.displayName || d.name || '', email: d.email || '' };
+      } catch (e) {}
+    }));
     // Sorteer: beheerders eerst, dan kijkers
     const uids = Object.keys(members).sort((a, b) =>
       (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
@@ -1408,23 +1458,67 @@ async function showMembersModal() {
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
         : '<span class="ts-role viewer"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker</span>';
-      const removeBtn = role !== 'admin'
+      const btns = role !== 'admin'
         ? `<button class="btn btn-pale btn-sm" style="margin-left:8px;flex-shrink:0" onclick="promoteMember('${uid}')">Maak beheerder</button>
            <button class="btn btn-red btn-sm" style="margin-left:4px;flex-shrink:0" onclick="removeMember('${uid}')">Verwijderen</button>`
-        : '';
+        : (uid !== currentUser?.uid
+          ? `<button class="btn btn-gray btn-sm" style="margin-left:8px;flex-shrink:0" onclick="demoteMember('${uid}')">Maak kijker</button>`
+          : '');
       return `<div class="ts-team-row" style="cursor:default">
         <span class="ts-name"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small></span>
-        ${badge}${removeBtn}</div>`;
+        ${badge}${btns}</div>`;
+    });
+    // Openstaande aanvragen
+    const reqUids = Object.keys(requests).filter(u => !members[u] || members[u] !== 'admin');
+    const reqRows = reqUids.map(uid => {
+      const r = requests[uid];
+      const naam = r.name || '(geen naam)';
+      const email = r.email || '';
+      return `<div class="ts-team-row" style="cursor:default;border-left:3px solid var(--org)">
+        <span class="ts-name"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small><br><small style="color:var(--org)">Vraagt co-beheer aan</small></span>
+        <button class="btn btn-green btn-sm" style="flex-shrink:0" onclick="approveCoAdmin('${uid}')">Goedkeuren</button>
+        <button class="btn btn-red btn-sm" style="margin-left:4px;flex-shrink:0" onclick="rejectCoAdmin('${uid}')">Weigeren</button>
+      </div>`;
     });
     const viewers = uids.filter(u => members[u] !== 'admin').length;
     const el = document.getElementById('members-list');
-    if (el) el.innerHTML = (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
-      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} vervoegd</p>`;
+    if (el) el.innerHTML =
+      (reqRows.length ? `<p style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px">OPENSTAANDE AANVRAGEN</p>${reqRows.join('')}<hr style="margin:10px 0">` : '')
+      + (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
+      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} beheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
   } catch (e) {
     console.error('Leden laden mislukt:', e);
     const el = document.getElementById('members-list');
     if (el) el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de lijst niet laden.</p>';
   }
+}
+
+async function approveCoAdmin(uid) {
+  const tid = activeTeamId;
+  if (!isAdmin || !tid || !fbdb) return;
+  try {
+    await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
+    await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
+    showMembersModal();
+  } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
+
+async function rejectCoAdmin(uid) {
+  const tid = activeTeamId;
+  if (!isAdmin || !tid || !fbdb) return;
+  try {
+    await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
+    showMembersModal();
+  } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+}
+
+async function demoteMember(uid) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  if (!confirm('Wil je deze beheerder terugzetten naar kijker?')) return;
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
+    showMembersModal();
+  } catch (e) { alert('Degraderen mislukt: ' + (e.message || 'probeer opnieuw.')); }
 }
 
 async function promoteMember(uid) {

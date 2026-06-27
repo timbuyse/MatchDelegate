@@ -98,6 +98,17 @@
       }
     },
 
+    "teamAdminRequests": {
+      "$teamId": {
+        ".read": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'viewer'"
+        }
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false
