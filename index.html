@@ -4262,6 +4262,7 @@ async function forceEndMatch() {
   stopTimer(); releaseWake(); await dbSave(match); render();
 }
 let _postEventQuarter = null; // null = gebruik match.currentQuarter (live), anders: kwart-override (detail)
+let _postEventMinute = null;  // null = einde van het deel, anders: minuut binnen het deel (1-based)
 // Cumulatieve speeltijd t/m het EINDE van kwart qNum (voor retrograde events).
 function gameTimeMsAtEndOfQuarter(m, qNum) {
   let t = 0;
@@ -4274,9 +4275,16 @@ function gameTimeMsAtEndOfQuarter(m, qNum) {
 }
 function addEvent(type, extra={}) {
   const qn = _postEventQuarter !== null ? _postEventQuarter : match.currentQuarter;
-  const gms = _postEventQuarter !== null && _postEventQuarter
-    ? Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1)
-    : getGameTimeMs(match);
+  let gms;
+  if (_postEventQuarter !== null && _postEventQuarter) {
+    if (_postEventMinute !== null) {
+      gms = gameTimeMsAtStartOfQuarter(match, _postEventQuarter) + (_postEventMinute - 1) * 60000;
+    } else {
+      gms = Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1);
+    }
+  } else {
+    gms = getGameTimeMs(match);
+  }
   match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: gms, quarterNum: qn, type, ...extra });
 }
 // Events corrigeren / verwijderen
@@ -4741,6 +4749,7 @@ function modalAddPostEvent() {
   const quarters = match.quarters || [];
   const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
   _postEventQuarter = lastQ;
+  _postEventMinute = null;
   const qBtns = quarters.map(q => {
     const act = q.num === lastQ ? ' act' : '';
     return `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${pSing(match)} ${q.num}</button>`;
@@ -4748,7 +4757,11 @@ function modalAddPostEvent() {
   openModal(`
     <h3>${icI(IC.log)} Event toevoegen</h3>
     <div class="sec" style="margin-top:0">In welk deel?</div>
-    <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:4px">${qBtns}</div>
+    <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${qBtns}</div>
+    <div class="fg" style="margin-bottom:4px">
+      <label style="font-size:13px;color:var(--txt2)">Minuut binnen dit deel <span style="font-weight:400">(optioneel — laat leeg voor einde deel)</span></label>
+      <input id="post-evt-min" type="number" inputmode="numeric" min="1" placeholder="bv. 12" oninput="selPostMin(this.value)" style="width:100%">
+    </div>
     <div class="sec">Wat wil je toevoegen?</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button class="btn btn-pale" onclick="postEvt(modalGoal)">${icI(IC.goal)} Goal</button>
@@ -4764,6 +4777,10 @@ function selPostQ(num, btn) {
   _postEventQuarter = num;
   document.querySelectorAll('#post-q-tgl .tgl-btn').forEach(b => b.classList.remove('act'));
   btn.classList.add('act');
+}
+function selPostMin(val) {
+  const n = parseInt(val);
+  _postEventMinute = (!isNaN(n) && n > 0) ? n : null;
 }
 function postEvt(fn) {
   fn();
