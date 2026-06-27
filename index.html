@@ -4350,9 +4350,10 @@ async function saveEditEvent(id) {
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
-    <div class="sec" style="margin-top:0">${icI(IC.save)} Reddingen</div>
-    ${opt(`${icI(IC.save)} Redding onze keeper`, "logExtra('save_us')")}
-    ${opt(`${icI(IC.save)} Redding tegenstander`, "logExtra('save_them')")}
+    <div class="sec" style="margin-top:0">${icI(IC.swap)} Posities</div>
+    ${opt(`${icI(IC.swap)} Positiewissel`, "modalPosSwap()")}
+    <div class="sec">${icI(IC.injury)} Blessure</div>
+    ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
     <div class="sec">${icI(IC.corner)} Hoekschop</div>
     ${opt(`${icI(IC.corner)} Hoekschop voor ons`, "logCorner('us')")}
     ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
@@ -4364,9 +4365,6 @@ function modalExtra() {
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
-    <div class="sec">${icI(IC.swap)} Wissels & posities</div>
-    ${opt(`${icI(IC.swap)} Positiewissel`, "modalPosSwap()")}
-    ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
     <div class="sec">${icI(IC.shirt)} Opstelling</div>
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
