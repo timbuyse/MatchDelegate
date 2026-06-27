@@ -368,12 +368,32 @@
     body.dark .auth-tab{background:var(--card);color:var(--txt)}
     body.dark .auth-tab.act{background:var(--grn);color:#fff}
     body.dark .ts-team-row{background:var(--card)}
+    /* Handleiding */
+    .hdl-tabs{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--card);border-bottom:1px solid var(--bdr)}
+    .hdl-tab{background:none;border:none;text-align:left;padding:8px 10px;border-radius:8px;font-size:14px;color:var(--txt2);cursor:pointer;transition:background .15s}
+    .hdl-tab:hover{background:var(--bg)}
+    .hdl-tab.active{background:var(--grn);color:#fff;font-weight:600}
+    .hdl-body{padding:16px 16px 32px}
+    .hdl-titel{font-size:19px;font-weight:700;margin-bottom:14px;color:var(--txt)}
+    .hdl-img{width:100%;border-radius:10px;border:1px solid var(--bdr);display:block}
+    .hdl-list{padding-left:20px;margin:8px 0;line-height:1.8;font-size:14px;color:var(--txt)}
+    .hdl-list li{margin-bottom:4px}
+    .hdl-rol{display:flex;flex-direction:column;background:var(--card);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px}
+    .hdl-rol b{font-size:15px;margin-bottom:2px}
+    .hdl-rol span{color:var(--txt2)}
+    .hdl-tip{background:var(--bg);border-left:3px solid var(--grn);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--txt2);margin-top:12px}
+    .hdl-nav{display:flex;justify-content:space-between;align-items:center;margin-top:28px;gap:8px}
+    .hdl-nav .btn{min-width:100px}
+    @media(min-width:600px){.hdl-tabs{flex-direction:row;flex-wrap:wrap;gap:6px}.hdl-tab{font-size:13px;padding:6px 12px}}
   </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
 <div id="splash"><img src="logo.png" alt="MatchDelegate"><div id="splash-bar"></div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div>
+<!-- Handleiding screenshots (base64) — genereer via: node handleiding/generate-b64.js -->
+<script>const HANDLEIDING_SCREENSHOTS = {};</script>
+<script src="handleiding-screenshots.js" onerror="console.info('handleiding-screenshots.js nog niet gegenereerd')"></script>
 <!-- Firebase (cloud delen). Faalt stil als offline: app blijft lokaal werken. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1570,6 +1590,10 @@ function renderAuth() {
       <button class="btn btn-gray" style="width:100%;opacity:.4" disabled>${icI(IC.eye)} Verder als gast</button>
       <p style="font-size:11px;color:var(--txt2);margin-top:6px">Inloggen als gast is momenteel nog niet mogelijk</p>
     </div>
+    <div style="margin-top:24px;text-align:center">
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Help</p>
+      <button class="btn btn-pale" style="width:100%" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
+    </div>
   </div>`;
 }
 
@@ -1708,6 +1732,8 @@ function renderTeamSelect() {
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
         <div class="sec" style="margin-top:20px;margin-bottom:10px">Afmelden</div>
         <button class="btn btn-pale" onclick="cloudLogout()">Afmelden</button>
+        <div class="sec" style="margin-top:20px;margin-bottom:10px">Help</div>
+        <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
       </div>
       ${isOwner && !viewerMode ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
         <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
@@ -2207,6 +2233,7 @@ const views = {
   },
   setup: () => { pendingLogo = mapStoredLogo() || 'DEFAULT'; pendingTheme = null; return renderSettings(true); },
   settings: () => { pendingLogo = mapStoredLogo() || 'DEFAULT'; pendingTheme = null; return renderSettings(false); },
+  handleiding: () => renderHandleiding(0),
   new: renderNew,
   live: renderLive,
   detail: renderDetail,
@@ -2495,8 +2522,317 @@ function renderSettings(isFirst) {
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
+    <div class="sec">Help</div>
+    <div class="card">
+      <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
+    </div>
   </div>`;
 }
+// ===================== HANDLEIDING =====================
+const HANDLEIDING_PAGINAS = [
+  {
+    titel: 'De app installeren',
+    inhoud: `
+      <p>Surf naar <a href="https://timbuyse.github.io/MatchDelegate/" target="_blank" style="color:var(--grn)">timbuyse.github.io/MatchDelegate</a> om de app te openen in je browser.</p>
+      <div class="sec">iPhone / iPad (iOS)</div>
+      <ol class="hdl-list">
+        <li>Open de app in <b>Safari</b>.</li>
+        <li>Tik onderaan op het <b>deelknopje</b> (vierkantje met pijl omhoog).</li>
+        <li>Kies <b>'Zet op beginscherm'</b>.</li>
+        <li>Tik op <b>'Voeg toe'</b>.</li>
+      </ol>
+      <div class="sec">Android</div>
+      <ol class="hdl-list">
+        <li>Open de app in <b>Chrome</b>.</li>
+        <li>Tik rechtsboven op de <b>drie puntjes</b> (⋮).</li>
+        <li>Kies <b>'Toevoegen aan startscherm'</b>.</li>
+        <li>Tik op <b>'Toevoegen'</b>.</li>
+      </ol>
+      <p class="hdl-tip">Tip: door de app te installeren laad je ze sneller en heb je een betere ervaring dan via de browser.</p>
+    `
+  },
+  {
+    titel: 'Account aanmaken & aanmelden',
+    img: 'handleiding/screenshots/01_aanmelden.png',
+    inhoud: `
+      <div class="sec">Account aanmaken</div>
+      <ol class="hdl-list">
+        <li>Open Match Delegate en tik op het tabblad <b>'Registreren'</b>.</li>
+        <li>Vul je <b>e-mailadres</b> en een <b>wachtwoord</b> in.</li>
+        <li>Tik op <b>'Registreren'</b>.</li>
+        <li>Je bent meteen aangemeld.</li>
+      </ol>
+      <div class="sec">Aanmelden</div>
+      <ol class="hdl-list">
+        <li>Open Match Delegate — het <b>'Aanmelden'</b>-tabblad is standaard actief.</li>
+        <li>Vul je <b>e-mailadres</b> en <b>wachtwoord</b> in.</li>
+        <li>Tik op <b>'Aanmelden'</b>.</li>
+      </ol>
+      <p class="hdl-tip">Wachtwoord vergeten? Tik op <b>'Wachtwoord vergeten?'</b> en volg de instructies per e-mail.</p>
+    `
+  },
+  {
+    titel: 'Rollen in de app',
+    img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
+    inhoud: `
+      <p>Match Delegate werkt met drie rollen:</p>
+      <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
+      <div class="hdl-rol"><b>Co-beheerder</b><span>Wedstrijden aanmaken en live bijhouden, spelers beheren</span></div>
+      <div class="hdl-rol"><b>Beheerder</b><span>Alles van co-beheerder + ploeg aanmaken, leden uitnodigen en goedkeuren</span></div>
+      <p style="margin-top:14px">Na registratie start je als <b>kijker</b>. Je kan daarna:</p>
+      <ul class="hdl-list">
+        <li>Een ploeg volgen via een uitnodiging.</li>
+        <li>Co-beheer aanvragen bij de beheerder van een ploeg.</li>
+        <li>Een beheerdersrol aanvragen om zelf ploegen aan te maken via <b>'+ Nieuwe ploeg aanmaken'</b>.</li>
+      </ul>
+    `
+  },
+  {
+    titel: 'Als kijker',
+    img: 'handleiding/screenshots/04_homescherm_kijker.png',
+    inhoud: `
+      <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Spelers</b>, <b>Tornooien</b> en <b>Statistieken</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
+      <div class="sec">Een ploeg volgen</div>
+      <p>De beheerder deelt een uitnodiging als <b>link</b>, <b>QR-code</b> of <b>6-cijferige code</b>.</p>
+      <ul class="hdl-list">
+        <li><b>Via link:</b> tik op de link → tik op <b>'Ploeg vervoegen'</b>.</li>
+        <li><b>Via QR-code:</b> scan de code → tik op <b>'Ploeg vervoegen'</b>.</li>
+        <li><b>Via code:</b> tik op <b>'Ploeg bekijken via code'</b> → voer de 6-cijferige code in.</li>
+      </ul>
+      <div class="sec">Live wedstrijd bekijken</div>
+      <ol class="hdl-list">
+        <li>Ga naar <b>'Wedstrijden'</b> en tik op een lopende wedstrijd.</li>
+        <li>Je ziet de score en alle events in real time.</li>
+      </ol>
+    `
+  },
+  {
+    titel: 'Co-beheer aanvragen',
+    img: 'handleiding/screenshots/13_cobeheer_aanvragen.png',
+    inhoud: `
+      <p>Ben je kijker en wil je wedstrijden kunnen beheren? Vraag co-beheer aan:</p>
+      <ol class="hdl-list">
+        <li>Tik rechtsboven op <b>'Beheer'</b>.</li>
+        <li>Tik op <b>'Vraag co-beheer aan'</b>.</li>
+        <li>De beheerder krijgt een melding en keurt je aanvraag goed of af.</li>
+        <li>Zodra goedgekeurd, krijg je toegang als co-beheerder.</li>
+      </ol>
+      <p class="hdl-tip">Je kan enkel co-beheerder worden van een ploeg waarvan je al kijker bent.</p>
+    `
+  },
+  {
+    titel: 'Wedstrijd aanmaken',
+    img: 'handleiding/screenshots/06_nieuwe_wedstrijd_stap1.png',
+    inhoud: `
+      <p>Tik op de grote blauwe knop <b>'+ Nieuwe wedstrijd'</b> op het homescherm. De wizard heeft 3 stappen:</p>
+      <div class="sec">Stap 1 — Wedstrijd</div>
+      <ul class="hdl-list">
+        <li><b>Tegenstander</b>, <b>Datum</b> en <b>Startuur</b>.</li>
+        <li><b>Thuis of uit</b>: kies Thuismatch of Uitmatch.</li>
+        <li><b>Soort wedstrijd</b>: bv. 8 tegen 8, 11 tegen 11.</li>
+        <li><b>Indeling</b>: bv. 4 kwarten, 2 helften.</li>
+        <li><b>Duur per deel</b>: speelduur in minuten.</li>
+        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, enz.</li>
+      </ul>
+      <p class="hdl-tip">Wil je plannen zonder opstelling? Tik op <b>'Plannen zonder selectie'</b>.</p>
+    `
+  },
+  {
+    titel: 'Selectie & opstelling',
+    img: 'handleiding/screenshots/07_selectie.png',
+    img2: 'handleiding/screenshots/08_opstelling.png',
+    inhoud: `
+      <div class="sec">Stap 2 — Selectie</div>
+      <p>Verdeel spelers per rol:</p>
+      <ul class="hdl-list">
+        <li><b style="color:#4caf50">Basis</b> — start in de basisopstelling.</li>
+        <li><b style="color:#2196f3">Bank</b> — wisselspeler.</li>
+        <li><b style="color:#f44336">X</b> — niet geselecteerd.</li>
+      </ul>
+      <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>
+      <div class="sec">Stap 3 — Opstelling</div>
+      <p>Kies bovenaan een <b>formatie</b>. Tik een speler aan, dan een positie op het veld. Gebruik <b>'Auto-plaats'</b> om automatisch in te vullen.</p>
+      <p>Tik op <b>'Nu starten'</b> om meteen te starten, of <b>'Plannen voor later'</b> om op te slaan.</p>
+    `
+  },
+  {
+    titel: 'Live wedstrijd bijhouden',
+    img: 'handleiding/screenshots/09_live_wedstrijd.png',
+    inhoud: `
+      <ol class="hdl-list">
+        <li>Tik op <b>'► Start wedstrijd'</b>.</li>
+        <li>Registreer events via de knoppen:<br>
+          <b>Goal</b> · <b>Wissel</b> · <b>Positie</b> · <b>Gele kaart</b> · <b>Rode kaart</b> · <b>Vrije trap</b> · <b>Penalty</b> · <b>Blessure</b> · <b>Meer</b>
+        </li>
+        <li>Wissels kunnen ook <b>tijdens de pauze</b> doorgevoerd worden.</li>
+        <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
+        <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Log</b>.</li>
+        <li>Tik op <b>'Deel score via WhatsApp'</b> om de stand te delen.</li>
+        <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
+      </ol>
+      <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Log'</b>.</p>
+    `
+  },
+  {
+    titel: 'Wedstrijd na afloop & PDF',
+    img: 'handleiding/screenshots/11_wedstrijd_detail_2.png',
+    img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
+    inhoud: `
+      <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
+      <p style="margin-top:10px">Onderaan vind je ook:</p>
+      <ul class="hdl-list">
+        <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
+        <li><b>'Spelers bewerken'</b> / <b>'Info bewerken'</b> — pas gegevens aan.</li>
+        <li><b>'Posities herplaatsen'</b> — pas de opstelling aan.</li>
+        <li><b>'Wedstrijd verwijderen'</b> — verwijder definitief.</li>
+      </ul>
+      <div class="sec">PDF & delen</div>
+      <ul class="hdl-list">
+        <li>Tik op <b>'PDF'</b> voor een officieel wedstrijdverslag.</li>
+        <li>Tik op <b>'Delen'</b> om te delen via je toestel.</li>
+        <li>Tik op <b>'Deel via WhatsApp'</b> voor de score.</li>
+      </ul>
+    `
+  },
+  {
+    titel: 'Ploeg & spelers beheren',
+    img: 'handleiding/screenshots/10_ploeg_bewerken.png',
+    inhoud: `
+      <p>Via de tegel <b>'Spelers'</b> op het homescherm kom je in <b>'Ploeg bewerken'</b>:</p>
+      <ul class="hdl-list">
+        <li><b>Ploegnaam</b> en <b>ploegverantwoordelijke</b>.</li>
+        <li><b>Trainers</b> — tot 3 trainers invullen.</li>
+        <li><b>Spelers</b> — rugnummer, voornaam, familienaam en positie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
+      </ul>
+    `
+  },
+  {
+    titel: 'Als beheerder',
+    img: 'handleiding/screenshots/05_beheer.png',
+    inhoud: `
+      <p>Als beheerder heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties:</p>
+      <ul class="hdl-list">
+        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of 6-cijferige code.</li>
+        <li><b>'Leden'</b> — overzicht van alle kijkers en co-beheerders. Hier keur je ook co-beheeraanvragen goed of af.</li>
+        <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
+      </ul>
+      <div class="sec">Nieuwe ploeg aanmaken</div>
+      <ol class="hdl-list">
+        <li>Tik op <b>'+ Nieuwe ploeg aanmaken'</b>.</li>
+        <li>Als je nog geen beheerder bent, word je gevraagd de <b>beheerdersrol aan te vragen</b>. De eigenaar keurt dit goed.</li>
+        <li>Daarna maak je meteen een ploeg aan zonder extra aanvraag.</li>
+      </ol>
+      <p class="hdl-tip">Als beheerder kan je ook alles wat een co-beheerder kan: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
+    `
+  },
+  {
+    titel: 'Tornooi',
+    inhoud: `
+      <p>Match Delegate beschikt over een <b>tornooifunctie</b>.</p>
+      <p style="margin-top:10px;color:var(--txt2)">De documentatie hierover is nog in opmaak en wordt binnenkort toegevoegd aan deze handleiding.</p>
+    `
+  }
+];
+
+let hdlPagina = 0;
+function renderHandleiding(p) {
+  hdlPagina = p;
+  const pagina = HANDLEIDING_PAGINAS[p];
+  const totaal = HANDLEIDING_PAGINAS.length;
+  const tabs = HANDLEIDING_PAGINAS.map((pg, i) =>
+    `<button class="hdl-tab${i === p ? ' active' : ''}" onclick="hdlGo(${i})">${pg.titel}</button>`
+  ).join('');
+  const imgs = (pagina.img ? `<img src="${pagina.img}" class="hdl-img" onerror="this.style.display='none'">` : '') +
+               (pagina.img2 ? `<img src="${pagina.img2}" class="hdl-img" style="margin-top:10px" onerror="this.style.display='none'">` : '');
+  const pdfKnop = p === 0 ? `<button class="btn btn-pale" style="margin-bottom:16px;width:100%" onclick="exportHandleidingPDF()">${icI(IC.clipboard)} Download handleiding als PDF</button>` : '';
+  return `
+    <div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.clipboard)} Handleiding</h1></div>
+    <div class="content" style="padding:0">
+      <div class="hdl-tabs">${tabs}</div>
+      <div class="hdl-body">
+        ${pdfKnop}
+        <h2 class="hdl-titel">${pagina.titel}</h2>
+        ${imgs}
+        ${pagina.inhoud}
+        <div class="hdl-nav">
+          ${p > 0 ? `<button class="btn btn-pale" onclick="hdlGo(${p-1})">‹ Vorige</button>` : '<span></span>'}
+          <span style="font-size:13px;color:var(--txt2)">${p+1} / ${totaal}</span>
+          ${p < totaal-1 ? `<button class="btn btn-green" onclick="hdlGo(${p+1})">Volgende ›</button>` : '<span></span>'}
+        </div>
+      </div>
+    </div>`;
+}
+function hdlGo(p) {
+  document.getElementById('app').innerHTML = renderHandleiding(p);
+  window.scrollTo(0, 0);
+  document.getElementById('app').scrollTop = 0;
+}
+
+function exportHandleidingPDF() {
+  const heeftScreenshots = Object.keys(HANDLEIDING_SCREENSHOTS).length > 0;
+  function imgTag(key, style) {
+    if (!key) return '';
+    const k = key.replace('handleiding/screenshots/', '').replace('.png', '');
+    const src = HANDLEIDING_SCREENSHOTS[k];
+    if (!src) return '';
+    return `<img src="${src}" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;margin:12px 0;display:block${style ? ';' + style : ''}">`;
+  }
+
+  const secties = HANDLEIDING_PAGINAS.map((pg, i) => {
+    const imgs = (pg.img ? imgTag(pg.img) : '') + (pg.img2 ? imgTag(pg.img2) : '');
+    return `
+      <div class="sectie${i < HANDLEIDING_PAGINAS.length - 1 ? ' page-break' : ''}">
+        <h2>${i + 1}. ${pg.titel}</h2>
+        ${imgs}
+        ${pg.inhoud}
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">
+    <title>Match Delegate — Handleiding</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;color:#171717;padding:32px;max-width:780px;margin:0 auto;font-size:14px;line-height:1.6}
+      h1.titel{font-size:28px;font-weight:900;margin-bottom:4px}
+      .subtitel{font-size:14px;color:#6b7280;margin-bottom:32px;letter-spacing:1px}
+      h2{font-size:18px;font-weight:700;margin:24px 0 10px;color:#111;border-bottom:2px solid #e5e7eb;padding-bottom:6px}
+      .sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin:16px 0 6px}
+      p{margin-bottom:8px}
+      ol,ul{padding-left:20px;margin:8px 0}
+      li{margin-bottom:4px}
+      .hdl-rol{background:#f9fafb;border-radius:8px;padding:10px 12px;margin-bottom:8px}
+      .hdl-rol b{display:block;font-size:15px;margin-bottom:2px}
+      .hdl-rol span{color:#6b7280;font-size:13px}
+      .hdl-tip{background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:#374151;margin-top:12px}
+      .hdl-list{padding-left:20px;margin:8px 0;line-height:1.8;font-size:14px}
+      .hdl-list li{margin-bottom:4px}
+      .sectie{margin-bottom:40px}
+      .page-break{page-break-after:auto}
+      a{color:#16a34a}
+      @media print{
+        body{padding:16px}
+        .page-break{page-break-after:always}
+        h2{page-break-after:avoid}
+        img{page-break-inside:avoid}
+      }
+    </style>
+  </head><body>
+    <h1 class="titel">Match Delegate</h1>
+    <div class="subtitel">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
+    <h1 style="font-size:22px;margin-bottom:32px">Gebruikershandleiding</h1>
+    ${!heeftScreenshots ? '<p style="color:#ef4444;margin-bottom:24px">⚠ Screenshots niet beschikbaar. Draai eerst <code>node handleiding/generate-b64.js</code> om ze toe te voegen.</p>' : ''}
+    ${secties}
+    <p style="margin-top:40px;font-size:12px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:16px">Match Delegate · App created by Tim Buyse</p>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Sta pop-ups toe om de PDF te maken.'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 800);
+}
+
 async function exportBackup() {
   const matches = await dbAll();
   const data = { app: 'voetbal', version: 2, exportedAt: Date.now(), matches,
