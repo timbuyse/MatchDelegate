@@ -3617,7 +3617,7 @@ function wizStep3() {
     </div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="finishWizard(true)">${icI(IC.ball)} ${wiz.editId?'Opslaan & starten':'Nu starten'}</button>
+      <button class="btn btn-green" onclick="confirmStartNow()">${icI(IC.ball)} ${wiz.editId?'Opslaan & starten':'Nu starten'}</button>
     </div>
     <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">${icI(IC.calendar)} ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
 }
@@ -3731,6 +3731,20 @@ function computePosNum(matchType, slotIdx, slots) {
     if (line === 'Aanval')      return ({ 1:[9], 2:[11,7], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
   }
   return pos + 1;
+}
+function confirmStartNow() {
+  if (wiz.editId) { finishWizard(true); return; }
+  openModal(`
+    <h3>${icI(IC.live)} Wedstrijd nu starten?</h3>
+    <p style="margin:0 0 16px;color:var(--txt2)">
+      Als je de wedstrijd <strong>nu start</strong>, wordt ze onmiddellijk <strong>live</strong> zichtbaar voor alle kijkers.<br><br>
+      Doe dit enkel als de wedstrijd <strong>binnenkort echt afgefloten wordt</strong>. Je kan dit achteraf <strong>niet ongedaan maken</strong>.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-green" onclick="closeModal();finishWizard(true)">${icI(IC.live)} Ja, wedstrijd starten</button>
+      <button class="btn btn-gray" onclick="closeModal()">Annuleren</button>
+    </div>
+  `);
 }
 async function finishWizard(startNow) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
