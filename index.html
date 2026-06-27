@@ -204,6 +204,8 @@
     .ltab{flex:1;padding:11px 6px;text-align:center;cursor:pointer;font-size:11px;font-weight:700;color:var(--txt2);border:none;background:none}
     .ltab.act{color:var(--grn)}
     .ltab .ti{font-size:20px;display:block;margin-bottom:2px}
+    /* Toast */
+    #undo-toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:9100;max-width:88vw;text-align:center;display:flex;align-items:center;gap:8px;animation:splashFade .25s ease;pointer-events:none}
     /* FAB */
     .fab{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;width:62px;height:62px;border-radius:31px;background:var(--org);color:#fff;border:none;font-size:30px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
     .fab:active{transform:scale(.9)}
@@ -1764,10 +1766,19 @@ function evtLabel(e, m) {
     case 'save_them': return `${icI(IC.save)} Redding tegenstander`;
     case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
     case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
+    case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pName(m,e.playerId)}`;
     case 'quarter_start': return `▶ ${pSing(m)} ${e.quarterNum} gestart`;
     case 'quarter_end': return `⏹ ${pSing(m)} ${e.quarterNum} afgelopen`;
     default: return e.type;
   }
+}
+function allCaptains(m) {
+  const changes = (m.events||[]).filter(e => e.type==='captain_change').sort((a,b)=>(a.gameTimeMs||0)-(b.gameTimeMs||0));
+  if (!changes.length) return m.captainId ? [m.captainId] : [];
+  const ids = [];
+  if (changes[0].fromId) ids.push(changes[0].fromId);
+  for (const c of changes) if (!ids.includes(c.playerId)) ids.push(c.playerId);
+  return ids;
 }
 // Events gegroepeerd per deel (kwart/helft/...), met de tussenstand t.e.m. dat deel.
 // quarter_start / quarter_end worden weggelaten: de groepskop vervangt ze.
@@ -2706,9 +2717,10 @@ function saveTeamEdit() {
       return { id: p.id, firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '' };
     })
   };
+  if (editingTeam.fromCloud) clean.fromCloud = true;
   const arr = getTeamsV2(); const idx = arr.findIndex(t => t.id === clean.id);
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
-  saveTeamsV2(arr); editingTeam = null; go('teams');
+  saveTeamsV2(arr); editingTeam = null; go(cloudReady ? 'home' : 'teams');
 }
 function deleteTeamConfirm() {
   openModal(`<h3>Ploeg verwijderen?</h3><p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(editingTeam.name)}" en alle spelers worden verwijderd. Bestaande wedstrijden blijven behouden.</p>
@@ -3023,7 +3035,7 @@ function addTournamentMatch(trnId) {
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: t.location || 'Thuis', matchType,
     periodKey: 'delen', quarterDuration: 20, numQuarters: 1,
-    competition: 'Tornooi', matchday: '', referee: '', jersey: '', weather: '',
+    competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '',
     trainer: t.trainer || '', responsible: t.responsible || '', trainerIsOther: false,
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
   };
@@ -3061,7 +3073,7 @@ async function cloneTournamentMatch(matchId, trnId) {
     numQuarters: src.numQuarters || 1,
     competition: src.competition || 'Tornooi',
     matchday: '', referee: src.referee || '', jersey: src.jersey || '',
-    weather: '', trainer: src.trainer || t.trainer || '',
+    venue: '', trainer: src.trainer || t.trainer || '',
     responsible: src.responsible || t.responsible || '',
     trainerIsOther: false,
     pool, poolTeamId: t.teamId, formationIndex: src.formationIndex || 0, selPlace: null,
@@ -3117,7 +3129,7 @@ function startWizard() {
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: '8v8', periodKey: 'kwarten', quarterDuration: 15,
-    competition: 'Competitie', matchday: '', referee: '', jersey: '', weather: '',
+    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
     trainerIsOther: false,
@@ -3232,7 +3244,7 @@ function wizStep1() {
           <div class="fg"><label>Truikleur</label><input id="n-jersey" type="text" value="${esc(wiz.jersey)}" placeholder="bv. zwart-groen"></div>
         </div>
         <div class="fg"><label>Scheidsrechter</label><input id="n-ref" type="text" value="${esc(wiz.referee)}" placeholder="Naam"></div>
-        <div class="fg"><label>Weer / veld</label><input id="n-weather" type="text" value="${esc(wiz.weather)}" placeholder="bv. droog, kunstgras"></div>
+        <div class="fg"><label>Locatie</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. sportveld, kunstgras B2"></div>
         <div class="fg"><label>Trainer</label>
           <select id="n-trainer-sel" onchange="wizTrainerSelChange(this.value)">
             ${trainerOpts}
@@ -3258,7 +3270,7 @@ function captureStep1() {
   wiz.matchType = v('n-type') || wiz.matchType;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   wiz.competition = v('n-comp'); wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
-  wiz.jersey = (v('n-jersey') || '').trim(); wiz.weather = (v('n-weather') || '').trim();
+  wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
   const trainerSel = document.getElementById('n-trainer-sel');
   if (trainerSel) { wiz.trainerIsOther = trainerSel.value === '_other'; if (!wiz.trainerIsOther) wiz.trainer = trainerSel.value; }
   const trainerOther = document.getElementById('n-trainer-other');
@@ -3336,10 +3348,32 @@ function wizStep2() {
     </div>`;
 }
 // ----- Gastspelers -----
-let guestModalTeam = null, guestPick = [];
-function addGuestsModal() {
-  const teams = getTeamsV2().filter(t => t.id !== wiz.teamId);
-  if (!teams.length) { alert('Er zijn geen andere ploegen om uit te kiezen.'); return; }
+let guestModalTeam = null, guestPick = [], guestTeamsCache = [];
+async function addGuestsModal() {
+  guestTeamsCache = [];
+  let teams = getTeamsV2().filter(t => t.id !== wiz.teamId);
+  if (!teams.length && cloudReady && fbdb) {
+    const otherIds = Object.keys(userTeams).filter(id => id !== wiz.teamId);
+    if (otherIds.length) {
+      openModal(`<h3>Gastspelers toevoegen</h3><p style="text-align:center;color:var(--txt2);margin:16px 0">Ploegen laden…</p>`);
+      const fetched = [];
+      await Promise.all(otherIds.map(async id => {
+        try {
+          const s = await fbdb.ref('teams/' + id + '/roster').once('value');
+          const raw = s.val();
+          if (!raw) return;
+          const arr = Array.isArray(raw) ? raw : Object.values(raw);
+          const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
+          if (t) fetched.push(Object.assign({}, t, { id, fromCloud: true, players: Array.isArray(t.players) ? t.players : [] }));
+        } catch (e) {}
+      }));
+      if (fetched.length) {
+        guestTeamsCache = fetched;
+        teams = [...getTeamsV2().filter(t => t.id !== wiz.teamId), ...fetched.filter(t => !getTeamsV2().some(x => x.id === t.id))];
+      }
+    }
+  }
+  if (!teams.length) { alert('Er zijn geen andere ploegen om uit te kiezen.'); closeModal(); return; }
   guestModalTeam = teams[0].id; guestPick = [];
   openModal(`<h3>Gastspelers toevoegen</h3>
     <div class="fg"><label>Ploeg</label><select onchange="guestModalTeam=this.value;guestPick=[];document.getElementById('guest-list').innerHTML=guestListHtml()">${teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
@@ -3347,8 +3381,9 @@ function addGuestsModal() {
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmGuests()">${icI(IC.check)}Toevoegen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+function guestTeamById(id) { return teamById(id) || guestTeamsCache.find(t => t.id === id) || null; }
 function guestListHtml() {
-  const t = teamById(guestModalTeam); if (!t) return '';
+  const t = guestTeamById(guestModalTeam); if (!t) return '';
   const existing = wiz.pool.map(p => p.srcId);
   if (!t.players.length) return '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>';
   return t.players.map(p => { const already = existing.includes(p.id);
@@ -3357,7 +3392,7 @@ function guestListHtml() {
 }
 function toggleGuest(srcId) { const i = guestPick.indexOf(srcId); if (i >= 0) guestPick.splice(i, 1); else guestPick.push(srcId); }
 function confirmGuests() {
-  const t = teamById(guestModalTeam);
+  const t = guestTeamById(guestModalTeam);
   guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !wiz.pool.some(pp => pp.srcId === srcId)) wiz.pool.push({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', fromName: t.name, guest: true, sel: 'bank', slot: null }); });
   guestPick = []; closeModal(); render();
 }
@@ -3526,7 +3561,7 @@ async function finishWizard(startNow) {
   allP.forEach(x => delete x._pid);
   const common = {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: form.name,
-    competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, weather: wiz.weather,
+    competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, venue: wiz.venue,
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
@@ -3558,7 +3593,7 @@ function editMatchWizard(m) {
     step: 1, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
     teamId: team ? team.id : '', opponent: m.opponent, date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
-    competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', weather: m.weather || '',
+    competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
     pool: m.players.map(p => ({ pid: uid(), srcId: null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
     formationIndex: fi, selPlace: null,
@@ -3582,7 +3617,7 @@ function startSelectieWizard() {
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     numQuarters: m.numQuarters,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '',
-    jersey: m.jersey || '', weather: m.weather || '',
+    jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
     formationIndex: fi, selPlace: null, pool: [],
   };
@@ -3611,7 +3646,7 @@ function renderPrep() {
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
-  const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Weer / veld', m.weather]].filter(([k, v]) => v);
+  const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
@@ -3651,7 +3686,7 @@ async function finishStep1Only() {
     quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [],
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: '',
     competition: wiz.competition, matchday: wiz.matchday || '', referee: wiz.referee || '',
-    jersey: wiz.jersey || '', weather: wiz.weather || '',
+    jersey: wiz.jersey || '', venue: wiz.venue || '',
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
@@ -3818,6 +3853,7 @@ function renderLive() {
         <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">${IC.swap}</span><span class="el">Positie</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}
+        <div class="evtbtn ${dis}" onclick="modalFreekick()"><span class="ei">${IC.bolt}</span><span class="el">Vrije trap</span></div>
         <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
@@ -4034,7 +4070,7 @@ function modalEditMatchInfo() {
         <div class="fg"><label>Truikleur</label><input id="ei-jersey" type="text" value="${esc(match.jersey||'')}" placeholder="bv. zwart-groen" autocomplete="off"></div>
       </div>
       <div class="fg"><label>Scheidsrechter</label><input id="ei-ref" type="text" value="${esc(match.referee||'')}" placeholder="Naam" autocomplete="off"></div>
-      <div class="fg"><label>Weer / veld</label><input id="ei-weather" type="text" value="${esc(match.weather||'')}" placeholder="bv. droog, kunstgras" autocomplete="off"></div>
+      <div class="fg"><label>Locatie</label><input id="ei-venue" type="text" value="${esc(match.venue||'')}" placeholder="bv. sportveld, kunstgras B2" autocomplete="off"></div>
       <div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
       <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>
     </details>
@@ -4068,7 +4104,7 @@ async function saveMatchInfo() {
   match.competition = v('ei-comp');
   match.matchday = v('ei-md').trim();
   match.jersey = v('ei-jersey').trim();
-  match.weather = v('ei-weather').trim();
+  match.venue = v('ei-venue').trim();
   await dbSave(match); closeModal(); render();
 }
 async function saveNotes() {
@@ -4096,7 +4132,7 @@ function shareWhatsApp(m) {
   const qNum = m.currentQuarter || 0;
   const statusTxt = isDone
     ? 'Afgelopen'
-    : (m.quarterStatus === 'between' ? `Pauze na ${pSingLow(m)} ${qNum}` : (qNum > 0 ? `${pSing(m)} ${qNum}/${m.numQuarters}` : 'Nog niet gestart'));
+    : (m.quarterStatus === 'between' ? 'Pauze' : (qNum > 0 ? 'Bezig' : 'Nog niet gestart'));
 
   // Doelpunten voor ons (met minuut)
   const goalEvents = m.events.filter(e =>
@@ -4130,7 +4166,7 @@ function shareWhatsApp(m) {
   // Samenstellen
   const lines = [];
   lines.push(`⚽ ${us} ${usScore}–${themScore} ${them}`);
-  lines.push(`📍 ${statusTxt} · ${m.location}`);
+  lines.push(`📍 ${statusTxt}`);
   if (goalLines.length || ownGoalLines.length) {
     lines.push('');
     lines.push('Doelpunten:');
@@ -4305,13 +4341,18 @@ function modalExtra() {
 function modalSetCaptain() {
   const on = playersOnField(match);
   const cur = match.captainId;
-  openModal(`<h3>Ⓒ Kapitein</h3>
+  openModal(`<h3>${icI(IC.captain)} Kapitein</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
     ${pgGrid(on.map(p => pgBtn(p, 'cap-pb', `setMatchCaptain('${p.id}')`, cur===p.id ? `<span style="font-size:10px;color:var(--grn);font-weight:700">${icI(IC.captain)} nu</span>` : '')).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="setMatchCaptain(null)">Geen / wissen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
-async function setMatchCaptain(id) { match.captainId = id; await dbSave(match); closeModal(); render(); }
+async function setMatchCaptain(id) {
+  const prev = match.captainId;
+  match.captainId = id;
+  if (id && id !== prev) addEvent('captain_change', { playerId: id, fromId: prev || null });
+  await dbSave(match); closeModal(); render();
+}
 async function logExtra(type, extra = {}) {
   if (type === 'disallowed_us' || type === 'disallowed_them') { const r = prompt('Reden van afkeuring? (bv. buitenspel)', 'buitenspel'); extra.reason = (r || '').trim(); }
   addEvent(type, extra); await dbSave(match); closeModal(); render();
@@ -4321,9 +4362,18 @@ async function undoLast() {
   let idx = -1;
   for (let i = match.events.length - 1; i >= 0; i--) { const t = match.events[i].type; if (t !== 'quarter_start' && t !== 'quarter_end') { idx = i; break; } }
   if (idx < 0) return;
+  const removed = match.events[idx];
   match.events.splice(idx, 1);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
+  showUndoToast(`↩ Ongedaan: ${evtLabel(removed, match)}`);
+}
+function showUndoToast(html) {
+  let t = document.getElementById('undo-toast');
+  if (t) { clearTimeout(t._to); t.remove(); }
+  t = document.createElement('div'); t.id = 'undo-toast'; t.innerHTML = html;
+  document.body.appendChild(t);
+  t._to = setTimeout(() => { if (t.parentNode) t.remove(); }, 3000);
 }
 
 // ===================== MODALS: GOAL (+ assist) =====================
@@ -4713,7 +4763,7 @@ function renderDetail() {
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
       <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       <div style="flex:1;font-size:13px;color:var(--txt2)">${fmtTime(dur)}</div>
-      <div style="font-size:13px;text-align:right">${goals.map(e=>evtLabel(e,match)).join('<br>')||'–'}</div>
+      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMin(e,match)}'</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
   }).join('');
 
@@ -4736,7 +4786,7 @@ function renderDetail() {
     <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel via WhatsApp</button>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Weer / veld',match.weather],['Kapitein',match.captainId?pName(match,match.captainId):'']].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     <div class="sec">Notities</div>
@@ -4791,12 +4841,12 @@ function exportPDF() {
     return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
-  const infoBits = [m.formation, m.competition, m.matchday && ('speeldag ' + m.matchday), m.trainer && ('trainer ' + m.trainer), m.responsible && ('afgevaardigde ' + m.responsible), m.referee && ('ref. ' + m.referee), m.jersey && ('trui ' + m.jersey), m.weather, m.captainId && ('kapitein ' + pName(m, m.captainId))].filter(Boolean);
+  const infoBits = [m.formation, m.competition, m.matchday && ('speeldag ' + m.matchday), m.trainer && ('trainer ' + m.trainer), m.responsible && ('afgevaardigde ' + m.responsible), m.referee && ('ref. ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('locatie ' + m.venue), m.captainId && ('kapitein ' + pName(m, m.captainId))].filter(Boolean);
 
   const perQuarterRows = m.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
     const cum = scoreUpToQuarter(m, q.num);
-    const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => evtLabel(e, m)).join('<br>') || '–';
+    const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => `${e.gameTimeMs != null ? `${eventMin(e, m)}' ` : ''}${evtLabel(e, m)}`).join('<br>') || '–';
     const cumHtml = isAway(m) ? `${cum.them} – <span style="color:#1f9d4d">${cum.us}</span>` : `<span style="color:#1f9d4d">${cum.us}</span> – ${cum.them}`;
     return `<tr><td><b>${pAbbr(m)}${q.num}</b></td><td style="font-weight:900;white-space:nowrap">${cumHtml}</td><td style="white-space:nowrap">${Math.round(dur / 60000)} min</td><td>${gs}</td></tr>`;
   }).join('');
