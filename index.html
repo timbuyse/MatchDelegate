@@ -4921,6 +4921,22 @@ async function shareReport() {
   else { try { await navigator.clipboard.writeText(text); showToast('Verslag gekopieerd naar klembord', 'ok'); } catch (e) { showToast(text, ''); } }
 }
 // Eén wedstrijd exporteren als bestand (om door te sturen of op een ander toestel te importeren).
+function exportMatchModal() {
+  openModal(`<h3><i class="ti ti-download"></i> Export</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <button class="btn btn-pale" style="flex-direction:column;align-items:center;gap:6px;padding:16px 8px" onclick="closeModal();exportMatchCSV()">
+        <i class="ti ti-table" style="font-size:1.4em"></i>
+        <div style="font-weight:700">CSV / Excel</div>
+        <div style="font-size:11px;color:var(--txt2);line-height:1.3">Excel, Numbers,<br>Google Sheets</div>
+      </button>
+      <button class="btn btn-pale" style="flex-direction:column;align-items:center;gap:6px;padding:16px 8px" onclick="closeModal();exportMatch()">
+        <i class="ti ti-code" style="font-size:1.4em"></i>
+        <div style="font-weight:700">JSON</div>
+        <div style="font-size:11px;color:var(--txt2);line-height:1.3">Ruwe data,<br>technisch gebruik</div>
+      </button>
+    </div>
+    <button class="btn btn-gray" onclick="closeModal()">Annuleer</button>`);
+}
 function exportMatch() {
   const data = { app: 'voetbal-match', version: 1, exportedAt: Date.now(), match };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -4928,6 +4944,44 @@ function exportMatch() {
   a.href = URL.createObjectURL(blob);
   const safe = `${tName(match)}-${match.opponent}-${match.date || ''}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   a.download = `match-${safe}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportMatchCSV() {
+  const m = match;
+  const team = tName(m);
+  const opp = m.opponent || '';
+  const safe = `${team}-${opp}-${m.date || ''}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const rows = [];
+  const q = v => (v == null ? '' : String(v).replace(/"/g, '""'));
+  const row = (...cols) => rows.push(cols.map(c => `"${q(c)}"`).join(';'));
+
+  row('Match Delegate — wedstrijdverslag');
+  row('Ploeg', team);
+  row('Tegenstander', opp);
+  row('Datum', m.date || '');
+  row('Locatie', m.location || '');
+  row('Score', `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
+  rows.push('');
+
+  row('EVENTS', 'Kwart', 'Minuut', 'Type', 'Speler', 'Extra');
+  for (const e of (m.events || [])) {
+    const player = e.playerName || e.subInName || '';
+    const extra = e.subOutName ? `Uit: ${e.subOutName}` : e.isOwnGoal ? 'Eigen doel' : e.scored === false ? 'Gemist' : '';
+    const typeLabels = { goal_us:'Doelpunt', goal_them:'Doelpunt tegen', own_goal:'Eigen doel', own_goal_them:'Eigen doel (teg.)', yellow:'Gele kaart', red:'Rode kaart', sub:'Wissel', injury:'Blessure', freeKick:'Vrije trap', penalty_us:'Penalty voor', penalty_them:'Penalty tegen', position:'Positiewisseling', motm:'Man v/d match', note:'Notitie' };
+    row('', e.quarter || '', e.minute != null ? e.minute + "'" : '', typeLabels[e.type] || e.type, player, extra);
+  }
+  rows.push('');
+
+  row('SELECTIE', 'Naam', 'Nummer', 'Positie', 'Status');
+  for (const p of (m.players || [])) {
+    row('', p.name || '', p.number || '', p.pos || '', p.basis ? 'Basis' : p.status === 'out' ? 'Niet geselecteerd' : 'Bank');
+  }
+
+  const csv = '﻿' + rows.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `match-${safe}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 async function forceEndMatch() {
@@ -5492,7 +5546,7 @@ function renderDetail() {
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
       <button class="btn btn-org btn-sm" onclick="exportPDF()"><i class="ti ti-file-text" style="font-size:1em;vertical-align:-.1em"></i> PDF</button>
-      <button class="btn btn-pale btn-sm" onclick="exportMatch()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Export</button>
+      <button class="btn btn-pale btn-sm" onclick="exportMatchModal()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Export</button>
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
@@ -5661,7 +5715,6 @@ function exportPDF() {
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
     <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
     <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">Match Delegate · ${esc(getClubName())} · app created by Tim Buyse</p>
-    <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
     </body></html>`;
 
   const w = window.open('', '_blank');
