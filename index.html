@@ -1602,10 +1602,7 @@ function renderAuth() {
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
         <div style="flex:1;height:1px;background:var(--bdr)"></div>
-        <span style="font-size:12px;color:var(--txt2)">of</span>
-        <div style="flex:1;height:1px;background:var(--bdr)"></div>
       </div>
-      <button class="btn" style="width:100%;border:2px solid var(--bdr);background:transparent;color:var(--txt2)" disabled>${icI(IC.eye)} Verder als gast (binnenkort)</button>
     </div>
     <div style="width:100%;max-width:400px">
       <button class="btn btn-pale" style="width:100%" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
@@ -4993,7 +4990,7 @@ function exportMatchCSV() {
   row('EVENTS', 'Periode', 'Minuut', 'Speeltijd (ms)', 'Type', 'Speler', 'Extra info');
   for (const e of [...(m.events || [])].sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))) {
     const type = typeLabels[e.type] || e.type;
-    const { min, extra } = eventMinExtra(m, e);
+    const { min, extra } = eventMinGlobal(e, m);
     const minStr = min != null ? min + (extra ? '+' + extra : '') + "'" : '';
     let player = '';
     let extraInfo = '';
