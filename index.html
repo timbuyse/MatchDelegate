@@ -4364,6 +4364,9 @@ function modalExtra() {
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
+    <div class="sec">${icI(IC.swap)} Wissels & posities</div>
+    ${opt(`${icI(IC.swap)} Positiewissel`, "modalPosSwap()")}
+    ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
     <div class="sec">${icI(IC.shirt)} Opstelling</div>
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
@@ -4770,7 +4773,7 @@ function modalAddPostEvent() {
       <button class="btn btn-pale" onclick="postEvt(()=>modalCard('yellow'))">${icI(IC.cardY)} Kaart</button>
       <button class="btn btn-pale" onclick="postEvt(modalPenalty)">${icI(IC.penalty)} Penalty</button>
       <button class="btn btn-pale" onclick="postEvt(modalFreekick)">${icI(IC.bolt)} Vrije trap</button>
-      <button class="btn btn-pale" onclick="postEvt(modalInjury)">${icI(IC.injury)} Blessure</button>
+      <button class="btn btn-pale" onclick="postEvt(modalSub)">${icI(IC.swap)} Wissel</button>
       <button class="btn btn-pale" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
