@@ -3277,7 +3277,10 @@ function wizStep1() {
       <details class="more-details">
         <summary>+ Meer details (optioneel)</summary>
         <div class="fg" style="margin-top:12px"><label>Soort</label>
-          <select id="n-comp">${['Competitie','Vriendschappelijk','Beker'].map(c => `<option ${wiz.competition===c?'selected':''}>${c}</option>`).join('')}</select></div>
+          ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=wiz.competition||''; const isCustom=cur&&!std.includes(cur);
+            return `<select id="n-comp" onchange="document.getElementById('n-comp-custom').style.display=this.value==='__other__'?'':'none'">${std.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}<option value="__other__" ${isCustom?'selected':''}>Andere…</option></select>
+            <input id="n-comp-custom" type="text" placeholder="Eigen soort" value="${esc(isCustom?cur:'')}" style="margin-top:6px;${isCustom?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card)">`;
+          })()}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="fg"><label>Speeldag</label><input id="n-md" type="text" value="${esc(wiz.matchday)}" placeholder="bv. 5"></div>
           <div class="fg"><label>Truikleur</label><input id="n-jersey" type="text" value="${esc(wiz.jersey)}" placeholder="bv. zwart-groen"></div>
@@ -3308,7 +3311,7 @@ function captureStep1() {
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
-  wiz.competition = v('n-comp'); wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
+  const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() || nComp : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
   const trainerSel = document.getElementById('n-trainer-sel');
   if (trainerSel) { wiz.trainerIsOther = trainerSel.value === '_other'; if (!wiz.trainerIsOther) wiz.trainer = trainerSel.value; }
@@ -4138,7 +4141,11 @@ function modalEditMatchInfo() {
       ${!(FORMATIONS[match.matchType]||[]).some(f=>f.name===match.formation)&&match.formation?`<option value="${esc(match.formation)}" selected>${esc(match.formation)}</option>`:''}</select></div>` : ''}
     <details class="more-details">
       <summary>+ Meer details (optioneel)</summary>
-      <div class="fg" style="margin-top:12px"><label>Soort</label><select id="ei-comp">${['Competitie','Vriendschappelijk','Beker'].map(c=>`<option ${(match.competition||'')=== c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fg" style="margin-top:12px"><label>Soort</label>
+        ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=match.competition||''; const isCustom=cur&&!std.includes(cur);
+          return `<select id="ei-comp" onchange="document.getElementById('ei-comp-custom').style.display=this.value==='__other__'?'':'none'">${std.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}<option value="__other__" ${isCustom?'selected':''}>Andere…</option></select>
+          <input id="ei-comp-custom" type="text" placeholder="Eigen soort" value="${esc(isCustom?cur:'')}" style="margin-top:6px;${isCustom?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card)">`;
+        })()}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Speeldag</label><input id="ei-md" type="text" value="${esc(match.matchday||'')}" placeholder="bv. 5" autocomplete="off"></div>
         <div class="fg"><label>Truikleur</label><input id="ei-jersey" type="text" value="${esc(match.jersey||'')}" placeholder="bv. zwart-groen" autocomplete="off"></div>
@@ -4179,7 +4186,7 @@ async function saveMatchInfo() {
   match.trainer = v('ei-trainer').trim();
   match.responsible = v('ei-responsible').trim();
   match.referee = v('ei-ref').trim();
-  match.competition = v('ei-comp');
+  const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() || compSel : compSel;
   match.matchday = v('ei-md').trim();
   match.jersey = v('ei-jersey').trim();
   match.venue = v('ei-venue').trim();
@@ -5040,7 +5047,7 @@ function exportPDF() {
     return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
-  const infoBits = [m.formation, m.competition, m.matchday && ('speeldag ' + m.matchday), m.trainer && ('trainer ' + m.trainer), m.responsible && ('afgevaardigde ' + m.responsible), m.referee && ('ref. ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('locatie ' + m.venue), m.captainId && ('kapitein ' + pName(m, m.captainId))].filter(Boolean);
+  const infoBits = [m.formation, m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein: ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const perQuarterRows = m.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
@@ -5123,7 +5130,7 @@ function exportPDF() {
       return rows.map(row =>
         `<div style="display:flex;gap:12px;align-items:flex-start;margin:10px 0">` +
         row.map(({q,ps}) =>
-          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}${m.formation&&q===1?' · '+esc(m.formation):''}</h3>${pitchSVG(m,ps,pW)}${legend}</div>`
+          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}</h3>${pitchSVG(m,ps,pW)}${legend}</div>`
         ).join('') +
         `</div>`
       ).join('');
@@ -5135,7 +5142,7 @@ function exportPDF() {
     <div class="stats">
       <div>Schoten: <b>${stat('shot_us')}</b> – ${stat('shot_them')}</div>
       <div>Schoten op doel: <b>${m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length}</b> – ${m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length}</div>
-      <div>Reddingen: <b>${stat('save_us')}</b> – ${stat('save_them')}</div>
+
       <div>Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}</div>
       <div>Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}</div>
       <div>Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}</div>
