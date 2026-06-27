@@ -1963,7 +1963,7 @@ function renderPitch(m, players) {
   <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
 }
 // Zelfstandige SVG-veldweergave voor de PDF (los venster, zonder de app-CSS).
-function pitchSVG(m, players) {
+function pitchSVG(m, players, svgWidth = 280) {
   const W = 320, H = 480, R = 15;
   const pts = [];
   players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => pts.push({ p, x: p.x, y: p.y }));
@@ -1984,7 +1984,7 @@ function pitchSVG(m, players) {
   const pax=((W-PAW)/2).toFixed(1), gax=((W-GAW)/2).toFixed(1), gx=((W-GW)/2).toFixed(1);
   const adx=Math.sqrt(CCR*CCR-(PAD-PENY)*(PAD-PENY)).toFixed(1);
   const ax1=(W/2-adx).toFixed(1), ax2=(W/2+ +adx).toFixed(1);
-  return `<svg viewBox="-3 -${GD+2} ${W+6} ${H+GD*2+4}" width="280" style="max-width:100%">
+  return `<svg viewBox="-3 -${GD+2} ${W+6} ${H+GD*2+4}" width="${svgWidth}" style="max-width:100%">
     <defs>
       <pattern id="grass" x="0" y="0" width="${W}" height="60" patternUnits="userSpaceOnUse">
         <rect width="${W}" height="30" fill="#1b8040"/>
@@ -4104,6 +4104,9 @@ function modalEditMatchInfo() {
         <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
       </div></div>
     ${partsBlock}
+    ${(FORMATIONS[match.matchType]||[]).length ? `<div class="fg"><label>Spelvorm (formatie)</label>
+      <select id="ei-formation">${(FORMATIONS[match.matchType]||[]).map(f=>`<option value="${esc(f.name)}" ${match.formation===f.name?'selected':''}>${esc(f.name)}</option>`).join('')}
+      ${!(FORMATIONS[match.matchType]||[]).some(f=>f.name===match.formation)&&match.formation?`<option value="${esc(match.formation)}" selected>${esc(match.formation)}</option>`:''}</select></div>` : ''}
     <details class="more-details">
       <summary>+ Meer details (optioneel)</summary>
       <div class="fg" style="margin-top:12px"><label>Soort</label><select id="ei-comp">${['Competitie','Vriendschappelijk','Beker'].map(c=>`<option ${(match.competition||'')=== c?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -4140,6 +4143,10 @@ async function saveMatchInfo() {
     match.numQuarters = PERIOD_TYPES[match.periodKey].count;
     match.quarterDuration = readDur('ei-qd', 'ei-qd-custom', match.quarterDuration);
   }
+  const formEl = document.getElementById('ei-formation');
+  const prevFormation = match.formation;
+  if (formEl) match.formation = formEl.value;
+  const formationChanged = formEl && match.formation !== prevFormation;
   match.trainer = v('ei-trainer').trim();
   match.responsible = v('ei-responsible').trim();
   match.referee = v('ei-ref').trim();
@@ -4147,7 +4154,41 @@ async function saveMatchInfo() {
   match.matchday = v('ei-md').trim();
   match.jersey = v('ei-jersey').trim();
   match.venue = v('ei-venue').trim();
-  await dbSave(match); closeModal(); render();
+  await dbSave(match);
+  const slots = formationChanged && (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
+  if (slots) {
+    openModal(`<h3>Spelersposities aanpassen?</h3>
+      <p style="color:var(--txt2);font-size:14px;text-align:center;margin-bottom:16px">Wil je de posities van de spelers ook herplaatsen volgens de nieuwe formatie <b>${esc(match.formation)}</b>?</p>
+      <button class="btn btn-green" onclick="applyFormationPositions()">${icI(IC.check)} Ja, posities herplaatsen</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Nee, alleen label wijzigen</button>`);
+  } else {
+    closeModal(); render();
+  }
+}
+function applyFormationPositions() {
+  const slots = (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
+  if (!slots) { closeModal(); render(); return; }
+  const starters = match.players.filter(p => p.starting);
+  const byLine = {};
+  for (const s of slots) (byLine[s.line] = byLine[s.line] || []).push(s);
+  // Groepeer huidige starters per lijn (op basis van hun huidige line of positie)
+  const playersByLine = {};
+  for (const p of starters) {
+    const line = p.line || 'Middenveld';
+    (playersByLine[line] = playersByLine[line] || []).push(p);
+  }
+  // Wijs spelers toe aan slots per lijn; overschot gaat naar middenveld
+  const assigned = new Set();
+  const LINE_ORDER = [D, V, M, A];
+  for (const line of LINE_ORDER) {
+    const lineSlots = byLine[line] || [];
+    const linePlayers = (playersByLine[line] || []).filter(p => !assigned.has(p.id));
+    lineSlots.forEach((slot, i) => {
+      const p = linePlayers[i];
+      if (p) { p.line = slot.line; p.x = slot.x; p.y = slot.y; p.posNum = i + 1; assigned.add(p.id); }
+    });
+  }
+  dbSave(match); closeModal(); render();
 }
 async function saveNotes() {
   const t = document.getElementById('note-area');
@@ -4975,10 +5016,11 @@ function exportPDF() {
       const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtStart(q)}; });
       const rows = [];
       for (let i=0; i<items.length; i+=2) rows.push(items.slice(i,i+2));
+      const pW = numQ > 2 ? 195 : 280;
       return rows.map(row =>
         `<div style="display:flex;gap:12px;align-items:flex-start;margin:10px 0">` +
         row.map(({q,ps}) =>
-          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}${m.formation&&q===1?' · '+esc(m.formation):''}</h3>${pitchSVG(m,ps)}${legend}</div>`
+          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}${m.formation&&q===1?' · '+esc(m.formation):''}</h3>${pitchSVG(m,ps,pW)}${legend}</div>`
         ).join('') +
         `</div>`
       ).join('');
