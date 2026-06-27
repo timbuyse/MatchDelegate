@@ -17,7 +17,7 @@ foreach ($f in $files) {
 
 $json = $obj | ConvertTo-Json -Compress
 
-$content = "// Gegenereerd door handleiding/generate-b64.ps1 - niet handmatig bewerken`nconst HANDLEIDING_SCREENSHOTS = $json;`n"
+$content = "// Gegenereerd door handleiding/generate-b64.ps1 - niet handmatig bewerken`nvar HANDLEIDING_SCREENSHOTS = $json;`n"
 [System.IO.File]::WriteAllText($outputFile, $content, [System.Text.Encoding]::UTF8)
 
 Write-Host "`nKlaar - $($files.Count) screenshots geschreven naar handleiding-screenshots.js"
