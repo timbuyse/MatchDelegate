@@ -187,6 +187,10 @@
     .qgroup-empty{color:var(--txt2);font-size:13px;padding:8px 4px}
     /* Modal */
     .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end}
+    .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#1e293b;color:#f1f5f9;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;z-index:300;max-width:88vw;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.4);transition:opacity .3s}
+    .toast-ok{background:#166534;color:#dcfce7}
+    .toast-err{background:#7f1d1d;color:#fee2e2}
+    .toast-hide{opacity:0;pointer-events:none}
     .modal{background:var(--card);border-radius:22px 22px 0 0;padding:20px;width:100%;max-height:88vh;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
     .modal h3{font-size:18px;font-weight:800;margin-bottom:16px;text-align:center}
     .mopt{display:flex;align-items:center;gap:12px;padding:13px;border-radius:10px;border:2px solid var(--bdr);margin-bottom:8px;cursor:pointer;font-weight:600;font-size:15px;transition:all .15s}
@@ -847,14 +851,14 @@ async function claimOwner() {
   if (!currentUser || !fbdb) return;
   try {
     const snap = await fbdb.ref('owner').once('value');
-    if (snap.exists()) { alert('Er is al een eigenaar ingesteld.'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); return; }
+    if (snap.exists()) { showToast('Er is al een eigenaar ingesteld.', 'err'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); return; }
     await fbdb.ref('owner').set(currentUser.uid);
     ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
     listenAdminRequests();
     closeModal();
-    alert('✓ Je bent nu ingesteld als eigenaar van Match Delegate. Voortaan moet wie een ploeg wil aanmaken jouw goedkeuring krijgen.');
+    showToast('Je bent nu ingesteld als eigenaar van Match Delegate.', 'ok');
   } catch (e) {
-    alert('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'));
+    showToast('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err');
   }
 }
 
@@ -922,7 +926,7 @@ async function doRequestAdmin() {
     localStorage.setItem('voetbal_adminRequested', '1');
     localStorage.removeItem('voetbal_adminApprovedSeen');
     closeModal();
-    alert('✓ Aanvraag verstuurd. Je krijgt toegang zodra de maker ze goedkeurt.');
+    showToast('Aanvraag verstuurd. Je krijgt toegang zodra de maker ze goedkeurt.', 'ok');
   } catch (e) {
     if (err) err.textContent = 'Versturen mislukt: ' + (e.message || 'probeer opnieuw.');
   }
@@ -965,7 +969,7 @@ async function approveAdmin(uid) {
     await fbdb.ref('approvedAdmins/' + uid).set({ approved: true, name: req.name || '', email: req.email || '' });
     await fbdb.ref('adminRequests/' + uid).remove();
     loadAdminRequestsList();
-  } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  } catch (e) { showToast('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
 }
 async function rejectAdmin(uid) {
   if (!isOwner || !fbdb) return;
@@ -973,7 +977,7 @@ async function rejectAdmin(uid) {
     await fbdb.ref('rejectedAdmins/' + uid).set({ rejectedAt: Date.now() });
     await fbdb.ref('adminRequests/' + uid).remove();
     loadAdminRequestsList();
-  } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  } catch (e) { showToast('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
 }
 
 async function showApprovedAdminsModal() {
@@ -1012,11 +1016,12 @@ async function showApprovedAdminsModal() {
 
 async function revokeAdmin(uid) {
   if (!isOwner || !fbdb) return;
-  if (!confirm('Ben je zeker dat je de beheerdersrechten van deze persoon wil intrekken?')) return;
-  try {
-    await fbdb.ref('approvedAdmins/' + uid).remove();
-    showApprovedAdminsModal();
-  } catch (e) { alert('Intrekken mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  showConfirm('Ben je zeker dat je de beheerdersrechten van deze persoon wil intrekken?', async () => {
+    try {
+      await fbdb.ref('approvedAdmins/' + uid).remove();
+      showApprovedAdminsModal();
+    } catch (e) { showToast('Intrekken mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  }, 'Intrekken');
 }
 
 // Een verwijderde/onbereikbare ploeg opruimen uit de lijst van de gebruiker.
@@ -1418,7 +1423,7 @@ async function showInviteModal(teamId) {
       <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
     </div>
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
-    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>alert('Link gekopieerd!')))">${icI(IC.share)} Delen / Link kopiëren</button>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -1434,11 +1439,11 @@ async function requestCoAdmin() {
   if (!tid || !currentUser || !fbdb) return;
   const ref = fbdb.ref('teamAdminRequests/' + tid + '/' + currentUser.uid);
   const snap = await ref.once('value');
-  if (snap.exists()) { alert('Je aanvraag is al verstuurd. Wacht op goedkeuring van de beheerder.'); return; }
+  if (snap.exists()) { showToast('Je aanvraag is al verstuurd. Wacht op goedkeuring van de beheerder.', 'err'); return; }
   try {
     await ref.set({ name: currentUser.displayName || '', email: currentUser.email || '', requestedAt: Date.now() });
-    alert('✓ Aanvraag verstuurd. De beheerder ontvangt een melding.');
-  } catch (e) { alert('Aanvraag mislukt: ' + (e.message || 'probeer opnieuw.')); }
+    showToast('Aanvraag verstuurd. De beheerder ontvangt een melding.', 'ok');
+  } catch (e) { showToast('Aanvraag mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
 }
 
 // ---- Kijkers van de actieve ploeg tonen (enkel beheerder) ----
@@ -1520,7 +1525,7 @@ async function approveCoAdmin(uid) {
     await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
     await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
     showMembersModal();
-  } catch (e) { alert('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  } catch (e) { showToast('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
 }
 
 async function rejectCoAdmin(uid) {
@@ -1529,35 +1534,38 @@ async function rejectCoAdmin(uid) {
   try {
     await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
     showMembersModal();
-  } catch (e) { alert('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  } catch (e) { showToast('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
 }
 
 async function demoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  if (!confirm('Wil je deze beheerder terugzetten naar kijker?')) return;
-  try {
-    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
-    showMembersModal();
-  } catch (e) { alert('Degraderen mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  showConfirm('Wil je deze beheerder terugzetten naar kijker?', async () => {
+    try {
+      await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
+      showMembersModal();
+    } catch (e) { showToast('Degraderen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  }, 'Terugzetten', 'btn-org');
 }
 
 async function promoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  if (!confirm('Wil je deze persoon promoveren tot mede-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.')) return;
-  try {
-    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
-    showMembersModal();
-  } catch (e) { alert('Promoveren mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  showConfirm('Wil je deze persoon promoveren tot mede-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
+    try {
+      await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
+      showMembersModal();
+    } catch (e) { showToast('Promoveren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  }, 'Promoveren', 'btn-green');
 }
 async function removeMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  if (!confirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.')) return;
-  try {
-    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
-    await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
-    fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
-    showMembersModal();
-  } catch (e) { alert('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.')); }
+  showConfirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.', async () => {
+    try {
+      await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
+      await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
+      fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
+      showMembersModal();
+    } catch (e) { showToast('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  }, 'Verwijderen');
 }
 
 // ===================== AUTH VIEWS =====================
@@ -1624,10 +1632,10 @@ function authDoLogin() {
 
 function authForgotPassword() {
   const email = (document.getElementById('auth-email') || {}).value || '';
-  if (!email) { alert('Vul eerst je e-mailadres in.'); return; }
+  if (!email) { showToast('Vul eerst je e-mailadres in.', 'err'); return; }
   fbauth.sendPasswordResetEmail(email)
-    .then(() => alert('Resetmail verstuurd naar ' + email + '. Controleer ook je spammap.'))
-    .catch(e => alert(authErrMsg(e.code)));
+    .then(() => showToast('Resetmail verstuurd naar ' + email + '. Controleer ook je spammap.', 'ok'))
+    .catch(e => showToast(authErrMsg(e.code), 'err'));
 }
 
 async function authDoRegister() {
@@ -1661,8 +1669,8 @@ function authErrMsg(code) {
 }
 
 function authSignInAsGuest() {
-  if (!fbauth) { alert('Geen verbinding beschikbaar.'); return; }
-  fbauth.signInAnonymously().catch(e => alert('Aanmelden als gast mislukt: ' + e.message));
+  if (!fbauth) { showToast('Geen verbinding beschikbaar.', 'err'); return; }
+  fbauth.signInAnonymously().catch(e => showToast('Aanmelden als gast mislukt: ' + e.message, 'err'));
 }
 
 async function guestJoinWithCode() {
@@ -2036,6 +2044,22 @@ function closeModal() {
   document.getElementById('modal').innerHTML = '';
   _postEventQuarter = null;
 }
+function showToast(msg, type) {
+  let t = document.getElementById('_toast');
+  if (!t) { t = document.createElement('div'); t.id = '_toast'; document.body.appendChild(t); }
+  t.className = 'toast' + (type === 'ok' ? ' toast-ok' : type === 'err' ? ' toast-err' : '');
+  t.textContent = msg;
+  t.classList.remove('toast-hide');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.add('toast-hide'), 3000);
+}
+function showConfirm(msg, onYes, btnLabel, btnClass) {
+  openModal(`<p style="margin:0 0 20px;line-height:1.5">${msg}</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal()">Annuleer</button>
+      <button class="btn ${btnClass||'btn-red'}" onclick="closeModal();(${onYes})()">${btnLabel||'Verwijderen'}</button>
+    </div>`);
+}
 
 // ===================== NAVIGATION =====================
 async function go(v, id, _histReplace) {
@@ -2204,7 +2228,7 @@ async function toggleMaintenance() {
   } catch(e) {
     maintenanceActive = !newVal;
     render();
-    alert('Firebase fout: ' + e.message);
+    showToast('Firebase fout: ' + e.message, 'err');
     console.error('toggleMaintenance:', e);
   }
 }
@@ -2834,7 +2858,7 @@ function exportHandleidingPDF() {
   </body></html>`;
 
   const w = window.open('', '_blank');
-  if (!w) { alert('Sta pop-ups toe om de PDF te maken.'); return; }
+  if (!w) { showToast('Sta pop-ups toe om de PDF te maken.', 'err'); return; }
   w.document.write(html);
   w.document.close();
   w.focus();
@@ -2862,7 +2886,7 @@ function importBackup(input) {
   const reader = new FileReader();
   reader.onload = e => {
     let data;
-    try { data = JSON.parse(e.target.result); } catch (err) { alert('Ongeldig back-upbestand.'); return; }
+    try { data = JSON.parse(e.target.result); } catch (err) { showToast('Ongeldig back-upbestand.', 'err'); return; }
     // Losse wedstrijd?
     if (data && data.app === 'voetbal-match' && data.match) {
       pendingRestore = { matches: [data.match], settings: null, single: true };
@@ -2872,7 +2896,7 @@ function importBackup(input) {
         <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
       input.value = ''; return;
     }
-    if (!data || data.app !== 'voetbal' || !Array.isArray(data.matches)) { alert('Dit lijkt geen geldige voetbal-back-up.'); return; }
+    if (!data || data.app !== 'voetbal' || !Array.isArray(data.matches)) { showToast('Dit lijkt geen geldige voetbal-back-up.', 'err'); return; }
     pendingRestore = data;
     openModal(`<h3>Back-up gevonden</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${data.matches.length} wedstrijden in dit bestand.<br>Wil je ze <b>samenvoegen</b> met je huidige data, of <b>alles vervangen</b>?</p>
@@ -2922,7 +2946,7 @@ async function doRestore(mode) {
   localStorage.setItem('voetbal_setup_done', '1');
   pendingRestore = null;
   closeModal(); match = null; applyStoredTheme(); applyDark(); go('home');
-  setTimeout(() => alert(mode === 'replace' ? 'Back-up hersteld ✓' : 'Samengevoegd ✓'), 100);
+  setTimeout(() => showToast(mode === 'replace' ? 'Back-up hersteld' : 'Back-ups samengevoegd', 'ok'), 100);
 }
 function handleLogoFile(input) {
   const f = input.files && input.files[0];
@@ -2941,7 +2965,7 @@ function handleLogoFile(input) {
       if (pendingTheme) applyTheme(pendingTheme);
       setLogoPreview(pendingLogo);
     };
-    img.onerror = () => alert('Kon deze afbeelding niet laden. Probeer een andere.');
+    img.onerror = () => showToast('Kon deze afbeelding niet laden. Probeer een andere.', 'err');
     img.src = e.target.result;
   };
   reader.readAsDataURL(f);
@@ -2983,7 +3007,7 @@ async function doChangeEmail() {
     await currentUser.reauthenticateWithCredential(cred);
     await currentUser.verifyBeforeUpdateEmail(email.trim());
     closeModal();
-    alert('✓ Bevestigingsmail verstuurd naar ' + email.trim() + '. Klik de link in die mail (kijk ook in spam) om de wijziging te voltooien.');
+    showToast('Bevestigingsmail verstuurd naar ' + email.trim() + '. Klik de link in die mail (kijk ook in spam).', 'ok');
   } catch (e) {
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Onjuist wachtwoord.'
       : e.code === 'auth/invalid-email' ? 'Ongeldig e-mailadres.'
@@ -3196,10 +3220,10 @@ function teamPasteApply() {
     added++;
   });
   closeModal();
-  if (added) render(); else alert('Geen spelers gevonden in de lijst.');
+  if (added) render(); else showToast('Geen spelers gevonden in de lijst.', 'err');
 }
 function saveTeamEdit() {
-  if (!editingTeam.name.trim()) { alert('Geef de ploeg een naam.'); return; }
+  if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
   const clean = {
     id: editingTeam.id,
     name: editingTeam.name.trim(),
@@ -3409,8 +3433,8 @@ function captureTrnStep1() {
 function trnWizNext() {
   if (trnWiz.step === 1) {
     captureTrnStep1();
-    if (!trnWiz.name) { alert('Geef het tornooi een naam.'); return; }
-    if (!trnWiz.teamId) { alert('Kies een ploeg.'); return; }
+    if (!trnWiz.name) { showToast('Geef het tornooi een naam.', 'err'); return; }
+    if (!trnWiz.teamId) { showToast('Kies een ploeg.', 'err'); return; }
     if (trnWiz.poolTeamId !== trnWiz.teamId) { trnWizBuildPool(); trnWiz.poolTeamId = trnWiz.teamId; }
     trnWiz.step = 2; render();
   }
@@ -3621,7 +3645,7 @@ function trnMatchNext() {
   wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
   const pt = document.getElementById('n-pt'); if (pt) wiz.periodKey = pt.value;
   wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
-  if (!wiz.opponent) { alert('Vul de naam van de tegenstander in.'); return; }
+  if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }
   wiz.step = 2; render();
 }
 
@@ -3806,12 +3830,12 @@ function wizLeave() {
 function wizNext() {
   if (wiz.step === 1) {
     captureStep1();
-    if (!wiz.teamId) { alert('Kies of maak eerst een ploeg aan.'); return; }
-    if (!wiz.opponent) { alert('Vul de tegenstander in.'); return; }
+    if (!wiz.teamId) { showToast('Kies of maak eerst een ploeg aan.', 'err'); return; }
+    if (!wiz.opponent) { showToast('Vul de tegenstander in.', 'err'); return; }
     if (wiz.poolTeamId !== wiz.teamId) { buildPool(); wiz.poolTeamId = wiz.teamId; }
     wiz.step = 2; render();
   } else if (wiz.step === 2) {
-    if (basisCount() !== fieldSizeW()) { alert(`Kies exact ${fieldSizeW()} basisspelers (nu ${basisCount()}).`); return; }
+    if (basisCount() !== fieldSizeW()) { showToast(`Kies exact ${fieldSizeW()} basisspelers (nu ${basisCount()}).`, 'err'); return; }
     wiz.step = 3; render();
   }
 }
@@ -3886,7 +3910,7 @@ async function addGuestsModal() {
       }
     }
   }
-  if (!teams.length) { alert('Er zijn geen andere ploegen om uit te kiezen.'); closeModal(); return; }
+  if (!teams.length) { showToast('Er zijn geen andere ploegen om uit te kiezen.', 'err'); closeModal(); return; }
   guestModalTeam = teams[0].id; guestPick = [];
   openModal(`<h3>Gastspelers toevoegen</h3>
     <div class="fg"><label>Ploeg</label><select onchange="guestModalTeam=this.value;guestPick=[];document.getElementById('guest-list').innerHTML=guestListHtml()">${teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div>
@@ -3920,7 +3944,7 @@ function addLoosePlayerModal() {
 function confirmLoosePlayer() {
   const first = (document.getElementById('lp-first')?.value || '').trim();
   const last = (document.getElementById('lp-last')?.value || '').trim();
-  if (!first && !last) { alert('Geef minstens een naam in.'); return; }
+  if (!first && !last) { showToast('Geef minstens een naam in.', 'err'); return; }
   const name = [first, last].filter(Boolean).join(' ');
   const id = uid();
   wiz.pool.push({ pid: id, srcId: id, name, number: '', pos: '', fromName: 'Losse speler', guest: true, sel: 'bank', slot: null });
@@ -4106,7 +4130,7 @@ function confirmStartNow() {
 async function finishWizard(startNow) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
-  if (unplaced.length) { alert(`Plaats nog ${unplaced.length} speler(s) op het veld.`); return; }
+  if (unplaced.length) { showToast(`Plaats nog ${unplaced.length} speler(s) op het veld.`, 'err'); return; }
   const team = teamById(wiz.teamId);
   const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
   const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
@@ -4229,11 +4253,11 @@ async function finishStep1Only() {
     wiz.date = document.getElementById('n-date')?.value || wiz.date;
     wiz.time = document.getElementById('n-time')?.value || wiz.time;
     wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
-    if (!wiz.opponent) { alert('Vul de naam van de tegenstander in.'); return; }
+    if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }
   } else {
     captureStep1();
-    if (!wiz.teamId) { alert('Kies of maak eerst een ploeg aan.'); return; }
-    if (!wiz.opponent) { alert('Vul de tegenstander in.'); return; }
+    if (!wiz.teamId) { showToast('Kies of maak eerst een ploeg aan.', 'err'); return; }
+    if (!wiz.opponent) { showToast('Vul de tegenstander in.', 'err'); return; }
   }
   const team = teamById(wiz.teamId);
   const m = {
@@ -4258,14 +4282,14 @@ async function finishStep1Only() {
 }
 function saveTournamentWizStep1Only() {
   captureTrnStep1();
-  if (!trnWiz.name) { alert('Geef het tornooi een naam.'); return; }
-  if (!trnWiz.teamId) { alert('Kies een ploeg.'); return; }
+  if (!trnWiz.name) { showToast('Geef het tornooi een naam.', 'err'); return; }
+  if (!trnWiz.teamId) { showToast('Kies een ploeg.', 'err'); return; }
   trnWiz.pool = [];
   saveTournamentWiz();
 }
 async function startPlanned() {
   if (!match.players || !match.players.length) {
-    alert('Vul eerst de selectie en opstelling in voor je de wedstrijd start. Gebruik de knop "Selectie & opstelling invullen".');
+    showToast('Vul eerst de selectie en opstelling in voor je de wedstrijd start.', 'err');
     return;
   }
   match.status = 'live'; await dbSave(match); await go('live', match.id);
@@ -4894,7 +4918,7 @@ async function shareReport() {
   lines.push('', `— ${getClubName()}`);
   const text = lines.join('\n');
   if (navigator.share) { try { await navigator.share({ title: `${tName(m)} vs ${m.opponent}`, text }); } catch (e) {} }
-  else { try { await navigator.clipboard.writeText(text); alert('Verslag gekopieerd naar klembord ✓'); } catch (e) { alert(text); } }
+  else { try { await navigator.clipboard.writeText(text); showToast('Verslag gekopieerd naar klembord', 'ok'); } catch (e) { showToast(text, ''); } }
 }
 // Eén wedstrijd exporteren als bestand (om door te sturen of op een ander toestel te importeren).
 function exportMatch() {
@@ -5149,12 +5173,12 @@ function gpSelIn(containerId, el) {
 }
 async function confirmGoal() {
   if (goalTeam === 'us') {
-    if (!goalPlayerId && !goalIsOwnGoal) { alert('Kies een speler.'); return; }
+    if (!goalPlayerId && !goalIsOwnGoal) { showToast('Kies een speler.', 'err'); return; }
     if (goalIsOwnGoal) { addEvent('own_goal_them', {}); match.scoreUs++; }
     else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
   } else {
     if (goalIsOwnGoal) {
-      if (!goalPlayerId) { alert('Kies een speler.'); return; }
+      if (!goalPlayerId) { showToast('Kies een speler.', 'err'); return; }
       addEvent('own_goal', { playerId: goalPlayerId }); match.scoreThem++;
     } else { addEvent('goal_them'); match.scoreThem++; }
   }
@@ -5201,7 +5225,7 @@ function modalSub() {
 function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
-  if (!subOut || !subIn) { alert('Kies wie eraf gaat en wie erin komt.'); return; }
+  if (!subOut || !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
   // Tijdens de pauze: wissel inplannen i.p.v. meteen doorvoeren.
   if (match.quarterStatus === 'between') {
     match.pendingSubs = match.pendingSubs || [];
@@ -5343,7 +5367,7 @@ function tglInjType(type, btn) {
   btn.classList.add('act');
 }
 async function confirmInjury() {
-  if (!injPlayerId) { alert('Kies een speler.'); return; }
+  if (!injPlayerId) { showToast('Kies een speler.', 'err'); return; }
   const leavesField = !!document.getElementById('inj-off')?.checked;
   addEvent('injury', { playerId: injPlayerId, injuryType: injType, leavesField });
   if (leavesField) { const p = match.players.find(x => x.id === injPlayerId); if (p) p.onField = false; }
@@ -5470,7 +5494,6 @@ function renderDetail() {
       <button class="btn btn-org btn-sm" onclick="exportPDF()"><i class="ti ti-file-text" style="font-size:1em;vertical-align:-.1em"></i> PDF</button>
       <button class="btn btn-pale btn-sm" onclick="exportMatch()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Export</button>
     </div>
-    <button class="btn btn-pale no-print" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel via WhatsApp</button>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
       ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
@@ -5642,7 +5665,7 @@ function exportPDF() {
     </body></html>`;
 
   const w = window.open('', '_blank');
-  if (!w) { alert('Sta pop-ups toe om de PDF te maken.'); return; }
+  if (!w) { showToast('Sta pop-ups toe om de PDF te maken.', 'err'); return; }
   w.document.write(html); w.document.close();
 }
 
