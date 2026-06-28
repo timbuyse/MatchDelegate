@@ -370,7 +370,7 @@
     .ts-hdr>*{position:relative;z-index:1}
     .ts-hdr h1{font-size:20px;font-weight:900}
     .ts-logo{height:52px;width:auto;object-fit:contain;flex-shrink:0}
-    .ts-hdr-text{display:flex;flex-direction:column;text-align:left}
+    .ts-hdr-text{display:flex;flex-direction:column;text-align:left;flex:1}
     .ts-hdr-name{font-size:18px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase;font-variant:small-caps;line-height:1.1}
     .ts-hdr p{font-size:12px;color:rgba(255,255,255,.6);margin:2px 0 0}
     .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
@@ -1756,6 +1756,7 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">Match Delegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
+      <button class="hdr-gear" onclick="go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
