@@ -3926,7 +3926,7 @@ function wizStep2() {
       <div style="flex:1"><div style="font-size:22px;font-weight:900">${bankCount()}</div><div style="font-size:11px;color:var(--txt2)">BANK</div></div>
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
     </div>
-    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b>, <b>Bank</b> of <b style="color:var(--rd)">✗</b> (niet geselecteerd / afwezig).</div>
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b>, <b>Bank</b> of <b style="color:var(--rd)">✗</b> (niet geselecteerd / afwezig). Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
