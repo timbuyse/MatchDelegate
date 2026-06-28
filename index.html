@@ -756,17 +756,6 @@ function cloudInit() {
     fbauth = firebase.auth();
     cloudReady = true;
     fbauth.onAuthStateChanged(onAuthChanged);
-    fbdb.ref('maintenance/active').on('value', snap => {
-      maintenanceActive = !!snap.val();
-      // Herrender als een niet-beheerder de app open heeft staan
-      if (view && view !== 'auth') {
-        if (maintenanceActive && !isOwner && !isApprovedAdmin) {
-          go('maintenance', undefined, true);
-        } else if (!maintenanceActive && view === 'maintenance') {
-          go('home', undefined, true);
-        }
-      }
-    });
   } catch (e) { cloudReady = false; }
 }
 
@@ -776,7 +765,8 @@ async function onAuthChanged(user) {
   if (!user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
-    ownerUid = null; isOwner = false; isApprovedAdmin = false;
+    ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
+    if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     stopTeamListeners(); listenAdminRequests();
     await go('auth', undefined, true); return;
   }
@@ -793,6 +783,21 @@ async function onAuthChanged(user) {
   isGuest = false;
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
+  // Maintenance-listener pas hier registreren: gebruiker is nu authenticated,
+  // anders annuleert Firebase de listener (auth != null regel) en herstelt die nooit.
+  if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
+  await new Promise(resolve => {
+    const mRef = fbdb.ref('maintenance/active');
+    mRef.once('value', snap => { maintenanceActive = !!snap.val(); resolve(); });
+    window._maintenanceOff = () => mRef.off('value');
+    mRef.on('value', snap => {
+      maintenanceActive = !!snap.val();
+      if (view && view !== 'auth') {
+        if (maintenanceActive && !isOwner && !isApprovedAdmin) go('maintenance', undefined, true);
+        else if (!maintenanceActive && view === 'maintenance') go('home', undefined, true);
+      }
+    });
+  });
   if (maintenanceActive && !isOwner && !isApprovedAdmin) {
     await go('maintenance', undefined, true); return;
   }
