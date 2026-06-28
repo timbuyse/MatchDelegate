@@ -12,8 +12,9 @@
 
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
         //   EN is eigenaar of goedgekeurd beheerder.
-        // Bestaande ploeg aanpassen: enkel bestaande admin of eigenaar.
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        // Bestaande ploeg aanpassen: bestaande admin of eigenaar.
+        // Ploeg verwijderen (newData leeg): eigenaar (alle teams) of goedgekeurde beheerder van die ploeg.
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || (data.exists() && newData.exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin') || (data.exists() && !newData.exists() && root.child('approvedAdmins/' + auth.uid).exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'))",
 
         "members": {
           // Admin mag leden beheren
@@ -112,6 +113,16 @@
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'viewer'"
         }
+      }
+    },
+
+    "deletedTeams": {
+      // Enkel eigenaar mag alle backups lezen en herstellen.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      ".write": "auth != null && root.child('owner').val() === auth.uid",
+      "$teamId": {
+        // Beheerder mag backup schrijven van zijn eigen team bij verwijderen.
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')"
       }
     },
 

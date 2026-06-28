@@ -1130,22 +1130,51 @@ async function showAllUsersModal() {
   }
 }
 
-async function ownerDeleteTeam(tid, naam) {
+function ownerDeleteTeam(tid, naam) {
   if (!isOwner || !fbdb) return;
-  showConfirm(`Ploeg "${naam}" definitief verwijderen? Alle data (wedstrijden, leden, uitnodigingen) gaat verloren.`, async () => {
-    try {
-      await Promise.all([
-        fbdb.ref('teams/' + tid).remove(),
-        fbdb.ref('memberInfo/' + tid).remove(),
-        fbdb.ref('teamAdminRequests/' + tid).remove(),
-      ]);
-      fbdb.ref('invites').orderByChild('teamId').equalTo(tid).once('value', s => {
-        s.forEach(c => c.ref.remove());
-      });
-      showToast('Ploeg verwijderd.', 'ok');
-      showAllUsersModal();
-    } catch (e) { showToast('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
-  }, 'Verwijderen', 'btn-red');
+  openModal(`<h3>Ploeg verwijderen</h3>
+    <p style="text-align:center;color:var(--rd);font-size:13px;margin-bottom:10px"><b>${esc(naam)}</b> — alle data gaat permanent verloren.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
+    <div class="fg"><input id="owndel-pwd" type="password" placeholder="wachtwoord" autofocus></div>
+    <div class="auth-err" id="owndel-err"></div>
+    <button class="btn btn-red" onclick="doOwnerDeleteTeam('${tid}')">Permanent verwijderen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="showAllUsersModal()">Annuleren</button>`);
+}
+async function doOwnerDeleteTeam(tid) {
+  if (!isOwner || !fbdb || !currentUser) return;
+  const pwd = (document.getElementById('owndel-pwd') || {}).value || '';
+  const err = document.getElementById('owndel-err');
+  if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
+    await currentUser.reauthenticateWithCredential(cred);
+    const [teamSnap, memberInfoSnap] = await Promise.all([
+      fbdb.ref('teams/' + tid).once('value'),
+      fbdb.ref('memberInfo/' + tid).once('value'),
+    ]);
+    // Backup opslaan vóór verwijderen
+    await fbdb.ref('deletedTeams/' + tid).set({
+      deletedAt: Date.now(),
+      deletedBy: currentUser.uid,
+      deletedByEmail: currentUser.email || '',
+      team: teamSnap.val(),
+      memberInfo: memberInfoSnap.val(),
+    });
+    await Promise.all([
+      fbdb.ref('teams/' + tid).remove(),
+      fbdb.ref('memberInfo/' + tid).remove(),
+      fbdb.ref('teamAdminRequests/' + tid).remove(),
+    ]);
+    fbdb.ref('invites').orderByChild('teamId').equalTo(tid).once('value', s => {
+      s.forEach(c => c.ref.remove());
+    });
+    showToast('Ploeg verwijderd.', 'ok');
+    showAllUsersModal();
+  } catch (e) {
+    if (err) err.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
+      ? 'Ongeldig wachtwoord.' : (e.message || 'Verwijderen mislukt.');
+  }
 }
 
 async function revokeAdmin(uid) {
@@ -1427,7 +1456,7 @@ function cloudLoginModal() {
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
     <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
-    <button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>`
+    ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}`
   : (!isAdmin && !isGuest && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg</div>
     <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>` : '';
@@ -3306,7 +3335,7 @@ async function doDeleteAccount() {
 
 // ---- Hele ploeg (Firebase-team) verwijderen ----
 function confirmDeleteCloudTeam() {
-  if (!isAdmin || !activeTeamId) return;
+  if (!isApprovedAdmin || !activeTeamId) return;
   const naam = getClubName() || 'deze ploeg';
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
@@ -3327,8 +3356,19 @@ async function doDeleteCloudTeam() {
     // Wachtwoord opnieuw bevestigen
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
-    const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
-    const token = (infoSnap.val() || {}).inviteToken;
+    const [teamSnap, memberInfoSnap] = await Promise.all([
+      fbdb.ref('teams/' + tid).once('value'),
+      fbdb.ref('memberInfo/' + tid).once('value'),
+    ]);
+    // Backup opslaan vóór verwijderen
+    await fbdb.ref('deletedTeams/' + tid).set({
+      deletedAt: Date.now(),
+      deletedBy: currentUser.uid,
+      deletedByEmail: currentUser.email || '',
+      team: teamSnap.val(),
+      memberInfo: memberInfoSnap.val(),
+    });
+    const token = ((teamSnap.val() || {}).info || {}).inviteToken;
     // Uitnodiging + ledeninfo eerst proberen wissen (terwijl team-lidmaatschap nog bestaat)
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
