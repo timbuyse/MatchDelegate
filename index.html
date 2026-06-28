@@ -4546,10 +4546,12 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
   const low = pct !== null && pct < 50;
   const mid = pct !== null && pct >= 50 && pct < 75;
   const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
+  const noteCol = canManage() ? `<div style="width:160px;font-size:12px;color:var(--txt2);padding-left:6px;line-height:1.4;word-break:break-word">${esc(p.note||'')}</div>` : '';
   return `<div class="prow">
     <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
-    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${p.note?`<div class="ppos">${esc(p.note)}</div>`:''}${bar}</div>
-    <div class="pmins ${low?'pmins-warn':''}">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
+    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${bar}</div>
+    <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
+    ${noteCol}
   </div>`;
 }
 function setTab(t) { tab = t; render(); if (t==='wedstrijd') startTimer(); else stopTimer(); }
@@ -5680,7 +5682,15 @@ function renderDetail() {
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
-    <div class="card">${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}</div>
+    <div class="card">
+      <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
+        <div class="pnum"></div>
+        <div style="flex:1">Speler</div>
+        <div class="pmins" style="font-size:11px">Min · %</div>
+        ${canManage() ? `<div style="width:160px;padding-left:6px">Notitie</div>` : ''}
+      </div>
+      ${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}
+    </div>
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
