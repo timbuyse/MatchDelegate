@@ -9,8 +9,8 @@
   <meta name="theme-color" content="#101010">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="logo_no_background.png">
-  <link rel="apple-touch-icon" href="logo_no_background.png">
+  <link rel="icon" href="MD_cropped.png">
+  <link rel="apple-touch-icon" href="MD_cropped.png">
   <title>Match Delegate</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -323,13 +323,16 @@
     .lc-btn{background:var(--blk2);color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
     .lc-btn:disabled{opacity:.25;cursor:default}
     /* Splash */
-    #splash{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;pointer-events:none}
-    #splash img{width:180px;height:180px;object-fit:contain;border-radius:28px;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
-    #splash-bar{width:0;height:3px;background:var(--grn);border-radius:2px;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
-    #splash-name{color:#fff;font-size:16px;font-weight:600;letter-spacing:2px;text-transform:uppercase;opacity:0;animation:splashFade .5s .7s ease forwards}
+    #splash{position:fixed;inset:0;background:url('background_logo.png') center/cover no-repeat;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;pointer-events:none}
+    #splash::before{content:'';position:absolute;inset:0;background:rgba(10,18,35,0.55)}
+    #splash img{width:140px;height:140px;object-fit:contain;position:relative;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
+    #splash-bar{width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;position:relative;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
+    #splash-titles{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;opacity:0;animation:splashFade .5s .7s ease forwards}
+    #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+    #splash-name{color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-    @keyframes splashBar{from{width:0}to{width:150px}}
-    @keyframes splashFade{from{opacity:0}to{opacity:.65}}
+    @keyframes splashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+    @keyframes splashFade{from{opacity:0}to{opacity:1}}
     /* Print */
     @media print{
       .ltabs,.fab,.fab-note,.fab-mark,.hdr,.no-print{display:none!important}
@@ -405,7 +408,7 @@
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
-<div id="splash"><img src="logo.png" alt="Match Delegate"><div id="splash-bar"></div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div>
+<div id="splash"><img src="logo_no_background.png" alt="Match Delegate"><div id="splash-bar"></div><div id="splash-titles"><div id="splash-title">Match Delegate</div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div></div>
 <!-- Handleiding screenshots (base64) — genereer via: handleiding\generate-b64.ps1 -->
 <script>var HANDLEIDING_SCREENSHOTS = {};</script>
 <script src="handleiding-screenshots.js" onerror="console.info('handleiding-screenshots.js niet gevonden')"></script>
@@ -5851,7 +5854,7 @@ async function init() {
   setTimeout(() => {
     const s = document.getElementById('splash');
     if (s) { s.style.transition = 'opacity .4s ease'; s.style.opacity = '0'; setTimeout(() => s && s.remove(), 420); }
-  }, 1600);
+  }, 2000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && view === 'live' && match) {
