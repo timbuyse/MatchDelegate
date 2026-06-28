@@ -2164,8 +2164,19 @@ function renderPitch(m, players) {
   return `<div class="pitch">${pitchLines()}${dots}</div>
   <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
 }
+function captainAtStartOfQuarter(m, qNum) {
+  const allChanges = (m.events || []).filter(e => e.type === 'captain_change')
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  if (!allChanges.length) return m.captainId;
+  const before = allChanges.filter(e => e.quarterNum != null &&
+    (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)));
+  if (!before.length) return allChanges[0].fromId || m.captainId;
+  return before[before.length - 1].playerId;
+}
+
 // Zelfstandige SVG-veldweergave voor de PDF (los venster, zonder de app-CSS).
-function pitchSVG(m, players, svgWidth = 280) {
+function pitchSVG(m, players, svgWidth = 280, captainId = undefined) {
+  const capId = captainId !== undefined ? captainId : m.captainId;
   const W = 320, H = 480, R = 15;
   const pts = [];
   players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => pts.push({ p, x: p.x, y: p.y }));
@@ -2178,7 +2189,7 @@ function pitchSVG(m, players, svgWidth = 280) {
   const dns = fieldDisplayNames(pts.map(({p}) => p));
   const dots = pts.map(({ p, x, y }) => {
     const cx = (x / 100 * W).toFixed(1), cy = (y / 100 * H).toFixed(1);
-    const gk = p.line === 'Doel', cap = (m.captainId === p.id) ? ' ©' : '';
+    const gk = p.line === 'Doel', cap = (capId === p.id) ? ' ©' : '';
     return `<g><circle cx="${cx}" cy="${cy}" r="${R}" fill="${gk ? '#f5821f' : '#101010'}" stroke="#fff" stroke-width="2"/>` +
       `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.posNum || p.number || '?')}</text>` +
       `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc((dns.get(p.id) || _lastName(p.name || '')) + cap)}</text></g>`;
@@ -4342,6 +4353,17 @@ async function saveQuickResult() {
 }
 
 // ===================== EDIT PLAYERS =====================
+function modalPlayerNotes() {
+  const rows = match.players.map((p, i) => `
+    <div style="margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(p.number ? '#' + p.number + ' ' : '')}${esc(p.name || 'Speler')}</div>
+      <input type="text" value="${esc(p.note||'')}" placeholder="Notitie (optioneel)" onchange="match.players[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px">
+    </div>`).join('');
+  openModal(`<h3>${icI(IC.edit)} Spelernotities</h3>
+    <div>${rows}</div>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)} Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
 function modalEditPlayers() {
   const lines = MATCH_TYPES[match.matchType].lines;
   const rows = match.players.map((p,i) => `
@@ -5637,7 +5659,7 @@ function renderDetail() {
         <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <button class="btn btn-orgpale" onclick="modalEditPlayers()">${icI(IC.edit)} Spelers bewerken</button>
+        <button class="btn btn-orgpale" onclick="modalPlayerNotes()">${icI(IC.edit)} Spelernotities</button>
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
       </div>
       ${(FORMATIONS[match.matchType]||[]).length ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Posities herplaatsen</button>` : ''}
@@ -5749,14 +5771,14 @@ function exportPDF() {
       if (numQ <= 1) {
         return `<h2>Opstelling${m.formation?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>${legend}`;
       }
-      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtStart(q)}; });
+      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtStart(q), capId:captainAtStartOfQuarter(m,q)}; });
       const rows = [];
       for (let i=0; i<items.length; i+=2) rows.push(items.slice(i,i+2));
       const pW = numQ > 2 ? 195 : 280;
       return rows.map(row =>
         `<div style="display:flex;gap:12px;align-items:flex-start;margin:10px 0">` +
-        row.map(({q,ps}) =>
-          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}</h3>${pitchSVG(m,ps,pW)}${legend}</div>`
+        row.map(({q,ps,capId}) =>
+          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}</h3>${pitchSVG(m,ps,pW,capId)}${legend}</div>`
         ).join('') +
         `</div>`
       ).join('');
