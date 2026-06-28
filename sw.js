@@ -1,5 +1,5 @@
-const CACHE = 'voetbal-v25';
-const ASSETS = ['./', './index.html', './manifest.json', './logo.png'];
+const CACHE = 'voetbal-v26';
+const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './background_logo.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
