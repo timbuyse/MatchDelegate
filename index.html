@@ -793,12 +793,12 @@ async function onAuthChanged(user) {
     mRef.on('value', snap => {
       maintenanceActive = !!snap.val();
       if (view && view !== 'auth') {
-        if (maintenanceActive && !isOwner && !isApprovedAdmin) go('maintenance', undefined, true);
+        if (maintenanceActive && !isOwner) go('maintenance', undefined, true);
         else if (!maintenanceActive && view === 'maintenance') go('home', undefined, true);
       }
     });
   });
-  if (maintenanceActive && !isOwner && !isApprovedAdmin) {
+  if (maintenanceActive && !isOwner) {
     await go('maintenance', undefined, true); return;
   }
   await loadUserTeams(user.uid);
