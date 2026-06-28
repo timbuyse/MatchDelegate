@@ -2142,34 +2142,36 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y, dn) {
-  const cap = (m && m.captainId === p.id) ? ' ©' : '';
+function pitchDot(m, p, x, y, dn, captainId) {
+  const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
+  const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
     ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
 }
-function renderPitch(m, players) {
+function renderPitch(m, players, captainId) {
   const dns = fieldDisplayNames(players);
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id));
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId);
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id)); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId); });
   }
   return `<div class="pitch">${pitchLines()}${dots}</div>
   <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
 }
 function captainAtStartOfQuarter(m, qNum) {
+  const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
   const allChanges = (m.events || []).filter(e => e.type === 'captain_change')
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
   if (!allChanges.length) return m.captainId;
-  const before = allChanges.filter(e => e.quarterNum != null &&
-    (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)));
+  // Wijzigingen die plaatsvonden vóór of exact bij de start van dit kwart
+  const before = allChanges.filter(e => (e.gameTimeMs || 0) <= startMs);
   if (!before.length) return allChanges[0].fromId || m.captainId;
   return before[before.length - 1].playerId;
 }
@@ -4089,10 +4091,11 @@ function _lcNav(dir) {
 function renderLineupCarousel(m) {
   const total = Math.max(1, m.quarters.length);
   _lcIdx = 0;
-  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting));
+  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting), captainAtStartOfQuarter(m, 1));
   const slides = Array.from({length: total}, (_, i) => {
     const ps = playersAtPeriodStart(m, i + 1);
-    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps)}</div>`;
+    const capId = captainAtStartOfQuarter(m, i + 1);
+    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId)}</div>`;
   }).join('');
   return `<div class="lc-wrap" id="lc-wrap">
     <div class="lc-nav">

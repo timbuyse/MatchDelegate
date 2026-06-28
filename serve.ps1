@@ -1,4 +1,4 @@
-$port = 3000
+$port = if ($env:PORT) { $env:PORT } else { 3000 }
 $root = $PSScriptRoot
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add("http://localhost:$port/")

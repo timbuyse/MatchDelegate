@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "match-delegate",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "serve.ps1"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
