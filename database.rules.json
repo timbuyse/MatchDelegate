@@ -13,8 +13,10 @@
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
         //   EN is eigenaar of goedgekeurd beheerder.
         // Bestaande ploeg aanpassen: bestaande admin of eigenaar.
-        // Ploeg verwijderen (newData leeg): eigenaar (alle teams) of goedgekeurde beheerder van die ploeg.
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || (data.exists() && newData.exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin') || (data.exists() && !newData.exists() && root.child('approvedAdmins/' + auth.uid).exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'))",
+        // Aanmaken: goedgekeurde beheerder zet zichzelf als admin.
+        // Aanpassen: bestaande admin of eigenaar.
+        // Verwijderen: eigenaar (alle teams) of goedgekeurde beheerder die ook maker is (createdBy).
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || (data.exists() && newData.exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin') || (data.exists() && !newData.exists() && root.child('approvedAdmins/' + auth.uid).exists() && data.child('info/createdBy').val() === auth.uid))",
 
         "members": {
           // Admin mag leden beheren

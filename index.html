@@ -3334,9 +3334,16 @@ async function doDeleteAccount() {
 }
 
 // ---- Hele ploeg (Firebase-team) verwijderen ----
-function confirmDeleteCloudTeam() {
-  if (!isApprovedAdmin || !activeTeamId) return;
+async function confirmDeleteCloudTeam() {
+  if (!isApprovedAdmin || !activeTeamId || !fbdb) return;
   const naam = getClubName() || 'deze ploeg';
+  if (!isOwner) {
+    const infoSnap = await fbdb.ref('teams/' + activeTeamId + '/info/createdBy').once('value');
+    if (infoSnap.val() !== currentUser.uid) {
+      showToast('Je kan enkel ploegen verwijderen die je zelf hebt aangemaakt.', 'err');
+      return;
+    }
+  }
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
