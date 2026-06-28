@@ -2605,6 +2605,7 @@ function renderSettings(isFirst) {
       <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> E-mailadres wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()"><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
@@ -3066,6 +3067,37 @@ async function doChangeEmail() {
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Onjuist wachtwoord.'
       : e.code === 'auth/invalid-email' ? 'Ongeldig e-mailadres.'
       : e.code === 'auth/email-already-in-use' ? 'Dit e-mailadres is al in gebruik.'
+      : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
+  }
+}
+
+function confirmChangePassword() {
+  openModal(`<h3><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</h3>
+    <div class="fg"><label>Huidig wachtwoord</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="huidig wachtwoord"></div>
+    <div class="fg"><label>Nieuw wachtwoord</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
+    <div class="fg"><label>Nieuw wachtwoord bevestigen</label><input id="cp-new2" type="password" autocomplete="new-password" placeholder="herhaal nieuw wachtwoord"></div>
+    <div class="auth-err" id="cp-err"></div>
+    <button class="btn btn-green" onclick="doChangePassword()">Wachtwoord wijzigen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doChangePassword() {
+  const oldPwd = (document.getElementById('cp-old') || {}).value || '';
+  const newPwd = (document.getElementById('cp-new') || {}).value || '';
+  const newPwd2 = (document.getElementById('cp-new2') || {}).value || '';
+  const err = document.getElementById('cp-err');
+  if (!oldPwd) { if (err) err.textContent = 'Geef je huidig wachtwoord in.'; return; }
+  if (newPwd.length < 6) { if (err) err.textContent = 'Nieuw wachtwoord moet minstens 6 tekens zijn.'; return; }
+  if (newPwd !== newPwd2) { if (err) err.textContent = 'De twee nieuwe wachtwoorden zijn niet gelijk.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, oldPwd);
+    await currentUser.reauthenticateWithCredential(cred);
+    await currentUser.updatePassword(newPwd);
+    closeModal();
+    showToast('Wachtwoord succesvol gewijzigd.', 'ok');
+  } catch (e) {
+    if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Huidig wachtwoord is onjuist.'
+      : e.code === 'auth/weak-password' ? 'Nieuw wachtwoord moet minstens 6 tekens zijn.'
       : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
   }
 }
