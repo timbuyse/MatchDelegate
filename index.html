@@ -5852,17 +5852,17 @@ async function init() {
   }
   view = 'home';
   // Splash blijft zichtbaar tot auth klaar is; toon spinner na 2 sec als Firebase traag is
-  let _splashGone = false;
-  window._hideSplash = function() {
-    if (_splashGone) return; _splashGone = true;
+  let _splashGone = false, _authReady = false, _minTimeDone = false;
+  const _doHideSplash = () => {
+    if (_splashGone || !_authReady || !_minTimeDone) return;
+    _splashGone = true;
     const s = document.getElementById('splash');
     if (s) { s.style.transition = 'opacity .4s ease'; s.style.opacity = '0'; setTimeout(() => s && s.remove(), 420); }
   };
+  window._hideSplash = function() { _authReady = true; _doHideSplash(); };
   setTimeout(() => {
-    if (!_splashGone) {
-      const sp = document.getElementById('splash-spinner');
-      if (sp) sp.style.display = 'block';
-    }
+    _minTimeDone = true; _doHideSplash();
+    if (!_splashGone) { const sp = document.getElementById('splash-spinner'); if (sp) sp.style.display = 'block'; }
   }, 2000);
   cloudInit();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
