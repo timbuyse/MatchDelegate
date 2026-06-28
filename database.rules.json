@@ -21,8 +21,9 @@
             // zodat hij bij het vervoegen kan checken of hij al lid is.
             ".read": "auth != null && $memberId === auth.uid",
 
-            // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging)
-            ".write": "auth != null && $memberId === auth.uid && !data.exists() && newData.val() === 'viewer'"
+            // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging);
+            // beheerder mag altijd de rol van elk lid aanpassen (promote/demote).
+            ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer') || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')"
           }
         }
       }
