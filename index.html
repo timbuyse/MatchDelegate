@@ -1756,7 +1756,7 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">Match Delegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
-      <button class="hdr-gear" onclick="go('settings')" title="Instellingen">${icI(IC.gear)}</button>
+      <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
@@ -1843,7 +1843,7 @@ async function doJoinTeam() {
 }
 
 // ===================== STATE =====================
-let view = 'home', match = null, tab = 'wedstrijd', timerInt = null;
+let view = 'home', match = null, tab = 'wedstrijd', timerInt = null, _settingsFrom = 'home';
 let currentTournament = null, trnWiz = null;
 
 // ===================== UTILS =====================
@@ -2308,7 +2308,7 @@ const views = {
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span>
-        <button class="hdr-gear" onclick="go('settings')" title="Instellingen">${icI(IC.gear)}</button>
+        <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>
       <div class="content" id="home-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
@@ -2586,7 +2586,7 @@ function mapStoredLogo() { const s = localStorage.getItem('voetbal_club_logo'); 
 function previewSrc() { if (pendingLogo === 'DEFAULT') return 'logo-default.svg'; if (pendingLogo && pendingLogo !== 'DEFAULT') return pendingLogo; return ''; }
 function renderSettings(isFirst) {
   return `
-  <div class="hdr"><button class="back" onclick="history.back()">‹</button><h1>Instellingen</h1></div>
+  <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
     <div class="sec">Weergave</div>
     <div class="card">
