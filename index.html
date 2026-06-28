@@ -2253,13 +2253,13 @@ const views = {
     const switchBtn = canSwitch
       ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">${icI(IC.swap)} Ploegwissel</button>`
       : '';
-    return `<div class="hdr hdr-home">
-      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+    return `<div class="hdr hdr-home" style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:0">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
         <img src="logo_no_background.png" class="hdr-crest" alt="Match Delegate">
-        ${clubName ? `<span class="hdr-club-name">${clubName}</span>` : ''}
+        ${clubName ? `<span class="hdr-club-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clubName}</span>` : ''}
       </div>
-      <div style="position:absolute;left:50%;transform:translateX(-50%)">${switchBtn}</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
+      <div style="display:flex;justify-content:center">${switchBtn}</div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span>
         <button class="hdr-gear" onclick="go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
