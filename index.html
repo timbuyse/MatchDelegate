@@ -2586,7 +2586,7 @@ function mapStoredLogo() { const s = localStorage.getItem('voetbal_club_logo'); 
 function previewSrc() { if (pendingLogo === 'DEFAULT') return 'logo-default.svg'; if (pendingLogo && pendingLogo !== 'DEFAULT') return pendingLogo; return ''; }
 function renderSettings(isFirst) {
   return `
-  <div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>Instellingen</h1></div>
+  <div class="hdr"><button class="back" onclick="history.back()">‹</button><h1>Instellingen</h1></div>
   <div class="content">
     <div class="sec">Weergave</div>
     <div class="card">
