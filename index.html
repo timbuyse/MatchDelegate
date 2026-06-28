@@ -2614,7 +2614,46 @@ function renderSettings(isFirst) {
     <div class="card">
       <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
     </div>
+    <div class="sec">Juridisch</div>
+    <div class="card">
+      <button class="btn btn-pale" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
+      <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a></p>
+    </div>
   </div>`;
+}
+
+function showPrivacyModal() {
+  openModal(`<h3><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</h3>
+    <div style="font-size:13px;color:var(--txt2);line-height:1.7;text-align:left;max-height:60vh;overflow-y:auto;padding-right:4px">
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Verwerkingsverantwoordelijke</b><br>
+      Tim Buyse<br>
+      <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a></p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Doel van de app</b><br>
+      Match Delegate is een interne beheersapp voor sportploegen. Ze laat beheerders toe wedstrijden op te volgen, speelminuten bij te houden en spelersgegevens te beheren. De app is uitsluitend bedoeld voor intern gebruik.</p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Welke gegevens verwerken we?</b><br>
+      • E-mailadres en naam van gebruikers (accounts)<br>
+      • Spelersgegevens: naam, rugnummer, positie, notities<br>
+      • Wedstrijdgegevens: speelminuten, doelpunten, assists, gele en rode kaarten<br>
+      • Teamlidmaatschappen en rollen (beheerder / kijker)</p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Rechtsgrond</b><br>
+      Gegevens worden verwerkt op basis van toestemming. Gebruikers registreren zich vrijwillig en voegen zelf spelersgegevens toe.</p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Bewaartermijn</b><br>
+      Gegevens worden bewaard zolang een account actief is. Bij verwijdering van een account worden de gekoppelde gegevens gewist.</p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Verwerkers</b><br>
+      De app maakt gebruik van <b>Firebase</b> (Google LLC) voor authenticatie en gegevensopslag. Gegevens worden opgeslagen op servers van Google binnen de Europese Economische Ruimte. Google treedt op als verwerker conform de GDPR.</p>
+
+      <p style="margin-bottom:10px"><b style="color:var(--txt)">Jouw rechten</b><br>
+      Als betrokkene heb je het recht op inzage, correctie en verwijdering van je gegevens. Je kunt je account zelf verwijderen via Instellingen → Account verwijderen. Voor andere vragen of verzoeken kun je contact opnemen via <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a>.</p>
+
+      <p style="margin-bottom:4px"><b style="color:var(--txt)">Klachten</b><br>
+      Je hebt het recht een klacht in te dienen bij de Gegevensbeschermingsautoriteit (GBA): <a href="https://www.gegevensbeschermingsautoriteit.be" style="color:var(--grn)" target="_blank">gegevensbeschermingsautoriteit.be</a></p>
+    </div>
+    <button class="btn btn-gray" style="margin-top:14px" onclick="closeModal()">Sluiten</button>`);
 }
 // ===================== HANDLEIDING =====================
 const HANDLEIDING_PAGINAS = [
