@@ -1900,6 +1900,18 @@ function eventMinSummaryText(e, m) {
 }
 function playersOnField(m) { return m.players.filter(p => p.onField); }
 function playersOnBench(m) { return m.players.filter(p => !p.onField); }
+// Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
+function playersOnFieldForEvent(m) {
+  if (_postEventQuarter != null) return playersAtPeriodStart(m, _postEventQuarter);
+  return playersOnField(m);
+}
+function playersOnBenchForEvent(m) {
+  if (_postEventQuarter != null) {
+    const onIds = new Set(playersAtPeriodStart(m, _postEventQuarter).map(p => p.id));
+    return m.players.filter(p => !onIds.has(p.id));
+  }
+  return playersOnBench(m);
+}
 // Veldbezetting inclusief reeds ingeplande pauzewissels (voor het plannen van meerdere wissels op rij).
 function effectiveOnField(m) {
   const on = new Set(m.players.filter(p => p.onField).map(p => p.id));
@@ -5187,7 +5199,7 @@ function modalExtra() {
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 function modalSetCaptain() {
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   const cur = match.captainId;
   openModal(`<h3>${icI(IC.captain)} Kapitein</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
@@ -5227,7 +5239,7 @@ function showUndoToast(html) {
 // ===================== MODALS: GOAL (+ assist) =====================
 let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false;
 function modalGoal() {
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
   openModal(`
     <h3>${icI(IC.goal)} Goal</h3>
@@ -5349,8 +5361,9 @@ async function logCorner(team) { addEvent(team === 'us' ? 'corner_us' : 'corner_
 // ===================== MODAL: SUB =====================
 let subOut = null, subIn = null;
 function modalSub() {
-  const between = match.quarterStatus === 'between';
-  const on = effectiveOnField(match), mins = calcMinutes(match);
+  const between = match.quarterStatus === 'between' && _postEventQuarter === null;
+  const on = _postEventQuarter != null ? playersAtPeriodStart(match, _postEventQuarter) : effectiveOnField(match);
+  const mins = calcMinutes(match);
   const onIds = new Set(on.map(p => p.id));
   // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
   const off = match.players.filter(p => !onIds.has(p.id)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
@@ -5443,7 +5456,7 @@ async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendin
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
@@ -5465,7 +5478,7 @@ async function logCard(color, pid) {
 let penTeam = 'us', penPlayerId = null;
 function modalPenalty() {
   penTeam = 'us'; penPlayerId = null;
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   openModal(`<h3>${icI(IC.penalty)} Penalty</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="pen-team"><button class="act" onclick="tglPen('us',this)">${esc(tName(match))}</button><button onclick="tglPen('them',this)">Tegenstander</button></div>
@@ -5491,7 +5504,7 @@ async function logPenalty(scored) {
 // ===================== MODAL: INJURY =====================
 let injPlayerId = null, injType = 'kramp';
 function modalInjury() {
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   injPlayerId = null; injType = 'kramp';
   openModal(`<h3>${icI(IC.injury)} Blessure</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
@@ -5539,7 +5552,7 @@ function modalSubAfterInjury(outId) {
 let fkTeam = 'us', fkPlayerId = null;
 function modalFreekick() {
   fkTeam = 'us'; fkPlayerId = null;
-  const on = playersOnField(match);
+  const on = playersOnFieldForEvent(match);
   openModal(`<h3>${icI(IC.bolt)} Vrije trap</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="fk-team">
