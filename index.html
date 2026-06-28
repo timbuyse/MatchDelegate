@@ -330,9 +330,11 @@
     #splash-titles{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;opacity:0;animation:splashFade .5s .7s ease forwards}
     #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
     #splash-name{color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
+    #splash-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;position:relative;display:none;animation:splashSpin .8s linear infinite}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
     @keyframes splashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
     @keyframes splashFade{from{opacity:0}to{opacity:1}}
+    @keyframes splashSpin{to{transform:rotate(360deg)}}
     /* Print */
     @media print{
       .ltabs,.fab,.fab-note,.fab-mark,.hdr,.no-print{display:none!important}
@@ -408,7 +410,7 @@
 <body>
 <div id="app"></div>
 <div id="modal" class="hidden"></div>
-<div id="splash"><img src="logo_no_background.png" alt="Match Delegate"><div id="splash-bar"></div><div id="splash-titles"><div id="splash-title">Match Delegate</div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div></div>
+<div id="splash"><img src="logo_no_background.png" alt="Match Delegate"><div id="splash-bar"></div><div id="splash-titles"><div id="splash-title">Match Delegate</div><div id="splash-name">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div></div><div id="splash-spinner"></div></div>
 <!-- Handleiding screenshots (base64) — genereer via: handleiding\generate-b64.ps1 -->
 <script>var HANDLEIDING_SCREENSHOTS = {};</script>
 <script src="handleiding-screenshots.js" onerror="console.info('handleiding-screenshots.js niet gevonden')"></script>
@@ -769,6 +771,7 @@ function cloudInit() {
 }
 
 async function onAuthChanged(user) {
+  if (window._hideSplash) window._hideSplash();
   currentUser = user;
   if (!user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
@@ -5847,15 +5850,24 @@ async function init() {
     localStorage.setItem('voetbal_pending_join', joinParam.trim().toUpperCase());
     window.history.replaceState({}, '', window.location.pathname);
   }
-  // Toon laadscherm terwijl Firebase auth-status bepaald wordt
   view = 'home';
-  document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-logo"><img src="logo.png" alt="Match Delegate" class="auth-logo-img"></div><p style="color:var(--txt2)">Laden...</p></div>`;
-  cloudInit();
-  setTimeout(() => {
+  // Splash blijft zichtbaar tot auth klaar is; toon spinner na 2 sec als Firebase traag is
+  let _splashGone = false;
+  window._hideSplash = function() {
+    if (_splashGone) return; _splashGone = true;
     const s = document.getElementById('splash');
     if (s) { s.style.transition = 'opacity .4s ease'; s.style.opacity = '0'; setTimeout(() => s && s.remove(), 420); }
+  };
+  setTimeout(() => {
+    if (!_splashGone) {
+      const sp = document.getElementById('splash-spinner');
+      if (sp) sp.style.display = 'block';
+    }
   }, 2000);
+  cloudInit();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // Offline fallback: als Firebase niet klaar is, splash na 3 sec verbergen
+  if (!cloudReady) setTimeout(() => { if (window._hideSplash) window._hideSplash(); }, 3000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && view === 'live' && match) {
       const q = match.quarters[match.quarters.length - 1];
