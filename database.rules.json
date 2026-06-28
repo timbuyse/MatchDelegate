@@ -2,15 +2,18 @@
   "rules": {
 
     "teams": {
+      // Eigenaar mag alle ploegen lezen voor het globaal gebruikersoverzicht.
+      ".read": "auth != null && root.child('owner').val() === auth.uid",
+
       "$teamId": {
 
-        // Lezen: leden van de ploeg
-        ".read": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()",
+        // Lezen: leden van de ploeg, of de eigenaar (globaal overzicht)
+        ".read": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).exists() || root.child('owner').val() === auth.uid)",
 
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
         //   EN is eigenaar of goedgekeurd beheerder.
-        // Bestaande ploeg aanpassen: enkel bestaande admin.
-        ".write": "auth != null && ((!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && (root.child('owner').val() === auth.uid || root.child('approvedAdmins/' + auth.uid).exists())) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        // Bestaande ploeg aanpassen: enkel bestaande admin of eigenaar.
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
 
         "members": {
           // Admin mag leden beheren
@@ -30,11 +33,13 @@
     },
 
     "memberInfo": {
+      // Eigenaar mag alle memberInfo lezen voor het globaal gebruikersoverzicht.
+      ".read": "auth != null && root.child('owner').val() === auth.uid",
+
       "$teamId": {
-        // Enkel de beheerder van de ploeg leest de volledige ledenlijst (naam + e-mail).
-        // De beheerder mag het knooppunt ook opruimen bij verwijderen van de ploeg.
-        ".read":  "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
-        ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        // Beheerder van de ploeg leest de volledige ledenlijst, of de eigenaar (globaal overzicht).
+        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
         "$memberId": {
           // Elk lid leest/schrijft enkel zijn eigen info, en enkel als hij lid is.
           ".read":  "auth != null && $memberId === auth.uid",
@@ -81,7 +86,7 @@
     "invites": {
       "$token": {
         ".read": "auth != null",
-        ".write": "auth != null && ((newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && data.child('createdBy').val() === auth.uid))"
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && data.child('createdBy').val() === auth.uid))"
       }
     },
 
@@ -101,8 +106,8 @@
 
     "teamAdminRequests": {
       "$teamId": {
-        ".read": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
-        ".write": "auth != null && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin'",
+        ".read": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'viewer'"
