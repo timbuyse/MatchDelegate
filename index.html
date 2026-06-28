@@ -3926,6 +3926,7 @@ function wizStep2() {
       <div style="flex:1"><div style="font-size:22px;font-weight:900">${bankCount()}</div><div style="font-size:11px;color:var(--txt2)">BANK</div></div>
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
     </div>
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b>, <b>Bank</b> of <b style="color:var(--rd)">✗</b> (niet geselecteerd / afwezig).</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
@@ -4042,7 +4043,7 @@ function wizStep3() {
     <div class="fg"><label>Formatie</label>
       <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
     <div class="card">${wizPitch(form)}
-      <div class="field-legend">Tik een speler hieronder, tik dan een plaats. Tik een bezette plaats om weg te halen.</div>
+      <div class="field-legend">Klik op een speler hieronder, klik dan op een positie op het veld om hem te plaatsen. Klik een bezette positie om de speler te verwijderen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
     <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
