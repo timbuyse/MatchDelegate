@@ -794,7 +794,7 @@ async function onAuthChanged(user) {
       maintenanceActive = !!snap.val();
       if (view && view !== 'auth') {
         if (maintenanceActive && !isOwner) go('maintenance', undefined, true);
-        else if (!maintenanceActive && view === 'maintenance') go('home', undefined, true);
+        else if (!maintenanceActive && view === 'maintenance') onAuthChanged(currentUser);
       }
     });
   });
