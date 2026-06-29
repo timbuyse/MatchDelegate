@@ -1950,6 +1950,20 @@ async function doCreateTeam() {
   if (err) err.textContent = 'Bezig...';
   if (btn) btn.disabled = true;
   try {
+    try {
+      const snap = await fbdb.ref('teams').once('value');
+      const nameLower = name.trim().toLowerCase();
+      let duplicate = false;
+      snap.forEach(child => {
+        const info = child.val() && child.val().info;
+        if (info && info.name && info.name.trim().toLowerCase() === nameLower) duplicate = true;
+      });
+      if (duplicate) {
+        if (err) err.textContent = 'Er bestaat al een ploeg met deze naam. Kies een andere naam.';
+        if (btn) btn.disabled = false;
+        return;
+      }
+    } catch (_) { /* geen leesrechten op /teams — sla duplicate-check over */ }
     await createTeam(name);
     closeModal();
   } catch (e) {
