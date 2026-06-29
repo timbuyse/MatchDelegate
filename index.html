@@ -1456,6 +1456,7 @@ function cloudLoginModal() {
     <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
     <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
+    ${isApprovedAdmin ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showRenameTeamModal()">${icI(IC.edit)} Naam ploeg wijzigen</button>` : ''}
     ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}`
   : (!isAdmin && !isGuest && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg</div>
@@ -3330,6 +3331,36 @@ async function doDeleteAccount() {
     localStorage.removeItem('voetbal_activeTeamId');
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
+  }
+}
+
+// ---- Naam van ploeg wijzigen ----
+function showRenameTeamModal() {
+  if (!isApprovedAdmin || !activeTeamId || !fbdb) return;
+  const current = getClubName() || '';
+  openModal(`<h3>${icI(IC.edit)} Naam ploeg wijzigen</h3>
+    <div class="fg"><label>Nieuwe naam</label><input id="rename-team-input" type="text" value="${esc(current)}" autofocus></div>
+    <div class="auth-err" id="rename-team-err"></div>
+    <button class="btn btn-org" id="rename-team-btn" onclick="doRenameTeam()">Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doRenameTeam() {
+  const input = document.getElementById('rename-team-input');
+  const err = document.getElementById('rename-team-err');
+  const btn = document.getElementById('rename-team-btn');
+  const name = (input ? input.value : '').trim();
+  if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  if (btn) btn.disabled = true;
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/info/name').set(name);
+    await fbdb.ref('teams/' + activeTeamId + '/club/name').set(name);
+    localStorage.setItem('voetbal_club_name', name);
+    closeModal();
+    render();
+  } catch (e) {
+    if (err) err.textContent = 'Fout: ' + (e.message || 'probeer opnieuw.');
+    if (btn) btn.disabled = false;
   }
 }
 
