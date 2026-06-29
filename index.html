@@ -3356,6 +3356,7 @@ async function doRenameTeam() {
     await fbdb.ref('teams/' + activeTeamId + '/info/name').set(name);
     await fbdb.ref('teams/' + activeTeamId + '/club/name').set(name);
     localStorage.setItem('voetbal_club_name', name);
+    teamNames[activeTeamId] = name;
     closeModal();
     render();
   } catch (e) {
