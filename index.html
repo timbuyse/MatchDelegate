@@ -4782,12 +4782,10 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
   const low = pct !== null && pct < 50;
   const mid = pct !== null && pct >= 50 && pct < 75;
   const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
-  const noteCol = canManage() ? `<div style="width:160px;font-size:12px;color:var(--txt2);padding-left:6px;line-height:1.4;word-break:break-word">${esc(p.note||'')}</div>` : '';
   return `<div class="prow">
     <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
     <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${bar}</div>
     <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
-    ${noteCol}
   </div>`;
 }
 function setTab(t) { tab = t; render(); if (t==='wedstrijd') startTimer(); else stopTimer(); }
@@ -5923,10 +5921,10 @@ function renderDetail() {
         <div class="pnum"></div>
         <div style="flex:1">Speler</div>
         <div class="pmins" style="font-size:11px">Min · %</div>
-        ${canManage() ? `<div style="width:160px;padding-left:6px">Notitie</div>` : ''}
       </div>
       ${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}
     </div>
+    ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler</div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
@@ -6074,8 +6072,8 @@ function exportPDF() {
     <h2>Spelers</h2>
     <table><thead><tr><th>#</th><th>Naam</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
-    ${m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
-    ${m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
+    ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
+    ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
     <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
     <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">Match Delegate · ${esc(getClubName())} · app created by Tim Buyse</p>
