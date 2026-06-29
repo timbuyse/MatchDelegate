@@ -2056,6 +2056,15 @@ function eventMinSummaryText(e, m) {
   const { min, extra } = eventMinGlobal(e, m);
   return extra > 0 ? `${min}' + ${extra}'` : `${min}'`;
 }
+function eventMinLocal(e, m) {
+  if (!e.quarterNum) return `${gameMin(e.gameTimeMs)}'`;
+  const nomMs = (m.quarterDuration || 15) * 60000;
+  const actualStart = gameTimeMsAtStartOfQuarter(m, e.quarterNum);
+  const withinQ = Math.max(0, e.gameTimeMs - actualStart);
+  if (withinQ <= nomMs) return `${Math.floor(withinQ / 60000) + 1}'`;
+  const extraMin = Math.ceil((withinQ - nomMs) / 60000);
+  return `${m.quarterDuration || 15}'+${extraMin}'`;
+}
 function playersOnField(m) { return m.players.filter(p => p.onField); }
 function playersOnBench(m) { return m.players.filter(p => !p.onField); }
 // Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
@@ -2159,7 +2168,7 @@ function renderEventLog(m) {
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
     const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
     const items = g.list.length
-      ? g.list.map(e => `<li><span class="emin">${eventMin(e,m)}'</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
+      ? g.list.map(e => `<li><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
       : '<li class="qgroup-empty">Geen events in dit deel.</li>';
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
@@ -6021,7 +6030,7 @@ function exportPDF() {
 
   const timelineRows = eventsByQuarter(m).map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${g.cum ? ` — tussenstand ${g.cum.us}–${g.cum.them}` : ''}`;
-    const rows = g.list.length ? g.list.map(e => `<tr><td style="white-space:nowrap">${eventMin(e,m)}'</td><td>${evtLabel(e, m)}</td></tr>`).join('') : `<tr><td></td><td style="color:#9ca3af">Geen events</td></tr>`;
+    const rows = g.list.length ? g.list.map(e => `<tr><td style="white-space:nowrap">${eventMinLocal(e,m)}</td><td>${evtLabel(e, m)}</td></tr>`).join('') : `<tr><td></td><td style="color:#9ca3af">Geen events</td></tr>`;
     return `<tr><td colspan="2" style="background:#f1f3f5;font-weight:700;border-top:2px solid #d1d5db">${head}</td></tr>${rows}`;
   }).join('');
 
