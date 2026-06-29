@@ -5747,7 +5747,16 @@ function modalCard(color) {
 }
 async function logCard(color, pid) {
   if (color === 'red') { addEvent('red_card', { playerId: pid }); const p = match.players.find(x=>x.id===pid); if (p) p.onField = false; }
-  else addEvent('yellow_card', { playerId: pid });
+  else {
+    addEvent('yellow_card', { playerId: pid });
+    const prevYellow = match.events.filter(e => e.type === 'yellow_card' && e.playerId === pid).length;
+    if (prevYellow >= 2) {
+      addEvent('red_card', { playerId: pid });
+      const p = match.players.find(x => x.id === pid);
+      if (p) p.onField = false;
+      showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');
+    }
+  }
   await dbSave(match); closeModal(); render();
   requestAnimationFrame(() => {
     const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
