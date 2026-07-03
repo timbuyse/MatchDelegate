@@ -2118,6 +2118,40 @@ function calcMinutes(m) {
   for (const [pid, entryMs] of Object.entries(entry)) if (mins[pid]) mins[pid].ms += totalMs - entryMs;
   return mins;
 }
+function calcMinutesPerQuarter(m) {
+  const qNums = [...new Set((m.quarters || []).map(q => q.num))].sort((a, b) => a - b);
+  if (qNums.length < 2) return null;
+  const totalMs = getGameTimeMs(m);
+  const qBounds = qNums.map((qNum, i) => {
+    const start = gameTimeMsAtStartOfQuarter(m, qNum);
+    const end = i + 1 < qNums.length ? gameTimeMsAtStartOfQuarter(m, qNums[i + 1]) : totalMs;
+    return { qNum, start, end };
+  });
+  const intervals = {};
+  for (const p of m.players) intervals[p.id] = [];
+  const entry = {};
+  for (const p of m.players) if (p.starting) entry[p.id] = 0;
+  const evts = [...m.events].sort((a, b) => a.gameTimeMs - b.gameTimeMs);
+  for (const e of evts) {
+    if (e.type === 'substitution') {
+      if (entry[e.playerOutId] !== undefined) { intervals[e.playerOutId].push({ start: entry[e.playerOutId], end: e.gameTimeMs }); delete entry[e.playerOutId]; }
+      entry[e.playerInId] = e.gameTimeMs;
+    }
+    if (e.type === 'red_card' && entry[e.playerId] !== undefined) { intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs }); delete entry[e.playerId]; }
+    if (e.type === 'injury' && e.leavesField && entry[e.playerId] !== undefined) { intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs }); delete entry[e.playerId]; }
+  }
+  for (const [pid, ms] of Object.entries(entry)) if (intervals[pid]) intervals[pid].push({ start: ms, end: totalMs });
+  const result = {};
+  for (const p of m.players) {
+    result[p.id] = {};
+    for (const { qNum, start: qs, end: qe } of qBounds) {
+      let ms = 0;
+      for (const { start, end } of intervals[p.id]) ms += Math.max(0, Math.min(end, qe) - Math.max(start, qs));
+      result[p.id][qNum] = ms;
+    }
+  }
+  return { qNums, result };
+}
 
 function pName(m, id){ const p = m.players.find(x=>x.id===id); return p ? p.name : '?'; }
 function evtLabel(e, m) {
@@ -4924,7 +4958,7 @@ function renderLive() {
     return `<div class="qdot ${cls}"></div>`;
   }).join('');
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
-  if (ro && tab === 'wedstrijd') tab = 'log';
+  if (ro && tab === 'wedstrijd') tab = 'opstelling';
   const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
@@ -6159,6 +6193,25 @@ function renderDetail() {
       ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
+    ${(() => {
+      const ev = match.events;
+      const st = (type) => ev.filter(e => e.type === type).length;
+      const rows = [
+        [icI(IC.shot)   + ' Schoten',      `${st('shot_us')} (${ev.filter(e=>e.type==='shot_us'&&e.onTarget).length} op doel)`,   `${st('shot_them')} (${ev.filter(e=>e.type==='shot_them'&&e.onTarget).length} op doel)`],
+        [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
+        [icI(IC.ball)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
+        [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
+        [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), ''],
+        [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    ''],
+      ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
+      if (!rows.length) return '';
+      return `<div class="sec">Wedstrijdstatistieken</div><div class="card">
+        <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
+          <div style="flex:1"></div><div style="min-width:90px;text-align:right">Voor</div><div style="min-width:70px;text-align:right">Tegen</div>
+        </div>
+        ${rows.map(([label,a,b])=>`<div class="stat-row"><span style="flex:1">${label}</span><span style="min-width:90px;text-align:right;font-weight:700">${a}</span><span style="min-width:70px;text-align:right;color:var(--txt2)">${b}</span></div>`).join('')}
+      </div>`;
+    })()}
     ${ro ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
@@ -6174,7 +6227,19 @@ function renderDetail() {
         <div style="flex:1">Speler</div>
         <div class="pmins" style="font-size:11px">Min · %</div>
       </div>
-      ${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}
+      ${(() => {
+        const qData = calcMinutesPerQuarter(match);
+        const abbr = pAbbr(match);
+        return match.players.map(p => {
+          const row = playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match));
+          if (!qData) return row;
+          const parts = qData.qNums.map(qNum => {
+            const ms = qData.result[p.id]?.[qNum] || 0;
+            return `${abbr}${qNum}: ${ms > 0 ? Math.round(ms/60000)+"'" : '—'}`;
+          });
+          return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
+        }).join('');
+      })()}
     </div>
     ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
