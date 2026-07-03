@@ -5443,7 +5443,7 @@ async function shareReport() {
   if (ycLine) lines.push(`🟨 ${ycLine}`);
   if (rcLine) lines.push(`🟥 ${rcLine}`);
   if (m.motmId) lines.push(`⭐ Man v/d match: ${pName(m, m.motmId)}`);
-  if (m.notes) lines.push('', m.notes);
+  if (isAdmin && m.notes) lines.push('', m.notes);
   // Volgende geplande wedstrijd van dezelfde ploeg
   try {
     const all = await dbAll();
@@ -6159,11 +6159,11 @@ function renderDetail() {
       ${[['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
-    <div class="sec">Notities</div>
+    ${ro ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
-      ${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
-    </div>
+      <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
+    </div>`}
     <div class="sec">Opstelling</div>
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
@@ -6176,7 +6176,7 @@ function renderDetail() {
       </div>
       ${match.players.map(p => playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match))).join('')}
     </div>
-    ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler</div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
+    ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
