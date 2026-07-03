@@ -2168,8 +2168,8 @@ function evtLabel(e, m) {
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
-    case 'freekick_them': return `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trap tegen`;
+    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
+    case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen`;
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
@@ -2208,12 +2208,19 @@ function eventsByQuarter(m) {
 function renderEventLog(m) {
   const groups = eventsByQuarter(m);
   if (!groups.length) return '<p style="color:var(--txt2);font-size:14px">Geen events.</p>';
+  const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
+  const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']);
+  const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   return groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
-    const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
-    const items = g.list.length
-      ? g.list.map(e => `<li><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`).join('')
+    const list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
+    const items = list.length
+      ? list.map(e => {
+          const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
+          const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
+          return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`;
+        }).join('')
       : '<li class="qgroup-empty">Geen events in dit deel.</li>';
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
@@ -6199,7 +6206,7 @@ function renderDetail() {
       const rows = [
         [icI(IC.shot)   + ' Schoten',      `${st('shot_us')} (${ev.filter(e=>e.type==='shot_us'&&e.onTarget).length} op doel)`,   `${st('shot_them')} (${ev.filter(e=>e.type==='shot_them'&&e.onTarget).length} op doel)`],
         [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
-        [icI(IC.ball)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
+        [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
         [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
         [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), ''],
         [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    ''],
@@ -6382,7 +6389,7 @@ function exportPDF() {
       <div>Schoten op doel: <b>${m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length}</b> – ${m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length}</div>
 
       <div>Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}</div>
-      <div>Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}</div>
+      <div><i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}</div>
       <div>Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}</div>
       <div>🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}</div>
     </div>
