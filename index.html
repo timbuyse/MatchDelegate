@@ -3127,7 +3127,7 @@ const HANDLEIDING_PAGINAS = [
         </li>
         <li>Wissels kunnen ook <b>tijdens de pauze</b> doorgevoerd worden.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
-        <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Log</b>.</li>
+        <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
         <li>Tik op <b>'Deel score via WhatsApp'</b> om de stand te delen.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
       </ol>
@@ -4965,7 +4965,7 @@ function renderLive() {
     return `<div class="qdot ${cls}"></div>`;
   }).join('');
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
-  if (ro && tab === 'wedstrijd') tab = 'opstelling';
+  if (ro && tab === 'wedstrijd') tab = 'log';
   const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
@@ -5044,7 +5044,7 @@ function renderLive() {
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling</button>
-    <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">${IC.log}</span>Log</button>
+    <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">${IC.log}</span>Verloop</button>
   </div>`;
 }
 
@@ -5772,7 +5772,8 @@ function showUndoToast(html) {
 // ===================== MODALS: GOAL (+ assist) =====================
 let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false;
 function modalGoal() {
-  const on = playersOnFieldForEvent(match);
+  const goalCount = id => match.events.filter(e => (e.type==='goal_us'||e.type==='penalty_us') && e.playerId===id).length;
+  const on = playersOnFieldForEvent(match).slice().sort((a,b) => goalCount(b.id)-goalCount(a.id) || (Number(a.number)||99)-(Number(b.number)||99));
   goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
   openModal(`
     <h3>${icI(IC.goal)} Goal</h3>
@@ -6383,16 +6384,17 @@ function exportPDF() {
     ${m.quarters.length?`<h2>Tussenstand per ${pSingLow(m)}</h2>
     <table><thead><tr><th>${pSing(m)}</th><th>Tussenstand</th><th>Duur</th><th>Doelpunten</th></tr></thead>
     <tbody>${perQuarterRows}</tbody></table>`:''}
-    <h2>Wedstrijdstatistieken</h2>
-    <div class="stats">
-      <div>Schoten: <b>${stat('shot_us')}</b> – ${stat('shot_them')}</div>
-      <div>Schoten op doel: <b>${m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length}</b> – ${m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length}</div>
-
-      <div>Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}</div>
-      <div><i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}</div>
-      <div>Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}</div>
-      <div>🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}</div>
-    </div>
+    ${(()=>{
+      const pdfStats = [
+        [stat('shot_us')+stat('shot_them'), `Schoten: <b>${stat('shot_us')}</b> – ${stat('shot_them')}`],
+        [m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length+m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length, `Schoten op doel: <b>${m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length}</b> – ${m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length}`],
+        [stat('corner_us')+stat('corner_them'), `Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}`],
+        [stat('freekick_us')+stat('freekick_them'), `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}`],
+        [stat('penalty_us')+stat('penalty_them'), `Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}`],
+        [stat('yellow_card')+stat('red_card'), `🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}`],
+      ].filter(([n]) => n > 0);
+      return pdfStats.length ? `<h2>Wedstrijdstatistieken</h2><div class="stats">${pdfStats.map(([,html])=>`<div>${html}</div>`).join('')}</div>` : '';
+    })()}
     <h2>Spelers</h2>
     <table><thead><tr><th>#</th><th>Naam</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
