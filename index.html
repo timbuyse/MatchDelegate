@@ -680,6 +680,7 @@ function dbGet(id) {
   });
 }
 function dbSave(m) {
+  m.updatedAt = Date.now();
   return new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').put(m);
     r.onsuccess = () => { cloudOnLocalMatchSave(m); res(); };
@@ -1322,6 +1323,16 @@ async function applyCloudMatches(obj) {
     if (!Array.isArray(m.events)) m.events = [];
     if (!Array.isArray(m.players)) m.players = [];
     if (!Array.isArray(m.quarters)) m.quarters = [];
+    // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
+    const existing = await dbGet(id);
+    if (existing && Array.isArray(existing.events) && existing.events.length) {
+      const cloudEventIds = new Set(m.events.map(e => e.id));
+      const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id));
+      if (localOnly.length) {
+        m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+        recomputeScore(m);
+      }
+    }
     await dbPutLocal(m);
     // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
     if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
@@ -2763,7 +2774,7 @@ function currentSeasonLabel() {
 function openPlayerDetail(name, teamName, rosterId) {
   name = (name || '').trim();
   if (!name) return;
-  playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = currentSeasonLabel(); _playerDetailFrom = view;
+  playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = null; _playerDetailFrom = view;
   go('playerDetail');
 }
 function setPlayerDetailSeason(v) { playerDetailSeason = v; loadPlayerDetail(); }
@@ -2775,11 +2786,20 @@ async function loadPlayerDetail() {
   const rosterId = playerDetailRosterId || null;
   const inTeam = m => !playerDetailTeamName || m.teamName === playerDetailTeamName;
   // Matcht bij voorkeur op het stabiele ploegrooster-id; oudere matches zonder rosterId vallen terug op naam.
-  const findPlayer = m => rosterId ? (m.players || []).find(p => p.rosterId === rosterId) : (m.players || []).find(p => (p.name || '').trim() === name);
+  const findPlayer = m => {
+    const players = m.players || [];
+    if (rosterId) {
+      const byId = players.find(p => p.rosterId === rosterId);
+      if (byId) return byId;
+    }
+    return players.find(p => (p.name || '').trim() === name);
+  };
   // Tornooiwedstrijden tellen niet mee bij gespeeld/doelpunten/etc. — die krijgen hieronder een apart "Tornooien"-kadertje.
   const allDone = all.filter(m => m.status === 'done' && !m.tournamentId && inTeam(m) && findPlayer(m));
   const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
-  if (playerDetailSeason !== 'all' && !seasons.includes(playerDetailSeason)) playerDetailSeason = 'all';
+  if (!playerDetailSeason || (playerDetailSeason !== 'all' && !seasons.includes(playerDetailSeason))) {
+    playerDetailSeason = seasons[0] || 'all';
+  }
   const filterBar = allDone.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
       <option value="all" ${playerDetailSeason==='all'?'selected':''}>Alle seizoenen</option>
       ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
