@@ -6400,8 +6400,8 @@ function exportPDF() {
     <h2>Spelers</h2>
     <table><thead><tr><th>#</th><th>Naam</th><th>Totaal</th>${qData ? qData.qNums.map(qNum=>`<th style="text-align:center">${pAbbr(m)}${qNum}</th>`).join('') : ''}<th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
-    ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
+    ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
     <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
     <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">Match Delegate · ${esc(getClubName())} · app created by Tim Buyse</p>
