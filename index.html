@@ -2672,7 +2672,8 @@ async function loadStats() {
   if (cloudReady) statsFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
   if (seasonFilter !== 'all' && !seasons.includes(seasonFilter)) seasonFilter = 'all';
-  const list = all.filter(m => m.status === 'done' && (statsFilter === 'all' || m.teamName === statsFilter) && (seasonFilter === 'all' || seasonOf(m) === seasonFilter));
+  // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
+  const list = all.filter(m => m.status === 'done' && !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter) && (seasonFilter === 'all' || seasonOf(m) === seasonFilter));
   const filterBar = `${(!cloudReady && teams.length) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
@@ -2681,32 +2682,43 @@ async function loadStats() {
       ${seasons.map(s => `<option value="${s}" ${seasonFilter===s?'selected':''}>Seizoen ${s}</option>`).join('')}
     </select></div>` : ''}`;
   if (!list.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen wedstrijden.</p></div>`; return; }
+  // Oudste eerst verwerken, zodat de weergavenaam van een speler steeds de meest recente is (bv. na een naamscorrectie).
+  const sortedList = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
   const pl = {};
-  const getp = (name, num) => { const k = (name || 'Speler').trim(); return pl[k] || (pl[k] = { name: k, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, absent: 0, lines: {} }); };
-  for (const m of list) {
+  // Groepeert op rosterId wanneer beschikbaar (stabiel over naamswijzigingen heen), anders op naam (oude matches, gasten).
+  const getp = (rosterId, name, num) => {
+    const nm = (name || 'Speler').trim();
+    const k = rosterId || nm;
+    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, absent: 0, lines: {} });
+    if (name) r.name = nm;
+    if (num) r.number = num;
+    return r;
+  };
+  const getpById = (m, id) => { const p = m.players.find(x => x.id === id); return p ? getp(p.rosterId, p.name, p.number) : getp(null, pName(m, id)); };
+  for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
     if (m.scoreUs > m.scoreThem) w++; else if (m.scoreUs < m.scoreThem) l++; else d++;
     if (m.scoreThem === 0) cleanSheets++;
     const mins = calcMinutes(m);
     for (const p of (m.players || [])) {
-      const r = getp(p.name, p.number); const ms = mins[p.id] ? mins[p.id].ms : 0;
+      const r = getp(p.rosterId, p.name, p.number); const ms = mins[p.id] ? mins[p.id].ms : 0;
       r.squad++;
       if (ms > 0) { r.mp++; r.lines[p.line] = (r.lines[p.line] || 0) + 1; }
       r.ms += ms;
       if (ms > 0 && p.line === 'Doel' && m.scoreThem === 0) r.cs++;  // clean sheet voor de keeper
     }
-    for (const name of (m.absentPlayers || [])) { const r = getp(name); r.absent++; }
+    for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; const r = getp(ab.rosterId, ab.name); r.absent++; }
     for (const e of m.events) {
-      if (e.type === 'goal_us' && e.playerId) { getp(pName(m, e.playerId)).goals++; if (e.assistId) getp(pName(m, e.assistId)).assists++; }
-      if (e.type === 'penalty_us' && e.scored && e.playerId) getp(pName(m, e.playerId)).goals++;  // strafschopdoelpunt telt mee
-      if (e.type === 'yellow_card' && e.playerId) getp(pName(m, e.playerId)).yc++;
-      if (e.type === 'red_card' && e.playerId) getp(pName(m, e.playerId)).rc++;
+      if (e.type === 'goal_us' && e.playerId) { getpById(m, e.playerId).goals++; if (e.assistId) getpById(m, e.assistId).assists++; }
+      if (e.type === 'penalty_us' && e.scored && e.playerId) getpById(m, e.playerId).goals++;  // strafschopdoelpunt telt mee
+      if (e.type === 'yellow_card' && e.playerId) getpById(m, e.playerId).yc++;
+      if (e.type === 'red_card' && e.playerId) getpById(m, e.playerId).rc++;
     }
   }
   const players = Object.values(pl);
   const pDetTeam = statsFilter !== 'all' ? statsFilter : '';
-  const prow = p => `style="cursor:pointer" onclick="openPlayerDetail('${jsq(p.name)}','${jsq(pDetTeam)}')"`;
+  const prow = p => `style="cursor:pointer" onclick="openPlayerDetail('${jsq(p.name)}','${jsq(pDetTeam)}','${jsq(p.rosterId || '')}')"`;
   const topList = (arr, val, unit) => arr.length ? arr.map((p, i) => `<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${val(p)}${unit}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>';
   const scorers = players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 10);
   const assisters = players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 10);
@@ -2742,29 +2754,46 @@ async function loadStats() {
 }
 
 // ===================== SPELERSDETAIL =====================
-let playerDetailName = null, playerDetailTeamName = null, _playerDetailFrom = 'stats';
-function openPlayerDetail(name, teamName) {
+let playerDetailName = null, playerDetailTeamName = null, playerDetailRosterId = null, playerDetailSeason = 'all', _playerDetailFrom = 'stats';
+// Huidig Belgisch voetbalseizoen (juli–juni) op basis van vandaag.
+function currentSeasonLabel() {
+  const d = new Date(), y = d.getFullYear(), start = d.getMonth() >= 6 ? y : y - 1;
+  return `${start}/${start + 1}`;
+}
+function openPlayerDetail(name, teamName, rosterId) {
   name = (name || '').trim();
   if (!name) return;
-  playerDetailName = name; playerDetailTeamName = teamName || null; _playerDetailFrom = view;
+  playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = currentSeasonLabel(); _playerDetailFrom = view;
   go('playerDetail');
 }
+function setPlayerDetailSeason(v) { playerDetailSeason = v; loadPlayerDetail(); }
 async function loadPlayerDetail() {
   const all = await dbAll();
   const el = document.getElementById('player-detail-content');
   if (!el) return;
   const name = (playerDetailName || '').trim();
+  const rosterId = playerDetailRosterId || null;
   const inTeam = m => !playerDetailTeamName || m.teamName === playerDetailTeamName;
-  const doneList = all.filter(m => m.status === 'done' && inTeam(m) && (m.players || []).some(p => (p.name || '').trim() === name));
+  // Matcht bij voorkeur op het stabiele ploegrooster-id; oudere matches zonder rosterId vallen terug op naam.
+  const findPlayer = m => rosterId ? (m.players || []).find(p => p.rosterId === rosterId) : (m.players || []).find(p => (p.name || '').trim() === name);
+  // Tornooiwedstrijden tellen niet mee bij gespeeld/doelpunten/etc. — die krijgen hieronder een apart "Tornooien"-kadertje.
+  const allDone = all.filter(m => m.status === 'done' && !m.tournamentId && inTeam(m) && findPlayer(m));
+  const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
+  if (playerDetailSeason !== 'all' && !seasons.includes(playerDetailSeason)) playerDetailSeason = 'all';
+  const filterBar = allDone.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
+      <option value="all" ${playerDetailSeason==='all'?'selected':''}>Alle seizoenen</option>
+      ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
+    </select></div>` : '';
+  const doneList = allDone.filter(m => playerDetailSeason === 'all' || seasonOf(m) === playerDetailSeason);
   doneList.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
-  if (!doneList.length) { el.innerHTML = `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen gespeelde wedstrijden voor ${esc(name)}.</p></div>`; return; }
+  if (!doneList.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason!=='all'?(' in seizoen '+playerDetailSeason):''}.</p></div>`; return; }
   let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
   const rows = [];
   for (const m of doneList) {
-    const pl = m.players.find(p => (p.name || '').trim() === name);
+    const pl = findPlayer(m);
     if (!pl) continue;
     if (pl.number) number = pl.number;
-    if (pl.pos) pos = pl.pos;
+    if (pl.line) pos = pl.line;
     const mins = calcMinutes(m);
     const pms = mins[pl.id] ? mins[pl.id].ms : 0;
     let g = 0, a = 0, y = 0, r = 0;
@@ -2780,11 +2809,20 @@ async function loadPlayerDetail() {
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
-  for (const m of all.filter(m2 => m2.status === 'done' && inTeam(m2))) {
-    if ((m.absentPlayers || []).some(n => (n || '').trim() === name)) absent++;
+  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && (playerDetailSeason === 'all' || seasonOf(m2) === playerDetailSeason))) {
+    const wasAbsent = (m.absentPlayers || []).some(a => { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; return rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name; });
+    if (wasAbsent) absent++;
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
-  el.innerHTML = `
+  // Aparte telling: in hoeveel tornooien de speler geselecteerd stond (aantal wedstrijden binnen dat tornooi is niet relevant).
+  const inTournamentSquad = t => {
+    const squad = t.squad || {};
+    const pool = squad.players ? squad.players.filter(s => s.sel !== 'absent') : [...(squad.base || []), ...(squad.bench || [])];
+    return pool.some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
+  };
+  const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
+  const tournamentCount = getTournaments().filter(t => tInTeam(t) && (playerDetailSeason === 'all' || seasonOf(t) === playerDetailSeason) && inTournamentSquad(t)).length;
+  el.innerHTML = filterBar + `
     <div class="card">
       <div style="text-align:center;margin-bottom:10px">
         <div style="font-size:20px;font-weight:800">${esc(name)}</div>
@@ -2801,6 +2839,7 @@ async function loadPlayerDetail() {
         <div class="stat-box"><div class="v">${pct != null ? pct + '%' : '–'}</div><div class="l">Aanwezig</div></div>
       </div>
     </div>
+    ${tournamentCount ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>` : ''}
     ${(yc || rc) ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card"><div class="stat-row"><span style="flex:1">Gele kaarten</span><span style="font-weight:800">${yc}</span></div><div class="stat-row"><span style="flex:1">Rode kaarten</span><span style="font-weight:800">${rc}</span></div></div>` : ''}
     ${keeperApps ? `<div class="sec">${icI(IC.save)} Als doelman</div><div class="card"><div class="stat-row"><span style="flex:1">Wedstrijden in doel</span><span style="font-weight:800">${keeperApps}</span></div><div class="stat-row"><span style="flex:1">Clean sheets</span><span style="font-weight:800">${cs}</span></div></div>` : ''}
     <div class="sec">${icI(IC.ball)} Wedstrijden</div>
@@ -3558,7 +3597,7 @@ function renderTeamView() {
   const t = editingTeam;
   const trainers = (t.trainers || []).filter(tr => tr.name);
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}')">
+  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(p.pos)}</span>`:''}
@@ -3578,7 +3617,7 @@ function renderTeamOverview() {
   const t = editingTeam;
   const trainers = (t.trainers || []).filter(tr => tr.name);
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}')">
+  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(p.pos)}</span>`:''}
@@ -4587,8 +4626,19 @@ async function finishWizard(startNow) {
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
   if (unplaced.length) { showToast(`Plaats nog ${unplaced.length} speler(s) op het veld.`, 'err'); return; }
   const team = teamById(wiz.teamId);
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: uid(), name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  const existing = wiz.editId ? await dbGet(wiz.editId) : null;
+  // Hergebruik het bestaande speler-id bij het herbewerken van een wedstrijd, zodat reeds
+  // gelogde events (playerId/assistId) geldig blijven i.p.v. te verwijzen naar niemand meer.
+  const prevPlayers = (existing && Array.isArray(existing.players)) ? existing.players : [];
+  const usedPrevIds = new Set();
+  const resolvePlayerId = p => {
+    let prev = p.srcId ? prevPlayers.find(x => x.rosterId && x.rosterId === p.srcId && !usedPrevIds.has(x.id)) : null;
+    if (!prev) prev = prevPlayers.find(x => !usedPrevIds.has(x.id) && (x.name || '').trim() === (p.name || '').trim());
+    if (prev) { usedPrevIds.add(prev.id); return prev.id; }
+    return uid();
+  };
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
   const allP = starters.concat(bench);
   let capId = null;
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
@@ -4601,14 +4651,13 @@ async function finishWizard(startNow) {
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
     players: allP,
-    absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => p.name),
+    absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null })),
   };
   let m;
   if (wiz.editId) {
-    const existing = await dbGet(wiz.editId);
     m = Object.assign(existing || {}, common);
     m.status = startNow ? 'live' : (m.status === 'live' ? 'live' : 'planned');
-    m.captainId = capId; m.motmId = null; // spelers kregen nieuwe id's
+    m.captainId = capId; m.motmId = null;
   } else {
     m = Object.assign({ id: uid(), createdAt: Date.now(), notes: '', motmId: null, captainId: null, quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [] }, common);
     m.captainId = capId;
@@ -4629,7 +4678,7 @@ function editMatchWizard(m) {
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
-    pool: m.players.map(p => ({ pid: uid(), srcId: null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
+    pool: m.players.map(p => ({ pid: uid(), srcId: p.rosterId || null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
     formationIndex: fi, selPlace: null,
   };
   wiz.poolTeamId = m.players.length ? wiz.teamId : null; // lege pool → herbouwen vanuit ploeg
