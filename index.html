@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Match Delegate">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="fonts/tabler-icons.min.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="MD_cropped.png">
   <link rel="apple-touch-icon" href="MD_cropped.png">
@@ -5505,8 +5505,8 @@ function modalExtra() {
     ${opt(`${icI(IC.corner)} Hoekschop voor ons`, "logCorner('us')")}
     ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
-    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "logExtra('disallowed_us')")}
-    ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "logExtra('disallowed_them')")}
+    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "modalDisallowed('us')")}
+    ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "modalDisallowed('them')")}
     <div class="sec">${icI(IC.shirt)} Opstelling</div>
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
@@ -5527,8 +5527,15 @@ async function setMatchCaptain(id) {
   await dbSave(match); closeModal(); render();
 }
 async function logExtra(type, extra = {}) {
-  if (type === 'disallowed_us' || type === 'disallowed_them') { const r = prompt('Reden van afkeuring? (bv. buitenspel)', 'buitenspel'); extra.reason = (r || '').trim(); }
   addEvent(type, extra); await dbSave(match); closeModal(); render();
+}
+function modalDisallowed(side) {
+  const type = side === 'us' ? 'disallowed_us' : 'disallowed_them';
+  const label = side === 'us' ? 'voor ons' : 'tegen';
+  openModal(`<h3>${icI(IC.disallowed)} Afgekeurd doelpunt ${label}</h3>
+    <div class="fg"><label>Reden (optioneel)</label><input id="disallowed-reason" type="text" placeholder="bv. buitenspel" value="buitenspel" autocomplete="off"></div>
+    <button class="btn btn-org" onclick="logExtra('${type}',{reason:(document.getElementById('disallowed-reason').value||'').trim()})">Registreren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function hasUndo() { return match && match.events.some(e => e.type !== 'quarter_start' && e.type !== 'quarter_end'); }
 async function undoLast() {
@@ -6058,7 +6065,7 @@ function exportPDF() {
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"><title>${matchTitle(m)}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+    <link rel="stylesheet" href="fonts/tabler-icons.min.css">
     <style>
       body{font-family:Arial,sans-serif;color:#171717;padding:24px;max-width:800px;margin:0 auto}
       .top{display:flex;align-items:center;gap:14px;border-bottom:3px solid #f5821f;padding-bottom:14px;margin-bottom:18px}
