@@ -6284,13 +6284,15 @@ function exportPDF() {
   const assists = {};
   goals.forEach(e => { if (e.assistId){ const n = pName(m,e.assistId); assists[n]=(assists[n]||0)+1; } });
 
+  const qData = calcMinutesPerQuarter(m);
   const playerRows = m.players.map(p => {
     const min = mins[p.id] ? Math.floor(mins[p.id].ms/60000) : 0;
     const g = m.events.filter(e=>(e.type==='goal_us'||(e.type==='penalty_us'&&e.scored))&&e.playerId===p.id).length;
     const a = m.events.filter(e=>e.type==='goal_us'&&e.assistId===p.id).length;
     const yc = m.events.filter(e=>e.type==='yellow_card'&&e.playerId===p.id).length;
     const rc = m.events.filter(e=>e.type==='red_card'&&e.playerId===p.id).length;
-    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center">${min}'</td><td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
+    const qCells = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum]||0; return `<td style="text-align:center;color:#6b7280">${ms>0?Math.round(ms/60000)+"'":'—'}</td>`; }).join('') : '';
+    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center;font-weight:700">${min}'</td>${qCells}<td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
 
   const infoBits = [m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein: ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
@@ -6396,7 +6398,7 @@ function exportPDF() {
       return pdfStats.length ? `<h2>Wedstrijdstatistieken</h2><div class="stats">${pdfStats.map(([,html])=>`<div>${html}</div>`).join('')}</div>` : '';
     })()}
     <h2>Spelers</h2>
-    <table><thead><tr><th>#</th><th>Naam</th><th>Speeltijd</th><th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
+    <table><thead><tr><th>#</th><th>Naam</th><th>Totaal</th>${qData ? qData.qNums.map(qNum=>`<th style="text-align:center">${pAbbr(m)}${qNum}</th>`).join('') : ''}<th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
     ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
