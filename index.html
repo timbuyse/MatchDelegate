@@ -71,6 +71,10 @@
     .fg input:focus,.fg select:focus{outline:none;border-color:var(--grn)}
     .fg textarea{width:100%;padding:12px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);font-family:inherit;resize:vertical;-webkit-appearance:none}
     .fg textarea:focus{outline:none;border-color:var(--grn)}
+    .fg-pwd{position:relative}.fg-pwd input{padding-right:44px!important}
+    .pwd-eye{position:absolute;right:2px;bottom:2px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--txt);opacity:.5;font-size:20px;border-radius:6px;line-height:1}
+    .pwd-eye:hover{opacity:1}
+    body.dark .pwd-eye{color:#e8eaed}
     .chkrow{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:600;color:var(--txt2);text-transform:none;letter-spacing:0}
     .chkrow input{width:auto;transform:scale(1.3)}
     .team-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -1136,7 +1140,7 @@ function ownerDeleteTeam(tid, naam) {
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--rd);font-size:13px;margin-bottom:10px"><b>${esc(naam)}</b> — alle data gaat permanent verloren.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg"><input id="owndel-pwd" type="password" placeholder="wachtwoord" autofocus></div>
+    <div class="fg fg-pwd"><input id="owndel-pwd" type="password" placeholder="wachtwoord" autofocus><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     <div class="auth-err" id="owndel-err"></div>
     <button class="btn btn-red" onclick="doOwnerDeleteTeam('${tid}')">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="showAllUsersModal()">Annuleren</button>`);
@@ -1768,7 +1772,7 @@ function renderAuth() {
       </div>
       <div id="auth-login-form">
         <div class="fg"><label>E-mailadres</label><input id="auth-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
-        <div class="fg"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"></div>
+        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
         <div class="auth-err" id="auth-err"></div>
         <button class="btn btn-org" onclick="authDoLogin()">Aanmelden</button>
         <button class="btn btn-gray" style="margin-top:8px" onclick="authForgotPassword()">Wachtwoord vergeten?</button>
@@ -1776,8 +1780,8 @@ function renderAuth() {
       <div id="auth-register-form" style="display:none">
         <div class="fg"><label>Naam</label><input id="reg-name" type="text" autocomplete="name" placeholder="Jan Peeters"></div>
         <div class="fg"><label>E-mailadres</label><input id="reg-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
-        <div class="fg"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
-        <div class="fg"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"></div>
+        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+        <div class="fg fg-pwd"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
         <div class="auth-err" id="reg-err"></div>
         <button class="btn btn-org" onclick="authDoRegister()">Account aanmaken</button>
       </div>
@@ -2283,6 +2287,15 @@ function updateTimerDisplay() {
 }
 
 // ===================== MODAL =====================
+function togglePwd(btn) {
+  const inp = btn.previousElementSibling;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.innerHTML = show ? '<i class="ti ti-eye-off"></i>' : '<i class="ti ti-eye"></i>';
+}
+function pwdField(id, placeholder, extra) {
+  return `<div class="fg fg-pwd"><input id="${id}" type="password" placeholder="${placeholder}"${extra||''}><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>`;
+}
 function openModal(html) {
   const el = document.getElementById('modal');
   el.innerHTML = `<div class="modal-ov" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
@@ -3435,7 +3448,7 @@ function confirmChangeEmail() {
   openModal(`<h3>E-mailadres wijzigen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Je krijgt een bevestigingsmail op je <b>nieuwe</b> adres. Pas nadat je die link aanklikt, wordt je e-mailadres aangepast. Je rol en ploegen blijven behouden.</p>
     <div class="fg"><label>Nieuw e-mailadres</label><input id="ce-email" type="email" placeholder="nieuw@example.com"></div>
-    <div class="fg"><label>Huidig wachtwoord</label><input id="ce-pwd" type="password" placeholder="wachtwoord"></div>
+    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="ce-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     <div class="auth-err" id="ce-err"></div>
     <button class="btn btn-green" onclick="doChangeEmail()">Bevestigingsmail versturen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3463,9 +3476,9 @@ async function doChangeEmail() {
 
 function confirmChangePassword() {
   openModal(`<h3><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</h3>
-    <div class="fg"><label>Huidig wachtwoord</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="huidig wachtwoord"></div>
-    <div class="fg"><label>Nieuw wachtwoord</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="min. 6 tekens"></div>
-    <div class="fg"><label>Nieuw wachtwoord bevestigen</label><input id="cp-new2" type="password" autocomplete="new-password" placeholder="herhaal nieuw wachtwoord"></div>
+    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="huidig wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><label>Nieuw wachtwoord</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><label>Nieuw wachtwoord bevestigen</label><input id="cp-new2" type="password" autocomplete="new-password" placeholder="herhaal nieuw wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     <div class="auth-err" id="cp-err"></div>
     <button class="btn btn-green" onclick="doChangePassword()">Wachtwoord wijzigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3515,7 +3528,7 @@ function confirmDeleteAccount() {
   openModal(`<h3>Account verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">Je account wordt permanent verwijderd. Je ploegen en data in de cloud blijven bewaard voor andere leden.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:16px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg"><input id="del-pwd" type="password" placeholder="wachtwoord"></div>
+    <div class="fg fg-pwd"><input id="del-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     <div class="auth-err" id="del-err"></div>
     <button class="btn btn-red" onclick="doDeleteAccount()">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3583,7 +3596,7 @@ async function confirmDeleteCloudTeam() {
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg"><input id="delteam-pwd" type="password" placeholder="wachtwoord"></div>
+    <div class="fg fg-pwd"><input id="delteam-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
     <div class="auth-err" id="delteam-err"></div>
     <button class="btn btn-red" onclick="doDeleteCloudTeam()">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
