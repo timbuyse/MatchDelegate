@@ -329,7 +329,7 @@
     /* Splash */
     #splash{position:fixed;inset:0;background:url('background_logo.jpg') center/cover no-repeat;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;pointer-events:none}
     #splash::before{content:'';position:absolute;inset:0;background:rgba(10,18,35,0.55)}
-    #splash img{width:140px;height:140px;object-fit:contain;position:relative;animation:splashLogo .7s cubic-bezier(.22,1,.36,1) both}
+    #splash img{width:140px;height:140px;object-fit:contain;position:relative}
     #splash-bar{width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;position:relative;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
     #splash-titles{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;opacity:0;animation:splashFade .5s .7s ease forwards}
     #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
