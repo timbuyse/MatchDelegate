@@ -2080,8 +2080,8 @@ function eventMinLocal(e, m) {
   const extraMin = Math.ceil((withinQ - nomMs) / 60000);
   return `${m.quarterDuration || 15}'+${extraMin}'`;
 }
-function playersOnField(m) { return m.players.filter(p => p.onField); }
-function playersOnBench(m) { return m.players.filter(p => !p.onField); }
+function playersOnField(m) { return m.players.filter(p => p.onField && !p.absent); }
+function playersOnBench(m) { return m.players.filter(p => !p.onField && !p.absent); }
 // Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
 function playersOnFieldForEvent(m) {
   if (_postEventQuarter != null) return playersAtPeriodStart(m, _postEventQuarter);
@@ -2103,8 +2103,8 @@ function effectiveOnField(m) {
 
 function calcMinutes(m) {
   const mins = {}, totalMs = getGameTimeMs(m), entry = {};
-  for (const p of m.players) mins[p.id] = { ms: 0 };
-  for (const p of m.players) if (p.starting) entry[p.id] = 0;
+  for (const p of m.players) mins[p.id] = { ms: 0, absent: !!p.absent };
+  for (const p of m.players) if (p.starting && !p.absent) entry[p.id] = 0;
   const evts = [...m.events].sort((a,b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of evts) {
     if (e.type === 'substitution') {
@@ -5031,14 +5031,16 @@ function renderLive() {
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score via WhatsApp</button>`;
   } else if (tab === 'opstelling') {
-    const on = playersOnField(match), off = playersOnBench(match), mins = calcMinutes(match);
+    const on = playersOnField(match), off = playersOnBench(match), absent = match.players.filter(p => p.absent), mins = calcMinutes(match);
+    const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
     tabContent = `
       ${miniScore}
       <div class="card">${renderPitch(match, on)}</div>
       <div class="card">
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
-        ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
-        ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match))).join('')}` : ''}
+        ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
+        ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
+        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow"><div class="pnum pnum-off" style="opacity:.4">${p.number||'?'}</div><div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div></div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
       </div>`;
   } else {
     tabContent = miniScore + (match.events.length
@@ -5061,7 +5063,15 @@ function renderLive() {
   </div>`;
 }
 
-function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
+function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
+  if (minsData && minsData.absent) {
+    const cap = (match && match.captainId === p.id) ? ` ${icI(IC.captain)}` : '';
+    return `<div class="prow" style="opacity:.5">
+      <div class="pnum pnum-off">${p.number||'?'}</div>
+      <div style="flex:1"><div class="pname" style="text-decoration:line-through">${esc(p.name)}${cap}</div></div>
+      <div class="pmins" style="margin-left:6px;color:var(--rd)">Afwezig</div>
+    </div>`;
+  }
   const ms = minsData ? minsData.ms : 0;
   const m = Math.floor(ms / 60000);
   const cap = (match && match.captainId === p.id) ? ` ${icI(IC.captain)}` : '';
@@ -5074,6 +5084,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0) {
     <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
     <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${bar}</div>
     <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
+    ${extraBtn}
   </div>`;
 }
 function setTab(t) { tab = t; render(); if (t==='wedstrijd') startTimer(); else stopTimer(); }
@@ -5737,6 +5748,27 @@ function modalExtra() {
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
+function modalMarkAbsent(pid) {
+  const p = match.players.find(pl => pl.id === pid);
+  if (!p) return;
+  openModal(`<h3>${icI(IC.injury)} Niet aanwezig</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(p.name)}</b> markeren als niet aanwezig?<br><span style="font-size:12px">Speeltijd wordt op 0 gezet. Dit is ongedaan te maken.</span></p>
+    <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Niet aanwezig</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doMarkAbsent(pid) {
+  const p = match.players.find(pl => pl.id === pid);
+  if (!p) return;
+  p.absent = true;
+  if (p.onField) p.onField = false;
+  await dbSave(match); closeModal(); render();
+}
+async function doUnmarkAbsent(pid) {
+  const p = match.players.find(pl => pl.id === pid);
+  if (!p) return;
+  p.absent = false;
+  await dbSave(match); render();
+}
 function modalSetCaptain() {
   const on = playersOnFieldForEvent(match);
   const cur = match.captainId;
@@ -6253,6 +6285,7 @@ function renderDetail() {
         const abbr = pAbbr(match);
         return match.players.map(p => {
           const row = playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match));
+          if (p.absent) return row;
           if (!qData) return row;
           const parts = qData.qNums.map(qNum => {
             const ms = qData.result[p.id]?.[qNum] || 0;
@@ -6304,6 +6337,10 @@ function exportPDF() {
     const a = m.events.filter(e=>e.type==='goal_us'&&e.assistId===p.id).length;
     const yc = m.events.filter(e=>e.type==='yellow_card'&&e.playerId===p.id).length;
     const rc = m.events.filter(e=>e.type==='red_card'&&e.playerId===p.id).length;
+    if (p.absent) {
+      const emptyCells = qData ? qData.qNums.map(() => '<td></td>').join('') : '';
+      return `<tr style="color:#9ca3af"><td>${p.number||''}</td><td style="text-decoration:line-through">${esc(p.name)}</td><td style="text-align:center;color:#ef4444">Afwezig</td>${emptyCells}<td></td><td></td><td></td></tr>`;
+    }
     const qCells = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum]||0; return `<td style="text-align:center;color:#6b7280">${ms>0?Math.round(ms/60000)+"'":'—'}</td>`; }).join('') : '';
     return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center;font-weight:700">${min}'</td>${qCells}<td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
   }).join('');
