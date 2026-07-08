@@ -427,6 +427,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
 const MATCH_TYPES = {
@@ -734,7 +735,7 @@ const FB_CONFIG = {
   appId: "1:950872304129:web:e9d5b1e03a41bd9d9bae00"
 };
 
-let cloudReady = false, isAdmin = false, fbdb = null, fbauth = null;
+let cloudReady = false, isAdmin = false, fbdb = null, fbauth = null, fbstorage = null;
 let isGuest = false;       // anoniem ingelogde gast (beperkte toegang)
 let viewerMode = false;    // beheerder kijkt als kijker (tijdelijk)
 let activeTeamId = null;   // welke ploeg is actief
@@ -765,6 +766,7 @@ function cloudInit() {
     firebase.initializeApp(FB_CONFIG);
     fbdb = firebase.database();
     fbauth = firebase.auth();
+    fbstorage = firebase.storage();
     cloudReady = true;
     fbauth.onAuthStateChanged(onAuthChanged);
   } catch (e) { cloudReady = false; }
@@ -6324,17 +6326,42 @@ function pickPhoto(slot) {
   inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
+    // Altijd lokaal opslaan als base64 (offline fallback)
     const reader = new FileReader();
     reader.onload = async ev => {
-      match['photo' + slot] = ev.target.result;
+      const b64 = ev.target.result;
+      match['photo' + slot] = b64;
       await dbSave(match); render();
+      // Als cloud beschikbaar: ook uploaden naar Firebase Storage
+      if (fbstorage && activeTeamId && match.id) {
+        try {
+          showToast('Foto uploaden…', 'info');
+          const path = `teams/${activeTeamId}/matches/${match.id}/photo${slot}.jpg`;
+          const ref = fbstorage.ref(path);
+          await ref.putString(b64, 'data_url');
+          const url = await ref.getDownloadURL();
+          match['photo' + slot + 'url'] = url;
+          await dbSave(match);
+          showToast('Foto opgeslagen.', 'ok');
+        } catch (err) {
+          console.warn('Storage upload mislukt:', err);
+        }
+      }
     };
     reader.readAsDataURL(file);
   };
   inp.click();
 }
 async function deletePhoto(slot) {
+  // Verwijder uit Storage als URL beschikbaar
+  if (fbstorage && match['photo' + slot + 'url'] && activeTeamId && match.id) {
+    try {
+      const path = `teams/${activeTeamId}/matches/${match.id}/photo${slot}.jpg`;
+      await fbstorage.ref(path).delete();
+    } catch (err) { console.warn('Storage delete mislukt:', err); }
+  }
   delete match['photo' + slot];
+  delete match['photo' + slot + 'url'];
   await dbSave(match); render();
 }
 function photoSectionHtml(m, ro) {
@@ -6344,9 +6371,10 @@ function photoSectionHtml(m, ro) {
   ];
   const html = slots.map((s, i) => {
     const num = i + 1;
-    if (m[s.key]) {
+    const src = m[s.key + 'url'] || m[s.key]; // Storage URL heeft voorrang op base64
+    if (src) {
       return `<div class="photo-slot">
-        <img src="${m[s.key]}" alt="${s.label}">
+        <img src="${src}" alt="${s.label}">
         <div class="photo-slot-lbl">${s.label}</div>
         ${ro ? '' : `<button class="photo-del" onclick="deletePhoto(${num})" title="Verwijderen">×</button>`}
       </div>`;
@@ -6535,7 +6563,7 @@ function exportPDF() {
     <h2>Spelers</h2>
     <table><thead><tr><th>#</th><th>Naam</th><th>Totaal</th>${qData ? qData.qNums.map(qNum=>`<th style="text-align:center">${pAbbr(m)}${qNum}</th>`).join('') : ''}<th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
-    ${(m.photo1||m.photo2) ? `<h2>Foto's</h2><div style="display:flex;gap:12px;margin-bottom:8px">${m.photo1?`<img src="${m.photo1}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}${m.photo2?`<img src="${m.photo2}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}</div>` : ''}
+    ${(m.photo1||m.photo2||m.photo1url||m.photo2url) ? `<h2>Foto's</h2><div style="display:flex;gap:12px;margin-bottom:8px">${(m.photo1url||m.photo1)?`<img src="${m.photo1url||m.photo1}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}${(m.photo2url||m.photo2)?`<img src="${m.photo2url||m.photo2}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}</div>` : ''}
     ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
     ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
