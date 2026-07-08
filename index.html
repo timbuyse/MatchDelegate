@@ -84,6 +84,11 @@
     .filterbar{margin-bottom:12px}
     .filterbar select{width:100%;padding:11px;border:2px solid var(--bdr);border-radius:10px;font-size:15px;background:#fff;font-weight:600;color:var(--txt);-webkit-appearance:none}
     .notes-txt{white-space:pre-wrap;font-size:14px;line-height:1.45}
+    .photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+    .photo-slot{position:relative;border-radius:10px;overflow:hidden;background:var(--bg);border:2px dashed var(--bdr);aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--txt2);font-weight:600;gap:6px}
+    .photo-slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .photo-slot .photo-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:26px;height:26px;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .photo-slot-lbl{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;font-size:10px;font-weight:700;text-align:center;padding:3px;letter-spacing:.5px}
     .more-details{margin-top:6px;border-top:1px solid var(--bdr);padding-top:10px}
     .more-details summary{font-size:13px;font-weight:700;color:var(--grn2);cursor:pointer;list-style:none}
     .more-details summary::-webkit-details-marker{display:none}
@@ -6266,6 +6271,7 @@ function renderDetail() {
         ${rows.map(([label,a,b])=>`<div class="stat-row"><span style="flex:1">${label}</span><span style="min-width:90px;text-align:right;font-weight:700">${a}</span><span style="min-width:70px;text-align:right;color:var(--txt2)">${b}</span></div>`).join('')}
       </div>`;
     })()}
+    ${photoSectionHtml(match, ro)}
     ${ro ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
@@ -6312,6 +6318,47 @@ function renderDetail() {
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
   </div>`;
+}
+function pickPhoto(slot) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      match['photo' + slot] = ev.target.result;
+      await dbSave(match); render();
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
+async function deletePhoto(slot) {
+  delete match['photo' + slot];
+  await dbSave(match); render();
+}
+function photoSectionHtml(m, ro) {
+  const slots = [
+    { key: 'photo1', label: 'TEAMFOTO' },
+    { key: 'photo2', label: 'ACTIEFOTO' },
+  ];
+  const html = slots.map((s, i) => {
+    const num = i + 1;
+    if (m[s.key]) {
+      return `<div class="photo-slot">
+        <img src="${m[s.key]}" alt="${s.label}">
+        <div class="photo-slot-lbl">${s.label}</div>
+        ${ro ? '' : `<button class="photo-del" onclick="deletePhoto(${num})" title="Verwijderen">×</button>`}
+      </div>`;
+    }
+    if (ro) return `<div class="photo-slot" style="cursor:default"><span style="font-size:22px;opacity:.3">📷</span><span>${s.label}</span></div>`;
+    return `<div class="photo-slot" onclick="pickPhoto(${num})">
+      <span style="font-size:28px;opacity:.4">📷</span>
+      <span>${s.label}</span>
+      <span style="font-size:10px;opacity:.6">Tik om toe te voegen</span>
+    </div>`;
+  }).join('');
+  return `<div class="sec">Foto's</div><div class="card"><div class="photo-grid">${html}</div></div>`;
 }
 function cloneMatch() {
   if (!canManage() || !match) return;
@@ -6488,6 +6535,7 @@ function exportPDF() {
     <h2>Spelers</h2>
     <table><thead><tr><th>#</th><th>Naam</th><th>Totaal</th>${qData ? qData.qNums.map(qNum=>`<th style="text-align:center">${pAbbr(m)}${qNum}</th>`).join('') : ''}<th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
     <tbody>${playerRows}</tbody></table>
+    ${(m.photo1||m.photo2) ? `<h2>Foto's</h2><div style="display:flex;gap:12px;margin-bottom:8px">${m.photo1?`<img src="${m.photo1}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}${m.photo2?`<img src="${m.photo2}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}</div>` : ''}
     ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
     ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
     <h2>Volledige tijdlijn (${evts.length} events)</h2>
