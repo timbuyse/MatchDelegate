@@ -519,6 +519,7 @@ const IC = {
   warn:    _svg('<path d="M10.3 4L1.7 19a2 2 0 0 0 1.7 3h17.2a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0z"/><path d="M12 9v5"/><circle cx="12" cy="17.5" r=".8" fill="currentColor" stroke="none"/>'),
   close:   _svg('<path d="M18 6L6 18M6 6l12 12" stroke-width="2.2"/>'),
   check:   _svg('<path d="M4 13l5 5L20 7" stroke-width="2.4"/>'),
+  copy:    _svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
 };
 const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
@@ -4822,7 +4823,7 @@ function renderPrep() {
     <div class="card">${renderPitch(m, starters)}</div>
     <div class="sec">Bank (${bench.length})</div>
     <div class="card">${bench.length ? bench.map(p => `<div class="prow"><div class="pnum pnum-off">${p.number || '?'}</div><div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
-    ${ro ? '' : `<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
+    ${ro ? '' : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button><div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
 async function finishStep1Only() {
@@ -6307,9 +6308,46 @@ function renderDetail() {
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
       </div>
       ${(FORMATIONS[match.matchType]||[]).length ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Posities herplaatsen</button>` : ''}
+      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
   </div>`;
+}
+function cloneMatch() {
+  if (!canManage() || !match) return;
+  const src = match;
+  const team = teamById(src.teamId);
+  const pool = (src.players || []).map(p => ({
+    pid: uid(), srcId: p.rosterId || p.id,
+    name: p.name, number: p.number,
+    pos: p.pos || p.line || '',
+    sel: p.starting ? 'basis' : 'bank',
+    slot: null, x: p.x, y: p.y, line: p.line, posNum: p.posNum,
+  }));
+  wiz = {
+    step: 1,
+    teamId: src.teamId || (team ? team.id : ''),
+    opponent: '',
+    date: new Date().toISOString().split('T')[0],
+    time: src.time || '10:00',
+    location: src.location || 'Thuis',
+    matchType: src.matchType || '11v11',
+    periodKey: src.periodKey || 'kwarten',
+    quarterDuration: src.quarterDuration || 25,
+    numQuarters: src.numQuarters || 4,
+    competition: src.competition || '',
+    matchday: '',
+    referee: src.referee || '',
+    jersey: src.jersey || '',
+    venue: src.venue || '',
+    trainer: src.trainer || '',
+    responsible: src.responsible || '',
+    trainerIsOther: false,
+    pool, poolTeamId: src.teamId || '',
+    formationIndex: src.formationIndex || 0,
+    selPlace: null,
+  };
+  go('new');
 }
 function confirmDelete() {
   openModal(`<h3>Wedstrijd verwijderen?</h3>
