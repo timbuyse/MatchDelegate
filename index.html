@@ -1172,14 +1172,14 @@ async function doOwnerDeleteTeam(tid) {
       team: teamSnap.val(),
       memberInfo: memberInfoSnap.val(),
     });
+    // Uitnodigingstoken direct verwijderen (een query over /invites is niet toegelaten door de rules)
+    const token = ((teamSnap.val() || {}).info || {}).inviteToken;
+    if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     await Promise.all([
       fbdb.ref('teams/' + tid).remove(),
       fbdb.ref('memberInfo/' + tid).remove(),
       fbdb.ref('teamAdminRequests/' + tid).remove(),
     ]);
-    fbdb.ref('invites').orderByChild('teamId').equalTo(tid).once('value', s => {
-      s.forEach(c => c.ref.remove());
-    });
     showToast('Ploeg verwijderd.', 'ok');
     showAllUsersModal();
   } catch (e) {
@@ -1836,6 +1836,7 @@ async function authDoRegister() {
   const pwd = (document.getElementById('reg-pwd') || {}).value || '';
   const pwd2 = (document.getElementById('reg-pwd2') || {}).value || '';
   const err = document.getElementById('reg-err');
+  if (!name.trim()) { if (err) err.textContent = 'Geef je naam in.'; return; }
   if (pwd.length < 6) { if (err) err.textContent = 'Wachtwoord moet minstens 6 tekens zijn.'; return; }
   if (pwd !== pwd2) { if (err) err.textContent = 'De twee wachtwoorden zijn niet gelijk.'; return; }
   if (err) err.textContent = 'Bezig...';
@@ -3077,11 +3078,11 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Spelers</b>, <b>Tornooien</b> en <b>Statistieken</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
       <div class="sec">Een ploeg volgen</div>
-      <p>De beheerder deelt een uitnodiging als <b>link</b>, <b>QR-code</b> of <b>6-cijferige code</b>.</p>
+      <p>De beheerder deelt een uitnodiging als <b>link</b>, <b>QR-code</b> of <b>code van 6 tekens</b> (letters en cijfers).</p>
       <ul class="hdl-list">
         <li><b>Via link:</b> tik op de link → tik op <b>'Ploeg vervoegen'</b>.</li>
         <li><b>Via QR-code:</b> scan de code → tik op <b>'Ploeg vervoegen'</b>.</li>
-        <li><b>Via code:</b> tik op <b>'Ploeg bekijken via code'</b> → voer de 6-cijferige code in.</li>
+        <li><b>Via code:</b> tik op <b>'Ploeg bekijken via code'</b> → voer de code van 6 tekens in.</li>
       </ul>
       <div class="sec">Live wedstrijd bekijken</div>
       <ol class="hdl-list">
@@ -3196,7 +3197,7 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Als beheerder heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties:</p>
       <ul class="hdl-list">
-        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of 6-cijferige code.</li>
+        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens.</li>
         <li><b>'Leden'</b> — overzicht van alle kijkers en co-beheerders. Hier keur je ook co-beheeraanvragen goed of af.</li>
         <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
       </ul>
@@ -4534,8 +4535,23 @@ function placeSlot(i) {
   const occupied = wiz.pool.find(p => p.sel === 'basis' && p.slot === i);
   if (wiz.selPlace) {
     const sp = wiz.pool.find(p => p.pid === wiz.selPlace);
-    if (sp) { if (occupied && occupied !== sp) occupied.slot = null; sp.slot = i; wiz.selPlace = null; }
-  } else if (occupied) { occupied.slot = null; }
+    if (sp) {
+      if (occupied === sp) {
+        // Zelfde positie opnieuw aangetikt → speler van het veld halen
+        sp.slot = null;
+      } else {
+        // Bezette positie: wissel van plek als de geselecteerde speler op het veld stond,
+        // anders gaat de verdrongen speler terug naar "Nog te plaatsen".
+        const prevSlot = sp.slot;
+        if (occupied) occupied.slot = (prevSlot != null) ? prevSlot : null;
+        sp.slot = i;
+      }
+      wiz.selPlace = null;
+    }
+  } else if (occupied) {
+    // Speler op het veld aantikken → selecteren om te verplaatsen of te wisselen
+    wiz.selPlace = occupied.pid;
+  }
   render();
 }
 function autoPlace() {
@@ -4552,7 +4568,7 @@ function wizPitch(form) {
   const slots = form.slots.map((s, i) => {
     const posNum = computePosNum(wiz.matchType, i, form.slots);
     const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
     return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}</div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;
@@ -4565,7 +4581,7 @@ function wizStep3() {
     <div class="fg"><label>Formatie</label>
       <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
     <div class="card">${wizPitch(form)}
-      <div class="field-legend">Klik op een speler hieronder, klik dan op een positie op het veld om hem te plaatsen. Klik een bezette positie om de speler te verwijderen.</div>
+      <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
     <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
@@ -5351,19 +5367,25 @@ function _epSelectPlayer(pid) {
   _renderEpModal();
 }
 function _epClickSlot(si) {
+  const occupantId = _ep.assign.get(si);
   if (_ep.sel) {
-    // Verwijder speler uit vorige slot
-    for (const [k,v] of _ep.assign) if (v === _ep.sel) { _ep.assign.delete(k); break; }
-    // Bezette slot: wissel
-    if (_ep.assign.has(si)) {
-      const prev = _ep.assign.get(si);
+    // Vorige positie van de geselecteerde speler opzoeken (null = komt uit "Nog te plaatsen")
+    let prevSlot = null;
+    for (const [k, v] of _ep.assign) if (v === _ep.sel) { prevSlot = k; break; }
+    if (prevSlot === si) {
+      // Zelfde positie opnieuw aangetikt → speler van het veld halen
       _ep.assign.delete(si);
-      // Zet vorige terug in het lege slot als die er was
+    } else {
+      if (prevSlot !== null) _ep.assign.delete(prevSlot);
+      _ep.assign.set(si, _ep.sel);
+      // Bezette positie: wissel van plek als de geselecteerde speler op het veld stond,
+      // anders gaat de verdrongen speler terug naar "Nog te plaatsen".
+      if (occupantId !== undefined && prevSlot !== null) _ep.assign.set(prevSlot, occupantId);
     }
-    _ep.assign.set(si, _ep.sel);
     _ep.sel = null;
-  } else if (_ep.assign.has(si)) {
-    _ep.assign.delete(si);
+  } else if (occupantId !== undefined) {
+    // Speler op het veld aantikken → selecteren om te verplaatsen of te wisselen
+    _ep.sel = occupantId;
   }
   _renderEpModal();
 }
@@ -5379,7 +5401,7 @@ function _renderEpModal() {
     const pid = _ep.assign.get(i);
     const p = pid ? match.players.find(x => x.id === pid) : null;
     const gk = s.line === 'Doel';
-    if (p) return `<div class="pslot filled ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    if (p) return `<div class="pslot filled ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%${_ep.sel===p.id?';box-shadow:0 0 0 3px var(--org)':''}" onclick="_epClickSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
     return `<div class="pslot ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}</div>`;
   }).join('');
   const chipsHtml = unplaced.length
@@ -5390,7 +5412,7 @@ function _renderEpModal() {
     <h3>${icI(IC.shirt)} Posities herplaatsen</h3>
     <div class="fg" style="margin-bottom:8px"><label>Formatie</label><select onchange="_epChangeFormation(this.value)">${formSel}</select></div>
     <div class="card" style="padding:8px">${`<div class="pitch">${pitchLines()}${slotsHtml}</div>`}
-      <div class="field-legend">Tik een speler hieronder, tik dan een positie. Tik een bezette positie om te verwijderen.</div>
+      <div class="field-legend">Tik een speler hieronder en dan een positie om hem te plaatsen. Tik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Tik tweemaal dezelfde positie om de speler eraf te halen.</div>
     </div>
     <div class="sec" style="margin-top:8px">Nog te plaatsen (${unplaced.length})</div>
     <div class="place-chips">${chipsHtml}</div>
@@ -5584,7 +5606,7 @@ function exportMatchCSV() {
   row('Trainer', m.trainer || '');
   row('Afgevaardigde', m.responsible || '');
   row('Scheidsrechter', m.referee || '');
-  row('Truitkleur', m.jersey || '');
+  row('Truikleur', m.jersey || '');
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));
   row('Score', `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
   row('Man v/d match', m.motmId ? pName(m, m.motmId) : '');
@@ -5635,8 +5657,8 @@ function exportMatchCSV() {
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
-    const status = p.starting ? 'Basis' : p.status === 'out' ? 'Niet geselecteerd' : 'Bank';
-    row('', p.name || '', p.number || '', p.pos || '', status, minMs ? minMs + "'" : '', g || '', a || '', yc || '', rc || '');
+    const status = p.absent ? 'Afwezig' : p.starting ? 'Basis' : 'Bank';
+    row('', p.name || '', p.number || '', p.line || p.pos || '', status, minMs ? minMs + "'" : '', g || '', a || '', yc || '', rc || '');
   }
 
   const csv = '﻿' + rows.join('\r\n');
@@ -5707,7 +5729,6 @@ function modalEditEvent(id) {
   else if (t === 'penalty_them') fields = `<div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Tegendoel</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'substitution') fields = `<div class="fg"><label>Speler eraf</label><select id="ee-out">${opts(e.playerOutId)}</select></div><div class="fg"><label>Speler erin</label><select id="ee-in">${opts(e.playerInId)}</select></div>`;
   else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div>`;
-  else if (t === 'shot_us' || t === 'shot_them') fields = `<div class="chkrow"><input type="checkbox" id="ee-ontarget" ${e.onTarget ? 'checked' : ''}> Op doel</div>`;
   else if (t === 'disallowed_us' || t === 'disallowed_them') fields = `<div class="fg"><label>Reden</label><input id="ee-reason" type="text" value="${esc(e.reason || '')}" placeholder="bv. buitenspel"></div>`;
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
@@ -5733,7 +5754,6 @@ async function saveEditEvent(id) {
   if (has('ee-in')) e.playerInId = val('ee-in');
   if (has('ee-itype')) e.injuryType = val('ee-itype');
   if (has('ee-leaves')) e.leavesField = has('ee-leaves').checked;
-  if (has('ee-ontarget')) e.onTarget = has('ee-ontarget').checked;
   if (has('ee-reason')) e.reason = val('ee-reason');
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); closeModal(); render();
@@ -6260,7 +6280,6 @@ function renderDetail() {
       const ev = match.events;
       const st = (type) => ev.filter(e => e.type === type).length;
       const rows = [
-        [icI(IC.shot)   + ' Schoten',      `${st('shot_us')} (${ev.filter(e=>e.type==='shot_us'&&e.onTarget).length} op doel)`,   `${st('shot_them')} (${ev.filter(e=>e.type==='shot_them'&&e.onTarget).length} op doel)`],
         [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
         [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
@@ -6530,8 +6549,6 @@ function exportPDF() {
     <tbody>${perQuarterRows}</tbody></table>`:''}
     ${(()=>{
       const pdfStats = [
-        [stat('shot_us')+stat('shot_them'), `Schoten: <b>${stat('shot_us')}</b> – ${stat('shot_them')}`],
-        [m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length+m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length, `Schoten op doel: <b>${m.events.filter(e=>e.type==='shot_us'&&e.onTarget).length}</b> – ${m.events.filter(e=>e.type==='shot_them'&&e.onTarget).length}`],
         [stat('corner_us')+stat('corner_them'), `Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}`],
         [stat('freekick_us')+stat('freekick_them'), `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}`],
         [stat('penalty_us')+stat('penalty_them'), `Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}`],
