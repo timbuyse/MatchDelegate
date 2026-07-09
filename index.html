@@ -1272,7 +1272,11 @@ function writeMemberInfo(teamId, role) {
 // ---- schrijven (enkel admins van de actieve ploeg) ----
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
-  try { r.set(jclone(m)); } catch (e) {}
+  try {
+    const c = jclone(m);
+    delete c.photo1; delete c.photo2; // base64 niet naar Firebase (te groot)
+    r.set(c);
+  } catch (e) {}
 }
 function cloudOnLocalMatchDelete(id) {
   const r = teamRef('matches/' + id); if (!r || !isAdmin || !id) return;
@@ -6359,6 +6363,8 @@ function photoSectionHtml(m, ro) {
       <span style="font-size:10px;opacity:.6">Tik om toe te voegen</span>
     </div>`;
   }).join('');
+  const hasPhotos = m.photo1 || m.photo2;
+  if (ro && !hasPhotos) return '';
   return `<div class="sec">Foto's</div><div class="card"><div class="photo-grid">${html}</div></div>`;
 }
 function cloneMatch() {
