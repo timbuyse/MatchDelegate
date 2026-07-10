@@ -787,6 +787,14 @@ async function onAuthChanged(user) {
   if (user.isAnonymous) {
     isGuest = true; isAdmin = false;
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
+    // Pending join via QR/link afhandelen (ook voor een gast, zelfde als bij een ingelogde gebruiker)
+    const pendingJoin = localStorage.getItem('voetbal_pending_join');
+    if (pendingJoin) {
+      localStorage.removeItem('voetbal_pending_join');
+      const result = await joinTeamByToken(pendingJoin);
+      if (result === 'ok') return;
+      if (result === 'not_found') showToast('Code niet gevonden. Voer de code hieronder handmatig in.', 'err');
+    }
     await loadUserTeams(user.uid);
     const teamIds = Object.keys(userTeams);
     if (teamIds.length === 0) { await go('guestjoin', undefined, true); return; }
@@ -1800,7 +1808,11 @@ function renderAuth() {
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
         <div style="flex:1;height:1px;background:var(--bdr)"></div>
+        <span style="font-size:12px;color:var(--txt2)">of</span>
+        <div style="flex:1;height:1px;background:var(--bdr)"></div>
       </div>
+      <button class="btn btn-pale" onclick="authSignInAsGuest()">${icI(IC.eye)} Verder als gast</button>
+      <p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:8px">Enkel een live wedstrijd volgen? Dat kan ook zonder account.</p>
     </div>
     <div style="width:100%;max-width:400px">
       <button class="btn btn-pale" style="width:100%" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
@@ -2340,7 +2352,11 @@ function showConfirm(msg, onYes, btnLabel, btnClass) {
 }
 
 // ===================== NAVIGATION =====================
+const GUEST_ALLOWED_VIEWS = ['home', 'live', 'settings', 'handleiding', 'auth', 'guestjoin'];
 async function go(v, id, _histReplace) {
+  // Gast: enkel toegang tot deze schermen, ongeacht hoe de navigatie tot stand komt
+  // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
+  if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);
@@ -2959,13 +2975,6 @@ function renderSettings(isFirst) {
       <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-moon" style="font-size:1em;vertical-align:-.1em"></i> Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
         <span class="start-chip ${darkOn()?'on':''}" onclick="toggleDark()">${darkOn()?'Aan':'Uit'}</span></div>
     </div>
-    ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
-    <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
-      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
-      <button class="btn btn-pale" onclick="exportBackup()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Back-up downloaden</button>
-      <label class="file-btn" style="margin-top:8px"><i class="ti ti-upload" style="font-size:1em;vertical-align:-.1em"></i> Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
-    </div>` : ''}
     <div class="sec">Account</div>
     <div class="card">
       <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser ? (currentUser.displayName || currentUser.email) : '')}</p>
@@ -2984,6 +2993,13 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
       <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contact</a></p>
     </div>
+    ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
+      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
+      <button class="btn btn-pale" onclick="exportBackup()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Back-up downloaden</button>
+      <label class="file-btn" style="margin-top:8px"><i class="ti ti-upload" style="font-size:1em;vertical-align:-.1em"></i> Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
+    </div>` : ''}
   </div>`;
 }
 
