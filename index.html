@@ -429,7 +429,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1509,6 +1509,9 @@ function cloudLoginModal() {
     ${ownerBlock}
     ${manageBlock}
     ${switchBlock}
+    <div class="sec" style="margin-top:16px">Elders</div>
+    <button class="btn btn-pale" onclick="closeModal();_settingsFrom=view;go('settings')">${icI(IC.gear)} Instellingen <span style="font-weight:400;color:var(--txt2);font-size:12px">(account, back-up)</span></button>
+    ${isOwner ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();go('teamselect')">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;color:var(--txt2);font-size:12px">(alle ploegen, beheerdersaanvragen)</span></button>` : ''}
     <button class="btn btn-pale" style="margin-top:16px" onclick="closeModal()">Sluiten</button>`);
 }
 function toggleViewerMode() {
@@ -1964,7 +1967,8 @@ function renderTeamSelect() {
         </div>
       </div>
       ${isOwner && !viewerMode ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">${icI(IC.shield)} Beheerstools</div>
+        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${icI(IC.shield)} Beheerstools</div>
+        <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">Systeembreed, over alle ploegen heen. Voor het beheer van één specifieke ploeg (uitnodigen, leden, verwijderen): open die ploeg en tik rechtsboven op <b>Beheer</b>.</p>
         <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
         <button class="btn btn-dark" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
         <button class="btn btn-dark" style="margin-top:8px" onclick="closeModal();showAllUsersModal()">${icI(IC.players)} Alle gebruikers</button>
@@ -2970,6 +2974,7 @@ function renderSettings(isFirst) {
   return `
   <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
+    ${(cloudReady && activeTeamId && !isGuest) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop rechtsboven op het homescherm.</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-moon" style="font-size:1em;vertical-align:-.1em"></i> Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
