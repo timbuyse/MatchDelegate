@@ -1452,7 +1452,10 @@ function cloudRefreshUI() {
 
 // ---- rechten ----
 function canEditMatch() { return !match || !match.fromCloud || isAdmin; }
-function canManage() { return !isGuest && !viewerMode && (!cloudReady || isAdmin); }
+// Offline bij het opstarten met een gekende cloud-ploeg: de rol (beheerder/kijker) kan niet
+// geverifieerd worden zonder verbinding, dus geen beheerrechten geven tot die bevestigd is.
+function offlineWithKnownCloudTeam() { return !cloudReady && !!localStorage.getItem('voetbal_activeTeamId'); }
+function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudTeam() && (!cloudReady || isAdmin); }
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {
@@ -2613,8 +2616,11 @@ async function loadHome() {
     <button class="tile" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
+  const offlineBanner = offlineWithKnownCloudTeam()
+    ? `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens en kan tijdelijk niets beheren tot de verbinding terugkeert.</div>`
+    : '';
   if (!all.length && !teamCount) {
-    el.innerHTML = tiles + `<div class="empty"><div class="ei">${IC.players}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
+    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
   }
   const guestBanner = isGuest
@@ -2627,6 +2633,7 @@ async function loadHome() {
     ? `<div class="card" style="border-left:4px solid var(--grn);margin-bottom:16px">
         <div style="font-size:15px;font-weight:700;margin-bottom:6px">Welkom bij ${esc(getClubName() || 'de ploeg')}!</div>
         <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Je volgt deze ploeg live. Je kan wedstrijden en tornooien bekijken, de score en events live volgen, en de opstelling raadplegen.</p>
+        <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">${icI(IC.warn)} Er zijn nog geen pushmeldingen als de app gesloten is — houd de app open tijdens de wedstrijd om alles mee te volgen.</p>
         <button class="btn btn-green btn-sm" onclick="localStorage.setItem('${welcomeKey}','1');this.closest('.card').remove()">Begrepen</button>
       </div>` : '';
   const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
@@ -2673,7 +2680,7 @@ async function loadHome() {
     el.innerHTML = guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml;
     return;
   }
-  el.innerHTML = guestBanner + viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -3084,6 +3091,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Ga naar <b>'Wedstrijden'</b> en tik op een lopende wedstrijd.</li>
         <li>Je ziet de score en alle events in real time.</li>
       </ol>
+      <p class="hdl-tip">Match Delegate stuurt momenteel geen pushmeldingen als de app gesloten is. Houd de app open tijdens de wedstrijd om alles live mee te volgen.</p>
     `
   },
   {
