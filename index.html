@@ -1487,7 +1487,8 @@ function cloudLoginModal() {
     ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}`
   : (!isAdmin && !isGuest && activeTeamId) ? `
     <div class="sec" style="margin-top:14px">Deze ploeg</div>
-    <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>` : '';
+    <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>
+    <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>` : '';
 
   const switchBlock = '';
 
@@ -2648,9 +2649,7 @@ async function loadHome() {
   if (homeFilter !== 'all') upcoming = upcoming.filter(m => m.teamName === homeFilter);
   upcoming.sort((a, b) => { const r = (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1); if (r) return r; return (a.date || '').localeCompare(b.date || ''); });
   upcoming = upcoming.slice(0, 1); // enkel de eerstvolgende
-  const upcomingHtml = upcoming.length
-    ? upcoming.map(matchItemHtml).join('')
-    : `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--txt2)">Geen geplande wedstrijden${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`;
+  const upcomingHtml = upcoming.length ? upcoming.map(matchItemHtml).join('') : '';
   // Eerstvolgende tornooi
   let upcomingTrn = getTournaments().filter(t => (t.date || '') >= new Date().toISOString().split('T')[0]);
   if (homeFilter !== 'all') upcomingTrn = upcomingTrn.filter(t => { const team = teamById(t.teamId); return team && team.name === homeFilter; });
@@ -2667,7 +2666,7 @@ async function loadHome() {
           </div>
         </div>`;
       }).join('')
-    : `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--txt2)">Geen geplande tornooien${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`;
+    : '';
   // Laatst gespeelde wedstrijd (zelfde filter).
   let recent = looseMatches.filter(m => m.status === 'done');
   if (homeFilter !== 'all') recent = recent.filter(m => m.teamName === homeFilter);
@@ -2682,7 +2681,12 @@ async function loadHome() {
     el.innerHTML = guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml;
     return;
   }
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + newBtn + `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>` + filterBar + upcomingHtml + recentHtml + `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>` + upcomingTrnHtml;
+  const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>${upcomingHtml}` : '';
+  const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
+  const noneSection = (!upcoming.length && !upcomingTrn.length)
+    ? `<div class="empty" style="padding:16px"><div class="ei">${icI(IC.calendar)}</div><p style="margin:0;color:var(--txt2)">Geen geplande wedstrijden of tornooien${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`
+    : '';
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -2972,18 +2976,12 @@ function renderSettings(isFirst) {
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>
-    <div class="sec">Help</div>
-    <div class="card">
-      <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
-    </div>
     <div class="sec">Over de app</div>
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2)">Versie</span><span style="font-weight:700">${APP_VERSION}</span></div>
-      <button class="btn btn-pale" style="margin-top:10px" onclick="reportProblem()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Probleem melden</button>
-    </div>
-    <div class="sec">Juridisch</div>
-    <div class="card">
-      <button class="btn btn-pale" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
+      <button class="btn btn-pale" style="margin-top:10px" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="reportProblem()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Probleem melden</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
       <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contact</a></p>
     </div>
   </div>`;
