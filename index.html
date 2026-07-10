@@ -429,6 +429,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
+const APP_VERSION = '0.2.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
   '5v5':  { field: 5,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
@@ -2974,10 +2976,15 @@ function renderSettings(isFirst) {
     <div class="card">
       <button class="btn btn-pale" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
     </div>
+    <div class="sec">Over de app</div>
+    <div class="card">
+      <div class="stat-row"><span style="color:var(--txt2)">Versie</span><span style="font-weight:700">${APP_VERSION}</span></div>
+      <button class="btn btn-pale" style="margin-top:10px" onclick="reportProblem()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Probleem melden</button>
+    </div>
     <div class="sec">Juridisch</div>
     <div class="card">
       <button class="btn btn-pale" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
-      <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a></p>
+      <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contact</a></p>
     </div>
   </div>`;
 }
@@ -2987,7 +2994,7 @@ function showPrivacyModal() {
     <div style="font-size:13px;color:var(--txt2);line-height:1.7;text-align:left;max-height:60vh;overflow-y:auto;padding-right:4px">
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Verwerkingsverantwoordelijke</b><br>
       Tim Buyse<br>
-      <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a></p>
+      <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contacteer ons via e-mail</a></p>
 
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Doel van de app</b><br>
       Match Delegate is een interne beheersapp voor sportploegen. Ze laat beheerders toe wedstrijden op te volgen, speelminuten bij te houden en spelersgegevens te beheren. De app is uitsluitend bedoeld voor intern gebruik.</p>
@@ -3008,7 +3015,7 @@ function showPrivacyModal() {
       De app maakt gebruik van <b>Firebase</b> (Google LLC) voor authenticatie en gegevensopslag. Gegevens worden opgeslagen op servers van Google binnen de Europese Economische Ruimte. Google treedt op als verwerker conform de GDPR.</p>
 
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Jouw rechten</b><br>
-      Als betrokkene heb je het recht op inzage, correctie en verwijdering van je gegevens. Je kunt je account zelf verwijderen via Instellingen → Account verwijderen. Voor andere vragen of verzoeken kun je contact opnemen via <a href="mailto:buysesorgeloos@gmail.com" style="color:var(--grn)">buysesorgeloos@gmail.com</a>.</p>
+      Als betrokkene heb je het recht op inzage, correctie en verwijdering van je gegevens. Je kunt je account zelf verwijderen via Instellingen → Account verwijderen. Voor andere vragen of verzoeken kun je <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">contact opnemen via e-mail</a>.</p>
 
       <p style="margin-bottom:4px"><b style="color:var(--txt)">Klachten</b><br>
       Je hebt het recht een klacht in te dienen bij de Gegevensbeschermingsautoriteit (GBA): <a href="https://www.gegevensbeschermingsautoriteit.be" style="color:var(--grn)" target="_blank">gegevensbeschermingsautoriteit.be</a></p>
@@ -3456,6 +3463,18 @@ function saveSettings(isFirst) {
   localStorage.setItem('voetbal_setup_done', '1');
   applyStoredTheme();
   go('home');
+}
+
+// Opent de mailapp met een voorgevuld probleemrapport (versie, rol, ploeg, toestel).
+function reportProblem() {
+  const role = isOwner ? 'Eigenaar' : isApprovedAdmin ? 'Beheerder (goedgekeurd)' : isAdmin ? 'Beheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
+  const club = getClubName() || '';
+  const subject = `Match Delegate v${APP_VERSION} — probleem melden`;
+  const infoLines = [`Versie: ${APP_VERSION}`, `Rol: ${role}`];
+  if (club) infoLines.push(`Ploeg: ${club}`);
+  infoLines.push(`Toestel: ${navigator.userAgent}`);
+  const body = ['Beschrijf hieronder wat er misliep:', '', '', '---', ...infoLines].join('\n');
+  window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function confirmChangeEmail() {
