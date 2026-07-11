@@ -434,7 +434,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1425,7 +1425,18 @@ function cloudListen() {
     const r = teamRef(path); r.on(event, fn);
     teamListeners.push({ ref: r, event });
   };
-  addL('matches', 'value', s => applyCloudMatches(s.val() || {}));
+  // Matches: child-niveau i.p.v. één 'value'-listener op de hele node — zo stuurt één
+  // event tijdens een live wedstrijd (bv. een goal) enkel díe ene wedstrijd door, niet
+  // het volledige seizoen opnieuw (zie B14-analyse: schaalde met de totale historiek).
+  const mRef = teamRef('matches');
+  mRef.on('child_added', s => applyCloudMatch(s.key, s.val()));
+  mRef.on('child_changed', s => applyCloudMatch(s.key, s.val()));
+  mRef.on('child_removed', s => applyCloudMatchRemoved(s.key));
+  teamListeners.push({ ref: mRef, event: 'child_added' }, { ref: mRef, event: 'child_changed' }, { ref: mRef, event: 'child_removed' });
+  // Eenmalige opruimbeurt bij het (opnieuw) beginnen luisteren: lokale fromCloud-wedstrijden
+  // die niet meer in de cloud staan (bv. verwijderd terwijl dit toestel volledig offline was)
+  // worden hier nog opgeruimd — child_removed vangt dit enkel op voor toekomstige verwijderingen.
+  mRef.once('value').then(s => cleanupOrphanMatches(new Set(Object.keys(s.val() || {})))).catch(() => {});
   addL('roster',  'value', s => applyCloudTeams(s.val() || []));
   addL('club',    'value', s => applyCloudClub(s.val()));
   addL('tournaments', 'value', s => applyCloudTournaments(s.val() || {}));
@@ -1481,79 +1492,93 @@ function applyCloudClub(val) {
   applyStoredTheme();
   if (view === 'home' || view === 'setup') { go('home'); } else cloudRefreshUI();
 }
-async function applyCloudMatches(obj) {
-  if (!db) return;
-  const cloudIds = new Set(Object.keys(obj));
-  const local = await dbAll();
-  for (const m of local) { if (m.fromCloud && !cloudIds.has(m.id)) await dbDelLocal(m.id); }
-  for (const id of cloudIds) {
-    const m = obj[id]; if (!m) continue;
-    m.id = id; m.fromCloud = true;
-    if (!Array.isArray(m.events)) m.events = [];
-    if (!Array.isArray(m.players)) m.players = [];
-    if (!Array.isArray(m.quarters)) m.quarters = [];
-    const existing = await dbGet(id);
-    // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
-    // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
-    // Dan lokaal behouden en opnieuw pushen i.p.v. overschrijven met de oude cloud-versie.
-    if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
-      cloudOnLocalMatchSave(existing);
-      continue;
-    }
-    // Tombstones van beide kanten verenigen vóór de event-merge: een bewust verwijderd
-    // event mag nooit "terugkomen" via een ander toestel of een oude back-up.
-    const tomb = new Set([...(m.deletedEventIds || []), ...((existing && existing.deletedEventIds) || [])]);
-    if (tomb.size) {
-      m.deletedEventIds = [...tomb];
-      const before = m.events.length;
-      m.events = m.events.filter(e => !tomb.has(e.id));
-      if (m.events.length !== before) { recomputeScore(m); recomputeOnField(m); }
-    }
-    // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
-    if (existing && Array.isArray(existing.events) && existing.events.length) {
-      const cloudEventIds = new Set(m.events.map(e => e.id));
-      const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
-      if (localOnly.length) {
-        m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
-        recomputeScore(m);
-        // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een
-        // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
-        // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
-        cloudOnLocalMatchSave(m);
-      }
-    }
-    // Notities zitten niet (meer) in het cloud-object (zie cloudOnLocalMatchSave) — lokaal bewaarde
-    // notities overnemen zodat ze niet verdwijnen tot de aparte teamNotes-listener ze aanvult.
-    if (existing) {
-      if (existing.notes && m.notes === undefined) m.notes = existing.notes;
-      if (Array.isArray(existing.players)) {
-        const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
-        if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
-      }
-      // Foto's gaan bewust nooit naar de cloud (te groot voor RTDB) — lokale foto's
-      // overnemen zodat de cloud-echo ze niet wist vlak na het toevoegen.
-      if (existing.photo1 && m.photo1 === undefined) m.photo1 = existing.photo1;
-      if (existing.photo2 && m.photo2 === undefined) m.photo2 = existing.photo2;
-    }
-    await dbPutLocal(m);
-    // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
-    if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
-      knownLiveMatchIds.add(id);
-      knownScores[id] = { us: m.scoreUs || 0, them: m.scoreThem || 0 };
-      notifyLiveMatch(m);
-    } else if (m.status !== 'live') {
-      knownLiveMatchIds.delete(id);
-      delete knownScores[id];
-    } else if (!isAdmin && m.status === 'live' && knownScores[id]) {
-      const prev = knownScores[id];
-      const newUs = m.scoreUs || 0, newThem = m.scoreThem || 0;
-      if (newUs > prev.us) notifyGoal(m, true, newUs, newThem);
-      else if (newThem > prev.them) notifyGoal(m, false, newUs, newThem);
-      knownScores[id] = { us: newUs, them: newThem };
+// Verwerkt precies één wedstrijd uit de cloud (via child_added/child_changed) — zelfde
+// logica als voorheen in de over-alles-lopende applyCloudMatches, maar nu per item, zodat
+// één cloud-wijziging niet langer het hele seizoen opnieuw verwerkt (zie B14).
+async function applyCloudMatch(id, m) {
+  if (!db || !m) return;
+  m.id = id; m.fromCloud = true;
+  if (!Array.isArray(m.events)) m.events = [];
+  if (!Array.isArray(m.players)) m.players = [];
+  if (!Array.isArray(m.quarters)) m.quarters = [];
+  const existing = await dbGet(id);
+  // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
+  // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
+  // Dan lokaal behouden en opnieuw pushen i.p.v. overschrijven met de oude cloud-versie.
+  if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
+    cloudOnLocalMatchSave(existing);
+    return;
+  }
+  // Tombstones van beide kanten verenigen vóór de event-merge: een bewust verwijderd
+  // event mag nooit "terugkomen" via een ander toestel of een oude back-up.
+  const tomb = new Set([...(m.deletedEventIds || []), ...((existing && existing.deletedEventIds) || [])]);
+  if (tomb.size) {
+    m.deletedEventIds = [...tomb];
+    const before = m.events.length;
+    m.events = m.events.filter(e => !tomb.has(e.id));
+    if (m.events.length !== before) { recomputeScore(m); recomputeOnField(m); }
+  }
+  // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
+  if (existing && Array.isArray(existing.events) && existing.events.length) {
+    const cloudEventIds = new Set(m.events.map(e => e.id));
+    const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
+    if (localOnly.length) {
+      m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+      recomputeScore(m);
+      // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een
+      // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
+      // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
+      cloudOnLocalMatchSave(m);
     }
   }
-  if (!isAdmin) knownLiveMatchIds.forEach(id => { if (!cloudIds.has(id)) knownLiveMatchIds.delete(id); });
+  // Notities zitten niet (meer) in het cloud-object (zie cloudOnLocalMatchSave) — lokaal bewaarde
+  // notities overnemen zodat ze niet verdwijnen tot de aparte teamNotes-listener ze aanvult.
+  if (existing) {
+    if (existing.notes && m.notes === undefined) m.notes = existing.notes;
+    if (Array.isArray(existing.players)) {
+      const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
+      if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
+    }
+    // Foto's gaan bewust nooit naar de cloud (te groot voor RTDB) — lokale foto's
+    // overnemen zodat de cloud-echo ze niet wist vlak na het toevoegen.
+    if (existing.photo1 && m.photo1 === undefined) m.photo1 = existing.photo1;
+    if (existing.photo2 && m.photo2 === undefined) m.photo2 = existing.photo2;
+  }
+  await dbPutLocal(m);
+  // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
+  if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
+    knownLiveMatchIds.add(id);
+    knownScores[id] = { us: m.scoreUs || 0, them: m.scoreThem || 0 };
+    notifyLiveMatch(m);
+  } else if (m.status !== 'live') {
+    knownLiveMatchIds.delete(id);
+    delete knownScores[id];
+  } else if (!isAdmin && m.status === 'live' && knownScores[id]) {
+    const prev = knownScores[id];
+    const newUs = m.scoreUs || 0, newThem = m.scoreThem || 0;
+    if (newUs > prev.us) notifyGoal(m, true, newUs, newThem);
+    else if (newThem > prev.them) notifyGoal(m, false, newUs, newThem);
+    knownScores[id] = { us: newUs, them: newThem };
+  }
   cloudRefreshUI();
+}
+// Eén wedstrijd is uit de cloud verwijderd (bv. door een beheerder) — lokaal meenemen.
+async function applyCloudMatchRemoved(id) {
+  if (!db) return;
+  const existing = await dbGet(id);
+  if (existing && existing.fromCloud) await dbDelLocal(id);
+  knownLiveMatchIds.delete(id);
+  delete knownScores[id];
+  cloudRefreshUI();
+}
+// Eenmalige opruimbeurt bij het starten van cloudListen(): lokale fromCloud-wedstrijden die
+// niet (meer) in de huidige cloud-snapshot staan worden verwijderd. child_removed vangt dit
+// enkel op voor verwijderingen die gebeuren TERWIJL dit toestel actief luistert; wat al weg
+// was vóór het opnieuw verbinden (bv. na lang offline zijn) wordt hier ingehaald.
+async function cleanupOrphanMatches(cloudIds) {
+  if (!db) return;
+  const local = await dbAll();
+  for (const m of local) { if (m.fromCloud && !cloudIds.has(m.id)) await dbDelLocal(m.id); }
 }
 // Notities komen via een apart, beheerder-only pad binnen (zie notesRef/database.rules.json)
 // en worden hier teruggekoppeld naar de lokale match — nodig zodat een tweede beheerder
@@ -6108,7 +6133,7 @@ function confirmDeleteEvent(id) {
     <button class="btn btn-red" onclick="doDeleteEvent('${id}')">${icI(IC.trash)} Verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-// Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatches)
+// Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatch)
 // ze niet "terugbrengt" vanaf een ander toestel of uit een oude back-up.
 function tombstoneEvent(m, id) {
   if (!id) return;
