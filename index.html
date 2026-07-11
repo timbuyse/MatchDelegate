@@ -430,7 +430,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3061,7 +3061,6 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" style="margin-top:10px" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="reportProblem()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Probleem melden</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
-      <p style="font-size:11px;color:var(--txt2);margin-top:10px;line-height:1.6">Match Delegate · Verwerkingsverantwoordelijke: Tim Buyse · <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contact</a></p>
     </div>
     ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
     <div class="card">
