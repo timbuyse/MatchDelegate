@@ -14,11 +14,13 @@ Dag [naam]
 
 Ik contacteer je even omdat ik de voorbije maanden aan iets gewerkt heb dat jou als trainer wel eens goed zou kunnen uitkomen. Ik heb een app gebouwd voor iedereen die langs het veld staat: **Match Delegate**. Ze is nu klaar om te testen, en jij was een van de eersten aan wie ik dacht.
 
-In het kort wat ze doet:
+Het idee is simpel: **tijdens de wedstrijd hou je álles bij met een paar tikken, en achteraf heb je er een volledig verslag van**. Geen papiertjes meer, geen "wie stond er ook alweer in het derde kwart?" — het staat er allemaal in:
 
-- **Wedstrijden live bijhouden**: score, doelpunten, kaarten, wissels en speeltijd — met een paar tikken op je smartphone, gewoon vanaf de zijlijn.
+- **Alles live bijhouden vanaf de zijlijn**: score, doelpunten, kaarten, wissels en speeltijd.
+- **Achteraf een log van elk event**: je ziet exact welke wissels er geweest zijn en wat de opstelling was per kwart — per wedstrijd netjes bewaard.
+- **Notities maken**: zowel per speler ("sterk in de duels vandaag") als algemeen over de wedstrijd. Handig voor je volgende training of oudergesprek.
 - **Ouders en supporters kijken live mee**: wie er niet bij kan zijn, volgt de wedstrijd in real time via een link of QR-code. Zij kijken mee, jij houdt de controle.
-- **Je ploeg op één plek**: spelers, selecties en opstellingen, en achteraf statistieken per speler en per wedstrijd.
+- **Je ploeg op één plek**: spelers, selecties en opstellingen, en statistieken per speler en per wedstrijd.
 - **Werk verdelen**: je kan je afgevaardigde co-beheerder maken, zodat je het niet allemaal alleen moet doen.
 
 Niets te installeren via een app store trouwens — je zet ze gewoon op je beginscherm (iPhone én Android) en ze blijft zelfs werken als het signaal langs het veld even wegvalt.
@@ -36,7 +38,8 @@ Tim
 
 Hey! 👋 Ik heb een app gebouwd voor trainers en afgevaardigden: **Match Delegate** ⚽
 
-📱 Wedstrijden live bijhouden vanaf de zijlijn: score, doelpunten, kaarten, wissels en speeltijd
+📱 Alles live bijhouden vanaf de zijlijn: score, doelpunten, kaarten, wissels en speeltijd
+📋 Achteraf een volledig verslag: log van alle events, wissels en opstelling per kwart, plus notities per speler
 📡 Ouders & supporters volgen live mee via een link of QR-code
 👥 Spelers, opstellingen en statistieken op één plek
 
