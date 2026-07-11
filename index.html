@@ -433,7 +433,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2607,7 +2607,10 @@ function renderEventLog(m) {
 // ===================== TIMER =====================
 function startTimer() {
   stopTimer();
-  timerInt = setInterval(() => { if (view === 'live') updateTimerDisplay(); }, 500);
+  // checkOvertimeAlert draait ongeacht subtab (Wedstrijd/Opstelling/Verloop) — voorheen zat
+  // de piep/trilling verstopt in updateTimerDisplay(), die meteen stopt zonder het
+  // #timer-time-element (enkel aanwezig op de Wedstrijd-tab).
+  timerInt = setInterval(() => { if (view === 'live') { checkOvertimeAlert(); updateTimerDisplay(); } }, 500);
 }
 function stopTimer() { if (timerInt) { clearInterval(timerInt); timerInt = null; } }
 // Scherm wakker houden tijdens een lopend deel
@@ -2637,6 +2640,18 @@ function timerText(m) {
   if (countdownOn() && durMs) return '-' + fmtTime(durMs - elapsed);
   return fmtTime(elapsed);
 }
+// Eindsignaal-check: apart van updateTimerDisplay() zodat het blijft werken ongeacht welke
+// subtab (Wedstrijd/Opstelling/Verloop) actief is — updateTimerDisplay() stopt vroegtijdig
+// als het #timer-time-element er niet is, en zou de piep dan nooit bereiken.
+function checkOvertimeAlert() {
+  if (!match) return;
+  const q = match.quarters[match.quarters.length - 1];
+  if (!q) return;
+  const elapsed = getQElapsed(match);
+  const durMs = (match.quarterDuration || 0) * 60000;
+  const isRunning = q.startTime && !q.pausedAt && !q.endTime;
+  if (isRunning && durMs && elapsed >= durMs && !q.alerted) { q.alerted = true; beep(); dbSave(match); }
+}
 function updateTimerDisplay() {
   const el = document.getElementById('timer-time'), lb = document.getElementById('timer-lbl');
   if (!el || !match) return;
@@ -2645,7 +2660,6 @@ function updateTimerDisplay() {
   const durMs = (match.quarterDuration || 0) * 60000;
   const isRunning = q && q.startTime && !q.pausedAt && !q.endTime;
   const overtime = isRunning && durMs && elapsed >= durMs;
-  if (isRunning && durMs && elapsed >= durMs && q && !q.alerted) { q.alerted = true; beep(); dbSave(match); }
   el.textContent = timerText(match);
   el.style.color = overtime ? 'var(--org)' : '';
   if (lb) {
@@ -5460,6 +5474,7 @@ function renderLive() {
             : `<button class="qbtn qbtn-end" onclick="endPeriod()">${icI(IC.stopFilled)} Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
+        <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
         <div class="sec" style="margin-top:0">${icI(IC.swap)} Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
         ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">${icI(IC.plus)} Pauzewissel toevoegen</button>
@@ -5581,21 +5596,38 @@ async function startQuarter() {
 }
 // Keeper = automatisch de speler die op het veld op de doellijn staat.
 function currentKeeperId(m) { const gk = m.players.find(p => p.onField && p.line === 'Doel'); return gk ? gk.id : null; }
-// Houd de keeper van het lopende deel bij (voor minuten/overzicht). Volledig automatisch.
+// Houd de keeper(s) van het lopende deel bij (voor minuten/overzicht). Volledig automatisch.
+// keeperByQ[qNum] is een lijst {id, sinceMs} i.p.v. één vaste id, zodat een keeperwissel
+// halverwege een deel (bv. na een blessure) elke keeper enkel zijn eigen speeltijd toekent
+// i.p.v. de volledige deelduur aan wie toevallig als laatste op doel stond.
 function syncKeeper() {
   if (!match || !match.currentQuarter) return;
   match.keeperByQ = match.keeperByQ || {};
   const kid = currentKeeperId(match);
-  if (kid) match.keeperByQ[match.currentQuarter] = kid;
+  if (!kid) return;
+  const existing = match.keeperByQ[match.currentQuarter];
+  const arr = Array.isArray(existing) ? existing : [];
+  match.keeperByQ[match.currentQuarter] = arr;
+  const last = arr[arr.length - 1];
+  if (!last || last.id !== kid) arr.push({ id: kid, sinceMs: getGameTimeMs(match) });
 }
-// Minuten in doel per keeper (op basis van keeperByQ × duur per deel).
+// Minuten in doel per keeper, op basis van keeperByQ (nieuw: lijst van intervallen per deel).
 function keeperMinutes(m) {
   const out = {};
   if (!m.keeperByQ) return out;
   for (const q of m.quarters) {
-    const kid = m.keeperByQ[q.num]; if (!kid) continue;
-    const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
-    out[kid] = (out[kid] || 0) + Math.max(0, dur);
+    const raw = m.keeperByQ[q.num]; if (!raw) continue;
+    if (!Array.isArray(raw)) {
+      // Oud formaat (data van vóór meerdere keepers per deel): hele deel aan die ene keeper.
+      const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
+      out[raw] = (out[raw] || 0) + Math.max(0, dur);
+      continue;
+    }
+    const qEndMs = q.endTime ? gameTimeMsAtEndOfQuarter(m, q.num) : getGameTimeMs(m);
+    for (let i = 0; i < raw.length; i++) {
+      const segEnd = (i + 1 < raw.length) ? raw[i + 1].sinceMs : qEndMs;
+      out[raw[i].id] = (out[raw[i].id] || 0) + Math.max(0, segEnd - raw[i].sinceMs);
+    }
   }
   return out;
 }
@@ -5615,9 +5647,17 @@ async function resumeQuarter() {
   await dbSave(match); startTimer(); render();
 }
 // Beëindig het huidige deel handmatig -> pauze tussen de delen (klok staat stil tot de volgende start).
+// Vergeten af te sluiten? Bij fors overtime (>10 min boven de geplande duur) waarschuwen en
+// de mogelijkheid geven de werkelijke duur te corrigeren, i.p.v. stilzwijgend Date.now() te
+// nemen — anders vertekent zo'n vergeten tik alle speeltijden van dit deel.
 function endPeriod() {
   const label = pSingLow(match);
+  const durMs = (match.quarterDuration || 0) * 60000;
+  const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
+  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
+    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="ep-correct-min" type="number" inputmode="numeric" value="${Math.round(getQElapsed(match)/60000)}" min="1"></div></div>` : '';
   openModal(`<h3>Einde ${label} ${match.currentQuarter}?</h3>
+    ${warn}
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De klok stopt en je kan dit ${label} niet meer hervatten.</p>
     <button class="btn btn-red" onclick="doEndPeriod()">${icI(IC.stopFilled)} Ja, beëindig ${label}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -5626,7 +5666,9 @@ async function doEndPeriod() {
   const q = match.quarters[match.quarters.length - 1];
   if (!q || q.endTime) { closeModal(); return; } // dubbeltik-guard: deel al beëindigd
   if (q.pausedAt) { q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null; }
-  q.endTime = Date.now();
+  const corrInp = document.getElementById('ep-correct-min');
+  const corrMin = corrInp ? parseInt(corrInp.value) : NaN;
+  q.endTime = (!isNaN(corrMin) && corrMin > 0) ? q.startTime + (q.totalPaused || 0) + corrMin * 60000 : Date.now();
   addEvent('quarter_end');
   match.quarterStatus = 'between';
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
@@ -5649,7 +5691,13 @@ async function doReopenMatch() {
   go('live', match.id);
 }
 function endMatch() {
+  const label = pSingLow(match);
+  const durMs = (match.quarterDuration || 0) * 60000;
+  const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
+  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
+    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${Math.round(getQElapsed(match)/60000)}" min="1"></div></div>` : '';
   openModal(`<h3>Wedstrijd afsluiten?</h3>
+    ${warn}
     <div class="fg"><label>Notities (optioneel)</label>
       <textarea id="end-notes" rows="4" placeholder="Aanvullingen over de wedstrijd, bv. weer, blessures, opmerkingen...">${esc(match.notes||'')}</textarea></div>
     <button class="btn btn-red" onclick="confirmEndMatch()">${icI(IC.finish)} Afsluiten &amp; opslaan</button>
@@ -5658,7 +5706,9 @@ function endMatch() {
 async function confirmEndMatch() {
   const t = document.getElementById('end-notes');
   if (t) match.notes = t.value;
-  closeModal(); await forceEndMatch();
+  const corrInp = document.getElementById('em-correct-min');
+  const corrMin = corrInp ? parseInt(corrInp.value) : NaN;
+  closeModal(); await forceEndMatch(!isNaN(corrMin) && corrMin > 0 ? corrMin : null);
 }
 function modalNotes() {
   openModal(`<h3>${icI(IC.edit)} Notities</h3>
@@ -6113,9 +6163,12 @@ function exportMatchCSV() {
   a.download = `match-${safe}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-async function forceEndMatch() {
+async function forceEndMatch(correctMin) {
   const q = match.quarters[match.quarters.length - 1];
-  if (q && !q.endTime) { if (q.pausedAt) { q.totalPaused=(q.totalPaused||0)+(Date.now()-q.pausedAt); q.pausedAt=null; } q.endTime = Date.now(); }
+  if (q && !q.endTime) {
+    if (q.pausedAt) { q.totalPaused=(q.totalPaused||0)+(Date.now()-q.pausedAt); q.pausedAt=null; }
+    q.endTime = correctMin ? q.startTime + (q.totalPaused || 0) + correctMin * 60000 : Date.now();
+  }
   match.status = 'done'; match.quarterStatus = 'done';
   stopTimer(); releaseWake(); await dbSave(match); render();
 }
@@ -6975,12 +7028,20 @@ async function exportPDF() {
       : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: playersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
     // 1-3 items: allemaal op één rij. 4 items: 2x2 (niet 3+1). 5+: 3 per rij.
     const perRow = items.length <= 3 ? items.length : (items.length === 4 ? 2 : 3);
-    const gap = 12, imgW = (CW - (perRow - 1) * gap) / perRow, imgH = imgW * (504 / 326);
+    const numRows = Math.ceil(items.length / perRow);
+    const gap = 12;
+    let imgW = (CW - (perRow - 1) * gap) / perRow;
+    // Bij meerdere rijen (bv. 2x2 voor 4 kwarten) de diagrammen kleiner houden zodat ze
+    // samen met kop/score/legende nog op pagina 1 passen i.p.v. over te lopen naar pagina 2.
+    if (numRows > 1) imgW = Math.min(imgW, 150);
+    const imgH = imgW * (504 / 326);
+    const rowWidth = perRow * imgW + (perRow - 1) * gap;
+    const rowStartX = MG + (CW - rowWidth) / 2; // centreren als de rij smaller is dan de volle breedte
     for (let i = 0; i < items.length; i += perRow) {
       const rowItems = items.slice(i, i + perRow);
       const labelH = rowItems[0].q != null ? 14 : 0;
       ensure(imgH + labelH + 14);
-      let x = MG;
+      let x = rowStartX;
       for (const it of rowItems) {
         if (it.q != null) {
           doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
