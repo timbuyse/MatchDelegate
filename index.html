@@ -131,6 +131,10 @@
     .sb-teams{display:flex;justify-content:space-between;font-size:12px;opacity:.7;margin-bottom:4px}
     .sb-score{font-size:64px;font-weight:900;line-height:1;letter-spacing:6px;font-variant-numeric:tabular-nums}
     .sb-score .us{color:var(--grn)}
+    .sync-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:7px;vertical-align:middle}
+    .sync-dot.on{background:#22c55e}
+    .sync-dot.off{background:#f59e0b;animation:syncPulse 1.6s ease-in-out infinite}
+    @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.35}}
     .grn{color:var(--grn)}
     .sb-info{font-size:13px;opacity:.7;margin-top:6px}
     /* Timer */
@@ -430,7 +434,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.14'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.15'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -768,6 +772,7 @@ function notesRef(path) {
   return fbdb.ref('teamNotes/' + activeTeamId + (path ? '/' + path : ''));
 }
 
+let fbConnected = null; // null = nog onbekend, true/false = echte verbindingsstatus
 function cloudInit() {
   if (!cloudAvailable()) return;
   try {
@@ -776,6 +781,16 @@ function cloudInit() {
     fbauth = firebase.auth();
     cloudReady = true;
     fbauth.onAuthStateChanged(onAuthChanged);
+    // Verbindingsstatus voor het sync-dotje op het live-scherm (SDK is lokaal, dus
+    // "SDK geladen" zegt niets meer over echte connectiviteit).
+    fbdb.ref('.info/connected').on('value', s => {
+      fbConnected = !!s.val();
+      const d = document.getElementById('sync-dot');
+      if (d) {
+        d.className = 'sync-dot ' + (fbConnected ? 'on' : 'off');
+        d.title = fbConnected ? 'Gesynchroniseerd met de cloud' : 'Offline — wijzigingen syncen zodra er verbinding is';
+      }
+    });
   } catch (e) { cloudReady = false; }
 }
 
@@ -1345,6 +1360,15 @@ function writeMemberInfo(teamId, role) {
 }
 
 // ---- schrijven (enkel admins van de actieve ploeg) ----
+// Cloud-write geweigerd/mislukt (permissie- of serverfout — offline wordt gewoon gebufferd):
+// niet stil laten passeren maar de gebruiker verwittigen. Gedrosseld tegen toast-regen.
+let _lastSyncFailAt = 0;
+function _syncFail() {
+  const now = Date.now();
+  if (now - _lastSyncFailAt < 10000) return;
+  _lastSyncFailAt = now;
+  showToast('Synchronisatie mislukt — wijziging is wel lokaal bewaard.', 'err');
+}
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
   try {
@@ -1355,31 +1379,31 @@ function cloudOnLocalMatchSave(m) {
     const playerNotes = {};
     (c.players || []).forEach(p => { if (p.note) playerNotes[p.id] = p.note; delete p.note; });
     delete c.notes;
-    r.set(c);
+    r.set(c).catch(_syncFail);
     const nr = notesRef(m.id);
     if (nr) {
-      if (m.notes || Object.keys(playerNotes).length) nr.set({ notes: m.notes || '', players: playerNotes });
-      else nr.remove();
+      if (m.notes || Object.keys(playerNotes).length) nr.set({ notes: m.notes || '', players: playerNotes }).catch(_syncFail);
+      else nr.remove().catch(_syncFail);
     }
   } catch (e) {}
 }
 function cloudOnLocalMatchDelete(id) {
   const r = teamRef('matches/' + id); if (!r || !isAdmin || !id) return;
-  try { r.remove(); } catch (e) {}
-  try { const nr = notesRef(id); if (nr) nr.remove(); } catch (e) {}
+  try { r.remove().catch(_syncFail); } catch (e) {}
+  try { const nr = notesRef(id); if (nr) nr.remove().catch(_syncFail); } catch (e) {}
 }
 function cloudOnLocalTeamsSave(arr) {
   const r = teamRef('roster'); if (!r || !isAdmin) return;
-  try { r.set(jclone(arr || [])); } catch (e) {}
+  try { r.set(jclone(arr || [])).catch(_syncFail); } catch (e) {}
 }
 function cloudOnLocalTournamentsSave(arr) {
   const r = teamRef('tournaments'); if (!r || !isAdmin) return;
-  try { r.set(jclone(arr || [])); } catch (e) {}
+  try { r.set(jclone(arr || [])).catch(_syncFail); } catch (e) {}
 }
 function cloudOnLocalClubSave() {
   const r = teamRef('club'); if (!r || !isAdmin) return;
   const theme = localStorage.getItem('voetbal_theme');
-  try { r.set({ name: localStorage.getItem('voetbal_club_name') || '', logo: localStorage.getItem('voetbal_club_logo') || '', theme: theme || null }); } catch (e) {}
+  try { r.set({ name: localStorage.getItem('voetbal_club_name') || '', logo: localStorage.getItem('voetbal_club_logo') || '', theme: theme || null }).catch(_syncFail); } catch (e) {}
 }
 
 // ---- lezen ----
@@ -5241,7 +5265,8 @@ function renderLive() {
   }).join('');
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
   if (ro && tab === 'wedstrijd') tab = 'log';
-  const statusLine = isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`));
+  const syncDot = (match.fromCloud && cloudReady) ? `<span id="sync-dot" class="sync-dot ${fbConnected === false ? 'off' : 'on'}" title="${fbConnected === false ? 'Offline — wijzigingen syncen zodra er verbinding is' : 'Gesynchroniseerd met de cloud'}"></span>` : '';
+  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot;
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>
