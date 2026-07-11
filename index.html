@@ -39,6 +39,7 @@
     .credit{text-align:center;font-size:12px;color:var(--txt2);padding:4px 0 28px}
     .credit b{color:var(--blk)}
     .hdr-gear{background:none;border:none;color:#fff;font-size:21px;cursor:pointer;opacity:.85;padding:6px;z-index:2;flex-shrink:0}
+    .hdr-gear-beheer{background:#1f9d55;color:#fff;border:none;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700;cursor:pointer;z-index:2;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;user-select:none}
     .hdr-crest{height:52px;width:52px;object-fit:contain;flex-shrink:0}
     .hdr-clubname{font-size:17px;font-weight:800;color:#fff;margin-left:9px}
     .logo-preview{display:flex;justify-content:center;margin-bottom:10px}
@@ -429,7 +430,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -891,11 +892,12 @@ async function claimOwner() {
   if (!currentUser || !fbdb) return;
   try {
     const snap = await fbdb.ref('owner').once('value');
-    if (snap.exists()) { showToast('Er is al een eigenaar ingesteld.', 'err'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); return; }
+    if (snap.exists()) { showToast('Er is al een eigenaar ingesteld.', 'err'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); if (view === 'beheer') render(); return; }
     await fbdb.ref('owner').set(currentUser.uid);
     ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
     listenAdminRequests();
     closeModal();
+    if (view === 'beheer') render();
     showToast('Je bent nu ingesteld als eigenaar van Match Delegate.', 'ok');
   } catch (e) {
     showToast('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err');
@@ -1478,47 +1480,65 @@ function updateCloudChip() {
   el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer${coBadge}` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> ' + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }
-function cloudLoginModal() {
-  if (!currentUser) { go('auth', undefined, true); return; }
-
+// ===================== BEHEER (view) =====================
+// Beheerscherm voor de ACTIEVE ploeg: uitnodigen, leden, naam, kijkmodus, verwijderen
+// (of, voor een kijker: co-beheer aanvragen). Account zit in Instellingen (tandwiel),
+// systeembrede eigenaarstools op het ploegkeuzescherm. Vervangt de vroegere cloudLoginModal().
+function renderBeheer() {
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
-    ? `<button class="btn btn-org" onclick="claimOwner()"><i class="ti ti-crown" style="font-size:1.1em"></i> Ik ben de maker (eigenaar instellen)</button>`
+    ? `<div class="sec">Eigenaar</div><div class="card"><button class="btn btn-org" onclick="claimOwner()"><i class="ti ti-crown" style="font-size:1.1em"></i> Ik ben de maker (eigenaar instellen)</button></div>`
     : '';
 
-  // Deze ploeg beheren: uitnodigen, kijkers, verwijderen
-  const manageBlock = (isAdmin && activeTeamId) ? `
-    <div class="sec" style="margin-top:14px">Deze ploeg beheren</div>
-    <button class="btn btn-green" onclick="closeModal();showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
-    ${isApprovedAdmin ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();showRenameTeamModal()">${icI(IC.edit)} Naam ploeg wijzigen</button>` : ''}
-    ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="closeModal();confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}`
-  : (!isAdmin && !isGuest && activeTeamId) ? `
-    <div class="sec" style="margin-top:14px">Deze ploeg</div>
-    <button class="btn btn-pale" onclick="closeModal();confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>
-    <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>` : '';
+  // Deze ploeg beheren: enkel getoond in de 'team'-context (vanaf het homescherm).
+  const teamBlock = (_beheerContext !== 'team') ? '' : (!activeTeamId
+    ? `<div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Kies eerst een ploeg om ze te beheren.</p></div>`
+    : (isAdmin ? `
+    <div class="sec">Deze ploeg</div>
+    <div class="card">
+      <button class="btn btn-green" onclick="showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
+      ${isApprovedAdmin ? `<button class="btn btn-pale" style="margin-top:8px" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam ploeg wijzigen</button>` : ''}
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
+        <span style="flex:1;font-size:13px;color:var(--txt2)">Deze ploeg bekijken als kijker</span>
+        <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
+      </div>
+      ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}
+    </div>` : (!isGuest ? `
+    <div class="sec">Deze ploeg</div>
+    <div class="card">
+      <button class="btn btn-pale" onclick="confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>
+    </div>` : '')));
 
-  const switchBlock = '';
+  // Systeembreed: beheerder worden (ploegen mogen aanmaken) + eigenaarstools. Enkel getoond
+  // in de 'system'-context (vanaf het ploegkeuzescherm).
+  const requestAdminBlock = (_beheerContext !== 'system' || viewerMode) ? '' : (
+    (ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1')
+      ? `<div class="sec">Beheerder worden</div><div class="nudge" style="margin-bottom:16px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
+      : (!isApprovedAdmin ? `<div class="sec">Beheerder worden</div><div class="card"><button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden &amp; ploeg aanmaken</button><p style="font-size:12px;color:var(--txt2);margin-top:8px">Vraag toestemming aan de maker om zelf ploegen te mogen aanmaken.</p></div>` : ''));
+  const ownerToolsBlock = (_beheerContext === 'system' && isOwner && !viewerMode) ? `
+    <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
+    <div class="card">
+      <button class="btn btn-dark" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="showAllUsersModal()">${icI(IC.players)} Alle gebruikers</button>
+      <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
+    </div>` : '';
 
-  const viewerToggle = isAdmin ? `<button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>` : '';
-  openModal(`<h3>${icI(IC.edit)} Beheer</h3>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
-      <p style="color:var(--txt2);font-size:14px;margin:0">${esc(currentUser.displayName || currentUser.email)}</p>
-      ${viewerToggle}
-    </div>
+  return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'home')">‹</button><h1>${icI(IC.edit)} Beheer</h1></div>
+  <div class="content">
     ${ownerBlock}
-    ${manageBlock}
-    ${switchBlock}
-    <div class="sec" style="margin-top:16px">Elders</div>
-    <button class="btn btn-pale" onclick="closeModal();_settingsFrom=view;go('settings')">${icI(IC.gear)} Instellingen <span style="font-weight:400;color:var(--txt2);font-size:12px">(account, back-up)</span></button>
-    ${isOwner ? `<button class="btn btn-pale" style="margin-top:8px" onclick="closeModal();go('teamselect')">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;color:var(--txt2);font-size:12px">(alle ploegen, beheerdersaanvragen)</span></button>` : ''}
-    <button class="btn btn-pale" style="margin-top:16px" onclick="closeModal()">Sluiten</button>`);
+    ${teamBlock}
+    ${requestAdminBlock}
+    ${ownerToolsBlock}
+  </div>`;
 }
 function toggleViewerMode() {
   viewerMode = !viewerMode;
   closeModal();
   updateCloudChip();
-  if (view === 'live' || view === 'detail' || view === 'home') render();
+  if (view === 'live' || view === 'detail' || view === 'home' || view === 'beheer') render();
 }
 function cloudLogout() {
   try { fbauth.signOut(); } catch (e) {}
@@ -1945,35 +1965,26 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">Match Delegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
+      <button class="hdr-gear-beheer" onclick="_beheerFrom=view;_beheerContext='system';go('beheer')" title="Beheer">${icI(IC.edit)} Beheer</button>
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
-      ${ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1'
-        ? `<div class="nudge" style="margin-bottom:16px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
-        : ''}
       ${teamRows}
       <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
       <div>
         ${!viewerMode && isApprovedAdmin
           ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken</button>`
-          : !viewerMode && localStorage.getItem('voetbal_adminRequested') !== '1'
-            ? `<button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden & ploeg aanmaken</button>`
-            : ''}
+          : ''}
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
+        ${(cloudReady && currentUser && !isGuest && !viewerMode && !isApprovedAdmin)
+          ? `<p style="font-size:12px;color:var(--txt2);margin-top:10px;margin-bottom:0">Wil je zelf een <b>eigen ploeg aanmaken</b>? Tik op het groene <b>Beheer</b>-knopje hierboven om het aan te vragen.</p>`
+          : ''}
         <div style="display:flex;gap:8px;margin-top:20px">
           <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
           <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
         </div>
       </div>
-      ${isOwner && !viewerMode ? `<div style="margin-top:28px;border-top:2px solid var(--bdr);padding-top:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${icI(IC.shield)} Beheerstools</div>
-        <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">Systeembreed, over alle ploegen heen. Voor het beheer van één specifieke ploeg (uitnodigen, leden, verwijderen): open die ploeg en tik rechtsboven op <b>Beheer</b>.</p>
-        <button class="btn btn-dark" onclick="closeModal();showAdminRequestsModal()" style="margin-bottom:8px">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
-        <button class="btn btn-dark" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
-        <button class="btn btn-dark" style="margin-top:8px" onclick="closeModal();showAllUsersModal()">${icI(IC.players)} Alle gebruikers</button>
-        <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
-      </div>` : ''}
     </div>
   </div>`;
 }
@@ -2034,7 +2045,8 @@ async function doJoinTeam() {
 }
 
 // ===================== STATE =====================
-let view = 'home', match = null, tab = 'wedstrijd', timerInt = null, _settingsFrom = 'home';
+let view = 'home', match = null, tab = 'wedstrijd', timerInt = null, _settingsFrom = 'home', _beheerFrom = 'home';
+let _beheerContext = 'team'; // 'team' = deze ploeg beheren (via home), 'system' = beheerder worden/eigenaarstools (via ploegkeuzescherm)
 let currentTournament = null, trnWiz = null;
 
 // ===================== UTILS =====================
@@ -2361,6 +2373,8 @@ async function go(v, id, _histReplace) {
   // Gast: enkel toegang tot deze schermen, ongeacht hoe de navigatie tot stand komt
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
   if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
+  // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
+  if (v === 'beheer' && !currentUser) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);
@@ -2551,10 +2565,10 @@ const views = {
   home: () => {
     loadHome();
     setTimeout(updateCloudChip, 0);
-    const canSwitch = cloudReady && currentUser && activeTeamId;
+    const canSwitch = cloudReady && currentUser && activeTeamId && !isGuest;
     const clubName = canSwitch ? esc(getClubName() || 'Ploeg') : '';
     const switchBtn = canSwitch
-      ? `<button class="team-switch-btn" onclick="view='teamselect';render()" title="Van ploeg wisselen">${icI(IC.swap)} Ploeg</button>`
+      ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen">${icI(IC.swap)} Ploeg</button>`
       : '';
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
@@ -2563,7 +2577,7 @@ const views = {
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="cloudLoginModal()"></span>
+        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="_beheerFrom=view;_beheerContext='team';go('beheer')"></span>
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>
@@ -2659,6 +2673,9 @@ async function loadHome() {
         <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">${icI(IC.warn)} Er zijn nog geen pushmeldingen als de app gesloten is — houd de app open tijdens de wedstrijd om alles mee te volgen.</p>
         <button class="btn btn-green btn-sm" onclick="localStorage.setItem('${welcomeKey}','1');this.closest('.card').remove()">Begrepen</button>
       </div>` : '';
+  const coAdminHint = (!isGuest && !isAdmin && cloudReady && activeTeamId)
+    ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Wil je <b>co-beheerder</b> worden van deze ploeg? Tik op de <b>Kijken</b>-knop rechtsboven en vraag het aan.</p>`
+    : '';
   const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
       <option value="all" ${homeFilter==='all'?'selected':''}>Alle ploegen</option>
@@ -2693,6 +2710,7 @@ async function loadHome() {
   recent = recent.slice(0, 1);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  const createTeamHint = '';
   if (isGuest) {
     const liveMatches = all.filter(m => m.status === 'live');
     const liveHtml = liveMatches.length
@@ -2706,7 +2724,7 @@ async function loadHome() {
   const noneSection = (!upcoming.length && !upcomingTrn.length)
     ? `<div class="empty" style="padding:16px"><div class="ei">${icI(IC.calendar)}</div><p style="margin:0;color:var(--txt2)">Geen geplande wedstrijden of tornooien${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`
     : '';
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection;
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {
@@ -2974,22 +2992,22 @@ function renderSettings(isFirst) {
   return `
   <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
-    ${(cloudReady && activeTeamId && !isGuest) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop rechtsboven op het homescherm.</p>` : ''}
+    ${(cloudReady && activeTeamId && !isGuest) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-moon" style="font-size:1em;vertical-align:-.1em"></i> Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
         <span class="start-chip ${darkOn()?'on':''}" onclick="toggleDark()">${darkOn()?'Aan':'Uit'}</span></div>
     </div>
-    <div class="sec">Account</div>
+    ${currentUser ? `<div class="sec">Account</div>
     <div class="card">
-      <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser ? (currentUser.displayName || currentUser.email) : '')}</p>
-      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser ? currentUser.email : '')}</p>
+      <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser.displayName || currentUser.email)}</p>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser.email)}</p>
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> E-mailadres wijzigen</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()"><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
-    </div>
+    </div>` : ''}
     <div class="sec">Over de app</div>
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2)">Versie</span><span style="font-weight:700">${APP_VERSION}</span></div>
@@ -6666,6 +6684,7 @@ async function init() {
   }
   // Met cloud: onAuthChanged() neemt de flow over zodra Firebase reageert
 }
+views.beheer = renderBeheer;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
 views.tournaments = renderTournamentList;
