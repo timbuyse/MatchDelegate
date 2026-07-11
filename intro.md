@@ -8,24 +8,24 @@ Twee kant-en-klare versies om de app voor te stellen: een voor e-mail, een voor 
 
 ## Versie 1 — E-mail
 
-**Onderwerp: Match Delegate — wedstrijden bijhouden en live delen, vanaf de zijlijn**
+**Onderwerp: Even iets tonen — mijn app voor langs het veld ⚽**
 
-Hallo [naam]
+Dag [naam]
 
-Ik heb de voorbije maanden een app gebouwd voor iedereen die langs het veld staat als trainer of afgevaardigde: **Match Delegate**. Ze is nu klaar om te testen en ik dacht meteen aan jou.
+Ik contacteer je even omdat ik de voorbije maanden aan iets gewerkt heb dat jou als trainer wel eens goed zou kunnen uitkomen. Ik heb een app gebouwd voor iedereen die langs het veld staat: **Match Delegate**. Ze is nu klaar om te testen, en jij was een van de eersten aan wie ik dacht.
 
-Wat kan je ermee?
+In het kort wat ze doet:
 
 - **Wedstrijden live bijhouden**: score, doelpunten, kaarten, wissels en speeltijd — met een paar tikken op je smartphone, gewoon vanaf de zijlijn.
-- **Live delen met ouders en supporters**: wie niet aanwezig kan zijn, volgt de wedstrijd in real time via een link, QR-code of cijfercode. Zij kijken mee, jij houdt de controle.
-- **Je ploeg beheren**: spelers, selecties en opstellingen op één plek, en achteraf statistieken per speler en per wedstrijd.
-- **Samen beheren**: geef een co-beheerder (bv. je afgevaardigde) rechten, zodat je het werk kan verdelen.
+- **Ouders en supporters kijken live mee**: wie er niet bij kan zijn, volgt de wedstrijd in real time via een link of QR-code. Zij kijken mee, jij houdt de controle.
+- **Je ploeg op één plek**: spelers, selecties en opstellingen, en achteraf statistieken per speler en per wedstrijd.
+- **Werk verdelen**: je kan je afgevaardigde co-beheerder maken, zodat je het niet allemaal alleen moet doen.
 
-Match Delegate is een webapp: niets te installeren via een app store, je zet ze gewoon op je beginscherm en ze werkt op iPhone én Android. Ze blijft ook werken als het wifi- of 4G-signaal langs het veld even wegvalt.
+Niets te installeren via een app store trouwens — je zet ze gewoon op je beginscherm (iPhone én Android) en ze blijft zelfs werken als het signaal langs het veld even wegvalt.
 
-Proberen kost niets: surf naar **https://timbuyse.github.io/MatchDelegate/**, maak een account aan en je bent vertrokken.
+Wil je ze eens proberen? Surf naar **https://timbuyse.github.io/MatchDelegate/**, maak een account aan en je bent vertrokken. Kost niets, en eerlijke feedback is het mooiste wat je me kan geven — ook als iets niet werkt of onhandig aanvoelt.
 
-Ik hoor heel graag wat je ervan vindt — alle feedback is welkom.
+Laat je iets weten? Bedankt alvast!
 
 Sportieve groeten
 Tim
