@@ -433,7 +433,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.7'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -7141,7 +7141,10 @@ async function init() {
     if (!_splashGone) { const sp = document.getElementById('splash-spinner'); if (sp) sp.style.display = 'block'; }
   }, 2000);
   cloudInit();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // ?v=APP_VERSION zorgt dat de SW-cache automatisch meeloopt met de app-versie (B16):
+  // een gewijzigde registratie-URL laat de browser het script als "nieuw" behandelen,
+  // zonder dat CACHE in sw.js nog apart handmatig bijgehouden moet worden.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=' + APP_VERSION).catch(() => {});
   // Offline fallback: als Firebase niet klaar is, splash na 3 sec verbergen
   if (!cloudReady) setTimeout(() => { if (window._hideSplash) window._hideSplash(); }, 3000);
   document.addEventListener('visibilitychange', () => {

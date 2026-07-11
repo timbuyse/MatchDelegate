@@ -1,4 +1,6 @@
-const CACHE = 'voetbal-v40';
+// Afgeleid van de ?v=APP_VERSION querystring waarmee index.html dit script registreert
+// (B16: één versiebron i.p.v. dit getal apart handmatig bijhouden naast APP_VERSION).
+const CACHE = 'voetbal-v' + (new URL(location.href).searchParams.get('v') || 'dev');
 const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './background_logo.jpg',
   './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js'];
 
