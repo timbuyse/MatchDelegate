@@ -434,7 +434,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2464,6 +2464,37 @@ function evtLabel(e, m) {
     default: return esc(e.type);
   }
 }
+// Platte-tekstvariant van evtLabel(): zelfde switch, maar zonder iconen/HTML — nodig voor
+// contexten die geen HTML renderen (PDF-tijdlijn via jsPDF-tekst i.p.v. innerHTML).
+function evtLabelPlain(e, m) {
+  switch(e.type) {
+    case 'goal_us': { let s = `Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
+    case 'goal_them': return 'Tegendoel';
+    case 'own_goal': return `Eigen doel (${pName(m,e.playerId)})`;
+    case 'own_goal_them': return 'Eigen doel tegenstander';
+    case 'corner_us': { let s = 'Hoekschop voor ons'; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
+    case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
+    case 'substitution': return `${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
+    case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
+    case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
+    case 'penalty_us': return `Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'freekick_us': return `Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
+    case 'freekick_them': return 'Vrije trap tegen';
+    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'shot_us': return `Schot voor ons${e.onTarget?' (op doel)':''}`;
+    case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
+    case 'save_us': return 'Redding (onze keeper)';
+    case 'save_them': return 'Redding tegenstander';
+    case 'disallowed_us': return `Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
+    case 'disallowed_them': return `Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
+    case 'captain_change': return `Nieuwe kapitein: ${pName(m,e.playerId)}`;
+    case 'quarter_start': return `${pSing(m)} ${e.quarterNum} gestart`;
+    case 'quarter_end': return `${pSing(m)} ${e.quarterNum} afgelopen`;
+    default: return e.type;
+  }
+}
 function allCaptains(m) {
   const changes = (m.events||[]).filter(e => e.type==='captain_change').sort((a,b)=>(a.gameTimeMs||0)-(b.gameTimeMs||0));
   if (!changes.length) return m.captainId ? [m.captainId] : [];
@@ -3534,6 +3565,27 @@ function hdlGo(p) {
   document.getElementById('app').innerHTML = renderHandleiding(p);
   window.scrollTo(0, 0);
   document.getElementById('app').scrollTop = 0;
+}
+
+let _jspdfLoading = null;
+// Laadt jsPDF + autoTable (~450KB) pas bij een effectieve PDF-export, niet bij elke opstart.
+function loadJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
+  if (_jspdfLoading) return _jspdfLoading;
+  _jspdfLoading = new Promise((resolve, reject) => {
+    const s1 = document.createElement('script');
+    s1.src = 'pdf/jspdf.umd.min.js';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'pdf/jspdf.plugin.autotable.min.js';
+      s2.onload = () => resolve();
+      s2.onerror = () => reject(new Error('jspdf.plugin.autotable.min.js niet geladen'));
+      document.head.appendChild(s2);
+    };
+    s1.onerror = () => reject(new Error('jspdf.umd.min.js niet geladen'));
+    document.head.appendChild(s1);
+  });
+  return _jspdfLoading;
 }
 
 let _hdlScreenshotsLoading = null;
@@ -6767,118 +6819,215 @@ function confirmDelete() {
 async function deleteCurrentMatch() { await dbDel(match.id); match = null; closeModal(); go('home'); }
 
 // ===================== PDF EXPORT =====================
-function exportPDF() {
-  const m = match, mins = calcMinutes(m);
-  const evts = [...m.events];
-  const stat = (type) => m.events.filter(e => e.type === type).length;
-  const goals = m.events.filter(e => e.type==='goal_us');
-  const scorers = {};
-  goals.forEach(e => { const n = pName(m,e.playerId); scorers[n] = (scorers[n]||0)+1; });
-  const assists = {};
-  goals.forEach(e => { if (e.assistId){ const n = pName(m,e.assistId); assists[n]=(assists[n]||0)+1; } });
+// Rasterizeert een afbeeldingsbron (pad, data-URL, of SVG-tekst als data-URI) naar een
+// PNG data-URL op de gevraagde pixelgrootte — nodig omdat jsPDF geen SVG kan tekenen.
+// Geeft null terug bij een fout i.p.v. te crashen (een ontbrekende foto mag de PDF niet breken).
+function rasterizeToPng(src, w, h) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+function rasterizeSvgString(svgString, w, h) {
+  // data:image/svg+xml vereist een xmlns-attribuut op de root <svg> (in tegenstelling tot
+  // inline SVG in een HTML-pagina, waar de browser dat automatisch regelt) — anders
+  // weigert de browser het te laden als losstaande afbeelding.
+  if (!/xmlns=/.test(svgString)) svgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  return rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString), w, h);
+}
 
+// Wedstrijd-PDF: écht, doorzoekbaar PDF via jsPDF (geen screenshot/rasterbeeld van de pagina).
+// Enkel het veld-opstellingsdiagram wordt als afbeelding ingevoegd (het is een tekening,
+// geen tekst) — alle tabellen en tekst hieronder zijn selecteerbare/doorzoekbare PDF-tekst.
+async function exportPDF() {
+  const m = match; if (!m) return;
+  showToast('PDF wordt gemaakt...', 'ok');
+  try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
+
+  const mins = calcMinutes(m);
   const qData = calcMinutesPerQuarter(m);
-  const playerRows = m.players.map(p => {
-    const min = mins[p.id] ? Math.floor(mins[p.id].ms/60000) : 0;
-    const g = m.events.filter(e=>(e.type==='goal_us'||(e.type==='penalty_us'&&e.scored))&&e.playerId===p.id).length;
-    const a = m.events.filter(e=>e.type==='goal_us'&&e.assistId===p.id).length;
-    const yc = m.events.filter(e=>e.type==='yellow_card'&&e.playerId===p.id).length;
-    const rc = m.events.filter(e=>e.type==='red_card'&&e.playerId===p.id).length;
-    if (p.absent) {
-      const emptyCells = qData ? qData.qNums.map(() => '<td></td>').join('') : '';
-      return `<tr style="color:#9ca3af"><td>${p.number||''}</td><td style="text-decoration:line-through">${esc(p.name)}</td><td style="text-align:center;color:#ef4444">Afwezig</td>${emptyCells}<td></td><td></td><td></td></tr>`;
-    }
-    const qCells = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum]||0; return `<td style="text-align:center;color:#6b7280">${ms>0?Math.round(ms/60000)+"'":'—'}</td>`; }).join('') : '';
-    return `<tr><td>${p.number||''}</td><td>${esc(p.name)}</td><td style="text-align:center;font-weight:700">${min}'</td>${qCells}<td style="text-align:center">${g||''}</td><td style="text-align:center">${a||''}</td><td style="text-align:center">${yc?'🟨'.repeat(yc):''}${rc?'🟥':''}</td></tr>`;
-  }).join('');
-
+  const stat = (type) => m.events.filter(e => e.type === type).length;
   const infoBits = [m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein: ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
-  const perQuarterRows = m.quarters.map(q => {
-    const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0) : 0;
-    const cum = scoreUpToQuarter(m, q.num);
-    const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num).map(e => `${e.gameTimeMs != null ? `${eventMinSummaryText(e, m)} ` : ''}${evtLabel(e, m)}`).join('<br>') || '–';
-    const cumHtml = isAway(m) ? `${cum.them} – <span style="color:#1f9d4d">${cum.us}</span>` : `<span style="color:#1f9d4d">${cum.us}</span> – ${cum.them}`;
-    return `<tr><td><b>${pAbbr(m)}${q.num}</b></td><td style="font-weight:900;white-space:nowrap">${cumHtml}</td><td style="white-space:nowrap">${Math.round(dur / 60000)} min</td><td>${gs}</td></tr>`;
-  }).join('');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const PW = 595.28, PH = 841.89, MG = 40, CW = PW - MG * 2;
+  let y = MG;
+  const ensure = need => { if (y + need > PH - MG) { doc.addPage(); y = MG; } };
+  const heading = text => {
+    ensure(30);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+    doc.text(text.toUpperCase(), MG, y);
+    y += 5; doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.75); doc.line(MG, y, MG + CW, y);
+    y += 16; doc.setTextColor(23, 23, 23);
+  };
 
-  const timelineRows = eventsByQuarter(m).map(g => {
-    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${g.cum ? ` — tussenstand ${g.cum.us}–${g.cum.them}` : ''}`;
-    const rows = g.list.length ? g.list.map(e => `<tr><td style="white-space:nowrap">${eventMinLocal(e,m)}</td><td>${evtLabel(e, m)}</td></tr>`).join('') : `<tr><td></td><td style="color:#9ca3af">Geen events</td></tr>`;
-    return `<tr><td colspan="2" style="background:#f1f3f5;font-weight:700;border-top:2px solid #d1d5db">${head}</td></tr>${rows}`;
-  }).join('');
+  // ---- Header ----
+  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
+  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, y, 40, 40); } catch (e) {} }
+  const tx = MG + 50, tw = CW - 50;
+  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
+  const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
+  doc.text(title, tx, y + 13, { maxWidth: tw });
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
+  doc.text(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tx, y + 27, { maxWidth: tw });
+  if (infoBits.length) doc.text(infoBits.join(' · '), tx, y + 39, { maxWidth: tw });
+  y += 56;
+  doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, y, MG + CW, y);
+  y += 26;
 
-  const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"><title>${matchTitle(m)}</title>
-    <link rel="stylesheet" href="fonts/tabler-icons.min.css">
-    <style>
-      body{font-family:Arial,sans-serif;color:#171717;padding:24px;max-width:800px;margin:0 auto}
-      .top{display:flex;align-items:center;gap:14px;border-bottom:3px solid #f5821f;padding-bottom:14px;margin-bottom:18px}
-      .top .logo{width:54px;height:54px;background:#101010;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#f5821f;font-weight:bold;font-size:20px}
-      h1{font-size:20px;margin:0}
-      .sub{color:#6b7280;font-size:13px;margin-top:3px}
-      .score{text-align:center;font-size:42px;font-weight:900;margin:16px 0}
-      .score .us{color:#1f9d4d}
-      h2{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:5px;margin-top:24px}
-      table{width:100%;border-collapse:collapse;font-size:13px}
-      th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
-      th{color:#6b7280;font-size:11px;text-transform:uppercase}
-      .stats{display:flex;gap:18px;flex-wrap:wrap;font-size:13px}
-      .stats div{background:#f5f6f5;padding:8px 14px;border-radius:8px}
-      .stats b{color:#1f9d4d}
-      @media print{body{padding:0}}
-      .ic-i{display:inline-block}.ic-i svg{width:1em;height:1em;display:inline-block;vertical-align:-.15em}
-    </style></head><body>
-    <div class="top"><img src="${getClubLogo()}" style="width:54px;height:54px;object-fit:contain;border-radius:10px;background:${(JSON.parse(localStorage.getItem('voetbal_theme')||'null')||GENERIC_THEME).dark}">
-      <div><h1>${m.location && m.location.toLowerCase() !== 'thuis' ? `${esc(m.opponent)} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(tName(m))}` : `${esc(tName(m))} <span style="color:#6b7280;font-weight:400">vs</span> ${esc(m.opponent)}`}</h1>
-      <div class="sub">${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min</div>
-      ${infoBits.length?`<div class="sub">${infoBits.map(esc).join(' · ')}</div>`:''}</div>
-    </div>
-    <div class="score">${isAway(m) ? `${m.scoreThem} – <span class="us">${m.scoreUs}</span>` : `<span class="us">${m.scoreUs}</span> – ${m.scoreThem}`}</div>
-    ${m.motmId?`<p style="text-align:center;font-weight:700;margin:-8px 0 10px">${icI(IC.motm)} Man van de match: ${esc(pName(m,m.motmId))}</p>`:''}
-    ${m.players.some(p=>p.starting)?(()=>{
-      const numQ = m.quarters.length || 1;
-      const legend = '<p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = positienummer · © kapitein</p>';
-      if (numQ <= 1) {
-        return `<h2>Opstelling${m.formation?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>${legend}`;
+  // ---- Score ----
+  doc.setFont(undefined, 'bold'); doc.setFontSize(30); doc.setTextColor(23, 23, 23);
+  doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, y + 24, { align: 'center' });
+  y += 46;
+  if (m.motmId) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.text(`Man van de match: ${pName(m, m.motmId)}`, PW / 2, y, { align: 'center' });
+    y += 20;
+  }
+
+  // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
+  if (m.players.some(p => p.starting)) {
+    heading(`Opstelling${m.formation ? ' · ' + m.formation : ''}`);
+    const numQ = m.quarters.length || 1;
+    const items = numQ <= 1
+      ? [{ q: null, ps: m.players.filter(p => p.starting), capId: m.captainId }]
+      : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: playersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
+    const perRow = items.length > 2 ? 3 : items.length;
+    const gap = 12, imgW = (CW - (perRow - 1) * gap) / perRow, imgH = imgW * (504 / 326);
+    for (let i = 0; i < items.length; i += perRow) {
+      const rowItems = items.slice(i, i + perRow);
+      const labelH = rowItems[0].q != null ? 14 : 0;
+      ensure(imgH + labelH + 14);
+      let x = MG;
+      for (const it of rowItems) {
+        if (it.q != null) {
+          doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+          doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, y, { align: 'center' });
+        }
+        const png = await rasterizeSvgString(pitchSVG(m, it.ps, 326, it.capId), 326 * 2, 504 * 2);
+        if (png) { try { doc.addImage(png, 'PNG', x, y + labelH, imgW, imgH); } catch (e) {} }
+        x += imgW + gap;
       }
-      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtPeriodStart(m, q), capId:captainAtStartOfQuarter(m,q)}; });
-      const rows = [];
-      for (let i=0; i<items.length; i+=2) rows.push(items.slice(i,i+2));
-      const pW = numQ > 2 ? 195 : 280;
-      return rows.map(row =>
-        `<div style="display:flex;gap:12px;align-items:flex-start;margin:10px 0">` +
-        row.map(({q,ps,capId}) =>
-          `<div style="flex:1;text-align:center"><h3 style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${pSing(m)} ${q}</h3>${pitchSVG(m,ps,pW,capId)}${legend}</div>`
-        ).join('') +
-        `</div>`
-      ).join('');
-    })():''}
-    ${m.quarters.length?`<h2>Tussenstand per ${pSingLow(m)}</h2>
-    <table><thead><tr><th>${pSing(m)}</th><th>Tussenstand</th><th>Duur</th><th>Doelpunten</th></tr></thead>
-    <tbody>${perQuarterRows}</tbody></table>`:''}
-    ${(()=>{
-      const pdfStats = [
-        [stat('corner_us')+stat('corner_them'), `Hoekschoppen: <b>${stat('corner_us')}</b> – ${stat('corner_them')}`],
-        [stat('freekick_us')+stat('freekick_them'), `<i class="ti ti-bolt" style="font-size:1em;vertical-align:-.1em"></i> Vrije trappen: <b>${stat('freekick_us')}</b> – ${stat('freekick_them')}`],
-        [stat('penalty_us')+stat('penalty_them'), `Penalty's: <b>${stat('penalty_us')}</b> – ${stat('penalty_them')}`],
-        [stat('yellow_card')+stat('red_card'), `🟨 ${stat('yellow_card')} · 🟥 ${stat('red_card')}`],
-      ].filter(([n]) => n > 0);
-      return pdfStats.length ? `<h2>Wedstrijdstatistieken</h2><div class="stats">${pdfStats.map(([,html])=>`<div>${html}</div>`).join('')}</div>` : '';
-    })()}
-    <h2>Spelers</h2>
-    <table><thead><tr><th>#</th><th>Naam</th><th>Totaal</th>${qData ? qData.qNums.map(qNum=>`<th style="text-align:center">${pAbbr(m)}${qNum}</th>`).join('') : ''}<th>Goals</th><th>Assists</th><th>Kaarten</th></tr></thead>
-    <tbody>${playerRows}</tbody></table>
-    ${(m.photo1||m.photo2) ? `<h2>Foto's</h2><div style="display:flex;gap:12px;margin-bottom:8px">${m.photo1?`<img src="${m.photo1}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}${m.photo2?`<img src="${m.photo2}" style="flex:1;max-width:48%;border-radius:8px;object-fit:cover;max-height:200px">`:''}</div>` : ''}
-    ${canManage() && m.notes ? `<h2>Notities</h2><p style="white-space:pre-wrap;font-size:13px;line-height:1.5">${esc(m.notes)}</p>` : ''}
-    ${canManage() && m.players.some(p=>p.note) ? `<h2>Notities per speler</h2>${m.players.filter(p=>p.note).map(p=>`<div style="font-size:13px;padding:3px 0"><b>${esc(p.name)}:</b> ${esc(p.note)}</div>`).join('')}` : ''}
-    <h2>Volledige tijdlijn (${evts.length} events)</h2>
-    <table><tbody>${timelineRows||'<tr><td>Geen events</td></tr>'}</tbody></table>
-    <p style="margin-top:30px;color:#9ca3af;font-size:11px;text-align:center">Match Delegate · ${esc(getClubName())} · app created by Tim Buyse</p>
-    </body></html>`;
+      y += imgH + labelH + 14;
+    }
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
+    doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein', PW / 2, y, { align: 'center' });
+    y += 18; doc.setTextColor(23, 23, 23);
+  }
 
-  const w = window.open('', '_blank');
-  if (!w) { showToast('Sta pop-ups toe om de PDF te maken.', 'err'); return; }
-  w.document.write(html); w.document.close();
+  // ---- Tussenstand per periode ----
+  if (m.quarters.length) {
+    heading(`Tussenstand per ${pSingLow(m)}`);
+    const rows = m.quarters.map(q => {
+      const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : 0;
+      const cum = scoreUpToQuarter(m, q.num);
+      const cumText = isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`;
+      const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)
+        .map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
+      return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
+    });
+    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
+      styles: { fontSize: 9, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } });
+    y = doc.lastAutoTable.finalY + 24;
+  }
+
+  // ---- Wedstrijdstatistieken ----
+  const pdfStats = [
+    [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${stat('corner_us')} – ${stat('corner_them')}`],
+    [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${stat('freekick_us')} – ${stat('freekick_them')}`],
+    [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${stat('penalty_us')} – ${stat('penalty_them')}`],
+    [stat('yellow_card') + stat('red_card'), `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
+  ].filter(([n]) => n > 0);
+  if (pdfStats.length) {
+    heading('Wedstrijdstatistieken');
+    ensure(16);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    doc.text(pdfStats.map(([, t]) => t).join('   ·   '), MG, y, { maxWidth: CW });
+    y += 26;
+  }
+
+  // ---- Spelers ----
+  heading('Spelers');
+  const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
+  const playerHead = ['#', 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
+  const absentRowIdx = new Set();
+  const playerRows = m.players.map((p, idx) => {
+    if (p.absent) { absentRowIdx.add(idx); return [p.number || '', p.name || '', 'Afwezig', ...qCols.map(() => ''), '', '', '', '']; }
+    const min = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
+    const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
+    const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
+    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+    const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
+    const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? Math.round(ms / 60000) + "'" : '—'; }) : [];
+    return [p.number || '', p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
+  });
+  doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [playerHead], body: playerRows,
+    styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+    didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } });
+  y = doc.lastAutoTable.finalY + 24;
+
+  // ---- Foto's ----
+  const photos = [m.photo1, m.photo2].filter(Boolean);
+  if (photos.length) {
+    heading("Foto's");
+    const gap = 12, imgW = photos.length > 1 ? (CW - gap) / 2 : Math.min(CW, 300), imgH = imgW * 0.66;
+    ensure(imgH + 10);
+    let x = MG;
+    for (const src of photos) {
+      const png = await rasterizeToPng(src, Math.round(imgW * 2), Math.round(imgH * 2));
+      if (png) { try { doc.addImage(png, 'PNG', x, y, imgW, imgH); } catch (e) {} }
+      x += imgW + gap;
+    }
+    y += imgH + 20;
+  }
+
+  // ---- Notities (enkel beheerder) ----
+  if (canManage() && m.notes) {
+    heading('Notities');
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    const lines = doc.splitTextToSize(m.notes, CW);
+    for (const line of lines) { ensure(14); doc.text(line, MG, y); y += 14; }
+    y += 10;
+  }
+  const notedPlayers = m.players.filter(p => p.note);
+  if (canManage() && notedPlayers.length) {
+    heading('Notities per speler');
+    for (const p of notedPlayers) {
+      const lines = doc.splitTextToSize(`${p.name}: ${p.note}`, CW);
+      for (const line of lines) { ensure(14); doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.text(line, MG, y); y += 14; }
+    }
+    y += 10;
+  }
+
+  // ---- Volledige tijdlijn ----
+  const timelineGroups = eventsByQuarter(m);
+  heading(`Volledige tijdlijn (${m.events.length} events)`);
+  for (const g of timelineGroups) {
+    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${g.cum ? ` — tussenstand ${g.cum.us}–${g.cum.them}` : ''}`;
+    const rows = g.list.length ? g.list.map(e => [eventMinLocal(e, m), evtLabelPlain(e, m)]) : [['', 'Geen events']];
+    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [[head, '']], body: rows, showHead: 'firstPage',
+      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 60 } } });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
+  doc.text(`Match Delegate · ${getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
+
+  // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
+  // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.
+  const fileTitle = (isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`).replace(/[\\/:*?"<>|]/g, '-');
+  doc.save(`${fileTitle}.pdf`);
 }
 
 // ===================== HELPERS =====================

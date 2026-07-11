@@ -1,4 +1,4 @@
-const CACHE = 'voetbal-v38';
+const CACHE = 'voetbal-v39';
 const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './background_logo.jpg', './fonts/tabler-icons.min.css', './fonts/tabler-icons.woff2',
   './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js'];
 
@@ -25,12 +25,20 @@ self.addEventListener('fetch', e => {
 
   if (isDoc) {
     // Pagina/app-shell: netwerk-eerst zodat nieuwe versies meteen verschijnen.
+    // Bij "lie-fi" (zwakke, wispelturige verbinding) kan fetch() tientallen seconden
+    // hangen vóór hij zelf faalt — de gebruiker staart dan al die tijd naar de splash.
+    // Race tegen een korte timeout en val dan terug op de cache; de echte fetch loopt
+    // op de achtergrond door en ververst de cache zodra hij (eventueel later) aankomt.
+    const network = fetch(req).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put('./index.html', copy));
+      return res;
+    });
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('sw-timeout')), 3000));
     e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put('./index.html', copy));
-        return res;
-      }).catch(() => caches.match(req).then(c => c || caches.match('./index.html')))
+      Promise.race([network, timeout]).catch(() =>
+        caches.match(req).then(c => c || caches.match('./index.html')).then(cached => cached || network)
+      )
     );
     return;
   }
