@@ -7,7 +7,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Match Delegate">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="fonts/tabler-icons.min.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="MD_cropped.png">
   <link rel="apple-touch-icon" href="MD_cropped.png">
@@ -434,7 +433,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.7'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -482,12 +481,12 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
 const IC = {
-  ball: '<i class="ti ti-ball-football" aria-hidden="true"></i>',
+  ball: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76-5.55z"/><path d="M12 7v-4m3 13l2.5 3m-.74-8.55l3.74-1.45m-11.44 7.05l-2.56 2.95m.74-8.55l-3.74-1.45"/>'),
   players: _svg('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3.3 2.5-5.4 5.5-5.4s5.5 2.1 5.5 5.4"/><circle cx="17.2" cy="9.2" r="2.3"/><path d="M15.4 13.9c2.7.1 4.6 2.2 4.6 4.8"/>'),
-  shirt: '<i class="ti ti-shirt" aria-hidden="true"></i>',
+  shirt: _svg('<path d="M15 4l6 2v5h-3v8a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-8h-3v-5l6-2a3 3 0 0 0 6 0"/>'),
   trophy: _svg('<path d="M7 4.5h10V8a5 5 0 0 1-10 0V4.5z"/><path d="M7 6H4.6A2.4 2.4 0 0 0 7 9M17 6h2.4A2.4 2.4 0 0 1 17 9"/><path d="M12 13v3.5M9 20h6M10.2 20l.4-3.5h2.8l.4 3.5"/>'),
-  medal: '<i class="ti ti-medal" aria-hidden="true"></i>',
-  chart: '<i class="ti ti-chart-bar" aria-hidden="true"></i>',
+  medal: _svg('<path d="M12 4v3m-4-3v6m8-6v6"/><path d="M12 18.5l-3 1.5l.5-3.5l-2-2l3-.5l1.5-3l1.5 3l3 .5l-2 2l.5 3.5z"/>'),
+  chart: _svg('<path d="M3 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M15 9a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M4 20h14"/>'),
   goal: _svg('<path d="M3 20V6h18v14" stroke-width="2.2"/><path d="M3 9.5h4M3 13h3M7 6v4M11 6v3M15 6v3"/><circle cx="15.5" cy="14.5" r="3" fill="currentColor" stroke="none"/>'),
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
@@ -500,7 +499,7 @@ const IC = {
   shot: _svg('<circle cx="7.5" cy="14.5" r="3.5"/><path d="M10.5 11.5l7.5-7.5M14.5 4h4.5v4.5"/>'),
   save: _svg('<path d="M7 20V9a2 2 0 0 1 4 0v5"/><path d="M11 12.5a2 2 0 0 1 4 0v3.5"/><path d="M15 15.5a2 2 0 0 1 4 0V20"/>'),
   disallowed: _svg('<circle cx="12" cy="12" r="9"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6" stroke-width="2.2"/>'),
-  calendar: '<i class="ti ti-calendar-event" aria-hidden="true"></i>',
+  calendar: _svg('<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"/><path d="M16 3v4M8 3v4M4 11h16M8 15h2v2h-2z"/>'),
   history: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 3"/>'),
   live: _svg('<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="9.5" stroke-opacity=".35"/>'),
   done: _svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8 5-5.8"/>'),
@@ -517,7 +516,7 @@ const IC = {
   plus:   _svg('<path d="M12 4v16M4 12h16" stroke-width="2.2" stroke-linecap="round"/>'),
   shield: _svg('<path d="M12 3l8 3v5c0 4.5-3.5 8.5-8 9.5C7.5 19.5 4 15.5 4 11V6l8-3z"/>'),
   wrench: _svg('<path d="M14.7 3.3a5 5 0 0 0-6.3 6.3L3.3 14.7a2.3 2.3 0 0 0 3.2 3.2l5.1-5.1a5 5 0 0 0 6.3-6.3l-2.9 2.9-1.5-1.5 2.9-2.9z" fill="currentColor" stroke="none"/>'),
-  trash:  _svg('<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13"/><path d="M9 7V4h6v3"/>'),
+  trash:  _svg('<path d="M4 7h16M10 11v6M14 11v6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/><path d="M9 7v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>'),
   share:  _svg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'),
   link:    _svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
   gear:    _svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'),
@@ -532,6 +531,27 @@ const IC = {
   close:   _svg('<path d="M18 6L6 18M6 6l12 12" stroke-width="2.2"/>'),
   check:   _svg('<path d="M4 13l5 5L20 7" stroke-width="2.4"/>'),
   copy:    _svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+  // ---- Vervangers voor het Tabler-iconenfont (B15: ~1MB font weg voor 28 iconen) ----
+  mail:      _svg('<path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2z"/><path d="M3 7l9 6l9-6"/>'),
+  eyeOff:    _svg('<path d="M10.585 10.587a2 2 0 0 0 2.829 2.828"/><path d="M16.681 16.673a8.717 8.717 0 0 1-4.681 1.327c-3.6 0-6.6-2-9-6c1.272-2.12 2.712-3.678 4.32-4.674m2.86-1.146a9.055 9.055 0 0 1 1.82-.18c3.6 0 6.6 2 9 6c-.666 1.11-1.379 2.067-2.138 2.87"/><path d="M3 3l18 18"/>'),
+  crown:     _svg('<path d="M12 6l4 6l5-4l-2 10h-14l-2-10l5 4z"/>'),
+  qrcode:    _svg('<path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M7 17v.01M14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M7 7v.01M4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/><path d="M17 7v.01M14 14h3M20 14v.01M14 14v3M14 20h3M17 17h3M20 17v3"/>'),
+  hourglass: _svg('<path d="M6.5 7h11M6.5 17h11"/><path d="M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1z"/><path d="M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0-1-1h-10a1 1 0 0 0-1 1z"/>'),
+  playFilled:  _svg('<path d="M6 4v16a1 1 0 0 0 1.524.852l13-8a1 1 0 0 0 0-1.704l-13-8a1 1 0 0 0-1.524.852z" fill="currentColor" stroke="none"/>'),
+  stopFilled:  _svg('<path d="M17 4h-10a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-10a3 3 0 0 0-3-3z" fill="currentColor" stroke="none"/>'),
+  pauseFilled: _svg('<path d="M9 4h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-12a2 2 0 0 0-2-2z" fill="currentColor" stroke="none"/><path d="M17 4h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-12a2 2 0 0 0-2-2z" fill="currentColor" stroke="none"/>'),
+  dot:       _svg('<path d="M7 3.34a10 10 0 1 1-4.995 8.984l-.005-.324l.005-.324a10 10 0 0 1 4.995-8.336z" fill="currentColor" stroke="none"/>'),
+  moon:      _svg('<path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>'),
+  bell:      _svg('<path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6"/><path d="M9 17v1a3 3 0 0 0 6 0v-1"/>'),
+  lock:      _svg('<path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2z"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0"/><path d="M8 11v-4a4 4 0 1 1 8 0v4"/>'),
+  shieldLock: _svg('<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-8.5 15a12 12 0 0 1-8.5-15a12 12 0 0 0 8.5-3"/><path d="M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"/><path d="M12 12l0 2.5"/>'),
+  download:  _svg('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 11l5 5l5-5"/><path d="M12 4l0 12"/>'),
+  upload:    _svg('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 9l5-5l5 5"/><path d="M12 4l0 12"/>'),
+  undo:      _svg('<path d="M9 14l-4-4l4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/>'),
+  stopwatch: _svg('<circle cx="12" cy="13" r="7"/><path d="M14.5 10.5l-2.5 2.5"/><path d="M17 8l1-1"/><path d="M14 3h-4"/>'),
+  table:     _svg('<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2z"/><path d="M3 10h18M10 3v18"/>'),
+  code:      _svg('<path d="M7 8l-4 4l4 4M17 8l4 4l-4 4M14 4l-4 16"/>'),
+  fileText:  _svg('<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 9l1 0M9 13l6 0M9 17l6 0"/>'),
 };
 const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
@@ -1031,7 +1051,7 @@ async function doRequestAdmin() {
     const mailBody = encodeURIComponent('Dag,\n\nIk heb zonet in MatchDelegate een aanvraag ingediend om beheerder te worden (zelf ploegen aanmaken).\n\nNaam: ' + (currentUser.displayName || '') + '\nE-mail: ' + (currentUser.email || '') + '\n\nKan je ze goedkeuren via Beheer → Eigenaarstools → Beheerdersaanvragen?\n\nBedankt!');
     openModal(`<h3>${icI(IC.done)} Aanvraag verstuurd</h3>
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Zodra de maker je goedkeurt zie je het meteen in de app verschijnen.<br><br>De maker krijgt <b>geen automatische melding</b> — verwittig hem gerust even zelf:</p>
-      <a class="btn btn-org" style="display:block;text-decoration:none;text-align:center" href="mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Verwittig de maker via e-mail</a>
+      <a class="btn btn-org" style="display:block;text-decoration:none;text-align:center" href="mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}">${icI(IC.mail)} Verwittig de maker via e-mail</a>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
   } catch (e) {
     if (err) err.textContent = 'Versturen mislukt: ' + (e.message || 'probeer opnieuw.');
@@ -1194,7 +1214,7 @@ async function showAllUsersModal() {
         const email = mi.email || '';
         const roleBadge = role === 'admin'
           ? `<span class="ts-role admin">${icI(IC.edit)} Co-beheerder</span>`
-          : `<span class="ts-role viewer"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker</span>`;
+          : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
           <span style="flex:1;font-size:14px"><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small></span>
           ${roleBadge}
@@ -1222,7 +1242,7 @@ function ownerDeleteTeam(tid, naam) {
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--rd);font-size:13px;margin-bottom:10px"><b>${esc(naam)}</b> — alle data gaat permanent verloren.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg fg-pwd"><input id="owndel-pwd" type="password" placeholder="wachtwoord" autofocus><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><input id="owndel-pwd" type="password" placeholder="wachtwoord" autofocus><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
     <div class="auth-err" id="owndel-err"></div>
     <button class="btn btn-red" onclick="doOwnerDeleteTeam('${tid}')">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="showAllUsersModal()">Annuleren</button>`);
@@ -1723,7 +1743,7 @@ function updateCloudChip() {
   el.style.display = '';
   const effectiveAdmin = isAdmin && !viewerMode;
   const coBadge = (effectiveAdmin && pendingCoAdminCount) ? `<span class="req-badge">${pendingCoAdminCount}</span>` : '';
-  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer${coBadge}` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> ' + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }
 // ===================== BEHEER (view) =====================
@@ -1733,7 +1753,7 @@ function updateCloudChip() {
 function renderBeheer() {
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
-    ? `<div class="sec">Eigenaar</div><div class="card"><button class="btn btn-org" onclick="claimOwner()"><i class="ti ti-crown" style="font-size:1.1em"></i> Ik ben de maker (eigenaar instellen)</button></div>`
+    ? `<div class="sec">Eigenaar</div><div class="card"><button class="btn btn-org" onclick="claimOwner()"><span class="ic-i" style="font-size:1.1em">${IC.crown}</span> Ik ben de maker (eigenaar instellen)</button></div>`
     : '';
 
   // Deze ploeg beheren: enkel getoond in de 'team'-context (vanaf het homescherm).
@@ -1742,14 +1762,14 @@ function renderBeheer() {
     : (isAdmin ? `
     <div class="sec">Deze ploeg</div>
     <div class="card">
-      <button class="btn btn-green" onclick="showInviteModal()"><i class="ti ti-qrcode" style="font-size:1.1em"></i> Iemand uitnodigen</button>
+      <button class="btn btn-green" onclick="showInviteModal()"><span class="ic-i" style="font-size:1.1em">${IC.qrcode}</span> Iemand uitnodigen</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
       ${isApprovedAdmin ? `<button class="btn btn-pale" style="margin-top:8px" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam ploeg wijzigen</button>` : ''}
       <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
         <span style="flex:1;font-size:13px;color:var(--txt2)">Deze ploeg bekijken als kijker</span>
         <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
       </div>
-      ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="confirmDeleteCloudTeam()"><i class="ti ti-trash" style="font-size:1em"></i> Ploeg verwijderen</button>` : ''}
+      ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
     </div>` : (!isGuest ? `
     <div class="sec">Deze ploeg</div>
     <div class="card">
@@ -1761,7 +1781,7 @@ function renderBeheer() {
   // in de 'system'-context (vanaf het ploegkeuzescherm).
   const requestAdminBlock = (_beheerContext !== 'system' || viewerMode) ? '' : (
     (ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1')
-      ? `<div class="sec">Beheerder worden</div><div class="nudge" style="margin-bottom:16px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
+      ? `<div class="sec">Beheerder worden</div><div class="nudge" style="margin-bottom:16px">${icI(IC.hourglass)} <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
       : (!isApprovedAdmin ? `<div class="sec">Beheerder worden</div><div class="card"><button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden &amp; ploeg aanmaken</button><p style="font-size:12px;color:var(--txt2);margin-top:8px">Vraag toestemming aan de maker om zelf ploegen te mogen aanmaken.</p></div>` : ''));
   const ownerToolsBlock = (_beheerContext === 'system' && isOwner && !viewerMode) ? `
     <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
@@ -1979,7 +1999,7 @@ async function showMembersModal() {
       const email = mi.email || '(e-mail nog niet gekend)';
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
-        : '<span class="ts-role viewer"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker</span>';
+        : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
       const btns = role !== 'admin'
         ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak beheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
@@ -2090,7 +2110,7 @@ function renderAuth() {
       </div>
       <div id="auth-login-form">
         <div class="fg"><label>E-mailadres</label><input id="auth-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
-        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="auth-pwd" type="password" autocomplete="current-password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
         <div class="auth-err" id="auth-err"></div>
         <button class="btn btn-org" onclick="authDoLogin()">Aanmelden</button>
         <button class="btn btn-gray" style="margin-top:8px" onclick="authForgotPassword()">Wachtwoord vergeten?</button>
@@ -2098,8 +2118,8 @@ function renderAuth() {
       <div id="auth-register-form" style="display:none">
         <div class="fg"><label>Naam</label><input id="reg-name" type="text" autocomplete="name" placeholder="Jan Peeters"></div>
         <div class="fg"><label>E-mailadres</label><input id="reg-email" type="email" autocomplete="email" placeholder="naam@example.com"></div>
-        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
-        <div class="fg fg-pwd"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+        <div class="fg fg-pwd"><label>Wachtwoord</label><input id="reg-pwd" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
+        <div class="fg fg-pwd"><label>Wachtwoord bevestigen</label><input id="reg-pwd2" type="password" autocomplete="new-password" placeholder="herhaal wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
         <div class="auth-err" id="reg-err"></div>
         <button class="btn btn-org" onclick="authDoRegister()">Account aanmaken</button>
       </div>
@@ -2216,7 +2236,7 @@ function renderTeamSelect() {
         const name = teamNames[id] || id;
         return `<div class="ts-team-row" onclick="selectTeam('${id}')">
           <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
-          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : '<i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Kijker'}</span>
+          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : `${icI(IC.eye)} Kijker`}</span>
         </div>`;
       }).join('')
     : `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
@@ -2253,7 +2273,7 @@ function renderTeamSelect() {
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
         ${(cloudReady && currentUser && !isGuest && !viewerMode && !isApprovedAdmin)
           ? (localStorage.getItem('voetbal_adminRequested') === '1'
-            ? `<div class="nudge" style="margin-top:10px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — je hoort het zodra de maker je goedkeurt. Daarna kan je hier een eigen ploeg aanmaken.</div>`
+            ? `<div class="nudge" style="margin-top:10px">${icI(IC.hourglass)} <b>Aanvraag ingediend</b> — je hoort het zodra de maker je goedkeurt. Daarna kan je hier een eigen ploeg aanmaken.</div>`
             : `<p style="font-size:12px;color:var(--txt2);margin-top:10px;margin-bottom:0">Wil je zelf een <b>eigen ploeg aanmaken</b>? Tik op het groene <b>Beheer</b>-knopje hierboven om het aan te vragen.</p>`)
           : ''}
         <div style="display:flex;gap:8px;margin-top:20px">
@@ -2505,8 +2525,8 @@ function evtLabel(e, m) {
     case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+esc(e.reason):''}`;
     case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+esc(e.reason):''}`;
     case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pn(e.playerId)}`;
-    case 'quarter_start': return `<i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} gestart`;
-    case 'quarter_end': return `<i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} afgelopen`;
+    case 'quarter_start': return `${icI(IC.playFilled)} ${pSing(m)} ${e.quarterNum} gestart`;
+    case 'quarter_end': return `${icI(IC.stopFilled)} ${pSing(m)} ${e.quarterNum} afgelopen`;
     default: return esc(e.type);
   }
 }
@@ -2645,10 +2665,10 @@ function togglePwd(btn) {
   const inp = btn.previousElementSibling;
   const show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
-  btn.innerHTML = show ? '<i class="ti ti-eye-off"></i>' : '<i class="ti ti-eye"></i>';
+  btn.innerHTML = show ? icI(IC.eyeOff) : icI(IC.eye);
 }
 function pwdField(id, placeholder, extra) {
-  return `<div class="fg fg-pwd"><input id="${id}" type="password" placeholder="${placeholder}"${extra||''}><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>`;
+  return `<div class="fg fg-pwd"><input id="${id}" type="password" placeholder="${placeholder}"${extra||''}><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>`;
 }
 function openModal(html) {
   const el = document.getElementById('modal');
@@ -2771,7 +2791,7 @@ function renderPitch(m, players, captainId) {
     ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId); });
   }
   return `<div class="pitch">${pitchLines()}${dots}</div>
-  <div class="field-legend"><i class="ti ti-circle-filled" style="color:#f5821f;font-size:.9em;vertical-align:-.05em"></i> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
+  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
@@ -2954,16 +2974,16 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile" onclick="openSquad()"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
-    : `<button class="tile" onclick="go('teams')"><i class="ti ti-shirt tile-fi" aria-hidden="true"></i><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
+    ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    : `<button class="tile" onclick="go('teams')"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
   if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
-    <button class="tile" onclick="go('matches')"><i class="ti ti-ball-football tile-fi" aria-hidden="true"></i><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
+    <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
-    <button class="tile" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
-    <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
+    <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
   const offlineBanner = !isOffline ? '' : (canManage()
@@ -3308,12 +3328,12 @@ function renderSettings(isFirst) {
     ${(cloudReady && activeTeamId && !isGuest) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-moon" style="font-size:1em;vertical-align:-.1em"></i> Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
+      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">${icI(IC.moon)} Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
         <span class="start-chip ${darkOn()?'on':''}" onclick="toggleDark()">${darkOn()?'Aan':'Uit'}</span></div>
     </div>
     ${('Notification' in window) ? `<div class="sec">Meldingen</div>
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px"><i class="ti ti-bell" style="font-size:1em;vertical-align:-.1em"></i> Melding bij doelpunt</b><div style="font-size:12px;color:var(--txt2)">Ook als de app op de achtergrond staat. Op iPhone/iPad enkel als de app op je beginscherm staat (iOS 16.4+).</div></div>
+      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">${icI(IC.bell)} Melding bij doelpunt</b><div style="font-size:12px;color:var(--txt2)">Ook als de app op de achtergrond staat. Op iPhone/iPad enkel als de app op je beginscherm staat (iOS 16.4+).</div></div>
         <span class="start-chip ${bgNotifOn()?'on':''}" onclick="toggleBgNotif()">${bgNotifOn()?'Aan':'Uit'}</span></div>
     </div>` : ''}
     ${currentUser ? `<div class="sec">Account</div>
@@ -3321,8 +3341,8 @@ function renderSettings(isFirst) {
       <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser.displayName || currentUser.email)}</p>
       <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser.email)}</p>
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> E-mailadres wijzigen</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()"><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">${icI(IC.mail)} E-mailadres wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()">${icI(IC.lock)} Wachtwoord wijzigen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
     </div>` : ''}
@@ -3330,21 +3350,21 @@ function renderSettings(isFirst) {
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2)">Versie</span><span style="font-weight:700">${APP_VERSION}</span></div>
       <button class="btn btn-pale" style="margin-top:10px" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="reportProblem()"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Probleem melden</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()"><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="reportProblem()">${icI(IC.mail)} Probleem melden</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()">${icI(IC.shieldLock)} Privacyverklaring</button>
     </div>
     ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
     <div class="card">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
       ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
-      <button class="btn btn-pale" onclick="exportBackup()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Back-up downloaden</button>
-      <label class="file-btn" style="margin-top:8px"><i class="ti ti-upload" style="font-size:1em;vertical-align:-.1em"></i> Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
+      <button class="btn btn-pale" onclick="exportBackup()">${icI(IC.download)} Back-up downloaden</button>
+      <label class="file-btn" style="margin-top:8px">${icI(IC.upload)} Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
   </div>`;
 }
 
 function showPrivacyModal() {
-  openModal(`<h3><i class="ti ti-shield-lock" style="font-size:1em;vertical-align:-.1em"></i> Privacyverklaring</h3>
+  openModal(`<h3>${icI(IC.shieldLock)} Privacyverklaring</h3>
     <div style="font-size:13px;color:var(--txt2);line-height:1.7;text-align:left;max-height:60vh;overflow-y:auto;padding-right:4px">
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Verwerkingsverantwoordelijke</b><br>
       Tim Buyse<br>
@@ -3862,7 +3882,7 @@ function confirmChangeEmail() {
   openModal(`<h3>E-mailadres wijzigen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Je krijgt een bevestigingsmail op je <b>nieuwe</b> adres. Pas nadat je die link aanklikt, wordt je e-mailadres aangepast. Je rol en ploegen blijven behouden.</p>
     <div class="fg"><label>Nieuw e-mailadres</label><input id="ce-email" type="email" placeholder="nieuw@example.com"></div>
-    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="ce-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="ce-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
     <div class="auth-err" id="ce-err"></div>
     <button class="btn btn-green" onclick="doChangeEmail()">Bevestigingsmail versturen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3889,10 +3909,10 @@ async function doChangeEmail() {
 }
 
 function confirmChangePassword() {
-  openModal(`<h3><i class="ti ti-lock" style="font-size:1em;vertical-align:-.1em"></i> Wachtwoord wijzigen</h3>
-    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="huidig wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
-    <div class="fg fg-pwd"><label>Nieuw wachtwoord</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
-    <div class="fg fg-pwd"><label>Nieuw wachtwoord bevestigen</label><input id="cp-new2" type="password" autocomplete="new-password" placeholder="herhaal nieuw wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+  openModal(`<h3>${icI(IC.lock)} Wachtwoord wijzigen</h3>
+    <div class="fg fg-pwd"><label>Huidig wachtwoord</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="huidig wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
+    <div class="fg fg-pwd"><label>Nieuw wachtwoord</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="min. 6 tekens"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
+    <div class="fg fg-pwd"><label>Nieuw wachtwoord bevestigen</label><input id="cp-new2" type="password" autocomplete="new-password" placeholder="herhaal nieuw wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
     <div class="auth-err" id="cp-err"></div>
     <button class="btn btn-green" onclick="doChangePassword()">Wachtwoord wijzigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3942,7 +3962,7 @@ function confirmDeleteAccount() {
   openModal(`<h3>Account verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px;font-size:14px">Je account wordt permanent verwijderd. Je ploegen en data in de cloud blijven bewaard voor andere leden.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:16px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg fg-pwd"><input id="del-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><input id="del-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
     <div class="auth-err" id="del-err"></div>
     <button class="btn btn-red" onclick="doDeleteAccount()">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -4010,7 +4030,7 @@ async function confirmDeleteCloudTeam() {
   openModal(`<h3>Ploeg verwijderen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg fg-pwd"><input id="delteam-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1"><i class="ti ti-eye"></i></button></div>
+    <div class="fg fg-pwd"><input id="delteam-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
     <div class="auth-err" id="delteam-err"></div>
     <button class="btn btn-red" onclick="doDeleteCloudTeam()">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -4072,7 +4092,7 @@ function renderTeamsList() {
       ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
       : (cloudReady && isAdmin)
         ? `<div class="viewer-banner" style="margin-top:8px">${icI(IC.plus)} Een andere ploeg aanmaken of ernaar wisselen doe je via de ploegknop (${icI(IC.swap)}) bovenaan het startscherm.</div>`
-        : '<div class="viewer-banner" style="margin-top:8px"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — spelers worden door de beheerder beheerd</div>'}
+        : `<div class="viewer-banner" style="margin-top:8px">${icI(IC.eye)} Je kijkt mee — spelers worden door de beheerder beheerd</div>`}
   </div>`;
 }
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; go('teamEdit'); }
@@ -4092,7 +4112,7 @@ function renderTeamView() {
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
-    <div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — ploegen worden door de beheerder beheerd</div>
+    <div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — ploegen worden door de beheerder beheerd</div>
     ${(t.responsible || trainers.length) ? `<div class="card">
       ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantwoordelijke</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
@@ -4311,7 +4331,7 @@ async function loadTournamentDetail() {
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
-    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')"><i class="ti ti-copy" style="font-size:1em;vertical-align:-.1em"></i> Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
+    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
     <div class="card">${infoRows}${squadRow}</div>
@@ -4990,7 +5010,7 @@ function wizStep3() {
     <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')"><span class="pcn">${p.number || '?'}</span>${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
     <div class="wiz-nav" style="margin-top:14px">
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
-      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()"><i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Wissen</button>
+      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
     </div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
@@ -5239,7 +5259,7 @@ function renderPrep() {
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — deze wedstrijd is gepland</div>' : `${(!m.players || !m.players.length) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>` : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
+    ${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${(!m.players || !m.players.length) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>` : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
     <div class="wiz-nav" style="margin-top:8px">
       <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
       <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">${icI(IC.players)} Selectie &amp; opstelling</button>
@@ -5428,16 +5448,16 @@ function renderLive() {
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
-        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff"><i class="ti ti-stopwatch" style="font-size:1em;vertical-align:-.1em"></i> ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
+        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
       </div>
       ${(!isDone && !ro) ? `<div class="qctrl">
-        ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Start wedstrijd</button>` : ''}
-        ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
-        ${isRunning ? `<button class="qbtn qbtn-pause" onclick="pauseQuarter()"><i class="ti ti-player-pause-filled" style="font-size:1em;vertical-align:-.1em"></i> Pauze</button>` : ''}
-        ${isPaused ? `<button class="qbtn qbtn-resume" onclick="resumeQuarter()"><i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> Hervatten</button>` : ''}
+        ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start wedstrijd</button>` : ''}
+        ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
+        ${isRunning ? `<button class="qbtn qbtn-pause" onclick="pauseQuarter()">${icI(IC.pauseFilled)} Pauze</button>` : ''}
+        ${isPaused ? `<button class="qbtn qbtn-resume" onclick="resumeQuarter()">${icI(IC.playFilled)} Hervatten</button>` : ''}
         ${(isRunning||isPaused) ? (isLastPeriod
             ? `<button class="qbtn qbtn-end" onclick="endMatch()">${icI(IC.finish)} Einde match</button>`
-            : `<button class="qbtn qbtn-end" onclick="endPeriod()"><i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
+            : `<button class="qbtn qbtn-end" onclick="endPeriod()">${icI(IC.stopFilled)} Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <div class="sec" style="margin-top:0">${icI(IC.swap)} Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
@@ -5458,7 +5478,7 @@ function renderLive() {
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>
       <button class="btn btn-pale btn-sm" style="margin-top:2px;margin-bottom:14px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>`; })()}
-      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()"><i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Laatste actie ongedaan maken</button>` : ''}
+      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score via WhatsApp</button>`;
   } else if (tab === 'opstelling') {
@@ -5485,7 +5505,7 @@ function renderLive() {
     <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
   </div>
-  <div class="content">${ro ? '<div class="viewer-banner"><i class="ti ti-eye" style="font-size:1em;vertical-align:-.1em"></i> Je kijkt mee — dit scherm wordt live bijgewerkt</div>' : ''}${tabContent}</div>
+  <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${tabContent}</div>
   ${!ro ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
@@ -5599,7 +5619,7 @@ function endPeriod() {
   const label = pSingLow(match);
   openModal(`<h3>Einde ${label} ${match.currentQuarter}?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De klok stopt en je kan dit ${label} niet meer hervatten.</p>
-    <button class="btn btn-red" onclick="doEndPeriod()"><i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> Ja, beëindig ${label}</button>
+    <button class="btn btn-red" onclick="doEndPeriod()">${icI(IC.stopFilled)} Ja, beëindig ${label}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doEndPeriod() {
@@ -5980,15 +6000,15 @@ async function shareReport() {
 }
 // Eén wedstrijd exporteren als bestand (om door te sturen of op een ander toestel te importeren).
 function exportMatchModal() {
-  openModal(`<h3><i class="ti ti-download"></i> Export</h3>
+  openModal(`<h3>${icI(IC.download)} Export</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <button class="btn btn-pale" style="flex-direction:column;align-items:center;gap:6px;padding:16px 8px" onclick="closeModal();exportMatchCSV()">
-        <i class="ti ti-table" style="font-size:1.4em"></i>
+        <span class="ic-i" style="font-size:1.4em">${IC.table}</span>
         <div style="font-weight:700">CSV / Excel</div>
         <div style="font-size:11px;color:var(--txt2);line-height:1.3">Excel, Numbers,<br>Google Sheets</div>
       </button>
       <button class="btn btn-pale" style="flex-direction:column;align-items:center;gap:6px;padding:16px 8px" onclick="closeModal();exportMatch()">
-        <i class="ti ti-code" style="font-size:1.4em"></i>
+        <span class="ic-i" style="font-size:1.4em">${IC.code}</span>
         <div style="font-weight:700">JSON</div>
         <div style="font-size:11px;color:var(--txt2);line-height:1.3">Ruwe data,<br>technisch gebruik</div>
       </button>
@@ -6268,7 +6288,7 @@ async function undoLast() {
   match.events.splice(idx, 1);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
-  showUndoToast(`<i class="ti ti-arrow-back-up" style="font-size:1em;vertical-align:-.1em"></i> Ongedaan: ${evtLabel(removed, match)}`);
+  showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
 }
 function showUndoToast(html) {
   let t = document.getElementById('undo-toast');
@@ -6706,8 +6726,8 @@ function renderDetail() {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
-      <button class="btn btn-org btn-sm" onclick="exportPDF()"><i class="ti ti-file-text" style="font-size:1em;vertical-align:-.1em"></i> PDF</button>
-      <button class="btn btn-pale btn-sm" onclick="exportMatchModal()"><i class="ti ti-download" style="font-size:1em;vertical-align:-.1em"></i> Export</button>
+      <button class="btn btn-org btn-sm" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
+      <button class="btn btn-pale btn-sm" onclick="exportMatchModal()">${icI(IC.download)} Export</button>
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
