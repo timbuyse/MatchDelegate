@@ -430,7 +430,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.11'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.12'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -5288,6 +5288,7 @@ function confirmLeave() {
 
 // ===================== QUARTER CONTROLS =====================
 async function startQuarter() {
+  if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
   match.currentQuarter++;
   match.quarterStatus = 'running';
   match.quarters.push({ num: match.currentQuarter, startTime: Date.now(), endTime: null, totalPaused: 0, pausedAt: null });
@@ -5337,12 +5338,14 @@ function keeperMinutes(m) {
 }
 async function pauseQuarter() {
   const q = match.quarters[match.quarters.length - 1];
+  if (!q || q.pausedAt) return; // dubbeltik-guard: al gepauzeerd
   q.pausedAt = Date.now(); match.quarterStatus = 'paused';
   releaseWake();
   await dbSave(match); render();
 }
 async function resumeQuarter() {
   const q = match.quarters[match.quarters.length - 1];
+  if (!q || q.pausedAt == null) return; // dubbeltik-guard: Date.now() - null zou de klok corrumperen
   q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null;
   match.quarterStatus = 'running';
   requestWake();
@@ -5358,7 +5361,7 @@ function endPeriod() {
 }
 async function doEndPeriod() {
   const q = match.quarters[match.quarters.length - 1];
-  if (!q) { closeModal(); return; }
+  if (!q || q.endTime) { closeModal(); return; } // dubbeltik-guard: deel al beëindigd
   if (q.pausedAt) { q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null; }
   q.endTime = Date.now();
   addEvent('quarter_end');
@@ -6116,18 +6119,23 @@ function gpSelIn(containerId, el) {
   document.querySelectorAll(`#${containerId} button`).forEach(o => gpDesel(o));
   gpSel(el);
 }
+let _goalBusy = false; // dubbeltik-guard: popup sluit pas na het (trage) opslaan
 async function confirmGoal() {
+  if (_goalBusy) return;
   if (goalTeam === 'us') {
     if (!goalPlayerId && !goalIsOwnGoal) { showToast('Kies een speler.', 'err'); return; }
-    if (goalIsOwnGoal) { addEvent('own_goal_them', {}); match.scoreUs++; }
-    else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
-  } else {
-    if (goalIsOwnGoal) {
-      if (!goalPlayerId) { showToast('Kies een speler.', 'err'); return; }
-      addEvent('own_goal', { playerId: goalPlayerId }); match.scoreThem++;
-    } else { addEvent('goal_them'); match.scoreThem++; }
-  }
-  await dbSave(match); closeModal(); render();
+  } else if (goalIsOwnGoal && !goalPlayerId) { showToast('Kies een speler.', 'err'); return; }
+  _goalBusy = true;
+  try {
+    if (goalTeam === 'us') {
+      if (goalIsOwnGoal) { addEvent('own_goal_them', {}); match.scoreUs++; }
+      else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
+    } else {
+      if (goalIsOwnGoal) { addEvent('own_goal', { playerId: goalPlayerId }); match.scoreThem++; }
+      else { addEvent('goal_them'); match.scoreThem++; }
+    }
+    await dbSave(match); closeModal(); render();
+  } finally { _goalBusy = false; }
   requestAnimationFrame(() => {
     const sb = document.querySelector('.scoreboard .sb-score');
     if (sb) { sb.classList.remove('goal-anim'); void sb.offsetWidth; sb.classList.add('goal-anim'); }
