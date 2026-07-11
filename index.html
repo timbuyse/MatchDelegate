@@ -139,7 +139,6 @@
     /* Timer */
     .timer-card{background:var(--blk2);color:#fff;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
     .timer-time{font-size:54px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:3px;line-height:1}
-    .timer-lbl{font-size:13px;opacity:.7;margin-top:6px}
     .qdots{display:flex;justify-content:center;gap:8px;margin-top:10px}
     .qdot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.25)}
     .qdot.done{background:var(--org)}
@@ -433,7 +432,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -598,7 +597,7 @@ function applyTheme(t) {
 }
 function applyStoredTheme() { let t = null; try { t = JSON.parse(localStorage.getItem('voetbal_theme') || 'null'); } catch (e) {} applyTheme(t || GENERIC_THEME); }
 // Donkere modus (per toestel)
-function darkOn() { return localStorage.getItem('voetbal_dark') !== '0'; } // standaard AAN (donker); enkel '0' = licht
+function darkOn() { return localStorage.getItem('voetbal_dark') === '1'; } // standaard UIT (licht); enkel '1' = donker
 function applyDark() { document.body.classList.toggle('dark', darkOn()); }
 function toggleDark() { localStorage.setItem('voetbal_dark', darkOn() ? '0' : '1'); applyDark(); render(); }
 // Dominante kleuren uit een canvas halen -> {primary, accent, dark}
@@ -978,7 +977,7 @@ async function claimOwner() {
     if (view === 'beheer') render();
     showToast('Je bent nu ingesteld als eigenaar van Match Delegate.', 'ok');
   } catch (e) {
-    showToast('Eigenaar instellen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err');
+    showToast('Eigenaar instellen mislukt, probeer opnieuw.', 'err');
   }
 }
 
@@ -1054,7 +1053,7 @@ async function doRequestAdmin() {
       <a class="btn btn-org" style="display:block;text-decoration:none;text-align:center" href="mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}">${icI(IC.mail)} Verwittig de maker via e-mail</a>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
   } catch (e) {
-    if (err) err.textContent = 'Versturen mislukt: ' + (e.message || 'probeer opnieuw.');
+    if (err) err.textContent = 'Versturen mislukt, probeer opnieuw.';
   }
 }
 
@@ -1095,7 +1094,7 @@ async function approveAdmin(uid) {
     await fbdb.ref('approvedAdmins/' + uid).set({ approved: true, name: req.name || '', email: req.email || '' });
     await fbdb.ref('adminRequests/' + uid).remove();
     loadAdminRequestsList();
-  } catch (e) { showToast('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Goedkeuren mislukt, probeer opnieuw.', 'err'); }
 }
 async function rejectAdmin(uid) {
   if (!isOwner || !fbdb) return;
@@ -1103,7 +1102,7 @@ async function rejectAdmin(uid) {
     await fbdb.ref('rejectedAdmins/' + uid).set({ rejectedAt: Date.now() });
     await fbdb.ref('adminRequests/' + uid).remove();
     loadAdminRequestsList();
-  } catch (e) { showToast('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Weigeren mislukt, probeer opnieuw.', 'err'); }
 }
 
 async function showApprovedAdminsModal() {
@@ -1233,7 +1232,7 @@ async function showAllUsersModal() {
     if (el) el.innerHTML = html;
   } catch (e) {
     console.error('showAllUsersModal fout:', e);
-    if (el) el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden.<br><small>${e.message||e}</small></p>`;
+    if (el) el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
   }
 }
 
@@ -1280,7 +1279,7 @@ async function doOwnerDeleteTeam(tid) {
     showAllUsersModal();
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
-      ? 'Ongeldig wachtwoord.' : (e.message || 'Verwijderen mislukt.');
+      ? 'Ongeldig wachtwoord.' : 'Verwijderen mislukt, probeer opnieuw.';
   }
 }
 
@@ -1290,7 +1289,7 @@ async function revokeAdmin(uid) {
     try {
       await fbdb.ref('approvedAdmins/' + uid).remove();
       showApprovedAdminsModal();
-    } catch (e) { showToast('Intrekken mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+    } catch (e) { showToast('Intrekken mislukt, probeer opnieuw.', 'err'); }
   }, 'Intrekken');
 }
 
@@ -1916,9 +1915,10 @@ async function showInviteModal(teamId) {
   const shareText = 'Volg ' + teamName + ' via Match Delegate. Open de link of gebruik code ' + token + '.';
   openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(teamName)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Scan de QR-code of deel de link. Werkt ook voor mensen zonder account.</p>
-    <div style="display:flex;justify-content:center;margin-bottom:12px">
-      <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging">
+    <div id="invite-qr-wrap" style="display:flex;justify-content:center;margin-bottom:12px">
+      <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging" onerror="this.closest('#invite-qr-wrap').style.display='none';document.getElementById('invite-qr-fallback').style.display=''">
     </div>
+    <p id="invite-qr-fallback" style="display:none;text-align:center;color:var(--org2);font-size:12px;margin-bottom:8px">${icI(IC.warn)} QR-code niet beschikbaar — gebruik de code of link hieronder.</p>
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
     <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
     ${isAdmin ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="confirmRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren (oude wordt ongeldig)</button>` : ''}
@@ -1940,7 +1940,7 @@ async function doRegenerateInviteToken(tid) {
     await fbdb.ref('invites/' + newToken).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
     if (oldToken) await fbdb.ref('invites/' + oldToken).remove().catch(() => {});
     showToast('Nieuwe code gegenereerd.', 'ok');
-  } catch (e) { showToast('Genereren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Genereren mislukt, probeer opnieuw.', 'err'); }
   showInviteModal(tid);
 }
 
@@ -1960,7 +1960,7 @@ async function requestCoAdmin() {
   try {
     await ref.set({ name: currentUser.displayName || '', email: currentUser.email || '', requestedAt: Date.now() });
     showToast('Aanvraag verstuurd. De beheerder ontvangt een melding.', 'ok');
-  } catch (e) { showToast('Aanvraag mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Aanvraag mislukt, probeer opnieuw.', 'err'); }
 }
 
 // ---- Kijkers van de actieve ploeg tonen (enkel beheerder) ----
@@ -2048,7 +2048,7 @@ async function approveCoAdmin(uid) {
     await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
     await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
     showMembersModal();
-  } catch (e) { showToast('Goedkeuren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Goedkeuren mislukt, probeer opnieuw.', 'err'); }
 }
 
 async function rejectCoAdmin(uid) {
@@ -2057,7 +2057,7 @@ async function rejectCoAdmin(uid) {
   try {
     await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
     showMembersModal();
-  } catch (e) { showToast('Weigeren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  } catch (e) { showToast('Weigeren mislukt, probeer opnieuw.', 'err'); }
 }
 
 async function demoteMember(uid) {
@@ -2066,7 +2066,7 @@ async function demoteMember(uid) {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
       showMembersModal();
-    } catch (e) { showToast('Degraderen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+    } catch (e) { showToast('Degraderen mislukt, probeer opnieuw.', 'err'); }
   }, 'Terugzetten', 'btn-org');
 }
 
@@ -2076,7 +2076,7 @@ async function promoteMember(uid) {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
       showMembersModal();
-    } catch (e) { showToast('Promoveren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+    } catch (e) { showToast('Promoveren mislukt, probeer opnieuw.', 'err'); }
   }, 'Promoveren', 'btn-green');
 }
 async function removeMember(uid) {
@@ -2087,7 +2087,7 @@ async function removeMember(uid) {
       await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
       fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
       showMembersModal();
-    } catch (e) { showToast('Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+    } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
   }, 'Verwijderen');
 }
 
@@ -2102,6 +2102,7 @@ function renderAuth() {
       <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     </div>
     <div class="auth-box" style="max-width:400px;width:100%">
+      ${localStorage.getItem('voetbal_pending_join') ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.link)} Je volgt een uitnodigingslink voor een ploeg. Meld je aan, registreer of ga verder als gast om ze te vervoegen.</div>` : ''}
       <div class="auth-welcome">Welkom</div>
       <div class="auth-welcome-sub">Meld aan om verder te gaan</div>
       <div class="auth-tabs">
@@ -2195,7 +2196,7 @@ function authErrMsg(code) {
 
 function authSignInAsGuest() {
   if (!fbauth) { showToast('Geen verbinding beschikbaar.', 'err'); return; }
-  fbauth.signInAnonymously().catch(e => showToast('Aanmelden als gast mislukt: ' + e.message, 'err'));
+  fbauth.signInAnonymously().catch(() => showToast('Aanmelden als gast mislukt, probeer opnieuw.', 'err'));
 }
 
 async function guestJoinWithCode() {
@@ -2310,7 +2311,7 @@ async function doCreateTeam() {
     if (e && e.code === 'PERMISSION_DENIED') {
       if (err) err.textContent = 'Je hebt nog geen toestemming om ploegen aan te maken. Vraag ze aan via "Beheerder worden".';
     } else if (err) {
-      err.textContent = 'Fout: ' + (e.message || 'onbekend. Controleer je internetverbinding.');
+      err.textContent = 'Onbekende fout. Controleer je internetverbinding.';
     }
     if (btn) btn.disabled = false;
   }
@@ -2336,7 +2337,7 @@ async function doJoinTeam() {
     closeModal();
   } catch (e) {
     console.error('joinTeam fout:', e);
-    if (err) err.textContent = 'Fout: ' + (e.message || 'controleer je internetverbinding.');
+    if (err) err.textContent = 'Vervoegen mislukt, controleer je internetverbinding.';
   }
 }
 
@@ -2653,7 +2654,7 @@ function checkOvertimeAlert() {
   if (isRunning && durMs && elapsed >= durMs && !q.alerted) { q.alerted = true; beep(); dbSave(match); }
 }
 function updateTimerDisplay() {
-  const el = document.getElementById('timer-time'), lb = document.getElementById('timer-lbl');
+  const el = document.getElementById('timer-time');
   if (!el || !match) return;
   const q = match.quarters[match.quarters.length - 1];
   const elapsed = getQElapsed(match);
@@ -2662,10 +2663,6 @@ function updateTimerDisplay() {
   const overtime = isRunning && durMs && elapsed >= durMs;
   el.textContent = timerText(match);
   el.style.color = overtime ? 'var(--org)' : '';
-  if (lb) {
-    const isPaused = q && q.pausedAt;
-    if (lb) lb.textContent = isPaused ? 'GEPAUZEERD' : (overtime ? '⏰ tijd voorbij' : '');
-  }
   const bar = document.getElementById('timer-progress-bar');
   if (bar && durMs) {
     const pct = Math.min(100, (elapsed / durMs) * 100).toFixed(1);
@@ -2724,7 +2721,14 @@ async function go(v, id, _histReplace) {
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);
-  if (v === 'live') startTimer();
+  if (v === 'live') {
+    startTimer();
+    // Wake lock hierboven altijd losgelaten bij navigatie — bij terugkeer naar 'live' met een
+    // lopend (niet gepauzeerd/afgesloten) deel meteen opnieuw aanvragen, anders vergrendelt
+    // het scherm tijdens de wedstrijd na een uitstapje naar een ander scherm in de app.
+    const q = match && match.quarters[match.quarters.length - 1];
+    if (q && q.startTime && !q.pausedAt && !q.endTime) requestWake();
+  }
   // Sla navigatiestatus op in de browser history zodat de back-knop werkt binnen de app.
   // Auth en teamselect zijn geen echte navigatiestappen — die vervangen de huidige state.
   const noHistory = v === 'auth' || v === 'teamselect';
@@ -2899,7 +2903,7 @@ async function toggleMaintenance() {
   } catch(e) {
     maintenanceActive = !newVal;
     render();
-    showToast('Firebase fout: ' + e.message, 'err');
+    showToast('Onderhoudsmodus wijzigen mislukt, probeer opnieuw.', 'err');
     console.error('toggleMaintenance:', e);
   }
 }
@@ -3004,7 +3008,12 @@ async function loadHome() {
     ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je kan gewoon verder werken — wijzigingen worden gesynchroniseerd zodra er terug verbinding is.</div>`
     : `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens tot de verbinding terugkeert.</div>`);
   if (!all.length && !teamCount) {
-    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
+    // Kijkers/gasten kunnen zelf geen ploeg/wedstrijd aanmaken — geef hen geen instructie
+    // die ze toch niet kunnen uitvoeren.
+    const emptyMsg = canManage()
+      ? `<p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p>`
+      : `<p>Er staat nog niets klaar voor deze ploeg.<br>Vraag de beheerder om een wedstrijd aan te maken.</p>`;
+    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>`;
     return;
   }
   const guestBanner = isGuest
@@ -3550,7 +3559,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Wissels kunnen ook <b>tijdens de pauze</b> doorgevoerd worden.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
-        <li>Tik op <b>'Deel score via WhatsApp'</b> om de stand te delen.</li>
+        <li>Tik op <b>'Deel score'</b> om de stand te delen.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Log'</b>.</p>
@@ -3574,7 +3583,7 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li>Tik op <b>'PDF'</b> voor een officieel wedstrijdverslag.</li>
         <li>Tik op <b>'Delen'</b> om te delen via je toestel.</li>
-        <li>Tik op <b>'Deel via WhatsApp'</b> voor de score.</li>
+        <li>Tik op <b>'Deel score'</b> voor de stand.</li>
       </ul>
     `
   },
@@ -3918,7 +3927,7 @@ async function doChangeEmail() {
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Onjuist wachtwoord.'
       : e.code === 'auth/invalid-email' ? 'Ongeldig e-mailadres.'
       : e.code === 'auth/email-already-in-use' ? 'Dit e-mailadres is al in gebruik.'
-      : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
+      : 'Wijzigen mislukt, probeer opnieuw.';
   }
 }
 
@@ -3949,7 +3958,7 @@ async function doChangePassword() {
   } catch (e) {
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Huidig wachtwoord is onjuist.'
       : e.code === 'auth/weak-password' ? 'Nieuw wachtwoord moet minstens 6 tekens zijn.'
-      : 'Wijzigen mislukt: ' + (e.message || 'probeer opnieuw.');
+      : 'Wijzigen mislukt, probeer opnieuw.';
   }
 }
 
@@ -3969,7 +3978,7 @@ async function doChangeName() {
     await currentUser.updateProfile({ displayName: name });
     await fbdb.ref('users/' + currentUser.uid).update({ displayName: name });
     closeModal(); render();
-  } catch (e) { if (err) err.textContent = 'Fout: ' + (e.message || 'probeer opnieuw.'); }
+  } catch (e) { if (err) err.textContent = 'Er ging iets mis, probeer opnieuw.'; }
 }
 
 function confirmDeleteAccount() {
@@ -4025,7 +4034,7 @@ async function doRenameTeam() {
     closeModal();
     render();
   } catch (e) {
-    if (err) err.textContent = 'Fout: ' + (e.message || 'probeer opnieuw.');
+    if (err) err.textContent = 'Er ging iets mis, probeer opnieuw.';
     if (btn) btn.disabled = false;
   }
 }
@@ -4089,7 +4098,7 @@ async function doDeleteCloudTeam() {
     console.error('Ploeg verwijderen mislukt:', e);
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
       ? 'Onjuist wachtwoord.'
-      : 'Verwijderen mislukt: ' + (e.message || 'probeer opnieuw.');
+      : 'Verwijderen mislukt, probeer opnieuw.';
   }
 }
 
@@ -5495,7 +5504,7 @@ function renderLive() {
       <button class="btn btn-pale btn-sm" style="margin-top:2px;margin-bottom:14px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>`; })()}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
-      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score via WhatsApp</button>`;
+      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score</button>`;
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), absent = match.players.filter(p => p.absent), mins = calcMinutes(match);
     const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
@@ -6008,11 +6017,11 @@ function shareWhatsApp(m) {
   } else {
     navigator.clipboard.writeText(text).then(() => {
       openModal(`<h3>${icI(IC.share)} Gekopieerd!</h3>
-        <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De tekst staat op je klembord. Plak hem in WhatsApp.</p>
+        <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De tekst staat op je klembord. Plak hem waar je wil delen.</p>
         <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
         <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
     }).catch(() => {
-      openModal(`<h3>${icI(IC.share)} Deel via WhatsApp</h3>
+      openModal(`<h3>${icI(IC.share)} Delen</h3>
         <pre style="background:var(--card2,#f1f5f9);padding:12px;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(text)}</pre>
         <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
     });
@@ -6213,9 +6222,20 @@ function tombstoneEvent(m, id) {
   m.deletedEventIds = m.deletedEventIds || [];
   if (!m.deletedEventIds.includes(id)) m.deletedEventIds.push(id);
 }
+// Bij een wissel kopieert confirmSub() de veldpositie van de uitgaande naar de ingekomen
+// speler. Bij het ongedaan maken/verwijderen van dat wissel-event moet die overname mee
+// ongedaan gemaakt worden — anders blijft de (nu weer gebankte) speler de positie
+// "vasthouden" alsof hij nog op het veld staat.
+function revertSubstitutionPositions(m, e) {
+  if (!e || e.type !== 'substitution' || !e.playerInId) return;
+  const pIn = m.players.find(p => p.id === e.playerInId);
+  if (pIn) { pIn.x = undefined; pIn.y = undefined; pIn.line = undefined; pIn.posNum = undefined; }
+}
 async function doDeleteEvent(id) {
+  const removed = match.events.find(e => e.id === id);
   tombstoneEvent(match, id);
   match.events = match.events.filter(e => e.id !== id);
+  revertSubstitutionPositions(match, removed);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); closeModal(); render();
 }
@@ -6339,6 +6359,7 @@ async function undoLast() {
   const removed = match.events[idx];
   tombstoneEvent(match, removed.id);
   match.events.splice(idx, 1);
+  revertSubstitutionPositions(match, removed);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
