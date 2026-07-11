@@ -430,7 +430,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.10'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.11'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1417,6 +1417,10 @@ async function applyCloudMatches(obj) {
       if (localOnly.length) {
         m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
         recomputeScore(m);
+        // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een
+        // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
+        // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
+        cloudOnLocalMatchSave(m);
       }
     }
     // Notities zitten niet (meer) in het cloud-object (zie cloudOnLocalMatchSave) — lokaal bewaarde
@@ -1549,8 +1553,13 @@ function cloudRefreshUI() {
   else if (view === 'teams') render();
   else if (view === 'tournaments') render();
   else if (view === 'tournament') loadTournamentDetail();
-  else if ((view === 'detail' || view === 'live' || view === 'prep') && match && !isAdmin) {
-    dbGet(match.id).then(m => { if (m) { match = m; render(); } });
+  else if ((view === 'detail' || view === 'live' || view === 'prep') && match) {
+    // Ook voor beheerders verversen (co-admin-fix): anders pusht een beheerder bij zijn
+    // volgende actie een verouderd object en wist hij de events van de andere beheerder.
+    // Niet verversen terwijl een popup openstaat — dat zou in-flight bewerkingen
+    // (bv. "Spelers bewerken") stilletjes weggooien.
+    const modalOpen = isAdmin && !document.getElementById('modal').classList.contains('hidden');
+    if (!modalOpen) dbGet(match.id).then(m => { if (m) { match = m; render(); } });
   }
 }
 
