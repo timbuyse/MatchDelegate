@@ -89,7 +89,10 @@
     "invites": {
       "$token": {
         ".read": "auth != null",
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && data.child('createdBy').val() === auth.uid))"
+        // Aanmaken: teamadmin van de betrokken ploeg (of eigenaar). Verwijderen (bv. bij
+        // regenereren van de code): de oorspronkelijke maker OF elke huidige teamadmin van
+        // die ploeg — niet enkel wie het token ooit zelf aanmaakte.
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && (data.child('createdBy').val() === auth.uid || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')))"
       }
     },
 

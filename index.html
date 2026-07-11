@@ -434,7 +434,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.3.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1752,13 +1752,21 @@ function authDoSignOut() {
   localStorage.removeItem('voetbal_activeTeamId');
 }
 
+// Cryptografisch sterke uitnodigingscode (6 tekens, A-Z0-9) i.p.v. Math.random(),
+// die niet ontworpen is voor beveiligingsdoeleinden.
+function genInviteToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
 // ---- Ploeg aanmaken ----
 async function createTeam(name) {
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
-  const token = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const token = genInviteToken();
   const initialRosterId = fbdb.ref('teams/' + teamId + '/roster').push().key;
   await fbdb.ref('teams/' + teamId).set({
     info: { name, createdBy: uid, createdAt: Date.now(), inviteToken: token },
@@ -1847,7 +1855,27 @@ async function showInviteModal(teamId) {
     </div>
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
     <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
+    ${isAdmin ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="confirmRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren (oude wordt ongeldig)</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+function confirmRegenerateInviteToken(tid) {
+  openModal(`<h3>${icI(IC.warn)} Nieuwe uitnodigingscode?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">De huidige code/link werkt daarna niet meer. Gebruik dit als een oude code per ongeluk verspreid raakte.</p>
+    <button class="btn btn-org" onclick="doRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="showInviteModal('${tid}')">Annuleren</button>`);
+}
+async function doRegenerateInviteToken(tid) {
+  if (!isAdmin || !tid || !fbdb) return;
+  try {
+    const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
+    const oldToken = (infoSnap.val() || {}).inviteToken;
+    const newToken = genInviteToken();
+    await fbdb.ref('teams/' + tid + '/info/inviteToken').set(newToken);
+    await fbdb.ref('invites/' + newToken).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
+    if (oldToken) await fbdb.ref('invites/' + oldToken).remove().catch(() => {});
+    showToast('Nieuwe code gegenereerd.', 'ok');
+  } catch (e) { showToast('Genereren mislukt: ' + (e.message || 'probeer opnieuw.'), 'err'); }
+  showInviteModal(tid);
 }
 
 // ---- Kijker vraagt co-beheer aan ----
@@ -2402,33 +2430,38 @@ function calcMinutesPerQuarter(m) {
 }
 
 function pName(m, id){ const p = m.players.find(x=>x.id===id); return p ? p.name : '?'; }
+// evtLabel() bouwt HTML op (gebruikt in innerHTML voor het gebeurtenissenlog, o.a. bij
+// kijkers) — spelersnamen en vrije tekst (reason/cornerType) komen van gebruikersinvoer
+// en moeten hier ge-esc't worden. pName() zelf blijft ongefilterd: die wordt ook gebruikt
+// voor platte tekst (WhatsApp-deelbericht, CSV), waar HTML-entities fout zouden staan.
 function evtLabel(e, m) {
+  const pn = id => esc(pName(m, id));
   switch(e.type) {
-    case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
+    case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
     case 'goal_them': return `${icI(IC.goal)} Tegendoel`;
-    case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pName(m,e.playerId)})`;
+    case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pn(e.playerId)})`;
     case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
-    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
-    case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
-    case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
-    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
-    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pName(m,e.playerId)}`;
-    case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pName(m,e.playerId)}`;
-    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
+    case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
+    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pn(e.pA)} ↔ ${pn(e.pB)}`;
+    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
+    case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
+    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
+    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ons${e.playerId?' · '+pn(e.playerId):''}`;
     case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen`;
-    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
     case 'save_them': return `${icI(IC.save)} Redding tegenstander`;
-    case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
-    case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
-    case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pName(m,e.playerId)}`;
+    case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+esc(e.reason):''}`;
+    case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+esc(e.reason):''}`;
+    case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pn(e.playerId)}`;
     case 'quarter_start': return `<i class="ti ti-player-play-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} gestart`;
     case 'quarter_end': return `<i class="ti ti-player-stop-filled" style="font-size:1em;vertical-align:-.1em"></i> ${pSing(m)} ${e.quarterNum} afgelopen`;
-    default: return e.type;
+    default: return esc(e.type);
   }
 }
 function allCaptains(m) {
