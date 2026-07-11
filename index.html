@@ -430,7 +430,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.10'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1427,6 +1427,10 @@ async function applyCloudMatches(obj) {
         const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
         if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
       }
+      // Foto's gaan bewust nooit naar de cloud (te groot voor RTDB) — lokale foto's
+      // overnemen zodat de cloud-echo ze niet wist vlak na het toevoegen.
+      if (existing.photo1 && m.photo1 === undefined) m.photo1 = existing.photo1;
+      if (existing.photo2 && m.photo2 === undefined) m.photo2 = existing.photo2;
     }
     await dbPutLocal(m);
     // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
