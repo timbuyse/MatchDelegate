@@ -430,7 +430,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.7'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2099,7 +2099,7 @@ let currentTournament = null, trnWiz = null;
 // ===================== UTILS =====================
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function pFirstName(p) { return p.firstName !== undefined ? p.firstName : (p.name || '').split(' ')[0]; }
-function pLastName(p) { return p.lastName !== undefined ? p.lastName : (p.name || '').split(' ').slice(1).join(' '); }
+function pLastName(p) { return p.lastName !== undefined ? p.lastName : _lastName(p.name || ''); }
 function fmtTime(ms) {
   const s = Math.floor(Math.max(0,ms) / 1000);
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -5982,13 +5982,13 @@ function modalGoal() {
     <div id="goal-us-section">
       <div class="sec">Welke speler scoorde?</div>
       <div id="goal-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
+        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
         <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">eigen doel teg.</span></button>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
         <div id="assist-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt2);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt2);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
           <button type="button" class="ap-btn" data-id="none" onclick="selectAssist(null,this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:18px;color:var(--txt2)">—</span><span style="font-size:10px;color:var(--txt2)">geen</span></button>
         </div>
       </div>
@@ -6002,7 +6002,7 @@ function modalGoal() {
       <div id="own-goal-players" class="hidden">
         <div class="sec">Welke speler?</div>
         <div id="own-goal-player-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
         </div>
       </div>
     </div>
@@ -6043,9 +6043,8 @@ function selectAssist(id, el) {
   document.querySelectorAll('#assist-players .ap-btn').forEach(o => gpDesel(o));
   gpSel(el);
 }
-function lastName(n) { const p = n.trim().split(' '); return p.length > 1 ? p.slice(1).join(' ') : n; }
 function pgBtn(p, cls, onclick, extra = '') {
-  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span>${extra}</button>`;
+  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span>${extra}</button>`;
 }
 function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${btns}</div>`; }
 function gpSel(el) {
@@ -6192,7 +6191,7 @@ function modalCard(color) {
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
     <div class="sec" style="margin-top:0">Voor welke speler?</div>
-    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lastName(p.name))}</span></button>`).join(''))}
+    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCard(color, pid) {
@@ -6623,39 +6622,12 @@ function exportPDF() {
     <div class="score">${isAway(m) ? `${m.scoreThem} – <span class="us">${m.scoreUs}</span>` : `<span class="us">${m.scoreUs}</span> – ${m.scoreThem}`}</div>
     ${m.motmId?`<p style="text-align:center;font-weight:700;margin:-8px 0 10px">${icI(IC.motm)} Man van de match: ${esc(pName(m,m.motmId))}</p>`:''}
     ${m.players.some(p=>p.starting)?(()=>{
-      function playersAtStart(qNum) {
-        const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
-        const fallback = {}, posOverride = {};
-        const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
-          .sort((a,b) => a.gameTimeMs - b.gameTimeMs);
-        for (const e of relevant) {
-          if (e.type === 'substitution') {
-            if(e.playerOutId) on[e.playerOutId]=false;
-            if(e.playerInId) {
-              on[e.playerInId]=true;
-              const out = m.players.find(p => p.id === e.playerOutId);
-              if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
-            }
-          } else if (e.type === 'posSwap' && e.pA && e.pB) {
-            const prev = { a: posOverride[e.pA]||null, b: posOverride[e.pB]||null };
-            const pA = m.players.find(p=>p.id===e.pA), pB = m.players.find(p=>p.id===e.pB);
-            const posA = prev.a||(pA?{x:pA.x,y:pA.y,line:pA.line,posNum:pA.posNum}:null);
-            const posB = prev.b||(pB?{x:pB.x,y:pB.y,line:pB.line,posNum:pB.posNum}:null);
-            if (posA) posOverride[e.pB] = posA;
-            if (posB) posOverride[e.pA] = posB;
-          }
-        }
-        return m.players.filter(p => on[p.id]).map(p => {
-          const base = (typeof p.x !== 'number' && fallback[p.id]) ? {...p,...fallback[p.id]} : p;
-          return posOverride[p.id] ? {...base,...posOverride[p.id]} : base;
-        });
-      }
       const numQ = m.quarters.length || 1;
       const legend = '<p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:-4px">🟠 doelman · cijfer = positienummer · © kapitein</p>';
       if (numQ <= 1) {
         return `<h2>Opstelling${m.formation?' · '+esc(m.formation):''}</h2><div style="text-align:center;margin:10px 0">${pitchSVG(m, m.players.filter(p=>p.starting))}</div>${legend}`;
       }
-      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtStart(q), capId:captainAtStartOfQuarter(m,q)}; });
+      const items = Array.from({length: numQ}, (_,i) => { const q=i+1; return {q, ps:playersAtPeriodStart(m, q), capId:captainAtStartOfQuarter(m,q)}; });
       const rows = [];
       for (let i=0; i<items.length; i+=2) rows.push(items.slice(i,i+2));
       const pW = numQ > 2 ? 195 : 280;
