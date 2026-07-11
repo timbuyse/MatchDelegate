@@ -1,5 +1,6 @@
-const CACHE = 'voetbal-v37';
-const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './background_logo.jpg', './fonts/tabler-icons.min.css', './fonts/tabler-icons.woff2'];
+const CACHE = 'voetbal-v38';
+const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './background_logo.jpg', './fonts/tabler-icons.min.css', './fonts/tabler-icons.woff2',
+  './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

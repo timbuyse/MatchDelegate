@@ -424,13 +424,13 @@
 <!-- Handleiding screenshots (base64) — genereer via: handleiding\generate-b64.ps1
      Wordt pas geladen bij PDF-export van de handleiding (792KB, hoeft niet bij elke opstart). -->
 <script>var HANDLEIDING_SCREENSHOTS = {};</script>
-<!-- Firebase (cloud delen). Faalt stil als offline: app blijft lokaal werken. -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<!-- Firebase (cloud delen). Lokaal gehost + in SW-precache zodat de SDK ook offline laadt. -->
+<script src="firebase/firebase-app-compat.js"></script>
+<script src="firebase/firebase-auth-compat.js"></script>
+<script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -779,6 +779,19 @@ function cloudInit() {
   } catch (e) { cloudReady = false; }
 }
 
+// once('value') met timeout: offline resolvet zo'n call nooit, waardoor de opstartflow
+// eeuwig zou hangen (blanco scherm na de splash). Bij timeout → reject, zodat de
+// bestaande try/catch-fallbacks (gecachte waarden) gebruikt worden.
+function fbOnce(ref, ms = 4000) {
+  return Promise.race([
+    ref.once('value'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('fb-timeout')), ms))
+  ]);
+}
+// Offline-banner op het homescherm live bijwerken bij verbindingswissel.
+window.addEventListener('online', () => { if (view === 'home') render(); });
+window.addEventListener('offline', () => { if (view === 'home') render(); });
+
 async function onAuthChanged(user) {
   if (window._hideSplash) window._hideSplash();
   currentUser = user;
@@ -816,7 +829,8 @@ async function onAuthChanged(user) {
   if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
   await new Promise(resolve => {
     const mRef = fbdb.ref('maintenance/active');
-    mRef.once('value', snap => { maintenanceActive = !!snap.val(); resolve(); });
+    const tmo = setTimeout(resolve, 4000); // offline: ga verder zonder maintenance-status
+    mRef.once('value', snap => { maintenanceActive = !!snap.val(); clearTimeout(tmo); resolve(); });
     window._maintenanceOff = () => mRef.off('value');
     mRef.on('value', snap => {
       maintenanceActive = !!snap.val();
@@ -858,10 +872,10 @@ async function loadOwnerStatus(user) {
   ownerUid = null; isOwner = false; isApprovedAdmin = false;
   if (!user || !fbdb) { listenAdminRequests(); return; }
   try {
-    ownerUid = (await fbdb.ref('owner').once('value')).val() || null;
+    ownerUid = (await fbOnce(fbdb.ref('owner'))).val() || null;
     isOwner = !!(ownerUid && ownerUid === user.uid);
     if (isOwner) isApprovedAdmin = true;
-    else isApprovedAdmin = !!(await fbdb.ref('approvedAdmins/' + user.uid).once('value')).val();
+    else isApprovedAdmin = !!(await fbOnce(fbdb.ref('approvedAdmins/' + user.uid))).val();
   } catch (e) { /* geen rechten / offline → standaard niet goedgekeurd */ }
   listenAdminRequests();
 }
@@ -1225,22 +1239,28 @@ function pruneDeadTeam(id) {
 }
 
 async function preloadTeamNames() {
+  // Offline: val terug op eerder gecachte namen zodat het ploegkeuzescherm niet leeg oogt.
+  try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   const ids = Object.keys(userTeams);
   await Promise.all(ids.map(async id => {
     if (teamNames[id]) return;
     try {
-      const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
+      const s = await fbOnce(fbdb.ref('teams/' + id + '/info/name'));
       if (s.exists()) teamNames[id] = s.val();
     } catch (e) {}
   }));
+  try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
 }
 async function loadUserTeams(uid) {
-  const snap = await fbdb.ref('users/' + uid + '/teams').once('value');
-  const raw = snap.val() || {};
+  let raw = null;
+  try { raw = (await fbOnce(fbdb.ref('users/' + uid + '/teams'))).val(); }
+  catch (e) { /* offline/timeout: val hieronder terug op de lokaal gecachte ploegenlijst */ }
+  if (raw === null) raw = cachedUserTeams(uid);
+  raw = raw || {};
   userTeams = {};
   await Promise.all(Object.keys(raw).map(async id => {
     try {
-      const nameSnap = await fbdb.ref('teams/' + id + '/info/name').once('value');
+      const nameSnap = await fbOnce(fbdb.ref('teams/' + id + '/info/name'));
       if (!nameSnap.exists()) {
         // Ploeg bestaat niet meer → opruimen
         fbdb.ref('users/' + uid + '/teams/' + id).remove().catch(() => {});
@@ -1249,15 +1269,29 @@ async function loadUserTeams(uid) {
       // Werkelijke rol ophalen; val terug op gecachede rol als de read faalt
       let role = raw[id];
       try {
-        const roleSnap = await fbdb.ref('teams/' + id + '/members/' + uid).once('value');
+        const roleSnap = await fbOnce(fbdb.ref('teams/' + id + '/members/' + uid));
         if (roleSnap.exists()) {
           role = roleSnap.val();
           if (role !== raw[id]) fbdb.ref('users/' + uid + '/teams/' + id).set(role).catch(() => {});
         }
       } catch (e) { /* geen toegang tot members-node: gecachede rol gebruiken */ }
       userTeams[id] = role;
-    } catch (e) { /* netwerk- of permissiefout: ploeg overslaan maar NIET verwijderen */ }
+    } catch (e) {
+      // Timeout = offline: ploeg behouden met gecachte rol. Andere fout (permissie): overslaan maar NIET verwijderen.
+      if (e && e.message === 'fb-timeout') userTeams[id] = raw[id];
+    }
   }));
+  cacheUserTeams(uid, userTeams);
+}
+
+// Ploegenlijst + rollen lokaal cachen zodat een beheerder ook offline (na herstart)
+// zijn ploeg en rechten behoudt. Enkel gebruikt als de cloud niet antwoordt.
+function cacheUserTeams(uid, teams) {
+  if (!uid || !teams || !Object.keys(teams).length) return;
+  try { localStorage.setItem('voetbal_userTeams_' + uid, JSON.stringify(teams)); } catch (e) {}
+}
+function cachedUserTeams(uid) {
+  try { return JSON.parse(localStorage.getItem('voetbal_userTeams_' + uid) || 'null'); } catch (e) { return null; }
 }
 
 async function selectTeam(teamId) {
@@ -1368,8 +1402,15 @@ async function applyCloudMatches(obj) {
     if (!Array.isArray(m.events)) m.events = [];
     if (!Array.isArray(m.players)) m.players = [];
     if (!Array.isArray(m.quarters)) m.quarters = [];
-    // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
     const existing = await dbGet(id);
+    // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
+    // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
+    // Dan lokaal behouden en opnieuw pushen i.p.v. overschrijven met de oude cloud-versie.
+    if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
+      cloudOnLocalMatchSave(existing);
+      continue;
+    }
+    // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
     if (existing && Array.isArray(existing.events) && existing.events.length) {
       const cloudEventIds = new Set(m.events.map(e => e.id));
       const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id));
@@ -2700,9 +2741,10 @@ async function loadHome() {
     <button class="tile" onclick="go('tournaments')"><i class="ti ti-medal tile-fi" aria-hidden="true"></i><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><i class="ti ti-chart-bar tile-fi" aria-hidden="true"></i><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
-  const offlineBanner = offlineWithKnownCloudTeam()
-    ? `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens en kan tijdelijk niets beheren tot de verbinding terugkeert.</div>`
-    : '';
+  const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
+  const offlineBanner = !isOffline ? '' : (canManage()
+    ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je kan gewoon verder werken — wijzigingen worden gesynchroniseerd zodra er terug verbinding is.</div>`
+    : `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens tot de verbinding terugkeert.</div>`);
   if (!all.length && !teamCount) {
     el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div><p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p></div>`;
     return;
