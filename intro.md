@@ -2,11 +2,9 @@
 
 *Manage · Track · Share*
 
-Twee kant-en-klare versies om de app voor te stellen: een voor e-mail, een voor WhatsApp.
+Kant-en-klare introtekst om de app voor te stellen per e-mail.
 
 ---
-
-## Versie 1 — E-mail
 
 **Onderwerp: Even iets tonen — mijn app voor langs het veld ⚽**
 
@@ -31,20 +29,3 @@ Laat je iets weten? Bedankt alvast!
 
 Sportieve groeten
 Tim
-
----
-
-## Versie 2 — WhatsApp
-
-Hey! 👋 Ik heb een app gebouwd voor trainers en afgevaardigden: **Match Delegate** ⚽
-
-📱 Alles live bijhouden vanaf de zijlijn: score, doelpunten, kaarten, wissels en speeltijd
-📋 Achteraf een volledig verslag: log van alle events, wissels en opstelling per kwart, plus notities per speler
-📡 Ouders & supporters volgen live mee via een link of QR-code
-👥 Spelers, opstellingen en statistieken op één plek
-
-Geen app store nodig — werkt meteen op je smartphone (iPhone & Android), ook als het netwerk langs het veld even hapert.
-
-Probeer het hier: https://timbuyse.github.io/MatchDelegate/
-
-Zin om het eens te testen met je ploeg? Ik hoor graag je feedback! 🙌
