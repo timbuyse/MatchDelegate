@@ -434,7 +434,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.15'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.3.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1025,8 +1025,14 @@ async function doRequestAdmin() {
     // Onthoud dat we een aanvraag deden + reset "gezien" zodat de goedkeuring later getoond wordt
     localStorage.setItem('voetbal_adminRequested', '1');
     localStorage.removeItem('voetbal_adminApprovedSeen');
-    closeModal();
-    showToast('Aanvraag verstuurd. Je krijgt toegang zodra de maker ze goedkeurt.', 'ok');
+    // Bevestiging met e-mail-nudge: de maker krijgt geen automatische melding (geen
+    // serverkant), dus bied aan om hem zelf even te verwittigen via e-mail.
+    const mailSubject = encodeURIComponent('MatchDelegate: beheerdersaanvraag van ' + (currentUser.displayName || currentUser.email || ''));
+    const mailBody = encodeURIComponent('Dag,\n\nIk heb zonet in MatchDelegate een aanvraag ingediend om beheerder te worden (zelf ploegen aanmaken).\n\nNaam: ' + (currentUser.displayName || '') + '\nE-mail: ' + (currentUser.email || '') + '\n\nKan je ze goedkeuren via Beheer → Eigenaarstools → Beheerdersaanvragen?\n\nBedankt!');
+    openModal(`<h3>${icI(IC.done)} Aanvraag verstuurd</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Zodra de maker je goedkeurt zie je het meteen in de app verschijnen.<br><br>De maker krijgt <b>geen automatische melding</b> — verwittig hem gerust even zelf:</p>
+      <a class="btn btn-org" style="display:block;text-decoration:none;text-align:center" href="mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}"><i class="ti ti-mail" style="font-size:1em;vertical-align:-.1em"></i> Verwittig de maker via e-mail</a>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
   } catch (e) {
     if (err) err.textContent = 'Versturen mislukt: ' + (e.message || 'probeer opnieuw.');
   }
@@ -2172,7 +2178,9 @@ function renderTeamSelect() {
           : ''}
         <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
         ${(cloudReady && currentUser && !isGuest && !viewerMode && !isApprovedAdmin)
-          ? `<p style="font-size:12px;color:var(--txt2);margin-top:10px;margin-bottom:0">Wil je zelf een <b>eigen ploeg aanmaken</b>? Tik op het groene <b>Beheer</b>-knopje hierboven om het aan te vragen.</p>`
+          ? (localStorage.getItem('voetbal_adminRequested') === '1'
+            ? `<div class="nudge" style="margin-top:10px"><i class="ti ti-hourglass" style="font-size:1em;vertical-align:-.1em"></i> <b>Aanvraag ingediend</b> — je hoort het zodra de maker je goedkeurt. Daarna kan je hier een eigen ploeg aanmaken.</div>`
+            : `<p style="font-size:12px;color:var(--txt2);margin-top:10px;margin-bottom:0">Wil je zelf een <b>eigen ploeg aanmaken</b>? Tik op het groene <b>Beheer</b>-knopje hierboven om het aan te vragen.</p>`)
           : ''}
         <div style="display:flex;gap:8px;margin-top:20px">
           <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
