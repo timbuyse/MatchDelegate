@@ -430,7 +430,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.12'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.13'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1410,10 +1410,19 @@ async function applyCloudMatches(obj) {
       cloudOnLocalMatchSave(existing);
       continue;
     }
+    // Tombstones van beide kanten verenigen vóór de event-merge: een bewust verwijderd
+    // event mag nooit "terugkomen" via een ander toestel of een oude back-up.
+    const tomb = new Set([...(m.deletedEventIds || []), ...((existing && existing.deletedEventIds) || [])]);
+    if (tomb.size) {
+      m.deletedEventIds = [...tomb];
+      const before = m.events.length;
+      m.events = m.events.filter(e => !tomb.has(e.id));
+      if (m.events.length !== before) { recomputeScore(m); recomputeOnField(m); }
+    }
     // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
     if (existing && Array.isArray(existing.events) && existing.events.length) {
       const cloudEventIds = new Set(m.events.map(e => e.id));
-      const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id));
+      const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
       if (localOnly.length) {
         m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
         recomputeScore(m);
@@ -3530,7 +3539,11 @@ let pendingRestore = null;
 async function doRestore(mode) {
   const data = pendingRestore;
   if (!data) return;
-  const incoming = data.matches || [];
+  // fromCloud strippen: anders ruimt de cloud-listener herstelde wedstrijden die niet
+  // (meer) in de cloud staan meteen weer op. Hersteld = lokaal; staat de wedstrijd tóch
+  // nog in de cloud, dan wint die versie vanzelf (zelfde id). Pas bij een latere
+  // bewerking door een beheerder gaat ze opnieuw naar de cloud van de actieve ploeg.
+  const incoming = (data.matches || []).map(m => { const c = { ...m }; delete c.fromCloud; return c; });
   const norm = s => (s || '').trim().toLowerCase();
   if (mode === 'replace') {
     await new Promise((res, rej) => { const tx = db.transaction('matches', 'readwrite'); const st = tx.objectStore('matches'); st.clear(); incoming.forEach(m => st.put(m)); tx.oncomplete = () => res(); tx.onerror = () => rej(); });
@@ -3564,7 +3577,8 @@ async function doRestore(mode) {
   localStorage.setItem('voetbal_setup_done', '1');
   pendingRestore = null;
   closeModal(); match = null; applyStoredTheme(); applyDark(); go('home');
-  setTimeout(() => showToast(mode === 'replace' ? 'Back-up hersteld' : 'Back-ups samengevoegd', 'ok'), 100);
+  const cloudNote = (cloudReady && activeTeamId) ? ' (als lokale wedstrijden)' : '';
+  setTimeout(() => showToast((mode === 'replace' ? 'Back-up hersteld' : 'Back-ups samengevoegd') + cloudNote, 'ok'), 100);
 }
 function handleLogoFile(input) {
   const f = input.files && input.files[0];
@@ -5890,7 +5904,15 @@ function confirmDeleteEvent(id) {
     <button class="btn btn-red" onclick="doDeleteEvent('${id}')">${icI(IC.trash)} Verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+// Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatches)
+// ze niet "terugbrengt" vanaf een ander toestel of uit een oude back-up.
+function tombstoneEvent(m, id) {
+  if (!id) return;
+  m.deletedEventIds = m.deletedEventIds || [];
+  if (!m.deletedEventIds.includes(id)) m.deletedEventIds.push(id);
+}
 async function doDeleteEvent(id) {
+  tombstoneEvent(match, id);
   match.events = match.events.filter(e => e.id !== id);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); closeModal(); render();
@@ -6013,6 +6035,7 @@ async function undoLast() {
   for (let i = match.events.length - 1; i >= 0; i--) { const t = match.events[i].type; if (t !== 'quarter_start' && t !== 'quarter_end') { idx = i; break; } }
   if (idx < 0) return;
   const removed = match.events[idx];
+  tombstoneEvent(match, removed.id);
   match.events.splice(idx, 1);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
