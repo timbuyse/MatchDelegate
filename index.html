@@ -430,7 +430,7 @@
 <script src="firebase/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.13'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.14'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -800,6 +800,7 @@ async function onAuthChanged(user) {
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
+    if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
     stopTeamListeners(); listenAdminRequests();
     await go('auth', undefined, true); return;
   }
@@ -846,6 +847,28 @@ async function onAuthChanged(user) {
   await loadUserTeams(user.uid);
   maybeNotifyApproved();
   maybeNotifyRejected();
+  // Live meeluisteren naar de eigen goedkeuringsstatus: de eigenaar keurt goed/af →
+  // de aanvrager ziet het meteen, zonder app-herstart. Eerste waarde overslaan
+  // (de opstartflow hierboven dekt die al af).
+  if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
+  if (!isOwner) {
+    const aRef = fbdb.ref('approvedAdmins/' + user.uid);
+    const rRef = fbdb.ref('rejectedAdmins/' + user.uid);
+    let aFirst = true, rFirst = true;
+    const onApproved = s => {
+      if (aFirst) { aFirst = false; return; }
+      const was = isApprovedAdmin;
+      isApprovedAdmin = !!s.val();
+      if (isApprovedAdmin && !was) { maybeNotifyApproved(); if (view === 'teamselect' || view === 'beheer') render(); }
+    };
+    const onRejected = s => {
+      if (rFirst) { rFirst = false; return; }
+      if (s.exists()) maybeNotifyRejected();
+    };
+    aRef.on('value', onApproved);
+    rRef.on('value', onRejected);
+    window._approvalOff = () => { aRef.off('value', onApproved); rRef.off('value', onRejected); };
+  }
   // Pending join via QR/link afhandelen
   const pendingJoin = localStorage.getItem('voetbal_pending_join');
   if (pendingJoin) {
@@ -1381,6 +1404,43 @@ function cloudListen() {
     const nr = notesRef();
     if (nr) { nr.on('value', s => applyCloudNotes(s.val() || {})); teamListeners.push({ ref: nr, event: 'value' }); }
   }
+  // Live meeluisteren naar de EIGEN rol: goedkeuring/degradatie/verwijdering komt zo
+  // meteen door i.p.v. pas na een app-herstart. Eerste waarde (huidige rol bij het
+  // selecteren van de ploeg) wordt genegeerd — enkel échte wijzigingen doen iets.
+  if (currentUser && !isGuest) {
+    let first = true;
+    addL('members/' + currentUser.uid, 'value', s => {
+      if (first) { first = false; return; }
+      onSelfRoleChanged(s.val());
+    });
+  }
+}
+
+// Eigen rol gewijzigd door een (andere) beheerder terwijl de app open staat.
+function onSelfRoleChanged(role) {
+  const tid = activeTeamId;
+  if (!tid || !currentUser) return;
+  if (!role) {
+    // Uit de ploeg verwijderd → netjes terug naar het ploegkeuzescherm.
+    stopTeamListeners();
+    delete userTeams[tid];
+    cacheUserTeams(currentUser.uid, userTeams);
+    activeTeamId = null; isAdmin = false;
+    localStorage.removeItem('voetbal_activeTeamId');
+    showToast('Je bent uit deze ploeg verwijderd.', 'err');
+    go('teamselect', undefined, true);
+    return;
+  }
+  userTeams[tid] = role;
+  cacheUserTeams(currentUser.uid, userTeams);
+  fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).set(role).catch(() => {});
+  const wasAdmin = isAdmin;
+  isAdmin = (role === 'admin');
+  if (isAdmin === wasAdmin) return;
+  // Rolafhankelijke listeners heropstarten (notities, aanvragen-teller) en UI verversen.
+  stopTeamListeners(); cloudListen(); listenCoAdminRequests(); updateCloudChip();
+  showToast(isAdmin ? 'Goedgekeurd! Je bent nu co-beheerder van deze ploeg.' : 'Je rol is gewijzigd naar kijker.', isAdmin ? 'ok' : 'err');
+  render();
 }
 
 function applyCloudClub(val) {
