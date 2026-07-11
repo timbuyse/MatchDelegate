@@ -118,6 +118,16 @@
       }
     },
 
+    "teamNotes": {
+      // Notities (wedstrijd + per speler) apart van "matches" gehouden zodat kijkers/gasten
+      // ze nooit kunnen lezen, ook niet rechtstreeks via Firebase (in tegenstelling tot
+      // teams/$teamId/matches, dat voor elk teamlid leesbaar is).
+      "$teamId": {
+        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
+        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)"
+      }
+    },
+
     "deletedTeams": {
       // Enkel eigenaar mag alle backups lezen en herstellen.
       ".read":  "auth != null && root.child('owner').val() === auth.uid",

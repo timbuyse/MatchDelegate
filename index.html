@@ -430,7 +430,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 // ===================== CONFIG =====================
-const APP_VERSION = '0.2.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.2.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -760,6 +760,12 @@ function jclone(o) { return JSON.parse(JSON.stringify(o)); }
 function teamRef(path) {
   if (!fbdb || !activeTeamId) return null;
   return fbdb.ref('teams/' + activeTeamId + (path ? '/' + path : ''));
+}
+// Notities apart van "matches" (zie database.rules.json): enkel beheerders mogen dit pad lezen,
+// zodat kijkers/gasten notities niet via Firebase kunnen inzien, ook niet buiten de UI om.
+function notesRef(path) {
+  if (!fbdb || !activeTeamId) return null;
+  return fbdb.ref('teamNotes/' + activeTeamId + (path ? '/' + path : ''));
 }
 
 function cloudInit() {
@@ -1287,12 +1293,23 @@ function cloudOnLocalMatchSave(m) {
   try {
     const c = jclone(m);
     delete c.photo1; delete c.photo2; // base64 niet naar Firebase (te groot)
+    // Notities gaan niet mee in "matches" (leesbaar door elk teamlid) maar apart naar
+    // "teamNotes" (enkel beheerders) — zie notesRef().
+    const playerNotes = {};
+    (c.players || []).forEach(p => { if (p.note) playerNotes[p.id] = p.note; delete p.note; });
+    delete c.notes;
     r.set(c);
+    const nr = notesRef(m.id);
+    if (nr) {
+      if (m.notes || Object.keys(playerNotes).length) nr.set({ notes: m.notes || '', players: playerNotes });
+      else nr.remove();
+    }
   } catch (e) {}
 }
 function cloudOnLocalMatchDelete(id) {
   const r = teamRef('matches/' + id); if (!r || !isAdmin || !id) return;
   try { r.remove(); } catch (e) {}
+  try { const nr = notesRef(id); if (nr) nr.remove(); } catch (e) {}
 }
 function cloudOnLocalTeamsSave(arr) {
   const r = teamRef('roster'); if (!r || !isAdmin) return;
@@ -1325,6 +1342,11 @@ function cloudListen() {
   addL('roster',  'value', s => applyCloudTeams(s.val() || []));
   addL('club',    'value', s => applyCloudClub(s.val()));
   addL('tournaments', 'value', s => applyCloudTournaments(s.val() || {}));
+  // Notities enkel ophalen als beheerder (kijkers/gasten mogen dit pad sowieso niet lezen).
+  if (isAdmin) {
+    const nr = notesRef();
+    if (nr) { nr.on('value', s => applyCloudNotes(s.val() || {})); teamListeners.push({ ref: nr, event: 'value' }); }
+  }
 }
 
 function applyCloudClub(val) {
@@ -1356,6 +1378,15 @@ async function applyCloudMatches(obj) {
         recomputeScore(m);
       }
     }
+    // Notities zitten niet (meer) in het cloud-object (zie cloudOnLocalMatchSave) — lokaal bewaarde
+    // notities overnemen zodat ze niet verdwijnen tot de aparte teamNotes-listener ze aanvult.
+    if (existing) {
+      if (existing.notes && m.notes === undefined) m.notes = existing.notes;
+      if (Array.isArray(existing.players)) {
+        const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
+        if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
+      }
+    }
     await dbPutLocal(m);
     // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
     if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
@@ -1374,6 +1405,22 @@ async function applyCloudMatches(obj) {
     }
   }
   if (!isAdmin) knownLiveMatchIds.forEach(id => { if (!cloudIds.has(id)) knownLiveMatchIds.delete(id); });
+  cloudRefreshUI();
+}
+// Notities komen via een apart, beheerder-only pad binnen (zie notesRef/database.rules.json)
+// en worden hier teruggekoppeld naar de lokale match — nodig zodat een tweede beheerder
+// (ander toestel) ze ook ziet, en na het wissen van lokale opslag.
+async function applyCloudNotes(obj) {
+  if (!db) return;
+  for (const id of Object.keys(obj)) {
+    const n = obj[id]; if (!n) continue;
+    const existing = await dbGet(id); if (!existing) continue;
+    existing.notes = n.notes || '';
+    if (Array.isArray(existing.players) && n.players) {
+      existing.players.forEach(p => { p.note = n.players[p.id] || ''; });
+    }
+    await dbPutLocal(existing);
+  }
   cloudRefreshUI();
 }
 function notifyLiveMatch(m) {
@@ -5262,6 +5309,23 @@ async function doEndPeriod() {
   match.quarterStatus = 'between';
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
 }
+// Afgesloten wedstrijd heropenen (foutklik, of verlenging spelen). Voegt automatisch een extra
+// deel toe zodat "Start volgend deel" meteen weer beschikbaar is.
+function confirmReopenMatch() {
+  const label = pSingLow(match);
+  openModal(`<h3>Wedstrijd heropenen?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd gaat terug naar 'live' en er wordt een extra ${label} toegevoegd, zodat je kan verdergaan (bv. na een foutieve afsluiting, of voor een verlenging).</p>
+    <button class="btn btn-org" onclick="doReopenMatch()">${icI(IC.live)} Ja, heropenen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doReopenMatch() {
+  match.status = 'live';
+  match.quarterStatus = 'between';
+  match.numQuarters = Math.max(match.numQuarters || 0, match.quarters.length) + 1;
+  closeModal();
+  await dbSave(match);
+  go('live', match.id);
+}
 function endMatch() {
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     <div class="fg"><label>Notities (optioneel)</label>
@@ -6397,6 +6461,7 @@ function renderDetail() {
       </div>
       ${(FORMATIONS[match.matchType]||[]).length ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Posities herplaatsen</button>` : ''}
       <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>
+      <button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
   </div>`;
