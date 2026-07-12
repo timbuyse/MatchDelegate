@@ -198,7 +198,11 @@ async function deleteCurrentMatch() {
   if (cloudReady && activeTeamId && isAdmin && m) {
     try {
       const nr = notesRef(m.id);
-      const notesSnap = nr ? await nr.once('value') : null;
+      // fbOnce() i.p.v. ruwe once('value'): offline zonder gecachte waarde resolvet die
+      // nooit, en de bestaande try/catch vangt dat niet op (geen reject, gewoon een eeuwig
+      // hangende await) — de bevestigingsmodal bleef dan open zonder foutmelding of lokale
+      // verwijdering. fbOnce() gooit bij timeout wél, wat hier alsnog netjes wordt opgevangen.
+      const notesSnap = nr ? await fbOnce(nr) : null;
       await fbdb.ref('deletedMatches/' + activeTeamId + '/' + m.id).set({
         deletedAt: Date.now(),
         deletedBy: currentUser ? currentUser.uid : null,
