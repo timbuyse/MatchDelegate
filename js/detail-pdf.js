@@ -432,7 +432,9 @@ async function exportPDF() {
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.
-  const fileTitle = (isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`).replace(/[\\/:*?"<>|]/g, '-');
+  // Formaat: datum_thuisploeg_vs_uitploeg, zodat een map met PDF's chronologisch sorteert.
+  const teamsPart = isAway(m) ? `${m.opponent}_vs_${tName(m)}` : `${tName(m)}_vs_${m.opponent}`;
+  const fileTitle = `${m.date ? m.date + '_' : ''}${teamsPart}`.replace(/[\\/:*?"<>|]/g, '-');
   doc.save(`${fileTitle}.pdf`);
   // Eigen bevestiging i.p.v. te vertrouwen op de (soms afwezige) native downloadmelding van
   // de browser: door de await's hierboven is het korte "rechtstreeks door een tik"-venster
