@@ -891,7 +891,9 @@ async function confirmDeleteCloudTeam() {
   if (!isApprovedAdmin || !activeTeamId || !fbdb) return;
   const naam = getClubName() || 'deze ploeg';
   if (!isOwner) {
-    const infoSnap = await fbdb.ref('teams/' + activeTeamId + '/info/createdBy').once('value');
+    let infoSnap;
+    try { infoSnap = await fbOnce(fbdb.ref('teams/' + activeTeamId + '/info/createdBy')); }
+    catch (e) { showToast('Kon niet controleren wie de ploeg aanmaakte (geen verbinding). Probeer later opnieuw.', 'err'); return; }
     if (infoSnap.val() !== currentUser.uid) {
       showToast('Je kan enkel ploegen verwijderen die je zelf hebt aangemaakt.', 'err');
       return;
@@ -917,9 +919,9 @@ async function doDeleteCloudTeam() {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
     const [teamSnap, memberInfoSnap, teamNotesSnap] = await Promise.all([
-      fbdb.ref('teams/' + tid).once('value'),
-      fbdb.ref('memberInfo/' + tid).once('value'),
-      fbdb.ref('teamNotes/' + tid).once('value'),
+      fbOnce(fbdb.ref('teams/' + tid)),
+      fbOnce(fbdb.ref('memberInfo/' + tid)),
+      fbOnce(fbdb.ref('teamNotes/' + tid)),
     ]);
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({

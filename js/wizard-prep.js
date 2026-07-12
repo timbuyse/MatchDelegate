@@ -245,7 +245,7 @@ async function addGuestsModal() {
       const fetched = [];
       await Promise.all(otherIds.map(async id => {
         try {
-          const s = await fbdb.ref('teams/' + id + '/roster').once('value');
+          const s = await fbOnce(fbdb.ref('teams/' + id + '/roster'));
           const raw = s.val();
           if (!raw) return;
           const arr = Array.isArray(raw) ? raw : Object.values(raw);

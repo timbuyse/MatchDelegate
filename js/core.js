@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.18'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.19'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -514,7 +514,7 @@ function listenCoAdminRequests() {
 async function claimOwner() {
   if (!currentUser || !fbdb) return;
   try {
-    const snap = await fbdb.ref('owner').once('value');
+    const snap = await fbOnce(fbdb.ref('owner'));
     if (snap.exists()) { showToast('Er is al een eigenaar ingesteld.', 'err'); ownerUid = snap.val(); isOwner = (ownerUid === currentUser.uid); closeModal(); if (view === 'beheer') render(); return; }
     await fbdb.ref('owner').set(currentUser.uid);
     ownerUid = currentUser.uid; isOwner = true; isApprovedAdmin = true;
@@ -546,8 +546,8 @@ async function maybeNotifyRejected() {
   if (isApprovedAdmin) return;
   try {
     const [rejSnap, reqSnap] = await Promise.all([
-      fbdb.ref('rejectedAdmins/' + currentUser.uid).once('value'),
-      fbdb.ref('adminRequests/' + currentUser.uid).once('value'),
+      fbOnce(fbdb.ref('rejectedAdmins/' + currentUser.uid)),
+      fbOnce(fbdb.ref('adminRequests/' + currentUser.uid)),
     ]);
     const wasRejected = rejSnap.exists();
     const stillPending = reqSnap.exists();
@@ -615,7 +615,7 @@ async function loadAdminRequestsList() {
   const el = document.getElementById('adminreq-list');
   if (!el) return;
   try {
-    const snap = await fbdb.ref('adminRequests').once('value');
+    const snap = await fbOnce(fbdb.ref('adminRequests'));
     const reqs = snap.val() || {};
     const uids = Object.keys(reqs);
     if (!uids.length) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen openstaande aanvragen.</p>'; return; }
@@ -635,7 +635,7 @@ async function loadAdminRequestsList() {
 async function approveAdmin(uid) {
   if (!isOwner || !fbdb) return;
   try {
-    const reqSnap = await fbdb.ref('adminRequests/' + uid).once('value');
+    const reqSnap = await fbOnce(fbdb.ref('adminRequests/' + uid));
     const req = reqSnap.val() || {};
     await fbdb.ref('approvedAdmins/' + uid).set({ approved: true, name: req.name || '', email: req.email || '' });
     await fbdb.ref('adminRequests/' + uid).remove();
@@ -658,7 +658,7 @@ async function showApprovedAdminsModal() {
     <div id="approved-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   try {
-    const snap = await fbdb.ref('approvedAdmins').once('value');
+    const snap = await fbOnce(fbdb.ref('approvedAdmins'));
     const approved = snap.val() || {};
     const uids = Object.keys(approved);
     const el = document.getElementById('approved-list');
@@ -669,7 +669,7 @@ async function showApprovedAdminsModal() {
       if (typeof entry === 'object' && entry.name) return { uid, name: entry.name, email: entry.email || '' };
       // Oud formaat (true): haal naam op uit users-node (eigenaar heeft nu leesrecht)
       try {
-        const s = await fbdb.ref('users/' + uid).once('value');
+        const s = await fbOnce(fbdb.ref('users/' + uid));
         const u = s.val() || {};
         return { uid, name: u.displayName || uid, email: u.email || '' };
       } catch (_) { return { uid, name: uid, email: '' }; }
@@ -693,9 +693,9 @@ async function showAllUsersModal() {
   const el = document.getElementById('allusers-list');
   try {
     const [teamsSnap, approvedSnap, ownerSnap] = await Promise.all([
-      fbdb.ref('teams').once('value'),
-      fbdb.ref('approvedAdmins').once('value'),
-      fbdb.ref('owner').once('value'),
+      fbOnce(fbdb.ref('teams')),
+      fbOnce(fbdb.ref('approvedAdmins')),
+      fbOnce(fbdb.ref('owner')),
     ]);
     const teamsVal = teamsSnap.val() || {};
     const approvedVal = approvedSnap.val() || {};
@@ -708,7 +708,7 @@ async function showAllUsersModal() {
       const entry = approvedVal[uid];
       if (entry && typeof entry === 'object' && entry.name) return { uid, name: entry.name, email: entry.email || '' };
       try {
-        const s = await fbdb.ref('users/' + uid).once('value');
+        const s = await fbOnce(fbdb.ref('users/' + uid));
         const u = s.val() || {};
         return { uid, name: u.displayName || u.name || uid, email: u.email || '' };
       } catch (_) { return { uid, name: uid, email: '' }; }
@@ -739,7 +739,7 @@ async function showAllUsersModal() {
     // Per ploeg
     const teamIds = Object.keys(teamsVal);
     const memberInfoSnaps = await Promise.all(
-      teamIds.map(tid => fbdb.ref('memberInfo/' + tid).once('value').catch(() => null))
+      teamIds.map(tid => fbOnce(fbdb.ref('memberInfo/' + tid)).catch(() => null))
     );
 
     for (let i = 0; i < teamIds.length; i++) {
@@ -802,9 +802,9 @@ async function doOwnerDeleteTeam(tid) {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
     const [teamSnap, memberInfoSnap, teamNotesSnap] = await Promise.all([
-      fbdb.ref('teams/' + tid).once('value'),
-      fbdb.ref('memberInfo/' + tid).once('value'),
-      fbdb.ref('teamNotes/' + tid).once('value'),
+      fbOnce(fbdb.ref('teams/' + tid)),
+      fbOnce(fbdb.ref('memberInfo/' + tid)),
+      fbOnce(fbdb.ref('teamNotes/' + tid)),
     ]);
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({

@@ -145,8 +145,8 @@ async function showInviteModal(teamId) {
     const listEl = document.getElementById('invite-team-list');
     if (listEl) {
       const items = await Promise.all(adminTeams.map(async ([id]) => {
-        const s = await fbdb.ref('teams/' + id + '/info/name').once('value');
-        return { id, name: s.val() || id };
+        try { const s = await fbOnce(fbdb.ref('teams/' + id + '/info/name')); return { id, name: s.val() || id }; }
+        catch (e) { return { id, name: id }; }
       }));
       if (listEl) listEl.innerHTML = items.map(t =>
         `<button class="btn btn-pale" style="margin-bottom:8px" onclick="showInviteModal('${t.id}')">${esc(t.name)}</button>`
@@ -156,16 +156,21 @@ async function showInviteModal(teamId) {
   }
 
   // Haal token op en zorg dat het ook in /invites/ staat
-  const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
-  const info = infoSnap.val() || {};
-  const token = info.inviteToken || '???';
-  const teamName = info.name || 'Ploeg';
-
-  // Zorg dat /invites/{token} bestaat (voor ploegen aangemaakt vóór deze fix)
-  const invSnap = await fbdb.ref('invites/' + token).once('value');
-  if (!invSnap.exists() && currentUser) {
-    await fbdb.ref('invites/' + token).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
+  let info, token;
+  try {
+    const infoSnap = await fbOnce(fbdb.ref('teams/' + tid + '/info'));
+    info = infoSnap.val() || {};
+    token = info.inviteToken || '???';
+    // Zorg dat /invites/{token} bestaat (voor ploegen aangemaakt vóór deze fix)
+    const invSnap = await fbOnce(fbdb.ref('invites/' + token));
+    if (!invSnap.exists() && currentUser) {
+      await fbdb.ref('invites/' + token).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
+    }
+  } catch (e) {
+    showToast('Kon de uitnodiging niet laden (geen verbinding). Probeer het later opnieuw.', 'err');
+    return;
   }
+  const teamName = info.name || 'Ploeg';
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
   const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&data=' + encodeURIComponent(joinUrl);
@@ -190,7 +195,7 @@ function confirmRegenerateInviteToken(tid) {
 async function doRegenerateInviteToken(tid) {
   if (!isAdmin || !tid || !fbdb) return;
   try {
-    const infoSnap = await fbdb.ref('teams/' + tid + '/info').once('value');
+    const infoSnap = await fbOnce(fbdb.ref('teams/' + tid + '/info'));
     const oldToken = (infoSnap.val() || {}).inviteToken;
     const newToken = genInviteToken();
     await fbdb.ref('teams/' + tid + '/info/inviteToken').set(newToken);
@@ -212,7 +217,9 @@ async function requestCoAdmin() {
   const tid = activeTeamId;
   if (!tid || !currentUser || !fbdb) return;
   const ref = fbdb.ref('teamAdminRequests/' + tid + '/' + currentUser.uid);
-  const snap = await ref.once('value');
+  let snap;
+  try { snap = await fbOnce(ref); }
+  catch (e) { showToast('Kon niet controleren of er al een aanvraag loopt (geen verbinding). Probeer later opnieuw.', 'err'); return; }
   if (snap.exists()) { showToast('Je aanvraag is al verstuurd. Wacht op goedkeuring van de beheerder.', 'err'); return; }
   try {
     await ref.set({ name: currentUser.displayName || '', email: currentUser.email || '', requestedAt: Date.now() });
@@ -230,9 +237,9 @@ async function showMembersModal() {
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   try {
     const [miSnap, memSnap, reqSnap] = await Promise.all([
-      fbdb.ref('memberInfo/' + tid).once('value'),
-      fbdb.ref('teams/' + tid + '/members').once('value'),
-      fbdb.ref('teamAdminRequests/' + tid).once('value'),
+      fbOnce(fbdb.ref('memberInfo/' + tid)),
+      fbOnce(fbdb.ref('teams/' + tid + '/members')),
+      fbOnce(fbdb.ref('teamAdminRequests/' + tid)),
     ]);
     const info = miSnap.val() || {};
     const members = memSnap.val() || {};
@@ -241,7 +248,7 @@ async function showMembersModal() {
     const missingUids = Object.keys(members).filter(u => !info[u]);
     await Promise.all(missingUids.map(async u => {
       try {
-        const s = await fbdb.ref('users/' + u).once('value');
+        const s = await fbOnce(fbdb.ref('users/' + u));
         const d = s.val();
         if (d) info[u] = { name: d.displayName || d.name || '', email: d.email || '' };
       } catch (e) {}
@@ -504,9 +511,12 @@ function renderTeamSelect() {
     teamIds.forEach(id => {
       if (teamNames[id]) return;
       const el = document.getElementById('tsname-' + id);
-      fbdb.ref('teams/' + id + '/info/name').once('value')
+      // fbOnce() i.p.v. ruwe once('value'): offline blijft dit anders eeuwig hangen en wordt
+      // de naam nooit ververst. Let op: een timeout betekent enkel "geen verbinding", niet
+      // "ploeg bestaat niet meer" — enkel bij een echte fout (niet een timeout) opruimen.
+      fbOnce(fbdb.ref('teams/' + id + '/info/name'))
         .then(s => { if (!s.exists()) { pruneDeadTeam(id); return; } teamNames[id] = s.val(); if (el) el.textContent = s.val() || id; })
-        .catch(() => pruneDeadTeam(id));
+        .catch(e => { if (e && e.message !== 'fb-timeout') pruneDeadTeam(id); });
     });
   }, 0);
 
