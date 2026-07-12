@@ -54,4 +54,4 @@ Test-data scripts live in Tim's companion folder outside this repo, never commit
 - Stored-data compatibility verified (existing matches/teams still load)
 - Firebase sync behavior verified when data logic changed
 - If this change also applies to voetbalapp, flag it explicitly
-- **Bump the `CACHE` version constant in `sw.js` on every deploy** (e.g. `voetbal-v39` → `voetbal-v40`). `index.html` is cached by the service worker; without the bump, users keep seeing the old version.
+- **Bump `APP_VERSION` in `core.js` on every deploy.** The `sw.js` cache name is derived automatically from `APP_VERSION` at registration time (`?v=` query param) — no separate manual `CACHE` constant to bump anymore. Without an `APP_VERSION` bump, users keep seeing the old cached version.
