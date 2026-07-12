@@ -1229,8 +1229,12 @@ async function loadHome() {
     ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
     : `<button class="tile" onclick="go('teams')"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
-  if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
-  if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
+  // In de cloud kan de lokale cache (tijdelijk, of na een teamwissel) wedstrijden van een
+  // andere ploeg bevatten — altijd filteren op de naam van de actieve ploeg i.p.v. te
+  // vertrouwen op "de cache bevat toch enkel deze ploeg". teamNames[] is synchroon en
+  // altijd al gevuld (i.t.t. teamById(), dat op de nog-niet-gesynct roster-cache leunt).
+  if (cloudReady) homeFilter = teamNames[activeTeamId] || 'all';
+  else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
     <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
     ${teamTile}
@@ -1326,8 +1330,9 @@ async function loadMatches() {
     return;
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
-  if (cloudReady) homeFilter = 'all'; // binnen een ploeg geen ploegfilter
-  if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
+  // Zie loadHome(): in de cloud altijd op de actieve ploeg filteren, nooit blind 'all'.
+  if (cloudReady) homeFilter = teamNames[activeTeamId] || 'all';
+  else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const list = (homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter)).slice();
   const filterBar = (!cloudReady && teams.length) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
