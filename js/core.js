@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.10'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -365,6 +365,7 @@ async function onAuthChanged(user) {
       const result = await joinTeamByToken(pendingJoin);
       if (result === 'ok') return;
       if (result === 'not_found') showToast('Code niet gevonden. Voer de code hieronder handmatig in.', 'err');
+      if (result === 'offline') showToast('Kon de uitnodiging niet controleren (geen verbinding). Probeer het later opnieuw.', 'err');
     }
     await loadUserTeams(user.uid);
     const teamIds = Object.keys(userTeams);
@@ -423,8 +424,11 @@ async function onAuthChanged(user) {
   const pendingJoin = localStorage.getItem('voetbal_pending_join');
   if (pendingJoin) {
     localStorage.removeItem('voetbal_pending_join');
-    await joinTeamByToken(pendingJoin);
-    return;
+    const result = await joinTeamByToken(pendingJoin);
+    if (result === 'ok') return;
+    if (result === 'not_found') showToast('Code niet gevonden. Voer de code hieronder handmatig in.', 'err');
+    if (result === 'offline') showToast('Kon de uitnodiging niet controleren (geen verbinding). Probeer het later opnieuw.', 'err');
+    // val door naar de normale ploeg-laadflow hieronder i.p.v. hier vast te blijven zitten
   }
   const teamIds = Object.keys(userTeams);
   if (teamIds.length === 0) {

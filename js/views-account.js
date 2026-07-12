@@ -103,13 +103,17 @@ async function createTeam(name) {
 async function joinTeamByToken(token) {
   if (!currentUser || !fbdb) return null;
   token = (token || '').trim().toUpperCase();
-  // Directe lookup via /invites/{token} — geen query nodig
-  const snap = await fbdb.ref('invites/' + token).once('value');
+  // fbOnce() i.p.v. een ruwe once('value'): offline resolvet die nooit, waardoor de hele
+  // opstartflow (onAuthChanged) hier voor altijd zou blijven hangen (eeuwig blanco scherm
+  // na de splash) — zie de fbOnce-toelichting in core.js.
+  let snap;
+  try { snap = await fbOnce(fbdb.ref('invites/' + token)); } catch (e) { return 'offline'; }
   if (!snap.exists()) return 'not_found';
   const teamId = snap.val().teamId;
   if (!teamId) return 'not_found';
   const uid = currentUser.uid;
-  const existing = await fbdb.ref('teams/' + teamId + '/members/' + uid).once('value');
+  let existing;
+  try { existing = await fbOnce(fbdb.ref('teams/' + teamId + '/members/' + uid)); } catch (e) { return 'offline'; }
   if (!existing.exists()) {
     await fbdb.ref('teams/' + teamId + '/members/' + uid).set('viewer');
     await fbdb.ref('users/' + uid + '/teams/' + teamId).set('viewer');
