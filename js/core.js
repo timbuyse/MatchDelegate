@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.16'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.17'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1291,7 +1291,10 @@ function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudT
 function updateCloudChip() {
   const el = document.getElementById('cloud-chip');
   if (!el) return;
-  if (!cloudReady || !activeTeamId) { el.style.display = 'none'; return; }
+  // Voor een gast leidt deze chip nergens naartoe (go('beheer') wordt door de guest-guard in
+  // go() stil teruggeschreven naar 'home' — "Vraag co-beheer aan" is sowieso niet mogelijk
+  // zonder eigen account) — dan liever niet tonen dan een knop die niets zichtbaars doet.
+  if (!cloudReady || !activeTeamId || isGuest) { el.style.display = 'none'; return; }
   el.style.display = '';
   const effectiveAdmin = isAdmin && !viewerMode;
   const coBadge = (effectiveAdmin && pendingCoAdminCount) ? `<span class="req-badge">${pendingCoAdminCount}</span>` : '';
