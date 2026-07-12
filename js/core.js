@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.19'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.20'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1250,7 +1250,6 @@ function applyCloudTeams(val) {
     trainers: Array.isArray(t.trainers) ? t.trainers : [],
     fromCloud: true
   }));
-  const cloudIds = new Set(cloud.map(t => t && t.id).filter(Boolean));
   const merged = cloud; // in cloud-modus enkel cloud-ploegen bewaren
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   cloudRefreshUI();

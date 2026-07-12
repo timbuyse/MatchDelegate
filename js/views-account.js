@@ -1103,8 +1103,6 @@ function pitchSVG(m, players, svgWidth = 280, captainId = undefined) {
   }).join('');
   const PAW=189,PAD=75,GAW=86,GAD=25,GW=36,GD=10,CCR=43,PENY=50,CR=8;
   const pax=((W-PAW)/2).toFixed(1), gax=((W-GAW)/2).toFixed(1), gx=((W-GW)/2).toFixed(1);
-  const adx=Math.sqrt(CCR*CCR-(PAD-PENY)*(PAD-PENY)).toFixed(1);
-  const ax1=(W/2-adx).toFixed(1), ax2=(W/2+ +adx).toFixed(1);
   return `<svg viewBox="-3 -${GD+2} ${W+6} ${H+GD*2+4}" width="${svgWidth}" style="max-width:100%">
     <defs>
       <pattern id="grass" x="0" y="0" width="${W}" height="60" patternUnits="userSpaceOnUse">
@@ -1200,7 +1198,6 @@ const views = {
   setup: () => renderSettings(true),
   settings: () => renderSettings(false),
   handleiding: () => renderHandleiding(0),
-  new: () => renderNew(),
   live: () => renderLive(),
   detail: () => renderDetail(),
   stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
