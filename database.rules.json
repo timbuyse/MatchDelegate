@@ -72,7 +72,11 @@
       ".write": "auth != null && root.child('owner').val() === auth.uid",
       "$uid": {
         // Elke gebruiker mag zijn eigen goedkeuringsstatus lezen.
-        ".read": "auth != null && auth.uid === $uid"
+        ".read": "auth != null && auth.uid === $uid",
+        // Een gebruiker mag zijn EIGEN entry enkel VERWIJDEREN (niet aanmaken/wijzigen) —
+        // nodig bij accountverwijdering, anders blijft naam+e-mail hier permanent staan
+        // gekoppeld aan een uid die niet meer bestaat.
+        ".write": "auth != null && auth.uid === $uid && !newData.exists()"
       }
     },
 

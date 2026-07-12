@@ -828,8 +828,15 @@ async function doDeleteAccount() {
     for (const tid of Object.keys(userTeams)) {
       try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
       try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
+      try { await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove(); } catch (e) {}
     }
     try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
+    // Overige persoonlijke sporen (naam/e-mail) los van een specifieke ploeg. Uitnodigingscodes
+    // (invites/) blijven bewust ongemoeid: die zijn niet op uid geïndexeerd en verwijderen zou
+    // per ongeluk de actieve uitnodigingslink van een hele ploeg kunnen breken voor anderen.
+    try { await fbdb.ref('approvedAdmins/' + uid).remove(); } catch (e) {}
+    try { await fbdb.ref('adminRequests/' + uid).remove(); } catch (e) {}
+    try { await fbdb.ref('rejectedAdmins/' + uid).remove(); } catch (e) {}
     await currentUser.delete();
     await clearLocalDeviceData(uid);
     closeModal();
