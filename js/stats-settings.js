@@ -211,7 +211,7 @@ function renderSettings(isFirst) {
   return `
   <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
-    ${(cloudReady && activeTeamId && !isGuest) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
+    ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">${icI(IC.moon)} Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
