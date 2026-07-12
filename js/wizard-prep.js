@@ -396,6 +396,10 @@ function playersAtPeriodStart(m, qNum) {
         const out = m.players.find(p => p.id === e.playerOutId);
         if (out && typeof out.x === 'number') fallback[e.playerInId] = { x: out.x, y: out.y, line: out.line, posNum: out.posNum };
       }
+    } else if (e.type === 'red_card' && e.playerId) {
+      on[e.playerId] = false;
+    } else if (e.type === 'injury' && e.leavesField && e.playerId) {
+      on[e.playerId] = false;
     } else if (e.type === 'posSwap' && e.pA && e.pB) {
       const prev = { a: posOverride[e.pA] || null, b: posOverride[e.pB] || null };
       const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
