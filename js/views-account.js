@@ -711,6 +711,17 @@ function calcMinutes(m) {
   for (const [pid, entryMs] of Object.entries(entry)) if (mins[pid]) mins[pid].ms += totalMs - entryMs;
   return mins;
 }
+// Stond deze speler ooit als doelman geregistreerd (via keeperByQ, bijgehouden per kwart
+// in syncKeeper() bij elke keeperwissel)? Gebruikt voor keeperstatistieken i.p.v. enkel de
+// EIND-positie (p.line==='Doel'), zodat een keeperwissel tijdens de wedstrijd (bv. na
+// blessure) de statistieken niet verkeerd aan de verkeerde speler toekent. Oudere
+// wedstrijden zonder keeperByQ-data hebben geen entries, dan valt de aanroeper terug op
+// de eind-positie-benadering.
+function wasKeeperAtAll(m, playerId) {
+  const byQ = m.keeperByQ;
+  if (!byQ) return false;
+  return Object.values(byQ).some(arr => Array.isArray(arr) && arr.some(e => e.id === playerId));
+}
 function calcMinutesPerQuarter(m) {
   const qNums = [...new Set((m.quarters || []).map(q => q.num))].sort((a, b) => a - b);
   if (qNums.length < 2) return null;

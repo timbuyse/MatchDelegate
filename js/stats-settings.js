@@ -51,7 +51,10 @@ async function loadStats() {
       r.squad++;
       if (ms > 0) { r.mp++; r.lines[p.line] = (r.lines[p.line] || 0) + 1; }
       r.ms += ms;
-      if (ms > 0 && p.line === 'Doel' && m.scoreThem === 0) r.cs++;  // clean sheet voor de keeper
+      // keeperByQ (per-kwart bijgehouden, zie syncKeeper()) i.p.v. de eind-positie: anders krijgt
+      // bij een keeperwissel tijdens de wedstrijd de verkeerde speler het clean-sheet-krediet.
+      const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, p.id) : p.line === 'Doel';
+      if (ms > 0 && wasKeeper && m.scoreThem === 0) r.cs++;  // clean sheet voor de keeper
     }
     for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; const r = getp(ab.rosterId, ab.name); r.absent++; }
     for (const e of m.events) {
@@ -154,7 +157,9 @@ async function loadPlayerDetail() {
       if (e.type === 'red_card' && e.playerId === pl.id) r++;
     }
     squad++;
-    if (pms > 0) { mp++; ms += pms; if (pl.line === 'Doel') { keeperApps++; if (m.scoreThem === 0) cs++; } }
+    // keeperByQ i.p.v. eind-positie — zie toelichting bij wasKeeperAtAll().
+    const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, pl.id) : pl.line === 'Doel';
+    if (pms > 0) { mp++; ms += pms; if (wasKeeper) { keeperApps++; if (m.scoreThem === 0) cs++; } }
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
