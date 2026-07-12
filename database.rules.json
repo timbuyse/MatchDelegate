@@ -90,10 +90,14 @@
     "invites": {
       "$token": {
         ".read": "auth != null",
-        // Aanmaken: teamadmin van de betrokken ploeg (of eigenaar). Verwijderen (bv. bij
-        // regenereren van de code): de oorspronkelijke maker OF elke huidige teamadmin van
-        // die ploeg — niet enkel wie het token ooit zelf aanmaakte.
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin') || (!newData.exists() && (data.child('createdBy').val() === auth.uid || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')))"
+        // Aanmaken: teamadmin van de betrokken ploeg (of eigenaar). Bij het overschrijven
+        // van een BESTAAND token moet je bovendien ook admin zijn van de ploeg waar dat
+        // token al aan toebehoorde — anders zou een admin van ploeg A het token van ploeg B
+        // kunnen kapen door het te overschrijven met teamId=A (enkel A's adminschap werd
+        // dan gecontroleerd, nooit B's). Verwijderen (bv. bij regenereren van de code): de
+        // oorspronkelijke maker OF elke huidige teamadmin van die ploeg — niet enkel wie
+        // het token ooit zelf aanmaakte.
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin' && (!data.exists() || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')) || (!newData.exists() && (data.child('createdBy').val() === auth.uid || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')))"
       }
     },
 
