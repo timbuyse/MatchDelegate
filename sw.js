@@ -2,7 +2,9 @@
 // (B16: één versiebron i.p.v. dit getal apart handmatig bijhouden naast APP_VERSION).
 const CACHE = 'voetbal-v' + (new URL(location.href).searchParams.get('v') || 'dev');
 const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './logo.png', './background_logo.jpg',
-  './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js'];
+  './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js',
+  './js/core.js', './js/views-account.js', './js/stats-settings.js', './js/teams-tournaments.js',
+  './js/wizard-prep.js', './js/live-match.js', './js/detail-pdf.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
