@@ -59,15 +59,15 @@ function toggleViewerMode() {
   if (view === 'live' || view === 'detail' || view === 'home' || view === 'beheer') render();
 }
 function cloudLogout() {
+  clearLocalDeviceData(currentUser ? currentUser.uid : null);
   try { fbauth.signOut(); } catch (e) {}
   activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
-  localStorage.removeItem('voetbal_activeTeamId');
   closeModal();
 }
 function authDoSignOut() {
+  clearLocalDeviceData(currentUser ? currentUser.uid : null);
   try { fbauth.signOut(); } catch (e) {}
   activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
-  localStorage.removeItem('voetbal_activeTeamId');
 }
 
 // Cryptografisch sterke uitnodigingscode (6 tekens, A-Z0-9) i.p.v. Math.random(),

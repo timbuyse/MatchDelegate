@@ -831,9 +831,9 @@ async function doDeleteAccount() {
     }
     try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
     await currentUser.delete();
+    await clearLocalDeviceData(uid);
     closeModal();
     activeTeamId = null; userTeams = {}; isAdmin = false; viewerMode = false;
-    localStorage.removeItem('voetbal_activeTeamId');
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
   }

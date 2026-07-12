@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.12'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.13'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -260,6 +260,26 @@ function dbDelLocal(id) {
     r.onsuccess = () => res();
     r.onerror = e => rej(e.target.error);
   });
+}
+// Wist alle lokaal gecachte ploeg-/wedstrijddata van dit toestel — nodig bij afmelden en
+// accountverwijdering, anders blijft op een gedeeld/geleend toestel de volledige
+// wedstrijdgeschiedenis, spelerslijst en clublogo staan voor de volgende gebruiker.
+// Puur cosmetische toestelvoorkeuren (donkere modus, aftel-toggle, ...) blijven bewust staan
+// — dat is geen persoons-/ploeggebonden data. Enkel lokaal (clear(), geen cloud-echo): de
+// cloud-data van andere leden mag hierdoor niet verdwijnen.
+async function clearLocalDeviceData(uid) {
+  try {
+    if (db) await new Promise(res => {
+      const tx = db.transaction('matches', 'readwrite');
+      tx.objectStore('matches').clear();
+      tx.oncomplete = res; tx.onerror = res;
+    });
+  } catch (e) {}
+  ['voetbal_teams_v2', 'voetbal_tournaments', 'voetbal_club_name', 'voetbal_club_logo',
+   'voetbal_theme', 'voetbal_teamNames', 'voetbal_setup_done', 'voetbal_last_backup',
+   'voetbal_adminRequested', 'voetbal_adminApprovedSeen', 'voetbal_activeTeamId']
+    .forEach(k => localStorage.removeItem(k));
+  if (uid) localStorage.removeItem('voetbal_userTeams_' + uid);
 }
 
 // ===================== CLOUD SYNC (Firebase) =====================
