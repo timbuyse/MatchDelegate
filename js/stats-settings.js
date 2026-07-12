@@ -324,16 +324,19 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Rollen in de app',
     img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
     inhoud: `
-      <p>Match Delegate werkt met drie rollen:</p>
+      <p>Match Delegate werkt met deze rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
       <div class="hdl-rol"><b>Co-beheerder</b><span>Wedstrijden aanmaken en live bijhouden, spelers beheren</span></div>
       <div class="hdl-rol"><b>Beheerder</b><span>Alles van co-beheerder + ploeg aanmaken, leden uitnodigen en goedkeuren</span></div>
       <p style="margin-top:14px">Na registratie start je als <b>kijker</b>. Je kan daarna:</p>
       <ul class="hdl-list">
         <li>Een ploeg volgen via een uitnodiging.</li>
-        <li>Co-beheer aanvragen bij de beheerder van een ploeg.</li>
+        <li>Co-beheer aanvragen bij een co-beheerder van een ploeg.</li>
         <li>Een beheerdersrol aanvragen om zelf ploegen aan te maken via <b>'+ Nieuwe ploeg aanmaken'</b>.</li>
       </ul>
+      <p style="margin-top:14px">Daarnaast bestaan er twee bijzondere rollen die de meeste gebruikers nooit zelf zullen zijn:</p>
+      <div class="hdl-rol"><b>Eigenaar</b><span>Systeembreed, één per app-installatie — keurt beheerdersaanvragen goed</span></div>
+      <div class="hdl-rol"><b>Gast</b><span>Volgt enkel live wedstrijden via een gastlink, zonder eigen account</span></div>
     `
   },
   {
@@ -420,7 +423,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Tik op <b>'Deel score'</b> om de stand te delen.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
       </ol>
-      <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Log'</b>.</p>
+      <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
       <p class="hdl-tip">Zijn er meerdere co-beheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>
     `
   },
@@ -709,7 +712,7 @@ async function doRestore(mode) {
 }
 // Opent de mailapp met een voorgevuld probleemrapport (versie, rol, ploeg, toestel).
 function reportProblem() {
-  const role = isOwner ? 'Eigenaar' : isApprovedAdmin ? 'Beheerder (goedgekeurd)' : isAdmin ? 'Beheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
+  const role = isOwner ? 'Eigenaar' : isApprovedAdmin ? 'Beheerder (goedgekeurd)' : isAdmin ? 'Co-beheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
   const club = getClubName() || '';
   const subject = `Match Delegate v${APP_VERSION} — probleem melden`;
   const infoLines = [`Versie: ${APP_VERSION}`, `Rol: ${role}`];

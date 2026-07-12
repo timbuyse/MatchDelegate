@@ -251,10 +251,10 @@ async function showMembersModal() {
       const naam = mi.name || '(naam nog niet gekend)';
       const email = mi.email || '(e-mail nog niet gekend)';
       const badge = role === 'admin'
-        ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
+        ? `<span class="ts-role admin">${icI(IC.edit)} Co-beheerder</span>`
         : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
       const btns = role !== 'admin'
-        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak beheerder</button>
+        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak co-beheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
         : (uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
@@ -286,7 +286,7 @@ async function showMembersModal() {
     if (el) el.innerHTML =
       (reqRows.length ? `<p style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px">OPENSTAANDE AANVRAGEN</p>${reqRows.join('')}<hr style="margin:10px 0">` : '')
       + (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
-      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} beheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
+      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} co-beheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
   } catch (e) {
     console.error('Leden laden mislukt:', e);
     const el = document.getElementById('members-list');
@@ -315,7 +315,7 @@ async function rejectCoAdmin(uid) {
 
 async function demoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Wil je deze beheerder terugzetten naar kijker?', async () => {
+  showConfirm('Wil je deze co-beheerder terugzetten naar kijker?', async () => {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
       showMembersModal();
@@ -325,7 +325,7 @@ async function demoteMember(uid) {
 
 async function promoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Wil je deze persoon promoveren tot mede-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
+  showConfirm('Wil je deze persoon promoveren tot co-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
       showMembersModal();
@@ -490,7 +490,7 @@ function renderTeamSelect() {
         const name = teamNames[id] || id;
         return `<div class="ts-team-row" onclick="selectTeam('${id}')">
           <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
-          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Beheerder` : `${icI(IC.eye)} Kijker`}</span>
+          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Co-beheerder` : `${icI(IC.eye)} Kijker`}</span>
         </div>`;
       }).join('')
     : `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
