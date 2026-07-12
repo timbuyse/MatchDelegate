@@ -219,13 +219,14 @@ function renderSettings(isFirst) {
     </div>` : ''}
     ${currentUser ? `<div class="sec">Account</div>
     <div class="card">
-      <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser.displayName || currentUser.email)}</p>
-      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${esc(currentUser.email)}</p>
+      <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser.displayName || (isGuest ? 'Gast' : currentUser.email))}</p>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${isGuest ? 'Je kijkt mee als gast, zonder eigen account.' : esc(currentUser.email)}</p>
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
+      ${isGuest ? '' : `
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">${icI(IC.mail)} E-mailadres wijzigen</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()">${icI(IC.lock)} Wachtwoord wijzigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangePassword()">${icI(IC.lock)} Wachtwoord wijzigen</button>`}
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
-      <button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>
+      ${isGuest ? '' : `<button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>`}
     </div>` : ''}
     <div class="sec">Over de app</div>
     <div class="card">
