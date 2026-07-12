@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -433,6 +433,12 @@ async function onAuthChanged(user) {
   if (teamIds.length === 1 && !activeTeamId) {
     await selectTeam(teamIds[0]); return;
   }
+  // Meerdere ploegen: bij een verse app-start (activeTeamId nog null) de laatst gekozen
+  // ploeg herstellen i.p.v. altijd op het ploegkeuzescherm te belanden.
+  if (!activeTeamId) {
+    const lastTeamId = localStorage.getItem('voetbal_activeTeamId');
+    if (lastTeamId && userTeams[lastTeamId]) { await selectTeam(lastTeamId); return; }
+  }
   if (!activeTeamId || !userTeams[activeTeamId]) {
     await preloadTeamNames();
     await go('teamselect', undefined, true); return;
@@ -771,9 +777,10 @@ async function doOwnerDeleteTeam(tid) {
   try {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
-    const [teamSnap, memberInfoSnap] = await Promise.all([
+    const [teamSnap, memberInfoSnap, teamNotesSnap] = await Promise.all([
       fbdb.ref('teams/' + tid).once('value'),
       fbdb.ref('memberInfo/' + tid).once('value'),
+      fbdb.ref('teamNotes/' + tid).once('value'),
     ]);
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({
@@ -782,6 +789,7 @@ async function doOwnerDeleteTeam(tid) {
       deletedByEmail: currentUser.email || '',
       team: teamSnap.val(),
       memberInfo: memberInfoSnap.val(),
+      teamNotes: teamNotesSnap.val(),
     });
     // Uitnodigingstoken direct verwijderen (een query over /invites is niet toegelaten door de rules)
     const token = ((teamSnap.val() || {}).info || {}).inviteToken;
@@ -790,6 +798,7 @@ async function doOwnerDeleteTeam(tid) {
       fbdb.ref('teams/' + tid).remove(),
       fbdb.ref('memberInfo/' + tid).remove(),
       fbdb.ref('teamAdminRequests/' + tid).remove(),
+      fbdb.ref('teamNotes/' + tid).remove(),
     ]);
     showToast('Ploeg verwijderd.', 'ok');
     showAllUsersModal();

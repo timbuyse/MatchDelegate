@@ -190,7 +190,26 @@ function confirmDelete() {
     <button class="btn btn-red" onclick="deleteCurrentMatch()">${icI(IC.trash)} Ja, verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-async function deleteCurrentMatch() { await dbDel(match.id); match = null; closeModal(); go('home'); }
+async function deleteCurrentMatch() {
+  const m = match;
+  // Vangnet: back-up naar de cloud vóór de echte verwijdering, zodat een misklik herstelbaar
+  // blijft (zelfde patroon als deletedTeams bij ploeg verwijderen). Enkel zinvol voor
+  // cloud-wedstrijden — een zuiver lokale wedstrijd heeft toch nooit een cloud-spoor.
+  if (cloudReady && activeTeamId && isAdmin && m) {
+    try {
+      const nr = notesRef(m.id);
+      const notesSnap = nr ? await nr.once('value') : null;
+      await fbdb.ref('deletedMatches/' + activeTeamId + '/' + m.id).set({
+        deletedAt: Date.now(),
+        deletedBy: currentUser ? currentUser.uid : null,
+        deletedByEmail: (currentUser && currentUser.email) || '',
+        match: jclone(m),
+        notes: notesSnap ? notesSnap.val() : null,
+      });
+    } catch (e) {}
+  }
+  await dbDel(m.id); match = null; closeModal(); go('home');
+}
 
 // ===================== PDF EXPORT =====================
 // Rasterizeert een afbeeldingsbron (pad, data-URL, of SVG-tekst als data-URI) naar een

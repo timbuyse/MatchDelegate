@@ -27,9 +27,10 @@
             // zodat hij bij het vervoegen kan checken of hij al lid is.
             ".read": "auth != null && $memberId === auth.uid",
 
-            // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging);
+            // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging); een lid mag zijn
+            // eigen lidmaatschap altijd weer verwijderen (account verwijderen/ploeg verlaten);
             // beheerder mag altijd de rol van elk lid aanpassen (promote/demote).
-            ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer') || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')"
+            ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer') || ($memberId === auth.uid && !newData.exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')"
           }
         }
       }
@@ -125,6 +126,15 @@
       // Notities (wedstrijd + per speler) apart van "matches" gehouden zodat kijkers/gasten
       // ze nooit kunnen lezen, ook niet rechtstreeks via Firebase (in tegenstelling tot
       // teams/$teamId/matches, dat voor elk teamlid leesbaar is).
+      "$teamId": {
+        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
+        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)"
+      }
+    },
+
+    "deletedMatches": {
+      // Backup van een verwijderde wedstrijd (vangnet tegen abusievelijk verwijderen).
+      // Zelfde rechten als teamNotes: enkel de beheerder(s) van die ploeg, of de eigenaar.
       "$teamId": {
         ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
         ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)"

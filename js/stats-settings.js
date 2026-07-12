@@ -820,6 +820,15 @@ async function doDeleteAccount() {
   try {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
+    const uid = currentUser.uid;
+    // Eigen sporen in elke ploeg opruimen vóór het account zelf weg is (nadien mag dat niet
+    // meer, want auth.uid bestaat dan niet meer). Team- en wedstrijddata van anderen blijft
+    // bewust bestaan (zie bevestigingstekst) — enkel de eigen gegevens van dit account verdwijnen.
+    for (const tid of Object.keys(userTeams)) {
+      try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
+      try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
+    }
+    try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
     await currentUser.delete();
     closeModal();
     activeTeamId = null; userTeams = {}; isAdmin = false; viewerMode = false;
@@ -890,9 +899,10 @@ async function doDeleteCloudTeam() {
     // Wachtwoord opnieuw bevestigen
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
-    const [teamSnap, memberInfoSnap] = await Promise.all([
+    const [teamSnap, memberInfoSnap, teamNotesSnap] = await Promise.all([
       fbdb.ref('teams/' + tid).once('value'),
       fbdb.ref('memberInfo/' + tid).once('value'),
+      fbdb.ref('teamNotes/' + tid).once('value'),
     ]);
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({
@@ -901,11 +911,15 @@ async function doDeleteCloudTeam() {
       deletedByEmail: currentUser.email || '',
       team: teamSnap.val(),
       memberInfo: memberInfoSnap.val(),
+      teamNotes: teamNotesSnap.val(),
     });
     const token = ((teamSnap.val() || {}).info || {}).inviteToken;
-    // Uitnodiging + ledeninfo eerst proberen wissen (terwijl team-lidmaatschap nog bestaat)
+    // Uitnodiging + ledeninfo + notities eerst proberen wissen (terwijl team-lidmaatschap nog
+    // bestaat — teamNotes/memberInfo staan los van teams/$teamId en volgen daar dus niet
+    // automatisch uit mee; hun schrijfrechten vervallen bovendien zodra teams/$teamId weg is).
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
+    try { await fbdb.ref('teamNotes/' + tid).remove(); } catch (e) {}
     // Het hele team verwijderen
     await fbdb.ref('teams/' + tid).remove();
     if (currentUser) { try { await fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).remove(); } catch (e) {} }
