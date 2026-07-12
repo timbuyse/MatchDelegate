@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -884,6 +884,11 @@ function cachedUserTeams(uid) {
 
 async function selectTeam(teamId) {
   stopTeamListeners();
+  // Zorg dat teamNames[] al gevuld is vóór go('home') rendert (bv. bij het herstellen van de
+  // laatst actieve ploeg meteen na app-start) — anders valt de team-filter in loadHome()/
+  // loadMatches()/cleanupOrphanMatches() terug op 'onbekend' en kan een andere ploeg's cache
+  // even zichtbaar zijn. Zelfde synchrone cache-hydratie als preloadTeamNames().
+  try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   activeTeamId = teamId;
   isAdmin = (userTeams[teamId] === 'admin');
   localStorage.setItem('voetbal_activeTeamId', teamId);
@@ -974,7 +979,9 @@ function cloudListen() {
   // Eenmalige opruimbeurt bij het (opnieuw) beginnen luisteren: lokale fromCloud-wedstrijden
   // die niet meer in de cloud staan (bv. verwijderd terwijl dit toestel volledig offline was)
   // worden hier nog opgeruimd — child_removed vangt dit enkel op voor toekomstige verwijderingen.
-  mRef.once('value').then(s => cleanupOrphanMatches(new Set(Object.keys(s.val() || {})))).catch(() => {});
+  // teamNames[activeTeamId] meegeven zodat enkel wedstrijden van DEZE ploeg opgeruimd worden —
+  // anders wist dit ook de lokale cache van een andere ploeg op hetzelfde toestel.
+  mRef.once('value').then(s => cleanupOrphanMatches(new Set(Object.keys(s.val() || {})), teamNames[activeTeamId])).catch(() => {});
   addL('roster',  'value', s => applyCloudTeams(s.val() || []));
   addL('club',    'value', s => applyCloudClub(s.val()));
   addL('tournaments', 'value', s => applyCloudTournaments(s.val() || {}));
@@ -1113,10 +1120,14 @@ async function applyCloudMatchRemoved(id) {
 // niet (meer) in de huidige cloud-snapshot staan worden verwijderd. child_removed vangt dit
 // enkel op voor verwijderingen die gebeuren TERWIJL dit toestel actief luistert; wat al weg
 // was vóór het opnieuw verbinden (bv. na lang offline zijn) wordt hier ingehaald.
-async function cleanupOrphanMatches(cloudIds) {
+// teamName beperkt dit tot wedstrijden van de ploeg die nu aan het syncen is — de lokale
+// 'matches'-store is niet per ploeg gescheiden, dus zonder deze check zou een ploegwissel
+// ook de cache van een ANDERE ploeg op dit toestel wissen. Onbekende teamName (nog niet
+// gesynct) → geen enkele match kan matchen, dus deze ronde wordt dan veilig overgeslagen.
+async function cleanupOrphanMatches(cloudIds, teamName) {
   if (!db) return;
   const local = await dbAll();
-  for (const m of local) { if (m.fromCloud && !cloudIds.has(m.id)) await dbDelLocal(m.id); }
+  for (const m of local) { if (m.fromCloud && m.teamName === teamName && !cloudIds.has(m.id)) await dbDelLocal(m.id); }
 }
 // Notities komen via een apart, beheerder-only pad binnen (zie notesRef/database.rules.json)
 // en worden hier teruggekoppeld naar de lokale match — nodig zodat een tweede beheerder
