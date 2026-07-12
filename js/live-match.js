@@ -1036,8 +1036,18 @@ async function confirmGoal() {
   });
 }
 
+// Dubbeltik-guard, gedeeld door de eventfuncties hieronder (zelfde patroon als _goalBusy
+// bij Goal): dbSave() (IndexedDB + Firebase) kan traag genoeg zijn dat een tweede tik vóór
+// het sluiten van de modal een tweede identiek event/score-optelling veroorzaakt.
+let _eventBusy = false;
+
 // Hoekschop: één tik per ploeg (geen nemer/type meer — overbodig voor jeugd).
-async function logCorner(team) { addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render(); }
+async function logCorner(team) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try { addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render(); }
+  finally { _eventBusy = false; }
+}
 
 // ===================== MODAL: SUB =====================
 let subOut = null, subIn = null;
@@ -1066,19 +1076,23 @@ function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
   if (!subOut || !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
-  // Tijdens de pauze: wissel inplannen i.p.v. meteen doorvoeren.
-  if (match.quarterStatus === 'between') {
-    match.pendingSubs = match.pendingSubs || [];
-    match.pendingSubs.push({ outId: subOut, inId: subIn });
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    // Tijdens de pauze: wissel inplannen i.p.v. meteen doorvoeren.
+    if (match.quarterStatus === 'between') {
+      match.pendingSubs = match.pendingSubs || [];
+      match.pendingSubs.push({ outId: subOut, inId: subIn });
+      await dbSave(match); closeModal(); render();
+      return;
+    }
+    addEvent('substitution', { playerOutId: subOut, playerInId: subIn });
+    const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
+    if (pOut) pOut.onField = false;
+    if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; } }
+    syncKeeper(); // keeper volgt automatisch de doellijn
     await dbSave(match); closeModal(); render();
-    return;
-  }
-  addEvent('substitution', { playerOutId: subOut, playerInId: subIn });
-  const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
-  if (pOut) pOut.onField = false;
-  if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; } }
-  syncKeeper(); // keeper volgt automatisch de doellijn
-  await dbSave(match); closeModal(); render();
+  } finally { _eventBusy = false; }
 }
 async function removePendingSub(i) { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); }
 
@@ -1146,22 +1160,26 @@ function modalCard(color) {
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCard(color, pid) {
-  if (color === 'red') { addEvent('red_card', { playerId: pid }); const p = match.players.find(x=>x.id===pid); if (p) p.onField = false; }
-  else {
-    addEvent('yellow_card', { playerId: pid });
-    const prevYellow = match.events.filter(e => e.type === 'yellow_card' && e.playerId === pid).length;
-    if (prevYellow >= 2) {
-      addEvent('red_card', { playerId: pid });
-      const p = match.players.find(x => x.id === pid);
-      if (p) p.onField = false;
-      showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    if (color === 'red') { addEvent('red_card', { playerId: pid }); const p = match.players.find(x=>x.id===pid); if (p) p.onField = false; }
+    else {
+      addEvent('yellow_card', { playerId: pid });
+      const prevYellow = match.events.filter(e => e.type === 'yellow_card' && e.playerId === pid).length;
+      if (prevYellow >= 2) {
+        addEvent('red_card', { playerId: pid });
+        const p = match.players.find(x => x.id === pid);
+        if (p) p.onField = false;
+        showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');
+      }
     }
-  }
-  await dbSave(match); closeModal(); render();
-  requestAnimationFrame(() => {
-    const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
-    if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
-  });
+    await dbSave(match); closeModal(); render();
+    requestAnimationFrame(() => {
+      const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
+      if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
+    });
+  } finally { _eventBusy = false; }
 }
 
 // ===================== MODAL: PENALTY =====================
@@ -1186,9 +1204,13 @@ function modalPenalty() {
 function tglPen(team, btn){ penTeam = team; document.querySelectorAll('#pen-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('pen-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
 function selectPenPlayer(id, el){ penPlayerId = id; gpSelIn('pen-players', el); }
 async function logPenalty(scored) {
-  if (penTeam === 'us') { addEvent('penalty_us', { scored, playerId: penPlayerId || null }); if (scored) match.scoreUs++; }
-  else { addEvent('penalty_them', { scored }); if (scored) match.scoreThem++; }
-  await dbSave(match); closeModal(); render();
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    if (penTeam === 'us') { addEvent('penalty_us', { scored, playerId: penPlayerId || null }); if (scored) match.scoreUs++; }
+    else { addEvent('penalty_them', { scored }); if (scored) match.scoreThem++; }
+    await dbSave(match); closeModal(); render();
+  } finally { _eventBusy = false; }
 }
 
 // ===================== MODAL: INJURY =====================
@@ -1217,11 +1239,15 @@ function tglInjType(type, btn) {
 }
 async function confirmInjury() {
   if (!injPlayerId) { showToast('Kies een speler.', 'err'); return; }
-  const leavesField = !!document.getElementById('inj-off')?.checked;
-  addEvent('injury', { playerId: injPlayerId, injuryType: injType, leavesField });
-  if (leavesField) { const p = match.players.find(x => x.id === injPlayerId); if (p) p.onField = false; }
-  await dbSave(match);
-  if (leavesField) { modalSubAfterInjury(injPlayerId); } else { closeModal(); render(); }
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const leavesField = !!document.getElementById('inj-off')?.checked;
+    addEvent('injury', { playerId: injPlayerId, injuryType: injType, leavesField });
+    if (leavesField) { const p = match.players.find(x => x.id === injPlayerId); if (p) p.onField = false; }
+    await dbSave(match);
+    if (leavesField) { modalSubAfterInjury(injPlayerId); } else { closeModal(); render(); }
+  } finally { _eventBusy = false; }
 }
 function modalSubAfterInjury(outId) {
   subOut = outId; subIn = null;
@@ -1262,9 +1288,13 @@ function modalFreekick() {
 function tglFk(team, btn){ fkTeam = team; document.querySelectorAll('#fk-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('fk-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
 function selectFkPlayer(id, el){ fkPlayerId = id; document.querySelectorAll('#fk-players .mopt').forEach(o=>o.classList.remove('sel')); el.classList.add('sel'); }
 async function confirmFreekick() {
-  if (fkTeam === 'us') addEvent('freekick_us', { playerId: fkPlayerId || null });
-  else addEvent('freekick_them');
-  await dbSave(match); closeModal(); render();
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    if (fkTeam === 'us') addEvent('freekick_us', { playerId: fkPlayerId || null });
+    else addEvent('freekick_them');
+    await dbSave(match); closeModal(); render();
+  } finally { _eventBusy = false; }
 }
 
 // Event toevoegen achteraf (detail view): kies eerst het kwart, dan het event-type
