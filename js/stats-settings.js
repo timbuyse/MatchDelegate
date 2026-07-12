@@ -840,7 +840,11 @@ async function doDeleteAccount() {
 
 // ---- Naam van ploeg wijzigen ----
 function showRenameTeamModal() {
-  if (!isApprovedAdmin || !activeTeamId || !fbdb) return;
+  // Hernoemen mag elke co-beheerder van DEZE ploeg (isAdmin), niet enkel wie systeembreed
+  // goedgekeurd is om nieuwe ploegen aan te maken (isApprovedAdmin) — de backend-regel
+  // (database.rules.json, teams/$teamId/.write) staat dit ook al toe aan elke team-admin.
+  // Verwijderen blijft bewust strenger (isApprovedAdmin + createdBy), zie confirmDeleteCloudTeam().
+  if (!isAdmin || !activeTeamId || !fbdb) return;
   const current = getClubName() || '';
   openModal(`<h3>${icI(IC.edit)} Naam ploeg wijzigen</h3>
     <div class="fg"><label>Nieuwe naam</label><input id="rename-team-input" type="text" value="${esc(current)}" autofocus></div>
