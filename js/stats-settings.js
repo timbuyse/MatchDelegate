@@ -14,7 +14,10 @@ async function loadStats() {
   if (!el) return;
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
   const seasons = [...new Set(all.map(seasonOf))].sort().reverse();
-  if (cloudReady) statsFilter = 'all'; // binnen een ploeg geen ploegfilter
+  // De lokale matches-store is niet per ploeg gescheiden (zie cleanupOrphanMatches in core.js) —
+  // dus ook binnen een ploeg altijd expliciet filteren op de actieve ploeg, anders lekt de cache
+  // van een andere ploeg op dit toestel mee in de statistieken.
+  if (cloudReady) statsFilter = teamNames[activeTeamId] || 'all';
   if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
   if (seasonFilter !== 'all' && !seasons.includes(seasonFilter)) seasonFilter = 'all';
   // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
@@ -176,11 +179,25 @@ async function loadPlayerDetail() {
   };
   const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
   const tournamentCount = getTournaments().filter(t => tInTeam(t) && (playerDetailSeason === 'all' || seasonOf(t) === playerDetailSeason) && inTournamentSquad(t)).length;
+  // Gastoptredens bij ANDERE ploegen opsporen — enkel via het stabiele rosterId (dat blijft
+  // ploeg-overschrijdend hetzelfde bij een echte gastbeurt, zie addGuestsModal in wizard-prep.js);
+  // op naam matchen zou spelers met dezelfde naam bij onverwante ploegen foutief kunnen samenvoegen.
+  // Enkel wedstrijden van ploegen die dit toestel al lokaal kent zijn hier zichtbaar.
+  const guestElsewhere = {};
+  if (rosterId && playerDetailTeamName) {
+    for (const m of all) {
+      if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
+      if (playerDetailSeason !== 'all' && seasonOf(m) !== playerDetailSeason) continue;
+      if ((m.players || []).some(p => p.rosterId === rosterId)) guestElsewhere[m.teamName] = (guestElsewhere[m.teamName] || 0) + 1;
+    }
+  }
+  const guestEntries = Object.entries(guestElsewhere).sort((a, b) => b[1] - a[1]);
   el.innerHTML = filterBar + `
     <div class="card">
       <div style="text-align:center;margin-bottom:10px">
         <div style="font-size:20px;font-weight:800">${esc(name)}</div>
         <div style="font-size:13px;color:var(--txt2)">${number ? ('Rugnr. ' + esc(number) + (pos ? ' · ' : '')) : ''}${pos ? esc(pos) : ''}</div>
+        ${playerDetailTeamName ? `<div style="font-size:12px;color:var(--txt2);margin-top:6px">Statistieken voor wedstrijden bij <b>${esc(playerDetailTeamName)}</b></div>` : ''}
       </div>
       <div class="stat-big">
         <div class="stat-box"><div class="v">${mp}</div><div class="l">Gespeeld</div></div>
@@ -194,6 +211,7 @@ async function loadPlayerDetail() {
       </div>
     </div>
     ${tournamentCount ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>` : ''}
+    ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
     ${(yc || rc) ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card"><div class="stat-row"><span style="flex:1">Gele kaarten</span><span style="font-weight:800">${yc}</span></div><div class="stat-row"><span style="flex:1">Rode kaarten</span><span style="font-weight:800">${rc}</span></div></div>` : ''}
     ${keeperApps ? `<div class="sec">${icI(IC.save)} Als doelman</div><div class="card"><div class="stat-row"><span style="flex:1">Wedstrijden in doel</span><span style="font-weight:800">${keeperApps}</span></div><div class="stat-row"><span style="flex:1">Clean sheets</span><span style="font-weight:800">${cs}</span></div></div>` : ''}
     <div class="sec">${icI(IC.ball)} Wedstrijden</div>
