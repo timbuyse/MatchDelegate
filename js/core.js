@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.11'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.12'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1073,7 +1073,7 @@ async function applyCloudMatch(id, m) {
     const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
     if (localOnly.length) {
       m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
-      recomputeScore(m);
+      recomputeScore(m); recomputeOnField(m);
       // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een
       // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
       // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
