@@ -1257,8 +1257,11 @@ async function loadHome() {
   // altijd al gevuld (i.t.t. teamById(), dat op de nog-niet-gesynct roster-cache leunt).
   if (cloudReady) homeFilter = teamNames[activeTeamId] || 'all';
   else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
+  // Zelfde filter toepassen als de wedstrijdenlijst zelf (loadMatches) — anders telt de
+  // tegel hier alles wat lokaal gecached staat, incl. een andere ploeg op dit toestel.
+  const tileMatches = homeFilter === 'all' ? looseMatches : looseMatches.filter(m => m.teamName === homeFilter);
   const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
-    <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${looseMatches.length}</span></button>
+    <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${tileMatches.length}</span></button>
     ${teamTile}
     <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
