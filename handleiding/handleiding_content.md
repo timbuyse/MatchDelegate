@@ -130,9 +130,9 @@ Ben je al kijker van een ploeg en wil je meer doen? Dan kan je co-beheer aanvrag
    - **Tegenstander**: naam van de tegenstander.
    - **Datum** en **Startuur**.
    - **Thuis of uit**: kies **'Thuismatch'** of **'Uitmatch'**.
-   - **Soort wedstrijd**: kies het format (bv. 8 tegen 8, 11 tegen 11).
-   - **Indeling**: aantal wedstrijddelen (bv. 4 kwarten, 2 helften).
-   - **Duur per deel**: de speelduur per wedstrijddeel in minuten.
+   - **Format**: kies het format (bv. 8 tegen 8, 11 tegen 11).
+   - **Aantal blokken**: aantal wedstrijddelen (bv. 4 kwarten, 2 helften).
+   - **Duur van een blok**: de speelduur per wedstrijddeel in minuten.
    - Optioneel: tik op **'+ Meer details'** voor extra informatie.
 3. Tik op **'Volgende → Selectie'** om door te gaan naar stap 2.
 
@@ -142,7 +142,7 @@ Ben je al kijker van een ploeg en wil je meer doen? Dan kan je co-beheer aanvrag
 
 4. Verdeel de spelers over drie groepen door per speler te kiezen:
    - **Basis** — start in de basisopstelling.
-   - **Bank** — wisselspeler.
+   - **Wissel** — wisselspeler.
    - **X** — niet geselecteerd.
 5. Staat een speler niet in de lijst? Voeg hem toe via:
    - **'+ Losse speler'** — een tijdelijke speler die niet in je vaste squad staat.
@@ -170,10 +170,9 @@ Ben je al kijker van een ploeg en wil je meer doen? Dan kan je co-beheer aanvrag
    - **Wissel** — speler eraf en speler erin. Wissels kunnen ook tijdens de pauze doorgevoerd worden.
    - **Positie** — positiewisseling zonder spelerswisseling.
    - **Gele kaart / Rode kaart** — welke speler.
-   - **Vrije trap** — vrije trap registreren.
    - **Penalty** — penalty registreren.
    - **Blessure** — geblesseerde speler noteren.
-   - **Meer** — extra opties.
+   - **Meer** — extra opties, o.a. **Vrije trap**.
 3. De puntjes onder de timer tonen de wedstrijddelen. De timer loopt per deel.
 4. Tik op **'Deel score via WhatsApp'** om de huidige stand te delen.
 5. Onderaan navigeer je tussen **Wedstrijd**, **Opstelling** en **Log**.

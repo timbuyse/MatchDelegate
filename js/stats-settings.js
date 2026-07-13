@@ -439,7 +439,7 @@ const HANDLEIDING_PAGINAS = [
       <ol class="hdl-list">
         <li>Tik op <b>'► Start wedstrijd'</b>.</li>
         <li>Registreer events via de knoppen:<br>
-          <b>Goal</b> · <b>Wissel</b> · <b>Positie</b> · <b>Gele kaart</b> · <b>Rode kaart</b> · <b>Vrije trap</b> · <b>Penalty</b> · <b>Blessure</b> · <b>Meer</b>
+          <b>Goal</b> · <b>Wissel</b> · <b>Positie</b> · <b>Gele kaart</b> · <b>Rode kaart</b> · <b>Penalty</b> · <b>Blessure</b> · <b>Meer</b> (met o.a. <b>Vrije trap</b>)
         </li>
         <li>Wissels kunnen ook <b>tijdens de pauze</b> doorgevoerd worden.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>

@@ -844,10 +844,10 @@ function modalExtra() {
     <div class="sec">${icI(IC.injury)} Blessure</div>
     ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
     <div class="sec">${icI(IC.corner)} Hoekschop</div>
-    ${opt(`${icI(IC.corner)} Hoekschop voor ons`, "logCorner('us')")}
+    ${opt(`${icI(IC.corner)} Hoekschop voor ${esc(tName(match))}`, "logCorner('us')")}
     ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
-    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ons`, "modalDisallowed('us')")}
+    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ${esc(tName(match))}`, "modalDisallowed('us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "modalDisallowed('them')")}
     <div class="sec">${icI(IC.shirt)} Opstelling</div>
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
@@ -894,7 +894,7 @@ async function logExtra(type, extra = {}) {
 }
 function modalDisallowed(side) {
   const type = side === 'us' ? 'disallowed_us' : 'disallowed_them';
-  const label = side === 'us' ? 'voor ons' : 'tegen';
+  const label = side === 'us' ? `voor ${esc(tName(match))}` : 'tegen';
   openModal(`<h3>${icI(IC.disallowed)} Afgekeurd doelpunt ${label}</h3>
     <div class="fg"><label>Reden (optioneel)</label><input id="disallowed-reason" type="text" placeholder="bv. buitenspel" value="buitenspel" autocomplete="off"></div>
     <button class="btn btn-org" onclick="logExtra('${type}',{reason:(document.getElementById('disallowed-reason').value||'').trim()})">Registreren</button>
