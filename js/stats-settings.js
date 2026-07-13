@@ -406,9 +406,9 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li><b>Tegenstander</b>, <b>Datum</b> en <b>Startuur</b>.</li>
         <li><b>Thuis of uit</b>: kies Thuismatch of Uitmatch.</li>
-        <li><b>Soort wedstrijd</b>: bv. 8 tegen 8, 11 tegen 11.</li>
-        <li><b>Indeling</b>: bv. 4 kwarten, 2 helften.</li>
-        <li><b>Duur per deel</b>: speelduur in minuten.</li>
+        <li><b>Format</b>: bv. 8 tegen 8, 11 tegen 11.</li>
+        <li><b>Aantal blokken</b>: bv. 4 kwarten, 2 helften.</li>
+        <li><b>Duur van een blok</b>: speelduur in minuten.</li>
         <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, enz.</li>
       </ul>
       <p class="hdl-tip">Wil je plannen zonder opstelling? Tik op <b>'Plannen zonder selectie'</b>.</p>
@@ -423,7 +423,7 @@ const HANDLEIDING_PAGINAS = [
       <p>Verdeel spelers per rol:</p>
       <ul class="hdl-list">
         <li><b style="color:#4caf50">Basis</b> — start in de basisopstelling.</li>
-        <li><b style="color:#2196f3">Bank</b> — wisselspeler.</li>
+        <li><b style="color:#2196f3">Wissel</b> — wisselspeler.</li>
         <li><b style="color:#f44336">X</b> — niet geselecteerd.</li>
       </ul>
       <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>

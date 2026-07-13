@@ -907,7 +907,7 @@ function evtLabel(e, m) {
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ons${e.playerId?' · '+pn(e.playerId):''}`;
+    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}`;
     case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen`;
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
@@ -938,7 +938,7 @@ function evtLabelPlain(e, m) {
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `Vrije trap voor ons${e.playerId?' · '+pName(m,e.playerId):''}`;
+    case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `Schot voor ons${e.onTarget?' (op doel)':''}`;

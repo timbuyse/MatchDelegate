@@ -302,9 +302,9 @@ function modalEditMatchInfo() {
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
   const partsBlock = notStarted ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label>Indeling</label>
+      <div class="fg"><label>Aantal blokken</label>
         <select id="ei-pt" onchange="eiPeriodChange()">${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
-      <div class="fg"><label>Duur per deel</label>
+      <div class="fg"><label>Duur van een blok</label>
         <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
         <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>
     </div>` : '';

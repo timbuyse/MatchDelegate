@@ -27,7 +27,7 @@ function renderTeamView() {
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
-      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(p.pos)}</span>`:''}
+      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(lineLabel(p.pos))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
@@ -47,7 +47,7 @@ function renderTeamOverview() {
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
-      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(p.pos)}</span>`:''}
+      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(lineLabel(p.pos))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
@@ -78,7 +78,7 @@ function renderTeamEdit() {
       <button class="delbtn" onclick="teamDelPlayer(${i})">×</button>
     </div>
     <div class="pirow2" style="grid-template-columns:1fr;margin-bottom:12px">
-      <select onchange="editingTeam.players[${i}].pos=this.value"><option value="">Voorkeurspositie…</option>${lines.map(l => `<option ${p.pos===l?'selected':''}>${l}</option>`).join('')}</select>
+      <select onchange="editingTeam.players[${i}].pos=this.value"><option value="">Voorkeurspositie…</option>${lines.map(l => `<option value="${esc(l)}" ${p.pos===l?'selected':''}>${lineLabel(l)}</option>`).join('')}</select>
     </div>`).join('');
   const colHead = `<div style="display:grid;grid-template-columns:56px 1fr 1fr 38px;gap:6px;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><span>Rugnr</span><span>Voornaam</span><span>Familienaam</span><span></span></div>`;
   const trainers = editingTeam.trainers || [];
@@ -431,7 +431,7 @@ function renderTrnStep2() {
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
-    <div class="nm">${esc(p.name)}<small>${p.pos || '—'}</small></div>
+    <div class="nm">${esc(p.name)}<small>${lineLabel(p.pos) || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig">✗</button>
@@ -537,14 +537,14 @@ function renderTrnMatchStep1() {
       <div class="fg"><label>Datum</label><input id="n-date" type="date" value="${wiz.date}"></div>
       <div class="fg"><label>Startuur</label><input id="n-time" type="time" value="${wiz.time}"></div>
     </div>
-    <div class="fg"><label>Wedstrijdtype</label>
+    <div class="fg"><label>Format</label>
       <select id="n-type" onchange="trnWizTypeChange()">
         ${['3v3','5v5','8v8','11v11'].map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${tp.replace('v',' tegen ')}</option>`).join('')}
       </select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label>Indeling</label>
+      <div class="fg"><label>Aantal blokken</label>
         <select id="n-pt" onchange="onPeriodChange()">${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
-      <div class="fg"><label>Duur per deel</label>
+      <div class="fg"><label>Duur van een blok</label>
         <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
         <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;display:none;width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value=""></div>
     </div>
