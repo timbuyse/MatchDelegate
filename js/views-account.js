@@ -615,6 +615,9 @@ function renderGuestJoin() {
 // ===================== TEAM SELECT VIEW =====================
 function renderTeamSelect() {
   const teamIds = Object.keys(userTeams);
+  // Het Beheer-knopje leidt (in de 'system'-context) naar eigenaarstools + "beheerder worden".
+  // Voor iemand die al beheerder is maar niet de eigenaar, is dat scherm leeg — dan het knopje verbergen.
+  const showBeheerBtn = !ownerUid || isOwner || (!isApprovedAdmin && !viewerMode);
   const teamRows = teamIds.length
     ? teamIds.map(id => {
         const role = userTeams[id];
@@ -647,7 +650,7 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">Match Delegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
-      <button class="hdr-gear-beheer" onclick="_beheerFrom=view;_beheerContext='system';go('beheer')" title="Beheer">${icI(IC.edit)} Beheer</button>
+      ${showBeheerBtn ? `<button class="hdr-gear-beheer" onclick="_beheerFrom=view;_beheerContext='system';go('beheer')" title="Beheer">${icI(IC.edit)} Beheer</button>` : ''}
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
@@ -899,22 +902,22 @@ function evtLabel(e, m) {
     case 'goal_them': return `${icI(IC.goal)} Tegendoel`;
     case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pn(e.playerId)})`;
     case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
-    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ons`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
+    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pn(e.pA)} ↔ ${pn(e.pB)}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
-    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ons${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}`;
     case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen`;
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
-    case 'shot_us': return `${icI(IC.shot)} Schot voor ons${e.onTarget?' (op doel)':''}`;
+    case 'shot_us': return `${icI(IC.shot)} Schot voor ${esc(tName(m))}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
     case 'save_them': return `${icI(IC.save)} Redding tegenstander`;
-    case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ons${e.reason?' · '+esc(e.reason):''}`;
+    case 'disallowed_us': return `${icI(IC.disallowed)} Afgekeurd doelpunt voor ${esc(tName(m))}${e.reason?' · '+esc(e.reason):''}`;
     case 'disallowed_them': return `${icI(IC.disallowed)} Afgekeurd doelpunt tegen${e.reason?' · '+esc(e.reason):''}`;
     case 'captain_change': return `${icI(IC.captain)} Nieuwe kapitein: ${pn(e.playerId)}`;
     case 'quarter_start': return `${icI(IC.playFilled)} ${pSing(m)} ${e.quarterNum} gestart`;
@@ -930,22 +933,22 @@ function evtLabelPlain(e, m) {
     case 'goal_them': return 'Tegendoel';
     case 'own_goal': return `Eigen doel (${pName(m,e.playerId)})`;
     case 'own_goal_them': return 'Eigen doel tegenstander';
-    case 'corner_us': { let s = 'Hoekschop voor ons'; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
+    case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
     case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
-    case 'penalty_us': return `Penalty voor ons${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
     case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
-    case 'shot_us': return `Schot voor ons${e.onTarget?' (op doel)':''}`;
+    case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return 'Redding (onze keeper)';
     case 'save_them': return 'Redding tegenstander';
-    case 'disallowed_us': return `Afgekeurd doelpunt voor ons${e.reason?' · '+e.reason:''}`;
+    case 'disallowed_us': return `Afgekeurd doelpunt voor ${tName(m)}${e.reason?' · '+e.reason:''}`;
     case 'disallowed_them': return `Afgekeurd doelpunt tegen${e.reason?' · '+e.reason:''}`;
     case 'captain_change': return `Nieuwe kapitein: ${pName(m,e.playerId)}`;
     case 'quarter_start': return `${pSing(m)} ${e.quarterNum} gestart`;
@@ -974,6 +977,16 @@ function eventsByQuarter(m) {
   if (orphan.length) groups.push({ qn: null, list: orphan, cum: null });
   return groups;
 }
+// Filterbalk boven de events-tijdlijn (enkel het scherm — de jsPDF-export in detail-pdf.js
+// gebruikt evtLabelPlain rechtstreeks en toont altijd alles, ongeacht deze filter).
+const ELOG_FILTER_GROUPS = {
+  goal: { label: 'Goals', icon: 'goal', types: ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'] },
+  sub: { label: 'Wissels', icon: 'swap', types: ['substitution'] },
+  card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card'] },
+};
+// null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
+let elogFilter = null;
+function toggleElogFilter(key) { elogFilter = (elogFilter === key) ? null : key; render(); }
 // HTML-event-log voor het scherm (detail + live-log), met kwart-kop + tussenstand + verwijderknop.
 function renderEventLog(m) {
   const groups = eventsByQuarter(m);
@@ -981,17 +994,20 @@ function renderEventLog(m) {
   const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
   const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']);
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
-  return groups.map(g => {
+  const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;
+  const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;
+  return filterBar + groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
-    const list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
+    let list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
+    if (activeTypes) list = list.filter(e => activeTypes.has(e.type));
     const items = list.length
       ? list.map(e => {
           const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
           const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
           return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`;
         }).join('')
-      : '<li class="qgroup-empty">Geen events in dit deel.</li>';
+      : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>';
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
 }

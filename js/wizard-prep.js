@@ -195,11 +195,12 @@ function setSel(pid, val) {
   if (p.sel !== 'basis') p.slot = null;
   render();
 }
+function setPoolNum(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
 function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
   const isSelected = p.sel === 'basis' || p.sel === 'bank';
   return `<div class="selrow">
-    <div class="pn">${esc(p.number) || '?'}</div>
+    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${lineLabel(p.pos) || '—'}</small></div>
     <div class="seg">

@@ -62,7 +62,6 @@ function renderLive() {
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
         <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
         <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">${IC.compass}</span><span class="el">Positie</span></div>
-        <div class="evtbtn ${dis}" onclick="modalFreekick()"><span class="ei">${IC.bolt}</span><span class="el">Vrije trap</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         ${simple ? '' : `<div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}`}
         ${simple ? '' : `<div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
@@ -836,7 +835,9 @@ async function saveEditEvent(id) {
 function modalExtra() {
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
-    <div class="sec" style="margin-top:0">${icI(IC.penalty)} Penalty</div>
+    <div class="sec" style="margin-top:0">${icI(IC.bolt)} Vrije trap</div>
+    ${opt(`${icI(IC.bolt)} Vrije trap`, "modalFreekick()")}
+    <div class="sec">${icI(IC.penalty)} Penalty</div>
     ${opt(`${icI(IC.penalty)} Penalty`, "modalPenalty()")}
     <div class="sec">${icI(IC.cardR)} Rode kaart</div>
     ${opt(`${icI(IC.cardR)} Rode kaart`, "modalCard('red')")}
