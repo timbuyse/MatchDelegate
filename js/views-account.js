@@ -40,7 +40,7 @@ function renderBeheer() {
     <div class="card">
       <button class="btn btn-dark" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="showAllUsersModal()">${icI(IC.players)} Alle gebruikers</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
       <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
     </div>` : '';
 
@@ -51,6 +51,118 @@ function renderBeheer() {
     ${requestAdminBlock}
     ${ownerToolsBlock}
   </div>`;
+}
+// ===================== ALLE GEBRUIKERS (view) =====================
+// Systeembreed overzicht van alle gebruikers per ploeg, voor de eigenaar. Vervangt de
+// vroegere showAllUsersModal()-modal door een apart scherm: schaalt beter bij veel ploegen
+// dankzij een zoekveld en per-ploeg inklapbare secties i.p.v. één lange platte lijst.
+function renderAllUsers() {
+  setTimeout(loadAllUsersView, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div>
+  <div class="content">
+    <div class="fg" style="margin-bottom:16px"><input id="allusers-search" type="text" placeholder="Zoek op naam of e-mail..." oninput="filterAllUsersView(this.value)"></div>
+    <div id="allusers-view-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+  </div>`;
+}
+async function loadAllUsersView() {
+  const el = document.getElementById('allusers-view-list');
+  if (!el || !isOwner || !fbdb) return;
+  try {
+    const [teamsSnap, approvedSnap, ownerSnap] = await Promise.all([
+      fbOnce(fbdb.ref('teams')),
+      fbOnce(fbdb.ref('approvedAdmins')),
+      fbOnce(fbdb.ref('owner')),
+    ]);
+    const teamsVal = teamsSnap.val() || {};
+    const approvedVal = approvedSnap.val() || {};
+    const theOwnerUid = ownerSnap.val();
+    const approvedUids = new Set(Object.keys(approvedVal));
+
+    // Blokje bovenaan: wie mag ploegen aanmaken.
+    // Oud formaat (true) → naam opzoeken via /users/
+    const resolveApprovedUser = async (uid) => {
+      const entry = approvedVal[uid];
+      if (entry && typeof entry === 'object' && entry.name) return { uid, name: entry.name, email: entry.email || '' };
+      try {
+        const s = await fbOnce(fbdb.ref('users/' + uid));
+        const u = s.val() || {};
+        return { uid, name: u.displayName || u.name || uid, email: u.email || '' };
+      } catch (_) { return { uid, name: uid, email: '' }; }
+    };
+
+    const canCreate = [];
+    if (theOwnerUid) {
+      const o = await resolveApprovedUser(theOwnerUid);
+      const ownerName = (approvedVal[theOwnerUid] && approvedVal[theOwnerUid].name) || (currentUser && currentUser.displayName) || o.name;
+      const ownerEmail = (approvedVal[theOwnerUid] && approvedVal[theOwnerUid].email) || (currentUser && currentUser.email) || o.email;
+      canCreate.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+        <span style="flex:1;font-size:14px"><b>${esc(ownerName)}</b><br><small style="color:var(--txt2)">${esc(ownerEmail)}</small></span>
+        <span class="ts-role admin" style="color:#7c3aed">${icI(IC.shield)} Eigenaar</span>
+      </div>`);
+    }
+    const approvedResolved = await Promise.all([...approvedUids].filter(u => u !== theOwnerUid).map(resolveApprovedUser));
+    for (const a of approvedResolved) {
+      canCreate.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+        <span style="flex:1;font-size:14px"><b>${esc(a.name)}</b><br><small style="color:var(--txt2)">${esc(a.email)}</small></span>
+        <span class="ts-role admin">${icI(IC.shield)} Beheerder</span>
+      </div>`);
+    }
+    const topBlock = `<div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Mogen ploegen aanmaken</div>
+      ${canCreate.length ? canCreate.join('') : '<p style="color:var(--txt2);font-size:13px">Geen.</p>'}
+    </div><hr style="margin-bottom:16px">`;
+
+    // Per ploeg, als inklapbare sectie
+    const teamIds = Object.keys(teamsVal);
+    const memberInfoSnaps = await Promise.all(
+      teamIds.map(tid => fbOnce(fbdb.ref('memberInfo/' + tid)).catch(() => null))
+    );
+
+    const sections = [];
+    for (let i = 0; i < teamIds.length; i++) {
+      const tid = teamIds[i];
+      const team = teamsVal[tid] || {};
+      const members = team.members || {};
+      const info = (memberInfoSnaps[i] && memberInfoSnaps[i].val()) || {};
+      const clubName = (team.club && team.club.name) || tid;
+      const uids = Object.keys(members).sort((a, b) =>
+        (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
+      if (!uids.length) continue;
+
+      const users = uids.map(uid => ({ naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
+      const rows = users.map(u => {
+        const roleBadge = u.role === 'admin'
+          ? `<span class="ts-role admin">${icI(IC.edit)} Co-beheerder</span>`
+          : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+          <span style="flex:1;font-size:14px"><b>${esc(u.naam)}</b><br><small style="color:var(--txt2)">${esc(u.email)}</small></span>
+          ${roleBadge}
+        </div>`;
+      });
+      const searchBlob = users.map(u => (u.naam + ' ' + u.email).toLowerCase()).join(' | ');
+      sections.push(`<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px" open>
+        <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(clubName)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
+          <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${esc(clubName)}')">Verwijderen</button>
+        </summary>
+        <div style="margin-top:10px">${rows.join('')}</div>
+      </details>`);
+    }
+
+    el.innerHTML = topBlock + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Geen ploegen met leden.</p>');
+  } catch (e) {
+    console.error('loadAllUsersView fout:', e);
+    el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
+  }
+}
+// Filtert de ploeg-secties op naam/e-mail; een matchende sectie klapt open, de rest verdwijnt.
+function filterAllUsersView(q) {
+  const query = (q || '').trim().toLowerCase();
+  document.querySelectorAll('.allusers-team').forEach(sec => {
+    const isMatch = !query || (sec.getAttribute('data-search') || '').includes(query);
+    sec.style.display = isMatch ? '' : 'none';
+    if (query && isMatch) sec.open = true;
+  });
 }
 function toggleViewerMode() {
   viewerMode = !viewerMode;
