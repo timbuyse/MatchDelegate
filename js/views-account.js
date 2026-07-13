@@ -345,6 +345,7 @@ async function showMembersModal() {
   if (!tid || !isAdmin) return;
   const teamName = getClubName() || 'deze ploeg';
   openModal(`<h3>${icI(IC.players)} Leden — ${esc(teamName)}</h3>
+    <div class="fg" style="margin-bottom:10px"><input id="members-search" type="text" placeholder="Zoek op naam of e-mail..." oninput="filterMembersList(this.value)"></div>
     <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   try {
@@ -382,7 +383,7 @@ async function showMembersModal() {
         : (uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
           : '');
-      return `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small></span>
           ${badge}
@@ -396,7 +397,7 @@ async function showMembersModal() {
       const r = requests[uid];
       const naam = r.name || '(geen naam)';
       const email = r.email || '';
-      return `<div class="ts-team-row" style="cursor:default;border-left:3px solid var(--org);flex-direction:column;align-items:stretch;gap:8px">
+      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;border-left:3px solid var(--org);flex-direction:column;align-items:stretch;gap:8px">
         <div><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small><br><small style="color:var(--org)">Vraagt co-beheer aan</small></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-green btn-sm" onclick="approveCoAdmin('${uid}')">Goedkeuren</button>
@@ -417,6 +418,13 @@ async function showMembersModal() {
   }
 }
 
+// Filtert de leden/aanvragen-rijen in de Leden-modal op naam/e-mail.
+function filterMembersList(q) {
+  const query = (q || '').trim().toLowerCase();
+  document.querySelectorAll('#members-list .ml-row').forEach(row => {
+    row.style.display = (!query || (row.getAttribute('data-search') || '').includes(query)) ? '' : 'none';
+  });
+}
 async function approveCoAdmin(uid) {
   const tid = activeTeamId;
   if (!isAdmin || !tid || !fbdb) return;
