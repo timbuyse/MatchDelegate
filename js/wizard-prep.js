@@ -163,7 +163,7 @@ function captureStep1() {
 function buildPool() {
   const team = teamById(wiz.teamId);
   const guests = wiz.pool.filter(p => p.guest);
-  const own = (team ? team.players : []).map(p => ({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', fromName: team.name, guest: false, sel: 'none', slot: null }));
+  const own = (team ? team.players : []).map(p => ({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: team.name, guest: false, sel: 'none', slot: null }));
   wiz.pool = own.concat(guests);
 }
 function wizBack() { if (wiz.step > 1) { wiz.step--; render(); } }
@@ -202,7 +202,7 @@ function selRow(p) {
   return `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
-    <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${lineLabel(p.pos) || '—'}</small></div>
+    <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
       <button class="${p.sel==='bank'?'bank':''}" onclick="setSel('${p.pid}','bank')">Wissel</button>
@@ -280,7 +280,7 @@ function guestListHtml() {
 function toggleGuest(srcId) { const i = guestPick.indexOf(srcId); if (i >= 0) guestPick.splice(i, 1); else guestPick.push(srcId); }
 function confirmGuests() {
   const t = guestTeamById(guestModalTeam);
-  guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !wiz.pool.some(pp => pp.srcId === srcId)) wiz.pool.push({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', fromName: t.name, guest: true, sel: 'bank', slot: null }); });
+  guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !wiz.pool.some(pp => pp.srcId === srcId)) wiz.pool.push({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: t.name, guest: true, sel: 'bank', slot: null }); });
   guestPick = []; closeModal(); render();
 }
 function addLoosePlayerModal() {
@@ -330,8 +330,19 @@ function autoPlace() {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   const basis = wiz.pool.filter(p => p.sel === 'basis');
   basis.forEach(p => p.slot = null);
-  const used = {};
-  form.slots.forEach((s, i) => { const c = basis.find(p => p.slot == null && !used[p.pid] && p.pos === s.line); if (c) { c.slot = i; used[c.pid] = 1; } });
+  const used = {}, slotUsed = {};
+  // Verdedigers met een kant-voorkeur (links/centraal/rechts) eerst op de best passende
+  // Verdediging-slot plaatsen, op basis van de x-coördinaat van elke slot in de formatie —
+  // vóór de gewone lijn-match hieronder (die geen onderscheid maakt binnen een lijn).
+  basis.filter(p => p.pos === 'Verdediging' && p.side).forEach(p => {
+    const candidates = form.slots.map((s, i) => ({ s, i })).filter(({ s, i }) => s.line === 'Verdediging' && !slotUsed[i]);
+    if (!candidates.length) return;
+    const best = p.side === 'links' ? candidates.reduce((a, b) => b.s.x < a.s.x ? b : a)
+      : p.side === 'rechts' ? candidates.reduce((a, b) => b.s.x > a.s.x ? b : a)
+      : candidates.reduce((a, b) => Math.abs(b.s.x - 50) < Math.abs(a.s.x - 50) ? b : a);
+    p.slot = best.i; used[p.pid] = 1; slotUsed[best.i] = 1;
+  });
+  form.slots.forEach((s, i) => { if (slotUsed[i]) return; const c = basis.find(p => p.slot == null && !used[p.pid] && p.pos === s.line); if (c) { c.slot = i; used[c.pid] = 1; slotUsed[i] = 1; } });
   form.slots.forEach((s, i) => { if (basis.some(p => p.slot === i)) return; const c = basis.find(p => p.slot == null && !used[p.pid]); if (c) { c.slot = i; used[c.pid] = 1; } });
   wiz.selPlace = null; render();
 }

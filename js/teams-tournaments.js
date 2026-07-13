@@ -17,6 +17,14 @@ function renderTeamsList() {
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; go('teamEdit'); }
 function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); teamEditMode = false; go('teamEdit'); }
 function toggleTeamEditMode() { teamEditMode = !teamEditMode; render(); }
+// Kant-veld (centraal/links/rechts) is enkel zinvol bij Verdediging — tonen/verbergen
+// zonder volledige herrender (zelfde patroon als wizTrainerSelChange).
+function teamPosChange(i, val) {
+  editingTeam.players[i].pos = val;
+  if (val !== 'Verdediging') editingTeam.players[i].side = '';
+  const fg = document.getElementById('team-side-fg-' + i);
+  if (fg) fg.style.display = val === 'Verdediging' ? '' : 'none';
+}
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
 function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
 function closeTeamEdit() { editingTeam = null; go(cloudReady ? 'home' : 'teams'); }
@@ -27,7 +35,7 @@ function renderTeamView() {
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
-      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(lineLabel(p.pos))}</span>`:''}
+      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
@@ -47,7 +55,7 @@ function renderTeamOverview() {
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
-      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(lineLabel(p.pos))}</span>`:''}
+      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
@@ -78,7 +86,10 @@ function renderTeamEdit() {
       <button class="delbtn" onclick="teamDelPlayer(${i})">×</button>
     </div>
     <div class="pirow2" style="grid-template-columns:1fr;margin-bottom:12px">
-      <select onchange="editingTeam.players[${i}].pos=this.value"><option value="">Voorkeurspositie…</option>${lines.map(l => `<option value="${esc(l)}" ${p.pos===l?'selected':''}>${lineLabel(l)}</option>`).join('')}</select>
+      <select onchange="teamPosChange(${i},this.value)"><option value="">Voorkeurspositie…</option>${lines.map(l => `<option value="${esc(l)}" ${p.pos===l?'selected':''}>${lineLabel(l)}</option>`).join('')}</select>
+    </div>
+    <div class="pirow2" id="team-side-fg-${i}" style="grid-template-columns:1fr;margin-bottom:12px;${p.pos==='Verdediging'?'':'display:none'}">
+      <select onchange="editingTeam.players[${i}].side=this.value"><option value="">Kant (optioneel)…</option>${Object.entries(DEFENSE_SIDES).map(([k,label]) => `<option value="${k}" ${p.side===k?'selected':''}>${label}</option>`).join('')}</select>
     </div>`).join('');
   const colHead = `<div style="display:grid;grid-template-columns:56px 1fr 1fr 38px;gap:6px;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><span>Rugnr</span><span>Voornaam</span><span>Familienaam</span><span></span></div>`;
   const trainers = editingTeam.trainers || [];
@@ -151,7 +162,7 @@ function saveTeamEdit() {
     players: editingTeam.players.filter(p => (pFirstName(p) || pLastName(p) || '').trim()).map(p => {
       const fn = ((p.firstName !== undefined ? p.firstName : pFirstName(p)) || '').trim();
       const ln = ((p.lastName !== undefined ? p.lastName : pLastName(p)) || '').trim();
-      return { id: p.id, firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '' };
+      return { id: p.id, firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '', side: (p.pos === 'Verdediging' && p.side) || '' };
     })
   };
   if (editingTeam.fromCloud) clean.fromCloud = true;
@@ -315,7 +326,7 @@ function trnWizBuildPool() {
   trnWiz.pool = team ? team.players.map(p => ({
     pid: uid(), srcId: p.id,
     name: ((pFirstName(p) + ' ' + pLastName(p)).trim()) || p.name || '',
-    number: p.number || '', pos: p.pos || '', sel: 'none',
+    number: p.number || '', pos: p.pos || '', side: p.side || '', sel: 'none',
   })) : [];
 }
 function trnWizTeamChange() {
@@ -370,7 +381,7 @@ async function saveTournamentWiz() {
   const squad = {
     players: trnWiz.pool
       .filter(p => p.sel === 'mee' || p.sel === 'absent')
-      .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, sel: p.sel })),
+      .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
@@ -431,7 +442,7 @@ function renderTrnStep2() {
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
-    <div class="nm">${esc(p.name)}<small>${lineLabel(p.pos) || '—'}</small></div>
+    <div class="nm">${esc(p.name)}<small>${posDisplay(p) || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig">✗</button>
@@ -473,7 +484,7 @@ function addTournamentMatch(trnId) {
   const matchType = t.matchType || '8v8';
   const numStarters = parseInt(matchType) || 8;
   const pool = allSquadPlayers.map((s, i) => ({
-    pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos,
+    pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
     fromName: team ? team.name : '', guest: false,
     sel: i < numStarters ? 'basis' : 'bank', slot: null,
   }));

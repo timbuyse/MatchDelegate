@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.26'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.27'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -47,6 +47,14 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // Weergavelabel voor een lijn/positie — 'Doel' wordt getoond als 'Doelman', de opgeslagen waarde blijft 'Doel'.
 const LINE_LABEL = { 'Doel': 'Doelman', 'Verdediging': 'Verdediging', 'Middenveld': 'Middenveld', 'Aanval': 'Aanval' };
 function lineLabel(l) { return LINE_LABEL[l] || l; }
+// Optionele verfijning van de voorkeurspositie, enkel voor Verdediging (p.side op de speler).
+const DEFENSE_SIDES = { centraal: 'Centraal', links: 'Links', rechts: 'Rechts' };
+// Voorkeurspositie + (indien Verdediging) de gekozen kant, voor weergave bij spelersbeheer/selectie.
+function posDisplay(p) {
+  if (!p || !p.pos) return '';
+  const base = lineLabel(p.pos);
+  return (p.pos === 'Verdediging' && p.side && DEFENSE_SIDES[p.side]) ? base + ' · ' + DEFENSE_SIDES[p.side] : base;
+}
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
 const IC = {
