@@ -1389,9 +1389,10 @@ async function loadHome() {
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   // In de cloud kan de lokale cache (tijdelijk, of na een teamwissel) wedstrijden van een
   // andere ploeg bevatten — altijd filteren op de naam van de actieve ploeg i.p.v. te
-  // vertrouwen op "de cache bevat toch enkel deze ploeg". teamNames[] is synchroon en
-  // altijd al gevuld (i.t.t. teamById(), dat op de nog-niet-gesynct roster-cache leunt).
-  if (cloudReady) homeFilter = teamNames[activeTeamId] || 'all';
+  // vertrouwen op "de cache bevat toch enkel deze ploeg". Als de naam nog niet gekend is
+  // (bv. meteen na een refresh, vóór selectTeam()'s achtergrond-fetch klaar is) NOOIT
+  // terugvallen op 'all' (ongefilterd) — dat toonde ooit even een andere ploeg's wedstrijd.
+  if (cloudReady) homeFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
   else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   // Zelfde filter toepassen als de wedstrijdenlijst zelf (loadMatches) — anders telt de
   // tegel hier alles wat lokaal gecached staat, incl. een andere ploeg op dit toestel.
@@ -1492,7 +1493,7 @@ async function loadMatches() {
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
   // Zie loadHome(): in de cloud altijd op de actieve ploeg filteren, nooit blind 'all'.
-  if (cloudReady) homeFilter = teamNames[activeTeamId] || 'all';
+  if (cloudReady) homeFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
   else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const list = (homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter)).slice();
   const filterBar = (!cloudReady && teams.length) ? `<div class="filterbar">

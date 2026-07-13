@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.4.25'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.4.26'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -308,6 +308,11 @@ let userTeams = {};        // { teamId: 'admin'|'viewer' }
 let teamListeners = [];    // actieve Firebase .on() listeners
 let knownLiveMatchIds = new Set(); // bijhouden welke matches al als 'live' gekend zijn
 let teamNames = {};                // { teamId: naam } cache voor ploegselect
+// Sentinel voor "we kennen de naam van de actieve ploeg nog niet" — NOOIT terugvallen op
+// 'all' (ongefilterd) in loadHome()/loadMatches(), want de lokale matches-cache bevat
+// wedstrijden van elke ploeg die ooit op dit toestel geopend werd. Deze waarde matcht
+// bewust geen enkele echte m.teamName, dus toont tijdelijk niets i.p.v. een andere ploeg.
+const UNKNOWN_TEAM_FILTER = '__unknown_team__';
 let knownScores = {};              // { matchId: { us, them } } voor doelpunt-detectie
 let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /owner)
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
@@ -831,6 +836,18 @@ async function selectTeam(teamId) {
   listenCoAdminRequests();
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
+  // teamNames[] kan deze ploeg nog niet kennen (bv. rechtstreeks via invite-link toegevoegd,
+  // zonder ooit het ploegkeuzescherm — en dus preloadTeamNames() — te doorlopen). Naam
+  // op de achtergrond ophalen en herrenderen zodra gekend; tot dan valt loadHome()/
+  // loadMatches() terug op UNKNOWN_TEAM_FILTER i.p.v. een andere ploeg te tonen.
+  if (!teamNames[teamId]) {
+    fbOnce(fbdb.ref('teams/' + teamId + '/info/name')).then(s => {
+      if (!s.exists()) return;
+      teamNames[teamId] = s.val();
+      try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
+      if (activeTeamId === teamId && (view === 'home' || view === 'matches')) render();
+    }).catch(() => {});
+  }
   go('home');
 }
 
