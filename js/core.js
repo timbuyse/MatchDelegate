@@ -1004,9 +1004,42 @@ function onSelfRoleChanged(role) {
   render();
 }
 
+// Ploegnaam kan al gewijzigd zijn op club-niveau (via doRenameTeam, of van vóór de fix
+// daarvoor) terwijl de roster-naam (Spelers-pagina, tornooiwizard) en bestaande wedstrijden
+// nog een oudere naam dragen. Wordt aangeroepen bij elke rename én bij elke club-data-load
+// (applyCloudClub) zodat ook al langer bestaande, nooit-gemigreerde mismatches zichzelf
+// herstellen zonder dat iemand opnieuw op "Naam wijzigen" moet klikken.
+async function syncTeamNaming(newName, extraOldNames) {
+  if (!newName) return;
+  const oldNames = new Set([...(extraOldNames || []), ...getTeamsV2().map(t => t.name).filter(Boolean)]);
+  oldNames.delete(newName);
+  if (!oldNames.size) return;
+  const localRoster = getTeamsV2();
+  if (localRoster.length) { localRoster.forEach(t => { t.name = newName; }); saveTeamsV2(localRoster); }
+  if (isAdmin && fbdb && activeTeamId) {
+    try {
+      const rosterSnap = await fbdb.ref('teams/' + activeTeamId + '/roster').once('value');
+      const roster = rosterSnap.val();
+      if (roster) {
+        const updates = {};
+        for (const rid in roster) updates[rid + '/name'] = newName;
+        await fbdb.ref('teams/' + activeTeamId + '/roster').update(updates);
+      }
+    } catch (e) {}
+  }
+  const matches = await dbAll();
+  let migrated = false;
+  for (const m of matches) {
+    if (oldNames.has(m.teamName)) { m.teamName = newName; await dbSave(m); migrated = true; }
+  }
+  if (migrated && (view === 'home' || view === 'matches')) render();
+}
 function applyCloudClub(val) {
   if (!val) return;
-  if (val.name) localStorage.setItem('voetbal_club_name', val.name);
+  if (val.name) {
+    localStorage.setItem('voetbal_club_name', val.name);
+    syncTeamNaming(val.name).catch(() => {});
+  }
   if (val.logo) localStorage.setItem('voetbal_club_logo', val.logo);
   if (val.theme) localStorage.setItem('voetbal_theme', val.theme); else localStorage.removeItem('voetbal_theme');
   applyStoredTheme();
