@@ -614,25 +614,31 @@ function renderGuestJoin() {
 
 // ===================== TEAM SELECT VIEW =====================
 function renderTeamSelect() {
-  const teamIds = Object.keys(userTeams);
+  const teamIds = orderedTeamIds(Object.keys(userTeams));
   // Het Beheer-knopje leidt (in de 'system'-context) naar eigenaarstools + "beheerder worden".
   // Voor iemand die al beheerder is maar niet de eigenaar, is dat scherm leeg — dan het knopje verbergen.
   const showBeheerBtn = !ownerUid || isOwner || (!isApprovedAdmin && !viewerMode);
+  // Enkel een sleepbalkje tonen als er iets te herschikken valt.
+  const canReorder = teamIds.length > 1;
   const teamRows = teamIds.length
-    ? teamIds.map(id => {
+    ? `<div id="ts-team-list">${teamIds.map(id => {
         const role = userTeams[id];
         const name = teamNames[id] || id;
-        return `<div class="ts-team-row" onclick="selectTeam('${id}')">
+        const handle = canReorder ? `<span class="ts-drag-handle" onclick="event.stopPropagation()">${icI(IC.grip)}</span>` : '';
+        return `<div class="ts-team-row" data-team-id="${id}" onclick="selectTeam('${id}')">
+          ${handle}
           <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
           <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Co-beheerder` : `${icI(IC.eye)} Kijker`}</span>
         </div>`;
-      }).join('')
+      }).join('')}</div>`
     : `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+  if (canReorder) setTimeout(initTeamReorder, 0);
 
-  // Ververs namen asynchroon voor ploegen die nog niet in de cache zitten
+  // Ververs namen asynchroon — ook als er al een (mogelijk verouderde, bv. ondertussen
+  // hernoemde) naam in de cache zit, anders toont dit scherm een hernoemde ploeg nooit de
+  // nieuwe naam totdat de cache toevallig ergens anders geleegd wordt.
   setTimeout(() => {
     teamIds.forEach(id => {
-      if (teamNames[id]) return;
       const el = document.getElementById('tsname-' + id);
       // fbOnce() i.p.v. ruwe once('value'): offline blijft dit anders eeuwig hangen en wordt
       // de naam nooit ververst. Let op: een timeout betekent enkel "geen verbinding", niet
@@ -674,6 +680,43 @@ function renderTeamSelect() {
       </div>
     </div>
   </div>`;
+}
+// Sleepbalkje om de volgorde van de ploegen op het ploegenkeuzescherm te herschikken.
+// Pointer Events i.p.v. losse touch/mouse-handlers: werkt zowel met de vinger als de muis.
+function initTeamReorder() {
+  const list = document.getElementById('ts-team-list');
+  if (!list) return;
+  const afterElement = y => {
+    let closest = { offset: -Infinity, el: null };
+    list.querySelectorAll('.ts-team-row:not(.dragging)').forEach(row => {
+      const box = row.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) closest = { offset, el: row };
+    });
+    return closest.el;
+  };
+  list.querySelectorAll('.ts-drag-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const dragEl = handle.closest('.ts-team-row');
+      if (!dragEl) return;
+      dragEl.classList.add('dragging');
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      const onMove = ev => {
+        const afterEl = afterElement(ev.clientY);
+        if (afterEl == null) list.appendChild(dragEl);
+        else if (afterEl !== dragEl) list.insertBefore(dragEl, afterEl);
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        dragEl.classList.remove('dragging');
+        if (currentUser) saveTeamOrder(currentUser.uid, Array.from(list.children).map(r => r.dataset.teamId));
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
 }
 
 function showCreateTeamModal() {

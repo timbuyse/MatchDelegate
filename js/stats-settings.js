@@ -891,11 +891,45 @@ async function doRenameTeam() {
   if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
   if (err) err.textContent = 'Bezig...';
   if (btn) btn.disabled = true;
+  // De ploegnaam staat op drie losse plekken: de club-naam (info/name + club/name), en de
+  // roster-naam (teams/{id}/roster/*/name, lokaal voetbal_teams_v2) waarmee wedstrijden
+  // (wizard-prep.js) en de Spelers-pagina gestempeld worden. Beide verzamelen als "oude namen"
+  // zodat de migratie hieronder matcht ongeacht welke van de twee de wedstrijden droegen.
+  const oldNames = new Set([getClubName() || '', ...getTeamsV2().map(t => t.name).filter(Boolean)]);
+  oldNames.delete(name);
   try {
     await fbdb.ref('teams/' + activeTeamId + '/info/name').set(name);
     await fbdb.ref('teams/' + activeTeamId + '/club/name').set(name);
     localStorage.setItem('voetbal_club_name', name);
     teamNames[activeTeamId] = name;
+    // Zonder deze persist valt de in-memory cache na een refresh terug op de oude naam
+    // (zie preloadTeamNames/selectTeam in core.js), en blijft de ploegenkeuze-pagina de
+    // oude naam tonen.
+    try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
+    // Roster-naam (Spelers-pagina, tornooiwizard, toekomstige wedstrijden) mee hernoemen —
+    // dit is een apart veld dat nooit automatisch met de club-naam meeliep.
+    const localRoster = getTeamsV2();
+    if (localRoster.length) {
+      localRoster.forEach(t => { t.name = name; });
+      saveTeamsV2(localRoster);
+    }
+    try {
+      const rosterSnap = await fbdb.ref('teams/' + activeTeamId + '/roster').once('value');
+      const roster = rosterSnap.val();
+      if (roster) {
+        const updates = {};
+        for (const rid in roster) updates[rid + '/name'] = name;
+        await fbdb.ref('teams/' + activeTeamId + '/roster').update(updates);
+      }
+    } catch (e) {}
+    // Wedstrijden zijn gekoppeld via de teamnaam-string, niet het team-ID — zonder migratie
+    // blijven ze onder de oude naam hangen en verdwijnen ze uit elke op-naam-gefilterde lijst.
+    if (oldNames.size) {
+      const matches = await dbAll();
+      for (const m of matches) {
+        if (oldNames.has(m.teamName)) { m.teamName = name; await dbSave(m); }
+      }
+    }
     closeModal();
     render();
   } catch (e) {

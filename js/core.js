@@ -106,6 +106,7 @@ const IC = {
   captain: _svg('<circle cx="12" cy="12" r="9"/><path d="M15.5 9a5 5 0 1 0 0 6" stroke-width="2.2"/>'),
   warn:    _svg('<path d="M10.3 4L1.7 19a2 2 0 0 0 1.7 3h17.2a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0z"/><path d="M12 9v5"/><circle cx="12" cy="17.5" r=".8" fill="currentColor" stroke="none"/>'),
   close:   _svg('<path d="M18 6L6 18M6 6l12 12" stroke-width="2.2"/>'),
+  grip:    _svg('<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>'),
   check:   _svg('<path d="M4 13l5 5L20 7" stroke-width="2.4"/>'),
   copy:    _svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
   // ---- Vervangers voor het Tabler-iconenfont (B15: ~1MB font weg voor 28 iconen) ----
@@ -774,8 +775,9 @@ async function preloadTeamNames() {
   // Offline: val terug op eerder gecachte namen zodat het ploegkeuzescherm niet leeg oogt.
   try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   const ids = Object.keys(userTeams);
+  // Altijd verversen, ook als er al een (mogelijk verouderde) naam in de cache zit — anders
+  // ziet een ander toestel een hernoemde ploeg nooit terug, zelfs niet na een refresh.
   await Promise.all(ids.map(async id => {
-    if (teamNames[id]) return;
     try {
       const s = await fbOnce(fbdb.ref('teams/' + id + '/info/name'));
       if (s.exists()) teamNames[id] = s.val();
@@ -826,6 +828,22 @@ function cachedUserTeams(uid) {
   try { return JSON.parse(localStorage.getItem('voetbal_userTeams_' + uid) || 'null'); } catch (e) { return null; }
 }
 
+// Volgorde waarin een gebruiker zijn ploegen op het ploegenkeuzescherm wil zien (drag-and-drop).
+function getTeamOrder(uid) {
+  try { return JSON.parse(localStorage.getItem('voetbal_teamOrder_' + uid) || '[]'); } catch (e) { return []; }
+}
+function saveTeamOrder(uid, order) {
+  if (!uid) return;
+  try { localStorage.setItem('voetbal_teamOrder_' + uid, JSON.stringify(order)); } catch (e) {}
+}
+// Past de bewaarde volgorde toe op een lijst team-ID's; nieuwe/onbekende ploegen komen achteraan.
+function orderedTeamIds(ids) {
+  if (!currentUser) return ids;
+  const saved = getTeamOrder(currentUser.uid).filter(id => ids.includes(id));
+  const rest = ids.filter(id => !saved.includes(id));
+  return [...saved, ...rest];
+}
+
 async function selectTeam(teamId) {
   stopTeamListeners();
   // Zorg dat teamNames[] al gevuld is vóór go('home') rendert (bv. bij het herstellen van de
@@ -845,17 +863,18 @@ async function selectTeam(teamId) {
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
   // teamNames[] kan deze ploeg nog niet kennen (bv. rechtstreeks via invite-link toegevoegd,
-  // zonder ooit het ploegkeuzescherm — en dus preloadTeamNames() — te doorlopen). Naam
-  // op de achtergrond ophalen en herrenderen zodra gekend; tot dan valt loadHome()/
-  // loadMatches() terug op UNKNOWN_TEAM_FILTER i.p.v. een andere ploeg te tonen.
-  if (!teamNames[teamId]) {
-    fbOnce(fbdb.ref('teams/' + teamId + '/info/name')).then(s => {
-      if (!s.exists()) return;
-      teamNames[teamId] = s.val();
-      try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
-      if (activeTeamId === teamId && (view === 'home' || view === 'matches')) render();
-    }).catch(() => {});
-  }
+  // zonder ooit het ploegkeuzescherm — en dus preloadTeamNames() — te doorlopen), of een
+  // verouderde (bv. ondertussen hernoemde) naam bevatten. Altijd verversen op de achtergrond
+  // en enkel herrenderen als de naam echt gewijzigd is — tot de eerste fetch klaar is valt
+  // loadHome()/loadMatches() terug op de bestaande (of UNKNOWN_TEAM_FILTER) waarde i.p.v. een
+  // andere ploeg te tonen.
+  fbOnce(fbdb.ref('teams/' + teamId + '/info/name')).then(s => {
+    if (!s.exists()) return;
+    const changed = teamNames[teamId] !== s.val();
+    teamNames[teamId] = s.val();
+    try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
+    if (changed && activeTeamId === teamId && (view === 'home' || view === 'matches')) render();
+  }).catch(() => {});
   go('home');
 }
 
