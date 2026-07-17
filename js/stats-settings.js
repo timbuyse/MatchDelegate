@@ -989,13 +989,18 @@ async function doDeleteCloudTeam() {
       memberInfo: memberInfoSnap.val(),
       teamNotes: teamNotesSnap.val(),
     });
-    const token = ((teamSnap.val() || {}).info || {}).inviteToken;
+    const info = (teamSnap.val() || {}).info || {};
+    const token = info.inviteToken;
     // Uitnodiging + ledeninfo + notities eerst proberen wissen (terwijl team-lidmaatschap nog
     // bestaat — teamNotes/memberInfo staan los van teams/$teamId en volgen daar dus niet
     // automatisch uit mee; hun schrijfrechten vervallen bovendien zodra teams/$teamId weg is).
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
     try { await fbdb.ref('teamNotes/' + tid).remove(); } catch (e) {}
+    // Club-index opkuisen (fase 2) zodat de ploeg niet als wees in Clubbeheer blijft staan.
+    // Best-effort: onder de huidige rules mag de eigenaar clubs schrijven; voor een niet-eigenaar
+    // clubbeheerder komt dat schrijfrecht in fase 2d.
+    if (info.clubId) { try { await fbdb.ref('clubs/' + info.clubId + '/teams/' + tid).remove(); } catch (e) {} }
     // Het hele team verwijderen
     await fbdb.ref('teams/' + tid).remove();
     if (currentUser) { try { await fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).remove(); } catch (e) {} }

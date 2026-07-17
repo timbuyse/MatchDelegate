@@ -83,11 +83,16 @@ async function loadClubBeheerView() {
     const club = (await fbOnce(fbdb.ref('clubs/' + clubId))).val() || {};
     const clubName = (club.info && club.info.name) || 'Mijn club';
     const teamIds = Object.keys(club.teams || {});
-    const rows = await Promise.all(teamIds.map(async tid => {
-      let name = teamNames[tid];
-      if (!name) { try { name = (await fbOnce(fbdb.ref('teams/' + tid + '/info/name'))).val(); } catch (e) {} }
-      return { id: tid, name: name || '(naamloze ploeg)' };
+    // Altijd vers de naam ophalen (niet op de cache vertrouwen): zo weten we of de ploeg nog
+    // bestaat. Een ploeg die verwijderd is laat anders een wees-indexregel achter (info bestaat
+    // niet meer) — die tonen we niet én kuisen we meteen op uit clubs/{id}/teams.
+    const fetched = await Promise.all(teamIds.map(async tid => {
+      try { const s = await fbOnce(fbdb.ref('teams/' + tid + '/info/name')); return { id: tid, name: s.exists() ? (s.val() || '') : null, exists: s.exists() }; }
+      catch (e) { return { id: tid, name: teamNames[tid] || '', exists: true }; } // bij een fout (bv. offline) niet opkuisen
     }));
+    const dead = fetched.filter(r => !r.exists);
+    for (const r of dead) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + r.id).remove(); } catch (e) {} }
+    const rows = fetched.filter(r => r.exists).map(r => ({ id: r.id, name: r.name || '(naamloze ploeg)' }));
     rows.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
     const clubSelector = clubIds.length > 1
       ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(id === clubId ? clubName : id)}</option>`).join('')}</select></div>`
@@ -818,12 +823,14 @@ function renderTeamSelect() {
   // Het Beheer-knopje leidt (in de 'system'-context) naar eigenaarstools + "beheerder worden".
   // Voor iemand die al beheerder is maar niet de eigenaar, is dat scherm leeg — dan het knopje verbergen.
   const showBeheerBtn = !ownerUid || isOwner || (!isApprovedAdmin && !viewerMode);
-  // Per club groeperen (fase 2f) zodra er ploegen uit meer dan één club in de lijst staan — handig
-  // voor een ouder/kijker met kinderen in verschillende clubs. Bij één (of nog onbekende) club:
-  // de gewone platte, herschikbare lijst. Groeperen en herschikken sluiten elkaar uit.
+  // Clubnaam tonen boven de ploegen (fase 2f). Bij méér dan één club: echt groeperen met een kopje
+  // per club (handig voor een ouder/kijker met kinderen in verschillende clubs) — dan geen herschik.
+  // Bij één club: één clubkopje boven de gewone, herschikbare lijst. Bij nog onbekende clubnaam:
+  // gewone platte lijst (het kopje verschijnt zodra de naam asynchroon geladen is).
   const distinctClubs = [...new Set(teamIds.map(id => teamClubNames[id]).filter(Boolean))];
   const grouped = distinctClubs.length > 1;
   const canReorder = teamIds.length > 1 && !grouped;
+  const clubHdrHtml = cn => `<div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">${esc(cn)}</div>`;
   const teamRowHtml = id => {
     const role = userTeams[id];
     const name = teamNames[id] || id;
@@ -841,9 +848,11 @@ function renderTeamSelect() {
     const buckets = {}; const order = [];
     teamIds.forEach(id => { const cn = teamClubNames[id] || 'Overige ploegen'; if (!(cn in buckets)) { buckets[cn] = []; order.push(cn); } buckets[cn].push(id); });
     order.sort((a, b) => a === 'Overige ploegen' ? 1 : b === 'Overige ploegen' ? -1 : a.localeCompare(b, 'nl'));
-    teamRows = order.map(cn => `<div style="margin-bottom:4px"><div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">${esc(cn)}</div>${buckets[cn].map(teamRowHtml).join('')}</div>`).join('');
+    teamRows = order.map(cn => `<div style="margin-bottom:4px">${clubHdrHtml(cn)}${buckets[cn].map(teamRowHtml).join('')}</div>`).join('');
   } else {
-    teamRows = `<div id="ts-team-list">${teamIds.map(teamRowHtml).join('')}</div>`;
+    // Eén (of nog onbekende) club: clubkopje tonen als de naam gekend is, met de herschikbare lijst eronder.
+    const header = distinctClubs.length === 1 ? clubHdrHtml(distinctClubs[0]) : '';
+    teamRows = header + `<div id="ts-team-list">${teamIds.map(teamRowHtml).join('')}</div>`;
   }
   if (canReorder) setTimeout(initTeamReorder, 0);
 

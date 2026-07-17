@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -746,7 +746,8 @@ async function doOwnerDeleteTeam(tid) {
       teamNotes: teamNotesSnap.val(),
     });
     // Uitnodigingstoken direct verwijderen (een query over /invites is niet toegelaten door de rules)
-    const token = ((teamSnap.val() || {}).info || {}).inviteToken;
+    const info = (teamSnap.val() || {}).info || {};
+    const token = info.inviteToken;
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     await Promise.all([
       fbdb.ref('teams/' + tid).remove(),
@@ -754,6 +755,8 @@ async function doOwnerDeleteTeam(tid) {
       fbdb.ref('teamAdminRequests/' + tid).remove(),
       fbdb.ref('teamNotes/' + tid).remove(),
     ]);
+    // Club-index opkuisen (fase 2) zodat de ploeg niet als wees in Clubbeheer blijft staan.
+    if (info.clubId) { try { await fbdb.ref('clubs/' + info.clubId + '/teams/' + tid).remove(); } catch (e) {} }
     showToast('Ploeg verwijderd.', 'ok');
     closeModal();
     if (view === 'allusers') loadAllUsersView();
