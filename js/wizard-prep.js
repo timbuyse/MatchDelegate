@@ -397,7 +397,6 @@ function ensurePosNums(m) {
 function playersAtPeriodStart(m, qNum) {
   const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
   const fallback = {};
-  const posOverride = {}; // positieoverschrijvingen door posSwap-events
   const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of relevant) {
@@ -412,24 +411,37 @@ function playersAtPeriodStart(m, qNum) {
       on[e.playerId] = false;
     } else if (e.type === 'injury' && e.leavesField && e.playerId) {
       on[e.playerId] = false;
-    } else if (e.type === 'posSwap' && e.pA && e.pB) {
-      const prev = { a: posOverride[e.pA] || null, b: posOverride[e.pB] || null };
-      const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
-      // Fallback-volgorde: 1) eerdere override binnen deze reconstructie, 2) de op het event
-      // bewaarde snapshot (stabiel, verandert nooit meer na latere events — vergelijkbaar met
-      // hoe de substitution-tak hierboven de positie van de UITGAANDE speler gebruikt), 3)
-      // m.players als laatste redmiddel voor oudere posSwap-events van vóór deze fix (geen
-      // snapshot) — kan in dat geval nog steeds de oude bug vertonen voor die matches.
-      const posA = prev.a || e.posA || (pA ? { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum } : null);
-      const posB = prev.b || e.posB || (pB ? { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum } : null);
-      if (posA) posOverride[e.pB] = posA;
-      if (posB) posOverride[e.pA] = posB;
     }
   }
-  // fallback only applied when the player genuinely has no x/y (edge case: old match data)
+  // Positie per speler bepalen door vanaf de HUIDIGE (finale) m.players-staat terug te
+  // spoelen: alle sub/posSwap-events die NA het gevraagde kwart gebeurd zijn ongedaan maken,
+  // in omgekeerde chronologische volgorde (nieuwste eerst). Zo blijft elke eerdere periode
+  // correct, ook voor een speler die zelf nooit wisselde maar wél als "bystander" betrokken
+  // raakte in een latere wissel van iemand anders — voorheen bouwde deze functie posities
+  // voorwaarts op met een fallback naar de finale m.players-waarde zodra er nog geen eerdere
+  // override was, wat voor zo'n niet-eerder-geraakte speler zijn latere/finale positie liet
+  // doorschemeren in vroegere kwarten (zichtbaar als bolletjes die boven elkaar staan).
+  const posMap = {};
+  m.players.forEach(p => { posMap[p.id] = { x: p.x, y: p.y, line: p.line, posNum: p.posNum }; });
+  const toUndo = m.events.filter(e =>
+    (e.type === 'substitution' || e.type === 'posSwap') && e.quarterNum != null &&
+    !(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))
+  ).sort((a, b) => b.gameTimeMs - a.gameTimeMs);
+  for (const e of toUndo) {
+    if (e.type === 'substitution' && e.playerInId) {
+      posMap[e.playerInId] = { x: undefined, y: undefined, line: undefined, posNum: undefined };
+    } else if (e.type === 'posSwap' && e.pA && e.pB && e.posA && e.posB) {
+      posMap[e.pA] = { ...e.posA };
+      posMap[e.pB] = { ...e.posB };
+    }
+    // posSwap-events van vóór deze fix (zonder posA/posB-snapshot) kunnen niet betrouwbaar
+    // teruggedraaid worden — die blijven op hun laatst gekende positie staan (bekende
+    // beperking voor bestaande, oudere wedstrijden).
+  }
   return m.players.filter(p => on[p.id]).map(p => {
-    const base = (typeof p.x !== 'number' && fallback[p.id]) ? { ...p, ...fallback[p.id] } : p;
-    return posOverride[p.id] ? { ...base, ...posOverride[p.id] } : base;
+    let pos = posMap[p.id];
+    if (typeof pos.x !== 'number' && fallback[p.id]) pos = { ...pos, ...fallback[p.id] };
+    return { ...p, ...pos };
   });
 }
 let _lcIdx = 0;
