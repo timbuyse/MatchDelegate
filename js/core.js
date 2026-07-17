@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -332,7 +332,9 @@ let maintenanceActive = false; // is onderhoudsmodus actief?
 // Clubmodel (fase 2): een club groepeert meerdere ploegen; de clubbeheerder beheert ze.
 let myClubs = {};          // { clubId: 'admin' } — clubs die deze gebruiker beheert
 let activeClubId = null;   // clubId van de actieve ploeg (afgeleid uit teams/{id}/info/clubId)
+let activeClubName = '';   // gedenormaliseerde clubnaam van de actieve ploeg (teams/{id}/info/clubName)
 let isClubAdmin = false;   // is de huidige gebruiker clubbeheerder van de actieve ploeg's club?
+let teamClubNames = {};    // { teamId: clubName } — cache voor groepering op het ploegkeuzescherm
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
 function jclone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -390,7 +392,7 @@ async function onAuthChanged(user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
-    myClubs = {}; activeClubId = null; isClubAdmin = false;
+    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
     stopTeamListeners(); listenAdminRequests();
@@ -400,7 +402,7 @@ async function onAuthChanged(user) {
   if (user.isAnonymous) {
     isGuest = true; isAdmin = false;
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
-    myClubs = {}; activeClubId = null; isClubAdmin = false;
+    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
     // Pending join via QR/link afhandelen (ook voor een gast, zelfde als bij een ingelogde gebruiker)
     const pendingJoin = localStorage.getItem('voetbal_pending_join');
     if (pendingJoin) {
@@ -863,7 +865,7 @@ async function selectTeam(teamId) {
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal; voor de rest
   // wachten we op de clubId-fetch hieronder (achtergrond) vóór we isClubAdmin definitief zetten.
-  activeClubId = null;
+  activeClubId = null; activeClubName = '';
   isClubAdmin = isOwner;
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup)
@@ -880,19 +882,19 @@ async function selectTeam(teamId) {
   // en enkel herrenderen als de naam echt gewijzigd is — tot de eerste fetch klaar is valt
   // loadHome()/loadMatches() terug op de bestaande (of UNKNOWN_TEAM_FILTER) waarde i.p.v. een
   // andere ploeg te tonen.
-  // Club-context ophalen (fase 2): welke club hoort bij deze ploeg, en is de huidige gebruiker
-  // daar clubbeheerder van? Achtergrond-fetch; tot dan valt isClubAdmin terug op isOwner.
-  fbOnce(fbdb.ref('teams/' + teamId + '/info/clubId')).then(s => {
-    if (activeTeamId !== teamId) return; // ondertussen van ploeg gewisseld
-    activeClubId = s.val() || null;
+  // Info van de actieve ploeg in één fetch: naam (voor de filter/weergave) + club-context (fase 2):
+  // clubId (welke club), clubName (gedenormaliseerd, ook leesbaar voor kijkers) en of de huidige
+  // gebruiker daar clubbeheerder van is. Tot deze fetch klaar is valt isClubAdmin terug op isOwner.
+  fbOnce(fbdb.ref('teams/' + teamId + '/info')).then(s => {
+    if (activeTeamId !== teamId || !s.exists()) return; // ondertussen van ploeg gewisseld
+    const info = s.val() || {};
+    activeClubId = info.clubId || null;
+    activeClubName = info.clubName || '';
+    if (activeClubName) teamClubNames[teamId] = activeClubName;
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
-  }).catch(() => {});
-  fbOnce(fbdb.ref('teams/' + teamId + '/info/name')).then(s => {
-    if (!s.exists()) return;
-    const changed = teamNames[teamId] !== s.val();
-    teamNames[teamId] = s.val();
-    try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {}
-    if (changed && activeTeamId === teamId && (view === 'home' || view === 'matches')) render();
+    const changed = info.name && teamNames[teamId] !== info.name;
+    if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
+    if ((changed || activeClubName) && (view === 'home' || view === 'matches')) render();
   }).catch(() => {});
   go('home');
 }

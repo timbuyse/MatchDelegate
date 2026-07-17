@@ -388,7 +388,12 @@ async function createTeam(name, clubId) {
   const token = genInviteToken();
   const initialRosterId = fbdb.ref('teams/' + teamId + '/roster').push().key;
   const info = { name, createdBy: uid, createdAt: Date.now(), inviteToken: token };
-  if (clubId) info.clubId = clubId; // clubmodel: koppel meteen aan de club (fase 2)
+  if (clubId) {
+    info.clubId = clubId; // clubmodel: koppel meteen aan de club (fase 2)
+    // Clubnaam gedenormaliseerd op de ploeg zetten (fase 2f) zodat ook kijkers — die de clubs-node
+    // niet mogen lezen — de clubnaam zien in de header en de groepering op het ploegkeuzescherm.
+    try { const cn = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val(); if (cn) info.clubName = cn; } catch (e) {}
+  }
   await fbdb.ref('teams/' + teamId).set({
     info,
     members: { [uid]: 'admin' },
@@ -813,35 +818,53 @@ function renderTeamSelect() {
   // Het Beheer-knopje leidt (in de 'system'-context) naar eigenaarstools + "beheerder worden".
   // Voor iemand die al beheerder is maar niet de eigenaar, is dat scherm leeg — dan het knopje verbergen.
   const showBeheerBtn = !ownerUid || isOwner || (!isApprovedAdmin && !viewerMode);
-  // Enkel een sleepbalkje tonen als er iets te herschikken valt.
-  const canReorder = teamIds.length > 1;
-  const teamRows = teamIds.length
-    ? `<div id="ts-team-list">${teamIds.map(id => {
-        const role = userTeams[id];
-        const name = teamNames[id] || id;
-        const handle = canReorder ? `<span class="ts-drag-handle" onclick="event.stopPropagation()">${icI(IC.grip)}</span>` : '';
-        return `<div class="ts-team-row" data-team-id="${id}" onclick="selectTeam('${id}')">
+  // Per club groeperen (fase 2f) zodra er ploegen uit meer dan één club in de lijst staan — handig
+  // voor een ouder/kijker met kinderen in verschillende clubs. Bij één (of nog onbekende) club:
+  // de gewone platte, herschikbare lijst. Groeperen en herschikken sluiten elkaar uit.
+  const distinctClubs = [...new Set(teamIds.map(id => teamClubNames[id]).filter(Boolean))];
+  const grouped = distinctClubs.length > 1;
+  const canReorder = teamIds.length > 1 && !grouped;
+  const teamRowHtml = id => {
+    const role = userTeams[id];
+    const name = teamNames[id] || id;
+    const handle = canReorder ? `<span class="ts-drag-handle" onclick="event.stopPropagation()">${icI(IC.grip)}</span>` : '';
+    return `<div class="ts-team-row" data-team-id="${id}" onclick="selectTeam('${id}')">
           ${handle}
           <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
           <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Co-beheerder` : `${icI(IC.eye)} Kijker`}</span>
         </div>`;
-      }).join('')}</div>`
-    : `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+  };
+  let teamRows;
+  if (!teamIds.length) {
+    teamRows = `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+  } else if (grouped) {
+    const buckets = {}; const order = [];
+    teamIds.forEach(id => { const cn = teamClubNames[id] || 'Overige ploegen'; if (!(cn in buckets)) { buckets[cn] = []; order.push(cn); } buckets[cn].push(id); });
+    order.sort((a, b) => a === 'Overige ploegen' ? 1 : b === 'Overige ploegen' ? -1 : a.localeCompare(b, 'nl'));
+    teamRows = order.map(cn => `<div style="margin-bottom:4px"><div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">${esc(cn)}</div>${buckets[cn].map(teamRowHtml).join('')}</div>`).join('');
+  } else {
+    teamRows = `<div id="ts-team-list">${teamIds.map(teamRowHtml).join('')}</div>`;
+  }
   if (canReorder) setTimeout(initTeamReorder, 0);
 
-  // Ververs namen asynchroon — ook als er al een (mogelijk verouderde, bv. ondertussen
-  // hernoemde) naam in de cache zit, anders toont dit scherm een hernoemde ploeg nooit de
-  // nieuwe naam totdat de cache toevallig ergens anders geleegd wordt.
+  // Ververs namen én clubnamen asynchroon — ook als er al een (mogelijk verouderde) waarde in de
+  // cache zit. fbOnce() i.p.v. ruwe once('value'): offline blijft dat anders eeuwig hangen. Een
+  // timeout betekent enkel "geen verbinding", niet "ploeg bestaat niet meer" — enkel bij een echte
+  // fout opruimen. Als een clubnaam nieuw gekend raakt: één keer herrenderen zodat de groepering
+  // per club verschijnt (de volgende pass vindt niets nieuw → geen lus).
   setTimeout(() => {
-    teamIds.forEach(id => {
+    let clubChanged = false;
+    Promise.all(teamIds.map(id => {
       const el = document.getElementById('tsname-' + id);
-      // fbOnce() i.p.v. ruwe once('value'): offline blijft dit anders eeuwig hangen en wordt
-      // de naam nooit ververst. Let op: een timeout betekent enkel "geen verbinding", niet
-      // "ploeg bestaat niet meer" — enkel bij een echte fout (niet een timeout) opruimen.
-      fbOnce(fbdb.ref('teams/' + id + '/info/name'))
-        .then(s => { if (!s.exists()) { pruneDeadTeam(id); return; } teamNames[id] = s.val(); if (el) el.textContent = s.val() || id; })
+      return fbOnce(fbdb.ref('teams/' + id + '/info'))
+        .then(s => {
+          if (!s.exists()) { pruneDeadTeam(id); return; }
+          const info = s.val() || {};
+          if (info.name) { teamNames[id] = info.name; if (el) el.textContent = info.name; }
+          if (info.clubName && teamClubNames[id] !== info.clubName) { teamClubNames[id] = info.clubName; clubChanged = true; }
+        })
         .catch(e => { if (e && e.message !== 'fb-timeout') pruneDeadTeam(id); });
-    });
+    })).then(() => { if (clubChanged && view === 'teamselect') render(); });
   }, 0);
 
   return `<div class="ts-wrap">
@@ -1572,14 +1595,20 @@ const views = {
     loadHome();
     setTimeout(updateCloudChip, 0);
     const canSwitch = cloudReady && currentUser && activeTeamId && !isGuest;
-    const clubName = canSwitch ? esc(getClubName() || 'Ploeg') : '';
+    // Header toont de PLOEGnaam als hoofdtitel (zodat je weet in welke ploeg je zit) en de
+    // clubnaam kleiner eronder (fase 2f; gedenormaliseerd zodat ook kijkers ze zien).
+    const teamName = canSwitch ? esc(teamNames[activeTeamId] || 'Ploeg') : '';
+    const clubName = canSwitch ? esc(activeClubName || '') : '';
     const switchBtn = canSwitch
       ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen">${icI(IC.swap)} Ploeg</button>`
       : '';
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
         <img src="logo_no_background.png" class="hdr-crest" alt="Match Delegate">
-        ${clubName ? `<span class="hdr-club-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clubName}</span>` : ''}
+        ${teamName ? `<div style="min-width:0;overflow:hidden">
+          <div class="hdr-club-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${teamName}</div>
+          ${clubName ? `<div style="font-size:12px;font-weight:600;color:#fff;opacity:.75;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clubName}</div>` : ''}
+        </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
