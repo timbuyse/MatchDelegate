@@ -362,6 +362,20 @@ async function exportPDF() {
     y += 26;
   }
 
+  // ---- Keeper(s) ----
+  const keeperMs = keeperMinutes(m);
+  if (keeperMs && Object.keys(keeperMs).length) {
+    heading('Keeper(s)');
+    ensure(16);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    const keeperText = Object.entries(keeperMs)
+      .sort((a, b) => b[1] - a[1])
+      .map(([pid, ms]) => `${pName(m, pid)}: ${Math.round(ms / 60000)} min`)
+      .join('   ·   ');
+    doc.text(keeperText, MG, y, { maxWidth: CW });
+    y += 26;
+  }
+
   // ---- Spelers ----
   heading('Spelers');
   const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];

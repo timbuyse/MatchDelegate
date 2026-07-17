@@ -898,6 +898,25 @@ function wasKeeperAtAll(m, playerId) {
   if (!byQ) return false;
   return Object.values(byQ).some(arr => Array.isArray(arr) && arr.some(e => e.id === playerId));
 }
+// Aantal ms per speler in doel, opgebouwd uit keeperByQ (per kwart een lijst {id, sinceMs}
+// telkens een nieuwe entry bij een keeperwissel). Binnen elk kwart loopt een entry door tot
+// de volgende (of tot het einde van dat kwart). Geeft null voor oudere wedstrijden zonder
+// keeperByQ-data — daar is geen betrouwbare minutenopbouw uit te herleiden.
+function keeperMinutes(m) {
+  const byQ = m.keeperByQ;
+  if (!byQ || !Object.keys(byQ).length) return null;
+  const totals = {};
+  for (const qNum of Object.keys(byQ).map(Number).sort((a, b) => a - b)) {
+    const arr = byQ[qNum];
+    if (!Array.isArray(arr) || !arr.length) continue;
+    const qEndMs = gameTimeMsAtEndOfQuarter(m, qNum);
+    arr.forEach((entry, i) => {
+      const endMs = i + 1 < arr.length ? arr[i + 1].sinceMs : qEndMs;
+      totals[entry.id] = (totals[entry.id] || 0) + Math.max(0, endMs - entry.sinceMs);
+    });
+  }
+  return totals;
+}
 function calcMinutesPerQuarter(m) {
   const qNums = [...new Set((m.quarters || []).map(q => q.num))].sort((a, b) => a - b);
   if (qNums.length < 2) return null;
@@ -979,7 +998,9 @@ function evtLabelPlain(e, m) {
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
-    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} ↔ ${pName(m,e.pB)}`;
+    // <-> i.p.v. ↔: jsPDF's standaardfonts (WinAnsiEncoding) missen dit Unicode-teken,
+    // waardoor deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
+    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} <-> ${pName(m,e.pB)}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
