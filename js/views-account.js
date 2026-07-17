@@ -31,10 +31,9 @@ function renderBeheer() {
 
   // Systeembreed: beheerder worden (ploegen mogen aanmaken) + eigenaarstools. Enkel getoond
   // in de 'system'-context (vanaf het ploegkeuzescherm).
-  const requestAdminBlock = (_beheerContext !== 'system' || viewerMode) ? '' : (
-    (ownerUid && !isApprovedAdmin && localStorage.getItem('voetbal_adminRequested') === '1')
-      ? `<div class="sec">Beheerder worden</div><div class="nudge" style="margin-bottom:16px">${icI(IC.hourglass)} <b>Aanvraag ingediend</b> — Je hoort het zodra de maker je goedkeurt. Daarna kan je een eigen ploeg aanmaken.</div>`
-      : (!isApprovedAdmin ? `<div class="sec">Beheerder worden</div><div class="card"><button class="btn btn-org" onclick="showRequestAdminModal()">${icI(IC.plus)} Beheerder worden &amp; ploeg aanmaken</button><p style="font-size:12px;color:var(--txt2);margin-top:8px">Vraag toestemming aan de maker om zelf ploegen te mogen aanmaken.</p></div>` : ''));
+  // Fase 2e: de oude "Beheerder worden"-aanvraag is uitgefaseerd. Ploegen aanmaken verloopt nu
+  // uitsluitend via een club (de clubbeheerder maakt ze aan; de app-eigenaar stelt clubbeheerders aan).
+  const requestAdminBlock = '';
   const ownerToolsBlock = (_beheerContext === 'system' && isOwner && !viewerMode) ? `
     <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
     <div class="card">
@@ -1077,7 +1076,7 @@ function renderTeamSelect() {
   };
   let teamRows;
   if (!teamIds.length) {
-    teamRows = `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Maak er een aan of voer een uitnodigingscode in.</p></div>`;
+    teamRows = `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Vervoeg een ploeg via een uitnodigingscode.</p></div>`;
   } else if (grouped) {
     const buckets = {}; const order = [];
     teamIds.forEach(id => { const cn = teamClubNames[id] || 'Overige ploegen'; if (!(cn in buckets)) { buckets[cn] = []; order.push(cn); } buckets[cn].push(id); });
@@ -1127,15 +1126,7 @@ function renderTeamSelect() {
       <button class="btn btn-org" onclick="go('clubbeheer')">${icI(IC.players)} Mijn club beheren</button>` : ''}
       <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
       <div>
-        ${!viewerMode && isApprovedAdmin
-          ? `<button class="btn btn-org" onclick="showCreateTeamModal()">${icI(IC.plus)} Nieuwe ploeg aanmaken</button>`
-          : ''}
-        <button class="btn btn-gray" style="margin-top:10px" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
-        ${(cloudReady && currentUser && !isGuest && !viewerMode && !isApprovedAdmin)
-          ? (localStorage.getItem('voetbal_adminRequested') === '1'
-            ? `<div class="nudge" style="margin-top:10px">${icI(IC.hourglass)} <b>Aanvraag ingediend</b> — je hoort het zodra de maker je goedkeurt. Daarna kan je hier een eigen ploeg aanmaken.</div>`
-            : `<p style="font-size:12px;color:var(--txt2);margin-top:10px;margin-bottom:0">Wil je zelf een <b>eigen ploeg aanmaken</b>? Tik op het groene <b>Beheer</b>-knopje hierboven om het aan te vragen.</p>`)
-          : ''}
+        <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
         <div style="display:flex;gap:8px;margin-top:20px">
           <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
           <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
