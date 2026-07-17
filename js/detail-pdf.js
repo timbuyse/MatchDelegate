@@ -521,6 +521,7 @@ async function init() {
 }
 views.beheer = renderBeheer;
 views.clubbeheer = renderClubBeheer;
+views.clubsadmin = renderClubsAdmin;
 views.allusers = renderAllUsers;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;

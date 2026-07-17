@@ -38,7 +38,8 @@ function renderBeheer() {
   const ownerToolsBlock = (_beheerContext === 'system' && isOwner && !viewerMode) ? `
     <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
     <div class="card">
-      <button class="btn btn-dark" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
+      <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs beheren</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
       <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
@@ -116,6 +117,131 @@ async function openTeamFromClub(tid) {
   _beheerFrom = 'clubbeheer'; _beheerContext = 'team';
   await selectTeam(tid);
   go('beheer');
+}
+
+// ===================== CLUBS BEHEREN (eigenaar, fase 3) =====================
+// Owner-scherm: clubs aanmaken, hernoemen en een clubbeheerder aanstellen. Vervangt het
+// migratiescript-trucje. Aanstellen zet clubs/{id}/admins/{uid}=true én de omgekeerde index
+// users/{uid}/clubs/{id}='admin' (die de app in loadOwnerStatus als myClubs leest).
+let _clubsAdminUsers = null; // cache van bekende gebruikers (uit memberInfo) voor de aanstel-picker
+function renderClubsAdmin() {
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Clubs beheren</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  setTimeout(loadClubsAdminView, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Clubs beheren</h1></div>
+  <div class="content" id="clubsadmin-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+async function loadClubsAdminView() {
+  const el = document.getElementById('clubsadmin-content');
+  if (!el || !isOwner || !fbdb) return;
+  try {
+    const clubsVal = (await fbOnce(fbdb.ref('clubs'))).val() || {};
+    const clubIds = Object.keys(clubsVal);
+    // Bekende gebruikers verzamelen uit memberInfo (owner-leesbaar) voor de aanstel-picker.
+    if (!_clubsAdminUsers) {
+      const miVal = (await fbOnce(fbdb.ref('memberInfo'))).val() || {};
+      const map = {};
+      Object.values(miVal).forEach(team => Object.entries(team || {}).forEach(([uid, info]) => { if (!map[uid]) map[uid] = { uid, name: (info && info.name) || '', email: (info && info.email) || '' }; }));
+      _clubsAdminUsers = Object.values(map).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'nl'));
+    }
+    const userName = uid => { const u = _clubsAdminUsers.find(x => x.uid === uid); return u ? (u.name || u.email || uid) : uid; };
+    const clubsHtml = clubIds.length ? clubIds.map(cid => {
+      const c = clubsVal[cid] || {};
+      const nm = (c.info && c.info.name) || '(naamloze club)';
+      const nTeams = Object.keys(c.teams || {}).length;
+      const admins = Object.keys(c.admins || {});
+      const adminHtml = admins.length
+        ? admins.map(uid => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(userName(uid))}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${cid}','${uid}')">Verwijderen</button></div>`).join('')
+        : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen clubbeheerder.</p>';
+      return `<div class="card" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="flex:1;font-weight:800;font-size:16px">${esc(nm)}</span>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="renameClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.edit)} Hernoemen</button>
+        </div>
+        <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Clubbeheerders</div>
+        ${adminHtml}
+        <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
+      </div>`;
+    }).join('') : '<p style="color:var(--txt2);font-size:14px">Nog geen clubs.</p>';
+    el.innerHTML = `
+      <button class="btn btn-green" onclick="showCreateClubModal()">${icI(IC.plus)} Nieuwe club aanmaken</button>
+      <div class="sec" style="margin-top:16px">Clubs</div>
+      ${clubsHtml}`;
+  } catch (e) {
+    el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de clubs niet laden. Probeer opnieuw.</p></div>';
+  }
+}
+function showCreateClubModal() {
+  openModal(`<h3>${icI(IC.plus)} Nieuwe club</h3>
+    <div class="fg"><label>Naam van de club</label><input id="new-club-name" type="text" placeholder="bv. KFC Voorbeeld" autofocus></div>
+    <div class="auth-err" id="cc-err"></div>
+    <button class="btn btn-green" id="cc-btn" onclick="doCreateClub()">Aanmaken</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doCreateClub() {
+  if (!isOwner || !fbdb || !currentUser) return;
+  const name = ((document.getElementById('new-club-name') || {}).value || '').trim();
+  const err = document.getElementById('cc-err');
+  if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cid = fbdb.ref('clubs').push().key;
+    await fbdb.ref('clubs/' + cid).set({ info: { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() }, admins: {}, teams: {} });
+    closeModal(); loadClubsAdminView();
+  } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; }
+}
+function renameClub(cid, current) {
+  openModal(`<h3>${icI(IC.edit)} Club hernoemen</h3>
+    <div class="fg"><label>Naam van de club</label><input id="rename-club-name" type="text" value="${esc(current)}" autofocus></div>
+    <div class="auth-err" id="rc-err"></div>
+    <button class="btn btn-green" onclick="doRenameClub('${cid}')">Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doRenameClub(cid) {
+  if (!isOwner || !fbdb) return;
+  const name = ((document.getElementById('rename-club-name') || {}).value || '').trim();
+  const err = document.getElementById('rc-err');
+  if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    await fbdb.ref('clubs/' + cid + '/info/name').set(name);
+    // Gedenormaliseerde clubName op alle ploegen van de club bijwerken (fase 2f).
+    const teamIds = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {});
+    for (const tid of teamIds) { try { await fbdb.ref('teams/' + tid + '/info/clubName').set(name); } catch (e) {} }
+    closeModal(); loadClubsAdminView();
+  } catch (e) { if (err) err.textContent = 'Hernoemen mislukt. Probeer opnieuw.'; }
+}
+function showAppointClubAdmin(cid) {
+  const users = _clubsAdminUsers || [];
+  const opts = users.map(u => `<option value="${esc(u.uid)}">${esc(u.name || u.email || u.uid)}${u.email ? ' · ' + esc(u.email) : ''}</option>`).join('');
+  openModal(`<h3>${icI(IC.shield)} Clubbeheerder aanstellen</h3>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Kies een gebruiker die al minstens één keer heeft ingelogd of een ploeg vervoegd heeft (zo kennen we de persoon).</p>
+    <div class="fg"><label>Gebruiker</label><select id="appoint-uid">${opts || '<option value="">(geen bekende gebruikers)</option>'}</select></div>
+    <div class="auth-err" id="ap-err"></div>
+    <button class="btn btn-green" onclick="doAppointClubAdmin('${cid}')">Aanstellen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doAppointClubAdmin(cid) {
+  if (!isOwner || !fbdb) return;
+  const uid = ((document.getElementById('appoint-uid') || {}).value || '').trim();
+  const err = document.getElementById('ap-err');
+  if (!uid) { if (err) err.textContent = 'Kies een gebruiker.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    await fbdb.ref('clubs/' + cid + '/admins/' + uid).set(true);
+    await fbdb.ref('users/' + uid + '/clubs/' + cid).set('admin');
+    closeModal(); loadClubsAdminView();
+  } catch (e) { if (err) err.textContent = 'Aanstellen mislukt. Zijn de rules gepubliceerd?'; }
+}
+function removeClubAdmin(cid, uid) {
+  if (!isOwner || !fbdb) return;
+  showConfirm('Deze clubbeheerder verwijderen?', async () => {
+    try {
+      await fbdb.ref('clubs/' + cid + '/admins/' + uid).remove();
+      try { await fbdb.ref('users/' + uid + '/clubs/' + cid).remove(); } catch (e) {}
+      loadClubsAdminView();
+    } catch (e) { showToast('Verwijderen mislukt.', 'err'); }
+  }, 'Verwijderen');
 }
 // ===================== ALLE GEBRUIKERS (view) =====================
 // Systeembreed overzicht van alle gebruikers per ploeg, voor de eigenaar. Vervangt de
@@ -1416,7 +1542,7 @@ async function go(v, id, _histReplace) {
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
   if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
-  if ((v === 'beheer' || v === 'clubbeheer') && !currentUser) v = 'auth';
+  if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);

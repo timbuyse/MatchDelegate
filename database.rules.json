@@ -55,7 +55,12 @@
     "users": {
       "$userId": {
         ".read":  "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)",
-        ".write": "auth != null && auth.uid === $userId"
+        ".write": "auth != null && auth.uid === $userId",
+        "clubs": {
+          // Clubmodel (fase 3): de gebruiker beheert zijn eigen club-index, en de app-eigenaar mag
+          // ze ook schrijven om iemand als clubbeheerder aan te stellen (omgekeerde index).
+          ".write": "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)"
+        }
       }
     },
 
