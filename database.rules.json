@@ -159,6 +159,22 @@
       }
     },
 
+    "clubs": {
+      // FASE 1 (clubmodel-fundament). Een club groepeert meerdere ploegen. Voorlopig schrijft
+      // ENKEL de app-eigenaar (die maakt clubs aan en stelt clubbeheerders aan). Clubbeheerders
+      // mogen hun eigen club al lezen; hun schrijfrechten (ploegen beheren binnen de club) komen
+      // in fase 2 met fijnmazige sub-rules zodat een clubbeheerder niet zijn eigen admins-lijst
+      // kan bewerken.
+      // Eigenaar leest alle clubs voor het globaal overzicht.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      "$clubId": {
+        // Lezen: clubbeheerder van deze club, of de eigenaar.
+        ".read":  "auth != null && (root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists() || root.child('owner').val() === auth.uid)",
+        // Schrijven: enkel de eigenaar (fase 1).
+        ".write": "auth != null && root.child('owner').val() === auth.uid"
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false
