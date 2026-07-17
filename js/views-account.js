@@ -1020,6 +1020,8 @@ function renderTeamSelect() {
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
       ${teamRows}
+      ${Object.keys(myClubs || {}).length ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
+      <button class="btn btn-org" onclick="go('clubbeheer')">${icI(IC.players)} Mijn club beheren</button>` : ''}
       <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
       <div>
         ${!viewerMode && isApprovedAdmin
