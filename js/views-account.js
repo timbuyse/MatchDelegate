@@ -102,7 +102,13 @@ async function loadClubBeheerView() {
       ${clubSelector}
       <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
       <div class="card">
-        ${rows.length ? rows.map(t => `<div class="stat-row"><span style="flex:1;font-weight:600">${esc(t.name)}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button></div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
+        ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
+          <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button>
+            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
+          </div>
+        </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
       ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten (binnen club)</button>` : ''}
@@ -120,6 +126,29 @@ async function openTeamFromClub(tid) {
   // (selectTeam bevestigt dit ook async via isClubAdmin → isAdmin).
   if (_clubBeheerId && myClubs && myClubs[_clubBeheerId]) isAdmin = true;
   go('beheer');
+}
+// Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
+// als co-beheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn
+// rolgebaseerde clubtoegang blijft hoe dan ook bestaan. Enkel zijn eigen lidmaatschap (self-write).
+async function toggleClubTeamMembership(tid) {
+  if (!fbdb || !currentUser) return;
+  const uid = currentUser.uid;
+  try {
+    if (userTeams[tid]) {
+      await fbdb.ref('teams/' + tid + '/members/' + uid).remove();
+      await fbdb.ref('users/' + uid + '/teams/' + tid).remove();
+      try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
+      delete userTeams[tid];
+      showToast('Uit jouw ploegen gehaald.', 'ok');
+    } else {
+      await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
+      await fbdb.ref('users/' + uid + '/teams/' + tid).set('admin');
+      writeMemberInfo(tid, 'admin');
+      userTeams[tid] = 'admin';
+      showToast('Toegevoegd aan jouw ploegen.', 'ok');
+    }
+    loadClubBeheerView();
+  } catch (e) { showToast('Wijzigen mislukt, probeer opnieuw.', 'err'); }
 }
 
 // ===================== CLUBS BEHEREN (eigenaar, fase 3) =====================
@@ -519,7 +548,8 @@ function genInviteToken() {
   return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 // ---- Ploeg aanmaken ----
-async function createTeam(name, clubId) {
+async function createTeam(name, clubId, joinAsMember) {
+  if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt co-beheerder (lid)
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
   const teamId = fbdb.ref('teams').push().key;
@@ -535,19 +565,25 @@ async function createTeam(name, clubId) {
   }
   await fbdb.ref('teams/' + teamId).set({
     info,
-    members: { [uid]: 'admin' },
+    // Hybride (fase 2d): de clubbeheerder kan kiezen om de ploeg zelf mee te beheren (als lid) of
+    // niet (puur via zijn clubrol). Bij niet-lid blijft members leeg tot een trainer aangesteld wordt.
+    members: joinAsMember ? { [uid]: 'admin' } : {},
     club: { name, logo: '', theme: null },
     roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], fromCloud: true } }
   });
-  // Registreer de ploeg in de club-index. Best-effort: onder de huidige rules mag de eigenaar
-  // dit altijd; voor een niet-eigenaar clubbeheerder komt het schrijfrecht op clubs/{id}/teams
-  // pas in fase 2d — daarom in een try zodat de ploeg-aanmaak zelf nooit faalt.
+  // Registreer de ploeg in de club-index.
   if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + teamId).set(true); } catch (e) {} }
   // Sla uitnodigingstoken ook op als directe lookup (geen query nodig bij vervoegen)
   await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
-  await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
-  userTeams[teamId] = 'admin';
-  await selectTeam(teamId);
+  if (joinAsMember) {
+    await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
+    userTeams[teamId] = 'admin';
+    await selectTeam(teamId);
+  } else {
+    // Clubbeheerder beheert de ploeg via zijn clubrol, niet als lid → terug naar het cluboverzicht,
+    // waar de nieuwe ploeg nu verschijnt.
+    go('clubbeheer');
+  }
 }
 
 // ---- Ploeg vervoegen via uitnodigingscode ----
@@ -1088,8 +1124,12 @@ function showCreateTeamModal(clubId) {
   // Uitzondering: een clubbeheerder mag altijd een ploeg aanmaken binnen zijn eigen club.
   if (ownerUid && !isApprovedAdmin && !(clubId && myClubs[clubId])) { showRequestAdminModal(); return; }
   _pendingCreateClubId = clubId || null;
+  // In clubcontext: laat de clubbeheerder kiezen of hij deze ploeg zelf mee beheert (als lid) of
+  // enkel via zijn clubrol. Standaard aangevinkt, want in de praktijk beheert hij ze vaak zelf.
+  const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join" checked style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
+    ${joinRow}
     <div class="auth-err" id="ct-err"></div>
     <button class="btn btn-org" id="ct-btn" onclick="doCreateTeam()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -1102,8 +1142,10 @@ async function doCreateTeam() {
   if (!name.trim()) { if (err) err.textContent = 'Geef een naam in.'; return; }
   if (err) err.textContent = 'Bezig...';
   if (btn) btn.disabled = true;
+  const joinChk = document.getElementById('ct-join');
+  const joinAsMember = joinChk ? joinChk.checked : true;
   try {
-    await createTeam(name, _pendingCreateClubId);
+    await createTeam(name, _pendingCreateClubId, joinAsMember);
     _pendingCreateClubId = null;
     closeModal();
   } catch (e) {
