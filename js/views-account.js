@@ -179,23 +179,43 @@ async function loadClubsAdminView() {
     Object.values(miVal).forEach(team => Object.entries(team || {}).forEach(([uid, info]) => { if (!userMap[uid]) userMap[uid] = { name: (info && info.name) || '', email: (info && info.email) || '' }; }));
     Object.entries(ubeVal).forEach(([uid, info]) => { userMap[uid] = { name: (info && info.name) || (userMap[uid] && userMap[uid].name) || '', email: (info && info.email) || (userMap[uid] && userMap[uid].email) || '' }; });
     const userName = uid => { const u = userMap[uid]; return u ? (u.name || u.email || uid) : uid; };
+    // Ploegnamen van alle clubploegen ophalen (voor de per-ploeg aanstel-knoppen). Verwijderde
+    // ploegen (naam niet gevonden) laten we weg — die tellen ook niet mee voor "leeg" bij verwijderen.
+    const allTeamIds = [];
+    clubIds.forEach(cid => Object.keys((clubsVal[cid] || {}).teams || {}).forEach(t => allTeamIds.push(t)));
+    const teamNameMap = {};
+    await Promise.all([...new Set(allTeamIds)].map(async t => {
+      try { const s = await fbOnce(fbdb.ref('teams/' + t + '/info/name')); teamNameMap[t] = s.exists() ? (s.val() || t) : null; }
+      catch (e) { teamNameMap[t] = t; }
+    }));
+    const secMini = 'font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px';
     const clubsHtml = clubIds.length ? clubIds.map(cid => {
       const c = clubsVal[cid] || {};
       const nm = (c.info && c.info.name) || '(naamloze club)';
-      const nTeams = Object.keys(c.teams || {}).length;
+      const teamIds = Object.keys(c.teams || {}).filter(t => teamNameMap[t] !== null);
+      const nTeams = teamIds.length;
       const admins = Object.keys(c.admins || {});
       const adminHtml = admins.length
         ? admins.map(uid => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(userName(uid))}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${cid}','${uid}')">Verwijderen</button></div>`).join('')
         : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen clubbeheerder.</p>';
+      const teamsHtml = teamIds.length
+        ? teamIds.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(teamNameMap[t] || t)}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="showAppointTeamAdmin('${t}',&quot;${esc(teamNameMap[t] || '').replace(/"/g, '&quot;')}&quot;)">${icI(IC.plus)} Ploegbeheerder</button></div>`).join('')
+        : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen ploegen.</p>';
+      const deleteBtn = nTeams === 0
+        ? `<button style="margin-top:12px;background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px" onclick="deleteClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.trash)} Club verwijderen</button>`
+        : `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Een club kan enkel verwijderd worden als er geen ploegen meer in zitten.</p>`;
       return `<div class="card" style="margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="flex:1;font-weight:800;font-size:16px">${esc(nm)}</span>
           <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="renameClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.edit)} Hernoemen</button>
         </div>
         <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'}</div>
-        <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Clubbeheerders</div>
+        <div style="${secMini}">Clubbeheerders</div>
         ${adminHtml}
         <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
+        <div style="${secMini};margin-top:12px">Ploegen</div>
+        ${teamsHtml}
+        ${deleteBtn}
       </div>`;
     }).join('') : '<p style="color:var(--txt2);font-size:14px">Nog geen clubs.</p>';
     el.innerHTML = `
@@ -279,6 +299,50 @@ function removeClubAdmin(cid, uid) {
       loadClubsAdminView();
     } catch (e) { showToast('Verwijderen mislukt.', 'err'); }
   }, 'Verwijderen');
+}
+// Club verwijderen (enkel app-eigenaar, enkel een LEGE club). Kuist ook de omgekeerde index van
+// elke clubbeheerder op (users/{uid}/clubs/{cid}).
+function deleteClub(cid, naam) {
+  if (!isOwner || !fbdb) return;
+  showConfirm('Club "' + naam + '" verwijderen? Dit kan enkel als er geen ploegen meer in zitten.', async () => {
+    try {
+      const c = (await fbOnce(fbdb.ref('clubs/' + cid))).val() || {};
+      const teamCount = Object.keys(c.teams || {}).length;
+      if (teamCount > 0) { showToast('Deze club bevat nog ploegen. Verwijder of verplaats die eerst.', 'err'); return; }
+      const admins = Object.keys(c.admins || {});
+      for (const uid of admins) { try { await fbdb.ref('users/' + uid + '/clubs/' + cid).remove(); } catch (e) {} }
+      await fbdb.ref('clubs/' + cid).remove();
+      showToast('Club verwijderd.', 'ok');
+      loadClubsAdminView();
+    } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
+  }, 'Verwijderen');
+}
+// Ploegbeheerder rechtstreeks aanstellen op e-mailadres (enkel app-eigenaar). Zet de persoon als
+// co-beheerder (lid) van de ploeg + de omgekeerde index, zodat de ploeg meteen bij hem verschijnt.
+function showAppointTeamAdmin(tid, teamNaam) {
+  openModal(`<h3>${icI(IC.shield)} Ploegbeheerder aanstellen</h3>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Voor <b>${esc(teamNaam || 'deze ploeg')}</b>. Vul het e-mailadres in van de persoon; die moet zich al minstens één keer aangemeld hebben in Match Delegate.</p>
+    <div class="fg"><label>E-mailadres</label><input id="appoint-team-email" type="email" placeholder="naam@voorbeeld.be" autocomplete="off" autofocus></div>
+    <div class="auth-err" id="apt-err"></div>
+    <button class="btn btn-green" onclick="doAppointTeamAdmin('${tid}')">Aanstellen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doAppointTeamAdmin(tid) {
+  if (!isOwner || !fbdb) return;
+  const email = ((document.getElementById('appoint-team-email') || {}).value || '').trim().toLowerCase();
+  const err = document.getElementById('apt-err');
+  if (!email) { if (err) err.textContent = 'Vul een e-mailadres in.'; return; }
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const idx = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
+    const uid = Object.keys(idx).find(u => ((idx[u] && idx[u].email) || '').toLowerCase() === email);
+    if (!uid) { if (err) err.textContent = 'Geen account met dat e-mailadres gevonden. Vraag de persoon eerst één keer in te loggen.'; return; }
+    await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
+    await fbdb.ref('users/' + uid + '/teams/' + tid).set('admin');
+    closeModal();
+    showToast('Ploegbeheerder aangesteld.', 'ok');
+    loadClubsAdminView();
+  } catch (e) { if (err) err.textContent = 'Aanstellen mislukt. Zijn de rules gepubliceerd?'; }
 }
 // ===================== ALLE GEBRUIKERS (view) =====================
 // Systeembreed overzicht van alle gebruikers per ploeg, voor de eigenaar. Vervangt de

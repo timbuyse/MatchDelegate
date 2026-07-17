@@ -61,6 +61,11 @@
           // Clubmodel (fase 3): de gebruiker beheert zijn eigen club-index, en de app-eigenaar mag
           // ze ook schrijven om iemand als clubbeheerder aan te stellen (omgekeerde index).
           ".write": "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)"
+        },
+        "teams": {
+          // De app-eigenaar mag de omgekeerde ploeg-index van een gebruiker schrijven om rechtstreeks
+          // een ploegbeheerder aan te stellen (fase 2d). De gebruiker zelf schrijft ze sowieso al.
+          ".write": "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)"
         }
       }
     },
