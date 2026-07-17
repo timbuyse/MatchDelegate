@@ -116,6 +116,9 @@ async function openTeamFromClub(tid) {
   // De terugknop daar keert terug naar dit clubbeheer-scherm.
   _beheerFrom = 'clubbeheer'; _beheerContext = 'team';
   await selectTeam(tid);
+  // Optimistisch: we komen uit het clubbeheer van deze club, dus toon meteen de beheercontroles
+  // (selectTeam bevestigt dit ook async via isClubAdmin → isAdmin).
+  if (_clubBeheerId && myClubs && myClubs[_clubBeheerId]) isAdmin = true;
   go('beheer');
 }
 

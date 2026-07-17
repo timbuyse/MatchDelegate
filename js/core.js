@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.7'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -899,9 +899,13 @@ async function selectTeam(teamId) {
     activeClubName = info.clubName || '';
     if (activeClubName) teamClubNames[teamId] = activeClubName;
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
+    // Clubbeheerder beheert de ploegen van zijn club (fase 2d): behandel hem als beheerder van
+    // deze ploeg, ook al is hij geen ploeglid. Verandert isAdmin → altijd herrenderen.
+    const wasAdmin = isAdmin;
+    if (isClubAdmin) isAdmin = true;
     const changed = info.name && teamNames[teamId] !== info.name;
     if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
-    if ((changed || activeClubName) && (view === 'home' || view === 'matches')) render();
+    if (isAdmin !== wasAdmin || ((changed || activeClubName) && (view === 'home' || view === 'matches'))) render();
   }).catch(() => {});
   go('home');
 }
