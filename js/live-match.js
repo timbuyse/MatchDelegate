@@ -159,10 +159,11 @@ async function startQuarter() {
   for (const s of (match.pendingPosSwaps || [])) {
     const pA = match.players.find(p => p.id === s.pA), pB = match.players.find(p => p.id === s.pB);
     if (!pA || !pB) continue;
-    addEvent('posSwap', { pA: s.pA, pB: s.pB, atBreak: true });
-    const tmp = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
-    pA.x = pB.x; pA.y = pB.y; pA.line = pB.line; pA.posNum = pB.posNum;
-    pB.x = tmp.x; pB.y = tmp.y; pB.line = tmp.line; pB.posNum = tmp.posNum;
+    const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+    const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
+    addEvent('posSwap', { pA: s.pA, pB: s.pB, atBreak: true, posA, posB });
+    pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
+    pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
   }
   match.pendingPosSwaps = [];
   // Keeper voor dit deel = automatisch de speler op de doellijn.
@@ -778,11 +779,20 @@ function revertSubstitutionPositions(m, e) {
   const pIn = m.players.find(p => p.id === e.playerInId);
   if (pIn) { pIn.x = undefined; pIn.y = undefined; pIn.line = undefined; pIn.posNum = undefined; }
 }
+// Bij een posSwap wisselen beide spelers van positie. Bij het ongedaan maken/verwijderen
+// van dat event moet dit teruggedraaid worden — analoog aan revertSubstitutionPositions.
+function revertPosSwapPositions(m, e) {
+  if (!e || e.type !== 'posSwap' || !e.pA || !e.pB || !e.posA || !e.posB) return;
+  const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
+  if (pA) { pA.x = e.posA.x; pA.y = e.posA.y; pA.line = e.posA.line; pA.posNum = e.posA.posNum; }
+  if (pB) { pB.x = e.posB.x; pB.y = e.posB.y; pB.line = e.posB.line; pB.posNum = e.posB.posNum; }
+}
 async function doDeleteEvent(id) {
   const removed = match.events.find(e => e.id === id);
   tombstoneEvent(match, id);
   match.events = match.events.filter(e => e.id !== id);
   revertSubstitutionPositions(match, removed);
+  revertPosSwapPositions(match, removed);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); closeModal(); render();
 }
@@ -909,6 +919,7 @@ async function undoLast() {
   tombstoneEvent(match, removed.id);
   match.events.splice(idx, 1);
   revertSubstitutionPositions(match, removed);
+  revertPosSwapPositions(match, removed);
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
@@ -1139,13 +1150,16 @@ async function confirmPosSwap() {
     await dbSave(match); closeModal(); render();
     return;
   }
-  addEvent('posSwap', { pA: posSwapA, pB: posSwapB });
   const pA = match.players.find(p => p.id === posSwapA), pB = match.players.find(p => p.id === posSwapB);
-  if (pA && pB) {
-    const tmp = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
-    pA.x = pB.x; pA.y = pB.y; pA.line = pB.line; pA.posNum = pB.posNum;
-    pB.x = tmp.x; pB.y = tmp.y; pB.line = tmp.line; pB.posNum = tmp.posNum;
-  }
+  if (!pA || !pB) { closeModal(); return; }
+  // Snapshot vóór de mutatie meegeven aan het event: dit is het stabiele anker waarop
+  // playersAtPeriodStart() zich baseert bij het reconstrueren van vroegere kwarten, ook
+  // nadat een van beide spelers via een later event alweer van positie veranderd is.
+  const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+  const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
+  addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA, posB });
+  pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
+  pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
   await dbSave(match); closeModal(); render();
 }
 async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); }

@@ -415,8 +415,13 @@ function playersAtPeriodStart(m, qNum) {
     } else if (e.type === 'posSwap' && e.pA && e.pB) {
       const prev = { a: posOverride[e.pA] || null, b: posOverride[e.pB] || null };
       const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
-      const posA = prev.a || (pA ? { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum } : null);
-      const posB = prev.b || (pB ? { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum } : null);
+      // Fallback-volgorde: 1) eerdere override binnen deze reconstructie, 2) de op het event
+      // bewaarde snapshot (stabiel, verandert nooit meer na latere events — vergelijkbaar met
+      // hoe de substitution-tak hierboven de positie van de UITGAANDE speler gebruikt), 3)
+      // m.players als laatste redmiddel voor oudere posSwap-events van vóór deze fix (geen
+      // snapshot) — kan in dat geval nog steeds de oude bug vertonen voor die matches.
+      const posA = prev.a || e.posA || (pA ? { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum } : null);
+      const posB = prev.b || e.posB || (pB ? { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum } : null);
       if (posA) posOverride[e.pB] = posA;
       if (posB) posOverride[e.pA] = posB;
     }
