@@ -32,6 +32,16 @@
             // beheerder OF de clubbeheerder van de club mag de rol van elk lid aanpassen (promote/demote).
             ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer') || ($memberId === auth.uid && !newData.exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
           }
+        },
+
+        "info": {
+          "clubId": {
+            // De clubId van een ploeg ligt vast na aanmaken (fase 2d hardening): enkel de eigenaar
+            // mag ze wijzigen (= een ploeg naar een andere club verplaatsen). Een ploegbeheerder
+            // kan zo het clubtoezicht niet afschudden of een ploeg in een vreemde club planten;
+            // bij aanmaken moet de maker clubbeheerder zijn van de opgegeven club.
+            ".validate": "root.child('owner').val() === auth.uid || (data.exists() && newData.val() === data.val()) || (!data.exists() && root.child('clubs/' + newData.val() + '/admins/' + auth.uid).exists())"
+          }
         }
       }
     },
@@ -112,7 +122,7 @@
         // dan gecontroleerd, nooit B's). Verwijderen (bv. bij regenereren van de code): de
         // oorspronkelijke maker OF elke huidige teamadmin van die ploeg — niet enkel wie
         // het token ooit zelf aanmaakte.
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin' && (!data.exists() || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')) || (!newData.exists() && (data.child('createdBy').val() === auth.uid || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')) || (newData.exists() && root.child('clubs/' + root.child('teams/' + newData.child('teamId').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists()) || (!newData.exists() && root.child('clubs/' + root.child('teams/' + data.child('teamId').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists()))"
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && root.child('teams/' + newData.child('teamId').val() + '/members/' + auth.uid).val() === 'admin' && (!data.exists() || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')) || (!newData.exists() && (data.child('createdBy').val() === auth.uid || root.child('teams/' + data.child('teamId').val() + '/members/' + auth.uid).val() === 'admin')) || (newData.exists() && root.child('clubs/' + root.child('teams/' + newData.child('teamId').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists() && (!data.exists() || root.child('clubs/' + root.child('teams/' + data.child('teamId').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || (!newData.exists() && root.child('clubs/' + root.child('teams/' + data.child('teamId').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists()))"
       }
     },
 

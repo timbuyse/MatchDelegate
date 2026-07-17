@@ -1157,15 +1157,13 @@ function renderTeamSelect() {
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
       ${teamRows}
+      <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
+      <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
       ${Object.keys(myClubs || {}).length ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
       <button class="btn btn-org" onclick="go('clubbeheer')">${icI(IC.players)} Mijn club beheren</button>` : ''}
-      <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
-      <div>
-        <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
-        <div style="display:flex;gap:8px;margin-top:20px">
-          <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
-          <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
-        </div>
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
+        <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
       </div>
     </div>
   </div>`;

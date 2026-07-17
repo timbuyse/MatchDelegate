@@ -607,7 +607,7 @@ async function shareReport() {
     const next = all.filter(x => x.teamName === m.teamName && x.status === 'planned' && (x.date || '') >= today).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
     if (next) lines.push('', `📅 Volgende: ${tName(next)} vs ${next.opponent} — ${matchWhen(next)}${next.location ? ' · ' + next.location : ''}`);
   } catch (e) {}
-  lines.push('', `— ${getClubName()}`);
+  lines.push('', `— ${activeClubName || getClubName()}`);
   const text = lines.join('\n');
   if (navigator.share) { try { await navigator.share({ title: `${tName(m)} vs ${m.opponent}`, text }); } catch (e) {} }
   else { try { await navigator.clipboard.writeText(text); showToast('Verslag gekopieerd naar klembord', 'ok'); } catch (e) { showToast(text, ''); } }
@@ -651,6 +651,7 @@ function exportMatchCSV() {
 
   // WEDSTRIJDINFO
   row('WEDSTRIJDINFO');
+  row('Club', activeClubName || getClubName() || '');
   row('Ploeg', team);
   row('Ploeg-label', m.subteam || '');
   row('Tegenstander', opp);

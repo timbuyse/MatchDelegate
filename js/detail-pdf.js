@@ -449,7 +449,7 @@ async function exportPDF() {
   }
 
   doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-  doc.text(`Match Delegate · ${getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
+  doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.
