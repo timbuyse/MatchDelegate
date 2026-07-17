@@ -1532,7 +1532,8 @@ function matchItemHtml(m) {
   const border = st === 'live' ? 'live-border' : st === 'planned' ? 'plan-border' : '';
   const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
   const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>` : `<div class="mi-score">${scoreTxt(m)}</div>`;
-  const sdata = `${m.opponent||''} ${m.teamName||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
+  const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
+  const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {
     const qNum = m.quarters ? m.quarters.length : 0;
     const periodLabel = qNum > 0 ? `${pSingLow(m)} ${qNum}` : 'gestart';
@@ -1543,9 +1544,9 @@ function matchItemHtml(m) {
           <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live · ${periodLabel}</span>
         </div>
         <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
-          <span style="font-size:15px;font-weight:700">${esc(isAway(m)?m.opponent:tName(m))}</span>
+          <span style="font-size:15px;font-weight:700">${isAway(m)?esc(m.opponent):ownLabel}</span>
           <span style="font-size:24px;font-weight:800;letter-spacing:3px">${scoreHtml(m,'')}</span>
-          <span style="font-size:15px;font-weight:700">${esc(isAway(m)?tName(m):m.opponent)}</span>
+          <span style="font-size:15px;font-weight:700">${isAway(m)?ownLabel:esc(m.opponent)}</span>
         </div>
       </div>
     </div>`;
@@ -1553,7 +1554,7 @@ function matchItemHtml(m) {
   return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
-      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+'</b> · ':''}${matchWhen(m)}${st!=='planned'&&m.location?' · '+esc(m.location):''}</div>
+      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+(m.subteam?' ('+esc(m.subteam)+')':'')+'</b> · ':''}${matchWhen(m)}${st!=='planned'&&m.location?' · '+esc(m.location):''}</div>
       ${badge}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
     </div>${right}</div>`;
 }

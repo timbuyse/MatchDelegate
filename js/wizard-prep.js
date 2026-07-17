@@ -5,7 +5,7 @@ function startWizard() {
   const team = getTeamsV2()[0] || null;
   const teamTrainers = team ? (team.trainers || []).filter(t => t.name) : [];
   wiz = {
-    step: 1, teamId: (team || {}).id || '', opponent: '',
+    step: 1, teamId: (team || {}).id || '', opponent: '', subteam: '',
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: '8v8', periodKey: 'kwarten', quarterDuration: 15,
@@ -94,6 +94,7 @@ function wizStep1() {
   return `
     <div class="card">
       <div class="fg"><label>Eigen ploeg</label>${teamSel}</div>
+      <div class="fg"><label>Ploeg-label (optioneel)</label><input id="n-subteam" type="text" value="${esc(wiz.subteam||'')}" placeholder="bv. A of B — enkel invullen als je ploeg in meerdere delen speelt" autocomplete="off"></div>
       <div class="fg"><label>Tegenstander</label><input id="n-opp" type="text" placeholder="Naam ploeg..." autocomplete="off" value="${esc(wiz.opponent)}"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Datum</label><input id="n-date" type="date" value="${wiz.date}"></div>
@@ -149,6 +150,7 @@ function captureStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const ts = document.getElementById('n-team-sel'); if (ts) wiz.teamId = ts.value;
   wiz.opponent = (v('n-opp') || '').trim();
+  wiz.subteam = (v('n-subteam') || '').trim();
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
@@ -561,7 +563,7 @@ async function finishWizard(startNow) {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: form.name,
     competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, venue: wiz.venue,
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
-    opponent: wiz.opponent, date: wiz.date, time: wiz.time, location: wiz.location,
+    opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
     players: allP,
@@ -588,7 +590,7 @@ function editMatchWizard(m) {
   const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
   wiz = {
     step: 1, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
-    teamId: team ? team.id : '', opponent: m.opponent, date: m.date, time: m.time, location: m.location,
+    teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
@@ -610,7 +612,7 @@ function startSelectieWizard() {
   wiz = {
     step: 2, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
     teamId: team ? team.id : '', noGuests: true,
-    opponent: m.opponent, date: m.date, time: m.time, location: m.location,
+    opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     numQuarters: m.numQuarters,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '',
@@ -643,7 +645,7 @@ function renderPrep() {
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
-  const info = [['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
+  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
@@ -685,7 +687,7 @@ async function finishStep1Only() {
     competition: wiz.competition, matchday: wiz.matchday || '', referee: wiz.referee || '',
     jersey: wiz.jersey || '', venue: wiz.venue || '',
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
-    opponent: wiz.opponent, date: wiz.date, time: wiz.time, location: wiz.location,
+    opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
     periodKey: wiz.periodKey,
     numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count,

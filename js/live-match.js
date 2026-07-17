@@ -315,6 +315,7 @@ function modalEditMatchInfo() {
     </div>` : '';
   openModal(`<h3>${icI(IC.edit)} Wedstrijdinfo bewerken</h3>
     <input type="hidden" id="ei-loc" value="${esc(match.location||'')}">
+    <div class="fg"><label>Ploeg-label (optioneel)</label><input id="ei-subteam" type="text" value="${esc(match.subteam||'')}" placeholder="bv. A of B — enkel invullen als je ploeg in meerdere delen speelt" autocomplete="off"></div>
     <div class="fg"><label>Tegenstander</label><input id="ei-opp" type="text" value="${esc(match.opponent||'')}" placeholder="Naam ploeg" autocomplete="off"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Datum</label><input id="ei-date" type="date" value="${match.date||''}"></div>
@@ -361,6 +362,7 @@ function eiPeriodChange() {
 async function saveMatchInfo() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const opp = v('ei-opp').trim(); if (opp) match.opponent = opp;
+  match.subteam = v('ei-subteam').trim();
   match.date = v('ei-date') || match.date;
   match.time = v('ei-time');
   const loc = v('ei-loc'); if (loc) match.location = loc;
@@ -650,6 +652,7 @@ function exportMatchCSV() {
   // WEDSTRIJDINFO
   row('WEDSTRIJDINFO');
   row('Ploeg', team);
+  row('Ploeg-label', m.subteam || '');
   row('Tegenstander', opp);
   row('Datum', m.date || '');
   row('Tijdstip', m.time || '');

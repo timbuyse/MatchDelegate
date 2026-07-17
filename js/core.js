@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -135,7 +135,7 @@ const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
 function isAway(m) { return !!(m && m.location && m.location.toLowerCase() !== 'thuis'); }
 function matchTitle(m) {
-  const own = esc(tName(m)), opp = esc(m.opponent || '');
+  const own = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : ''), opp = esc(m.opponent || '');
   return isAway(m) ? `${opp} vs ${own}` : `${own} vs ${opp}`;
 }
 // Score in thuisploeg-eerst volgorde. cls = CSS-klasse voor eigen score (groen).
