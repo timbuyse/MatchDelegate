@@ -1,5 +1,5 @@
 // ===================== SEIZOENSSTATISTIEKEN =====================
-let statsFilter = 'all', seasonFilter = 'all';
+let statsFilter = 'all', seasonFilter = null;
 function setStatsFilter(v) { statsFilter = v; loadStats(); }
 function setSeasonFilter(v) { seasonFilter = v; loadStats(); }
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
@@ -19,14 +19,16 @@ async function loadStats() {
   // van een andere ploeg op dit toestel mee in de statistieken.
   if (cloudReady) statsFilter = teamNames[activeTeamId] || 'all';
   if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
-  if (seasonFilter !== 'all' && !seasons.includes(seasonFilter)) seasonFilter = 'all';
+  // Geen "alle seizoenen" meer: spelers uit oudere wedstrijden (zonder rosterId, gematcht op
+  // naam) en nieuwere wedstrijden (mét rosterId) kwamen anders dubbel in de lijst terecht, zie
+  // getp() hieronder. Standaard het meest recente seizoen met een wedstrijd.
+  if (!seasonFilter || !seasons.includes(seasonFilter)) seasonFilter = seasons[0] || null;
   // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
-  const list = all.filter(m => m.status === 'done' && !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter) && (seasonFilter === 'all' || seasonOf(m) === seasonFilter));
+  const list = all.filter(m => m.status === 'done' && !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter) && seasonOf(m) === seasonFilter);
   const filterBar = `${(!cloudReady && teams.length) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
     </select></div>` : ''}${seasons.length > 1 ? `<div class="filterbar"><select onchange="setSeasonFilter(this.value)">
-      <option value="all" ${seasonFilter==='all'?'selected':''}>Alle seizoenen</option>
       ${seasons.map(s => `<option value="${s}" ${seasonFilter===s?'selected':''}>Seizoen ${s}</option>`).join('')}
     </select></div>` : ''}`;
   if (!list.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen wedstrijden.</p></div>`; return; }
@@ -105,7 +107,7 @@ async function loadStats() {
 }
 
 // ===================== SPELERSDETAIL =====================
-let playerDetailName = null, playerDetailTeamName = null, playerDetailRosterId = null, playerDetailSeason = 'all', _playerDetailFrom = 'stats';
+let playerDetailName = null, playerDetailTeamName = null, playerDetailRosterId = null, playerDetailSeason = null, _playerDetailFrom = 'stats';
 function openPlayerDetail(name, teamName, rosterId) {
   name = (name || '').trim();
   if (!name) return;
@@ -132,16 +134,18 @@ async function loadPlayerDetail() {
   // Tornooiwedstrijden tellen niet mee bij gespeeld/doelpunten/etc. — die krijgen hieronder een apart "Tornooien"-kadertje.
   const allDone = all.filter(m => m.status === 'done' && !m.tournamentId && inTeam(m) && findPlayer(m));
   const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
-  if (!playerDetailSeason || (playerDetailSeason !== 'all' && !seasons.includes(playerDetailSeason))) {
-    playerDetailSeason = seasons[0] || 'all';
+  // Geen "alle seizoenen" meer, zie loadStats() hierboven voor de reden (dubbele spelers
+  // door rosterId- vs. naam-matching tussen oude en nieuwe wedstrijden). Standaard het
+  // meest recente seizoen waarin deze speler een wedstrijd speelde.
+  if (!playerDetailSeason || !seasons.includes(playerDetailSeason)) {
+    playerDetailSeason = seasons[0] || null;
   }
   const filterBar = allDone.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
-      <option value="all" ${playerDetailSeason==='all'?'selected':''}>Alle seizoenen</option>
       ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
     </select></div>` : '';
-  const doneList = allDone.filter(m => playerDetailSeason === 'all' || seasonOf(m) === playerDetailSeason);
+  const doneList = allDone.filter(m => seasonOf(m) === playerDetailSeason);
   doneList.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
-  if (!doneList.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason!=='all'?(' in seizoen '+playerDetailSeason):''}.</p></div>`; return; }
+  if (!doneList.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.</p></div>`; return; }
   let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
   const rows = [];
   for (const m of doneList) {
@@ -166,7 +170,7 @@ async function loadPlayerDetail() {
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
-  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && (playerDetailSeason === 'all' || seasonOf(m2) === playerDetailSeason))) {
+  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason)) {
     const wasAbsent = (m.absentPlayers || []).some(a => { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; return rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name; });
     if (wasAbsent) absent++;
   }
@@ -178,7 +182,7 @@ async function loadPlayerDetail() {
     return pool.some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
   };
   const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
-  const tournamentCount = getTournaments().filter(t => tInTeam(t) && (playerDetailSeason === 'all' || seasonOf(t) === playerDetailSeason) && inTournamentSquad(t)).length;
+  const tournamentCount = getTournaments().filter(t => tInTeam(t) && seasonOf(t) === playerDetailSeason && inTournamentSquad(t)).length;
   // Gastoptredens bij ANDERE ploegen opsporen — enkel via het stabiele rosterId (dat blijft
   // ploeg-overschrijdend hetzelfde bij een echte gastbeurt, zie addGuestsModal in wizard-prep.js);
   // op naam matchen zou spelers met dezelfde naam bij onverwante ploegen foutief kunnen samenvoegen.
@@ -187,7 +191,7 @@ async function loadPlayerDetail() {
   if (rosterId && playerDetailTeamName) {
     for (const m of all) {
       if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
-      if (playerDetailSeason !== 'all' && seasonOf(m) !== playerDetailSeason) continue;
+      if (seasonOf(m) !== playerDetailSeason) continue;
       if ((m.players || []).some(p => p.rosterId === rosterId)) guestElsewhere[m.teamName] = (guestElsewhere[m.teamName] || 0) + 1;
     }
   }

@@ -89,6 +89,13 @@ function renderDetail() {
     ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
+    ${(() => {
+      const km = keeperMinutes(match);
+      if (!km || !Object.keys(km).length) return '';
+      const rows = Object.entries(km).sort((a, b) => b[1] - a[1])
+        .map(([pid, ms]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(pName(match, pid))}</span><span style="font-weight:600">${Math.round(ms / 60000)} min</span></div>`).join('');
+      return `<div class="sec">Keeper(s)</div><div class="card">${rows}</div>`;
+    })()}
     ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
       <div style="margin-bottom:8px">
         <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
