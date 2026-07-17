@@ -41,8 +41,14 @@ function renderBeheer() {
       <button class="btn btn-dark" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten</button>
       <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
+    </div>` : '';
+
+  // Clubbeheer: enkel voor clubbeheerders (myClubs niet leeg), in de systeemcontext.
+  const clubBeheerBlock = (_beheerContext === 'system' && !viewerMode && Object.keys(myClubs || {}).length) ? `
+    <div class="sec">${icI(IC.players)} Mijn club</div>
+    <div class="card">
+      <button class="btn btn-dark" onclick="go('clubbeheer')">${icI(IC.players)} Clubbeheer <span style="font-weight:400;opacity:.85">(ploegen &amp; uitnodigingen)</span></button>
     </div>` : '';
 
   return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'home')">‹</button><h1>${icI(IC.edit)} Beheer</h1></div>
@@ -50,8 +56,61 @@ function renderBeheer() {
     ${ownerBlock}
     ${teamBlock}
     ${requestAdminBlock}
+    ${clubBeheerBlock}
     ${ownerToolsBlock}
   </div>`;
+}
+
+// ===================== CLUBBEHEER (view) =====================
+// Apart scherm voor de clubbeheerder: overzicht van de ploegen van zijn club, een ploeg
+// aanmaken binnen de club, en per ploeg doorklikken naar het gewone ploegbeheer (waar de
+// uitnodigingslink + ledenbeheer al zit). Werkt onder de huidige rules volledig voor de
+// eigenaar; het niet-eigenaar clubbeheerder-pad vergt de fijnmazige rules van fase 2d.
+let _clubBeheerId = null;
+function renderClubBeheer() {
+  setTimeout(loadClubBeheerView, 0);
+  return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button><h1>${icI(IC.players)} Clubbeheer</h1></div>
+  <div class="content" id="clubbeheer-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+async function loadClubBeheerView() {
+  const el = document.getElementById('clubbeheer-content');
+  if (!el || !fbdb) return;
+  const clubIds = Object.keys(myClubs || {});
+  if (!clubIds.length) { el.innerHTML = '<div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Je beheert momenteel geen club.</p></div>'; return; }
+  const clubId = (_clubBeheerId && clubIds.includes(_clubBeheerId)) ? _clubBeheerId : clubIds[0];
+  _clubBeheerId = clubId;
+  try {
+    const club = (await fbOnce(fbdb.ref('clubs/' + clubId))).val() || {};
+    const clubName = (club.info && club.info.name) || 'Mijn club';
+    const teamIds = Object.keys(club.teams || {});
+    const rows = await Promise.all(teamIds.map(async tid => {
+      let name = teamNames[tid];
+      if (!name) { try { name = (await fbOnce(fbdb.ref('teams/' + tid + '/info/name'))).val(); } catch (e) {} }
+      return { id: tid, name: name || '(naamloze ploeg)' };
+    }));
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    const clubSelector = clubIds.length > 1
+      ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(id === clubId ? clubName : id)}</option>`).join('')}</select></div>`
+      : '';
+    el.innerHTML = `
+      ${clubSelector}
+      <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
+      <div class="card">
+        ${rows.length ? rows.map(t => `<div class="stat-row"><span style="flex:1;font-weight:600">${esc(t.name)}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button></div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
+      </div>
+      <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
+      ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten (binnen club)</button>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>`;
+  } catch (e) {
+    el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de club niet laden. Probeer opnieuw.</p></div>';
+  }
+}
+async function openTeamFromClub(tid) {
+  // Clubbeheerder klikt door naar het gewone ploegbeheer (team-context) van een clubploeg.
+  // De terugknop daar keert terug naar dit clubbeheer-scherm.
+  _beheerFrom = 'clubbeheer'; _beheerContext = 'team';
+  await selectTeam(tid);
+  go('beheer');
 }
 // ===================== ALLE GEBRUIKERS (view) =====================
 // Systeembreed overzicht van alle gebruikers per ploeg, voor de eigenaar. Vervangt de
@@ -170,12 +229,15 @@ function filterAllUsersView(q) {
 // jeugdspeler die na een seizoen doorschuift naar een oudere leeftijdscategorie), met behoud
 // van een blijvende speleridentiteit (globalId) zodat het carrière-overzicht in
 // loadPlayerDetail() (stats-settings.js) de wedstrijden bij beide ploegen kan samenbrengen.
-// Enkel de eigenaar mag dit, want die heeft als enige overzicht over alle ploegen van de club.
+// De clubbeheerder mag dit binnen de ploegen van zijn eigen club (fase 2c; voorheen owner-only).
 let ptState = null;
 function renderPlayerTransfer() {
-  if (!isOwner) return '<div class="hdr"><button class="back" onclick="go(\'beheer\')">‹</button><h1>Speler overzetten</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
+  // Speler overzetten is een club-operatie (binnen de ploegen van één club) — toegankelijk voor
+  // de clubbeheerder (de eigenaar is dat ook voor zijn club). Gescoped op _clubBeheerId.
+  const clubIds = Object.keys(myClubs || {});
+  if (!clubIds.length) return '<div class="hdr"><button class="back" onclick="go(\'clubbeheer\')">‹</button><h1>Speler overzetten</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
   setTimeout(loadPlayerTransferView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.swap)} Speler overzetten</h1></div>
+  return `<div class="hdr"><button class="back" onclick="go('clubbeheer')">‹</button><h1>${icI(IC.swap)} Speler overzetten</h1></div>
   <div class="content" id="playertransfer-content"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>`;
 }
 // teams/{id}/roster staat in Firebase soms als array (via de gewone lokale sync,
@@ -188,19 +250,26 @@ function normalizeRosterArray(val) {
 }
 async function loadPlayerTransferView() {
   const el = document.getElementById('playertransfer-content');
-  if (!el || !isOwner || !fbdb) return;
+  if (!el || !fbdb) return;
+  const clubIds = Object.keys(myClubs || {});
+  if (!clubIds.length) return;
+  const clubId = (_clubBeheerId && myClubs[_clubBeheerId]) ? _clubBeheerId : clubIds[0];
   try {
-    const snap = await fbOnce(fbdb.ref('teams'));
-    const val = snap.val() || {};
-    const teams = Object.keys(val).map(id => {
-      const t = val[id] || {};
-      const rosterArr = normalizeRosterArray(t.roster);
-      const roster = rosterArr[0] || null;
-      return { id, name: roster && roster.name, players: (roster && roster.players) || [] };
-    // Ook ploegen zonder spelers tonen (bv. een net aangemaakte ploeg) — enkel ploegen zonder
-    // roster-node (naam onbekend) overslaan. Anders is een lege doelploeg nooit kiesbaar.
-    }).filter(t => t.name).sort((a, b) => a.name.localeCompare(b.name, 'nl'));
-    if (!teams.length) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen ploegen gevonden.</p>'; return; }
+    // Via de club-index i.p.v. een globale /teams-lezing: dat laatste is enkel voor de eigenaar
+    // leesbaar, terwijl clubs/{id}/teams door de clubbeheerder gelezen mag worden (vooruit-
+    // compatibel met fase 2d). Enkel ploegen van DEZE club, zodat een transfer binnen de club blijft.
+    const clubTeams = (await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {};
+    const teamIds = Object.keys(clubTeams);
+    const teams = (await Promise.all(teamIds.map(async id => {
+      try {
+        const t = (await fbOnce(fbdb.ref('teams/' + id))).val() || {};
+        const rosterArr = normalizeRosterArray(t.roster);
+        const roster = rosterArr[0] || null;
+        // Ook ploegen zonder spelers tonen (bv. net aangemaakt) — enkel zonder roster-node (naam onbekend) overslaan.
+        return { id, name: roster && roster.name, players: (roster && roster.players) || [] };
+      } catch (e) { return null; }
+    }))).filter(t => t && t.name).sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    if (teams.length < 2) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Je hebt minstens twee ploegen in deze club nodig om een speler over te zetten.</p>'; return; }
     ptState = { teams, srcTeamId: teams[0].id, dstTeamId: '', playerId: '' };
     el.innerHTML = renderPlayerTransferForm();
   } catch (e) {
@@ -311,19 +380,25 @@ function genInviteToken() {
   return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 // ---- Ploeg aanmaken ----
-async function createTeam(name) {
+async function createTeam(name, clubId) {
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = genInviteToken();
   const initialRosterId = fbdb.ref('teams/' + teamId + '/roster').push().key;
+  const info = { name, createdBy: uid, createdAt: Date.now(), inviteToken: token };
+  if (clubId) info.clubId = clubId; // clubmodel: koppel meteen aan de club (fase 2)
   await fbdb.ref('teams/' + teamId).set({
-    info: { name, createdBy: uid, createdAt: Date.now(), inviteToken: token },
+    info,
     members: { [uid]: 'admin' },
     club: { name, logo: '', theme: null },
     roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], fromCloud: true } }
   });
+  // Registreer de ploeg in de club-index. Best-effort: onder de huidige rules mag de eigenaar
+  // dit altijd; voor een niet-eigenaar clubbeheerder komt het schrijfrecht op clubs/{id}/teams
+  // pas in fase 2d — daarom in een try zodat de ploeg-aanmaak zelf nooit faalt.
+  if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + teamId).set(true); } catch (e) {} }
   // Sla uitnodigingstoken ook op als directe lookup (geen query nodig bij vervoegen)
   await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
   await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
@@ -839,9 +914,12 @@ function initTeamReorder() {
   });
 }
 
-function showCreateTeamModal() {
+let _pendingCreateClubId = null; // club waarin een nieuwe ploeg wordt aangemaakt (clubbeheer-flow)
+function showCreateTeamModal(clubId) {
   // Als er een eigenaar is ingesteld en je bent niet goedgekeurd → eerst toestemming vragen.
-  if (ownerUid && !isApprovedAdmin) { showRequestAdminModal(); return; }
+  // Uitzondering: een clubbeheerder mag altijd een ploeg aanmaken binnen zijn eigen club.
+  if (ownerUid && !isApprovedAdmin && !(clubId && myClubs[clubId])) { showRequestAdminModal(); return; }
+  _pendingCreateClubId = clubId || null;
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="auth-err" id="ct-err"></div>
@@ -857,7 +935,8 @@ async function doCreateTeam() {
   if (err) err.textContent = 'Bezig...';
   if (btn) btn.disabled = true;
   try {
-    await createTeam(name);
+    await createTeam(name, _pendingCreateClubId);
+    _pendingCreateClubId = null;
     closeModal();
   } catch (e) {
     console.error('createTeam fout:', e);
@@ -1305,7 +1384,7 @@ async function go(v, id, _histReplace) {
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
   if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
-  if (v === 'beheer' && !currentUser) v = 'auth';
+  if ((v === 'beheer' || v === 'clubbeheer') && !currentUser) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);

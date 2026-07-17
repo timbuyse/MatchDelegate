@@ -520,6 +520,7 @@ async function init() {
   // Met cloud: onAuthChanged() neemt de flow over zodra Firebase reageert
 }
 views.beheer = renderBeheer;
+views.clubbeheer = renderClubBeheer;
 views.allusers = renderAllUsers;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
