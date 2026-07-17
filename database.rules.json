@@ -164,6 +164,19 @@
       }
     },
 
+    "usersByEmail": {
+      // E-mail->uid index (fase 3) zodat de eigenaar een clubbeheerder op e-mailadres kan
+      // aanstellen, ook voor iemand die (nog) geen ploeg vervoegd heeft. Enkel de eigenaar leest
+      // de volledige index. Elke gebruiker schrijft ENKEL zijn eigen entry, en enkel met zijn
+      // eigen (door Firebase geverifieerde) e-mailadres — zo kan niemand andermans e-mail claimen.
+      // Zelf verwijderen (bij accountverwijdering) mag ook.
+      ".read": "auth != null && root.child('owner').val() === auth.uid",
+      "$uid": {
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.child('email').val() === auth.token.email)"
+      }
+    },
+
     "clubs": {
       // FASE 1 (clubmodel-fundament). Een club groepeert meerdere ploegen. Voorlopig schrijft
       // ENKEL de app-eigenaar (die maakt clubs aan en stelt clubbeheerders aan). Clubbeheerders

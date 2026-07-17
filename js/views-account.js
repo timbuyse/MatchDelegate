@@ -123,7 +123,6 @@ async function openTeamFromClub(tid) {
 // Owner-scherm: clubs aanmaken, hernoemen en een clubbeheerder aanstellen. Vervangt het
 // migratiescript-trucje. Aanstellen zet clubs/{id}/admins/{uid}=true én de omgekeerde index
 // users/{uid}/clubs/{id}='admin' (die de app in loadOwnerStatus als myClubs leest).
-let _clubsAdminUsers = null; // cache van bekende gebruikers (uit memberInfo) voor de aanstel-picker
 function renderClubsAdmin() {
   if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Clubs beheren</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadClubsAdminView, 0);
@@ -136,14 +135,18 @@ async function loadClubsAdminView() {
   try {
     const clubsVal = (await fbOnce(fbdb.ref('clubs'))).val() || {};
     const clubIds = Object.keys(clubsVal);
-    // Bekende gebruikers verzamelen uit memberInfo (owner-leesbaar) voor de aanstel-picker.
-    if (!_clubsAdminUsers) {
-      const miVal = (await fbOnce(fbdb.ref('memberInfo'))).val() || {};
-      const map = {};
-      Object.values(miVal).forEach(team => Object.entries(team || {}).forEach(([uid, info]) => { if (!map[uid]) map[uid] = { uid, name: (info && info.name) || '', email: (info && info.email) || '' }; }));
-      _clubsAdminUsers = Object.values(map).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, 'nl'));
-    }
-    const userName = uid => { const u = _clubsAdminUsers.find(x => x.uid === uid); return u ? (u.name || u.email || uid) : uid; };
+    // Namen/e-mails van gebruikers samenstellen uit usersByEmail (elke ingelogde gebruiker) +
+    // memberInfo (fallback voor wie enkel als ploeglid bekend is), zodat aangestelde clubbeheerders
+    // met naam getoond worden i.p.v. een ruwe uid.
+    // Beide bronnen apart en veerkrachtig ophalen: als usersByEmail nog niet leesbaar is (bv. rules
+    // nog niet gepubliceerd) mag dat het scherm niet breken — dan valt userMap terug op memberInfo.
+    const userMap = {};
+    let miVal = {}, ubeVal = {};
+    try { miVal = (await fbOnce(fbdb.ref('memberInfo'))).val() || {}; } catch (e) {}
+    try { ubeVal = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {}; } catch (e) {}
+    Object.values(miVal).forEach(team => Object.entries(team || {}).forEach(([uid, info]) => { if (!userMap[uid]) userMap[uid] = { name: (info && info.name) || '', email: (info && info.email) || '' }; }));
+    Object.entries(ubeVal).forEach(([uid, info]) => { userMap[uid] = { name: (info && info.name) || (userMap[uid] && userMap[uid].name) || '', email: (info && info.email) || (userMap[uid] && userMap[uid].email) || '' }; });
+    const userName = uid => { const u = userMap[uid]; return u ? (u.name || u.email || uid) : uid; };
     const clubsHtml = clubIds.length ? clubIds.map(cid => {
       const c = clubsVal[cid] || {};
       const nm = (c.info && c.info.name) || '(naamloze club)';
@@ -212,22 +215,24 @@ async function doRenameClub(cid) {
   } catch (e) { if (err) err.textContent = 'Hernoemen mislukt. Probeer opnieuw.'; }
 }
 function showAppointClubAdmin(cid) {
-  const users = _clubsAdminUsers || [];
-  const opts = users.map(u => `<option value="${esc(u.uid)}">${esc(u.name || u.email || u.uid)}${u.email ? ' · ' + esc(u.email) : ''}</option>`).join('');
   openModal(`<h3>${icI(IC.shield)} Clubbeheerder aanstellen</h3>
-    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Kies een gebruiker die al minstens één keer heeft ingelogd of een ploeg vervoegd heeft (zo kennen we de persoon).</p>
-    <div class="fg"><label>Gebruiker</label><select id="appoint-uid">${opts || '<option value="">(geen bekende gebruikers)</option>'}</select></div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Vul het e-mailadres in van de persoon. Die moet zich al minstens één keer aangemeld hebben in Match Delegate met dat e-mailadres, zodat we het account kennen.</p>
+    <div class="fg"><label>E-mailadres</label><input id="appoint-email" type="email" placeholder="naam@voorbeeld.be" autocomplete="off" autofocus></div>
     <div class="auth-err" id="ap-err"></div>
     <button class="btn btn-green" onclick="doAppointClubAdmin('${cid}')">Aanstellen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doAppointClubAdmin(cid) {
   if (!isOwner || !fbdb) return;
-  const uid = ((document.getElementById('appoint-uid') || {}).value || '').trim();
+  const email = ((document.getElementById('appoint-email') || {}).value || '').trim().toLowerCase();
   const err = document.getElementById('ap-err');
-  if (!uid) { if (err) err.textContent = 'Kies een gebruiker.'; return; }
+  if (!email) { if (err) err.textContent = 'Vul een e-mailadres in.'; return; }
   if (err) err.textContent = 'Bezig...';
   try {
+    // E-mail -> uid opzoeken via de owner-leesbare index.
+    const idx = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
+    const uid = Object.keys(idx).find(u => ((idx[u] && idx[u].email) || '').toLowerCase() === email);
+    if (!uid) { if (err) err.textContent = 'Geen account met dat e-mailadres gevonden. Vraag de persoon eerst één keer in te loggen.'; return; }
     await fbdb.ref('clubs/' + cid + '/admins/' + uid).set(true);
     await fbdb.ref('users/' + uid + '/clubs/' + cid).set('admin');
     closeModal(); loadClubsAdminView();

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.6'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -419,6 +419,10 @@ async function onAuthChanged(user) {
     return;
   }
   isGuest = false;
+  // E-mail->uid index van zichzelf wegschrijven (fase 3) zodat de app-eigenaar deze persoon later
+  // op e-mailadres als clubbeheerder kan aanstellen, ook als hij (nog) geen ploeg vervoegd heeft.
+  // Fire-and-forget; de rules laten enkel je eigen entry met je eigen e-mailadres toe.
+  if (user.email) { try { fbdb.ref('usersByEmail/' + user.uid).set({ email: user.email, name: user.displayName || '' }); } catch (e) {} }
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
   // Maintenance-listener pas hier registreren: gebruiker is nu authenticated,
