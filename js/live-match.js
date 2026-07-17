@@ -151,7 +151,12 @@ async function startQuarter() {
   for (const s of (match.pendingSubs || [])) {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
     if (!pOut || !pIn) continue;
-    addEvent('substitution', { playerOutId: s.outId, playerInId: s.inId, atBreak: true });
+    // posBefore = positie van pIn vóór deze wissel (meestal geen, tenzij hij al eerder op het
+    // veld stond en nadien terugkeert) — nodig zodat playersAtPeriodStart() een speler die
+    // meermaals in-en-uit gewisseld wordt correct kan terugspoelen i.p.v. hem simpelweg naar
+    // "geen positie" te resetten, wat zijn eerdere stint zou wissen.
+    const posBefore = { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum };
+    addEvent('substitution', { playerOutId: s.outId, playerInId: s.inId, atBreak: true, posBefore });
     pOut.onField = false;
     pIn.onField = true; pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum;
   }
@@ -777,7 +782,12 @@ function tombstoneEvent(m, id) {
 function revertSubstitutionPositions(m, e) {
   if (!e || e.type !== 'substitution' || !e.playerInId) return;
   const pIn = m.players.find(p => p.id === e.playerInId);
-  if (pIn) { pIn.x = undefined; pIn.y = undefined; pIn.line = undefined; pIn.posNum = undefined; }
+  if (!pIn) return;
+  // posBefore herstellen i.p.v. blind naar "geen positie" te resetten — anders verliest een
+  // speler die al eerder op het veld stond (en nadien terugkeert) zijn vorige stint-positie.
+  // Oudere events zonder posBefore (van vóór deze fix) vallen terug op het oude gedrag.
+  if (e.posBefore) { pIn.x = e.posBefore.x; pIn.y = e.posBefore.y; pIn.line = e.posBefore.line; pIn.posNum = e.posBefore.posNum; }
+  else { pIn.x = undefined; pIn.y = undefined; pIn.line = undefined; pIn.posNum = undefined; }
 }
 // Bij een posSwap wisselen beide spelers van positie. Bij het ongedaan maken/verwijderen
 // van dat event moet dit teruggedraaid worden — analoog aan revertSubstitutionPositions.
@@ -1098,8 +1108,10 @@ async function confirmSub() {
       await dbSave(match); closeModal(); render();
       return;
     }
-    addEvent('substitution', { playerOutId: subOut, playerInId: subIn });
     const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
+    // posBefore: zie toelichting bij de pauzewissel-variant in startQuarter().
+    const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
+    addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore });
     if (pOut) pOut.onField = false;
     if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; } }
     syncKeeper(); // keeper volgt automatisch de doellijn

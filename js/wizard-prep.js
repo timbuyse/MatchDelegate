@@ -429,7 +429,11 @@ function playersAtPeriodStart(m, qNum) {
   ).sort((a, b) => b.gameTimeMs - a.gameTimeMs);
   for (const e of toUndo) {
     if (e.type === 'substitution' && e.playerInId) {
-      posMap[e.playerInId] = { x: undefined, y: undefined, line: undefined, posNum: undefined };
+      // posBefore herstellen i.p.v. blind naar "geen positie": een speler die al eerder op
+      // het veld stond en later terugkeert (meermaals in/uit wisselen) mag zijn vorige
+      // stint-positie niet verliezen — anders belandt hij in de generieke "geen x/y"-fallback
+      // (evenredig verspreid over de lijn), zichtbaar als een bolletje tussen twee posities in.
+      posMap[e.playerInId] = e.posBefore ? { ...e.posBefore } : { x: undefined, y: undefined, line: undefined, posNum: undefined };
     } else if (e.type === 'posSwap' && e.pA && e.pB && e.posA && e.posB) {
       posMap[e.pA] = { ...e.posA };
       posMap[e.pB] = { ...e.posB };
