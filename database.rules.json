@@ -144,19 +144,20 @@
     "teamNotes": {
       // Notities (wedstrijd + per speler) apart van "matches" gehouden zodat kijkers/gasten
       // ze nooit kunnen lezen, ook niet rechtstreeks via Firebase (in tegenstelling tot
-      // teams/$teamId/matches, dat voor elk teamlid leesbaar is).
+      // teams/$teamId/matches, dat voor elk teamlid leesbaar is). Toegang: beheerder van de ploeg,
+      // de eigenaar, of de clubbeheerder van de club waartoe de ploeg behoort (fase 2d schijf 3).
       "$teamId": {
-        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
-        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)"
+        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
       }
     },
 
     "deletedMatches": {
       // Backup van een verwijderde wedstrijd (vangnet tegen abusievelijk verwijderen).
-      // Zelfde rechten als teamNotes: enkel de beheerder(s) van die ploeg, of de eigenaar.
+      // Zelfde rechten als teamNotes: beheerder(s) van die ploeg, de eigenaar, of de clubbeheerder.
       "$teamId": {
-        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)",
-        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid)"
+        ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+        ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
       }
     },
 

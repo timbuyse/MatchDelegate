@@ -38,25 +38,18 @@ function renderBeheer() {
     <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
     <div class="card">
       <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs beheren</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
       <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
     </div>` : '';
 
-  // Clubbeheer: enkel voor clubbeheerders (myClubs niet leeg), in de systeemcontext.
-  const clubBeheerBlock = (_beheerContext === 'system' && !viewerMode && Object.keys(myClubs || {}).length) ? `
-    <div class="sec">${icI(IC.players)} Mijn club</div>
-    <div class="card">
-      <button class="btn btn-dark" onclick="go('clubbeheer')">${icI(IC.players)} Clubbeheer <span style="font-weight:400;opacity:.85">(ploegen &amp; uitnodigingen)</span></button>
-    </div>` : '';
+  // "Mijn club beheren" staat rechtstreeks op het ploegkeuzescherm (renderTeamSelect), dus hier
+  // niet nog eens herhalen — dat gaf een dubbele ingang naar hetzelfde Clubbeheer-scherm.
 
   return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'home')">‹</button><h1>${icI(IC.edit)} Beheer</h1></div>
   <div class="content">
     ${ownerBlock}
     ${teamBlock}
     ${requestAdminBlock}
-    ${clubBeheerBlock}
     ${ownerToolsBlock}
   </div>`;
 }
@@ -87,13 +80,17 @@ async function loadClubBeheerView() {
     // bestaat. Een ploeg die verwijderd is laat anders een wees-indexregel achter (info bestaat
     // niet meer) — die tonen we niet én kuisen we meteen op uit clubs/{id}/teams.
     const fetched = await Promise.all(teamIds.map(async tid => {
-      try { const s = await fbOnce(fbdb.ref('teams/' + tid + '/info/name')); return { id: tid, name: s.exists() ? (s.val() || '') : null, exists: s.exists() }; }
-      catch (e) { return { id: tid, name: teamNames[tid] || '', exists: true }; } // bij een fout (bv. offline) niet opkuisen
+      try { const s = await fbOnce(fbdb.ref('teams/' + tid + '/info')); const inf = s.val() || {}; return { id: tid, name: s.exists() ? (inf.name || '') : null, archived: !!inf.archived, exists: s.exists() }; }
+      catch (e) { return { id: tid, name: teamNames[tid] || '', archived: !!archivedTeams[tid], exists: true }; } // bij een fout (bv. offline) niet opkuisen
     }));
     const dead = fetched.filter(r => !r.exists);
     for (const r of dead) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + r.id).remove(); } catch (e) {} }
-    const rows = fetched.filter(r => r.exists).map(r => ({ id: r.id, name: r.name || '(naamloze ploeg)' }));
-    rows.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    // Cache bijwerken zodat teamselect meteen klopt.
+    fetched.filter(r => r.exists).forEach(r => { if (r.archived) archivedTeams[r.id] = true; else delete archivedTeams[r.id]; });
+    const live = fetched.filter(r => r.exists).map(r => ({ id: r.id, name: r.name || '(naamloze ploeg)', archived: r.archived }));
+    live.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    const rows = live.filter(r => !r.archived);
+    const archivedRows = live.filter(r => r.archived);
     const clubSelector = clubIds.length > 1
       ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(id === clubId ? clubName : id)}</option>`).join('')}</select></div>`
       : '';
@@ -103,15 +100,24 @@ async function loadClubBeheerView() {
       <div class="card">
         ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
           <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
-          <div style="display:flex;gap:6px;margin-top:6px">
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
+            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}',&quot;${esc(t.name).replace(/"/g, '&quot;')}&quot;)">${icI(IC.archive)} Archiveren</button>
           </div>
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
       ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten (binnen club)</button>` : ''}
-      <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>`;
+      <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>
+      ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
+      <div class="card">
+        ${archivedRows.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+          <span style="flex:1;font-size:14px;color:var(--txt2)">${esc(t.name)}</span>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="unarchiveTeam('${t.id}')">Herstellen</button>
+        </div>`).join('')}
+        <p style="font-size:12px;color:var(--txt2);margin-top:8px">Gearchiveerde ploegen zijn verborgen uit de actieve lijsten maar behouden al hun gegevens.</p>
+      </div>` : ''}`;
   } catch (e) {
     el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de club niet laden. Probeer opnieuw.</p></div>';
   }
@@ -148,6 +154,29 @@ async function toggleClubTeamMembership(tid) {
     }
     loadClubBeheerView();
   } catch (e) { showToast('Wijzigen mislukt, probeer opnieuw.', 'err'); }
+}
+// Archiveren (fase 2d schijf 3): een ploeg "wegzetten" zonder ze te verwijderen — ze verdwijnt uit
+// de actieve lijsten maar behoudt alle gegevens. Dit is een gewone ploeg-aanpassing (info/archived),
+// dus de clubbeheerder mag het (i.t.t. hard verwijderen, dat bij de eigenaar/maker blijft).
+function archiveTeam(tid, naam) {
+  if (!fbdb) return;
+  showConfirm('Ploeg "' + naam + '" archiveren? Ze verdwijnt uit de actieve lijsten maar alle gegevens blijven bewaard. Je kan ze later herstellen.', async () => {
+    try {
+      await fbdb.ref('teams/' + tid + '/info/archived').set(true);
+      archivedTeams[tid] = true;
+      showToast('Ploeg gearchiveerd.', 'ok');
+      loadClubBeheerView();
+    } catch (e) { showToast('Archiveren mislukt, probeer opnieuw.', 'err'); }
+  }, 'Archiveren', 'btn-org');
+}
+async function unarchiveTeam(tid) {
+  if (!fbdb) return;
+  try {
+    await fbdb.ref('teams/' + tid + '/info/archived').remove();
+    delete archivedTeams[tid];
+    showToast('Ploeg hersteld.', 'ok');
+    loadClubBeheerView();
+  } catch (e) { showToast('Herstellen mislukt, probeer opnieuw.', 'err'); }
 }
 
 // ===================== CLUBS BEHEREN (eigenaar, fase 3) =====================
@@ -1052,10 +1081,14 @@ function renderGuestJoin() {
 
 // ===================== TEAM SELECT VIEW =====================
 function renderTeamSelect() {
-  const teamIds = orderedTeamIds(Object.keys(userTeams));
-  // Het Beheer-knopje leidt (in de 'system'-context) naar eigenaarstools + "beheerder worden".
-  // Voor iemand die al beheerder is maar niet de eigenaar, is dat scherm leeg — dan het knopje verbergen.
-  const showBeheerBtn = !ownerUid || isOwner || (!isApprovedAdmin && !viewerMode);
+  // Gearchiveerde ploegen (fase 2d schijf 3) niet tonen in "Jouw ploegen" — ze blijven bereikbaar
+  // via Clubbeheer (sectie Gearchiveerd) en kunnen daar hersteld worden.
+  const teamIds = orderedTeamIds(Object.keys(userTeams)).filter(id => !archivedTeams[id]);
+  // Het Beheer-knopje leidt (in de 'system'-context) enkel nog naar de eigenaarstools; voor een
+  // niet-eigenaar is dat scherm sinds fase 2e leeg. Dus enkel tonen aan de eigenaar (of zolang er
+  // nog geen eigenaar is, om het eenmalig te kunnen claimen). Clubbeheerders hebben "Mijn club
+  // beheren" al rechtstreeks op dit scherm.
+  const showBeheerBtn = !ownerUid || isOwner;
   // Clubnaam tonen boven de ploegen (fase 2f). Bij méér dan één club: echt groeperen met een kopje
   // per club (handig voor een ouder/kijker met kinderen in verschillende clubs) — dan geen herschik.
   // Bij één club: één clubkopje boven de gewone, herschikbare lijst. Bij nog onbekende clubnaam:
@@ -1095,7 +1128,7 @@ function renderTeamSelect() {
   // fout opruimen. Als een clubnaam nieuw gekend raakt: één keer herrenderen zodat de groepering
   // per club verschijnt (de volgende pass vindt niets nieuw → geen lus).
   setTimeout(() => {
-    let clubChanged = false;
+    let needsRerender = false;
     Promise.all(teamIds.map(id => {
       const el = document.getElementById('tsname-' + id);
       return fbOnce(fbdb.ref('teams/' + id + '/info'))
@@ -1103,10 +1136,12 @@ function renderTeamSelect() {
           if (!s.exists()) { pruneDeadTeam(id); return; }
           const info = s.val() || {};
           if (info.name) { teamNames[id] = info.name; if (el) el.textContent = info.name; }
-          if (info.clubName && teamClubNames[id] !== info.clubName) { teamClubNames[id] = info.clubName; clubChanged = true; }
+          if (info.clubName && teamClubNames[id] !== info.clubName) { teamClubNames[id] = info.clubName; needsRerender = true; }
+          // Ploeg die intussen gearchiveerd raakte → uit de lijst halen (herrenderen).
+          if (info.archived && !archivedTeams[id]) { archivedTeams[id] = true; needsRerender = true; }
         })
         .catch(e => { if (e && e.message !== 'fb-timeout') pruneDeadTeam(id); });
-    })).then(() => { if (clubChanged && view === 'teamselect') render(); });
+    })).then(() => { if (needsRerender && view === 'teamselect') render(); });
   }, 0);
 
   return `<div class="ts-wrap">
