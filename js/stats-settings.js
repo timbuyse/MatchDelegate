@@ -133,6 +133,10 @@ async function loadPlayerDetail() {
   };
   // Tornooiwedstrijden tellen niet mee bij gespeeld/doelpunten/etc. — die krijgen hieronder een apart "Tornooien"-kadertje.
   const allDone = all.filter(m => m.status === 'done' && !m.tournamentId && inTeam(m) && findPlayer(m));
+  // globalId (blijvende speleridentiteit over ploegen heen, sinds de "Speler overzetten"-tool)
+  // opzoeken via de eerste match waarin die al bewaard staat — voor het carrière-overzicht verderop.
+  let resolvedGlobalId = null;
+  for (const m of allDone) { const p = findPlayer(m); if (p && p.globalId) { resolvedGlobalId = p.globalId; break; } }
   const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
   // Geen "alle seizoenen" meer, zie loadStats() hierboven voor de reden (dubbele spelers
   // door rosterId- vs. naam-matching tussen oude en nieuwe wedstrijden). Standaard het
@@ -196,6 +200,28 @@ async function loadPlayerDetail() {
     }
   }
   const guestEntries = Object.entries(guestElsewhere).sort((a, b) => b[1] - a[1]);
+  // Carrière bij eerdere ploegen (na een formele overzetting via de eigenaarstool): matcht op
+  // globalId, over ALLE seizoenen heen (i.t.t. guestElsewhere hierboven, dat bewust wél per
+  // seizoen filtert — een overzetting hoort juist bij een seizoensovergang). Enkel wedstrijden
+  // van na de invoering van globalId (geen retroactieve koppeling) en enkel ploegen die dit
+  // toestel al lokaal kent zijn hier zichtbaar.
+  const careerElsewhere = {};
+  if (resolvedGlobalId && playerDetailTeamName) {
+    for (const m of all) {
+      if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
+      const p = (m.players || []).find(x => x.globalId === resolvedGlobalId);
+      if (!p) continue;
+      const mins = calcMinutes(m);
+      if (!(mins[p.id] && mins[p.id].ms > 0)) continue;
+      const c = careerElsewhere[m.teamName] || (careerElsewhere[m.teamName] = { mp: 0, goals: 0, assists: 0 });
+      c.mp++;
+      for (const e of m.events) {
+        if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id) c.goals++;
+        if (e.assistId === p.id) c.assists++;
+      }
+    }
+  }
+  const careerEntries = Object.entries(careerElsewhere).sort((a, b) => b[1].mp - a[1].mp);
   el.innerHTML = filterBar + `
     <div class="card">
       <div style="text-align:center;margin-bottom:10px">
@@ -216,6 +242,7 @@ async function loadPlayerDetail() {
     </div>
     ${tournamentCount ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>` : ''}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
+    ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
     ${(yc || rc) ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card"><div class="stat-row"><span style="flex:1">Gele kaarten</span><span style="font-weight:800">${yc}</span></div><div class="stat-row"><span style="flex:1">Rode kaarten</span><span style="font-weight:800">${rc}</span></div></div>` : ''}
     ${keeperApps ? `<div class="sec">${icI(IC.save)} Als doelman</div><div class="card"><div class="stat-row"><span style="flex:1">Wedstrijden in doel</span><span style="font-weight:800">${keeperApps}</span></div><div class="stat-row"><span style="flex:1">Clean sheets</span><span style="font-weight:800">${cs}</span></div></div>` : ''}
     <div class="sec">${icI(IC.ball)} Wedstrijden</div>

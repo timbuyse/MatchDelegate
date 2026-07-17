@@ -118,7 +118,7 @@ function renderTeamEdit() {
     ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
 }
-function teamAddPlayer() { editingTeam.players.push({ id: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
+function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
 function teamDelPlayer(i) { editingTeam.players.splice(i, 1); render(); }
 function teamSortPlayers(by) {
   editingTeam.players.sort((a, b) => {
@@ -146,7 +146,7 @@ function teamPasteApply() {
     const parts = rest.split(/\s+/);
     const firstName = parts.shift() || '';
     const lastName = parts.join(' ');
-    editingTeam.players.push({ id: uid(), firstName, lastName, name: (firstName + ' ' + lastName).trim(), number, pos: '' });
+    editingTeam.players.push({ id: uid(), globalId: uid(), firstName, lastName, name: (firstName + ' ' + lastName).trim(), number, pos: '' });
     added++;
   });
   closeModal();
@@ -162,7 +162,10 @@ function saveTeamEdit() {
     players: editingTeam.players.filter(p => (pFirstName(p) || pLastName(p) || '').trim()).map(p => {
       const fn = ((p.firstName !== undefined ? p.firstName : pFirstName(p)) || '').trim();
       const ln = ((p.lastName !== undefined ? p.lastName : pLastName(p)) || '').trim();
-      return { id: p.id, firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '', side: (p.pos === 'Verdediging' && p.side) || '' };
+      // globalId blijft de speler identificeren over ploegen heen (bv. na een overzetting via
+      // de eigenaarstool "Speler overzetten"); spelers van vóór die feature krijgen er hier
+      // lazy alsnog één, zodat elke speler vanaf nu overzetbaar is.
+      return { id: p.id, globalId: p.globalId || uid(), firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '', side: (p.pos === 'Verdediging' && p.side) || '' };
     })
   };
   if (editingTeam.fromCloud) clean.fromCloud = true;
@@ -324,7 +327,7 @@ function editTournament(id) {
 function trnWizBuildPool() {
   const team = teamById(trnWiz.teamId);
   trnWiz.pool = team ? team.players.map(p => ({
-    pid: uid(), srcId: p.id,
+    pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null,
     name: ((pFirstName(p) + ' ' + pLastName(p)).trim()) || p.name || '',
     number: p.number || '', pos: p.pos || '', side: p.side || '', sel: 'none',
   })) : [];
@@ -381,7 +384,7 @@ async function saveTournamentWiz() {
   const squad = {
     players: trnWiz.pool
       .filter(p => p.sel === 'mee' || p.sel === 'absent')
-      .map(p => ({ pid: p.pid, srcId: p.srcId, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel })),
+      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
@@ -484,7 +487,7 @@ function addTournamentMatch(trnId) {
   const matchType = t.matchType || '8v8';
   const numStarters = parseInt(matchType) || 8;
   const pool = allSquadPlayers.map((s, i) => ({
-    pid: uid(), srcId: s.srcId, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
+    pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
     fromName: team ? team.name : '', guest: false,
     sel: i < numStarters ? 'basis' : 'bank', slot: null,
   }));
@@ -511,7 +514,8 @@ async function cloneTournamentMatch(matchId, trnId) {
   const now = new Date();
   const pool = (src.players || []).map(p => ({
     pid: uid(),
-    srcId: p.srcId || p.id,
+    srcId: p.rosterId || p.id,
+    srcGlobalId: p.globalId || null,
     name: p.name,
     number: p.number,
     pos: p.line || p.pos || '',

@@ -41,6 +41,7 @@ function renderBeheer() {
       <button class="btn btn-dark" onclick="showAdminRequestsModal()">${icI(IC.shield)} Beheerdersaanvragen${pendingAdminCount ? ` <span class="req-badge">${pendingAdminCount}</span>` : ''}</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="showApprovedAdminsModal()">${icI(IC.admins)} Goedgekeurde beheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten</button>
       <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
     </div>` : '';
 
@@ -163,6 +164,125 @@ function filterAllUsersView(q) {
     sec.style.display = isMatch ? '' : 'none';
     if (query && isMatch) sec.open = true;
   });
+}
+// ===================== SPELER OVERZETTEN (eigenaarstool) =====================
+// Verplaatst een speler permanent van de roster van de ene ploeg naar een andere (bv. een
+// jeugdspeler die na een seizoen doorschuift naar een oudere leeftijdscategorie), met behoud
+// van een blijvende speleridentiteit (globalId) zodat het carrière-overzicht in
+// loadPlayerDetail() (stats-settings.js) de wedstrijden bij beide ploegen kan samenbrengen.
+// Enkel de eigenaar mag dit, want die heeft als enige overzicht over alle ploegen van de club.
+let ptState = null;
+function renderPlayerTransfer() {
+  if (!isOwner) return '<div class="hdr"><button class="back" onclick="go(\'beheer\')">‹</button><h1>Speler overzetten</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
+  setTimeout(loadPlayerTransferView, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.swap)} Speler overzetten</h1></div>
+  <div class="content" id="playertransfer-content"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>`;
+}
+// teams/{id}/roster staat in Firebase soms als array (via de gewone lokale sync,
+// cloudOnLocalTeamsSave), soms als object met een push-id-sleutel (een ploeg net aangemaakt via
+// de admin-aanmaakflow in showRequestAdminModal — zie createNewCloudTeam). Beide vormen normaliseren
+// naar een array, zodat lezen én terugschrijven (doTransferPlayer) consistent werken.
+function normalizeRosterArray(val) {
+  if (!val) return [];
+  return Array.isArray(val) ? val : Object.values(val);
+}
+async function loadPlayerTransferView() {
+  const el = document.getElementById('playertransfer-content');
+  if (!el || !isOwner || !fbdb) return;
+  try {
+    const snap = await fbOnce(fbdb.ref('teams'));
+    const val = snap.val() || {};
+    const teams = Object.keys(val).map(id => {
+      const t = val[id] || {};
+      const rosterArr = normalizeRosterArray(t.roster);
+      const roster = rosterArr[0] || null;
+      return { id, name: roster && roster.name, players: (roster && roster.players) || [] };
+    // Ook ploegen zonder spelers tonen (bv. een net aangemaakte ploeg) — enkel ploegen zonder
+    // roster-node (naam onbekend) overslaan. Anders is een lege doelploeg nooit kiesbaar.
+    }).filter(t => t.name).sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    if (!teams.length) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Geen ploegen gevonden.</p>'; return; }
+    ptState = { teams, srcTeamId: teams[0].id, dstTeamId: '', playerId: '' };
+    el.innerHTML = renderPlayerTransferForm();
+  } catch (e) {
+    el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de ploegen niet laden. Probeer opnieuw.</p>';
+  }
+}
+function playerLabel(p) { return ((p.firstName || '') + ' ' + (p.lastName || '')).trim() || p.name || '(naamloos)'; }
+function renderPlayerTransferForm() {
+  const s = ptState; if (!s) return '';
+  const srcTeam = s.teams.find(t => t.id === s.srcTeamId);
+  const players = srcTeam ? srcTeam.players : [];
+  const dstOptions = s.teams.filter(t => t.id !== s.srcTeamId);
+  if (!dstOptions.some(t => t.id === s.dstTeamId)) s.dstTeamId = (dstOptions[0] || {}).id || '';
+  return `
+    <div class="card">
+      <div class="fg"><label>Van ploeg</label>
+        <select onchange="ptSrcChange(this.value)">${s.teams.map(t => `<option value="${esc(t.id)}" ${s.srcTeamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
+      <div class="fg"><label>Speler</label>
+        <select onchange="ptState.playerId=this.value">
+          <option value="">Kies een speler…</option>
+          ${players.map(p => `<option value="${esc(p.id)}" ${s.playerId===p.id?'selected':''}>${esc(playerLabel(p))}${p.number?' · '+esc(p.number):''}</option>`).join('')}
+        </select></div>
+      <div class="fg" style="margin-bottom:0"><label>Naar ploeg</label>
+        ${dstOptions.length ? `<select onchange="ptState.dstTeamId=this.value">${dstOptions.map(t => `<option value="${esc(t.id)}" ${s.dstTeamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>` : '<p style="color:var(--txt2);font-size:13px;margin:0">Geen andere ploeg beschikbaar.</p>'}</div>
+    </div>
+    <button class="btn btn-green" onclick="confirmTransferPlayer()">${icI(IC.swap)} Overzetten</button>
+    <p style="font-size:12px;color:var(--txt2);margin-top:10px">De speler wordt uit de spelerslijst van de bronploeg verwijderd en toegevoegd aan de doelploeg. Bestaande wedstrijden en statistieken bij de bronploeg blijven behouden.</p>`;
+}
+function ptSrcChange(val) {
+  ptState.srcTeamId = val; ptState.playerId = '';
+  if (ptState.dstTeamId === val) ptState.dstTeamId = '';
+  // Enkel het formulier herbouwen met de al-geladen ptState — een volledige render() zou
+  // via renderPlayerTransfer() opnieuw loadPlayerTransferView() triggeren, dat ptState.srcTeamId
+  // meteen terug op de eerste ploeg (België) zou zetten en de keuze onmogelijk maakte.
+  const el = document.getElementById('playertransfer-content');
+  if (el) el.innerHTML = renderPlayerTransferForm();
+}
+function confirmTransferPlayer() {
+  const s = ptState;
+  if (!s || !s.playerId) { showToast('Kies een speler.', 'err'); return; }
+  if (!s.dstTeamId || s.dstTeamId === s.srcTeamId) { showToast('Kies een andere doelploeg.', 'err'); return; }
+  const srcTeam = s.teams.find(t => t.id === s.srcTeamId);
+  const player = srcTeam && srcTeam.players.find(p => p.id === s.playerId);
+  const dstTeam = s.teams.find(t => t.id === s.dstTeamId);
+  if (!player || !dstTeam) return;
+  openModal(`<h3>Speler overzetten?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(playerLabel(player))}</b> gaat van <b>${esc(srcTeam.name)}</b> naar <b>${esc(dstTeam.name)}</b>.<br><br>Bestaande wedstrijden bij ${esc(srcTeam.name)} blijven behouden.</p>
+    <button class="btn btn-green" onclick="doTransferPlayer()">${icI(IC.check)} Ja, overzetten</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doTransferPlayer() {
+  const s = ptState;
+  if (!s || !isOwner || !fbdb) return;
+  closeModal();
+  try {
+    const [srcSnap, dstSnap] = await Promise.all([
+      fbOnce(fbdb.ref('teams/' + s.srcTeamId + '/roster')),
+      fbOnce(fbdb.ref('teams/' + s.dstTeamId + '/roster')),
+    ]);
+    // Normaliseren naar array (zie normalizeRosterArray hierboven) — en in dat array-formaat
+    // terugschrijven, ook als de ploeg tot nu toe het object-formaat had. Beide vormen worden
+    // door elke lezer (hier, loadPlayerTransferView, applyCloudTeams) al tolerant ingelezen.
+    const srcRoster = normalizeRosterArray(srcSnap.val()), dstRoster = normalizeRosterArray(dstSnap.val());
+    if (!srcRoster[0] || !dstRoster[0]) {
+      showToast('Kon de ploegdata niet laden, probeer opnieuw.', 'err'); return;
+    }
+    const player = (srcRoster[0].players || []).find(p => p.id === s.playerId);
+    if (!player) { showToast('Speler niet gevonden, probeer opnieuw.', 'err'); return; }
+    const globalId = player.globalId || uid();
+    const newPlayer = Object.assign({}, player, { id: uid(), globalId });
+    srcRoster[0].players = (srcRoster[0].players || []).filter(p => p.id !== s.playerId);
+    dstRoster[0].players = (dstRoster[0].players || []).concat([newPlayer]);
+    await Promise.all([
+      fbdb.ref('teams/' + s.srcTeamId + '/roster').set(srcRoster),
+      fbdb.ref('teams/' + s.dstTeamId + '/roster').set(dstRoster),
+    ]);
+    ptState = null;
+    showToast('Speler overgezet.', 'ok');
+    go('beheer');
+  } catch (e) {
+    showToast('Overzetten mislukt, probeer opnieuw.', 'err');
+  }
 }
 function toggleViewerMode() {
   viewerMode = !viewerMode;
@@ -1402,6 +1522,7 @@ const views = {
   detail: () => renderDetail(),
   stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="go(_playerDetailFrom||'stats')">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
+  playertransfer: renderPlayerTransfer,
 };
 let homeFilter = 'all';
 function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }

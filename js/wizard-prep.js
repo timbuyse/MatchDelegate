@@ -163,7 +163,7 @@ function captureStep1() {
 function buildPool() {
   const team = teamById(wiz.teamId);
   const guests = wiz.pool.filter(p => p.guest);
-  const own = (team ? team.players : []).map(p => ({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: team.name, guest: false, sel: 'none', slot: null }));
+  const own = (team ? team.players : []).map(p => ({ pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: team.name, guest: false, sel: 'none', slot: null }));
   wiz.pool = own.concat(guests);
 }
 function wizBack() { if (wiz.step > 1) { wiz.step--; render(); } }
@@ -545,8 +545,14 @@ async function finishWizard(startNow) {
     if (prev) { usedPrevIds.add(prev.id); return prev.id; }
     return uid();
   };
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  // globalId komt rechtstreeks uit de pool (srcGlobalId, vastgelegd bij het opbouwen van de pool
+  // in buildPool()/trnWizBuildPool() e.d.) i.p.v. hier opnieuw op te zoeken in de lokale
+  // teams-cache: die cache bevat in cloud-modus enkel de actieve ploeg en kan door een live
+  // roster-sync net op het verkeerde moment overschreven zijn — vandaar altijd null zonder duidelijke
+  // oorzaak. Gasten (andere bronploeg) hebben hier geen srcGlobalId; dat is geen regressie,
+  // gastoptredens worden al apart via rosterId gedetecteerd (zie guestElsewhere in stats-settings.js).
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
   const allP = starters.concat(bench);
   let capId = null;
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
@@ -586,7 +592,7 @@ function editMatchWizard(m) {
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
-    pool: m.players.map(p => ({ pid: uid(), srcId: p.rosterId || null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
+    pool: m.players.map(p => ({ pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
     formationIndex: fi, selPlace: null,
   };
   wiz.poolTeamId = m.players.length ? wiz.teamId : null; // lege pool → herbouwen vanuit ploeg
