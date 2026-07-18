@@ -807,6 +807,73 @@ function revertPosSwapPositions(m, e) {
   if (pA) { pA.x = e.posA.x; pA.y = e.posA.y; pA.line = e.posA.line; pA.posNum = e.posA.posNum; }
   if (pB) { pB.x = e.posB.x; pB.y = e.posB.y; pB.line = e.posB.line; pB.posNum = e.posB.posNum; }
 }
+// C2: veldbezetting + posities volledig herberekenen vanaf de startopstelling (baseline), door alle
+// wissel-/posSwap-events voorwaarts opnieuw toe te passen. Nodig na het bewerken van een wissel-event
+// (speler/minuut), waarbij de losse mutatie de posities niet meer laat kloppen. De baseline (positie
+// van de basisspelers bij aanvang) moet vastgelegd zijn TERWIJL de staat nog consistent was
+// (playersAtPeriodStart(m,1) vóór de bewerking). Repareert meteen de posBefore/posA/posB-snapshots
+// zodat playersAtPeriodStart nadien consistent blijft. Idempotent op een correcte wedstrijd.
+function rebuildPositions(m, baseline) {
+  const pos = {}, onF = {};
+  m.players.forEach(p => { onF[p.id] = false; });
+  (baseline || []).forEach(b => { onF[b.id] = true; pos[b.id] = { x: b.x, y: b.y, line: b.line, posNum: b.posNum }; });
+  m.players.forEach(p => { if (p.absent) onF[p.id] = false; });
+  const evs = [...m.events].filter(e => e.type === 'substitution' || e.type === 'posSwap' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField))
+    .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
+  for (const e of evs) {
+    if (e.type === 'substitution') {
+      if (e.playerInId) e.posBefore = pos[e.playerInId] ? { ...pos[e.playerInId] } : null; // snapshot repareren
+      if (e.playerOutId) onF[e.playerOutId] = false;
+      if (e.playerInId) { onF[e.playerInId] = true; if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] }; }
+    } else if (e.type === 'posSwap' && e.pA && e.pB) {
+      const a = pos[e.pA], b = pos[e.pB];
+      e.posA = a ? { ...a } : e.posA; e.posB = b ? { ...b } : e.posB; // snapshots repareren
+      if (b) pos[e.pA] = { ...b }; if (a) pos[e.pB] = { ...a };
+    } else if (e.type === 'red_card' && e.playerId) {
+      onF[e.playerId] = false;
+    } else if (e.type === 'injury' && e.leavesField && e.playerId) {
+      onF[e.playerId] = false;
+    }
+  }
+  m.players.forEach(p => {
+    p.onField = !!onF[p.id];
+    if (pos[p.id]) { p.x = pos[p.id].x; p.y = pos[p.id].y; p.line = pos[p.id].line; p.posNum = pos[p.id].posNum; }
+  });
+}
+// C3: keeperByQ (per kwart een lijst {id, sinceMs}) opnieuw opbouwen uit de events, zodat de
+// keeperminuten kloppen na undo/verwijderen/bewerken van een wissel. Werkt vanaf een consistente
+// staat: per kwart de veldstart via playersAtPeriodStart(), dan de wissels/posSwaps binnen het kwart
+// voorwaarts toepassen en elke keeperwissel (speler op de doellijn) noteren.
+function rebuildKeeperByQ(m) {
+  const kbq = {};
+  const maxQ = Math.max(0, m.currentQuarter || 0, ...((m.quarters || []).map(q => q.num || 0)));
+  for (let q = 1; q <= maxQ; q++) {
+    const startField = playersAtPeriodStart(m, q);
+    const line = {}, onF = {};
+    startField.forEach(p => { onF[p.id] = true; line[p.id] = p.line; });
+    const keeperNow = () => { for (const id in onF) if (onF[id] && line[id] === 'Doel') return id; return null; };
+    const list = [];
+    let k = keeperNow();
+    if (k) list.push({ id: k, sinceMs: gameTimeMsAtStartOfQuarter(m, q) });
+    const evs = m.events.filter(e => e.quarterNum === q && !e.atBreak && (e.type === 'substitution' || e.type === 'posSwap' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField)))
+      .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
+    for (const e of evs) {
+      if (e.type === 'substitution') {
+        if (e.playerOutId) onF[e.playerOutId] = false;
+        if (e.playerInId) { onF[e.playerInId] = true; if (e.playerOutId) line[e.playerInId] = line[e.playerOutId]; }
+      } else if (e.type === 'posSwap' && e.pA && e.pB) {
+        const la = line[e.pA], lb = line[e.pB]; line[e.pA] = lb; line[e.pB] = la;
+      } else if ((e.type === 'red_card' || (e.type === 'injury' && e.leavesField)) && e.playerId) {
+        onF[e.playerId] = false;
+      }
+      const nk = keeperNow();
+      if (nk && nk !== k) list.push({ id: nk, sinceMs: e.gameTimeMs });
+      k = nk;
+    }
+    if (list.length) kbq[q] = list;
+  }
+  m.keeperByQ = kbq;
+}
 async function doDeleteEvent(id) {
   const removed = match.events.find(e => e.id === id);
   tombstoneEvent(match, id);
@@ -814,6 +881,8 @@ async function doDeleteEvent(id) {
   revertSubstitutionPositions(match, removed);
   revertPosSwapPositions(match, removed);
   recomputeScore(match); recomputeOnField(match);
+  // C3: keeperminuten herbouwen na het verwijderen van een keeper-relevante actie.
+  if (removed && match.keeperByQ && Object.keys(match.keeperByQ).length && ['substitution','posSwap','red_card','injury'].includes(removed.type)) rebuildKeeperByQ(match);
   await dbSave(match); closeModal(); render();
 }
 // Een bestaand event bewerken (speler/assist/minuut/details).
@@ -842,6 +911,9 @@ function modalEditEvent(id) {
 }
 async function saveEditEvent(id) {
   const e = match.events.find(x => x.id === id); if (!e) return;
+  const posAffecting = e.type === 'substitution' || e.type === 'posSwap';
+  // C2: baseline (startopstelling) vastleggen terwijl de staat nog consistent is, vóór de bewerking.
+  const baseline = posAffecting ? playersAtPeriodStart(match, 1) : null;
   const has = i => document.getElementById(i);
   const val = i => { const el = has(i); return el ? el.value : undefined; };
   const min = parseInt(val('ee-min'));
@@ -858,7 +930,11 @@ async function saveEditEvent(id) {
   if (has('ee-itype')) e.injuryType = val('ee-itype');
   if (has('ee-leaves')) e.leavesField = has('ee-leaves').checked;
   if (has('ee-reason')) e.reason = val('ee-reason');
-  recomputeScore(match); recomputeOnField(match);
+  recomputeScore(match);
+  if (posAffecting) {
+    rebuildPositions(match, baseline); // C2: posities + bezetting herberekenen (onField incl.)
+    if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match); // C3
+  } else recomputeOnField(match);
   await dbSave(match); closeModal(); render();
 }
 // Extra registraties: schoten, reddingen, afgekeurd doelpunt.
@@ -952,6 +1028,8 @@ async function undoLast() {
   match.events = match.events.filter(ev => !ids.has(ev.id));
   toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
   recomputeScore(match); recomputeOnField(match);
+  // C3: keeperminuten kloppen niet meer na het ongedaan maken van een keeper-relevante actie → herbouwen.
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
   await dbSave(match); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
 }
