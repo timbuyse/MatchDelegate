@@ -390,7 +390,7 @@ async function saveMatchInfo() {
   match.trainer = v('ei-trainer').trim();
   match.responsible = v('ei-responsible').trim();
   match.referee = v('ei-ref').trim();
-  const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() || compSel : compSel;
+  const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() : compSel;
   match.matchday = v('ei-md').trim();
   match.jersey = v('ei-jersey').trim();
   match.venue = v('ei-venue').trim();

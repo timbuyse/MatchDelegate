@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.40
+- **Opgelost:** de "Aantal blokken"-keuze bij een tornooimatch deed niets (de match bleef altijd
+  1 blok, terwijl de selector "3 delen" toonde). Er is nu een expliciete "1 blok"-optie
+  (standaard) en de keuze wordt echt toegepast.
+- **Opgelost:** een tornooimatch herbewerken maakte er stil een gewone wedstrijd met 3 delen
+  van (incl. ploegselector) — herbewerken blijft nu in tornooi-modus met het juiste aantal
+  blokken.
+- **Opgelost:** een wedstrijd herbewerken na het hernoemen van de ploeg verloor de koppeling
+  met de spelerslijst — de ploeg wordt nu via de vaste ploeg-referentie gevonden.
+- **Opgelost:** aangepaste tornooi-rugnummers gingen verloren bij het herbewerken van het
+  tornooi.
+- **Opgelost:** "Gebruik als template" bij een tornooimatch toont nu ook de squadspelers die
+  in de bronmatch afwezig/niet geselecteerd waren (voorheen enkel via de gast-modal terug toe
+  te voegen).
+- **Opgelost:** eerst het format kiezen en daarna pas de ploeg zette het format stil terug naar
+  de ploegstandaard.
+- **Opgelost:** "Andere…" als competitie zonder ingevulde naam bewaarde de interne code
+  "__other__" als competitienaam.
+
 ## v0.5.39
 - **Verbeterd:** de spelerselectie legt het verschil nu duidelijk uit: **✗ afwezig** =
   onbeschikbaar/afgemeld (telt mee in het aanwezigheids-%), **niets aanduiden** = niet

@@ -34,10 +34,14 @@ function wizTeamChange() {
     wiz.trainer = trainers.length ? trainers[0].name : '';
     wiz.trainerIsOther = false;
     wiz.responsible = team.responsible || '';
-    // Standaard wedstrijdvorm + opstelling van de gekozen ploeg klaarzetten (per wedstrijd aanpasbaar).
-    const md = teamMatchDefaults(team);
-    wiz.matchType = md.matchType;
-    wiz.formationIndex = md.formationIndex;
+    // Standaard wedstrijdvorm + opstelling van de gekozen ploeg klaarzetten (per wedstrijd
+    // aanpasbaar) — maar niet als de gebruiker het format in deze wizard al zelf koos
+    // (eerst format zetten en dán pas de ploeg kiezen mag die keuze niet stil terugdraaien).
+    if (!wiz._typeTouched) {
+      const md = teamMatchDefaults(team);
+      wiz.matchType = md.matchType;
+      wiz.formationIndex = md.formationIndex;
+    }
   }
   render();
 }
@@ -74,7 +78,7 @@ function onPeriodChange() {
 function fieldSizeW() { return MATCH_TYPES[wiz.matchType].field; }
 function basisCount() { return wiz.pool.filter(p => p.sel === 'basis').length; }
 function bankCount() { return wiz.pool.filter(p => p.sel === 'bank').length; }
-function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz.pool.forEach(p => p.slot = null); }
+function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; wiz.pool.forEach(p => p.slot = null); }
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
 function renderNew() {
@@ -168,7 +172,7 @@ function captureStep1() {
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
-  const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() || nComp : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
+  const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
   const trainerSel = document.getElementById('n-trainer-sel');
   if (trainerSel) { wiz.trainerIsOther = trainerSel.value === '_other'; if (!wiz.trainerIsOther) wiz.trainer = trainerSel.value; }
@@ -603,7 +607,9 @@ async function finishWizard(startNow) {
 }
 // Een geplande wedstrijd opnieuw in de wizard openen om te bewerken.
 function editMatchWizard(m) {
-  const team = getTeamsV2().find(t => t.name === m.teamName);
+  // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34) — zoeken op naam breekt na een
+  // ploeg-hernoeming (pool zonder roster + teamId-koppeling die verloren gaat bij opslaan).
+  const team = (m.teamId && teamById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName);
   const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
   const roster = team ? (team.players || []) : [];
   const rosterUsed = new Set();
@@ -636,6 +642,10 @@ function editMatchWizard(m) {
   };
   // Pool is al voor deze ploeg opgebouwd → geen rebuild bij stap 1→2 (dat zou de selectie wissen).
   wiz.poolTeamId = wiz.teamId;
+  // Tornooimatch: in tornooi-modus blijven (eigen stap 1 zonder ploegselector) en het aantal
+  // blokken behouden — anders werd een 1-blok-tornooimatch bij herbewerken stil 3 delen en kon
+  // een ploegwissel de match inconsistent maken met het tornooi.
+  if (m.tournamentId) { wiz.trnMode = true; wiz.tournamentId = m.tournamentId; wiz.numQuarters = m.numQuarters; }
   // Bewaar de bestaande kapitein (de eerste pool-entries volgen de volgorde van m.players)
   wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
   const form = FORMATIONS[m.matchType][fi];
@@ -723,8 +733,10 @@ async function finishStep1Only() {
     wiz.date = document.getElementById('n-date')?.value || wiz.date;
     wiz.time = document.getElementById('n-time')?.value || wiz.time;
     wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
-    // Ook de gekozen periode + blokduur meenemen (die werden anders genegeerd bij "plannen zonder opstelling").
-    wiz.periodKey = document.getElementById('n-pt')?.value || wiz.periodKey;
+    // Ook de gekozen periode + blokduur meenemen (die werden anders genegeerd bij "plannen zonder
+    // opstelling"). Via readTrnPeriodSel (teams-tournaments.js): zet periodKey ÉN numQuarters,
+    // incl. de "1 blok"-optie.
+    readTrnPeriodSel();
     wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
     if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }
   } else {

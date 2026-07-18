@@ -343,10 +343,14 @@ function editTournament(id) {
     ? squad.players
     : [...(squad.base||[]), ...(squad.bench||[]), ...(squad.absent||[])];
   const byKey = {};
-  allSquad.forEach(s => { byKey[s.srcId || s.name] = s.sel || 'mee'; });
+  allSquad.forEach(s => { byKey[s.srcId || s.name] = s; });
   trnWiz.pool.forEach(p => {
-    const val = byKey[p.srcId] || byKey[p.name];
+    const s = byKey[p.srcId] || byKey[p.name];
+    const val = s ? (s.sel || 'mee') : null;
     p.sel = val === 'absent' ? 'absent' : (val ? 'mee' : 'none');
+    // Tornooi-specifiek rugnummer terugzetten — trnWizBuildPool nam het rosternummer, waardoor
+    // een aangepast tornooinummer bij herbewerken stil verloren ging.
+    if (s && s.number) p.number = s.number;
   });
   trnWiz.poolTeamId = trnWiz.teamId;
   go('tournamentNew');
@@ -556,6 +560,16 @@ async function cloneTournamentMatch(matchId, trnId) {
     slot: null,
     _x: p.x, _y: p.y,
   }));
+  // Squadspelers die niet in de bronmatch stonden (afwezig/niet geselecteerd) toch in de pool
+  // opnemen als 'none' — anders zijn ze in de kloon enkel via de gast-modal (fout gelabeld als
+  // gast) terug toe te voegen.
+  const _sq = t.squad || {};
+  const _sqList = _sq.players ? _sq.players : [...(_sq.base || []), ...(_sq.bench || []), ...(_sq.absent || [])];
+  const _usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
+  _sqList.forEach(s => {
+    if (s.srcId ? _usedSrc.has(s.srcId) : pool.some(p => (p.name || '').trim() === (s.name || '').trim())) return;
+    pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: team ? team.name : '', guest: false, sel: 'none', slot: null });
+  });
   wiz = {
     step: 1, trnMode: true, tournamentId: trnId,
     teamId: t.teamId, teamNameFallback: team ? team.name : '',
@@ -593,7 +607,7 @@ function renderTrnMatchStep1() {
       </select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>
-        <select id="n-pt" onchange="onPeriodChange()">${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+        <select id="n-pt" onchange="trnPeriodChange()"><option value="1" ${wiz.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.numQuarters!==1&&wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
       <div class="fg"><label>Duur van een blok</label>
         <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
         <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;display:none;width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value=""></div>
@@ -607,12 +621,25 @@ function trnWizTypeChange() {
   wiz.formationIndex = 0;
   wiz.pool.forEach(p => p.slot = null);
 }
+// De blokken-selector van een tornooimatch stuurt periodKey ÉN numQuarters (de gewone wizard
+// leidt numQuarters af uit periodKey, maar een tornooimatch kan ook "1 blok" zijn — voordien
+// bleef numQuarters altijd 1 hangen en was de selector een dode knop die "3 delen" toonde).
+function readTrnPeriodSel() {
+  const el = document.getElementById('n-pt'); if (!el || !wiz) return;
+  if (el.value === '1') { wiz.periodKey = 'delen'; wiz.numQuarters = 1; }
+  else if (PERIOD_TYPES[el.value]) { wiz.periodKey = el.value; wiz.numQuarters = PERIOD_TYPES[el.value].count; }
+}
+function trnPeriodChange() {
+  readTrnPeriodSel();
+  const qd = document.getElementById('n-qd');
+  if (qd) { qd.innerHTML = durOptsHtml(wiz.periodKey, wiz.quarterDuration); const ci = document.getElementById('n-qd-custom'); if (ci) ci.style.display = qd.value === '0' ? '' : 'none'; }
+}
 function trnMatchNext() {
   wiz.opponent = (document.getElementById('n-opp')?.value || '').trim();
   wiz.date = document.getElementById('n-date')?.value || wiz.date;
   wiz.time = document.getElementById('n-time')?.value || wiz.time;
   wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
-  const pt = document.getElementById('n-pt'); if (pt) wiz.periodKey = pt.value;
+  readTrnPeriodSel();
   wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }
   wiz.step = 2; render();
