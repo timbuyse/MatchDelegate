@@ -26,7 +26,6 @@ async function loadStats() {
   const el = document.getElementById('stats-content');
   if (!el) return;
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
-  const seasons = [...new Set(all.map(seasonOf))].sort().reverse();
   // De lokale matches-store is niet per ploeg gescheiden (zie cleanupOrphanMatches in core.js) —
   // dus ook binnen een ploeg altijd expliciet filteren op de actieve ploeg, anders lekt de cache
   // van een andere ploeg op dit toestel mee in de statistieken.
@@ -36,6 +35,15 @@ async function loadStats() {
   // ploeg op dit toestel te tonen.
   if (cloudReady) statsFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
   else if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
+  // Seizoenslijst uit dezelfde set als de stats zelf (afgewerkt, geen tornooi, actieve ploeg) —
+  // anders staan er seizoenen van andere ploegen of geplande wedstrijden in de dropdown. En
+  // 'Onbekend' (wedstrijd zonder datum) hoort achteraan, niet als default bovenaan: door de
+  // alfabetische sort ('O' > cijfers) werd één datumloze wedstrijd anders het standaardseizoen
+  // en leek de statistiekenpagina leeg.
+  const candidates = all.filter(m => m.status === 'done' && !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter));
+  const seasons = [...new Set(candidates.map(seasonOf))].sort().reverse();
+  const _unkIdx = seasons.indexOf('Onbekend');
+  if (_unkIdx >= 0) { seasons.splice(_unkIdx, 1); seasons.push('Onbekend'); }
   // Geen "alle seizoenen" meer: spelers uit oudere wedstrijden (zonder rosterId, gematcht op
   // naam) en nieuwere wedstrijden (mét rosterId) kwamen anders dubbel in de lijst terecht, zie
   // getp() hieronder. Standaard het meest recente seizoen met een wedstrijd.
@@ -80,6 +88,11 @@ async function loadStats() {
     const mins = calcMinutes(m);
     for (const p of (m.players || [])) {
       const r = getp(p.rosterId, p.name, p.number); const ms = mins[p.id] ? mins[p.id].ms : 0;
+      // No-show ("Niet aanwezig" tijdens de wedstrijd): telt als afwezig, niet als geselecteerd —
+      // anders staat hij bovenaan Fair-play met 0' alsof de trainer hem geen kansen gaf, terwijl
+      // hij zelf niet kwam opdagen. (selectedOnDate hierboven bevat hem wél, zodat een ✗ bij een
+      // A/B-tegenhanger op dezelfde dag niet dubbel als afwezig telt.)
+      if (p.absent) { r.absent++; continue; }
       r.squad++;
       if (ms > 0) { r.mp++; r.lines[p.line] = (r.lines[p.line] || 0) + 1; }
       r.ms += ms;
@@ -184,6 +197,9 @@ async function loadPlayerDetail() {
   let resolvedGlobalId = null;
   for (const m of allDone) { const p = findPlayer(m); if (p && p.globalId) { resolvedGlobalId = p.globalId; break; } }
   const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
+  // 'Onbekend' achteraan, niet als default — zie loadStats().
+  const _unkIdx2 = seasons.indexOf('Onbekend');
+  if (_unkIdx2 >= 0) { seasons.splice(_unkIdx2, 1); seasons.push('Onbekend'); }
   // Geen "alle seizoenen" meer, zie loadStats() hierboven voor de reden (dubbele spelers
   // door rosterId- vs. naam-matching tussen oude en nieuwe wedstrijden). Standaard het
   // meest recente seizoen waarin deze speler een wedstrijd speelde.
@@ -201,6 +217,8 @@ async function loadPlayerDetail() {
   for (const m of doneList) {
     const pl = findPlayer(m);
     if (!pl) continue;
+    // No-show: telt als afwezig i.p.v. geselecteerd — zelfde semantiek als loadStats().
+    if (pl.absent) { absent++; continue; }
     if (pl.number) number = pl.number;
     if (pl.line) pos = pl.line;
     const mins = calcMinutes(m);

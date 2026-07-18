@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.37'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.38'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1052,6 +1052,13 @@ function cloudListen() {
   addL('roster',  'value', s => applyCloudTeams(s.val() || []));
   addL('club',    'value', s => applyCloudClub(s.val()));
   addL('tournaments', 'value', s => applyCloudTournaments(s.val() || {}));
+  // statsPublic live volgen: een beheerder die secties (on)zichtbaar maakt voor kijkers bereikt
+  // zo ook toestellen met de app al open — voordien werd dit enkel eenmalig in selectTeam gelezen
+  // (en zag een kijker die snel doorklikte even de defaults i.p.v. de echte keuzes).
+  addL('info/statsPublic', 'value', s => {
+    activeStatsPublic = s.val() || {};
+    if (view === 'stats') loadStats();
+  });
   // Notities enkel ophalen als beheerder (kijkers/gasten mogen dit pad sowieso niet lezen).
   if (isAdmin) {
     const nr = notesRef();

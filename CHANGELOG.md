@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.38
+- **Opgelost:** één wedstrijd zonder datum kon "Onbekend" tot standaardseizoen maken waardoor de
+  statistieken leeg leken; "Onbekend" staat nu achteraan en de seizoenskeuze toont enkel seizoenen
+  van de eigen ploeg.
+- **Opgelost:** een speler die tijdens de wedstrijd "Niet aanwezig" gemarkeerd werd (no-show),
+  telt in de statistieken nu als afwezig i.p.v. als geselecteerd met 0 minuten — hij staat dus
+  niet meer bovenaan Fair-play alsof hij geen kansen kreeg.
+- **Opgelost:** het carrière-overzicht ("eerder bij") werkt nu ook meteen na de éérste
+  overzetting van een speler — zijn eerdere wedstrijden worden aan zijn blijvende spelers-id
+  gekoppeld.
+- **Verbeterd:** wijzigt een beheerder welke statistieken publiek zijn, dan zien kijkers met de
+  app al open dat meteen (live), niet pas na herstart.
+- **Verbeterd:** na "Speler overzetten" keer je terug naar het clubbeheer-scherm.
+
 ## v0.5.37
 - **Opgelost:** een clubbeheerder die (zonder ploeglid te zijn) via Clubbeheer een ploeg opende,
   kreeg in die sessie geen wedstrijdnotities en geen badge bij openstaande ploegbeheer-aanvragen.

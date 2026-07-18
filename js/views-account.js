@@ -662,9 +662,28 @@ async function doTransferPlayer() {
       fbdb.ref('teams/' + s.srcTeamId + '/roster').set(srcRoster),
       fbdb.ref('teams/' + s.dstTeamId + '/roster').set(dstRoster),
     ]);
+    // Carrière-backfill: had de speler nog geen globalId, dan dragen zijn historische wedstrijden
+    // bij de bronploeg het zonet gegenereerde id ook niet — en blijft "Carrière — eerder bij" bij
+    // een eerste overzetting leeg. Best-effort: het globalId terugschrijven in elke wedstrijd van
+    // de bronploeg waarin hij (op rosterId) meespeelde. Een fout hier breekt de overzetting niet.
+    if (!player.globalId) {
+      try {
+        const msnap = await fbOnce(fbdb.ref('teams/' + s.srcTeamId + '/matches'));
+        const matches = msnap.val() || {};
+        for (const mid of Object.keys(matches)) {
+          const players = matches[mid] && matches[mid].players;
+          if (!Array.isArray(players)) continue;
+          let changed = false;
+          players.forEach(p => { if (p && p.rosterId === s.playerId && !p.globalId) { p.globalId = globalId; changed = true; } });
+          if (changed) await fbdb.ref('teams/' + s.srcTeamId + '/matches/' + mid + '/players').set(players);
+        }
+      } catch (e) {}
+    }
     ptState = null;
     showToast('Speler overgezet.', 'ok');
-    go('beheer');
+    // Terug naar het clubbeheer — de overzetting start altijd vanuit dat scherm; go('beheer')
+    // toonde het ploegbeheer van de (mogelijk irrelevante) actieve ploeg.
+    go('clubbeheer');
   } catch (e) {
     showToast('Overzetten mislukt, probeer opnieuw.', 'err');
   }
