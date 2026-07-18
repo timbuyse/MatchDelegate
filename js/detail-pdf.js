@@ -284,6 +284,10 @@ async function exportPDF() {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  // Alle PDF-tekst automatisch WinAnsi-veilig maken (zie pdfSafe). Dekt ook autoTable, dat de
+  // celtekst intern via doc.text tekent.
+  const _docText = doc.text.bind(doc);
+  doc.text = (text, ...rest) => _docText(Array.isArray(text) ? text.map(t => typeof t === 'string' ? pdfSafe(t) : t) : (typeof text === 'string' ? pdfSafe(text) : text), ...rest);
   const PW = 595.28, PH = 841.89, MG = 40, CW = PW - MG * 2;
   let y = MG;
   const ensure = need => { if (y + need > PH - MG) { doc.addPage(); y = MG; } };
@@ -500,6 +504,21 @@ function esc(s) {
 }
 // Escaped voor gebruik binnen een enkel-gequote JS-stringliteral in een inline onclick-attribuut.
 function jsq(s) { return esc(String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+// jsPDF's standaardfonts ondersteunen enkel WinAnsi (CP1252). Tekens daarbuiten (Turks ş/ğ, Pools
+// ł/ć, Tsjechisch č/ř, ...) zouden als verkeerde glyphs renderen. We laten alles wat CP1252 wél
+// kan (é, ü, ç, ñ, š, ž, œ, ...) ongemoeid en translitereren enkel de rest naar een leesbare
+// ASCII-benadering (ş→s, ł→l, ğ→g), i.p.v. een volledig Unicode-font in te bedden (fors qua omvang).
+const _CP1252_EXTRA = new Set([...'‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ€']);
+const _PDF_TRANSLIT = { 'ł':'l','Ł':'L','đ':'d','Đ':'D','ı':'i','İ':'I','ħ':'h','Ħ':'H','ŧ':'t','Ŧ':'T','ĸ':'k','ŉ':'n','ə':'e' };
+function pdfSafe(s) {
+  if (s == null) return '';
+  return [...String(s)].map(ch => {
+    if (ch.codePointAt(0) <= 0xFF || _CP1252_EXTRA.has(ch)) return ch;  // in CP1252 → ongemoeid
+    const norm = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');   // accent strippen (ş→s, č→c, ğ→g)
+    if (norm && norm.charCodeAt(0) <= 0x7F) return norm;
+    return _PDF_TRANSLIT[ch] || '?';
+  }).join('');
+}
 
 // ===================== INIT =====================
 async function init() {

@@ -408,6 +408,15 @@ let _ep = null; // { slots, assign: Map<slotIdx,playerId>, sel: playerId|null }
 function modalEditPositions() {
   const forms = FORMATIONS[match.matchType] || [];
   if (!forms.length) { closeModal(); render(); return; }
+  // Dit herplaatst de STARTopstelling. Zodra er wissels/positiewissels zijn gebeurd, zou dat de
+  // reconstructie van de latere kwarten corrumperen (de posBefore/posA/posB-snapshots en
+  // playersAtPeriodStart() verwijzen naar de oorspronkelijke posities). Dan blokkeren en naar de
+  // per-kwart "Positiewissel" verwijzen. Vóór de eerste wissel (opstelling opzetten) blijft dit werken.
+  if ((match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
+    closeModal();
+    showToast('Er zijn al wissels of positiewissels gebeurd — gebruik "Positiewissel" om posities aan te passen. De startopstelling kan hier niet meer herplaatst worden.', 'err');
+    return;
+  }
   const fi = Math.max(0, forms.findIndex(f => f.name === match.formation));
   const slots = forms[fi].slots;
   // Initialiseer toewijzingen op basis van huidige spelerposities
