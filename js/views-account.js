@@ -139,7 +139,14 @@ async function openTeamFromClub(tid) {
   await selectTeam(tid);
   // Optimistisch: we komen uit het clubbeheer van deze club, dus toon meteen de beheercontroles
   // (selectTeam bevestigt dit ook async via isClubAdmin → isAdmin).
-  if (_clubBeheerId && myClubs && myClubs[_clubBeheerId]) isAdmin = true;
+  if (_clubBeheerId && myClubs && myClubs[_clubBeheerId] && !isAdmin) {
+    isAdmin = true;
+    // De initiële cloudListen() in selectTeam draaide nog zonder beheerder-rechten (geen
+    // teamNotes-listener, geen aanvraag-badge). Herstart de listeners hier meteen — de async
+    // elevatie in selectTeam slaat dat pad anders over, omdat isAdmin door deze optimistische
+    // set al true is tegen de tijd dat de info-fetch resolvet (wasAdmin-check).
+    stopTeamListeners(); cloudListen(); listenCoAdminRequests();
+  }
   go('beheer');
 }
 // Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
@@ -1112,7 +1119,9 @@ async function guestJoinWithCode() {
   if (err) err.textContent = 'Bezig...';
   const result = await joinTeamByToken(code);
   if (result === 'ok') { /* selectTeam navigeert automatisch */ }
-  else if (err) err.textContent = 'Code niet gevonden. Controleer de code en probeer opnieuw.';
+  else if (err) err.textContent = result === 'not_found'
+    ? 'Code niet gevonden. Controleer de code en probeer opnieuw.'
+    : 'Geen verbinding — controleer je internet en probeer opnieuw.';
 }
 
 function renderGuestJoin() {
@@ -1333,6 +1342,7 @@ async function doJoinTeam() {
   try {
     const result = await joinTeamByToken(token);
     if (result === 'not_found') { if (err) err.textContent = 'Code niet gevonden. Controleer de code en probeer opnieuw.'; return; }
+    if (result !== 'ok') { if (err) err.textContent = 'Geen verbinding — controleer je internet en probeer opnieuw.'; return; }
     closeModal();
   } catch (e) {
     console.error('joinTeam fout:', e);
@@ -1762,6 +1772,11 @@ async function go(v, id, _histReplace) {
   if (v === 'playerDetail' && !canSeeStats()) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
   if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
+  // Algemene gate: wie niet ingelogd is (en geen gast), hoort enkel op het auth-scherm, de
+  // handleiding of de onderhoudspagina — via Handleiding → terug → Instellingen → terug kon
+  // een afgemelde gebruiker anders op een leeg homescherm belanden zonder weg terug.
+  // (cloudReady-check: in lokale modus zonder cloud blijft alles gewoon bereikbaar.)
+  if (!currentUser && !isGuest && cloudReady && !['auth', 'handleiding', 'maintenance'].includes(v)) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
   if (id) match = await dbGet(id);

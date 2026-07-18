@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.36'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.37'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -928,8 +928,9 @@ async function selectTeam(teamId) {
   // effectief een rol heeft: een clubbeheerder die geen ploeglid is, mag niet als 'viewer'
   // geregistreerd worden — anders staat de ploeg na herstart permanent als "Kijker" in Jouw ploegen.
   if (currentUser && userTeams[teamId]) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId]);
-  // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is
-  writeMemberInfo(teamId, userTeams[teamId] || 'viewer');
+  // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is. Enkel voor echte leden:
+  // een clubbeheerder die geen ploeglid is, hoort niet als 'viewer' in memberInfo te belanden.
+  if (userTeams[teamId]) writeMemberInfo(teamId, userTeams[teamId]);
   cloudListen();
   listenCoAdminRequests();
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)

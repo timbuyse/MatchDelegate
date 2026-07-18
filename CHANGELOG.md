@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.37
+- **Opgelost:** een clubbeheerder die (zonder ploeglid te zijn) via Clubbeheer een ploeg opende,
+  kreeg in die sessie geen wedstrijdnotities en geen badge bij openstaande ploegbeheer-aanvragen.
+- **Opgelost:** account verwijderen ruimt nu ook het e-mailregister en de eigen
+  clubbeheerder-vermeldingen op, en laat geen wees-aanvraag met naam/e-mail meer achter
+  (vereist eenmalige publicatie van de bijgewerkte databaseregels).
+- **Opgelost:** een fout wachtwoord bij account verwijderen toont nu ook bij nieuwere
+  Firebase-versies de juiste melding.
+- **Opgelost:** een ploeg vervoegen zonder internet meldt nu "Geen verbinding" i.p.v. stil te
+  sluiten of "Code niet gevonden" te tonen.
+- **Opgelost:** een afgemelde gebruiker kon via Handleiding → terug op een leeg startscherm
+  belanden — alle schermen behalve aanmelden/handleiding sturen nu terug naar het aanmeldscherm.
+- **Opgelost:** een clubbeheerder die geen ploeglid is, wordt niet meer als "Kijker" in de
+  ledeninfo van de ploeg geregistreerd.
+
 ## v0.5.36
 - **Opgelost:** een vergeten wissel achteraf toevoegen aan een afgelopen deel verstoorde de
   huidige opstelling en de keeperminuten — posities en keepers worden nu correct herrekend.

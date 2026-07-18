@@ -949,13 +949,21 @@ async function doDeleteAccount() {
     // bewust bestaan (zie bevestigingstekst) — enkel de eigen gegevens van dit account verdwijnen.
     for (const tid of Object.keys(userTeams)) {
       try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
-      try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
+      // teamAdminRequests VÓÓR het lidmaatschap wissen: de self-verwijder-rule vereist dat je
+      // nog viewer bent — na de members-remove wordt dit stil geweigerd en blijft een aanvraag
+      // met naam/e-mail als wees achter.
       try { await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove(); } catch (e) {}
+      try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
+    }
+    // Eigen clubbeheerder-entries opruimen — anders blijft een ghost-uid in "Clubs beheren" staan.
+    for (const cid of Object.keys(myClubs || {})) {
+      try { await fbdb.ref('clubs/' + cid + '/admins/' + uid).remove(); } catch (e) {}
     }
     try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
     // Overige persoonlijke sporen (naam/e-mail) los van een specifieke ploeg. Uitnodigingscodes
     // (invites/) blijven bewust ongemoeid: die zijn niet op uid geïndexeerd en verwijderen zou
     // per ongeluk de actieve uitnodigingslink van een hele ploeg kunnen breken voor anderen.
+    try { await fbdb.ref('usersByEmail/' + uid).remove(); } catch (e) {}
     try { await fbdb.ref('approvedAdmins/' + uid).remove(); } catch (e) {}
     try { await fbdb.ref('adminRequests/' + uid).remove(); } catch (e) {}
     try { await fbdb.ref('rejectedAdmins/' + uid).remove(); } catch (e) {}
@@ -964,7 +972,7 @@ async function doDeleteAccount() {
     closeModal();
     activeTeamId = null; userTeams = {}; isAdmin = false; viewerMode = false;
   } catch (e) {
-    if (err) err.textContent = e.code === 'auth/wrong-password' ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
+    if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Onjuist wachtwoord.' : 'Verwijderen mislukt. Probeer opnieuw.';
   }
 }
 

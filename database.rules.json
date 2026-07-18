@@ -215,6 +215,14 @@
             ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())"
           }
         },
+        "admins": {
+          "$adminUid": {
+            // Een clubbeheerder mag enkel ZIJN EIGEN entry VERWIJDEREN (opkuis bij account-
+            // verwijdering) — geen ghost-uid in "Clubs beheren". Toevoegen/wijzigen (ook van
+            // zichzelf) blijft owner-only via de $clubId .write hierboven.
+            ".write": "auth != null && auth.uid === $adminUid && !newData.exists()"
+          }
+        },
         "teams": {
           // De ploeg-index binnen de club mag ook door de clubbeheerder beheerd worden (fase 2d),
           // zodat hij ploegen kan aanmaken/registreren in zijn club. (Niet info of admins.)
