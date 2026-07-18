@@ -46,6 +46,12 @@ async function loadStats() {
     return r;
   };
   const getpById = (m, id) => { const p = m.players.find(x => x.id === id); return p ? getp(p.rosterId, p.name, p.number) : getp(null, pName(m, id)); };
+  // 2b (A/B-ploegen): wie op een bepaalde dag in de selectie van eender welke wedstrijd van deze
+  // ploeg stond, mag voor die dag niet als afwezig geteld worden — anders drukt een ✗ bij ploeg A
+  // het selectiepercentage terwijl de speler tegelijk bij ploeg B meespeelde. Sleutel = speler+datum.
+  const selKey = (rosterId, name, date) => (rosterId || (name || '').trim()) + '|' + (date || '');
+  const selectedOnDate = new Set();
+  for (const m of sortedList) for (const p of (m.players || [])) selectedOnDate.add(selKey(p.rosterId, p.name, m.date));
   for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
     if (m.scoreUs > m.scoreThem) w++; else if (m.scoreUs < m.scoreThem) l++; else d++;
@@ -61,7 +67,11 @@ async function loadStats() {
       const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, p.id) : p.line === 'Doel';
       if (ms > 0 && wasKeeper && m.scoreThem === 0) r.cs++;  // clean sheet voor de keeper
     }
-    for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; const r = getp(ab.rosterId, ab.name); r.absent++; }
+    for (const a of (m.absentPlayers || [])) {
+      const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
+      if (selectedOnDate.has(selKey(ab.rosterId, ab.name, m.date))) continue; // speelde die dag elders in de club → niet afwezig
+      const r = getp(ab.rosterId, ab.name); r.absent++;
+    }
     for (const e of m.events) {
       if (e.type === 'goal_us' && e.playerId) { getpById(m, e.playerId).goals++; if (e.assistId) getpById(m, e.assistId).assists++; }
       if (e.type === 'penalty_us' && e.scored && e.playerId) getpById(m, e.playerId).goals++;  // strafschopdoelpunt telt mee
@@ -75,12 +85,15 @@ async function loadStats() {
   const topList = (arr, val, unit) => arr.length ? arr.map((p, i) => `<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${val(p)}${unit}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>';
   const scorers = players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 10);
   const assisters = players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 10);
-  const minutes = players.filter(p => p.ms > 0).sort((a, b) => b.ms - a.ms).slice(0, 15);
-  const fairplay = players.filter(p => p.mp > 0).sort((a, b) => (a.ms / a.mp) - (b.ms / b.mp)).slice(0, 12);
+  // "Meeste speelminuten" en "Fair-play" op basis van GESELECTEERD (squad), niet van gespeeld:
+  // een speler die wél in de selectie stond maar 0 minuten kreeg (bank, niet ingevallen) hoort net
+  // zichtbaar te zijn — dat is de eerlijkheids-signaal. Wie op ✗/niets stond zit niet in squad en
+  // blijft er terecht buiten.
+  const minutes = players.filter(p => p.squad > 0).sort((a, b) => b.ms - a.ms);
+  const fairplay = players.filter(p => p.squad > 0).sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
-  const anyAbsent = players.some(p => p.absent);
   const attend = players.filter(p => (p.squad + p.absent) > 0).sort((a, b) => (b.squad / (b.squad + b.absent)) - (a.squad / (a.squad + a.absent)) || b.squad - a.squad);
   el.innerHTML = filterBar + `
     <div class="card">
@@ -96,14 +109,14 @@ async function loadStats() {
         <div class="stat-box"><div class="v">${gf-ga>=0?'+':''}${gf-ga}</div><div class="l">Saldo</div></div>
       </div>
     </div>
-    <div class="sec">${icI(IC.ball)} Topschutters</div><div class="card">${topList(scorers, p => p.goals, '')}</div>
-    <div class="sec">${icI(IC.assist)} Meeste assists</div><div class="card">${topList(assisters, p => p.assists, '')}</div>
-    <div class="sec">${icI(IC.timer)} Meeste speelminuten</div><div class="card">${minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
-    <div class="sec">${icI(IC.balance)} Fair-play · minste speeltijd</div><div class="card"><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gesorteerd op laagste gemiddelde speeltijd per wedstrijd — zo zie je snel wie meer speelkansen verdient.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp} wd</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.mp/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div>
-    <div class="sec">${icI(IC.save)} Clean sheets</div><div class="card"><div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}</div>
-    ${carded.length ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card">${carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')}</div>` : ''}
-    ${posList.length ? `<div class="sec">${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span></div><div class="card">${posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')}</div>` : ''}
-    ${anyAbsent ? `<div class="sec">${icI(IC.clipboard)} Aanwezigheid <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span></div><div class="card">${attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')}</div>` : ''}`;
+    <details class="stat-acc"><summary>${icI(IC.ball)} Topschutters</summary><div class="card">${topList(scorers, p => p.goals, '')}</div></details>
+    <details class="stat-acc"><summary>${icI(IC.assist)} Meeste assists</summary><div class="card">${topList(assisters, p => p.assists, '')}</div></details>
+    <details class="stat-acc"><summary>${icI(IC.timer)} Meeste speelminuten</summary><div class="card">${minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div></details>
+    <details class="stat-acc"><summary>${icI(IC.balance)} Fair-play · minste speeltijd</summary><div class="card"><p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.squad} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.squad/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}</div></details>
+    <details class="stat-acc"><summary>${icI(IC.save)} Clean sheets</summary><div class="card"><div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}</div></details>
+    ${carded.length ? `<details class="stat-acc"><summary>${icI(IC.cardY)} Kaarten</summary><div class="card">${carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')}</div></details>` : ''}
+    ${posList.length ? `<details class="stat-acc"><summary>${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span></summary><div class="card">${posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')}</div></details>` : ''}
+    ${attend.length ? `<details class="stat-acc"><summary>${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span></summary><div class="card">${attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')}</div></details>` : ''}`;
 }
 
 // ===================== SPELERSDETAIL =====================
@@ -174,9 +187,13 @@ async function loadPlayerDetail() {
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
+  // 2b (A/B-ploegen): dagen waarop de speler in de selectie van een wedstrijd van deze ploeg zat
+  // (doneList bevat enkel wedstrijden waarin hij effectief geselecteerd was). Een ✗ op zo'n dag
+  // telt niet als afwezig — hij speelde dan bij de A/B-tegenhanger.
+  const selectedDates = new Set(doneList.map(m => m.date || ''));
   for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason)) {
     const wasAbsent = (m.absentPlayers || []).some(a => { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; return rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name; });
-    if (wasAbsent) absent++;
+    if (wasAbsent && !selectedDates.has(m.date || '')) absent++;
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
   // Aparte telling: in hoeveel tornooien de speler geselecteerd stond (aantal wedstrijden binnen dat tornooi is niet relevant).
@@ -237,7 +254,7 @@ async function loadPlayerDetail() {
       <div class="stat-big" style="margin-top:10px">
         <div class="stat-box"><div class="v">${Math.floor(ms / 60000)}'</div><div class="l">Speeltijd</div></div>
         <div class="stat-box"><div class="v">${mp ? Math.round(ms / mp / 60000) : 0}'</div><div class="l">Gem./match</div></div>
-        <div class="stat-box"><div class="v">${pct != null ? pct + '%' : '–'}</div><div class="l">Aanwezig</div></div>
+        <div class="stat-box"><div class="v">${pct != null ? pct + '%' : '–'}</div><div class="l">Geselecteerd</div></div>
       </div>
     </div>
     ${tournamentCount ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>` : ''}
