@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.35
+- **Opgelost (belangrijk):** "Plannen zonder selectie" bij het bewerken van een bestaande
+  wedstrijd wiste stil de volledige selectie, opstelling, events en notities — nu worden
+  enkel de gewijzigde infovelden bijgewerkt en blijft de rest bewaard.
+- **Opgelost (belangrijk):** "Opslaan zonder selectie" bij het bewerken van een bestaand
+  tornooi wiste stil de tornooiselectie — die blijft nu behouden.
+- **Opgelost:** twee snelle tikken op "Laatste actie ongedaan maken" konden ongemerkt twee
+  events verwijderen — de knop is nu beveiligd tegen dubbeltikken.
+- **Opgelost:** het eindsignaal (piep/trilling) bij het verstrijken van een deel klonk niet
+  wanneer je op de tab Opstelling of Verloop stond — het werkt nu op alle tabbladen van de
+  live wedstrijd.
+
 ## v0.5.34
 - **Opgelost:** dubbeltik op "Ploeg permanent verwijderen" kon de veiligheidsback-up
   overschrijven — nu geblokkeerd tijdens het verwijderen.

@@ -733,10 +733,8 @@ async function finishStep1Only() {
     if (!wiz.opponent) { showToast('Vul de tegenstander in.', 'err'); return; }
   }
   const team = teamById(wiz.teamId);
-  const m = {
-    id: wiz.editId || uid(), createdAt: Date.now(), notes: '', motmId: null, captainId: null,
-    quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [],
-    teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: '',
+  const common = {
+    teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), teamId: wiz.teamId || '',
     competition: wiz.competition, matchday: wiz.matchday || '', referee: wiz.referee || '',
     jersey: wiz.jersey || '', venue: wiz.venue || '',
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
@@ -745,9 +743,15 @@ async function finishStep1Only() {
     periodKey: wiz.periodKey,
     numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count,
     quarterDuration: wiz.quarterDuration,
-    teamId: wiz.teamId || '',
-    players: [], absentPlayers: [], status: 'planned',
   };
+  // Bij het herbewerken van een bestaande wedstrijd enkel de stap-1-velden overschrijven —
+  // een vers object onder hetzelfde id zou de selectie, opstelling, events en notities stil wissen.
+  const existing = wiz.editId ? await dbGet(wiz.editId) : null;
+  const m = existing ? Object.assign(existing, common) : Object.assign({
+    id: wiz.editId || uid(), createdAt: Date.now(), notes: '', motmId: null, captainId: null,
+    quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [],
+    formation: '', players: [], absentPlayers: [], status: 'planned',
+  }, common);
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   wiz = null; await dbSave(m); match = m;
@@ -757,7 +761,10 @@ function saveTournamentWizStep1Only() {
   captureTrnStep1();
   if (!trnWiz.name) { showToast('Geef het tornooi een naam.', 'err'); return; }
   if (!trnWiz.teamId) { showToast('Kies een ploeg.', 'err'); return; }
-  trnWiz.pool = [];
+  // Pool NIET leegmaken: bij het bewerken van een bestaand tornooi staat hier de herstelde
+  // selectie (editTournament) — leegmaken zou de squad stil wissen. Enkel herbouwen als de
+  // ploeg intussen gewijzigd is (zelfde guard als trnWizNext).
+  if (trnWiz.poolTeamId !== trnWiz.teamId) { trnWizBuildPool(); trnWiz.poolTeamId = trnWiz.teamId; }
   saveTournamentWiz();
 }
 async function startPlanned() {

@@ -129,7 +129,10 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
     ${extraBtn}
   </div>`;
 }
-function setTab(t) { tab = t; render(); if (t==='wedstrijd') startTimer(); else stopTimer(); }
+// Timer blijft lopen op álle subtabs: checkOvertimeAlert (eindsignaal) draait in de timer-
+// interval en moet ook piepen als de gebruiker net de speeltijden (Opstelling) bekijkt.
+// updateTimerDisplay stopt zelf meteen zonder #timer-time-element, dus dit kost niets.
+function setTab(t) { tab = t; render(); startTimer(); }
 function confirmLeave() {
   const backFn = isGuest ? `go('home')` : (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go('matches')`;
   if (match && match.status === 'live') {
@@ -1025,6 +1028,10 @@ function modalDisallowed(side) {
 }
 function hasUndo() { return match && match.events.some(e => e.type !== 'quarter_start' && e.type !== 'quarter_end'); }
 async function undoLast() {
+  // Dubbeltik-guard: een tweede tik vóór de re-render zou stil óók het voorlaatste event verwijderen.
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
   let idx = -1;
   for (let i = match.events.length - 1; i >= 0; i--) { const t = match.events[i].type; if (t !== 'quarter_start' && t !== 'quarter_end') { idx = i; break; } }
   if (idx < 0) return;
@@ -1046,6 +1053,7 @@ async function undoLast() {
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
   await dbSave(match); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
+  } finally { _eventBusy = false; }
 }
 function showUndoToast(html) {
   let t = document.getElementById('undo-toast');
