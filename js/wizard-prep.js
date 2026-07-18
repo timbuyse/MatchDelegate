@@ -720,6 +720,9 @@ async function finishStep1Only() {
     wiz.date = document.getElementById('n-date')?.value || wiz.date;
     wiz.time = document.getElementById('n-time')?.value || wiz.time;
     wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
+    // Ook de gekozen periode + blokduur meenemen (die werden anders genegeerd bij "plannen zonder opstelling").
+    wiz.periodKey = document.getElementById('n-pt')?.value || wiz.periodKey;
+    wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
     if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }
   } else {
     captureStep1();
@@ -781,9 +784,11 @@ function qrAdj(id, d) { qrScorers[id] = Math.max(0, (qrScorers[id] || 0) + d); c
 async function saveQuickResult() {
   const us = Math.max(0, parseInt(document.getElementById('qr-us').value) || 0);
   const them = Math.max(0, parseInt(document.getElementById('qr-them').value) || 0);
-  match.events = (match.events || []).filter(e => !e.quick); // eerdere snelinvoer wissen
   const sum = Object.values(qrScorers).reduce((a, b) => a + b, 0);
-  const usFinal = Math.max(us, sum);
+  // Meer aangeduide doelpuntenmakers dan de ingevulde eindstand: waarschuw i.p.v. de score stil op te trekken.
+  if (sum > us) { showToast(`Je duidde ${sum} doelpuntenmaker(s) aan, maar de eindstand staat op ${us}. Pas de score of de scorers aan.`, 'err'); return; }
+  match.events = (match.events || []).filter(e => !e.quick); // eerdere snelinvoer wissen
+  const usFinal = us;
   Object.entries(qrScorers).forEach(([pid, c]) => { for (let i = 0; i < c; i++) match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: 'goal_us', playerId: pid, assistId: null, quick: true }); });
   for (let i = 0; i < usFinal - sum; i++) match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: 'goal_us', playerId: null, assistId: null, quick: true });
   for (let i = 0; i < them; i++) match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: 'goal_them', quick: true });

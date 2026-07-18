@@ -305,11 +305,16 @@ async function exportPDF() {
   const tx = MG + 50, tw = CW - 50 - clubW;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
-  doc.text(title, tx, y + 13, { maxWidth: tw });
+  const titleLines = doc.splitTextToSize(title, tw);
+  doc.text(titleLines, tx, y + 13);
   doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
-  doc.text(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tx, y + 27, { maxWidth: tw });
-  if (infoBits.length) doc.text(infoBits.join(' · '), tx, y + 39, { maxWidth: tw });
-  y += 56;
+  // Metaregels net onder de (mogelijk meerregelige) titel plaatsen i.p.v. op vaste offsets,
+  // zodat een lange titel de datum-/inforegel niet overlapt en de header-hoogte meegroeit.
+  let my = y + 13 + (titleLines.length - 1) * 16 + 14;
+  doc.text(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tx, my, { maxWidth: tw });
+  my += 12;
+  if (infoBits.length) { doc.text(infoBits.join(' · '), tx, my, { maxWidth: tw }); my += 12; }
+  y = Math.max(y + 56, my + 4);
   doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, y, MG + CW, y);
   y += 26;
 
@@ -366,7 +371,7 @@ async function exportPDF() {
   if (m.quarters.length) {
     heading(`Tussenstand per ${pSingLow(m)}`);
     const rows = m.quarters.map(q => {
-      const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : 0;
+      const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
       const cumText = isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`;
       const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)

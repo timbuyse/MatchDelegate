@@ -1675,6 +1675,7 @@ function timerText(m) {
 // Eindsignaal-check: apart van updateTimerDisplay() zodat het blijft werken ongeacht welke
 // subtab (Wedstrijd/Opstelling/Verloop) actief is — updateTimerDisplay() stopt vroegtijdig
 // als het #timer-time-element er niet is, en zou de piep dan nooit bereiken.
+let _overtimeAlerted = new Set(); // lokaal: welk kwart al een overtime-piep gaf op DIT toestel
 function checkOvertimeAlert() {
   if (!match) return;
   const q = match.quarters[match.quarters.length - 1];
@@ -1682,7 +1683,10 @@ function checkOvertimeAlert() {
   const elapsed = getQElapsed(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const isRunning = q.startTime && !q.pausedAt && !q.endTime;
-  if (isRunning && durMs && elapsed >= durMs && !q.alerted) { q.alerted = true; beep(); dbSave(match); }
+  // Enkel lokaal piepen — niet q.alerted op de gedeelde match zetten + dbSave'en vanaf elk
+  // beheerderstoestel tegelijk (dat overschreef elkaars recente wijzigingen, last-writer-wins).
+  const key = match.id + ':' + q.num;
+  if (isRunning && durMs && elapsed >= durMs && !_overtimeAlerted.has(key)) { _overtimeAlerted.add(key); beep(); }
 }
 function updateTimerDisplay() {
   const el = document.getElementById('timer-time');
