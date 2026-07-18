@@ -91,8 +91,17 @@ async function loadClubBeheerView() {
     live.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
     const rows = live.filter(r => !r.archived);
     const archivedRows = live.filter(r => r.archived);
+    // Namen van álle beheerde clubs ophalen zodat de keuzelijst niet terugvalt op de clubId (code)
+    // voor de niet-actieve clubs (de actieve naam kennen we al via clubName). Enkel bij >1 club.
+    const clubNamesById = { [clubId]: clubName };
+    if (clubIds.length > 1) {
+      await Promise.all(clubIds.filter(id => id !== clubId).map(async id => {
+        try { const s = await fbOnce(fbdb.ref('clubs/' + id + '/info/name')); clubNamesById[id] = s.val() || id; }
+        catch (e) { clubNamesById[id] = id; }
+      }));
+    }
     const clubSelector = clubIds.length > 1
-      ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(id === clubId ? clubName : id)}</option>`).join('')}</select></div>`
+      ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(clubNamesById[id] || id)}</option>`).join('')}</select></div>`
       : '';
     el.innerHTML = `
       ${clubSelector}
