@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.39
+- **Verbeterd:** de spelerselectie legt het verschil nu duidelijk uit: **✗ afwezig** =
+  onbeschikbaar/afgemeld (telt mee in het aanwezigheids-%), **niets aanduiden** = niet
+  geselecteerd / niet overwogen (telt nergens in mee, bv. speler van de B-ploeg). Zelfde
+  uitleg in de tornooiselectie.
+
 ## v0.5.38
 - **Opgelost:** één wedstrijd zonder datum kon "Onbekend" tot standaardseizoen maken waardoor de
   statistieken leeg leken; "Onbekend" staat nu achteraan en de seizoenskeuze toont enkel seizoenen

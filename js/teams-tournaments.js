@@ -475,7 +475,7 @@ function renderTrnStep2() {
     <div class="nm">${esc(p.name)}<small>${posDisplay(p) || '—'}</small></div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
-      <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig">✗</button>
+      <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig (onbeschikbaar/afgemeld)">✗</button>
     </div></div>`;
   return `
     <div class="card" style="display:flex;gap:10px;text-align:center;margin-bottom:12px">
@@ -483,6 +483,7 @@ function renderTrnStep2() {
       ${ab ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${ab}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
+    <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">✗ afwezig</b> = onbeschikbaar/afgemeld. <b>Niets aanduiden</b> = niet geselecteerd (niet overwogen).</div>
     <div class="card">${trnWiz.pool.length ? trnWiz.pool.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="trnWizBack()">← Vorige</button>
