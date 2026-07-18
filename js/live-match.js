@@ -195,14 +195,14 @@ function syncKeeper() {
 }
 async function pauseQuarter() {
   const q = match.quarters[match.quarters.length - 1];
-  if (!q || q.pausedAt) return; // dubbeltik-guard: al gepauzeerd
+  if (!q || q.pausedAt || q.endTime) return; // guard: al gepauzeerd, of het deel is al beëindigd (stale UI/co-admin-sync)
   q.pausedAt = Date.now(); match.quarterStatus = 'paused';
   releaseWake();
   await dbSave(match); render();
 }
 async function resumeQuarter() {
   const q = match.quarters[match.quarters.length - 1];
-  if (!q || q.pausedAt == null) return; // dubbeltik-guard: Date.now() - null zou de klok corrumperen
+  if (!q || q.pausedAt == null || q.endTime) return; // guard: niet gepauzeerd, of het deel is al beëindigd — anders krimpt de reeds vastgelegde speeltijd
   q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null;
   match.quarterStatus = 'running';
   requestWake();
@@ -286,22 +286,28 @@ function modalQuickNote() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   setTimeout(() => document.getElementById('qn-area')?.focus(), 50);
 }
+let _noteBusy = false; // dubbeltik-guard voor snelle notitie / ★-moment (voorkomt dubbele regels)
 async function saveQuickNote() {
   const txt = (document.getElementById('qn-area')?.value || '').trim();
   if (!txt) { closeModal(); return; }
-  const gameTime = fmtTime(getGameTimeMs(match));
-  const stamp = `[${gameTime}] ${txt}`;
-  match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
-  await dbSave(match);
-  closeModal();
+  if (_noteBusy) return;
+  _noteBusy = true;
+  try {
+    const stamp = `[${fmtTime(getGameTimeMs(match))}] ${txt}`;
+    match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+    await dbSave(match); closeModal();
+  } finally { _noteBusy = false; }
 }
 async function markMoment() {
-  const gameTime = fmtTime(getGameTimeMs(match));
-  const stamp = `[${gameTime}] ★`;
-  match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
-  await dbSave(match);
-  const btn = document.querySelector('.fab-mark');
-  if (btn) { btn.innerHTML = IC.check; setTimeout(() => { btn.innerHTML = IC.motm; }, 800); }
+  if (_noteBusy) return;
+  _noteBusy = true;
+  try {
+    const stamp = `[${fmtTime(getGameTimeMs(match))}] ★`;
+    match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+    await dbSave(match);
+    const btn = document.querySelector('.fab-mark');
+    if (btn) { btn.innerHTML = IC.check; setTimeout(() => { btn.innerHTML = IC.motm; }, 800); }
+  } finally { _noteBusy = false; }
 }
 function modalEditMatchInfo() {
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
@@ -914,7 +920,10 @@ async function setMatchCaptain(id) {
   await dbSave(match); closeModal(); render();
 }
 async function logExtra(type, extra = {}) {
-  addEvent(type, extra); await dbSave(match); closeModal(); render();
+  if (_eventBusy) return; // dubbeltik-guard (bv. afgekeurd doelpunt): anders twee identieke events
+  _eventBusy = true;
+  try { addEvent(type, extra); await dbSave(match); closeModal(); render(); }
+  finally { _eventBusy = false; }
 }
 function modalDisallowed(side) {
   const type = side === 'us' ? 'disallowed_us' : 'disallowed_them';
@@ -1160,23 +1169,27 @@ function selectPosSwapB(id, el) {
 }
 async function confirmPosSwap() {
   if (!posSwapA || !posSwapB) return;
-  if (match.quarterStatus === 'between') {
-    match.pendingPosSwaps = match.pendingPosSwaps || [];
-    match.pendingPosSwaps.push({ pA: posSwapA, pB: posSwapB });
+  if (_eventBusy) return; // dubbeltik-guard: tweede tik zou de net-gewisselde posities terugdraaien
+  _eventBusy = true;
+  try {
+    if (match.quarterStatus === 'between') {
+      match.pendingPosSwaps = match.pendingPosSwaps || [];
+      match.pendingPosSwaps.push({ pA: posSwapA, pB: posSwapB });
+      await dbSave(match); closeModal(); render();
+      return;
+    }
+    const pA = match.players.find(p => p.id === posSwapA), pB = match.players.find(p => p.id === posSwapB);
+    if (!pA || !pB) { closeModal(); return; }
+    // Snapshot vóór de mutatie meegeven aan het event: dit is het stabiele anker waarop
+    // playersAtPeriodStart() zich baseert bij het reconstrueren van vroegere kwarten, ook
+    // nadat een van beide spelers via een later event alweer van positie veranderd is.
+    const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+    const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
+    addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA, posB });
+    pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
+    pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
     await dbSave(match); closeModal(); render();
-    return;
-  }
-  const pA = match.players.find(p => p.id === posSwapA), pB = match.players.find(p => p.id === posSwapB);
-  if (!pA || !pB) { closeModal(); return; }
-  // Snapshot vóór de mutatie meegeven aan het event: dit is het stabiele anker waarop
-  // playersAtPeriodStart() zich baseert bij het reconstrueren van vroegere kwarten, ook
-  // nadat een van beide spelers via een later event alweer van positie veranderd is.
-  const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
-  const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
-  addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA, posB });
-  pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
-  pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
-  await dbSave(match); closeModal(); render();
+  } finally { _eventBusy = false; }
 }
 async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); }
 

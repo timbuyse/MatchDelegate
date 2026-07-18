@@ -104,7 +104,7 @@ async function loadClubBeheerView() {
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
-            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}',&quot;${esc(t.name).replace(/"/g, '&quot;')}&quot;)">${icI(IC.archive)} Archiveren</button>
+            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}','${jsq(t.name)}')">${icI(IC.archive)} Archiveren</button>
           </div>
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
@@ -161,7 +161,7 @@ async function toggleClubTeamMembership(tid) {
 // dus de clubbeheerder mag het (i.t.t. hard verwijderen, dat bij de eigenaar/maker blijft).
 function archiveTeam(tid, naam) {
   if (!fbdb) return;
-  showConfirm('Ploeg "' + naam + '" archiveren? Ze verdwijnt uit de actieve lijsten maar alle gegevens blijven bewaard. Je kan ze later herstellen.', async () => {
+  showConfirm('Ploeg "' + esc(naam) + '" archiveren? Ze verdwijnt uit de actieve lijsten maar alle gegevens blijven bewaard. Je kan ze later herstellen.', async () => {
     try {
       await fbdb.ref('teams/' + tid + '/info/archived').set(true);
       archivedTeams[tid] = true;
@@ -231,7 +231,7 @@ async function loadClubsAdminView() {
         ? teamIds.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(teamNameMap[t] || t)}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="showAppointTeamAdmin('${t}',&quot;${esc(teamNameMap[t] || '').replace(/"/g, '&quot;')}&quot;)">${icI(IC.plus)} Ploegbeheerder</button></div>`).join('')
         : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen ploegen.</p>';
       const deleteBtn = nTeams === 0
-        ? `<button style="margin-top:12px;background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px" onclick="deleteClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.trash)} Club verwijderen</button>`
+        ? `<button style="margin-top:12px;background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px" onclick="deleteClub('${cid}','${jsq(nm)}')">${icI(IC.trash)} Club verwijderen</button>`
         : `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Een club kan enkel verwijderd worden als er geen ploegen meer in zitten.</p>`;
       return `<div class="card" style="margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -397,7 +397,7 @@ function removeClubAdmin(cid, uid) {
 // elke clubbeheerder op (users/{uid}/clubs/{cid}).
 function deleteClub(cid, naam) {
   if (!isOwner || !fbdb) return;
-  showConfirm('Club "' + naam + '" verwijderen? Dit kan enkel als er geen ploegen meer in zitten.', async () => {
+  showConfirm('Club "' + esc(naam) + '" verwijderen? Dit kan enkel als er geen ploegen meer in zitten.', async () => {
     try {
       const c = (await fbOnce(fbdb.ref('clubs/' + cid))).val() || {};
       const teamCount = Object.keys(c.teams || {}).length;
@@ -490,7 +490,7 @@ async function loadAllUsersView() {
       sections.push(`<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px" open>
         <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
-          <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${esc(teamNaam)}')">Verwijderen</button>
+          <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${jsq(teamNaam)}')">Verwijderen</button>
         </summary>
         <div style="margin-top:10px">${rows.join('')}</div>
       </details>`);
