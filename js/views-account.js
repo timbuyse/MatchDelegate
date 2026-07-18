@@ -453,49 +453,8 @@ async function loadAllUsersView() {
   const el = document.getElementById('allusers-view-list');
   if (!el || !isOwner || !fbdb) return;
   try {
-    const [teamsSnap, approvedSnap, ownerSnap] = await Promise.all([
-      fbOnce(fbdb.ref('teams')),
-      fbOnce(fbdb.ref('approvedAdmins')),
-      fbOnce(fbdb.ref('owner')),
-    ]);
+    const teamsSnap = await fbOnce(fbdb.ref('teams'));
     const teamsVal = teamsSnap.val() || {};
-    const approvedVal = approvedSnap.val() || {};
-    const theOwnerUid = ownerSnap.val();
-    const approvedUids = new Set(Object.keys(approvedVal));
-
-    // Blokje bovenaan: wie mag ploegen aanmaken.
-    // Oud formaat (true) → naam opzoeken via /users/
-    const resolveApprovedUser = async (uid) => {
-      const entry = approvedVal[uid];
-      if (entry && typeof entry === 'object' && entry.name) return { uid, name: entry.name, email: entry.email || '' };
-      try {
-        const s = await fbOnce(fbdb.ref('users/' + uid));
-        const u = s.val() || {};
-        return { uid, name: u.displayName || u.name || uid, email: u.email || '' };
-      } catch (_) { return { uid, name: uid, email: '' }; }
-    };
-
-    const canCreate = [];
-    if (theOwnerUid) {
-      const o = await resolveApprovedUser(theOwnerUid);
-      const ownerName = (approvedVal[theOwnerUid] && approvedVal[theOwnerUid].name) || (currentUser && currentUser.displayName) || o.name;
-      const ownerEmail = (approvedVal[theOwnerUid] && approvedVal[theOwnerUid].email) || (currentUser && currentUser.email) || o.email;
-      canCreate.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-        <span style="flex:1;font-size:14px"><b>${esc(ownerName)}</b><br><small style="color:var(--txt2)">${esc(ownerEmail)}</small></span>
-        <span class="ts-role admin" style="color:#7c3aed">${icI(IC.shield)} Eigenaar</span>
-      </div>`);
-    }
-    const approvedResolved = await Promise.all([...approvedUids].filter(u => u !== theOwnerUid).map(resolveApprovedUser));
-    for (const a of approvedResolved) {
-      canCreate.push(`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-        <span style="flex:1;font-size:14px"><b>${esc(a.name)}</b><br><small style="color:var(--txt2)">${esc(a.email)}</small></span>
-        <span class="ts-role admin">${icI(IC.shield)} Beheerder</span>
-      </div>`);
-    }
-    const topBlock = `<div style="margin-bottom:20px">
-      <div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Mogen ploegen aanmaken</div>
-      ${canCreate.length ? canCreate.join('') : '<p style="color:var(--txt2);font-size:13px">Geen.</p>'}
-    </div><hr style="margin-bottom:16px">`;
 
     // Per ploeg, als inklapbare sectie
     const teamIds = Object.keys(teamsVal);
@@ -509,7 +468,10 @@ async function loadAllUsersView() {
       const team = teamsVal[tid] || {};
       const members = team.members || {};
       const info = (memberInfoSnaps[i] && memberInfoSnaps[i].val()) || {};
-      const clubName = (team.club && team.club.name) || tid;
+      const tInfo = team.info || {};
+      const teamNaam = tInfo.name || (team.club && team.club.name) || tid;
+      const clubNaam = tInfo.clubName || '';
+      const sectieTitel = (clubNaam ? clubNaam + ' · ' : '') + teamNaam;
       const uids = Object.keys(members).sort((a, b) =>
         (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
       if (!uids.length) continue;
@@ -527,14 +489,14 @@ async function loadAllUsersView() {
       const searchBlob = users.map(u => (u.naam + ' ' + u.email).toLowerCase()).join(' | ');
       sections.push(`<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px" open>
         <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(clubName)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
-          <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${esc(clubName)}')">Verwijderen</button>
+          <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
+          <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${esc(teamNaam)}')">Verwijderen</button>
         </summary>
         <div style="margin-top:10px">${rows.join('')}</div>
       </details>`);
     }
 
-    el.innerHTML = topBlock + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Geen ploegen met leden.</p>');
+    el.innerHTML = (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Geen ploegen met leden.</p>');
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
     el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
@@ -2120,9 +2082,9 @@ async function loadHome() {
   // Discrete clubvoettekst (fase clublogo): klein clublogo + clubnaam onderaan de ploegpagina.
   const clubLogo = getActiveClubLogo();
   const clubFooter = (clubLogo || activeClubName)
-    ? `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:28px 0 8px;opacity:.75">
-        ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:28px;height:28px;object-fit:contain">` : ''}
-        ${activeClubName ? `<span style="font-size:12px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:28px 0 8px;opacity:.8">
+        ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:40px;height:40px;object-fit:contain">` : ''}
+        ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
   el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
 }
