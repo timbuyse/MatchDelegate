@@ -1715,6 +1715,9 @@ async function go(v, id, _histReplace) {
   // Gast: enkel toegang tot deze schermen, ongeacht hoe de navigatie tot stand komt
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
   if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
+  // Kijkers mogen de statistiekenpagina zien (met enkel de publieke secties); het individuele
+  // spelerdetail blijft beheerder-only. Blokkeert ook back-/console-navigatie naar playerDetail.
+  if (v === 'playerDetail' && !canSeeStats()) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
   if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
@@ -2004,7 +2007,7 @@ async function loadHome() {
     <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${tileMatches.length}</span></button>
     ${teamTile}
     <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
-    <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    ${!isGuest ? `<button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>` : ''}
   </div>`;
   const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
   const offlineBanner = !isOffline ? '' : (canManage()

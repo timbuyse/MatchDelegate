@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.19'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.20'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -365,6 +365,7 @@ let activeClubId = null;   // clubId van de actieve ploeg (afgeleid uit teams/{i
 let activeClubName = '';   // gedenormaliseerde clubnaam van de actieve ploeg (teams/{id}/info/clubName)
 let activeClubLogo = '';   // gedenormaliseerd clublogo (data-URI) van de actieve ploeg (teams/{id}/info/clubLogo)
 let isClubAdmin = false;   // is de huidige gebruiker clubbeheerder van de actieve ploeg's club?
+let activeStatsPublic = {}; // { sectieKey: bool } — welke statistieksecties de beheerder publiek zette (teams/{id}/info/statsPublic)
 let teamClubNames = {};    // { teamId: clubName } — cache voor groepering op het ploegkeuzescherm
 let teamClubLogos = {};    // { teamId: clubLogo } — cache clublogo per ploeg (ploegkeuzescherm)
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
@@ -905,7 +906,7 @@ async function selectTeam(teamId) {
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal; voor de rest
   // wachten we op de clubId-fetch hieronder (achtergrond) vóór we isClubAdmin definitief zetten.
-  activeClubId = null; activeClubName = ''; activeClubLogo = '';
+  activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
   isClubAdmin = isOwner;
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup). Enkel als hij
@@ -933,6 +934,7 @@ async function selectTeam(teamId) {
     activeClubId = info.clubId || null;
     activeClubName = info.clubName || '';
     activeClubLogo = info.clubLogo || '';
+    activeStatsPublic = info.statsPublic || {};
     if (activeClubName) teamClubNames[teamId] = activeClubName;
     if (activeClubLogo) teamClubLogos[teamId] = activeClubLogo; else delete teamClubLogos[teamId];
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
@@ -1348,6 +1350,10 @@ function cloudRefreshUI() {
 // geverifieerd worden zonder verbinding, dus geen beheerrechten geven tot die bevestigd is.
 function offlineWithKnownCloudTeam() { return !cloudReady && !!localStorage.getItem('voetbal_activeTeamId'); }
 function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudTeam() && (!cloudReady || isAdmin); }
+// Statistieken (seizoensoverzicht + individueel spelerdetail) zijn enkel voor beheerders,
+// niet voor kijkers of gasten (bewuste keuze). Anders dan canManage() blijft dit offline wél
+// true, zodat een beheerder zijn stats ook zonder verbinding kan bekijken.
+function canSeeStats() { return !isGuest && !viewerMode && (!cloudReady || isAdmin || isOwner); }
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {
