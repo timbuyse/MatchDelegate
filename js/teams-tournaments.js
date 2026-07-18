@@ -51,6 +51,9 @@ function renderTeamView() {
 function renderTeamOverview() {
   const t = editingTeam;
   const trainers = (t.trainers || []).filter(tr => tr.name);
+  const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
+  const oForms = FORMATIONS[oDmt] || [];
+  const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
@@ -65,10 +68,11 @@ function renderTeamOverview() {
         <span class="start-chip" onclick="toggleTeamEditMode()">Aan</span>
       </div>
     </div>
-    ${(t.responsible || trainers.length) ? `<div class="card">
+    <div class="card">
+      <div class="stat-row"><span style="color:var(--txt2);min-width:140px">Standaardopstelling</span><span style="font-weight:600">${esc(oForm)} <span style="color:var(--txt2);font-weight:400">(${esc(oDmt)})</span></span></div>
       ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantwoordelijke</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
-    </div>` : ''}
+    </div>
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${rows}</div>
   </div>`;
