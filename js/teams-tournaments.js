@@ -539,18 +539,21 @@ async function cloneTournamentMatch(matchId, trnId) {
   const t = tournamentById(trnId); if (!t) return;
   const team = teamById(t.teamId);
   const now = new Date();
+  const matchType = src.matchType || t.matchType || '8v8';
+  const fi = Math.max(0, (FORMATIONS[matchType] || []).findIndex(f => f.name === src.formation));
   const pool = (src.players || []).map(p => ({
     pid: uid(),
-    srcId: p.rosterId || p.id,
+    srcId: p.rosterId || null,
     srcGlobalId: p.globalId || null,
     name: p.name,
     number: p.number,
     pos: p.line || p.pos || '',
+    side: p.side || '',
     fromName: src.teamName || (team ? team.name : ''),
     guest: !!p.guest,
     sel: p.starting ? 'basis' : 'bank',
     slot: null,
-    x: p.x, y: p.y, line: p.line, posNum: p.posNum,
+    _x: p.x, _y: p.y,
   }));
   wiz = {
     step: 1, trnMode: true, tournamentId: trnId,
@@ -559,7 +562,7 @@ async function cloneTournamentMatch(matchId, trnId) {
     date: t.date || now.toISOString().split('T')[0],
     time: src.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: src.location || t.location || 'Thuis',
-    matchType: src.matchType || t.matchType || '8v8',
+    matchType,
     periodKey: src.periodKey || 'delen',
     quarterDuration: src.quarterDuration || 20,
     numQuarters: src.numQuarters || 1,
@@ -568,8 +571,12 @@ async function cloneTournamentMatch(matchId, trnId) {
     venue: '', trainer: src.trainer || t.trainer || '',
     responsible: src.responsible || t.responsible || '',
     trainerIsOther: false,
-    pool, poolTeamId: t.teamId, formationIndex: src.formationIndex || 0, selPlace: null,
+    pool, poolTeamId: t.teamId, formationIndex: fi, selPlace: null,
   };
+  // Basisspelers terugplaatsen op hun formatie-slot (x/y-match), zoals editMatchWizard — anders
+  // blijft de opstelling leeg bij "Gebruik als template".
+  const cloneForm = FORMATIONS[matchType] && FORMATIONS[matchType][fi];
+  if (cloneForm) wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = cloneForm.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
   go('new');
 }
 function renderTrnMatchStep1() {

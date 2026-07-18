@@ -43,8 +43,7 @@ self.addEventListener('fetch', e => {
     // cache:'no-store' zodat de HTTP-cache (bv. GitHub Pages) geen verouderde kopie tussenschuift.
     const cacheKey = isDoc ? './index.html' : req;
     const network = fetch(req, { cache: 'no-store' }).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(cacheKey, copy));
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(cacheKey, copy)); } // geen 404/500 cachen
       return res;
     });
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('sw-timeout')), 3000));
@@ -60,7 +59,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(req).then(cached => {
       const network = fetch(req).then(res => {
-        caches.open(CACHE).then(c => c.put(req, res.clone()));
+        if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone())); // geen 404/500 over een goede cache-entry schrijven
         return res;
       }).catch(() => cached);
       return cached || network;
