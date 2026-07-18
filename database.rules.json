@@ -142,8 +142,8 @@
 
     "teamAdminRequests": {
       "$teamId": {
-        ".read": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin')",
+        ".read": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'viewer'"

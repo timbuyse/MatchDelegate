@@ -609,7 +609,9 @@ function confirmTransferPlayer() {
 }
 async function doTransferPlayer() {
   const s = ptState;
-  if (!s || !isOwner || !fbdb) return;
+  // Speler overzetten is een club-operatie: eigenaar of clubbeheerder (spiegelt de UI-gate in
+  // renderPlayerTransfer, die op myClubs gate't). De rules dwingen de fijne club-scoping af.
+  if (!s || !fbdb || !(isOwner || Object.keys(myClubs || {}).length)) return;
   closeModal();
   try {
     const [srcSnap, dstSnap] = await Promise.all([
@@ -843,14 +845,16 @@ async function showMembersModal() {
     <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
   try {
-    const [miSnap, memSnap, reqSnap] = await Promise.all([
+    const [miSnap, memSnap] = await Promise.all([
       fbOnce(fbdb.ref('memberInfo/' + tid)),
       fbOnce(fbdb.ref('teams/' + tid + '/members')),
-      fbOnce(fbdb.ref('teamAdminRequests/' + tid)),
     ]);
+    // Aanvragen apart en tolerant: als deze read faalt (bv. rechtenkwestie) mag dat de rest
+    // van de ledenlijst niet laten falen — dan tonen we gewoon geen openstaande aanvragen.
+    const reqSnap = await fbOnce(fbdb.ref('teamAdminRequests/' + tid)).catch(() => null);
     const info = miSnap.val() || {};
     const members = memSnap.val() || {};
-    const requests = reqSnap.val() || {};
+    const requests = (reqSnap && reqSnap.val()) || {};
     // Haal ontbrekende memberInfo op via users-node (enkel voor leden zonder info)
     const missingUids = Object.keys(members).filter(u => !info[u]);
     await Promise.all(missingUids.map(async u => {

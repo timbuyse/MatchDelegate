@@ -625,12 +625,24 @@ function startSelectieWizard() {
     wiz.tournamentId = m.tournamentId;
     const t = tournamentById(m.tournamentId);
     const tTeam = t ? teamById(t.teamId) : null;
-    const squad = t ? (t.squad || { base: [], bench: [], absent: [] }) : { base: [], bench: [], absent: [] };
-    wiz.pool = [
-      ...(squad.base   || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number || '', pos: s.pos || '', fromName: tTeam ? tTeam.name : '', guest: false, sel: 'none', slot: null })),
-      ...(squad.bench  || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number || '', pos: s.pos || '', fromName: tTeam ? tTeam.name : '', guest: false, sel: 'none', slot: null })),
-      ...(squad.absent || []).map(s => ({ pid: uid(), srcId: s.srcId, name: s.name, number: s.number || '', pos: s.pos || '', fromName: tTeam ? tTeam.name : '', guest: false, sel: 'absent', slot: null })),
-    ];
+    const squad = t ? (t.squad || {}) : {};
+    // Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat: squad.base/bench/absent.
+    // Beide normaliseren naar één lijst met een sel-veld, zodat de pool consistent gebouwd wordt.
+    const trnSquad = squad.players
+      ? squad.players
+      : [
+          ...(squad.base   || []).map(s => ({ ...s, sel: 'mee' })),
+          ...(squad.bench  || []).map(s => ({ ...s, sel: 'mee' })),
+          ...(squad.absent || []).map(s => ({ ...s, sel: 'absent' })),
+        ];
+    // squad-spelers komen niet-geselecteerd in de pool ('none' — coach herkiest basis/bank per
+    // wedstrijd); enkel wie in het tornooi als afwezig stond, blijft 'absent'.
+    wiz.pool = trnSquad.map(s => ({
+      pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
+      name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '',
+      fromName: tTeam ? tTeam.name : '', guest: false,
+      sel: s.sel === 'absent' ? 'absent' : 'none', slot: null,
+    }));
     wiz.poolTeamId = t ? t.teamId : wiz.teamId;
   } else {
     wiz.poolTeamId = wiz.teamId;

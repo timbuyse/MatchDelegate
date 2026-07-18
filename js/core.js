@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.18'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.19'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -908,8 +908,10 @@ async function selectTeam(teamId) {
   activeClubId = null; activeClubName = ''; activeClubLogo = '';
   isClubAdmin = isOwner;
   localStorage.setItem('voetbal_activeTeamId', teamId);
-  // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup)
-  if (currentUser) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId] || 'viewer');
+  // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup). Enkel als hij
+  // effectief een rol heeft: een clubbeheerder die geen ploeglid is, mag niet als 'viewer'
+  // geregistreerd worden — anders staat de ploeg na herstart permanent als "Kijker" in Jouw ploegen.
+  if (currentUser && userTeams[teamId]) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId]);
   // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is
   writeMemberInfo(teamId, userTeams[teamId] || 'viewer');
   cloudListen();
@@ -939,6 +941,10 @@ async function selectTeam(teamId) {
     // deze ploeg, ook al is hij geen ploeglid. Verandert isAdmin → altijd herrenderen.
     const wasAdmin = isAdmin;
     if (isClubAdmin) isAdmin = true;
+    // Elevatie naar beheerder ná de initiële cloudListen(): de beheerder-only listeners
+    // (o.a. teamNotes) zijn toen niet opgezet omdat isAdmin nog false was. Herstart ze nu,
+    // net zoals onSelfRoleChanged bij een rolwijziging doet.
+    if (isAdmin && !wasAdmin) { stopTeamListeners(); cloudListen(); listenCoAdminRequests(); }
     const changed = info.name && teamNames[teamId] !== info.name;
     if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
     if (isAdmin !== wasAdmin || ((changed || activeClubName) && (view === 'home' || view === 'matches'))) render();
@@ -1050,6 +1056,9 @@ function onSelfRoleChanged(role) {
   const tid = activeTeamId;
   if (!tid || !currentUser) return;
   if (!role) {
+    // Clubbeheerder behoudt toegang via zijn club, ook al is hij geen ploeglid (meer):
+    // niet degraderen of wegsturen.
+    if (isClubAdmin) return;
     // Uit de ploeg verwijderd → netjes terug naar het ploegkeuzescherm.
     stopTeamListeners();
     delete userTeams[tid];
@@ -1064,7 +1073,9 @@ function onSelfRoleChanged(role) {
   cacheUserTeams(currentUser.uid, userTeams);
   fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).set(role).catch(() => {});
   const wasAdmin = isAdmin;
-  isAdmin = (role === 'admin');
+  // Een clubbeheerder blijft beheerder van de ploeg, ook al zet een co-beheerder zijn
+  // ploeglidmaatschap op 'viewer'.
+  isAdmin = (role === 'admin') || isClubAdmin;
   if (isAdmin === wasAdmin) return;
   // Rolafhankelijke listeners heropstarten (notities, aanvragen-teller) en UI verversen.
   stopTeamListeners(); cloudListen(); listenCoAdminRequests(); updateCloudChip();
