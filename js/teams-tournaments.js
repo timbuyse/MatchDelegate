@@ -108,7 +108,9 @@ function renderTeamEdit() {
   return `<div class="hdr"><button class="back" onclick="${editingTeam.isNew ? 'closeTeamEdit()' : 'toggleTeamEditMode()'}">‹</button><h1>Ploeg bewerken</h1></div>
   <div class="content">
     <div class="card">
-      <div class="fg"><label>Ploegnaam</label><input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off"></div>
+      <div class="fg"><label>Ploegnaam</label>${(cloudReady && !editingTeam.isNew)
+        ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">De ploegnaam wijzig je via <b>Beheer → "Naam ploeg wijzigen"</b>.</div>`
+        : `<input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off">`}</div>
       <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke (optioneel)</label><input type="text" placeholder="Naam ploegverantwoordelijke" value="${esc(editingTeam.responsible||'')}" oninput="editingTeam.responsible=this.value" autocomplete="off"></div>
     </div>
     <div class="sec">Standaard voor nieuwe wedstrijden</div>
