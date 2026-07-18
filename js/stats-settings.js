@@ -29,8 +29,12 @@ async function loadStats() {
   // De lokale matches-store is niet per ploeg gescheiden (zie cleanupOrphanMatches in core.js) —
   // dus ook binnen een ploeg altijd expliciet filteren op de actieve ploeg, anders lekt de cache
   // van een andere ploeg op dit toestel mee in de statistieken.
-  if (cloudReady) statsFilter = teamNames[activeTeamId] || 'all';
-  if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
+  // Zoals loadHome()/loadMatches(): in de cloud altijd op de actieve ploeg filteren, nooit blind
+  // 'all'. Is de naam nog niet gekend (net na refresh) of heeft de actieve ploeg nog geen eigen
+  // wedstrijden in de cache, dan UNKNOWN_TEAM_FILTER (toont niets) i.p.v. de stats van een andere
+  // ploeg op dit toestel te tonen.
+  if (cloudReady) statsFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
+  else if (statsFilter !== 'all' && !teams.includes(statsFilter)) statsFilter = 'all';
   // Geen "alle seizoenen" meer: spelers uit oudere wedstrijden (zonder rosterId, gematcht op
   // naam) en nieuwere wedstrijden (mét rosterId) kwamen anders dubbel in de lijst terecht, zie
   // getp() hieronder. Standaard het meest recente seizoen met een wedstrijd.

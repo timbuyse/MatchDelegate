@@ -588,17 +588,38 @@ async function finishWizard(startNow) {
 function editMatchWizard(m) {
   const team = getTeamsV2().find(t => t.name === m.teamName);
   const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
+  const roster = team ? (team.players || []) : [];
+  const rosterUsed = new Set();
+  const findRoster = (rosterId, name) => roster.find(r => (rosterId && r.id === rosterId) || (!rosterId && (r.name || '').trim() === (name || '').trim()));
+  // 1. Reeds geselecteerde spelers (basis/bank) — behoud posities, rugnummers en (verderop) de kapitein.
+  const pool = m.players.map(p => {
+    const rp = findRoster(p.rosterId, p.name); if (rp) rosterUsed.add(rp.id);
+    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
+  });
+  // 2. Afwezig gemarkeerde spelers (✗) mee in de pool — anders wist finishWizard ze bij het opslaan.
+  (m.absentPlayers || []).forEach(a => {
+    const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
+    const rp = findRoster(ab.rosterId, ab.name); if (rp) rosterUsed.add(rp.id);
+    pool.push({ pid: uid(), srcId: ab.rosterId || (rp ? rp.id : null), srcGlobalId: rp ? (rp.globalId || null) : null, name: ab.name || (rp ? rp.name : 'Speler'), number: rp ? (rp.number || '') : '', pos: rp ? (rp.pos || '') : '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: 'absent', slot: null });
+  });
+  // 3. Overige rosterspelers die (nog) niet geselecteerd waren → beschikbaar als 'none', zodat ze
+  //    bij het herbewerken alsnog opgesteld kunnen worden.
+  roster.forEach(r => {
+    if (rosterUsed.has(r.id)) return;
+    pool.push({ pid: uid(), srcId: r.id, srcGlobalId: r.globalId || null, name: r.name, number: r.number || '', pos: r.pos || '', side: r.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
+  });
   wiz = {
     step: 1, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
     teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
-    pool: m.players.map(p => ({ pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y })),
+    pool,
     formationIndex: fi, selPlace: null,
   };
-  wiz.poolTeamId = m.players.length ? wiz.teamId : null; // lege pool → herbouwen vanuit ploeg
-  // Bewaar de bestaande kapitein (pool volgt de volgorde van m.players)
+  // Pool is al voor deze ploeg opgebouwd → geen rebuild bij stap 1→2 (dat zou de selectie wissen).
+  wiz.poolTeamId = wiz.teamId;
+  // Bewaar de bestaande kapitein (de eerste pool-entries volgen de volgorde van m.players)
   wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
   const form = FORMATIONS[m.matchType][fi];
   wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
