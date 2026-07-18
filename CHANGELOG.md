@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.36
+- **Opgelost:** een vergeten wissel achteraf toevoegen aan een afgelopen deel verstoorde de
+  huidige opstelling en de keeperminuten — posities en keepers worden nu correct herrekend.
+- **Opgelost:** bij het bewerken van een event in een uitgelopen (nog lopend) deel werd de
+  minuut stil teruggezet naar de geplande deelduur; ook kon een event "in de toekomst" gezet
+  worden. De grens is nu de werkelijk verstreken speeltijd.
+- **Opgelost:** de foutieve 2e gele kaart verwijderen neemt nu ook de automatische rode kaart
+  mee (zoals "Ongedaan maken" al deed); bij het omhangen van zo'n gele naar een andere speler
+  verschijnt een waarschuwing.
+- **Opgelost:** een keeperwissel via "Positiewissel" telt nu meteen mee in de keeperminuten.
+- **Opgelost:** de duurcorrectie in "Wedstrijd afsluiten" werd genegeerd als het laatste deel
+  al beëindigd was — ze wordt nu toegepast.
+- **Opgelost:** een speler die tijdens de rust "Niet aanwezig" gemarkeerd wordt, wordt uit de
+  ingeplande pauzewissels gehaald en niet meer het veld op gestuurd.
+- **Verbeterd:** "Event toevoegen" met deel "Onbekend" plaatst het event nu echt onder "Overig"
+  i.p.v. stil op de slotminuut van het laatste deel; een wissel vraagt om een concreet deel.
+- **Verbeterd:** na een formatiewijziging met reeds gelogde wissels verschijnt geen doodlopende
+  "posities herplaatsen"-knop meer, maar een verwijzing naar "Positiewissel".
+
 ## v0.5.35
 - **Opgelost (belangrijk):** "Plannen zonder selectie" bij het bewerken van een bestaande
   wedstrijd wiste stil de volledige selectie, opstelling, events en notities — nu worden

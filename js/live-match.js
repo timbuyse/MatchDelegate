@@ -154,6 +154,9 @@ async function startQuarter() {
   for (const s of (match.pendingSubs || [])) {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
     if (!pOut || !pIn) continue;
+    // Speler intussen afwezig gemarkeerd (bv. vertrokken tijdens de rust): wissel niet doorvoeren —
+    // een afwezige speler het veld op sturen geeft een onzichtbaar gat op zijn positie.
+    if (pIn.absent) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} is afwezig gemarkeerd.`, 'err'); continue; }
     // posBefore = positie van pIn vóór deze wissel (meestal geen, tenzij hij al eerder op het
     // veld stond en nadien terugkeert) — nodig zodat playersAtPeriodStart() een speler die
     // meermaals in-en-uit gewisseld wordt correct kan terugspoelen i.p.v. hem simpelweg naar
@@ -393,7 +396,12 @@ async function saveMatchInfo() {
   match.venue = v('ei-venue').trim();
   await dbSave(match);
   const slots = formationChanged && (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
-  if (slots) {
+  // Zodra er wissels/positiewissels gelogd zijn, blokkeert modalEditPositions het collectief
+  // herplaatsen (zou de kwart-reconstructie corrumperen) — bied de knop dan ook niet aan.
+  if (slots && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
+    closeModal(); render();
+    showToast('Formatie gewijzigd (label). Er zijn al wissels gebeurd — gebruik "Positiewissel" om spelers individueel te herplaatsen.', 'ok');
+  } else if (slots) {
     openModal(`<h3>Spelersposities aanpassen?</h3>
       <p style="color:var(--txt2);font-size:14px;text-align:center;margin-bottom:16px">Wil je de posities van de spelers ook herplaatsen volgens de nieuwe formatie <b>${esc(match.formation)}</b>?</p>
       <button class="btn btn-green" onclick="applyFormationPositions()">${icI(IC.check)} Ja, posities herplaatsen</button>
@@ -753,6 +761,10 @@ async function forceEndMatch(correctMin) {
   if (q && !q.endTime) {
     if (q.pausedAt) { q.totalPaused=(q.totalPaused||0)+(Date.now()-q.pausedAt); q.pausedAt=null; }
     q.endTime = correctMin ? q.startTime + (q.totalPaused || 0) + correctMin * 60000 : Date.now();
+  } else if (q && correctMin) {
+    // Het laatste deel was al beëindigd, maar de gebruiker vulde in het afsluitdialoog een
+    // gecorrigeerde duur in — die alsnog toepassen, anders is het correctieveld een stille no-op.
+    q.endTime = q.startTime + (q.totalPaused || 0) + correctMin * 60000;
   }
   match.status = 'done'; match.quarterStatus = 'done';
   stopTimer(); releaseWake(); await dbSave(match); render();
@@ -770,6 +782,13 @@ function gameTimeMsAtEndOfQuarter(m, qNum) {
   return Math.max(0, t);
 }
 function addEvent(type, extra={}) {
+  if (_postEventQuarter === 'unknown') {
+    // Bewust "Onbekend" gekozen bij "Event toevoegen": geen deel/tijdstip verzinnen — het event
+    // komt zonder quarterNum in het verloop onder "Overig" (zelfde patroon als quick-events),
+    // i.p.v. stil op de slotminuut van het laatste deel te belanden.
+    match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type, ...extra });
+    return;
+  }
   const qn = _postEventQuarter !== null ? _postEventQuarter : match.currentQuarter;
   let gms;
   if (_postEventQuarter !== null && _postEventQuarter) {
@@ -890,13 +909,22 @@ function rebuildKeeperByQ(m) {
 }
 async function doDeleteEvent(id) {
   const removed = match.events.find(e => e.id === id);
-  tombstoneEvent(match, id);
-  match.events = match.events.filter(e => e.id !== id);
-  revertSubstitutionPositions(match, removed);
-  revertPosSwapPositions(match, removed);
+  const toRemove = removed ? [removed] : [];
+  // 2e gele + automatische rode horen samen (zelfde paar-logica als undoLast): wie de foutieve
+  // 2e gele verwijdert, moet ook de automatisch gegeven rode kwijt — anders blijft de speler
+  // van het veld terwijl het verloop nog maar één gele kaart toont.
+  if (removed && removed.type === 'yellow_card' && removed.playerId) {
+    const remainingYellows = match.events.filter(e => e.type === 'yellow_card' && e.playerId === removed.playerId && e.id !== id).length;
+    const autoRed = match.events.find(e => e.type === 'red_card' && e.autoSecondYellow && e.playerId === removed.playerId);
+    if (autoRed && remainingYellows < 2) { toRemove.push(autoRed); showToast('De automatische rode kaart (2e geel) is mee verwijderd.', 'ok'); }
+  }
+  const ids = new Set(toRemove.map(ev => ev.id));
+  toRemove.forEach(ev => tombstoneEvent(match, ev.id));
+  match.events = match.events.filter(e => !ids.has(e.id));
+  toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten herbouwen na het verwijderen van een keeper-relevante actie.
-  if (removed && match.keeperByQ && Object.keys(match.keeperByQ).length && ['substitution','posSwap','red_card','injury'].includes(removed.type)) rebuildKeeperByQ(match);
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
   await dbSave(match); closeModal(); render();
 }
 // Een bestaand event bewerken (speler/assist/minuut/details).
@@ -934,10 +962,15 @@ async function saveEditEvent(id) {
   if (!isNaN(min) && min > 0) {
     const qStart = e.quarterNum ? gameTimeMsAtStartOfQuarter(match, e.quarterNum) : 0;
     // Begrens tot binnen het kwart, zodat het event niet in een volgend kwart schuift (wat de
-    // op gameTimeMs gesorteerde speeltijd-/bezettingsberekening zou verstoren).
-    const qEnd = e.quarterNum ? Math.max(qStart, gameTimeMsAtEndOfQuarter(match, e.quarterNum) - 1) : Infinity;
+    // op gameTimeMs gesorteerde speeltijd-/bezettingsberekening zou verstoren). Voor een nog
+    // LOPEND (niet-afgesloten) deel is de grens de werkelijk verstreken speeltijd: de nominale
+    // duur zou een event in overtime stil vervroegen én een minuut in de toekomst toelaten.
+    const q = (match.quarters || []).find(x => x.num === e.quarterNum);
+    const qEndMs = (q && !q.endTime) ? getGameTimeMs(match) : gameTimeMsAtEndOfQuarter(match, e.quarterNum);
+    const qEnd = e.quarterNum ? Math.max(qStart, qEndMs - 1) : Infinity;
     e.gameTimeMs = Math.min(qStart + (min - 1) * 60000, qEnd);
   }
+  const oldPlayerId = e.playerId;
   if (has('ee-player')) e.playerId = val('ee-player') || null;
   if (has('ee-assist')) e.assistId = val('ee-assist') || null;
   if (has('ee-ctype')) e.cornerType = val('ee-ctype');
@@ -947,6 +980,13 @@ async function saveEditEvent(id) {
   if (has('ee-itype')) e.injuryType = val('ee-itype');
   if (has('ee-leaves')) e.leavesField = has('ee-leaves').checked;
   if (has('ee-reason')) e.reason = val('ee-reason');
+  // Gepaarde 2e gele die naar een andere speler verhuist: de automatische rode blijft bij de
+  // oorspronkelijke speler staan — dat kan juist zijn (die heeft misschien nog 2 gele) of niet;
+  // te dubbelzinnig om automatisch om te hangen, dus expliciet waarschuwen.
+  if (e.type === 'yellow_card' && oldPlayerId && e.playerId !== oldPlayerId) {
+    const autoRed = match.events.find(x => x.type === 'red_card' && x.autoSecondYellow && x.playerId === oldPlayerId);
+    if (autoRed) showToast('Let op: de automatische rode kaart (2e geel) staat nog bij de vorige speler — pas die zo nodig apart aan of verwijder ze.', 'err');
+  }
   recomputeScore(match);
   if (posAffecting) {
     rebuildPositions(match, baseline); // C2: posities + bezetting herberekenen (onField incl.)
@@ -989,6 +1029,10 @@ async function doMarkAbsent(pid) {
   if (!p) return;
   p.absent = true;
   if (p.onField) p.onField = false;
+  // Ook uit de ingeplande pauzewissels/positiewissels halen — een afwezige speler mag bij de
+  // start van het volgende deel niet alsnog het veld op gestuurd worden.
+  if (match.pendingSubs) match.pendingSubs = match.pendingSubs.filter(s => s.inId !== pid && s.outId !== pid);
+  if (match.pendingPosSwaps) match.pendingPosSwaps = match.pendingPosSwaps.filter(s => s.pA !== pid && s.pB !== pid);
   await dbSave(match); closeModal(); render();
 }
 async function doUnmarkAbsent(pid) {
@@ -1195,6 +1239,8 @@ async function logCorner(team) {
 // ===================== MODAL: SUB =====================
 let subOut = null, subIn = null;
 function modalSub() {
+  // Een wissel heeft een tijdstip nodig (speeltijd/opstelling): bij "Onbekend deel" niet toelaten.
+  if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een wissel heeft een tijdstip nodig.', 'err'); return; }
   const between = match.quarterStatus === 'between' && _postEventQuarter === null;
   const on = _postEventQuarter != null ? playersAtPeriodStart(match, _postEventQuarter) : effectiveOnField(match);
   const mins = calcMinutes(match);
@@ -1231,15 +1277,22 @@ async function confirmSub() {
       return;
     }
     const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
-    // posBefore: zie toelichting bij de pauzewissel-variant in startQuarter().
-    const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
-    addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore });
-    if (pIn && pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; }
     if (_postEventQuarter != null) {
-      // Retro-wissel toegevoegd aan een afgelopen deel: de bezetting herberekenen uit de events
-      // i.p.v. de live-veldstaat te muteren (die hoort bij het huidige/volgende deel).
-      recomputeOnField(match);
+      // Retro-wissel toegevoegd aan een afgelopen deel: NIET de live-veldstaat muteren of het
+      // posBefore-snapshot van de huidige staat nemen (die horen bij het huidige/volgende deel).
+      // In plaats daarvan: baseline vastleggen terwijl de staat nog consistent is, het event
+      // toevoegen, en dan posities + keeperminuten herbouwen via voorwaartse replay — dezelfde
+      // machinerie als bij het bewerken van een wissel-event (saveEditEvent). rebuildPositions
+      // repareert daarbij ook het posBefore-snapshot van het nieuwe event.
+      const baseline = playersAtPeriodStart(match, 1);
+      addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore: null });
+      rebuildPositions(match, baseline);
+      if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
     } else {
+      // posBefore: zie toelichting bij de pauzewissel-variant in startQuarter().
+      const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
+      addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore });
+      if (pIn && pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; }
       if (pOut) pOut.onField = false;
       if (pIn) pIn.onField = true;
       syncKeeper(); // keeper volgt automatisch de doellijn
@@ -1304,6 +1357,7 @@ async function confirmPosSwap() {
     addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA, posB });
     pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
     pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
+    syncKeeper(); // een positiewissel mét de doellijn is een keeperwissel — registreer voor de keeperminuten
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
@@ -1461,12 +1515,12 @@ async function confirmFreekick() {
 function modalAddPostEvent() {
   const quarters = match.quarters || [];
   const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
-  _postEventQuarter = lastQ;
+  _postEventQuarter = lastQ !== null ? lastQ : 'unknown';
   _postEventMinute = null;
   const qBtns = quarters.map(q => {
     const act = q.num === lastQ ? ' act' : '';
     return `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${pSing(match)} ${q.num}</button>`;
-  }).join('') + `<button class="tgl-btn${lastQ===null?' act':''}" onclick="selPostQ(null,this)">Onbekend</button>`;
+  }).join('') + `<button class="tgl-btn${lastQ===null?' act':''}" onclick="selPostQ('unknown',this)">Onbekend</button>`;
   openModal(`
     <h3>${icI(IC.log)} Event toevoegen</h3>
     <div class="sec" style="margin-top:0">In welk deel?</div>
