@@ -13,10 +13,14 @@
 
         // Nieuwe ploeg aanmaken: team bestaat nog niet + gebruiker zet zichzelf als admin
         //   EN is eigenaar of goedgekeurd beheerder; OF de clubbeheerder maakt ze aan in zijn club (fase 2d).
-        // Bestaande ploeg aanpassen: bestaande admin, eigenaar, of clubbeheerder van de club (fase 2d).
+        // Bestaande ploeg aanpassen: bestaande admin of clubbeheerder van de club (fase 2d), MAAR
+        //   de clubId moet daarbij ongewijzigd blijven (newData is bij elke — ook diepe — write de
+        //   projectie van de hele teamboom ná de write, dus dit dekt óók een gerichte remove() van
+        //   info/clubId; de .validate op clubId zelf draait niet bij verwijderen). Enkel de eigenaar
+        //   verplaatst een ploeg naar een andere club of maakt ze club-loos.
         // Verwijderen: eigenaar (alle teams) of goedgekeurde beheerder die ook maker is (createdBy) —
         //   de clubbeheerder mag NIET hard verwijderen (enkel archiveren = een gewone aanpassing).
-        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || (!data.exists() && root.child('clubs/' + newData.child('info/clubId').val() + '/admins/' + auth.uid).exists()) || (data.exists() && newData.exists() && root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin') || (data.exists() && newData.exists() && root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists()) || (data.exists() && !newData.exists() && root.child('approvedAdmins/' + auth.uid).exists() && data.child('info/createdBy').val() === auth.uid))",
+        ".write": "auth != null && (root.child('owner').val() === auth.uid || (!data.exists() && newData.child('members').child(auth.uid).val() === 'admin' && root.child('approvedAdmins/' + auth.uid).exists()) || (!data.exists() && root.child('clubs/' + newData.child('info/clubId').val() + '/admins/' + auth.uid).exists()) || (data.exists() && newData.exists() && newData.child('info/clubId').val() === data.child('info/clubId').val() && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || (data.exists() && !newData.exists() && root.child('approvedAdmins/' + auth.uid).exists() && data.child('info/createdBy').val() === auth.uid))",
 
         "members": {
           // Admin (of de clubbeheerder van de club, fase 2d) mag leden beheren.
