@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.33'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.34'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -769,11 +769,14 @@ function ownerDeleteTeam(tid, naam) {
     <button class="btn btn-red" onclick="doOwnerDeleteTeam('${tid}')">Permanent verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+let _teamDeleteBusy = false;
 async function doOwnerDeleteTeam(tid) {
   if (!isOwner || !fbdb || !currentUser) return;
   const pwd = (document.getElementById('owndel-pwd') || {}).value || '';
   const err = document.getElementById('owndel-err');
   if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
+  if (_teamDeleteBusy) return; // dubbeltik-guard: een 2e run zou de backup met null overschrijven
+  _teamDeleteBusy = true;
   if (err) err.textContent = 'Bezig...';
   try {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
@@ -783,6 +786,9 @@ async function doOwnerDeleteTeam(tid) {
       fbOnce(fbdb.ref('memberInfo/' + tid)),
       fbOnce(fbdb.ref('teamNotes/' + tid)),
     ]);
+    // Al verwijderd (bv. door een dubbeltik of een ander toestel)? Nooit de bestaande backup met
+    // een leeg object overschrijven.
+    if (!teamSnap.exists()) { showToast('Ploeg is al verwijderd.', 'ok'); closeModal(); return; }
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({
       deletedAt: Date.now(),
@@ -810,7 +816,7 @@ async function doOwnerDeleteTeam(tid) {
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
       ? 'Ongeldig wachtwoord.' : 'Verwijderen mislukt, probeer opnieuw.';
-  }
+  } finally { _teamDeleteBusy = false; }
 }
 
 async function revokeAdmin(uid) {

@@ -410,8 +410,17 @@ function deleteClub(cid, naam) {
   showConfirm('Club "' + esc(naam) + '" verwijderen? Dit kan enkel als er geen ploegen meer in zitten.', async () => {
     try {
       const c = (await fbOnce(fbdb.ref('clubs/' + cid))).val() || {};
-      const teamCount = Object.keys(c.teams || {}).length;
-      if (teamCount > 0) { showToast('Deze club bevat nog ploegen. Verwijder of verplaats die eerst.', 'err'); return; }
+      // Enkel ploegen die écht nog bestaan tellen; wees-index-entries van reeds verwijderde ploegen
+      // negeren (en meteen opkuisen), zodat een club met "0 ploegen" in de UI ook echt verwijderbaar is.
+      const teamIds = Object.keys(c.teams || {});
+      const liveTeams = [];
+      for (const tid of teamIds) {
+        try {
+          if ((await fbOnce(fbdb.ref('teams/' + tid + '/info'))).exists()) liveTeams.push(tid);
+          else { try { await fbdb.ref('clubs/' + cid + '/teams/' + tid).remove(); } catch (e) {} }
+        } catch (e) { liveTeams.push(tid); } // leesfout → voorzichtig, niet opkuisen
+      }
+      if (liveTeams.length > 0) { showToast('Deze club bevat nog ploegen. Verwijder of verplaats die eerst.', 'err'); return; }
       const admins = Object.keys(c.admins || {});
       for (const uid of admins) { try { await fbdb.ref('users/' + uid + '/clubs/' + cid).remove(); } catch (e) {} }
       await fbdb.ref('clubs/' + cid).remove();
@@ -2107,7 +2116,10 @@ async function loadHome() {
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   const createTeamHint = '';
   if (isGuest) {
-    const liveMatches = all.filter(m => m.status === 'live');
+    // Op de actieve ploeg filteren (zoals de andere lijsten) — anders toont een gast alle
+    // lokaal-gecachte live matches, ook van een andere ploeg die hij ooit via een gastlink volgde.
+    let liveMatches = all.filter(m => m.status === 'live');
+    if (homeFilter !== 'all') liveMatches = liveMatches.filter(m => m.teamName === homeFilter);
     const liveHtml = liveMatches.length
       ? liveMatches.map(matchItemHtml).join('')
       : `<div class="empty" style="padding:24px 0"><div class="ei">${IC.ball}</div><p>Geen live wedstrijden op dit moment.</p></div>`;

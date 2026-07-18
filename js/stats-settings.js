@@ -66,9 +66,13 @@ async function loadStats() {
   // 2b (A/B-ploegen): wie op een bepaalde dag in de selectie van eender welke wedstrijd van deze
   // ploeg stond, mag voor die dag niet als afwezig geteld worden — anders drukt een ✗ bij ploeg A
   // het selectiepercentage terwijl de speler tegelijk bij ploeg B meespeelde. Sleutel = speler+datum.
-  const selKey = (rosterId, name, date) => (rosterId || (name || '').trim()) + '|' + (date || '');
+  // A/B-correctie: wie op een dag geselecteerd was, mag die dag niet als afwezig tellen. Op BEIDE
+  // sleutels indexeren (rosterId én naam), zodat het ook klopt als het ene record wél een rosterId
+  // heeft en het andere niet (oude string-absents / losse spelers) — anders miste die match.
+  const selKeyR = (rosterId, date) => rosterId ? ('r:' + rosterId + '|' + (date || '')) : null;
+  const selKeyN = (name, date) => 'n:' + (name || '').trim().toLowerCase() + '|' + (date || '');
   const selectedOnDate = new Set();
-  for (const m of sortedList) for (const p of (m.players || [])) selectedOnDate.add(selKey(p.rosterId, p.name, m.date));
+  for (const m of sortedList) for (const p of (m.players || [])) { const kr = selKeyR(p.rosterId, m.date); if (kr) selectedOnDate.add(kr); selectedOnDate.add(selKeyN(p.name, m.date)); }
   for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
     if (m.scoreUs > m.scoreThem) w++; else if (m.scoreUs < m.scoreThem) l++; else d++;
@@ -86,7 +90,8 @@ async function loadStats() {
     }
     for (const a of (m.absentPlayers || [])) {
       const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
-      if (selectedOnDate.has(selKey(ab.rosterId, ab.name, m.date))) continue; // speelde die dag elders in de club → niet afwezig
+      const _kr = selKeyR(ab.rosterId, m.date);
+      if ((_kr && selectedOnDate.has(_kr)) || selectedOnDate.has(selKeyN(ab.name, m.date))) continue; // die dag elders geselecteerd → niet afwezig
       const r = getp(ab.rosterId, ab.name); r.absent++;
     }
     for (const e of m.events) {
@@ -1033,6 +1038,8 @@ async function doDeleteCloudTeam() {
   const err = document.getElementById('delteam-err');
   const pwd = (document.getElementById('delteam-pwd') || {}).value || '';
   if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
+  if (_teamDeleteBusy) return; // dubbeltik-guard: een 2e run zou de backup met null overschrijven
+  _teamDeleteBusy = true;
   if (err) err.textContent = 'Bezig met verwijderen...';
   try {
     // Wachtwoord opnieuw bevestigen
@@ -1043,6 +1050,8 @@ async function doDeleteCloudTeam() {
       fbOnce(fbdb.ref('memberInfo/' + tid)),
       fbOnce(fbdb.ref('teamNotes/' + tid)),
     ]);
+    // Al verwijderd (dubbeltik / ander toestel)? Nooit de bestaande backup met leeg overschrijven.
+    if (!teamSnap.exists()) { showToast('Ploeg is al verwijderd.', 'ok'); closeModal(); go('teamselect', undefined, true); return; }
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({
       deletedAt: Date.now(),
@@ -1078,6 +1087,6 @@ async function doDeleteCloudTeam() {
     if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
       ? 'Onjuist wachtwoord.'
       : 'Verwijderen mislukt, probeer opnieuw.';
-  }
+  } finally { _teamDeleteBusy = false; }
 }
 

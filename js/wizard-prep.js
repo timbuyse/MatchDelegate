@@ -178,8 +178,10 @@ function captureStep1() {
 }
 function buildPool() {
   const team = teamById(wiz.teamId);
-  const guests = wiz.pool.filter(p => p.guest);
   const own = (team ? team.players : []).map(p => ({ pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: team.name, guest: false, sel: 'none', slot: null }));
+  // Een gast die intussen tot de (nieuw gekozen) eigen ploeg behoort, niet dubbel opnemen.
+  const ownIds = new Set(own.map(p => p.srcId));
+  const guests = wiz.pool.filter(p => p.guest && !ownIds.has(p.srcId));
   wiz.pool = own.concat(guests);
 }
 function wizBack() { if (wiz.step > 1) { wiz.step--; render(); } }
@@ -575,7 +577,7 @@ async function finishWizard(startNow) {
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
   allP.forEach(x => delete x._pid);
   const common = {
-    teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), formation: form.name,
+    teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), teamId: wiz.teamId || '', formation: form.name,
     competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, venue: wiz.venue,
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,

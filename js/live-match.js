@@ -672,7 +672,8 @@ function exportMatchCSV() {
   row('Tegenstander', opp);
   row('Datum', m.date || '');
   row('Tijdstip', m.time || '');
-  row('Locatie', m.location || '');
+  row('Thuis/uit', m.location || '');
+  row('Locatie', m.venue || '');
   row('Wedstrijdtype', m.matchType || '');
   row('Competitie', m.competition || '');
   row('Speeldag', m.matchday || '');
