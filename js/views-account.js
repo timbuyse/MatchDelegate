@@ -96,6 +96,7 @@ async function loadClubBeheerView() {
       : '';
     el.innerHTML = `
       ${clubSelector}
+      ${clubLogoCardHtml(clubId, (club.info && club.info.logo) || '', 'loadClubBeheerView()')}
       <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
       <div class="card">
         ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
@@ -238,6 +239,14 @@ async function loadClubsAdminView() {
           <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="renameClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.edit)} Hernoemen</button>
         </div>
         <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          ${(c.info && c.info.logo)
+            ? `<img src="${c.info.logo}" alt="Clublogo" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
+            : `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`}
+          <span style="flex:1;font-size:13px;color:var(--txt2)">Clublogo</span>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="pickClubLogo('${cid}',()=>{loadClubsAdminView()})">${(c.info && c.info.logo) ? 'Wijzigen' : 'Toevoegen'}</button>
+          ${(c.info && c.info.logo) ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubLogo('${cid}',()=>{loadClubsAdminView()})">Verwijderen</button>` : ''}
+        </div>
         <div style="${secMini}">Clubbeheerders</div>
         ${adminHtml}
         <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
@@ -293,6 +302,62 @@ async function doRenameClub(cid) {
     for (const tid of teamIds) { try { await fbdb.ref('teams/' + tid + '/info/clubName').set(name); } catch (e) {} }
     closeModal(); loadClubsAdminView();
   } catch (e) { if (err) err.textContent = 'Hernoemen mislukt. Probeer opnieuw.'; }
+}
+// ----- Clublogo (instelbaar door eigenaar én clubbeheerder) -----
+// Mag de huidige gebruiker het logo van deze club wijzigen? Eigenaar overal, clubbeheerder
+// enkel van zijn eigen club(s).
+function canEditClubLogo(cid) { return !!(isOwner || (cid && myClubs[cid])); }
+// Schrijf het logo naar clubs/{cid}/info/logo én denormaliseer het naar teams/{tid}/info/clubLogo
+// van alle ploegen van de club (zodat kijkers het zien, net als clubName). Leeg = verwijderen.
+async function writeClubLogo(cid, dataUri) {
+  if (!cid || !fbdb) return;
+  await fbdb.ref('clubs/' + cid + '/info/logo').set(dataUri || null);
+  const teamIds = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {});
+  for (const tid of teamIds) { try { await fbdb.ref('teams/' + tid + '/info/clubLogo').set(dataUri || null); } catch (e) {} }
+  // Actieve-ploeg-cache meteen bijwerken zodat lopende schermen kloppen.
+  if (activeClubId === cid) activeClubLogo = dataUri || '';
+  for (const tid of teamIds) { if (dataUri) teamClubLogos[tid] = dataUri; else delete teamClubLogos[tid]; }
+}
+// Kies een afbeelding, verklein/comprimeer ze en bewaar ze als clublogo. onDone() na afloop.
+function pickClubLogo(cid, onDone) {
+  if (!canEditClubLogo(cid)) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0];
+    if (!file) return;
+    try {
+      const uri = await fileToClubLogoDataUri(file, 256);
+      await writeClubLogo(cid, uri);
+      if (onDone) onDone();
+    } catch (e) { alert('Kon het logo niet instellen: ' + (e.message || 'onbekende fout')); }
+  };
+  inp.click();
+}
+async function removeClubLogo(cid, onDone) {
+  if (!canEditClubLogo(cid)) return;
+  if (!confirm('Clublogo verwijderen?')) return;
+  try { await writeClubLogo(cid, ''); if (onDone) onDone(); }
+  catch (e) { alert('Kon het logo niet verwijderen.'); }
+}
+// Herbruikbaar logo-kaartje voor de beheerschermen. `reloadCall` is een JS-expressie (string)
+// die het scherm herlaadt na een wijziging (bv. "loadClubBeheerView()").
+function clubLogoCardHtml(cid, logo, reloadCall) {
+  const rc = (reloadCall || '').replace(/"/g, '&quot;');
+  const preview = logo
+    ? `<img src="${logo}" alt="Clublogo" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
+    : `<div style="width:56px;height:56px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`;
+  return `<div class="card" style="display:flex;align-items:center;gap:12px">
+    ${preview}
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:14px">Clublogo</div>
+      <div style="font-size:12px;color:var(--txt2)">${logo ? 'Wordt getoond op de ploegpagina en in de PDF.' : 'Nog geen logo ingesteld.'}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="pickClubLogo('${cid}',()=>{${rc}})">${logo ? 'Wijzigen' : 'Toevoegen'}</button>
+      ${logo ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="removeClubLogo('${cid}',()=>{${rc}})">Verwijderen</button>` : ''}
+    </div>
+  </div>`;
 }
 function showAppointClubAdmin(cid) {
   openModal(`<h3>${icI(IC.shield)} Clubbeheerder aanstellen</h3>
@@ -1096,7 +1161,9 @@ function renderTeamSelect() {
   const distinctClubs = [...new Set(teamIds.map(id => teamClubNames[id]).filter(Boolean))];
   const grouped = distinctClubs.length > 1;
   const canReorder = teamIds.length > 1 && !grouped;
-  const clubHdrHtml = cn => `<div style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px">${esc(cn)}</div>`;
+  // Eén logo per club opzoeken via een willekeurige ploeg uit die club (cache teamClubLogos).
+  const clubLogoFor = cn => { const id = teamIds.find(t => teamClubNames[t] === cn && teamClubLogos[t]); return id ? teamClubLogos[id] : ''; };
+  const clubHdrHtml = cn => { const logo = clubLogoFor(cn); return `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px">${logo ? `<img src="${logo}" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:4px">` : ''}<span style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(cn)}</span></div>`; };
   const teamRowHtml = id => {
     const role = userTeams[id];
     const name = teamNames[id] || id;
@@ -1137,6 +1204,7 @@ function renderTeamSelect() {
           const info = s.val() || {};
           if (info.name) { teamNames[id] = info.name; if (el) el.textContent = info.name; }
           if (info.clubName && teamClubNames[id] !== info.clubName) { teamClubNames[id] = info.clubName; needsRerender = true; }
+          const nl = info.clubLogo || ''; if ((teamClubLogos[id] || '') !== nl) { if (nl) teamClubLogos[id] = nl; else delete teamClubLogos[id]; needsRerender = true; }
           // Ploeg die intussen gearchiveerd raakte → uit de lijst halen (herrenderen).
           if (info.archived && !archivedTeams[id]) { archivedTeams[id] = true; needsRerender = true; }
         })
@@ -2049,7 +2117,14 @@ async function loadHome() {
   const noneSection = (!upcoming.length && !upcomingTrn.length)
     ? `<div class="empty" style="padding:16px"><div class="ei">${icI(IC.calendar)}</div><p style="margin:0;color:var(--txt2)">Geen geplande wedstrijden of tornooien${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`
     : '';
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint;
+  // Discrete clubvoettekst (fase clublogo): klein clublogo + clubnaam onderaan de ploegpagina.
+  const clubLogo = getActiveClubLogo();
+  const clubFooter = (clubLogo || activeClubName)
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:28px 0 8px;opacity:.75">
+        ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:28px;height:28px;object-fit:contain">` : ''}
+        ${activeClubName ? `<span style="font-size:12px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
+      </div>` : '';
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {

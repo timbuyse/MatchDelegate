@@ -208,6 +208,13 @@
         // Schrijven op clubniveau (info + admins): enkel de eigenaar. Zo kan een clubbeheerder
         // zichzelf niet uit de admins verwijderen of anderen toevoegen.
         ".write": "auth != null && root.child('owner').val() === auth.uid",
+        "info": {
+          "logo": {
+            // Het clublogo mag ook door de clubbeheerder van deze club gewijzigd/verwijderd worden.
+            // Naam en admins blijven owner-only (via de $clubId .write hierboven).
+            ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())"
+          }
+        },
         "teams": {
           // De ploeg-index binnen de club mag ook door de clubbeheerder beheerd worden (fase 2d),
           // zodat hij ploegen kan aanmaken/registreren in zijn club. (Niet info of admins.)

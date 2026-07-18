@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.13'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.14'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -152,7 +152,36 @@ function scoreTxt(m) {
 }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
-function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-logo, niet wijzigbaar
+function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
+// Clublogo van de actieve ploeg (data-URI), of leeg als de club er geen heeft.
+function getActiveClubLogo() { return activeClubLogo || ''; }
+// Lees een afbeeldingsbestand in, verklein tot max `size` px en comprimeer tot een
+// kleine data-URI (geschikt om in RTDB te bewaren). Behoudt transparantie (PNG) bij
+// bestanden mét alpha, anders JPEG voor een kleinere payload. Geeft een data-URI terug.
+function fileToClubLogoDataUri(file, size = 256) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type)) { reject(new Error('Geen afbeelding')); return; }
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('Kon bestand niet lezen'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Ongeldige afbeelding'));
+      img.onload = () => {
+        const scale = Math.min(1, size / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+        const isPng = /png/i.test(file.type);
+        let uri = isPng ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.82);
+        // Als PNG toch groot uitvalt, val terug op JPEG (verliest transparantie maar blijft klein).
+        if (uri.length > 60000 && isPng) uri = cv.toDataURL('image/jpeg', 0.82);
+        resolve(uri);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
 const GENERIC_THEME = { primary: '#2f9e57', accent: '#2f74bd', dark: '#0f172a' };
@@ -334,8 +363,10 @@ let maintenanceActive = false; // is onderhoudsmodus actief?
 let myClubs = {};          // { clubId: 'admin' } — clubs die deze gebruiker beheert
 let activeClubId = null;   // clubId van de actieve ploeg (afgeleid uit teams/{id}/info/clubId)
 let activeClubName = '';   // gedenormaliseerde clubnaam van de actieve ploeg (teams/{id}/info/clubName)
+let activeClubLogo = '';   // gedenormaliseerd clublogo (data-URI) van de actieve ploeg (teams/{id}/info/clubLogo)
 let isClubAdmin = false;   // is de huidige gebruiker clubbeheerder van de actieve ploeg's club?
 let teamClubNames = {};    // { teamId: clubName } — cache voor groepering op het ploegkeuzescherm
+let teamClubLogos = {};    // { teamId: clubLogo } — cache clublogo per ploeg (ploegkeuzescherm)
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
@@ -874,7 +905,7 @@ async function selectTeam(teamId) {
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal; voor de rest
   // wachten we op de clubId-fetch hieronder (achtergrond) vóór we isClubAdmin definitief zetten.
-  activeClubId = null; activeClubName = '';
+  activeClubId = null; activeClubName = ''; activeClubLogo = '';
   isClubAdmin = isOwner;
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup)
@@ -899,7 +930,9 @@ async function selectTeam(teamId) {
     const info = s.val() || {};
     activeClubId = info.clubId || null;
     activeClubName = info.clubName || '';
+    activeClubLogo = info.clubLogo || '';
     if (activeClubName) teamClubNames[teamId] = activeClubName;
+    if (activeClubLogo) teamClubLogos[teamId] = activeClubLogo; else delete teamClubLogos[teamId];
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
     // Clubbeheerder beheert de ploegen van zijn club (fase 2d): behandel hem als beheerder van

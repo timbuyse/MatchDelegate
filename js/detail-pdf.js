@@ -241,6 +241,26 @@ function rasterizeToPng(src, w, h) {
     img.src = src;
   });
 }
+// Als rasterizeToPng, maar behoudt de beeldverhouding binnen een max-vak. Geeft
+// { uri, w, h } terug (of null) zodat jsPDF de afbeelding onvervormd kan plaatsen.
+function rasterizeToPngFit(src, maxW, maxH) {
+  return new Promise(resolve => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1) || 1;
+        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve({ uri: canvas.toDataURL('image/png'), w, h });
+      } catch (e) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 function rasterizeSvgString(svgString, w, h) {
   // data:image/svg+xml vereist een xmlns-attribuut op de root <svg> (in tegenstelling tot
   // inline SVG in een HTML-pagina, waar de browser dat automatisch regelt) — anders
@@ -278,7 +298,11 @@ async function exportPDF() {
   // ---- Header ----
   const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
   if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, y, 40, 40); } catch (e) {} }
-  const tx = MG + 50, tw = CW - 50;
+  // Clublogo rechtsboven, naast het MatchDelegate-merklogo (onvervormd, max 40×40 pt).
+  let clubW = 0;
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
+  const tx = MG + 50, tw = CW - 50 - clubW;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
   doc.text(title, tx, y + 13, { maxWidth: tw });
