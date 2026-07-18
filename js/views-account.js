@@ -1269,7 +1269,7 @@ async function doCreateTeam() {
   } catch (e) {
     console.error('createTeam fout:', e);
     if (e && e.code === 'PERMISSION_DENIED') {
-      if (err) err.textContent = 'Je hebt nog geen toestemming om ploegen aan te maken. Vraag ze aan via "Beheerder worden".';
+      if (err) err.textContent = 'Je hebt geen toestemming om ploegen aan te maken. Enkel de clubbeheerder maakt ploegen aan binnen zijn club — contacteer de clubbeheerder of de eigenaar.';
     } else if (err) {
       err.textContent = 'Onbekende fout. Controleer je internetverbinding.';
     }
