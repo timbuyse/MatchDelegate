@@ -1,19 +1,29 @@
 // ===================== NIEUWE WEDSTRIJD (WIZARD) =====================
 let wiz = null;
+// Standaard wedstrijdvorm + opstelling van een ploeg (ingesteld bij het aanmaken / in de editor).
+// Valt terug op 8v8 / eerste formatie voor ploegen zonder ingestelde voorkeur.
+function teamMatchDefaults(team) {
+  const mt = (team && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : '8v8';
+  const forms = FORMATIONS[mt] || [];
+  let fi = (team && team.defaultFormation) ? forms.findIndex(f => f.name === team.defaultFormation) : 0;
+  if (fi < 0) fi = 0;
+  return { matchType: mt, formationIndex: fi };
+}
 function startWizard() {
   const now = new Date();
   const team = getTeamsV2()[0] || null;
   const teamTrainers = team ? (team.trainers || []).filter(t => t.name) : [];
+  const md = teamMatchDefaults(team);
   wiz = {
     step: 1, teamId: (team || {}).id || '', opponent: '', subteam: '',
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-    location: 'Thuis', matchType: '8v8', periodKey: 'kwarten', quarterDuration: 15,
+    location: 'Thuis', matchType: md.matchType, periodKey: 'kwarten', quarterDuration: 15,
     competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
     trainerIsOther: false,
-    pool: [], poolTeamId: null, formationIndex: 0, selPlace: null,
+    pool: [], poolTeamId: null, formationIndex: md.formationIndex, selPlace: null,
   };
 }
 function wizTeamChange() {
@@ -24,6 +34,10 @@ function wizTeamChange() {
     wiz.trainer = trainers.length ? trainers[0].name : '';
     wiz.trainerIsOther = false;
     wiz.responsible = team.responsible || '';
+    // Standaard wedstrijdvorm + opstelling van de gekozen ploeg klaarzetten (per wedstrijd aanpasbaar).
+    const md = teamMatchDefaults(team);
+    wiz.matchType = md.matchType;
+    wiz.formationIndex = md.formationIndex;
   }
   render();
 }

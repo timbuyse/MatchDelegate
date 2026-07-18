@@ -669,10 +669,14 @@ function genInviteToken() {
   return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 // ---- Ploeg aanmaken ----
-async function createTeam(name, clubId, joinAsMember) {
+async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation) {
   if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt co-beheerder (lid)
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
+  // Standaard wedstrijdvorm + opstelling (staan klaar bij een nieuwe wedstrijd, per wedstrijd aanpasbaar).
+  const dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
+  const dForms = FORMATIONS[dMatchType] || [];
+  const dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = genInviteToken();
@@ -690,7 +694,7 @@ async function createTeam(name, clubId, joinAsMember) {
     // niet (puur via zijn clubrol). Bij niet-lid blijft members leeg tot een trainer aangesteld wordt.
     members: joinAsMember ? { [uid]: 'admin' } : {},
     club: { name, logo: '', theme: null },
-    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], fromCloud: true } }
+    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, fromCloud: true } }
   });
   // Registreer de ploeg in de club-index.
   if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + teamId).set(true); } catch (e) {} }
@@ -1251,12 +1255,21 @@ function showCreateTeamModal(clubId) {
   const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join" checked style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
+    <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS['8v8'].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
+    <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Staat klaar bij een nieuwe wedstrijd; je kan het per wedstrijd nog aanpassen en later wijzigen bij "Ploeg bewerken".</p>
     ${joinRow}
     <div class="auth-err" id="ct-err"></div>
     <button class="btn btn-org" id="ct-btn" onclick="doCreateTeam()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 
+// Opstelling-keuzes in het "Nieuwe ploeg"-popup volgen de gekozen wedstrijdvorm.
+function ctFormatChange() {
+  const mt = (document.getElementById('ct-mt') || {}).value || '8v8';
+  const sel = document.getElementById('ct-form'); if (!sel) return;
+  sel.innerHTML = (FORMATIONS[mt] || []).map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');
+}
 async function doCreateTeam() {
   const name = (document.getElementById('new-team-name') || {}).value || '';
   const err = document.getElementById('ct-err');
@@ -1266,8 +1279,10 @@ async function doCreateTeam() {
   if (btn) btn.disabled = true;
   const joinChk = document.getElementById('ct-join');
   const joinAsMember = joinChk ? joinChk.checked : true;
+  const dMatchType = (document.getElementById('ct-mt') || {}).value || '8v8';
+  const dFormation = (document.getElementById('ct-form') || {}).value || '';
   try {
-    await createTeam(name, _pendingCreateClubId, joinAsMember);
+    await createTeam(name, _pendingCreateClubId, joinAsMember, dMatchType, dFormation);
     _pendingCreateClubId = null;
     closeModal();
   } catch (e) {

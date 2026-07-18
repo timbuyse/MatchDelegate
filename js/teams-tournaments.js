@@ -98,11 +98,20 @@ function renderTeamEdit() {
     return `<div class="fg" style="margin-bottom:8px"><label>Trainer ${i+1}${i > 0 ? ' (optioneel)' : ''}</label>
       <input type="text" placeholder="Naam trainer" value="${esc(t.name)}" oninput="setTrainer(${i},this.value)" autocomplete="off"></div>`;
   }).join('');
+  const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const dForms = FORMATIONS[dmt] || [];
+  const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
   return `<div class="hdr"><button class="back" onclick="${editingTeam.isNew ? 'closeTeamEdit()' : 'toggleTeamEditMode()'}">‹</button><h1>Ploeg bewerken</h1></div>
   <div class="content">
     <div class="card">
       <div class="fg"><label>Ploegnaam</label><input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off"></div>
       <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke (optioneel)</label><input type="text" placeholder="Naam ploegverantwoordelijke" value="${esc(editingTeam.responsible||'')}" oninput="editingTeam.responsible=this.value" autocomplete="off"></div>
+    </div>
+    <div class="sec">Standaard voor nieuwe wedstrijden</div>
+    <div class="card">
+      <div class="fg"><label>Standaard wedstrijdvorm</label><select onchange="teamFormatChange(this.value)">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k===dmt?'selected':''}>${k}</option>`).join('')}</select></div>
+      <div class="fg" style="margin-bottom:0"><label>Standaard opstelling</label><select onchange="editingTeam.defaultFormation=this.value">${dForms.map(f => `<option value="${esc(f.name)}" ${f.name===dfName?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Staat klaar bij een nieuwe wedstrijd; je kan het per wedstrijd nog aanpassen.</p>
     </div>
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
@@ -117,6 +126,13 @@ function renderTeamEdit() {
     <button class="btn btn-green" onclick="saveTeamEdit()">${icI(IC.check)}${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
     ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
+}
+// Standaard opstelling volgt de gekozen wedstrijdvorm in de ploeg-editor.
+function teamFormatChange(val) {
+  editingTeam.defaultMatchType = MATCH_TYPES[val] ? val : '8v8';
+  const forms = FORMATIONS[editingTeam.defaultMatchType] || [];
+  editingTeam.defaultFormation = forms[0] ? forms[0].name : '';
+  render();
 }
 function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
 function teamDelPlayer(i) { editingTeam.players.splice(i, 1); render(); }
@@ -154,10 +170,15 @@ function teamPasteApply() {
 }
 function saveTeamEdit() {
   if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
+  const eDmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const eDforms = FORMATIONS[eDmt] || [];
+  const eDform = eDforms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (eDforms[0] ? eDforms[0].name : '');
   const clean = {
     id: editingTeam.id,
     name: editingTeam.name.trim(),
     responsible: (editingTeam.responsible || '').trim(),
+    defaultMatchType: eDmt,
+    defaultFormation: eDform,
     trainers: (editingTeam.trainers || []).map(t => ({ id: t.id || uid(), name: (t.name || '').trim() })).filter(t => t.name),
     players: editingTeam.players.filter(p => (pFirstName(p) || pLastName(p) || '').trim()).map(p => {
       const fn = ((p.firstName !== undefined ? p.firstName : pFirstName(p)) || '').trim();
