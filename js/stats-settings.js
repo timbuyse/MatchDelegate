@@ -377,20 +377,19 @@ const HANDLEIDING_PAGINAS = [
   },
   {
     titel: 'Rollen in de app',
-    img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
     inhoud: `
-      <p>Match Delegate werkt met deze rollen:</p>
+      <p>Match Delegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
-      <div class="hdl-rol"><b>Co-beheerder</b><span>Wedstrijden aanmaken en live bijhouden, spelers beheren</span></div>
-      <div class="hdl-rol"><b>Beheerder</b><span>Alles van co-beheerder + ploeg aanmaken, leden uitnodigen en goedkeuren</span></div>
+      <div class="hdl-rol"><b>Co-beheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
+      <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen en het clublogo instellen</span></div>
       <p style="margin-top:14px">Na registratie start je als <b>kijker</b>. Je kan daarna:</p>
       <ul class="hdl-list">
-        <li>Een ploeg volgen via een uitnodiging.</li>
-        <li>Co-beheer aanvragen bij een co-beheerder van een ploeg.</li>
-        <li>Een beheerdersrol aanvragen om zelf ploegen aan te maken via <b>'+ Nieuwe ploeg aanmaken'</b>.</li>
+        <li>Een ploeg volgen via een uitnodiging (link, QR-code of code).</li>
+        <li>Co-beheer aanvragen bij een co-beheerder van een ploeg die je al volgt.</li>
       </ul>
+      <p style="margin-top:14px">Nieuwe ploegen worden niet meer los aangemaakt: dat doet de <b>clubbeheerder</b> binnen zijn club. Wil je een ploeg opstarten? Contacteer de clubbeheerder — die maakt de ploeg aan en nodigt jou uit als co-beheerder.</p>
       <p style="margin-top:14px">Daarnaast bestaan er twee bijzondere rollen die de meeste gebruikers nooit zelf zullen zijn:</p>
-      <div class="hdl-rol"><b>Eigenaar</b><span>Systeembreed, één per app-installatie — keurt beheerdersaanvragen goed</span></div>
+      <div class="hdl-rol"><b>Eigenaar</b><span>Systeembreed, één per app-installatie — maakt clubs aan en stelt clubbeheerders aan</span></div>
       <div class="hdl-rol"><b>Gast</b><span>Volgt enkel live wedstrijden via een gastlink, zonder eigen account</span></div>
     `
   },
@@ -420,7 +419,7 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Ben je kijker en wil je wedstrijden kunnen beheren? Vraag co-beheer aan:</p>
       <ol class="hdl-list">
-        <li>Tik rechtsboven op <b>'Beheer'</b>.</li>
+        <li>Tik rechtsboven op <b>'Kijken'</b>.</li>
         <li>Tik op <b>'Vraag co-beheer aan'</b>.</li>
         <li>De beheerder krijgt een melding en keurt je aanvraag goed of af.</li>
         <li>Zodra goedgekeurd, krijg je toegang als co-beheerder.</li>
@@ -516,22 +515,40 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
-    titel: 'Als beheerder',
+    titel: 'Als co-beheerder',
     img: 'handleiding/screenshots/05_beheer.png',
     inhoud: `
-      <p>Als beheerder heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties:</p>
+      <p>Ben je co-beheerder van een ploeg? Dan heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties voor die ploeg:</p>
       <ul class="hdl-list">
-        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens.</li>
-        <li><b>'Leden'</b> — overzicht van alle kijkers en co-beheerders. Hier keur je ook co-beheeraanvragen goed of af.</li>
+        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; je kan hem daarna via <b>'Leden'</b> promoveren tot co-beheerder.</li>
+        <li><b>'Leden'</b> — overzicht van alle kijkers en co-beheerders. Hier keur je co-beheeraanvragen goed of af, en promoveer of degradeer je leden.</li>
         <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
       </ul>
-      <div class="sec">Nieuwe ploeg aanmaken</div>
+      <p class="hdl-tip">Als co-beheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
+      <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
+    `
+  },
+  {
+    titel: 'Als clubbeheerder',
+    inhoud: `
+      <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Daarna verschijnt op het ploegkeuzescherm de knop <b>'Mijn club beheren'</b>.</p>
+      <div class="sec">Ploegen beheren</div>
+      <ul class="hdl-list">
+        <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen').</li>
+        <li><b>'Beheren'</b> bij een ploeg — open het gewone ploegbeheer om trainers uit te nodigen en leden te beheren.</li>
+        <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden.</li>
+      </ul>
+      <div class="sec">Een trainer uitnodigen</div>
       <ol class="hdl-list">
-        <li>Tik op <b>'+ Nieuwe ploeg aanmaken'</b>.</li>
-        <li>Als je nog geen beheerder bent, word je gevraagd de <b>beheerdersrol aan te vragen</b>. De eigenaar keurt dit goed.</li>
-        <li>Daarna maak je meteen een ploeg aan zonder extra aanvraag.</li>
+        <li>Open de ploeg met <b>'Beheren'</b> en tik op <b>'Iemand uitnodigen'</b>.</li>
+        <li>Bezorg de trainer de <b>uitnodigingslink</b> (of QR-code / code). Hij vervoegt eerst als kijker.</li>
+        <li>Ga naar <b>'Leden'</b> en <b>promoveer</b> hem tot co-beheerder.</li>
       </ol>
-      <p class="hdl-tip">Als beheerder kan je ook alles wat een co-beheerder kan: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
+      <div class="sec">Extra</div>
+      <ul class="hdl-list">
+        <li><b>'Speler overzetten'</b> — verplaats een speler tussen ploegen binnen je club.</li>
+        <li><b>Clublogo</b> — stel bovenaan in 'Mijn club beheren' het clublogo in. Het verschijnt bij je club op het ploegkeuzescherm, onderaan de ploegpagina en in de wedstrijd-PDF.</li>
+      </ul>
     `
   },
   {

@@ -27,22 +27,30 @@ self.addEventListener('fetch', e => {
   // Externe verzoeken (Firebase SDK, realtime database) niet onderscheppen/cachen.
   if (url.origin !== location.origin) return;
   const isDoc = req.mode === 'navigate' || req.destination === 'document' || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+  // Onze eigen app-scripts (js/*.js) dragen APP_VERSION en bepalen welke SW-versie geregistreerd
+  // wordt. Werden die cache-eerst geserveerd, dan bleef bij elke herlaad de OUDE core.js draaien
+  // → registreerde dezelfde oude sw.js?v=... → de browser zag nooit een nieuwe SW → de app zat
+  // permanent vast op een oude versie (enkel te doorbreken door manueel de cache te wissen).
+  // Daarom ook deze netwerk-eerst behandelen. De zware, zelden gewijzigde bundels (screenshots,
+  // firebase, pdf) blijven cache-eerst.
+  const isAppJs = url.pathname.includes('/js/') && url.pathname.endsWith('.js') && !url.pathname.endsWith('handleiding-screenshots.js');
 
-  if (isDoc) {
-    // Pagina/app-shell: netwerk-eerst zodat nieuwe versies meteen verschijnen.
-    // Bij "lie-fi" (zwakke, wispelturige verbinding) kan fetch() tientallen seconden
-    // hangen vóór hij zelf faalt — de gebruiker staart dan al die tijd naar de splash.
-    // Race tegen een korte timeout en val dan terug op de cache; de echte fetch loopt
-    // op de achtergrond door en ververst de cache zodra hij (eventueel later) aankomt.
-    const network = fetch(req).then(res => {
+  if (isDoc || isAppJs) {
+    // Netwerk-eerst zodat nieuwe versies meteen verschijnen. Bij "lie-fi" (zwakke, wispelturige
+    // verbinding) kan fetch() tientallen seconden hangen vóór hij zelf faalt — de gebruiker staart
+    // dan al die tijd naar de splash. Race tegen een korte timeout en val dan terug op de cache;
+    // de echte fetch loopt op de achtergrond door en ververst de cache zodra hij aankomt.
+    // cache:'no-store' zodat de HTTP-cache (bv. GitHub Pages) geen verouderde kopie tussenschuift.
+    const cacheKey = isDoc ? './index.html' : req;
+    const network = fetch(req, { cache: 'no-store' }).then(res => {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put('./index.html', copy));
+      caches.open(CACHE).then(c => c.put(cacheKey, copy));
       return res;
     });
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('sw-timeout')), 3000));
     e.respondWith(
       Promise.race([network, timeout]).catch(() =>
-        caches.match(req).then(c => c || caches.match('./index.html')).then(cached => cached || network)
+        caches.match(req).then(c => c || (isDoc ? caches.match('./index.html') : null)).then(cached => cached || network)
       )
     );
     return;
