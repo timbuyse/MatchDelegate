@@ -9,7 +9,13 @@ function toggleStatPublic(key) {
   if (!canSeeStats() || !fbdb || !activeTeamId) return;
   const cur = (key in activeStatsPublic) ? !!activeStatsPublic[key] : !!STATS_DEFAULT_PUBLIC[key];
   activeStatsPublic[key] = !cur;
-  fbdb.ref('teams/' + activeTeamId + '/info/statsPublic/' + key).set(!cur).catch(() => {});
+  // Mislukt de write (offline/permissie), draai de lokale flip terug en meld het — anders toont
+  // dit toestel de nieuwe stand terwijl kijkers en de volgende sessie de oude zien.
+  fbdb.ref('teams/' + activeTeamId + '/info/statsPublic/' + key).set(!cur).catch(() => {
+    activeStatsPublic[key] = cur;
+    showToast('Zichtbaarheid niet opgeslagen — controleer je verbinding en probeer opnieuw.', 'err');
+    if (view === 'stats') loadStats();
+  });
   loadStats();
 }
 function setStatsFilter(v) { statsFilter = v; loadStats(); }
@@ -70,7 +76,9 @@ async function loadStats() {
     if (num) r.number = num;
     return r;
   };
-  const getpById = (m, id) => { const p = m.players.find(x => x.id === id); return p ? getp(p.rosterId, p.name, p.number) : getp(null, pName(m, id)); };
+  // Onbekende speler-id's (speler achteraf uit de wedstrijd verwijderd) leveren null op i.p.v.
+  // over alle wedstrijden samen te klonteren in één "?"-rij die in Topschutters kan opduiken.
+  const getpById = (m, id) => { const p = m.players.find(x => x.id === id); if (p) return getp(p.rosterId, p.name, p.number); const nm = pName(m, id); return (nm && nm !== '?') ? getp(null, nm) : null; };
   // 2b (A/B-ploegen): wie op een bepaalde dag in de selectie van eender welke wedstrijd van deze
   // ploeg stond, mag voor die dag niet als afwezig geteld worden — anders drukt een ✗ bij ploeg A
   // het selectiepercentage terwijl de speler tegelijk bij ploeg B meespeelde. Sleutel = speler+datum.
@@ -108,10 +116,11 @@ async function loadStats() {
       const r = getp(ab.rosterId, ab.name); r.absent++;
     }
     for (const e of m.events) {
-      if (e.type === 'goal_us' && e.playerId) { getpById(m, e.playerId).goals++; if (e.assistId) getpById(m, e.assistId).assists++; }
-      if (e.type === 'penalty_us' && e.scored && e.playerId) getpById(m, e.playerId).goals++;  // strafschopdoelpunt telt mee
-      if (e.type === 'yellow_card' && e.playerId) getpById(m, e.playerId).yc++;
-      if (e.type === 'red_card' && e.playerId) getpById(m, e.playerId).rc++;
+      let r;
+      if (e.type === 'goal_us' && e.playerId) { if ((r = getpById(m, e.playerId))) r.goals++; if (e.assistId && (r = getpById(m, e.assistId))) r.assists++; }
+      if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
+      if (e.type === 'yellow_card' && e.playerId && (r = getpById(m, e.playerId))) r.yc++;
+      if (e.type === 'red_card' && e.playerId && (r = getpById(m, e.playerId))) r.rc++;
     }
   }
   const players = Object.values(pl);
@@ -123,7 +132,10 @@ async function loadStats() {
   const isPub = k => (k in sp) ? !!sp[k] : !!STATS_DEFAULT_PUBLIC[k];
   let hiddenCount = 0;
   const eyeCtrl = k => { if (!isMgr) return ''; const pub = isPub(k); return `<span class="stat-eye${pub ? '' : ' off'}" title="${pub ? 'Zichtbaar voor kijkers — klik om te verbergen' : 'Verborgen voor kijkers — klik om te tonen'}" onclick="event.preventDefault();event.stopPropagation();toggleStatPublic('${k}')">${icI(pub ? IC.eye : IC.eyeOff)}</span>`; };
-  const sect = (k, summaryInner, bodyHtml) => { const pub = isPub(k); if (!isMgr && !pub) { hiddenCount++; return ''; } return `<details class="stat-acc"><summary>${summaryInner}${eyeCtrl(k)}</summary><div class="card">${bodyHtml}</div></details>`; };
+  // Open/dicht-stand van de secties overleven een her-render (bv. na een oog-toggle) — anders
+  // klapt elke klik op een oogje alle openstaande secties dicht.
+  const _openSecs = new Set([...el.querySelectorAll('details.stat-acc[data-sk][open]')].map(d => d.dataset.sk));
+  const sect = (k, summaryInner, bodyHtml) => { const pub = isPub(k); if (!isMgr && !pub) { hiddenCount++; return ''; } return `<details class="stat-acc" data-sk="${k}"${_openSecs.has(k) ? ' open' : ''}><summary>${summaryInner}${eyeCtrl(k)}</summary><div class="card">${bodyHtml}</div></details>`; };
   // Spelernamen enkel klikbaar (→ individueel spelerdetail) voor beheerders; kijkers krijgen geen detail.
   const prow = p => isMgr ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(p.name)}','${jsq(pDetTeam)}','${jsq(p.rosterId || '')}')"` : '';
   const topList = (arr, val, unit) => arr.length ? arr.map((p, i) => `<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${val(p)}${unit}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>';
@@ -227,7 +239,9 @@ async function loadPlayerDetail() {
     for (const e of m.events) {
       if (e.type === 'goal_us' && e.playerId === pl.id) g++;
       if (e.type === 'penalty_us' && e.scored && e.playerId === pl.id) g++;
-      if (e.assistId === pl.id) a++;
+      // Zelfde assist-criterium als loadStats() (enkel bij een echt doelpunt) — anders spreken
+      // het seizoensoverzicht en het spelerdetail elkaar tegen.
+      if (e.type === 'goal_us' && e.assistId === pl.id) a++;
       if (e.type === 'yellow_card' && e.playerId === pl.id) y++;
       if (e.type === 'red_card' && e.playerId === pl.id) r++;
     }
@@ -285,7 +299,7 @@ async function loadPlayerDetail() {
       c.mp++;
       for (const e of m.events) {
         if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id) c.goals++;
-        if (e.assistId === p.id) c.assists++;
+        if (e.type === 'goal_us' && e.assistId === p.id) c.assists++;
       }
     }
   }
@@ -811,6 +825,7 @@ let pendingRestore = null;
 async function doRestore(mode) {
   const data = pendingRestore;
   if (!data) return;
+  try {
   // fromCloud strippen: anders ruimt de cloud-listener herstelde wedstrijden die niet
   // (meer) in de cloud staan meteen weer op. Hersteld = lokaal; staat de wedstrijd tóch
   // nog in de cloud, dan wint die versie vanzelf (zelfde id). Pas bij een latere
@@ -850,6 +865,11 @@ async function doRestore(mode) {
   closeModal(); match = null; applyStoredTheme(); applyDark(); go('home');
   const cloudNote = (cloudReady && activeTeamId) ? ' (als lokale wedstrijden)' : '';
   setTimeout(() => showToast((mode === 'replace' ? 'Back-up hersteld' : 'Back-ups samengevoegd') + cloudNote, 'ok'), 100);
+  } catch (e) {
+    // Falende IndexedDB-write: modal sluiten en duidelijk melden i.p.v. een stille unhandled rejection.
+    closeModal();
+    showToast('Herstellen mislukt — er is niets (of slechts gedeeltelijk) hersteld. Probeer opnieuw.', 'err');
+  }
 }
 // Opent de mailapp met een voorgevuld probleemrapport (versie, rol, ploeg, toestel).
 function reportProblem() {
@@ -1078,6 +1098,14 @@ async function doDeleteCloudTeam() {
     ]);
     // Al verwijderd (dubbeltik / ander toestel)? Nooit de bestaande backup met leeg overschrijven.
     if (!teamSnap.exists()) { showToast('Ploeg is al verwijderd.', 'ok'); closeModal(); go('teamselect', undefined, true); return; }
+    // Zelfde voorwaarden als de rules afdwingen VÓÓR er iets gewist wordt (eigenaar, of
+    // goedgekeurd beheerder die de ploeg maakte): anders wist dit pad eerst de uitnodiging,
+    // ledeninfo en notities en strandt het pas daarna op de geweigerde team-remove — die
+    // bijzaken zijn dan weg terwijl de ploeg blijft bestaan.
+    if (!(isOwner || (isApprovedAdmin && ((teamSnap.val() || {}).info || {}).createdBy === currentUser.uid))) {
+      if (err) err.textContent = 'Enkel de maker van de ploeg (of de eigenaar) kan ze definitief verwijderen.';
+      return;
+    }
     // Backup opslaan vóór verwijderen
     await fbdb.ref('deletedTeams/' + tid).set({
       deletedAt: Date.now(),
@@ -1095,6 +1123,9 @@ async function doDeleteCloudTeam() {
     if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
     try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
     try { await fbdb.ref('teamNotes/' + tid).remove(); } catch (e) {}
+    // Openstaande ploegbeheer-aanvragen mee opruimen (het owner-verwijderpad doet dit al) —
+    // na de team-remove kan enkel de eigenaar deze wees nog wissen.
+    try { await fbdb.ref('teamAdminRequests/' + tid).remove(); } catch (e) {}
     // Club-index opkuisen (fase 2) zodat de ploeg niet als wees in Clubbeheer blijft staan.
     // Best-effort: onder de huidige rules mag de eigenaar clubs schrijven; voor een niet-eigenaar
     // clubbeheerder komt dat schrijfrecht in fase 2d.

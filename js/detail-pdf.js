@@ -6,7 +6,7 @@ function renderDetail() {
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
-    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='own_goal_them'||e.type==='goal_them'||e.type==='own_goal'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
+    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
     const cum = scoreUpToQuarter(match, q.num);
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
@@ -56,7 +56,7 @@ function renderDetail() {
       </div>`;
     })()}
     ${photoSectionHtml(match, ro)}
-    ${ro ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
+    ${!canManage() ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
       <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
@@ -378,7 +378,7 @@ async function exportPDF() {
       const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
       const cumText = isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`;
-      const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)
+      const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)
         .map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });

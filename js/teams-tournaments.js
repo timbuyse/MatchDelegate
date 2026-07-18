@@ -32,7 +32,9 @@ function renderTeamView() {
   const t = editingTeam;
   const trainers = (t.trainers || []).filter(tr => tr.name);
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
+  // Spelerdetail is beheerder-only (openPlayerDetail doet voor kijkers stil niets) — geen
+  // klik-affordance tonen die nergens toe leidt.
+  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
@@ -55,7 +57,7 @@ function renderTeamOverview() {
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')">
+  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
       <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}

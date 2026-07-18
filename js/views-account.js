@@ -169,6 +169,9 @@ async function toggleClubTeamMembership(tid) {
       userTeams[tid] = 'admin';
       showToast('Toegevoegd aan jouw ploegen.', 'ok');
     }
+    // Offline-cache bijwerken, anders toont een offline-herstart een net verwijderd/toegevoegd
+    // lidmaatschap verkeerd tot de volgende online load.
+    if (currentUser) cacheUserTeams(currentUser.uid, userTeams);
     loadClubBeheerView();
   } catch (e) { showToast('Wijzigen mislukt, probeer opnieuw.', 'err'); }
 }
@@ -501,7 +504,19 @@ async function loadAllUsersView() {
       const sectieTitel = (clubNaam ? clubNaam + ' · ' : '') + teamNaam;
       const uids = Object.keys(members).sort((a, b) =>
         (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
-      if (!uids.length) continue;
+      // Ledenloze ploegen tóch tonen: dit is het enige scherm met "Verwijderen" (ownerDeleteTeam) —
+      // een ploeg die een clubbeheerder zonder lidmaatschap aanmaakte, was anders nergens hard te
+      // verwijderen door de eigenaar.
+      if (!uids.length) {
+        sections.push(`<details class="card allusers-team" data-search="${esc(sectieTitel.toLowerCase())}" style="margin-bottom:12px">
+          <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(geen leden)</span></span>
+            <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${jsq(teamNaam)}')">Verwijderen</button>
+          </summary>
+          <div style="margin-top:10px"><p style="color:var(--txt2);font-size:13px;margin:0">Deze ploeg heeft geen leden.</p></div>
+        </details>`);
+        continue;
+      }
 
       const users = uids.map(uid => ({ naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
       const rows = users.map(u => {
@@ -742,8 +757,9 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     club: { name, logo: '', theme: null },
     roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, fromCloud: true } }
   });
-  // Registreer de ploeg in de club-index.
-  if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + teamId).set(true); } catch (e) {} }
+  // Registreer de ploeg in de club-index. Faalt dit stil én is de maker geen lid (joinAsMember
+  // uit), dan zou de ploeg nergens zichtbaar zijn — meld het dan minstens.
+  if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + teamId).set(true); } catch (e) { showToast('Ploeg aangemaakt, maar registreren in de club mislukte — herlaad Clubbeheer en probeer opnieuw.', 'err'); } }
   // Sla uitnodigingstoken ook op als directe lookup (geen query nodig bij vervoegen)
   await fbdb.ref('invites/' + token).set({ teamId, createdBy: uid, createdAt: Date.now() });
   if (joinAsMember) {
@@ -881,7 +897,7 @@ async function requestCoAdmin() {
   if (snap.exists()) { showToast('Je aanvraag is al verstuurd. Wacht op goedkeuring van de beheerder.', 'err'); return; }
   try {
     await ref.set({ name: currentUser.displayName || '', email: currentUser.email || '', requestedAt: Date.now() });
-    showToast('Aanvraag verstuurd. De beheerder ontvangt een melding.', 'ok');
+    showToast('Aanvraag verstuurd. De beheerder ziet ze bij het openen van de app (Leden).', 'ok');
   } catch (e) { showToast('Aanvraag mislukt, probeer opnieuw.', 'err'); }
 }
 
@@ -1201,8 +1217,9 @@ function renderTeamSelect() {
     order.sort((a, b) => a === 'Overige ploegen' ? 1 : b === 'Overige ploegen' ? -1 : a.localeCompare(b, 'nl'));
     teamRows = order.map(cn => `<div style="margin-bottom:4px">${clubHdrHtml(cn)}${buckets[cn].map(teamRowHtml).join('')}</div>`).join('');
   } else {
-    // Eén (of nog onbekende) club: clubkopje tonen als de naam gekend is, met de herschikbare lijst eronder.
-    const header = distinctClubs.length === 1 ? clubHdrHtml(distinctClubs[0]) : '';
+    // Eén (of nog onbekende) club: clubkopje tonen als de naam gekend is én ALLE ploegen bij die
+    // club horen — anders zou een club-loze ploeg onder het verkeerde clubkopje lijken te staan.
+    const header = (distinctClubs.length === 1 && teamIds.every(id => teamClubNames[id])) ? clubHdrHtml(distinctClubs[0]) : '';
     teamRows = header + `<div id="ts-team-list">${teamIds.map(teamRowHtml).join('')}</div>`;
   }
   if (canReorder) setTimeout(initTeamReorder, 0);

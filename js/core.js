@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.40'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.41'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -322,6 +322,7 @@ async function clearLocalDeviceData(uid) {
    'voetbal_adminRequested', 'voetbal_adminApprovedSeen', 'voetbal_activeTeamId']
     .forEach(k => localStorage.removeItem(k));
   if (uid) localStorage.removeItem('voetbal_userTeams_' + uid);
+  if (uid) localStorage.removeItem('voetbal_teamOrder_' + uid); // ploeg-id's van de vorige gebruiker
 }
 
 // ===================== CLOUD SYNC (Firebase) =====================
@@ -955,6 +956,17 @@ async function selectTeam(teamId) {
     if (activeClubLogo) teamClubLogos[teamId] = activeClubLogo; else delete teamClubLogos[teamId];
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
+    // Gearchiveerde ploeg: gewone leden er niet gewoon in laten doorwerken (ze is uit alle
+    // lijsten verborgen, maar werd bv. bij herstart via voetbal_activeTeamId weer actief).
+    // Eigenaar/clubbeheerder mag er wél in (beheren/herstellen via Clubbeheer).
+    if (info.archived && !isClubAdmin) {
+      showToast('Deze ploeg is gearchiveerd door de club.', 'err');
+      stopTeamListeners();
+      activeTeamId = null;
+      localStorage.removeItem('voetbal_activeTeamId');
+      go('teamselect', undefined, true);
+      return;
+    }
     // Clubbeheerder beheert de ploegen van zijn club (fase 2d): behandel hem als beheerder van
     // deze ploeg, ook al is hij geen ploeglid. Verandert isAdmin → altijd herrenderen.
     const wasAdmin = isAdmin;
@@ -1376,7 +1388,10 @@ function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudT
 // Statistieken (seizoensoverzicht + individueel spelerdetail) zijn enkel voor beheerders,
 // niet voor kijkers of gasten (bewuste keuze). Anders dan canManage() blijft dit offline wél
 // true, zodat een beheerder zijn stats ook zonder verbinding kan bekijken.
-function canSeeStats() { return !isGuest && !viewerMode && (!cloudReady || isAdmin || isOwner); }
+// Offline mét een gekende cloud-ploeg telt de gecachete rol (isAdmin uit localStorage): anders
+// zag een KIJKER bij een falende SDK-load plots de volledige beheerdersweergave. Pure lokale
+// modus (geen cloud-ploeg bekend) blijft alles tonen.
+function canSeeStats() { return !isGuest && !viewerMode && (isAdmin || isOwner || (!cloudReady && !offlineWithKnownCloudTeam())); }
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {

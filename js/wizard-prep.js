@@ -525,9 +525,15 @@ function computePosNum(matchType, slotIdx, slots) {
     if (line === A) return ({ 1:[9], 2:[9,7], 3:[11,9,7] }[n] || [])[pos] ?? pos+9;
   }
   if (matchType === '8v8') {
+    const nd8 = slots.filter(s => s.line === 'Verdediging').length;
+    const nm8 = slots.filter(s => s.line === 'Middenveld').length;
+    const na8 = slots.filter(s => s.line === 'Aanval').length;
     if (line === 'Doel') return 1;
     if (line === 'Verdediging') return ({ 1:[3], 2:[5,2], 3:[5,3,2] }[n] || [])[pos] || pos + 2;
-    if (line === 'Middenveld')  return ({ 1:[10], 2:[11,7], 3:[11,10,7] }[n] || [])[pos] || pos + 7;
+    // 2-3-2: de 10 hoort bij het aanvalsduo (schaduwspits), de centrale middenvelder wordt 8 —
+    // anders kregen centrale mid én rechteraanvaller allebei bol 10. Dubbele ruit en 3-3-1
+    // behouden hun 10 als centrale middenvelder (playmaker).
+    if (line === 'Middenveld')  { if (nd8===2 && nm8===3 && na8===2) return ([11,8,7])[pos] ?? pos + 7; return ({ 1:[10], 2:[11,7], 3:[11,10,7] }[n] || [])[pos] || pos + 7; }
     if (line === 'Aanval')      return ({ 1:[9], 2:[9,10], 3:[11,9,7] }[n] || [])[pos] || pos + 7;
   }
   if (matchType === '5v5') {

@@ -59,12 +59,12 @@ Match Delegate werkt met drie rollen. Elke rol geeft andere mogelijkheden.
 | Rol | Wat kan je doen? |
 |---|---|
 | **Kijker** | Een ploeg volgen en live wedstrijden bekijken |
-| **Co-beheerder** | Wedstrijden aanmaken en live bijhouden, spelers beheren |
-| **Beheerder** | Alles van co-beheerder + ploeg aanmaken, leden uitnodigen en goedkeuren |
+| **Ploegbeheerder** | Wedstrijden aanmaken en live bijhouden, spelers beheren |
+| **Beheerder** | Alles van ploegbeheerder + ploeg aanmaken, leden uitnodigen en goedkeuren |
 
 Wanneer je een account aanmaakt, start je als **kijker**. Je kan daarna:
 - Een ploeg volgen via een uitnodigingslink.
-- **Co-beheer aanvragen** bij de beheerder van een ploeg.
+- **Ploegbeheer aanvragen** bij de beheerder van een ploeg.
 - Een beheerdersrol aanvragen en daarna via **'Nieuwe ploeg aanmaken'** een eigen ploeg starten (zie hoofdstuk 6).
 
 ---
@@ -106,20 +106,20 @@ Na elk van deze stappen ben je kijker van de ploeg en kan je alle wedstrijden vo
 
 ---
 
-## 5. Als co-beheerder
+## 5. Als ploegbeheerder
 
-### Co-beheer aanvragen
+### Ploegbeheer aanvragen
 
-![Co-beheer aanvragen](screenshots/13_cobeheer_aanvragen.png)
+![Ploegbeheer aanvragen](screenshots/13_cobeheer_aanvragen.png)
 
-Ben je al kijker van een ploeg en wil je meer doen? Dan kan je co-beheer aanvragen:
+Ben je al kijker van een ploeg en wil je meer doen? Dan kan je ploegbeheer aanvragen:
 
 1. Tik rechtsboven op **'Beheer'**.
-2. Tik op **'Vraag co-beheer aan'**.
+2. Tik op **'Vraag ploegbeheer aan'**.
 3. De beheerder krijgt een melding en kan je aanvraag goedkeuren of weigeren.
-4. Zodra je aanvraag goedgekeurd is, krijg je toegang als co-beheerder.
+4. Zodra je aanvraag goedgekeurd is, krijg je toegang als ploegbeheerder.
 
-> Je kan maar co-beheerder worden van een ploeg waarvan je al kijker bent. Vraag eerst een uitnodiging aan de beheerder.
+> Je kan maar ploegbeheerder worden van een ploeg waarvan je al kijker bent. Vraag eerst een uitnodiging aan de beheerder.
 
 ### Wedstrijd aanmaken
 
@@ -258,11 +258,11 @@ Heb je de beheerdersrol? Dan kan je meteen ploegen aanmaken:
 3. Deel de uitnodiging via link, QR-code of 6-cijferige code (zie hoofdstuk 4).
 4. Iedereen die de uitnodiging gebruikt en een account heeft, wordt automatisch kijker van jouw ploeg.
 
-### Leden beheren & co-beheer goedkeuren
+### Leden beheren & ploegbeheer goedkeuren
 
 1. Tik rechtsboven op **'Beheer'** → **'Leden'**.
-2. Hier zie je een overzicht van alle kijkers en co-beheerders van je ploeg.
-3. Openstaande co-beheeraanvragen verschijnen ook in dit scherm. Tik op **'Goedkeuren'** of **'Weigeren'** — de aanvrager krijgt meteen een melding.
+2. Hier zie je een overzicht van alle kijkers en ploegbeheerders van je ploeg.
+3. Openstaande ploegbeheeraanvragen verschijnen ook in dit scherm. Tik op **'Goedkeuren'** of **'Weigeren'** — de aanvrager krijgt meteen een melding.
 
 ### Kijkmodus
 
@@ -273,9 +273,9 @@ Als beheerder kan je ook meekijken als gewone kijker, zonder toegang tot de behe
 3. Je ziet de ploeg nu vanuit het perspectief van een kijker.
 
 
-### Alle functies van co-beheerder
+### Alle functies van ploegbeheerder
 
-Als beheerder kan je alles wat een co-beheerder ook kan: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren. Zie **hoofdstuk 5** voor de details.
+Als beheerder kan je alles wat een ploegbeheerder ook kan: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren. Zie **hoofdstuk 5** voor de details.
 
 ---
 

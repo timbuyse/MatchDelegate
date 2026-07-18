@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.41
+- **Verbeterd:** in 8v8 "2-3-2" kregen de centrale middenvelder en een aanvaller allebei
+  bolnummer 10 — het duo voorin is nu 9/10 en de centrale middenvelder 8 (flanken blijven 11/7).
+- **Opgelost:** een gearchiveerde ploeg bleef voor leden gewoon bruikbaar (o.a. na herstart) —
+  leden worden nu naar het ploegkeuzescherm geleid; eigenaar/clubbeheerder behoudt toegang.
+- **Opgelost:** een ploeg zonder leden was voor de eigenaar nergens te verwijderen — ze staat nu
+  (met "geen leden") in het scherm "Alle gebruikers".
+- **Opgelost:** het oog-icoon op de statistiekenpagina klapte alle openstaande secties dicht; en
+  een mislukte zichtbaarheids-wijziging wordt nu gemeld en teruggedraaid i.p.v. stil genegeerd.
+- **Opgelost:** de assist-telling verschilde tussen seizoensoverzicht, spelerdetail en carrière —
+  overal geldt nu hetzelfde criterium (assist bij een echt doelpunt).
+- **Opgelost:** doelpunten/kaarten van een intussen verwijderde speler klonterden samen in een
+  anonieme "?"-rij die in Topschutters kon opduiken.
+- **Opgelost:** het ongedaan maken of verwijderen van een kapiteinwissel herstelt nu ook de
+  kapitein zelf.
+- **Opgelost:** dubbeltik-gaten gedicht bij het verwijderen van ingeplande pauzewissels en bij
+  "Wedstrijd heropenen" (gaf anders een extra fantoomdeel).
+- **Opgelost:** de minuut van een pauzewissel is niet meer bewerkbaar (die vindt per definitie
+  bij de deelstart plaats — een aangepaste minuut brak de speeltijdberekening).
+- **Opgelost:** een kijker zag bij een falende verbinding kortstondig de beheerdersweergave van
+  de statistieken; klikbare spelersrijen die voor kijkers nergens toe leidden zijn weggehaald.
+- **Opgelost:** "Ploeg definitief verwijderen" controleert de rechten nu vóór er iets gewist
+  wordt, en ruimt ook openstaande ploegbeheer-aanvragen mee op.
+- **Opgelost:** back-up herstellen meldt een fout i.p.v. stil te blijven hangen; account-opkuis
+  neemt nu ook de ploegvolgorde-voorkeur mee.
+- **Verbeterd:** diverse kleinere punten (clubkopje niet meer boven club-loze ploegen, melding
+  bij mislukte club-registratie van een nieuwe ploeg, correcte aanvraag-melding, handleiding-
+  brondocument mee hernoemd naar "ploegbeheerder").
+
 ## v0.5.40
 - **Opgelost:** de "Aantal blokken"-keuze bij een tornooimatch deed niets (de match bleef altijd
   1 blok, terwijl de selector "3 delen" toonde). Er is nu een expliciete "1 blok"-optie

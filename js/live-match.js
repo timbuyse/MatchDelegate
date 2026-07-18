@@ -251,6 +251,7 @@ function confirmReopenMatch() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doReopenMatch() {
+  if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard: anders telkens +1 fantoomdeel
   match.status = 'live';
   match.quarterStatus = 'between';
   match.numQuarters = Math.max(match.numQuarters || 0, match.quarters.length) + 1;
@@ -922,6 +923,7 @@ async function doDeleteEvent(id) {
   toRemove.forEach(ev => tombstoneEvent(match, ev.id));
   match.events = match.events.filter(e => !ids.has(e.id));
   toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
+  if (removed && removed.type === 'captain_change') recomputeCaptain(match, removed);
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten herbouwen na het verwijderen van een keeper-relevante actie.
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
@@ -946,7 +948,9 @@ function modalEditEvent(id) {
   else if (t === 'disallowed_us' || t === 'disallowed_them') fields = `<div class="fg"><label>Reden</label><input id="ee-reason" type="text" value="${esc(e.reason || '')}" placeholder="bv. buitenspel"></div>`;
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
-    <div class="fg"><label>Minuut</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>
+    ${e.atBreak
+      ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Pauzewissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
+      : `<div class="fg"><label>Minuut</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
     ${fields}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -1050,6 +1054,13 @@ function modalSetCaptain() {
     <button class="btn btn-gray" style="margin-top:12px" onclick="setMatchCaptain(null)">Geen / wissen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
+// Na het verwijderen/ongedaan maken van een kapiteinwissel-event de actuele kapitein herrekenen:
+// de laatst overblijvende wissel geldt; zonder overblijvende wissels valt hij terug op de
+// oorspronkelijke kapitein (fromId van het verwijderde event, dat de vorige toestand bewaart).
+function recomputeCaptain(m, removed) {
+  const changes = (m.events || []).filter(e => e.type === 'captain_change').sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  m.captainId = changes.length ? changes[changes.length - 1].playerId : ((removed && removed.fromId) || null);
+}
 async function setMatchCaptain(id) {
   const prev = match.captainId;
   match.captainId = id;
@@ -1092,6 +1103,7 @@ async function undoLast() {
   toRemove.forEach(ev => tombstoneEvent(match, ev.id));
   match.events = match.events.filter(ev => !ids.has(ev.id));
   toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
+  if (removed.type === 'captain_change') recomputeCaptain(match, removed);
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten kloppen niet meer na het ongedaan maken van een keeper-relevante actie → herbouwen.
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
@@ -1300,7 +1312,7 @@ async function confirmSub() {
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
-async function removePendingSub(i) { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); }
+async function removePendingSub(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
 
 // ===================== MODAL: POSITIEWISSEL =====================
 let posSwapA = null, posSwapB = null;
@@ -1361,7 +1373,7 @@ async function confirmPosSwap() {
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
-async function removePendingPosSwap(i) { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); }
+async function removePendingPosSwap(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
