@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.29'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.30'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -419,6 +419,25 @@ function fbOnce(ref, ms = 4000) {
 window.addEventListener('online', () => { if (view === 'home') render(); });
 window.addEventListener('offline', () => { if (view === 'home') render(); });
 
+// Onderhoudsstatus lezen + live meeluisteren. Geldt voor élke geauthenticeerde gebruiker
+// (ook een anonieme gast), zodat niemand tijdens onderhoud gewoon doorwerkt. De eigenaar wordt
+// nooit geblokkeerd (die moet onderhoud kunnen uit-zetten).
+async function initMaintenanceWatch() {
+  if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
+  await new Promise(resolve => {
+    const mRef = fbdb.ref('maintenance/active');
+    const tmo = setTimeout(resolve, 4000); // offline: ga verder zonder maintenance-status
+    mRef.once('value', snap => { maintenanceActive = !!snap.val(); clearTimeout(tmo); resolve(); });
+    window._maintenanceOff = () => mRef.off('value');
+    mRef.on('value', snap => {
+      maintenanceActive = !!snap.val();
+      if (view && view !== 'auth') {
+        if (maintenanceActive && !isOwner) go('maintenance', undefined, true);
+        else if (!maintenanceActive && view === 'maintenance') onAuthChanged(currentUser);
+      }
+    });
+  });
+}
 async function onAuthChanged(user) {
   if (window._hideSplash) window._hideSplash();
   currentUser = user;
@@ -437,6 +456,9 @@ async function onAuthChanged(user) {
     isGuest = true; isAdmin = false;
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
+    // Onderhoudsmodus geldt ook voor gasten — anders werken die gewoon door tijdens onderhoud.
+    await initMaintenanceWatch();
+    if (maintenanceActive) { await go('maintenance', undefined, true); return; }
     // Pending join via QR/link afhandelen (ook voor een gast, zelfde als bij een ingelogde gebruiker)
     const pendingJoin = localStorage.getItem('voetbal_pending_join');
     if (pendingJoin) {
@@ -461,20 +483,7 @@ async function onAuthChanged(user) {
   await loadOwnerStatus(user);
   // Maintenance-listener pas hier registreren: gebruiker is nu authenticated,
   // anders annuleert Firebase de listener (auth != null regel) en herstelt die nooit.
-  if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
-  await new Promise(resolve => {
-    const mRef = fbdb.ref('maintenance/active');
-    const tmo = setTimeout(resolve, 4000); // offline: ga verder zonder maintenance-status
-    mRef.once('value', snap => { maintenanceActive = !!snap.val(); clearTimeout(tmo); resolve(); });
-    window._maintenanceOff = () => mRef.off('value');
-    mRef.on('value', snap => {
-      maintenanceActive = !!snap.val();
-      if (view && view !== 'auth') {
-        if (maintenanceActive && !isOwner) go('maintenance', undefined, true);
-        else if (!maintenanceActive && view === 'maintenance') onAuthChanged(currentUser);
-      }
-    });
-  });
+  await initMaintenanceWatch();
   if (maintenanceActive && !isOwner) {
     await go('maintenance', undefined, true); return;
   }

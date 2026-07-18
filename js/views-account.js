@@ -285,11 +285,12 @@ async function doCreateClub() {
   const err = document.getElementById('cc-err');
   if (!name) { if (err) err.textContent = 'Geef een naam in.'; return; }
   if (err) err.textContent = 'Bezig...';
+  const btn = document.getElementById('cc-btn'); if (btn) btn.disabled = true;
   try {
     const cid = fbdb.ref('clubs').push().key;
     await fbdb.ref('clubs/' + cid).set({ info: { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() }, admins: {}, teams: {} });
     closeModal(); loadClubsAdminView();
-  } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; }
+  } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; if (btn) btn.disabled = false; }
 }
 function renameClub(cid, current) {
   openModal(`<h3>${icI(IC.edit)} Club hernoemen</h3>
@@ -451,6 +452,7 @@ async function doAppointTeamAdmin(tid) {
 // vroegere showAllUsersModal()-modal door een apart scherm: schaalt beter bij veel ploegen
 // dankzij een zoekveld en per-ploeg inklapbare secties i.p.v. één lange platte lijst.
 function renderAllUsers() {
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadAllUsersView, 0);
   return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div>
   <div class="content">
@@ -1440,6 +1442,9 @@ function calcMinutes(m) {
     }
   }
   for (const [pid, entryMs] of Object.entries(entry)) if (mins[pid]) mins[pid].ms += totalMs - entryMs;
+  // Wie als "niet aanwezig" gemarkeerd is, krijgt 0 speelminuten — ook al kwam hij eerder in via
+  // een wissel (zoals de "Niet aanwezig"-actie belooft).
+  for (const p of m.players) if (p.absent && mins[p.id]) mins[p.id].ms = 0;
   return mins;
 }
 // Stond deze speler ooit als doelman geregistreerd (via keeperByQ, bijgehouden per kwart
@@ -1734,7 +1739,7 @@ function showConfirm(msg, onYes, btnLabel, btnClass) {
 }
 
 // ===================== NAVIGATION =====================
-const GUEST_ALLOWED_VIEWS = ['home', 'live', 'settings', 'handleiding', 'auth', 'guestjoin'];
+const GUEST_ALLOWED_VIEWS = ['home', 'live', 'settings', 'handleiding', 'auth', 'guestjoin', 'maintenance'];
 async function go(v, id, _histReplace) {
   // Gast: enkel toegang tot deze schermen, ongeacht hoe de navigatie tot stand komt
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.

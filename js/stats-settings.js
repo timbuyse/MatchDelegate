@@ -16,7 +16,8 @@ function setStatsFilter(v) { statsFilter = v; loadStats(); }
 function setSeasonFilter(v) { seasonFilter = v; loadStats(); }
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
 function seasonOf(m) {
-  const d = m.date ? new Date(m.date + 'T00:00:00') : new Date(m.createdAt);
+  const d = m.date ? new Date(m.date + 'T00:00:00') : (m.createdAt ? new Date(m.createdAt) : null);
+  if (!d || isNaN(d.getTime())) return 'Onbekend';   // geen/ongeldige datum → geen "NaN/NaN"-seizoen
   const y = d.getFullYear(), start = d.getMonth() >= 6 ? y : y - 1;
   return `${start}/${start + 1}`;
 }
@@ -535,7 +536,7 @@ const HANDLEIDING_PAGINAS = [
       <p style="margin-top:10px">Onderaan vind je ook:</p>
       <ul class="hdl-list">
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
-        <li><b>'Spelers bewerken'</b> / <b>'Info bewerken'</b> — pas gegevens aan.</li>
+        <li><b>'Spelernotities'</b> / <b>'Info bewerken'</b> — voeg notities per speler toe of pas de wedstrijdinfo aan.</li>
         <li><b>'Posities herplaatsen'</b> — pas de opstelling aan.</li>
         <li><b>'Wedstrijd verwijderen'</b> — verwijder definitief.</li>
       </ul>

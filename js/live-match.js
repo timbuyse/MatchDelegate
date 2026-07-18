@@ -761,7 +761,8 @@ function addEvent(type, extra={}) {
   let gms;
   if (_postEventQuarter !== null && _postEventQuarter) {
     if (_postEventMinute !== null) {
-      gms = gameTimeMsAtStartOfQuarter(match, _postEventQuarter) + (_postEventMinute - 1) * 60000;
+      const qEnd = Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1);
+      gms = Math.min(gameTimeMsAtStartOfQuarter(match, _postEventQuarter) + (_postEventMinute - 1) * 60000, qEnd);
     } else {
       gms = Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1);
     }
@@ -919,7 +920,10 @@ async function saveEditEvent(id) {
   const min = parseInt(val('ee-min'));
   if (!isNaN(min) && min > 0) {
     const qStart = e.quarterNum ? gameTimeMsAtStartOfQuarter(match, e.quarterNum) : 0;
-    e.gameTimeMs = qStart + (min - 1) * 60000;
+    // Begrens tot binnen het kwart, zodat het event niet in een volgend kwart schuift (wat de
+    // op gameTimeMs gesorteerde speeltijd-/bezettingsberekening zou verstoren).
+    const qEnd = e.quarterNum ? Math.max(qStart, gameTimeMsAtEndOfQuarter(match, e.quarterNum) - 1) : Infinity;
+    e.gameTimeMs = Math.min(qStart + (min - 1) * 60000, qEnd);
   }
   if (has('ee-player')) e.playerId = val('ee-player') || null;
   if (has('ee-assist')) e.assistId = val('ee-assist') || null;
@@ -1232,7 +1236,7 @@ let posSwapA = null, posSwapB = null;
 function modalPosSwap() {
   posSwapA = null; posSwapB = null;
   const isBetween = match.quarterStatus === 'between';
-  const on = isBetween ? playersOnField(match) : playersOnField(match);
+  const on = playersOnField(match);
   const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.compass)} Positiewissel`;
   const hint = isBetween
     ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>'
@@ -1451,7 +1455,7 @@ function modalAddPostEvent() {
     <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${qBtns}</div>
     <div class="fg" style="margin-bottom:4px">
       <label style="font-size:13px;color:var(--txt2)">Minuut binnen dit deel <span style="font-weight:400">(optioneel — laat leeg voor einde deel)</span></label>
-      <input id="post-evt-min" type="number" inputmode="numeric" min="1" placeholder="bv. 12" oninput="selPostMin(this.value)" style="width:100%">
+      <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="bv. 12" oninput="selPostMin(this.value)" style="width:100%">
     </div>
     <div class="sec">Wat wil je toevoegen?</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
