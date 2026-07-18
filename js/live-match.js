@@ -939,10 +939,18 @@ async function undoLast() {
   for (let i = match.events.length - 1; i >= 0; i--) { const t = match.events[i].type; if (t !== 'quarter_start' && t !== 'quarter_end') { idx = i; break; } }
   if (idx < 0) return;
   const removed = match.events[idx];
-  tombstoneEvent(match, removed.id);
-  match.events.splice(idx, 1);
-  revertSubstitutionPositions(match, removed);
-  revertPosSwapPositions(match, removed);
+  const toRemove = [removed];
+  // Een automatische rode kaart bij de 2e gele hoort bij die gele kaart — samen ongedaan maken,
+  // anders blijft de speler van het veld staan met twee gele kaarten in het verloop.
+  if (removed.type === 'red_card' && removed.autoSecondYellow) {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (match.events[i].type === 'yellow_card' && match.events[i].playerId === removed.playerId) { toRemove.push(match.events[i]); break; }
+    }
+  }
+  const ids = new Set(toRemove.map(ev => ev.id));
+  toRemove.forEach(ev => tombstoneEvent(match, ev.id));
+  match.events = match.events.filter(ev => !ids.has(ev.id));
+  toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
   recomputeScore(match); recomputeOnField(match);
   await dbSave(match); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
@@ -1092,7 +1100,7 @@ function modalSub() {
   const mins = calcMinutes(match);
   const onIds = new Set(on.map(p => p.id));
   // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
-  const off = match.players.filter(p => !onIds.has(p.id)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
+  const off = match.players.filter(p => !onIds.has(p.id) && !p.absent).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => Math.floor((mins[id]?.ms || 0) / 60000);
   subOut = null; subIn = null;
@@ -1114,8 +1122,9 @@ async function confirmSub() {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    // Tijdens de pauze: wissel inplannen i.p.v. meteen doorvoeren.
-    if (match.quarterStatus === 'between') {
+    // Echte pauzewissel: enkel tussen de delen ÉN niet in retro-modus (een event toevoegen aan een
+    // reeds afgelopen deel). Dan inplannen i.p.v. meteen doorvoeren. Zelfde conditie als modalSub().
+    if (match.quarterStatus === 'between' && _postEventQuarter === null) {
       match.pendingSubs = match.pendingSubs || [];
       match.pendingSubs.push({ outId: subOut, inId: subIn });
       await dbSave(match); closeModal(); render();
@@ -1125,9 +1134,16 @@ async function confirmSub() {
     // posBefore: zie toelichting bij de pauzewissel-variant in startQuarter().
     const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
     addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore });
-    if (pOut) pOut.onField = false;
-    if (pIn) { pIn.onField = true; if (pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; } }
-    syncKeeper(); // keeper volgt automatisch de doellijn
+    if (pIn && pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; }
+    if (_postEventQuarter != null) {
+      // Retro-wissel toegevoegd aan een afgelopen deel: de bezetting herberekenen uit de events
+      // i.p.v. de live-veldstaat te muteren (die hoort bij het huidige/volgende deel).
+      recomputeOnField(match);
+    } else {
+      if (pOut) pOut.onField = false;
+      if (pIn) pIn.onField = true;
+      syncKeeper(); // keeper volgt automatisch de doellijn
+    }
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
@@ -1212,7 +1228,7 @@ async function logCard(color, pid) {
       addEvent('yellow_card', { playerId: pid });
       const prevYellow = match.events.filter(e => e.type === 'yellow_card' && e.playerId === pid).length;
       if (prevYellow >= 2) {
-        addEvent('red_card', { playerId: pid });
+        addEvent('red_card', { playerId: pid, autoSecondYellow: true });
         const p = match.players.find(x => x.id === pid);
         if (p) p.onField = false;
         showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');

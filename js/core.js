@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.24'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.25'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -236,7 +236,7 @@ function scoreUpToQuarter(m, qNum) {
   return { us, them };
 }
 function recomputeOnField(m) {
-  const on = {}; m.players.forEach(p => on[p.id] = !!p.starting);
+  const on = {}; m.players.forEach(p => on[p.id] = !!p.starting && !p.absent);
   for (const e of [...m.events].sort((a, b) => a.gameTimeMs - b.gameTimeMs)) {
     if (e.type === 'substitution') { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId) on[e.playerInId] = true; }
     if (e.type === 'red_card' && e.playerId) on[e.playerId] = false;
