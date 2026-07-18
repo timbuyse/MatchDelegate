@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.27'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.5.28'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -357,7 +357,7 @@ let ownerUid = null;       // uid van de maker/eigenaar (uniek, vastgelegd in /o
 let isOwner = false;       // is de huidige gebruiker de eigenaar?
 let isApprovedAdmin = false; // mag deze gebruiker ploegen aanmaken (eigenaar of goedgekeurd)?
 let pendingAdminCount = 0; // aantal openstaande beheerdersaanvragen (enkel voor eigenaar)
-let pendingCoAdminCount = 0; // openstaande co-beheer aanvragen voor actieve ploeg
+let pendingCoAdminCount = 0; // openstaande ploegbeheer aanvragen voor actieve ploeg
 let maintenanceActive = false; // is onderhoudsmodus actief?
 // Clubmodel (fase 2): een club groepeert meerdere ploegen; de clubbeheerder beheert ze.
 let myClubs = {};          // { clubId: 'admin' } — clubs die deze gebruiker beheert
@@ -1075,13 +1075,13 @@ function onSelfRoleChanged(role) {
   cacheUserTeams(currentUser.uid, userTeams);
   fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).set(role).catch(() => {});
   const wasAdmin = isAdmin;
-  // Een clubbeheerder blijft beheerder van de ploeg, ook al zet een co-beheerder zijn
+  // Een clubbeheerder blijft beheerder van de ploeg, ook al zet een ploegbeheerder zijn
   // ploeglidmaatschap op 'viewer'.
   isAdmin = (role === 'admin') || isClubAdmin;
   if (isAdmin === wasAdmin) return;
   // Rolafhankelijke listeners heropstarten (notities, aanvragen-teller) en UI verversen.
   stopTeamListeners(); cloudListen(); listenCoAdminRequests(); updateCloudChip();
-  showToast(isAdmin ? 'Goedgekeurd! Je bent nu co-beheerder van deze ploeg.' : 'Je rol is gewijzigd naar kijker.', isAdmin ? 'ok' : 'err');
+  showToast(isAdmin ? 'Goedgekeurd! Je bent nu ploegbeheerder van deze ploeg.' : 'Je rol is gewijzigd naar kijker.', isAdmin ? 'ok' : 'err');
   render();
 }
 
@@ -1360,7 +1360,7 @@ function updateCloudChip() {
   const el = document.getElementById('cloud-chip');
   if (!el) return;
   // Voor een gast leidt deze chip nergens naartoe (go('beheer') wordt door de guest-guard in
-  // go() stil teruggeschreven naar 'home' — "Vraag co-beheer aan" is sowieso niet mogelijk
+  // go() stil teruggeschreven naar 'home' — "Vraag ploegbeheer aan" is sowieso niet mogelijk
   // zonder eigen account) — dan liever niet tonen dan een knop die niets zichtbaars doet.
   if (!cloudReady || !activeTeamId || isGuest) { el.style.display = 'none'; return; }
   el.style.display = '';

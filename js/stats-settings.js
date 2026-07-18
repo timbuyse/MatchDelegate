@@ -424,14 +424,14 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Match Delegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
-      <div class="hdl-rol"><b>Co-beheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
+      <div class="hdl-rol"><b>Ploegbeheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
       <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen en het clublogo instellen</span></div>
       <p style="margin-top:14px">Na registratie start je als <b>kijker</b>. Je kan daarna:</p>
       <ul class="hdl-list">
         <li>Een ploeg volgen via een uitnodiging (link, QR-code of code).</li>
-        <li>Co-beheer aanvragen bij een co-beheerder van een ploeg die je al volgt.</li>
+        <li>Ploegbeheer aanvragen bij een ploegbeheerder van een ploeg die je al volgt.</li>
       </ul>
-      <p style="margin-top:14px">Nieuwe ploegen worden niet meer los aangemaakt: dat doet de <b>clubbeheerder</b> binnen zijn club. Wil je een ploeg opstarten? Contacteer de clubbeheerder — die maakt de ploeg aan en nodigt jou uit als co-beheerder.</p>
+      <p style="margin-top:14px">Nieuwe ploegen worden niet meer los aangemaakt: dat doet de <b>clubbeheerder</b> binnen zijn club. Wil je een ploeg opstarten? Contacteer de clubbeheerder — die maakt de ploeg aan en nodigt jou uit als ploegbeheerder.</p>
       <p style="margin-top:14px">Daarnaast bestaan er twee bijzondere rollen die de meeste gebruikers nooit zelf zullen zijn:</p>
       <div class="hdl-rol"><b>Eigenaar</b><span>Systeembreed, één per app-installatie — maakt clubs aan en stelt clubbeheerders aan</span></div>
       <div class="hdl-rol"><b>Gast</b><span>Volgt enkel live wedstrijden via een gastlink, zonder eigen account</span></div>
@@ -459,17 +459,17 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
-    titel: 'Co-beheer aanvragen',
+    titel: 'Ploegbeheer aanvragen',
     img: 'handleiding/screenshots/13_cobeheer_aanvragen.png',
     inhoud: `
-      <p>Ben je kijker en wil je wedstrijden kunnen beheren? Vraag co-beheer aan:</p>
+      <p>Ben je kijker en wil je wedstrijden kunnen beheren? Vraag ploegbeheer aan:</p>
       <ol class="hdl-list">
         <li>Tik rechtsboven op <b>'Kijken'</b>.</li>
-        <li>Tik op <b>'Vraag co-beheer aan'</b>.</li>
+        <li>Tik op <b>'Vraag ploegbeheer aan'</b>.</li>
         <li>De beheerder krijgt een melding en keurt je aanvraag goed of af.</li>
-        <li>Zodra goedgekeurd, krijg je toegang als co-beheerder.</li>
+        <li>Zodra goedgekeurd, krijg je toegang als ploegbeheerder.</li>
       </ol>
-      <p class="hdl-tip">Je kan enkel co-beheerder worden van een ploeg waarvan je al kijker bent.</p>
+      <p class="hdl-tip">Je kan enkel ploegbeheerder worden van een ploeg waarvan je al kijker bent.</p>
     `
   },
   {
@@ -523,7 +523,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
-      <p class="hdl-tip">Zijn er meerdere co-beheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>
+      <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>
     `
   },
   {
@@ -560,16 +560,16 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
-    titel: 'Als co-beheerder',
+    titel: 'Als ploegbeheerder',
     img: 'handleiding/screenshots/05_beheer.png',
     inhoud: `
-      <p>Ben je co-beheerder van een ploeg? Dan heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties voor die ploeg:</p>
+      <p>Ben je ploegbeheerder van een ploeg? Dan heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties voor die ploeg:</p>
       <ul class="hdl-list">
-        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; je kan hem daarna via <b>'Leden'</b> promoveren tot co-beheerder.</li>
-        <li><b>'Leden'</b> — overzicht van alle kijkers en co-beheerders. Hier keur je co-beheeraanvragen goed of af, en promoveer of degradeer je leden.</li>
+        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; je kan hem daarna via <b>'Leden'</b> promoveren tot ploegbeheerder.</li>
+        <li><b>'Leden'</b> — overzicht van alle kijkers en ploegbeheerders. Hier keur je ploegbeheeraanvragen goed of af, en promoveer of degradeer je leden.</li>
         <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
       </ul>
-      <p class="hdl-tip">Als co-beheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
+      <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
       <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
     `
   },
@@ -587,7 +587,7 @@ const HANDLEIDING_PAGINAS = [
       <ol class="hdl-list">
         <li>Open de ploeg met <b>'Beheren'</b> en tik op <b>'Iemand uitnodigen'</b>.</li>
         <li>Bezorg de trainer de <b>uitnodigingslink</b> (of QR-code / code). Hij vervoegt eerst als kijker.</li>
-        <li>Ga naar <b>'Leden'</b> en <b>promoveer</b> hem tot co-beheerder.</li>
+        <li>Ga naar <b>'Leden'</b> en <b>promoveer</b> hem tot ploegbeheerder.</li>
       </ol>
       <div class="sec">Extra</div>
       <ul class="hdl-list">
@@ -829,7 +829,7 @@ async function doRestore(mode) {
 }
 // Opent de mailapp met een voorgevuld probleemrapport (versie, rol, ploeg, toestel).
 function reportProblem() {
-  const role = isOwner ? 'Eigenaar' : isApprovedAdmin ? 'Beheerder (goedgekeurd)' : isAdmin ? 'Co-beheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
+  const role = isOwner ? 'Eigenaar' : isClubAdmin ? 'Clubbeheerder' : isAdmin ? 'Ploegbeheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
   const club = getClubName() || '';
   const subject = `Match Delegate v${APP_VERSION} — probleem melden`;
   const infoLines = [`Versie: ${APP_VERSION}`, `Rol: ${role}`];
@@ -964,7 +964,7 @@ async function doDeleteAccount() {
 
 // ---- Naam van ploeg wijzigen ----
 function showRenameTeamModal() {
-  // Hernoemen mag elke co-beheerder van DEZE ploeg (isAdmin), niet enkel wie systeembreed
+  // Hernoemen mag elke ploegbeheerder van DEZE ploeg (isAdmin), niet enkel wie systeembreed
   // goedgekeurd is om nieuwe ploegen aan te maken (isApprovedAdmin) — de backend-regel
   // (database.rules.json, teams/$teamId/.write) staat dit ook al toe aan elke team-admin.
   // Verwijderen blijft bewust strenger (isApprovedAdmin + createdBy), zie confirmDeleteCloudTeam().

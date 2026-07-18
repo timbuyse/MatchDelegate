@@ -1,6 +1,6 @@
 // ===================== BEHEER (view) =====================
 // Beheerscherm voor de ACTIEVE ploeg: uitnodigen, leden, naam, kijkmodus, verwijderen
-// (of, voor een kijker: co-beheer aanvragen). Account zit in Instellingen (tandwiel),
+// (of, voor een kijker: ploegbeheer aanvragen). Account zit in Instellingen (tandwiel),
 // systeembrede eigenaarstools op het ploegkeuzescherm. Vervangt de vroegere cloudLoginModal().
 function renderBeheer() {
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
@@ -25,7 +25,7 @@ function renderBeheer() {
     </div>` : (!isGuest ? `
     <div class="sec">Deze ploeg</div>
     <div class="card">
-      <button class="btn btn-pale" onclick="confirmRequestCoAdmin()">${icI(IC.edit)} Vraag co-beheer aan</button>
+      <button class="btn btn-pale" onclick="confirmRequestCoAdmin()">${icI(IC.edit)} Vraag ploegbeheer aan</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>
     </div>` : '')));
 
@@ -143,7 +143,7 @@ async function openTeamFromClub(tid) {
   go('beheer');
 }
 // Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
-// als co-beheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn
+// als ploegbeheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn
 // rolgebaseerde clubtoegang blijft hoe dan ook bestaan. Enkel zijn eigen lidmaatschap (self-write).
 async function toggleClubTeamMembership(tid) {
   if (!fbdb || !currentUser) return;
@@ -420,7 +420,7 @@ function deleteClub(cid, naam) {
   }, 'Verwijderen');
 }
 // Ploegbeheerder rechtstreeks aanstellen op e-mailadres (enkel app-eigenaar). Zet de persoon als
-// co-beheerder (lid) van de ploeg + de omgekeerde index, zodat de ploeg meteen bij hem verschijnt.
+// ploegbeheerder (lid) van de ploeg + de omgekeerde index, zodat de ploeg meteen bij hem verschijnt.
 function showAppointTeamAdmin(tid, teamNaam) {
   openModal(`<h3>${icI(IC.shield)} Ploegbeheerder aanstellen</h3>
     <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Voor <b>${esc(teamNaam || 'deze ploeg')}</b>. Vul het e-mailadres in van de persoon; die moet zich al minstens één keer aangemeld hebben in Match Delegate.</p>
@@ -488,7 +488,7 @@ async function loadAllUsersView() {
       const users = uids.map(uid => ({ naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
       const rows = users.map(u => {
         const roleBadge = u.role === 'admin'
-          ? `<span class="ts-role admin">${icI(IC.edit)} Co-beheerder</span>`
+          ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
           : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
           <span style="flex:1;font-size:14px"><b>${esc(u.naam)}</b><br><small style="color:var(--txt2)">${esc(u.email)}</small></span>
@@ -679,7 +679,7 @@ function genInviteToken() {
 }
 // ---- Ploeg aanmaken ----
 async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation) {
-  if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt co-beheerder (lid)
+  if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt ploegbeheerder (lid)
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
   // Standaard wedstrijdvorm + opstelling (staan klaar bij een nieuwe wedstrijd, per wedstrijd aanpasbaar).
@@ -827,10 +827,10 @@ async function doRegenerateInviteToken(tid) {
   showInviteModal(tid);
 }
 
-// ---- Kijker vraagt co-beheer aan ----
+// ---- Kijker vraagt ploegbeheer aan ----
 function confirmRequestCoAdmin() {
-  openModal(`<h3>${icI(IC.edit)} Co-beheer aanvragen</h3>
-    <p style="color:var(--txt2);font-size:14px;margin-bottom:16px">Je vraagt de beheerder van <b>${esc(getClubName() || 'deze ploeg')}</b> om co-beheerder te worden. De beheerder moet dit eerst goedkeuren voordat je wedstrijden kan aanmaken of bewerken.</p>
+  openModal(`<h3>${icI(IC.edit)} Ploegbeheer aanvragen</h3>
+    <p style="color:var(--txt2);font-size:14px;margin-bottom:16px">Je vraagt de beheerder van <b>${esc(getClubName() || 'deze ploeg')}</b> om ploegbeheerder te worden. De beheerder moet dit eerst goedkeuren voordat je wedstrijden kan aanmaken of bewerken.</p>
     <button class="btn btn-green" onclick="closeModal();requestCoAdmin()">Aanvraag versturen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -886,10 +886,10 @@ async function showMembersModal() {
       const naam = mi.name || '(naam nog niet gekend)';
       const email = mi.email || '(e-mail nog niet gekend)';
       const badge = role === 'admin'
-        ? `<span class="ts-role admin">${icI(IC.edit)} Co-beheerder</span>`
+        ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
         : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
       const btns = role !== 'admin'
-        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak co-beheerder</button>
+        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
         : (uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
@@ -909,7 +909,7 @@ async function showMembersModal() {
       const naam = r.name || '(geen naam)';
       const email = r.email || '';
       return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;border-left:3px solid var(--org);flex-direction:column;align-items:stretch;gap:8px">
-        <div><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small><br><small style="color:var(--org)">Vraagt co-beheer aan</small></div>
+        <div><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small><br><small style="color:var(--org)">Vraagt ploegbeheer aan</small></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-green btn-sm" onclick="approveCoAdmin('${uid}')">Goedkeuren</button>
           <button class="btn btn-red btn-sm" onclick="rejectCoAdmin('${uid}')">Weigeren</button>
@@ -921,7 +921,7 @@ async function showMembersModal() {
     if (el) el.innerHTML =
       (reqRows.length ? `<p style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px">OPENSTAANDE AANVRAGEN</p>${reqRows.join('')}<hr style="margin:10px 0">` : '')
       + (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
-      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} co-beheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
+      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} ploegbeheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
   } catch (e) {
     console.error('Leden laden mislukt:', e);
     const el = document.getElementById('members-list');
@@ -957,7 +957,7 @@ async function rejectCoAdmin(uid) {
 
 async function demoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Wil je deze co-beheerder terugzetten naar kijker?', async () => {
+  showConfirm('Wil je deze ploegbeheerder terugzetten naar kijker?', async () => {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('viewer');
       showMembersModal();
@@ -967,7 +967,7 @@ async function demoteMember(uid) {
 
 async function promoteMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Wil je deze persoon promoveren tot co-beheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
+  showConfirm('Wil je deze persoon promoveren tot ploegbeheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
       showMembersModal();
@@ -1150,7 +1150,7 @@ function renderTeamSelect() {
     return `<div class="ts-team-row" data-team-id="${id}" onclick="selectTeam('${id}')">
           ${handle}
           <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
-          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Co-beheerder` : `${icI(IC.eye)} Kijker`}</span>
+          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Ploegbeheerder` : `${icI(IC.eye)} Kijker`}</span>
         </div>`;
   };
   let teamRows;
@@ -2060,7 +2060,7 @@ async function loadHome() {
         <button class="btn btn-green btn-sm" onclick="localStorage.setItem('${welcomeKey}','1');this.closest('.card').remove()">Begrepen</button>
       </div>` : '';
   const coAdminHint = (!isGuest && !isAdmin && cloudReady && activeTeamId)
-    ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Wil je <b>co-beheerder</b> worden van deze ploeg? Tik op de <b>Kijken</b>-knop rechtsboven en vraag het aan.</p>`
+    ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Wil je <b>ploegbeheerder</b> worden van deze ploeg? Tik op de <b>Kijken</b>-knop rechtsboven en vraag het aan.</p>`
     : '';
   const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
