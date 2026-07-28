@@ -1877,32 +1877,41 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y, dn, captainId, subLbl) {
+function pitchDot(m, p, x, y, dn, captainId, mk) {
   const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
   const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
-  const sub = subLbl ? `<span class="pdot-sub">&raquo; ${esc(subLbl)}</span>` : '';
+  // Kaartjes achter de NAAM (niet bij de bol: daar leken ze bij het positienummer te horen), de
+  // vervanger met wisselicoon op een regeltje onder de naam.
+  const cards = !mk ? '' : [
+    ...Array.from({ length: mk.yellow || 0 }, () => '<i class="pdot-card pdot-cy"></i>'),
+    mk.red ? '<i class="pdot-card pdot-cr"></i>' : '',
+  ].filter(Boolean).join('');
+  const sub = (mk && mk.subs && mk.subs.length)
+    ? `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(mk.subs.join(' · '))}</span>` : '';
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
-    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span>${sub}</div>`;
+    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
 }
-// qNum (optioneel): toont bij de speler wie hem tijdens dat deel kwam vervangen.
+// qNum (optioneel): toont per speler de wissel/kaart/blessure van dat deel, en de bank eronder.
 function renderPitch(m, players, captainId, qNum) {
   const dns = fieldDisplayNames(players);
-  const subs = m ? subsDuringPeriod(m, qNum) : new Map();
+  const marks = m ? periodPlayerMarks(m, qNum) : new Map();
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, subs.get(p.id));
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, marks.get(p.id));
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, subs.get(p.id)); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, marks.get(p.id)); });
   }
-  const subLeg = subs.size ? ' · &raquo; = gewisseld voor' : '';
+  const bench = m ? periodBenchNames(m, qNum) : [];
+  const hasSub = [...marks.values()].some(v => v.subs.length);
   return `<div class="pitch">${pitchLines()}${dots}</div>
-  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer · onder = naam${subLeg}</div>`;
+  ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
+  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}</div>`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
@@ -1921,22 +1930,49 @@ function captainAtStartOfQuarter(m, qNum) {
 // Gebruikt in de velddiagrammen (scherm + PDF) om de wissel bij de speler te tonen.
 function subsDuringPeriod(m, qNum) {
   const out = new Map();
-  if (!qNum) return out;
-  const subs = (m.events || []).filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && e.playerOutId && e.playerInId)
-    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
-  const chains = new Map(); // startspeler-id -> { names: [], lastId }
-  for (const e of subs) {
-    // Ging de uitgaande speler zelf pas tijdens dit deel het veld op? Dan hoort deze wissel bij
-    // dezelfde plek/ketting als die eerdere wissel.
-    let root = e.playerOutId;
-    for (const [k, v] of chains) if (v.lastId === e.playerOutId) { root = k; break; }
-    const c = chains.get(root) || { names: [], lastId: null };
-    c.names.push(_lastName(pName(m, e.playerInId)));
-    c.lastId = e.playerInId;
-    chains.set(root, c);
-  }
-  for (const [k, v] of chains) out.set(k, v.names.join(' » '));
+  for (const [id, mk] of periodPlayerMarks(m, qNum)) if (mk.subs.length) out.set(id, mk.subs.join(' » '));
   return out;
+}
+// Alles wat er tijdens een periode met een speler gebeurde, gekoppeld aan wie er bij de START van
+// die periode op die plek stond (dat is wat de velddiagrammen tonen):
+//   Map(startspeler-id -> { subs: ['Vervanger', ...], yellow: n, red: bool })
+// Een kaart van een speler die pas tijdens de periode inviel, hangt aan de plek waar hij inviel —
+// anders zou de markering nergens te zien zijn. Blessures worden hier bewust NIET gemarkeerd: een
+// blessure betekent niet noodzakelijk dat de speler het veld verliet (zie e.leavesField), dus op de
+// opstelling zegt dat teken niets — het event staat in de tijdlijn.
+function periodPlayerMarks(m, qNum) {
+  const out = new Map();
+  if (!qNum) return out;
+  const get = id => { let v = out.get(id); if (!v) { v = { subs: [], yellow: 0, red: false }; out.set(id, v); } return v; };
+  const evs = (m.events || []).filter(e => e.quarterNum === qNum).sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  const lastOf = new Map(); // startspeler-id -> wie er nu op die plek staat
+  // Herleidt een speler-id naar de plek (= startspeler) waar hij hoort.
+  const rootOf = id => {
+    for (const [root, last] of lastOf) if (last === id) return root;
+    return id;   // stond er zelf al bij de start van de periode
+  };
+  for (const e of evs) {
+    if (e.type === 'substitution' && !e.atBreak && e.playerOutId && e.playerInId) {
+      const root = rootOf(e.playerOutId);
+      get(root).subs.push(_lastName(pName(m, e.playerInId)));
+      lastOf.set(root, e.playerInId);
+    } else if (e.type === 'yellow_card' && e.playerId) {
+      get(rootOf(e.playerId)).yellow++;
+    } else if (e.type === 'red_card' && e.playerId) {
+      get(rootOf(e.playerId)).red = true;
+    }
+  }
+  return out;
+}
+// Wie in de selectie zat maar tijdens die periode geen minuut op het veld stond (dus ook niet
+// inviel). Wordt onder het velddiagram getoond, zodat de bank per deel zichtbaar is.
+function periodBenchNames(m, qNum) {
+  if (!qNum) return [];
+  const onField = new Set(playersAtPeriodStart(m, qNum).map(p => p.id));
+  (m.events || []).forEach(e => { if (e.type === 'substitution' && e.quarterNum === qNum && e.playerInId) onField.add(e.playerInId); });
+  return (m.players || []).filter(p => !p.absent && !onField.has(p.id))
+    .map(p => _lastName(p.name || ''))
+    .sort((a, b) => a.localeCompare(b, 'nl'));
 }
 
 // ===================== HOME =====================

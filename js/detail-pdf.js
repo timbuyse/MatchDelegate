@@ -64,7 +64,6 @@ function renderDetail() {
     ${selectionCardHtml(match)}
     <div class="sec">${match.quarters.length > 1 ? `Startopstelling per ${pSingLow(match)}` : 'Startopstelling'}</div>
     <div class="card">${renderLineupCarousel(match)}</div>
-    ${lineupTableHtml(match)}
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">
@@ -319,15 +318,16 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     ps.forEach((p, i) => pts.push({ p, x: n === 1 ? 50 : 18 + i * (64 / (n - 1)), y: yy }));
   });
   const dns = fieldDisplayNames(pts.map(({ p }) => p));
-  const subs = subsDuringPeriod(m, qNum);
+  const marks = periodPlayerMarks(m, qNum);
   const numSize = Math.max(4.5, L(13)), nameSize = Math.max(3.8, L(10));
   // Naamplaatje (en eventueel het wisselplaatje eronder) tekenen, horizontaal binnen het veld
   // geklemd: bij een speler op de flank zou een lange naam anders buiten het diagram uitsteken en
   // (in de 2x2-weergave) over het veld ernaast lopen. Op het scherm valt dat weg door de overflow
   // van .pitch, in de PDF clipt niets.
-  const chip = (txt, cx, top, size, color) => {
+  //  icoW = ruimte vóór de tekst (wisselpijltjes), tailW = ruimte erachter (kaartjes).
+  const chip = (txt, cx, top, size, color, icoW = 0, tailW = 0) => {
     doc.setFontSize(size);
-    const tw = doc.getTextWidth(txt), pad = size * 0.3, half = tw / 2 + pad;
+    const tw = doc.getTextWidth(txt) + icoW + tailW, pad = size * 0.3, half = tw / 2 + pad;
     const lx = Math.min(Math.max(cx, ux(0) + half), ux(W) - half);
     doc.setFillColor(12, 14, 12);
     let gs = null;
@@ -335,8 +335,33 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     doc.roundedRect(lx - half, top, tw + pad * 2, size * 1.35, size * 0.25, size * 0.25, 'F');
     if (gs) { try { doc.setGState(new doc.GState({ opacity: 1 })); } catch (e) {} }
     doc.setTextColor(...color);
-    doc.text(txt, lx, top + size, { align: 'center' });
-    return top + size * 1.35;
+    doc.text(txt, lx - half + pad + icoW, top + size);
+    return { bottom: top + size * 1.35, icoX: lx - half + pad, midY: top + size * 0.68,
+             tailX: lx - half + pad + icoW + doc.getTextWidth(txt) };
+  };
+  // Wisselicoon: twee tegengestelde pijltjes (zoals het wisselicoon in de app), getekend met
+  // lijnen omdat de PDF-fonts geen pijlglyphs hebben (een echt pijlteken werd '?').
+  const swapIcon = (x, midY, s, color) => {
+    doc.setDrawColor(...color); doc.setLineWidth(Math.max(0.25, s * 0.1));
+    const w = s * 1.15, dy = s * 0.3, head = s * 0.32;
+    doc.line(x, midY - dy, x + w, midY - dy);                      // bovenste pijl naar rechts
+    doc.line(x + w - head, midY - dy - head * 0.7, x + w, midY - dy);
+    doc.line(x + w - head, midY - dy + head * 0.7, x + w, midY - dy);
+    doc.line(x, midY + dy, x + w, midY + dy);                      // onderste pijl naar links
+    doc.line(x + head, midY + dy - head * 0.7, x, midY + dy);
+    doc.line(x + head, midY + dy + head * 0.7, x, midY + dy);
+    return w;
+  };
+  // Kaartjes achter de naam (niet bij de bol: daar leken ze bij het positienummer te horen).
+  // Hoeveel breedte ze in het naamplaatje innemen, en hoe ze getekend worden.
+  const cardCount = mk => mk ? ((mk.yellow || 0) + (mk.red ? 1 : 0)) : 0;
+  const cardsWidth = (mk, size) => cardCount(mk) * size * 0.85;
+  const drawCards = (mk, x, midY, size) => {
+    const cw = size * 0.62, ch = size * 0.92;
+    let bx = x + size * 0.2;
+    const card = rgb => { doc.setFillColor(...rgb); doc.setDrawColor(30, 30, 30); doc.setLineWidth(Math.max(0.15, cw * 0.09)); doc.rect(bx, midY - ch / 2, cw, ch, 'FD'); bx += cw + size * 0.22; };
+    for (let i = 0; i < (mk.yellow || 0); i++) card([242, 194, 0]);
+    if (mk.red) card([229, 57, 53]);
   };
   for (const { p, x, y } of pts) {
     const cx = ux(x / 100 * W), cy = uy(y / 100 * H);
@@ -349,11 +374,16 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
     // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).
     const label = (dns.get(p.id) || _lastName(p.name || '')) + (capId === p.id ? ' ©' : '');
-    const after = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255]);
-    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder in een lichter accent.
-    // '»' i.p.v. een pijl: pijltekens vallen buiten WinAnsi en zouden als '?' renderen (zie pdfSafe).
-    const sl = subs.get(p.id);
-    if (sl) chip('» ' + sl, cx, after + nameSize * 0.15, nameSize * 0.92, [253, 214, 160]);
+    const mk = marks.get(p.id);
+    const nameChip = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255], 0, cardsWidth(mk, nameSize));
+    if (cardCount(mk)) drawCards(mk, nameChip.tailX, nameChip.midY, nameSize);
+    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder met het wisselicoon.
+    if (mk && mk.subs.length) {
+      const s = nameSize * 0.92, icoW = s * 1.5;
+      const c = chip(mk.subs.join(' · '), cx, nameChip.bottom + nameSize * 0.15, s, [253, 214, 160], icoW);
+      swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
+    }
+    badges(mk, cx, cy);
   }
   doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);
 }
@@ -389,9 +419,6 @@ function matchSelectionGroups(m) {
     .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.id })).sort(byLast);
   return { selected, notAvailable, notPresent, notSelected };
 }
-// Uitleg bij de positielabels van de opstellingstabel (KP/VCL/ML/SC...): die afkortingen worden
-// afgeleid uit lijn + plaats op de breedte en zijn zonder legende niet te raden.
-const POS_LABEL_LEGEND = 'KP = keeper · V/M/S = verdediging/middenveld/spits · L/C/R = links/centraal/rechts (CL/CR = centraal links/rechts)';
 // Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens"); bij een NB'er komt de
 // eventuele reden erachter tussen haakjes ("13 Lars Marysse (speelt elders)").
 function nameWithNum(p) {
@@ -418,104 +445,10 @@ function selectionCardHtml(m) {
       ${blocks.map(([lbl, list]) => `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${esc(lbl)}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`).join('')}
     </div>`;
 }
-// Tabel "Opstelling per periode" op het scherm, uit dezelfde bron als de PDF
-// (lineupPerQuarterRows) zodat scherm en PDF niet uit elkaar kunnen lopen. Horizontaal
-// scrollbaar met een vastgezette positiekolom — op een telefoon passen 1 + 4 kolommen
-// met volledige namen niet naast elkaar.
-function lineupTableHtml(m) {
-  const t = lineupPerQuarterRows(m);
-  if (!t) return '';
-  const th = t.head.map((h, i) => `<th${i === 0 ? ' class="lut-fix"' : ''}>${esc(h)}</th>`).join('');
-  const rows = t.body.map(r => `<tr>${r.map((c, i) => i === 0
-    ? `<th class="lut-fix">${esc(c)}</th>`
-    : `<td>${esc(c).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
-  return `<div class="sec">Opstelling per ${pSingLow(m)}</div>
-    <div class="card" style="padding:0">
-      <div class="lut-wrap"><table class="lut"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="lut-legend">${POS_LABEL_LEGEND}</div>
-    </div>`;
-}
 // Thuis- en uitploeg bij naam: elke tussenstand wordt als "thuis – uit" weergegeven, dus bij een
 // uitwedstrijd staat de eigen ploeg tweede. Zonder deze namen erbij is dat niet af te leiden.
 function homeName(m) { return isAway(m) ? m.opponent : tName(m); }
 function awayName(m) { return isAway(m) ? tName(m) : m.opponent; }
-// Bouwt de "Opstelling per periode"-tabel voor de PDF: één rij per veldpositie (gelabeld
-// KP / VL / MC / SC ... — afgeleid uit lijn + x-volgorde op het veld), daarna één rij per
-// bankplaats. Elke kolom toont wie daar bij de START van de periode stond; wie tijdens de
-// periode betrokken raakt bij een wissel (of rood/blessure-uit) krijgt dat als markering
-// in de cel. Gebruikt dezelfde reconstructie als de velddiagrammen (playersAtPeriodStart),
-// zodat tabel en diagram nooit tegenspreken.
-function lineupPerQuarterRows(m) {
-  const numQ = m.quarters.length;
-  if (!numQ) return null;
-  const LINE_ORDER = { 'Doel': 0, 'Verdediging': 1, 'Middenveld': 2, 'Aanval': 3 };
-  const qStarts = Array.from({ length: numQ }, (_, i) => playersAtPeriodStart(m, i + 1));
-  // Alle gebruikte veldposities (x|y) over alle periodes verzamelen — zo blijft de tabel ook
-  // kloppen als de opstelling/posities tussendoor herplaatst werden (er komt dan een rij bij).
-  const posKeys = new Map();
-  qStarts.forEach(ps => ps.forEach(p => {
-    if (typeof p.x === 'number' && typeof p.y === 'number') {
-      const k = p.x + '|' + p.y;
-      if (!posKeys.has(k)) posKeys.set(k, { key: k, line: p.line, x: p.x, y: p.y });
-    }
-  }));
-  const fieldRows = [...posKeys.values()].sort((a, b) =>
-    (LINE_ORDER[a.line] ?? 9) - (LINE_ORDER[b.line] ?? 9) || a.x - b.x || a.y - b.y);
-  const PREFIX = { 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'S' };
-  const SIDES = { 1: ['C'], 2: ['L', 'R'], 3: ['L', 'C', 'R'], 4: ['L', 'CL', 'CR', 'R'], 5: ['L', 'CL', 'C', 'CR', 'R'] };
-  const byLine = {};
-  fieldRows.forEach(r => { (byLine[r.line] = byLine[r.line] || []).push(r); });
-  Object.entries(byLine).forEach(([line, list]) => {
-    if (line === 'Doel') { list.forEach((r, i) => r.label = list.length > 1 ? 'KP' + (i + 1) : 'KP'); return; }
-    const pre = PREFIX[line] || LINE_SHORT[line] || '?';
-    const sides = SIDES[list.length];
-    list.forEach((r, i) => r.label = pre + (sides ? sides[i] : (i + 1)));
-  });
-  // Markeringen voor gebeurtenissen TIJDENS de periode. atBreak-events horen bij de start
-  // van de periode (zitten al in playersAtPeriodStart) en worden dus niet als markering getoond.
-  const outMark = {}, inMark = {};
-  for (const e of m.events) {
-    if (e.quarterNum == null || e.atBreak) continue;
-    if (e.type === 'substitution') {
-      if (e.playerOutId) (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerOutId] = 'wissel uit';
-      if (e.playerInId) (inMark[e.quarterNum] = inMark[e.quarterNum] || {})[e.playerInId] = 'wissel in';
-    } else if (e.type === 'red_card' && e.playerId) {
-      (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerId] = 'rood';
-    } else if (e.type === 'injury' && e.leavesField && e.playerId) {
-      (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerId] = 'blessure uit';
-    }
-  }
-  // Volledige naam (Tims expliciete wens) — de markering op een eigen regel, zodat een cel
-  // voorspelbaar afbreekt tussen naam en markering i.p.v. midden in een lange naam.
-  const cellTxt = (p, q, marks) => {
-    const mark = marks[q] && marks[q][p.id];
-    return (p.name || '') + (mark ? `\n(${mark})` : '');
-  };
-  const body = fieldRows.map(r => [r.label]);
-  const extrasPerQ = [], benchPerQ = [];
-  for (let q = 1; q <= numQ; q++) {
-    const ps = qStarts[q - 1];
-    const used = new Set();
-    fieldRows.forEach((r, ri) => {
-      const p = ps.find(pl => !used.has(pl.id) && pl.x + '|' + pl.y === r.key);
-      if (p) used.add(p.id);
-      body[ri].push(p ? cellTxt(p, q, outMark) : '');
-    });
-    // Veldspelers zonder (herkenbare) positie krijgen een generieke 'Veld'-rij i.p.v. te verdwijnen.
-    extrasPerQ.push(ps.filter(p => !used.has(p.id)).map(p => cellTxt(p, q, outMark)));
-    const onIds = new Set(ps.map(p => p.id));
-    benchPerQ.push(m.players.filter(p => !p.absent && !onIds.has(p.id))
-      .sort((a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl'))
-      .map(p => cellTxt(p, q, inMark)));
-  }
-  // Eén 'Veld'- en één 'Bank'-rij met de namen onder elkaar in dezelfde cel: genummerde rijen
-  // (Bank 1/2/3) suggereerden een vaste plaats, terwijl de lijst per periode alfabetisch
-  // opnieuw gevuld wordt — dezelfde rij sprong dan van speler naar speler.
-  if (extrasPerQ.some(l => l.length)) body.push(['Veld', ...extrasPerQ.map(l => l.join('\n'))]);
-  if (benchPerQ.some(l => l.length)) body.push(['Bank', ...benchPerQ.map(l => l.join('\n'))]);
-  if (!body.length) return null;
-  return { head: ['Positie', ...Array.from({ length: numQ }, (_, i) => pAbbr(m) + (i + 1))], body };
-}
 
 // Wedstrijd-PDF: écht, doorzoekbaar PDF via jsPDF (geen screenshot/rasterbeeld van de pagina).
 // Enkel het veld-opstellingsdiagram wordt als afbeelding ingevoegd (het is een tekening,
@@ -639,15 +572,9 @@ async function exportPDF() {
     y += 8;
   }
 
-  // ---- Opstelling per periode (tabel: veldposities + bank, met wisselmarkeringen) ----
-  // Bewust vóór de velddiagrammen: zo staat de tabel bij de Selectie op pagina 1 en
-  // beginnen de diagrammen (één samenhangend blok) netjes op de volgende pagina.
-  const lineupTable = lineupPerQuarterRows(m);
-  if (lineupTable) {
-    tableBlock(`Opstelling per ${pSingLow(m)}`, { head: [lineupTable.head], body: lineupTable.body,
-      styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } }, 24, POS_LABEL_LEGEND);
-  }
+  // De tabel "Opstelling per <deel>" staat niet meer in de PDF: de velddiagrammen tonen sinds
+  // v0.6.3 zelf de bank per deel en de kaarten/blessures, dus ze overlapte volledig. In het
+  // verslag op het scherm blijft ze wel staan (daar is geen pagina-beperking).
 
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   if (m.players.some(p => p.starting)) {
@@ -655,41 +582,59 @@ async function exportPDF() {
     const items = numQ <= 1
       ? [{ q: null, ps: m.players.filter(p => p.starting), capId: m.captainId }]
       : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: playersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
-    // 1-3 items: allemaal op één rij. 4 items: 2x2 (niet 3+1). 5+: 3 per rij.
-    const perRow = items.length <= 3 ? items.length : (items.length === 4 ? 2 : 3);
-    const numRows = Math.ceil(items.length / perRow);
-    const gap = 12;
-    let imgW = (CW - (perRow - 1) * gap) / perRow;
-    // Bij meerdere rijen (bv. 2x2 voor 4 kwarten) de diagrammen kleiner houden zodat ze
-    // samen op één pagina passen.
-    if (numRows > 1) imgW = Math.min(imgW, 150);
-    const imgH = imgW * PITCH_PDF_RATIO;
+    // De diagrammen krijgen een EIGEN pagina en worden zo groot getekend als daarop past. Ze tonen
+    // sinds v0.6.3 ook de bank per deel en de kaarten/blessures, waardoor de aparte tabel
+    // "Opstelling per <deel>" in de PDF overbodig werd (die staat nog wel in het verslag in de app).
     const labelH = items[0].q != null ? 14 : 0;
-    // Het hele diagrammenblok (kop + alle rijen + legende) bij elkaar houden: past het niet
-    // meer op deze pagina, dan eerst naar een nieuwe pagina i.p.v. de rijen te splitsen
-    // (dat gebeurde zodra er boven het blok extra secties zoals "Selectie" bijkwamen).
-    ensure(21 + numRows * (imgH + labelH + 14) + 18);
+    const benchLines = items.map(it => {
+      const names = it.q != null ? periodBenchNames(m, it.q) : [];
+      return names.length ? ('Bank: ' + names.join(', ')) : '';
+    });
+    const benchH = benchLines.some(Boolean) ? 20 : 0;   // ruimte onder elk veld voor de bankregel
+    const gap = 12, rowExtra = labelH + benchH + 14;
+    const availH = (PH - MG * 2) - 21 - 18;   // volle pagina min kop en legende
+    // Kies de rij-indeling die de grootste diagrammen oplevert: bij 4 kwarten is 2x2 op ~213 pt
+    // groter dan 4 naast elkaar op ~120 pt, en bij 3 delen is 2+1 groter dan 3 op één rij.
+    let best = null;
+    for (let pr = 1; pr <= items.length; pr++) {
+      const rows = Math.ceil(items.length / pr);
+      const byWidth = (CW - (pr - 1) * gap) / pr;
+      const byHeight = (availH / rows - rowExtra) / PITCH_PDF_RATIO;
+      const w = Math.min(byWidth, byHeight);
+      if (w > 0 && (!best || w > best.w)) best = { perRow: pr, rows, w };
+    }
+    const perRow = best.perRow, imgW = best.w, imgH = imgW * PITCH_PDF_RATIO;
+    if (y > MG + 1) { doc.addPage(); y = MG; }   // altijd bovenaan een verse pagina beginnen
     // "Startopstelling per kwart/helft/deel": de diagrammen tonen de stand bij de START van elke
     // periode (formatie staat al in de inforegel bovenaan, dus niet dubbel vermelden).
     heading(items.length > 1 ? `Startopstelling per ${pSingLow(m)}` : 'Startopstelling');
-    const rowWidth = perRow * imgW + (perRow - 1) * gap;
-    const rowStartX = MG + (CW - rowWidth) / 2; // centreren als de rij smaller is dan de volle breedte
     for (let i = 0; i < items.length; i += perRow) {
       const rowItems = items.slice(i, i + perRow);
-      ensure(imgH + labelH + 14);
-      let x = rowStartX;
+      // Per rij centreren: een laatste rij met minder diagrammen (bv. 2+1 bij drie delen) staat
+      // dan netjes in het midden i.p.v. links tegen de marge.
+      const rowWidth = rowItems.length * imgW + (rowItems.length - 1) * gap;
+      let x = MG + (CW - rowWidth) / 2;
       for (const it of rowItems) {
         if (it.q != null) {
           doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
           doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, y, { align: 'center' });
         }
         drawPitchPdf(doc, m, it.ps, x, y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
+        // Bank onder het veld: wie in de selectie zat maar dat deel niet op het veld kwam. Wie inviel
+        // staat al bij de speler die hij verving (wisselicoon), dus die hoort hier niet meer bij.
+        const bl = benchLines[items.indexOf(it)];
+        if (bl) {
+          doc.setFont(undefined, 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
+          const lines = doc.splitTextToSize(bl, imgW);
+          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, y + labelH + imgH + 9 + li * 8.5, { align: 'center' }));
+          doc.setTextColor(23, 23, 23);
+        }
         x += imgW + gap;
       }
-      y += imgH + labelH + 14;
+      y += imgH + labelH + benchH + 14;
     }
     doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-    doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein', PW / 2, y, { align: 'center' });
+    doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein · pijltjes = gewisseld voor · kaartje = gele/rode kaart', PW / 2, y, { align: 'center', maxWidth: CW });
     y += 18; doc.setTextColor(23, 23, 23);
   }
 
