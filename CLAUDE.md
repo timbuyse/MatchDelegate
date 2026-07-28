@@ -76,6 +76,8 @@ Recente context zodat een volgende sessie kan verderwerken:
 - **v0.5.44:** de velddiagrammen in de PDF worden nu als één blok gehouden (vooraf
   `ensure(kop + alle rijen + legende)`) — door de nieuwe Selectie-sectie splitste het
   2x2-blok bij 4 kwarten anders over twee pagina's.
+- **v0.5.45:** op Tims vraag staat de tabel "Opstelling per kwart" nu vóór de velddiagrammen:
+  pagina 1 = header/score/Selectie/tabel, de diagrammen beginnen als blok op pagina 2.
 - **Weetjes:** afgewerkte wedstrijden hebben `m.status === 'done'` (gepland: `'planned'`,
   bezig: `'live'`); afwezigen zitten als `p.absent` in `m.players` of in `m.absentPlayers`.
   In de remote-omgeving (Claude Code on the web) wordt gewerkt op branch

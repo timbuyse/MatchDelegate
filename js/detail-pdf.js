@@ -432,6 +432,18 @@ async function exportPDF() {
     y += 12;
   }
 
+  // ---- Opstelling per periode (tabel: veldposities + bank, met wisselmarkeringen) ----
+  // Bewust vóór de velddiagrammen: zo staat de tabel bij de Selectie op pagina 1 en
+  // beginnen de diagrammen (één samenhangend blok) netjes op de volgende pagina.
+  const lineupTable = lineupPerQuarterRows(m);
+  if (lineupTable) {
+    heading(`Opstelling per ${pSingLow(m)}`);
+    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [lineupTable.head], body: lineupTable.body,
+      styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } });
+    y = doc.lastAutoTable.finalY + 24;
+  }
+
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   if (m.players.some(p => p.starting)) {
     const numQ = m.quarters.length || 1;
@@ -473,16 +485,6 @@ async function exportPDF() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
     doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein', PW / 2, y, { align: 'center' });
     y += 18; doc.setTextColor(23, 23, 23);
-  }
-
-  // ---- Opstelling per periode (tabel: veldposities + bank, met wisselmarkeringen) ----
-  const lineupTable = lineupPerQuarterRows(m);
-  if (lineupTable) {
-    heading(`Opstelling per ${pSingLow(m)}`);
-    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [lineupTable.head], body: lineupTable.body,
-      styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } });
-    y = doc.lastAutoTable.finalY + 24;
   }
 
   // ---- Tussenstand per periode ----
