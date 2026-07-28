@@ -10,6 +10,10 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 ---
 
 ## v0.6.3
+- **Verbeterd:** de velddiagrammen in de PDF krijgen een eigen pagina en worden zo groot getekend
+  als daarop past — bij vier kwarten een derde breder dan voorheen. De app kiest zelf de beste
+  rij-indeling: één deel wordt één groot veld over de volle breedte, twee helften komen naast
+  elkaar, drie of vier delen in twee rijen.
 - **Nieuw:** onder elk velddiagram staat nu de **bank** van dat deel: wie in de selectie zat maar dat
   deel niet op het veld kwam. Wie inviel, zie je al op het veld staan bij de speler die hij verving.
 - **Nieuw:** gele en rode kaarten staan nu ook op de velddiagrammen, als een kaartje achter de naam
@@ -18,16 +22,6 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 - **Verwijderd:** de tabel "Opstelling per kwart" is weg, zowel uit de PDF als uit het verslag in de
   app. De velddiagrammen tonen nu dezelfde informatie (bank, wissels, kaarten) én laten zien waar
   iemand stond.
-
-## v0.6.2
-- **Verbeterd:** de velddiagrammen in de PDF krijgen een eigen pagina en worden zo groot getekend
-  als daarop past — bij vier kwarten ruim 40% breder dan voorheen. De app kiest zelf de beste
-  rij-indeling: één deel wordt één groot veld over de volle breedte, twee helften komen naast
-  elkaar, drie of vier delen in twee rijen.
-- **Verbeterd:** in de tabel "Opstelling per kwart" staat de markering nu vóór de naam —
-  `(in) Jules Deprez` in plaats van "(wissel in)" op een aparte regel. In de bankrij was anders niet
-  duidelijk bij welke naam de markering hoorde. De markeringen zijn ingekort tot (in), (uit),
-  (rood) en (blessure) en staan uitgelegd in de legende.
 
 ## v0.6.1
 - **Verbeterd:** de aparte knop **NG** is weer weg — met vier knoppen werd de rij te breed op een
