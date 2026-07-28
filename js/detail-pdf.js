@@ -434,7 +434,6 @@ async function exportPDF() {
 
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   if (m.players.some(p => p.starting)) {
-    heading(`Opstelling${m.formation ? ' · ' + m.formation : ''}`);
     const numQ = m.quarters.length || 1;
     const items = numQ <= 1
       ? [{ q: null, ps: m.players.filter(p => p.starting), capId: m.captainId }]
@@ -445,14 +444,19 @@ async function exportPDF() {
     const gap = 12;
     let imgW = (CW - (perRow - 1) * gap) / perRow;
     // Bij meerdere rijen (bv. 2x2 voor 4 kwarten) de diagrammen kleiner houden zodat ze
-    // samen met kop/score/legende nog op pagina 1 passen i.p.v. over te lopen naar pagina 2.
+    // samen op één pagina passen.
     if (numRows > 1) imgW = Math.min(imgW, 150);
     const imgH = imgW * (504 / 326);
+    const labelH = items[0].q != null ? 14 : 0;
+    // Het hele diagrammenblok (kop + alle rijen + legende) bij elkaar houden: past het niet
+    // meer op deze pagina, dan eerst naar een nieuwe pagina i.p.v. de rijen te splitsen
+    // (dat gebeurde zodra er boven het blok extra secties zoals "Selectie" bijkwamen).
+    ensure(21 + numRows * (imgH + labelH + 14) + 18);
+    heading(`Opstelling${m.formation ? ' · ' + m.formation : ''}`);
     const rowWidth = perRow * imgW + (perRow - 1) * gap;
     const rowStartX = MG + (CW - rowWidth) / 2; // centreren als de rij smaller is dan de volle breedte
     for (let i = 0; i < items.length; i += perRow) {
       const rowItems = items.slice(i, i + perRow);
-      const labelH = rowItems[0].q != null ? 14 : 0;
       ensure(imgH + labelH + 14);
       let x = rowStartX;
       for (const it of rowItems) {

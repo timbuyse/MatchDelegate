@@ -69,10 +69,13 @@ Recente context zodat een volgende sessie kan verderwerken:
     daarna Bank-rijen; markeringen `(wissel uit)`, `(wissel in)`, `(rood)`, `(blessure uit)`
     voor gebeurtenissen tijdens de periode. Gebruikt `playersAtPeriodStart` zodat tabel en
     velddiagrammen consistent blijven. Kolomkoppen via `pAbbr(m)` (K1/H1/D1).
-- **Open punt:** Tim kreeg een console-script (chat, niet gecommit — hoort in de companion-map)
-  om bij de gespeelde U11-testwedstrijd de spelers zonder speelminuten uit `m.players` te halen
-  (filter op `status === 'done'`, bevestigingsdialoog, daarna `recomputeScore` +
-  `recomputeOnField` + `dbSave`). Nog niet bevestigd of dit gelukt is.
+- **Afgehandeld:** de U11-testwedstrijd is opgeschoond via een console-script (chat, niet
+  gecommit — hoort in de companion-map): de 10 spelers zonder speelminuten zijn uit
+  `m.players` gehaald (filter op `status === 'done'`, bevestigingsdialoog, daarna
+  `recomputeScore` + `recomputeOnField` + `dbSave`). Tim bevestigde dat dit gelukt is.
+- **v0.5.44:** de velddiagrammen in de PDF worden nu als één blok gehouden (vooraf
+  `ensure(kop + alle rijen + legende)`) — door de nieuwe Selectie-sectie splitste het
+  2x2-blok bij 4 kwarten anders over twee pagina's.
 - **Weetjes:** afgewerkte wedstrijden hebben `m.status === 'done'` (gepland: `'planned'`,
   bezig: `'live'`); afwezigen zitten als `p.absent` in `m.players` of in `m.absentPlayers`.
   In de remote-omgeving (Claude Code on the web) wordt gewerkt op branch
