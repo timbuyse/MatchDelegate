@@ -314,10 +314,17 @@ async function exportPDF() {
   doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
   // Metaregels net onder de (mogelijk meerregelige) titel plaatsen i.p.v. op vaste offsets,
   // zodat een lange titel de datum-/inforegel niet overlapt en de header-hoogte meegroeit.
+  // Ook deze regels kunnen door maxWidth over meerdere regels wikkelen — my moet dan met
+  // het werkelijke aantal regels opschuiven, anders komt de oranje lijn door de tekst.
   let my = y + 13 + (titleLines.length - 1) * 16 + 14;
-  doc.text(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tx, my, { maxWidth: tw });
-  my += 12;
-  if (infoBits.length) { doc.text(infoBits.join(' · '), tx, my, { maxWidth: tw }); my += 12; }
+  const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tw);
+  doc.text(metaLines, tx, my);
+  my += metaLines.length * 12;
+  if (infoBits.length) {
+    const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
+    doc.text(infoLines, tx, my);
+    my += infoLines.length * 12;
+  }
   y = Math.max(y + 56, my + 4);
   doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, y, MG + CW, y);
   y += 26;
