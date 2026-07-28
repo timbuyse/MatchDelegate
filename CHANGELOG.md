@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.46
+- **Verbeterd:** in de tabel "Opstelling per kwart" van de wedstrijd-PDF staan nu de volledige
+  namen (voorheen afgekort als "Voornaam A."); een markering zoals "(wissel uit)" staat op een
+  eigen regel onder de naam.
+- **Verbeterd:** in de volledige tijdlijn van de PDF staat de tussenstand nu naast het kwart
+  i.p.v. eronder (de kop loopt over de volle breedte).
+- **Verbeterd:** tabellen in de PDF worden zoveel mogelijk in één stuk gehouden — past een tabel
+  met zijn titel niet meer op de pagina, dan schuift het geheel naar de volgende pagina, en een
+  rij met meerdere regels wordt nooit middendoor geknipt.
+- **Opgelost:** bij een uitwedstrijd stond de tussenstand in de PDF-tijdlijn omgekeerd (eigen
+  ploeg eerst) — nu overal dezelfde volgorde: thuisploeg – uitploeg.
+
+## v0.5.42 – v0.5.45
+- **Nieuw:** de wedstrijd-PDF heeft een sectie **Selectie** (alfabetisch, zonder afwezigen) en een
+  tabel **Opstelling per kwart** met per periode wie op welke veldpositie stond, de bank, en
+  markeringen voor wissels, rood en blessure.
+- **Verbeterd:** de tabel "Opstelling per kwart" staat vóór de velddiagrammen, en de diagrammen
+  blijven als één blok samen op één pagina.
+- **Opgelost:** de oranje lijn in de PDF-header liep soms door de infotekst bij een lange titel.
+
 ## v0.5.41
 - **Verbeterd:** in 8v8 "2-3-2" kregen de centrale middenvelder en een aanvaller allebei
   bolnummer 10 — het duo voorin is nu 9/10 en de centrale middenvelder 8 (flanken blijven 11/7).

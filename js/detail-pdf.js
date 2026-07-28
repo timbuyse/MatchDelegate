@@ -269,13 +269,6 @@ function rasterizeSvgString(svgString, w, h) {
   return rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString), w, h);
 }
 
-// Korte weergavenaam "Voornaam A." (eerste letter van het tweede naamdeel), voor compacte
-// cellen in de opstellingstabel van de PDF.
-function pdfShortName(name) {
-  const parts = String(name || '').trim().split(/\s+/);
-  if (parts.length <= 1) return parts[0] || '';
-  return parts[0] + ' ' + parts[1][0].toUpperCase() + '.';
-}
 // Bouwt de "Opstelling per periode"-tabel voor de PDF: één rij per veldpositie (gelabeld
 // KP / VL / MC / SC ... — afgeleid uit lijn + x-volgorde op het veld), daarna één rij per
 // bankplaats. Elke kolom toont wie daar bij de START van de periode stond; wie tijdens de
@@ -322,9 +315,11 @@ function lineupPerQuarterRows(m) {
       (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerId] = 'blessure uit';
     }
   }
+  // Volledige naam (Tims expliciete wens) — de markering op een eigen regel, zodat een cel
+  // voorspelbaar afbreekt tussen naam en markering i.p.v. midden in een lange naam.
   const cellTxt = (p, q, marks) => {
     const mark = marks[q] && marks[q][p.id];
-    return pdfShortName(p.name) + (mark ? ` (${mark})` : '');
+    return (p.name || '') + (mark ? `\n(${mark})` : '');
   };
   const body = fieldRows.map(r => [r.label]);
   const extrasPerQ = [], benchPerQ = [];
@@ -373,12 +368,38 @@ async function exportPDF() {
   const PW = 595.28, PH = 841.89, MG = 40, CW = PW - MG * 2;
   let y = MG;
   const ensure = need => { if (y + need > PH - MG) { doc.addPage(); y = MG; } };
-  const heading = text => {
-    ensure(30);
+  // `need` = hoogte van wat direct ná de kop komt: zo blijft een sectiekop nooit alleen
+  // onderaan een pagina staan met zijn inhoud op de volgende.
+  const heading = (text, need = 0) => {
+    ensure(30 + need);
     doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
     doc.text(text.toUpperCase(), MG, y);
     y += 5; doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.75); doc.line(MG, y, MG + CW, y);
     y += 16; doc.setTextColor(23, 23, 23);
+  };
+  // Meet de hoogte van een autoTable door hem in een wegwerp-document te tekenen (autoTable
+  // heeft geen "meet-alleen"-modus). Geeft null als de tabel niet op één pagina past — dan is
+  // samenhouden onmogelijk en mag hij gewoon splitsen.
+  const measureTable = opts => {
+    try {
+      const tmp = new jsPDF({ unit: 'pt', format: 'a4' });
+      tmp.autoTable({ ...opts, startY: MG });
+      const pages = tmp.getNumberOfPages ? tmp.getNumberOfPages() : tmp.internal.getNumberOfPages();
+      if (pages > 1) return null;
+      return tmp.lastAutoTable.finalY - MG;
+    } catch (e) { return null; }
+  };
+  // Tekent een tabel (met optionele sectiekop) als één samenhangend blok: past kop + tabel niet
+  // meer op deze pagina, dan schuift het geheel naar een nieuwe pagina i.p.v. afgekapt te worden.
+  // rowPageBreak:'avoid' voorkomt bovendien dat een meerregelige rij middendoor geknipt wordt.
+  const tableBlock = (title, opts, gapAfter = 24) => {
+    const full = { margin: { left: MG, right: MG, top: MG, bottom: MG }, rowPageBreak: 'avoid', ...opts };
+    const h = measureTable(full);
+    const headH = title ? 30 : 0;
+    if (h != null && y + headH + h > PH - MG) { doc.addPage(); y = MG; }
+    if (title) heading(title);
+    doc.autoTable({ ...full, startY: y });
+    y = doc.lastAutoTable.finalY + gapAfter;
   };
 
   // ---- Header ----
@@ -425,9 +446,10 @@ async function exportPDF() {
   const selNames = m.players.filter(p => !p.absent).map(p => p.name).filter(Boolean)
     .sort((a, b) => a.localeCompare(b, 'nl'));
   if (selNames.length) {
-    heading('Selectie');
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     const selLines = doc.splitTextToSize(selNames.join(', '), CW);
+    heading('Selectie', selLines.length * 13);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     for (const line of selLines) { ensure(13); doc.text(line, MG, y); y += 13; }
     y += 12;
   }
@@ -437,11 +459,9 @@ async function exportPDF() {
   // beginnen de diagrammen (één samenhangend blok) netjes op de volgende pagina.
   const lineupTable = lineupPerQuarterRows(m);
   if (lineupTable) {
-    heading(`Opstelling per ${pSingLow(m)}`);
-    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [lineupTable.head], body: lineupTable.body,
+    tableBlock(`Opstelling per ${pSingLow(m)}`, { head: [lineupTable.head], body: lineupTable.body,
       styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
       columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } });
-    y = doc.lastAutoTable.finalY + 24;
   }
 
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
@@ -489,7 +509,6 @@ async function exportPDF() {
 
   // ---- Tussenstand per periode ----
   if (m.quarters.length) {
-    heading(`Tussenstand per ${pSingLow(m)}`);
     const rows = m.quarters.map(q => {
       const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
@@ -498,9 +517,8 @@ async function exportPDF() {
         .map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });
-    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
+    tableBlock(`Tussenstand per ${pSingLow(m)}`, { head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
       styles: { fontSize: 9, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } });
-    y = doc.lastAutoTable.finalY + 24;
   }
 
   // ---- Wedstrijdstatistieken ----
@@ -511,8 +529,7 @@ async function exportPDF() {
     [stat('yellow_card') + stat('red_card'), `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
-    heading('Wedstrijdstatistieken');
-    ensure(16);
+    heading('Wedstrijdstatistieken', 16);
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     doc.text(pdfStats.map(([, t]) => t).join('   ·   '), MG, y, { maxWidth: CW });
     y += 26;
@@ -521,8 +538,7 @@ async function exportPDF() {
   // ---- Keeper(s) ----
   const keeperMs = keeperMinutes(m);
   if (keeperMs && Object.keys(keeperMs).length) {
-    heading('Keeper(s)');
-    ensure(16);
+    heading('Keeper(s)', 16);
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     const keeperText = Object.entries(keeperMs)
       .sort((a, b) => b[1] - a[1])
@@ -533,7 +549,6 @@ async function exportPDF() {
   }
 
   // ---- Spelers ----
-  heading('Spelers');
   const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
   const playerHead = ['#', 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
   const absentRowIdx = new Set();
@@ -547,10 +562,9 @@ async function exportPDF() {
     const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? Math.round(ms / 60000) + "'" : '—'; }) : [];
     return [p.number || '', p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
   });
-  doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [playerHead], body: playerRows,
+  tableBlock('Spelers', { head: [playerHead], body: playerRows,
     styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
     didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } });
-  y = doc.lastAutoTable.finalY + 24;
 
   // ---- Foto's ----
   const photos = [m.photo1, m.photo2].filter(Boolean);
@@ -569,15 +583,16 @@ async function exportPDF() {
 
   // ---- Notities (enkel beheerder) ----
   if (canManage() && m.notes) {
-    heading('Notities');
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     const lines = doc.splitTextToSize(m.notes, CW);
+    heading('Notities', Math.min(lines.length, 4) * 14);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
     for (const line of lines) { ensure(14); doc.text(line, MG, y); y += 14; }
     y += 10;
   }
   const notedPlayers = m.players.filter(p => p.note);
   if (canManage() && notedPlayers.length) {
-    heading('Notities per speler');
+    heading('Notities per speler', 14);
     for (const p of notedPlayers) {
       const lines = doc.splitTextToSize(`${p.name}: ${p.note}`, CW);
       for (const line of lines) { ensure(14); doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.text(line, MG, y); y += 14; }
@@ -587,15 +602,19 @@ async function exportPDF() {
 
   // ---- Volledige tijdlijn ----
   const timelineGroups = eventsByQuarter(m);
-  heading(`Volledige tijdlijn (${m.events.length} events)`);
-  for (const g of timelineGroups) {
-    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${g.cum ? ` — tussenstand ${g.cum.us}–${g.cum.them}` : ''}`;
+  timelineGroups.forEach((g, gi) => {
+    // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
+    // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
+    const cumText = !g.cum ? '' : (isAway(m) ? `${g.cum.them}–${g.cum.us}` : `${g.cum.us}–${g.cum.them}`);
+    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}` : ''}`;
     const rows = g.list.length ? g.list.map(e => [eventMinLocal(e, m), evtLabelPlain(e, m)]) : [['', 'Geen events']];
-    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [[head, '']], body: rows, showHead: 'firstPage',
-      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 60 } } });
-    y = doc.lastAutoTable.finalY + 10;
-  }
+    // Kopcel over beide kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
+    // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
+    tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
+      { head: [[{ content: head, colSpan: 2 }]], body: rows, showHead: 'firstPage',
+        styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 60 } } }, 10);
+  });
 
   doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
   doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
