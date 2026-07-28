@@ -383,7 +383,6 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
       const c = chip(mk.subs.join(' · '), cx, nameChip.bottom + nameSize * 0.15, s, [253, 214, 160], icoW);
       swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
     }
-    badges(mk, cx, cy);
   }
   doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);
 }
