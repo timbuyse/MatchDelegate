@@ -9,6 +9,10 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.6.4
+- **Opgelost:** in v0.6.3 werd er geen PDF meer gemaakt — het genereren liep stuk op een
+  achtergebleven verwijzing naar de oude manier van kaarten tekenen.
+
 ## v0.6.3
 - **Verbeterd:** de velddiagrammen in de PDF krijgen een eigen pagina en worden zo groot getekend
   als daarop past — bij vier kwarten een derde breder dan voorheen. De app kiest zelf de beste
