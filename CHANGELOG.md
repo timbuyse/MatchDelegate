@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.1
+- **Verbeterd:** de tekst in de PDF staat groter en is daardoor vlotter leesbaar op papier: de namen
+  op het veld en de bankregel eronder (van 7,7 naar 9,3 pt), de inforegels in de kop, de
+  selectielijst, de sectietitels, de spelerstabel en de tabellen met tussenstanden en tijdlijn. De
+  eindscore en de wedstrijdtitel stonden al groot genoeg en blijven ongewijzigd. Het verslag blijft
+  even lang.
+- **Opgelost:** een lange notitie kon net te breed afbreken, omdat de regelbreedte op de oude
+  lettergrootte berekend werd.
+
 ## v0.7.0
 - **Nieuw:** wissels en positiewissels in de pauze regel je nu **door op het veld te tikken**, in het
   tabblad Opstelling (met een oranje stipje op dat tabblad zolang de pauze duurt). Tik een bankspeler

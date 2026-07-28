@@ -319,7 +319,9 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   });
   const dns = fieldDisplayNames(pts.map(({ p }) => p));
   const marks = periodPlayerMarks(m, qNum);
-  const numSize = Math.max(4.5, L(13)), nameSize = Math.max(3.8, L(10));
+  // 12 eenheden (i.p.v. 10) voor de namen: op papier las 10 te klein. Het nummer in de bol blijft
+  // op 13 — groter past niet binnen de bol (radius 15).
+  const numSize = Math.max(5, L(13)), nameSize = Math.max(4.5, L(12));
   // Naamplaatje (en eventueel het wisselplaatje eronder) tekenen, horizontaal binnen het veld
   // geklemd: bij een speler op de flank zou een lange naam anders buiten het diagram uitsteken en
   // (in de 2x2-weergave) over het veld ernaast lopen. Op het scherm valt dat weg door de overflow
@@ -475,7 +477,7 @@ async function exportPDF() {
   // onderaan een pagina staan met zijn inhoud op de volgende.
   const heading = (text, need = 0) => {
     ensure(30 + need);
-    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(12); doc.setTextColor(107, 114, 128);
     doc.text(text.toUpperCase(), MG, y);
     y += 5; doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.75); doc.line(MG, y, MG + CW, y);
     y += 16; doc.setTextColor(23, 23, 23);
@@ -502,13 +504,13 @@ async function exportPDF() {
     // Een lange toelichting (bv. de legende van de positielabels) moet afbreken i.p.v. voorbij de
     // rechtermarge te lopen — dus vooraf opsplitsen en de hoogte meerekenen.
     let noteLines = [];
-    if (note) { doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); noteLines = doc.splitTextToSize(note, CW); }
-    const headH = (title ? 30 : 0) + noteLines.length * 11 + (note ? 4 : 0);
+    if (note) { doc.setFont(undefined, 'normal'); doc.setFontSize(9.5); noteLines = doc.splitTextToSize(note, CW); }
+    const headH = (title ? 30 : 0) + noteLines.length * 12 + (note ? 4 : 0);
     if (h != null && y + headH + h > PH - MG) { doc.addPage(); y = MG; }
     if (title) heading(title);
     if (noteLines.length) {
-      doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
-      for (const ln of noteLines) { doc.text(ln, MG, y); y += 11; }
+      doc.setFont(undefined, 'normal'); doc.setFontSize(9.5); doc.setTextColor(107, 114, 128);
+      for (const ln of noteLines) { doc.text(ln, MG, y); y += 12; }
       y += 4; doc.setTextColor(23, 23, 23);
     }
     doc.autoTable({ ...full, startY: y });
@@ -527,7 +529,7 @@ async function exportPDF() {
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
   const titleLines = doc.splitTextToSize(title, tw);
   doc.text(titleLines, tx, y + 13);
-  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
   // Metaregels net onder de (mogelijk meerregelige) titel plaatsen i.p.v. op vaste offsets,
   // zodat een lange titel de datum-/inforegel niet overlapt en de header-hoogte meegroeit.
   // Ook deze regels kunnen door maxWidth over meerdere regels wikkelen — my moet dan met
@@ -535,11 +537,11 @@ async function exportPDF() {
   let my = y + 13 + (titleLines.length - 1) * 16 + 14;
   const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tw);
   doc.text(metaLines, tx, my);
-  my += metaLines.length * 12;
+  my += metaLines.length * 13;
   if (infoBits.length) {
     const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
     doc.text(infoLines, tx, my);
-    my += infoLines.length * 12;
+    my += infoLines.length * 13;
   }
   y = Math.max(y + 56, my + 4);
   doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, y, MG + CW, y);
@@ -550,7 +552,7 @@ async function exportPDF() {
   doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, y + 24, { align: 'center' });
   y += 46;
   if (m.motmId) {
-    doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(12);
     doc.text(`Man van de match: ${pName(m, m.motmId)}`, PW / 2, y, { align: 'center' });
     y += 20;
   }
@@ -558,13 +560,13 @@ async function exportPDF() {
   // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
   const selBlocks = selectionBlocks(m).blocks;
   if (selBlocks.length) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
     const wrapped = selBlocks.map(([lbl, list]) => doc.splitTextToSize((lbl ? lbl + ' ' : '') + list.map(nameWithNum).join(', '), CW));
-    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 13, 0) + (selBlocks.length - 1) * 4);
+    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 15, 0) + (selBlocks.length - 1) * 4);
     for (let i = 0; i < wrapped.length; i++) {
-      doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+      doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
       doc.setTextColor(...(selBlocks[i][0] ? [107, 114, 128] : [23, 23, 23]));
-      for (const line of wrapped[i]) { ensure(13); doc.text(line, MG, y); y += 13; }
+      for (const line of wrapped[i]) { ensure(15); doc.text(line, MG, y); y += 15; }
       y += 4;
     }
     doc.setTextColor(23, 23, 23);
@@ -595,13 +597,13 @@ async function exportPDF() {
     const perRow = items.length === 1 ? 1 : (items.length <= 4 ? 2 : 3);
     // Bankregel in dezelfde lettergrootte als de namen op het veld (zie nameSize in drawPitchPdf:
     // 10 eenheden van de 326 brede viewBox), zodat de bank niet als bijzaak leest.
-    const benchSize0 = Math.max(6, ((CW - (perRow - 1) * gap) / perRow) / 326 * 10);
+    const benchSize0 = Math.max(7, ((CW - (perRow - 1) * gap) / perRow) / 326 * 12);
     const benchH = benchLines.some(Boolean) ? benchSize0 * 2.6 + 4 : 0;
     // Eén veld mag nooit hoger zijn dan een volle pagina (speelt enkel bij één enkel diagram).
     const maxImgH = (PH - MG * 2) - labelH - benchH - 14;
     const imgW = Math.min((CW - (perRow - 1) * gap) / perRow, maxImgH / PITCH_PDF_RATIO);
     const imgH = imgW * PITCH_PDF_RATIO;
-    const benchSize = Math.max(6, imgW / 326 * 10), benchLineH = benchSize * 1.25;
+    const benchSize = Math.max(7, imgW / 326 * 12), benchLineH = benchSize * 1.25;
     const rowH = imgH + labelH + benchH + 14;
     // "Startopstelling per kwart/helft/deel": de diagrammen tonen de stand bij de START van elke
     // periode (formatie staat al in de inforegel bovenaan, dus niet dubbel vermelden).
@@ -617,7 +619,7 @@ async function exportPDF() {
       let x = MG + (CW - rowWidth) / 2;
       for (const it of rowItems) {
         if (it.q != null) {
-          doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+          doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
           doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, y, { align: 'center' });
         }
         drawPitchPdf(doc, m, it.ps, x, y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
@@ -650,7 +652,7 @@ async function exportPDF() {
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });
     tableBlock(`Tussenstand per ${pSingLow(m)}`, { head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
-      styles: { fontSize: 9, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } },
+      styles: { fontSize: 10, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } },
       24, `Tussenstand: ${homeName(m)} – ${awayName(m)}`);
   }
 
@@ -665,8 +667,8 @@ async function exportPDF() {
     [stat('yellow_card') + stat('red_card'), `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
-    heading('Wedstrijdstatistieken', 16);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    heading('Wedstrijdstatistieken', 17);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     doc.text(pdfStats.map(([, t]) => t).join('   ·   '), MG, y, { maxWidth: CW });
     y += 26;
   }
@@ -674,8 +676,8 @@ async function exportPDF() {
   // ---- Keeper(s) ----
   const keeperMs = keeperMinutes(m);
   if (keeperMs && Object.keys(keeperMs).length) {
-    heading('Keeper(s)', 16);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    heading('Keeper(s)', 17);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     const keeperText = Object.entries(keeperMs)
       .sort((a, b) => b[1] - a[1])
       .map(([pid, ms]) => `${pName(m, pid)}: ${Math.round(ms / 60000)} min`)
@@ -698,8 +700,9 @@ async function exportPDF() {
     const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? Math.round(ms / 60000) + "'" : '—'; }) : [];
     return [p.number || '', p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
   });
+  // Iets minder celvulling zodat de 12 kolommen bij een grotere letter nog naast elkaar passen.
   tableBlock('Spelers', { head: [playerHead], body: playerRows,
-    styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+    styles: { fontSize: 9.5, cellPadding: 4 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
     didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } });
 
   // ---- Foto's ----
@@ -719,19 +722,21 @@ async function exportPDF() {
 
   // ---- Notities (enkel beheerder) ----
   if (canManage() && m.notes) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    // Lettergrootte instellen vóór splitTextToSize, anders wordt er op de verkeerde maat gewikkeld.
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     const lines = doc.splitTextToSize(m.notes, CW);
-    heading('Notities', Math.min(lines.length, 4) * 14);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
-    for (const line of lines) { ensure(14); doc.text(line, MG, y); y += 14; }
+    heading('Notities', Math.min(lines.length, 4) * 15);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
+    for (const line of lines) { ensure(15); doc.text(line, MG, y); y += 15; }
     y += 10;
   }
   const notedPlayers = m.players.filter(p => p.note);
   if (canManage() && notedPlayers.length) {
-    heading('Notities per speler', 14);
+    heading('Notities per speler', 15);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     for (const p of notedPlayers) {
       const lines = doc.splitTextToSize(`${p.name}: ${p.note}`, CW);
-      for (const line of lines) { ensure(14); doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.text(line, MG, y); y += 14; }
+      for (const line of lines) { ensure(15); doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.text(line, MG, y); y += 15; }
     }
     y += 10;
   }
@@ -748,7 +753,7 @@ async function exportPDF() {
     // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
       { head: [[{ content: head, colSpan: 2 }]], body: rows, showHead: 'firstPage',
-        styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4.5 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
         columnStyles: { 0: { cellWidth: 60 } } }, 10,
       gi === 0 ? `Minuut binnen het ${pSingLow(m)} · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
   });
