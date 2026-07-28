@@ -564,7 +564,11 @@ const HANDLEIDING_PAGINAS = [
         <li>Registreer events via de knoppen:<br>
           <b>Goal</b> · <b>Wissel</b> · <b>Positie</b> · <b>Gele kaart</b> · <b>Rode kaart</b> · <b>Penalty</b> · <b>Blessure</b> · <b>Meer</b> (met o.a. <b>Vrije trap</b>)
         </li>
-        <li>Wissels kunnen ook <b>tijdens de pauze</b> doorgevoerd worden.</li>
+        <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
+          staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
+          veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te
+          wisselen. Het veld toont meteen de opstelling van het volgende deel, en alles wordt
+          doorgevoerd zodra je dat deel start.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
         <li>Tik op <b>'Deel score'</b> om de stand te delen.</li>

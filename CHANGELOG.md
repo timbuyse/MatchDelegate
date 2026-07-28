@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.0
+- **Nieuw:** wissels en positiewissels in de pauze regel je nu **door op het veld te tikken**, in het
+  tabblad Opstelling (met een oranje stipje op dat tabblad zolang de pauze duurt). Tik een bankspeler
+  en dan een speler op het veld om te wisselen, of tik twee spelers op het veld om ze van positie te
+  wisselen. Je kan zoveel wijzigingen doen als je wil zonder telkens een venster te openen, en het
+  veld toont meteen de opstelling van het volgende deel.
+- **Verbeterd:** tik je opnieuw op een plek waar al een wissel gepland staat, dan pas je die aan in
+  plaats van er een tweede bovenop te stapelen; kies je de oorspronkelijke speler terug, dan valt de
+  wissel weg. Twee keer dezelfde positiewissel maakt ze ongedaan.
+- **Verbeterd:** de bank staat gesorteerd op minst gespeeld, met de speelminuten erbij.
+- **Verbeterd:** de zwevende knopjes voor een snelle notitie en "moment markeren" zijn tijdens de
+  pauze verborgen — ze lagen over de bankspelers. Een notitie krijgt haar tijdstempel uit de
+  gespeelde tijd, dus die is in de pauze hetzelfde als bij de start van het volgende deel.
+- **Verwijderd:** de aparte vensters "Pauzewissel toevoegen" en "Positiewissel toevoegen". Tijdens het
+  spel blijven de knoppen Wissel en Positie gewoon werken zoals voorheen.
+- **Verbeterd (PDF):** de velddiagrammen staan weer vanaf de eerste pagina en mogen over twee
+  pagina's lopen (bv. twee velden op pagina 1 en twee op pagina 2). Ze zijn daardoor bovendien
+  breder — bij vier kwarten ongeveer een kwart groter dan in v0.6.3 — en pagina 1 blijft niet meer
+  half leeg.
+- **Verwijderd (PDF):** de legenderegel onder de velddiagrammen. Oranje keeper, positienummer,
+  kapiteinsteken, wisselpijltjes en kaartjes spreken voor zich.
+- **Verbeterd:** de bankregel onder een veld staat nu in dezelfde lettergrootte als de namen op het
+  veld, en de titel heet "Opstelling per kwart" (of per helft/deel) i.p.v. "Startopstelling".
+
 ## v0.6.4
 - **Opgelost:** in v0.6.3 werd er geen PDF meer gemaakt — het genereren liep stuk op een
   achtergebleven verwijzing naar de oude manier van kaarten tekenen.

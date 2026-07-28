@@ -52,11 +52,11 @@ function renderLive() {
       </div>` : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
-        <div class="sec" style="margin-top:0">${icI(IC.swap)} Pauzewissels · klaar voor ${pSingLow(match)} ${qNum+1}</div>
-        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Voeg ze nu toe; ze worden automatisch doorgevoerd bij de start van ${pSingLow(match)} ${qNum+1}.</p>`}
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalSub()">${icI(IC.plus)} Pauzewissel toevoegen</button>
-        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? `<div class="sec" style="margin-top:12px">${icI(IC.compass)} Positiewissels</div>${match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">${icI(IC.compass)}</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">${icI(IC.close)}</button></div>`).join('')}` : ''}
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalPosSwap()">${icI(IC.compass)} Positiewissel toevoegen</button>
+        <div class="sec" style="margin-top:0">${icI(IC.swap)} Klaar voor ${pSingLow(match)} ${qNum+1}</div>
+        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
+        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
+        ${(!(match.pendingSubs||[]).length && !(match.pendingPosSwaps||[]).length) ? `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Regel ze in het tabblad <b>Opstelling</b>: tik daar een bankspeler en dan een speler op het veld.</p>` : ''}
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Wissels & posities op het veld</button>
       </div>` : ''}
       ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
@@ -77,7 +77,7 @@ function renderLive() {
     const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
     tabContent = `
       ${miniScore}
-      <div class="card">${renderPitch(match, on)}</div>
+      ${canStartNext ? pauseLineupHtml(match) : `<div class="card">${renderPitch(match, on)}</div>`}
       <div class="card">
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
@@ -97,10 +97,10 @@ function renderLive() {
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
   </div>
   <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${tabContent}</div>
-  ${!ro ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
+  ${(!ro && !isBetween) ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
-    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling</button>
+    <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling${canStartNext ? '<span class="ltab-dot" title="Wissels voor het volgende deel regel je hier"></span>' : ''}</button>
     <button class="ltab ${tab==='log'?'act':''}" onclick="setTab('log')"><span class="ti">${IC.log}</span>Verloop</button>
   </div>`;
 }
@@ -132,7 +132,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
 // Timer blijft lopen op álle subtabs: checkOvertimeAlert (eindsignaal) draait in de timer-
 // interval en moet ook piepen als de gebruiker net de speeltijden (Opstelling) bekijkt.
 // updateTimerDisplay stopt zelf meteen zonder #timer-time-element, dus dit kost niets.
-function setTab(t) { tab = t; render(); startTimer(); }
+function setTab(t) { tab = t; _lineupSel = null; render(); startTimer(); }
 function confirmLeave() {
   const backFn = isGuest ? `go('home')` : (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go('matches')`;
   if (match && match.status === 'live') {
@@ -146,6 +146,7 @@ function confirmLeave() {
 // ===================== QUARTER CONTROLS =====================
 async function startQuarter() {
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
+  _lineupSel = null;   // selectie uit de pauze-opstelling niet laten hangen
   match.currentQuarter++;
   match.quarterStatus = 'running';
   match.quarters.push({ num: match.currentQuarter, startTime: Date.now(), endTime: null, totalPaused: 0, pausedAt: null });
@@ -1313,6 +1314,95 @@ async function confirmSub() {
   } finally { _eventBusy = false; }
 }
 async function removePendingSub(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
+
+// ===================== PAUZE-OPSTELLING (tikken op het veld) =====================
+// In de pauze plan je wissels en positiewissels door op het veld te tikken i.p.v. via modals.
+// Er wordt NIETS nieuws opgeslagen: elke tik voegt exact één pendingSub of pendingPosSwap toe —
+// dezelfde data die startQuarter() bij de start van het volgende deel doorvoert. Zo blijven de
+// speelminuten-, keeper- en verslagreconstructie ongewijzigd.
+let _lineupSel = null;   // { kind: 'field' | 'bench', id }
+// De opstelling zoals ze eruit zal zien bij de start van het volgende deel: huidige veldbezetting
+// met de reeds ingeplande wissels en positiewissels toegepast (zelfde regels als startQuarter).
+function previewNextLineup(m) {
+  const players = (m.players || []).map(p => ({ ...p }));
+  const byId = id => players.find(p => p.id === id);
+  for (const s of (m.pendingSubs || [])) {
+    const o = byId(s.outId), i = byId(s.inId);
+    if (!o || !i || i.absent) continue;
+    i.x = o.x; i.y = o.y; i.line = o.line; i.posNum = o.posNum;
+    o.onField = false; i.onField = true;
+  }
+  for (const s of (m.pendingPosSwaps || [])) {
+    const a = byId(s.pA), b = byId(s.pB);
+    if (!a || !b) continue;
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
+  }
+  return players;
+}
+function lineupTap(kind, id) {
+  const sel = _lineupSel;
+  if (sel && sel.id === id) { _lineupSel = null; render(); return; }   // zelfde speler = deselecteren
+  if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _lineupSel = { kind, id }; render(); return; }
+  _lineupSel = null;
+  if (sel.kind === 'bench' && kind === 'field') planPauseSub(id, sel.id);
+  else if (sel.kind === 'field' && kind === 'bench') planPauseSub(sel.id, id);
+  else planPausePosSwap(sel.id, id);
+}
+async function planPauseSub(outId, inId) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    match.pendingSubs = match.pendingSubs || [];
+    // Staat er al een wissel gepland op deze plek? Dan die aanpassen i.p.v. een tweede wissel op
+    // dezelfde positie te stapelen; kies je de oorspronkelijke speler opnieuw, dan valt ze weg.
+    const existing = match.pendingSubs.findIndex(s => s.inId === outId);
+    if (existing >= 0) {
+      if (match.pendingSubs[existing].outId === inId) match.pendingSubs.splice(existing, 1);
+      else match.pendingSubs[existing].inId = inId;
+    } else {
+      match.pendingSubs.push({ outId, inId });
+    }
+    await dbSave(match); render();
+  } finally { _eventBusy = false; }
+}
+async function planPausePosSwap(a, b) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    match.pendingPosSwaps = match.pendingPosSwaps || [];
+    // Dezelfde twee spelers nog eens aantikken = de geplande positiewissel ongedaan maken.
+    const i = match.pendingPosSwaps.findIndex(s => (s.pA === a && s.pB === b) || (s.pA === b && s.pB === a));
+    if (i >= 0) match.pendingPosSwaps.splice(i, 1); else match.pendingPosSwaps.push({ pA: a, pB: b });
+    await dbSave(match); render();
+  } finally { _eventBusy = false; }
+}
+// Het pauzescherm in het tabblad Opstelling: veld met de geplande opstelling + bank om uit te kiezen.
+function pauseLineupHtml(m) {
+  const preview = previewNextLineup(m);
+  const mins = calcMinutes(m);
+  const on = preview.filter(p => p.onField && !p.absent);
+  const bench = preview.filter(p => !p.onField && !p.absent)
+    .sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
+  const mm = id => Math.floor((mins[id]?.ms || 0) / 60000);
+  const selId = _lineupSel ? _lineupSel.id : null;
+  const nSubs = (m.pendingSubs || []).length, nSwaps = (m.pendingPosSwaps || []).length;
+  return `
+    <div class="card" style="border-left:4px solid var(--org)">
+      <div class="sec" style="margin-top:0">${icI(IC.swap)} Wissels voor ${pSingLow(m)} ${m.currentQuarter + 1}</div>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Het veld toont meteen de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1}; alles wordt doorgevoerd bij de start.</p>
+      ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId })}
+      <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+      <div class="place-chips">${bench.length
+        ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')"><span class="pcn">${p.number || '?'}</span>${esc(_lastName(p.name))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
+        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      ${(nSubs || nSwaps) ? `<div class="sec">Ingepland (${nSubs + nSwaps})</div>
+        ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
+        ${(m.pendingPosSwaps || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}`
+        : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Nog niets ingepland — de opstelling blijft zoals ze nu staat.</p>'}
+    </div>`;
+}
 
 // ===================== MODAL: POSITIEWISSEL =====================
 let posSwapA = null, posSwapB = null;

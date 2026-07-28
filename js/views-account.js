@@ -1877,10 +1877,13 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y, dn, captainId, mk) {
+function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
   const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
+  // tap = { fn, selId }: maakt de bol aantikbaar (pauze-opstelling in het livescherm).
+  const tapAttr = tap ? ` onclick="${tap.fn}('field','${p.id}')" style="cursor:pointer;` : ' style="';
+  const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);' : '';
   // Kaartjes achter de NAAM (niet bij de bol: daar leken ze bij het positienummer te horen), de
   // vervanger met wisselicoon op een regeltje onder de naam.
   const cards = !mk ? '' : [
@@ -1889,29 +1892,30 @@ function pitchDot(m, p, x, y, dn, captainId, mk) {
   ].filter(Boolean).join('');
   const sub = (mk && mk.subs && mk.subs.length)
     ? `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(mk.subs.join(' · '))}</span>` : '';
-  return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
+  return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
     ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
 }
 // qNum (optioneel): toont per speler de wissel/kaart/blessure van dat deel, en de bank eronder.
-function renderPitch(m, players, captainId, qNum) {
+// tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.
+function renderPitch(m, players, captainId, qNum, tap) {
   const dns = fieldDisplayNames(players);
   const marks = m ? periodPlayerMarks(m, qNum) : new Map();
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, marks.get(p.id));
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, marks.get(p.id), tap);
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, marks.get(p.id)); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, marks.get(p.id), tap); });
   }
-  const bench = m ? periodBenchNames(m, qNum) : [];
+  const bench = (m && !tap) ? periodBenchNames(m, qNum) : [];
   const hasSub = [...marks.values()].some(v => v.subs.length);
   return `<div class="pitch">${pitchLines()}${dots}</div>
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
-  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}</div>`;
+  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}</div>`}`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);

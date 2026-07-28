@@ -62,7 +62,7 @@ function renderDetail() {
       <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
     </div>`}
     ${selectionCardHtml(match)}
-    <div class="sec">${match.quarters.length > 1 ? `Startopstelling per ${pSingLow(match)}` : 'Startopstelling'}</div>
+    <div class="sec">${match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling'}</div>
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
@@ -581,34 +581,36 @@ async function exportPDF() {
     const items = numQ <= 1
       ? [{ q: null, ps: m.players.filter(p => p.starting), capId: m.captainId }]
       : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: playersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
-    // De diagrammen krijgen een EIGEN pagina en worden zo groot getekend als daarop past. Ze tonen
-    // sinds v0.6.3 ook de bank per deel en de kaarten/blessures, waardoor de aparte tabel
-    // "Opstelling per <deel>" in de PDF overbodig werd (die staat nog wel in het verslag in de app).
+    // De diagrammen lopen gewoon mee in de tekst en mogen over twee pagina's vloeien (bv. twee
+    // velden op pagina 1 en twee op pagina 2). De breedte volgt uit de PAGINABREEDTE, niet uit de
+    // resterende hoogte: een eigen pagina liet pagina 1 halfleeg en maakte de velden kleiner dan
+    // nodig. Ze tonen sinds v0.6.3 ook de bank per deel en de kaarten, waardoor de aparte tabel
+    // "Opstelling per <deel>" overbodig werd.
     const labelH = items[0].q != null ? 14 : 0;
     const benchLines = items.map(it => {
       const names = it.q != null ? periodBenchNames(m, it.q) : [];
       return names.length ? ('Bank: ' + names.join(', ')) : '';
     });
-    const benchH = benchLines.some(Boolean) ? 20 : 0;   // ruimte onder elk veld voor de bankregel
-    const gap = 12, rowExtra = labelH + benchH + 14;
-    const availH = (PH - MG * 2) - 21 - 18;   // volle pagina min kop en legende
-    // Kies de rij-indeling die de grootste diagrammen oplevert: bij 4 kwarten is 2x2 op ~213 pt
-    // groter dan 4 naast elkaar op ~120 pt, en bij 3 delen is 2+1 groter dan 3 op één rij.
-    let best = null;
-    for (let pr = 1; pr <= items.length; pr++) {
-      const rows = Math.ceil(items.length / pr);
-      const byWidth = (CW - (pr - 1) * gap) / pr;
-      const byHeight = (availH / rows - rowExtra) / PITCH_PDF_RATIO;
-      const w = Math.min(byWidth, byHeight);
-      if (w > 0 && (!best || w > best.w)) best = { perRow: pr, rows, w };
-    }
-    const perRow = best.perRow, imgW = best.w, imgH = imgW * PITCH_PDF_RATIO;
-    if (y > MG + 1) { doc.addPage(); y = MG; }   // altijd bovenaan een verse pagina beginnen
+    const gap = 12;
+    const perRow = items.length === 1 ? 1 : (items.length <= 4 ? 2 : 3);
+    // Bankregel in dezelfde lettergrootte als de namen op het veld (zie nameSize in drawPitchPdf:
+    // 10 eenheden van de 326 brede viewBox), zodat de bank niet als bijzaak leest.
+    const benchSize0 = Math.max(6, ((CW - (perRow - 1) * gap) / perRow) / 326 * 10);
+    const benchH = benchLines.some(Boolean) ? benchSize0 * 2.6 + 4 : 0;
+    // Eén veld mag nooit hoger zijn dan een volle pagina (speelt enkel bij één enkel diagram).
+    const maxImgH = (PH - MG * 2) - labelH - benchH - 14;
+    const imgW = Math.min((CW - (perRow - 1) * gap) / perRow, maxImgH / PITCH_PDF_RATIO);
+    const imgH = imgW * PITCH_PDF_RATIO;
+    const benchSize = Math.max(6, imgW / 326 * 10), benchLineH = benchSize * 1.25;
+    const rowH = imgH + labelH + benchH + 14;
     // "Startopstelling per kwart/helft/deel": de diagrammen tonen de stand bij de START van elke
     // periode (formatie staat al in de inforegel bovenaan, dus niet dubbel vermelden).
-    heading(items.length > 1 ? `Startopstelling per ${pSingLow(m)}` : 'Startopstelling');
+    // Kop en eerste rij samenhouden, anders blijft de kop alleen onderaan een pagina staan.
+    ensure(21 + rowH);
+    heading(items.length > 1 ? `Opstelling per ${pSingLow(m)}` : 'Opstelling');
     for (let i = 0; i < items.length; i += perRow) {
       const rowItems = items.slice(i, i + perRow);
+      ensure(rowH);   // rij past niet meer op deze pagina → in haar geheel naar de volgende
       // Per rij centreren: een laatste rij met minder diagrammen (bv. 2+1 bij drie delen) staat
       // dan netjes in het midden i.p.v. links tegen de marge.
       const rowWidth = rowItems.length * imgW + (rowItems.length - 1) * gap;
@@ -623,18 +625,18 @@ async function exportPDF() {
         // staat al bij de speler die hij verving (wisselicoon), dus die hoort hier niet meer bij.
         const bl = benchLines[items.indexOf(it)];
         if (bl) {
-          doc.setFont(undefined, 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
+          doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
           const lines = doc.splitTextToSize(bl, imgW);
-          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, y + labelH + imgH + 9 + li * 8.5, { align: 'center' }));
+          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, y + labelH + imgH + benchSize + 3 + li * benchLineH, { align: 'center' }));
           doc.setTextColor(23, 23, 23);
         }
         x += imgW + gap;
       }
-      y += imgH + labelH + benchH + 14;
+      y += rowH;
     }
-    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-    doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein · pijltjes = gewisseld voor · kaartje = gele/rode kaart', PW / 2, y, { align: 'center', maxWidth: CW });
-    y += 18; doc.setTextColor(23, 23, 23);
+    // Geen legende onder de diagrammen: oranje keeper, positienummer, ©, wisselpijltjes en de
+    // kaartjes spreken voor zich (Tims beslissing) — dat scheelt ook een regel op de pagina.
+    y += 4;
   }
 
   // ---- Tussenstand per periode ----
