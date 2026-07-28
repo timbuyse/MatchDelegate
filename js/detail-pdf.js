@@ -269,6 +269,88 @@ function rasterizeSvgString(svgString, w, h) {
   return rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString), w, h);
 }
 
+// Korte weergavenaam "Voornaam A." (eerste letter van het tweede naamdeel), voor compacte
+// cellen in de opstellingstabel van de PDF.
+function pdfShortName(name) {
+  const parts = String(name || '').trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0] || '';
+  return parts[0] + ' ' + parts[1][0].toUpperCase() + '.';
+}
+// Bouwt de "Opstelling per periode"-tabel voor de PDF: één rij per veldpositie (gelabeld
+// KP / VL / MC / SC ... — afgeleid uit lijn + x-volgorde op het veld), daarna één rij per
+// bankplaats. Elke kolom toont wie daar bij de START van de periode stond; wie tijdens de
+// periode betrokken raakt bij een wissel (of rood/blessure-uit) krijgt dat als markering
+// in de cel. Gebruikt dezelfde reconstructie als de velddiagrammen (playersAtPeriodStart),
+// zodat tabel en diagram nooit tegenspreken.
+function lineupPerQuarterRows(m) {
+  const numQ = m.quarters.length;
+  if (!numQ) return null;
+  const LINE_ORDER = { 'Doel': 0, 'Verdediging': 1, 'Middenveld': 2, 'Aanval': 3 };
+  const qStarts = Array.from({ length: numQ }, (_, i) => playersAtPeriodStart(m, i + 1));
+  // Alle gebruikte veldposities (x|y) over alle periodes verzamelen — zo blijft de tabel ook
+  // kloppen als de opstelling/posities tussendoor herplaatst werden (er komt dan een rij bij).
+  const posKeys = new Map();
+  qStarts.forEach(ps => ps.forEach(p => {
+    if (typeof p.x === 'number' && typeof p.y === 'number') {
+      const k = p.x + '|' + p.y;
+      if (!posKeys.has(k)) posKeys.set(k, { key: k, line: p.line, x: p.x, y: p.y });
+    }
+  }));
+  const fieldRows = [...posKeys.values()].sort((a, b) =>
+    (LINE_ORDER[a.line] ?? 9) - (LINE_ORDER[b.line] ?? 9) || a.x - b.x || a.y - b.y);
+  const PREFIX = { 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'S' };
+  const SIDES = { 1: ['C'], 2: ['L', 'R'], 3: ['L', 'C', 'R'], 4: ['L', 'CL', 'CR', 'R'], 5: ['L', 'CL', 'C', 'CR', 'R'] };
+  const byLine = {};
+  fieldRows.forEach(r => { (byLine[r.line] = byLine[r.line] || []).push(r); });
+  Object.entries(byLine).forEach(([line, list]) => {
+    if (line === 'Doel') { list.forEach((r, i) => r.label = list.length > 1 ? 'KP' + (i + 1) : 'KP'); return; }
+    const pre = PREFIX[line] || LINE_SHORT[line] || '?';
+    const sides = SIDES[list.length];
+    list.forEach((r, i) => r.label = pre + (sides ? sides[i] : (i + 1)));
+  });
+  // Markeringen voor gebeurtenissen TIJDENS de periode. atBreak-events horen bij de start
+  // van de periode (zitten al in playersAtPeriodStart) en worden dus niet als markering getoond.
+  const outMark = {}, inMark = {};
+  for (const e of m.events) {
+    if (e.quarterNum == null || e.atBreak) continue;
+    if (e.type === 'substitution') {
+      if (e.playerOutId) (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerOutId] = 'wissel uit';
+      if (e.playerInId) (inMark[e.quarterNum] = inMark[e.quarterNum] || {})[e.playerInId] = 'wissel in';
+    } else if (e.type === 'red_card' && e.playerId) {
+      (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerId] = 'rood';
+    } else if (e.type === 'injury' && e.leavesField && e.playerId) {
+      (outMark[e.quarterNum] = outMark[e.quarterNum] || {})[e.playerId] = 'blessure uit';
+    }
+  }
+  const cellTxt = (p, q, marks) => {
+    const mark = marks[q] && marks[q][p.id];
+    return pdfShortName(p.name) + (mark ? ` (${mark})` : '');
+  };
+  const body = fieldRows.map(r => [r.label]);
+  const extrasPerQ = [], benchPerQ = [];
+  for (let q = 1; q <= numQ; q++) {
+    const ps = qStarts[q - 1];
+    const used = new Set();
+    fieldRows.forEach((r, ri) => {
+      const p = ps.find(pl => !used.has(pl.id) && pl.x + '|' + pl.y === r.key);
+      if (p) used.add(p.id);
+      body[ri].push(p ? cellTxt(p, q, outMark) : '');
+    });
+    // Veldspelers zonder (herkenbare) positie krijgen een generieke 'Veld'-rij i.p.v. te verdwijnen.
+    extrasPerQ.push(ps.filter(p => !used.has(p.id)).map(p => cellTxt(p, q, outMark)));
+    const onIds = new Set(ps.map(p => p.id));
+    benchPerQ.push(m.players.filter(p => !p.absent && !onIds.has(p.id))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'))
+      .map(p => cellTxt(p, q, inMark)));
+  }
+  const maxExtra = Math.max(0, ...extrasPerQ.map(l => l.length));
+  for (let i = 0; i < maxExtra; i++) body.push(['Veld', ...extrasPerQ.map(l => l[i] || '')]);
+  const maxBench = Math.max(0, ...benchPerQ.map(l => l.length));
+  for (let i = 0; i < maxBench; i++) body.push(['Bank ' + (i + 1), ...benchPerQ.map(l => l[i] || '')]);
+  if (!body.length) return null;
+  return { head: ['Positie', ...Array.from({ length: numQ }, (_, i) => pAbbr(m) + (i + 1))], body };
+}
+
 // Wedstrijd-PDF: écht, doorzoekbaar PDF via jsPDF (geen screenshot/rasterbeeld van de pagina).
 // Enkel het veld-opstellingsdiagram wordt als afbeelding ingevoegd (het is een tekening,
 // geen tekst) — alle tabellen en tekst hieronder zijn selecteerbare/doorzoekbare PDF-tekst.
@@ -339,6 +421,17 @@ async function exportPDF() {
     y += 20;
   }
 
+  // ---- Selectie (wie geselecteerd was: kern + bank; afwezigen niet) ----
+  const selNames = m.players.filter(p => !p.absent).map(p => p.name).filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'nl'));
+  if (selNames.length) {
+    heading('Selectie');
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
+    const selLines = doc.splitTextToSize(selNames.join(', '), CW);
+    for (const line of selLines) { ensure(13); doc.text(line, MG, y); y += 13; }
+    y += 12;
+  }
+
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   if (m.players.some(p => p.starting)) {
     heading(`Opstelling${m.formation ? ' · ' + m.formation : ''}`);
@@ -376,6 +469,16 @@ async function exportPDF() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
     doc.text('Oranje = doelman · cijfer = positienummer · © = kapitein', PW / 2, y, { align: 'center' });
     y += 18; doc.setTextColor(23, 23, 23);
+  }
+
+  // ---- Opstelling per periode (tabel: veldposities + bank, met wisselmarkeringen) ----
+  const lineupTable = lineupPerQuarterRows(m);
+  if (lineupTable) {
+    heading(`Opstelling per ${pSingLow(m)}`);
+    doc.autoTable({ startY: y, margin: { left: MG, right: MG }, head: [lineupTable.head], body: lineupTable.body,
+      styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } });
+    y = doc.lastAutoTable.finalY + 24;
   }
 
   // ---- Tussenstand per periode ----
