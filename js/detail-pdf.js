@@ -11,7 +11,7 @@ function renderDetail() {
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
       <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
-      <div style="flex:1;font-size:13px;color:var(--txt2)">${fmtTime(dur)}</div>
+      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min</div>
       <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
   }).join('');
@@ -34,7 +34,7 @@ function renderDetail() {
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantwoordelijke',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantw.',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     ${(() => {
@@ -61,8 +61,10 @@ function renderDetail() {
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
       <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
     </div>`}
-    <div class="sec">Opstelling</div>
+    ${selectionCardHtml(match)}
+    <div class="sec">${match.quarters.length > 1 ? `Startopstelling per ${pSingLow(match)}` : 'Startopstelling'}</div>
     <div class="card">${renderLineupCarousel(match)}</div>
+    ${lineupTableHtml(match)}
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">
@@ -261,14 +263,166 @@ function rasterizeToPngFit(src, maxW, maxH) {
     img.src = src;
   });
 }
-function rasterizeSvgString(svgString, w, h) {
-  // data:image/svg+xml vereist een xmlns-attribuut op de root <svg> (in tegenstelling tot
-  // inline SVG in een HTML-pagina, waar de browser dat automatisch regelt) — anders
-  // weigert de browser het te laden als losstaande afbeelding.
-  if (!/xmlns=/.test(svgString)) svgString = svgString.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
-  return rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString), w, h);
+// Verhouding van het velddiagram (326 x 504 eenheden, zoals de veldweergave op het scherm).
+const PITCH_PDF_RATIO = 504 / 326;
+// Tekent het velddiagram als ECHTE PDF-vectoren i.p.v. een ingebedde PNG. Voordien werd
+// een SVG-versie van het veld naar een PNG van 652x1008 px gerasterizeerd en op ~150 pt geplaatst (~313 dpi):
+// vier kwarten maakten de PDF ~8 MB groot en de namen waren geïnterpoleerd/onscherp. Vectoren
+// zijn enkele KB's, blijven scherp bij elke zoom en de rugnummers/namen worden doorzoekbare tekst.
+// Geometrie is 1-op-1 dezelfde als de veldweergave op het scherm (pitchLines()/.pitch in
+// views-account.js resp. index.html) zodat scherm en PDF hetzelfde veld tonen; wijzig je daar de
+// afmetingen, pas dan ook deze constanten aan.
+function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
+  const W = 320, H = 480, R = 15;
+  const PAW = 189, PAD = 75, GAW = 86, GAD = 25, CCR = 43, PENY = 50, CR = 8, RX = 8;
+  const S = w / 326;                       // eenheden -> punten
+  const ux = u => x0 + (u + 3) * S;        // viewBox begint op x=-3
+  const uy = v => y0 + (v + 12) * S;       // ... en op y=-12
+  const L = n => n * S;
+  // Gras: basisvlak in de donkere tint, daarbovenop de lichtere banen. De banen worden geklemd
+  // tot binnen de afronding, zodat er geen vierkante hoekjes buiten de ronde rand vallen.
+  doc.setFillColor(27, 128, 64);
+  doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'F');
+  doc.setFillColor(30, 148, 73);
+  for (let top = 30; top < H; top += 60) {
+    const a = Math.max(top, RX), b = Math.min(top + 30, H - RX);
+    if (b > a) doc.rect(ux(0), uy(a), L(W), L(b - a), 'F');
+  }
+  // Belijning
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(L(2.5)); doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'S');
+  doc.setLineWidth(L(2));
+  doc.line(ux(0), uy(H / 2), ux(W), uy(H / 2));
+  doc.circle(ux(W / 2), uy(H / 2), L(CCR), 'S');
+  doc.rect(ux((W - PAW) / 2), uy(0), L(PAW), L(PAD), 'S');
+  doc.rect(ux((W - PAW) / 2), uy(H - PAD), L(PAW), L(PAD), 'S');
+  doc.rect(ux((W - GAW) / 2), uy(0), L(GAW), L(GAD), 'S');
+  doc.rect(ux((W - GAW) / 2), uy(H - GAD), L(GAW), L(GAD), 'S');
+  doc.setFillColor(255, 255, 255);
+  doc.circle(ux(W / 2), uy(H / 2), L(3), 'F');
+  doc.circle(ux(W / 2), uy(PENY), L(3), 'F');
+  doc.circle(ux(W / 2), uy(H - PENY), L(3), 'F');
+  // Hoekbogen: jsPDF kan geen losse boog tekenen, dus benaderen met een kwartcirkel in lijnstukjes.
+  const arc = (cx, cy, from) => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) { const a = from + (i / 6) * (Math.PI / 2); pts.push([ux(cx + Math.cos(a) * CR), uy(cy + Math.sin(a) * CR)]); }
+    for (let i = 1; i < pts.length; i++) doc.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+  };
+  arc(0, 0, 0); arc(W, 0, Math.PI / 2); arc(0, H, -Math.PI / 2); arc(W, H, Math.PI);
+  // Spelers: zelfde plaatsingsregels als renderPitch (x/y indien gekend, anders verdeeld over de lijn).
+  const pts = [];
+  players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => pts.push({ p, x: p.x, y: p.y }));
+  const byLine = {};
+  players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number')).forEach(p => { (byLine[p.line] = byLine[p.line] || []).push(p); });
+  Object.entries(byLine).forEach(([line, ps]) => {
+    const yy = LINE_Y[line] != null ? LINE_Y[line] : 50, n = ps.length;
+    ps.forEach((p, i) => pts.push({ p, x: n === 1 ? 50 : 18 + i * (64 / (n - 1)), y: yy }));
+  });
+  const dns = fieldDisplayNames(pts.map(({ p }) => p));
+  const subs = subsDuringPeriod(m, qNum);
+  const numSize = Math.max(4.5, L(13)), nameSize = Math.max(3.8, L(10));
+  // Naamplaatje (en eventueel het wisselplaatje eronder) tekenen, horizontaal binnen het veld
+  // geklemd: bij een speler op de flank zou een lange naam anders buiten het diagram uitsteken en
+  // (in de 2x2-weergave) over het veld ernaast lopen. Op het scherm valt dat weg door de overflow
+  // van .pitch, in de PDF clipt niets.
+  const chip = (txt, cx, top, size, color) => {
+    doc.setFontSize(size);
+    const tw = doc.getTextWidth(txt), pad = size * 0.3, half = tw / 2 + pad;
+    const lx = Math.min(Math.max(cx, ux(0) + half), ux(W) - half);
+    doc.setFillColor(12, 14, 12);
+    let gs = null;
+    try { gs = new doc.GState({ opacity: 0.5 }); doc.setGState(gs); } catch (e) { gs = null; }
+    doc.roundedRect(lx - half, top, tw + pad * 2, size * 1.35, size * 0.25, size * 0.25, 'F');
+    if (gs) { try { doc.setGState(new doc.GState({ opacity: 1 })); } catch (e) {} }
+    doc.setTextColor(...color);
+    doc.text(txt, lx, top + size, { align: 'center' });
+    return top + size * 1.35;
+  };
+  for (const { p, x, y } of pts) {
+    const cx = ux(x / 100 * W), cy = uy(y / 100 * H);
+    doc.setFillColor(...(p.line === 'Doel' ? [245, 130, 31] : [16, 16, 16]));
+    doc.setDrawColor(255, 255, 255); doc.setLineWidth(L(2));
+    doc.circle(cx, cy, L(R), 'FD');
+    doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold');
+    doc.setFontSize(numSize);
+    doc.text(String(p.posNum || p.number || '?'), cx, cy + numSize * 0.35, { align: 'center' });
+    // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
+    // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).
+    const label = (dns.get(p.id) || _lastName(p.name || '')) + (capId === p.id ? ' ©' : '');
+    const after = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255]);
+    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder in een lichter accent.
+    // '»' i.p.v. een pijl: pijltekens vallen buiten WinAnsi en zouden als '?' renderen (zie pdfSafe).
+    const sl = subs.get(p.id);
+    if (sl) chip('» ' + sl, cx, after + nameSize * 0.15, nameSize * 0.92, [253, 214, 160]);
+  }
+  doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);
 }
 
+// Selectie van een wedstrijd in drie groepen, gesorteerd op familienaam. Gedeeld door de PDF
+// en het verslag op het scherm, zodat beide altijd hetzelfde tonen.
+//  - selected    : kern + bank (met rugnummer)
+//  - absent      : bij de selectie als afwezig aangeduid (m.absentPlayers) of live als no-show (p.absent)
+//  - notSelected : rosterspelers die niet in de wedstrijd zaten (leeg als de ploeg niet meer bestaat)
+function matchSelectionGroups(m) {
+  const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
+  const selected = m.players.filter(p => !p.absent)
+    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null })).sort(byLast);
+  const absent = m.players.filter(p => p.absent)
+    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null }));
+  const team = typeof teamById === 'function' ? teamById(m.teamId) : null;
+  for (const a of (m.absentPlayers || [])) {
+    const rec = typeof a === 'string' ? { name: a, rosterId: null } : { name: a.name || '', rosterId: a.rosterId || null };
+    if (!rec.name) continue;
+    const dup = absent.some(x => (rec.rosterId && x.rosterId === rec.rosterId) || x.name === rec.name);
+    if (dup) continue;
+    // Afwezigen uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
+    // ploeg, dus daar opzoeken zodat de lijst er niet half genummerd uitziet.
+    const r = ((team && team.players) || []).find(p => (rec.rosterId && p.id === rec.rosterId) || p.name === rec.name);
+    absent.push({ name: rec.name, number: (r && r.number) || '', rosterId: rec.rosterId });
+  }
+  absent.sort(byLast);
+  const known = new Set();
+  [...selected, ...absent].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
+  const notSelected = ((team && team.players) || [])
+    .filter(p => !known.has(p.id) && !known.has(p.name))
+    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.id })).sort(byLast);
+  return { selected, absent, notSelected };
+}
+// Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens").
+function nameWithNum(p) { return (p.number ? p.number + ' ' : '') + p.name; }
+// Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
+function selectionCardHtml(m) {
+  const g = matchSelectionGroups(m);
+  if (!g.selected.length && !g.absent.length && !g.notSelected.length) return '';
+  const line = (lbl, list) => !list.length ? '' :
+    `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${lbl}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`;
+  return `<div class="sec">Selectie (${g.selected.length})</div>
+    <div class="card">
+      ${line('', g.selected)}
+      ${line('Afwezig:', g.absent)}
+      ${line('Niet geselecteerd:', g.notSelected)}
+    </div>`;
+}
+// Tabel "Opstelling per periode" op het scherm, uit dezelfde bron als de PDF
+// (lineupPerQuarterRows) zodat scherm en PDF niet uit elkaar kunnen lopen. Horizontaal
+// scrollbaar met een vastgezette positiekolom — op een telefoon passen 1 + 4 kolommen
+// met volledige namen niet naast elkaar.
+function lineupTableHtml(m) {
+  const t = lineupPerQuarterRows(m);
+  if (!t) return '';
+  const th = t.head.map((h, i) => `<th${i === 0 ? ' class="lut-fix"' : ''}>${esc(h)}</th>`).join('');
+  const rows = t.body.map(r => `<tr>${r.map((c, i) => i === 0
+    ? `<th class="lut-fix">${esc(c)}</th>`
+    : `<td>${esc(c).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
+  return `<div class="sec">Opstelling per ${pSingLow(m)}</div>
+    <div class="card" style="padding:0">
+      <div class="lut-wrap"><table class="lut"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+}
+// Thuis- en uitploeg bij naam: elke tussenstand wordt als "thuis – uit" weergegeven, dus bij een
+// uitwedstrijd staat de eigen ploeg tweede. Zonder deze namen erbij is dat niet af te leiden.
+function homeName(m) { return isAway(m) ? m.opponent : tName(m); }
+function awayName(m) { return isAway(m) ? tName(m) : m.opponent; }
 // Bouwt de "Opstelling per periode"-tabel voor de PDF: één rij per veldpositie (gelabeld
 // KP / VL / MC / SC ... — afgeleid uit lijn + x-volgorde op het veld), daarna één rij per
 // bankplaats. Elke kolom toont wie daar bij de START van de periode stond; wie tijdens de
@@ -335,13 +489,14 @@ function lineupPerQuarterRows(m) {
     extrasPerQ.push(ps.filter(p => !used.has(p.id)).map(p => cellTxt(p, q, outMark)));
     const onIds = new Set(ps.map(p => p.id));
     benchPerQ.push(m.players.filter(p => !p.absent && !onIds.has(p.id))
-      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'))
+      .sort((a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl'))
       .map(p => cellTxt(p, q, inMark)));
   }
-  const maxExtra = Math.max(0, ...extrasPerQ.map(l => l.length));
-  for (let i = 0; i < maxExtra; i++) body.push(['Veld', ...extrasPerQ.map(l => l[i] || '')]);
-  const maxBench = Math.max(0, ...benchPerQ.map(l => l.length));
-  for (let i = 0; i < maxBench; i++) body.push(['Bank ' + (i + 1), ...benchPerQ.map(l => l[i] || '')]);
+  // Eén 'Veld'- en één 'Bank'-rij met de namen onder elkaar in dezelfde cel: genummerde rijen
+  // (Bank 1/2/3) suggereerden een vaste plaats, terwijl de lijst per periode alfabetisch
+  // opnieuw gevuld wordt — dezelfde rij sprong dan van speler naar speler.
+  if (extrasPerQ.some(l => l.length)) body.push(['Veld', ...extrasPerQ.map(l => l.join('\n'))]);
+  if (benchPerQ.some(l => l.length)) body.push(['Bank', ...benchPerQ.map(l => l.join('\n'))]);
   if (!body.length) return null;
   return { head: ['Positie', ...Array.from({ length: numQ }, (_, i) => pAbbr(m) + (i + 1))], body };
 }
@@ -357,7 +512,7 @@ async function exportPDF() {
   const mins = calcMinutes(m);
   const qData = calcMinutesPerQuarter(m);
   const stat = (type) => m.events.filter(e => e.type === type).length;
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('ref.: ' + m.referee), m.jersey && ('trui ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -392,12 +547,17 @@ async function exportPDF() {
   // Tekent een tabel (met optionele sectiekop) als één samenhangend blok: past kop + tabel niet
   // meer op deze pagina, dan schuift het geheel naar een nieuwe pagina i.p.v. afgekapt te worden.
   // rowPageBreak:'avoid' voorkomt bovendien dat een meerregelige rij middendoor geknipt wordt.
-  const tableBlock = (title, opts, gapAfter = 24) => {
+  // `note` = grijze toelichtingsregel tussen kop en tabel (bv. welke ploeg als eerste staat).
+  const tableBlock = (title, opts, gapAfter = 24, note = '') => {
     const full = { margin: { left: MG, right: MG, top: MG, bottom: MG }, rowPageBreak: 'avoid', ...opts };
     const h = measureTable(full);
-    const headH = title ? 30 : 0;
+    const headH = (title ? 30 : 0) + (note ? 14 : 0);
     if (h != null && y + headH + h > PH - MG) { doc.addPage(); y = MG; }
     if (title) heading(title);
+    if (note) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
+      doc.text(note, MG, y); y += 14; doc.setTextColor(23, 23, 23);
+    }
     doc.autoTable({ ...full, startY: y });
     y = doc.lastAutoTable.finalY + gapAfter;
   };
@@ -442,16 +602,24 @@ async function exportPDF() {
     y += 20;
   }
 
-  // ---- Selectie (wie geselecteerd was: kern + bank; afwezigen niet) ----
-  const selNames = m.players.filter(p => !p.absent).map(p => p.name).filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, 'nl'));
-  if (selNames.length) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
-    const selLines = doc.splitTextToSize(selNames.join(', '), CW);
-    heading('Selectie', selLines.length * 13);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(23, 23, 23);
-    for (const line of selLines) { ensure(13); doc.text(line, MG, y); y += 13; }
-    y += 12;
+  // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
+  const selGroups = matchSelectionGroups(m);
+  if (selGroups.selected.length || selGroups.absent.length || selGroups.notSelected.length) {
+    const blocks = [];
+    if (selGroups.selected.length) blocks.push(['', selGroups.selected.map(nameWithNum).join(', ')]);
+    if (selGroups.absent.length) blocks.push(['Afwezig: ', selGroups.absent.map(nameWithNum).join(', ')]);
+    if (selGroups.notSelected.length) blocks.push(['Niet geselecteerd: ', selGroups.notSelected.map(nameWithNum).join(', ')]);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+    const wrapped = blocks.map(([lbl, txt]) => doc.splitTextToSize(lbl + txt, CW));
+    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 13, 0) + (blocks.length - 1) * 4);
+    for (let i = 0; i < wrapped.length; i++) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+      doc.setTextColor(...(blocks[i][0] ? [107, 114, 128] : [23, 23, 23]));
+      for (const line of wrapped[i]) { ensure(13); doc.text(line, MG, y); y += 13; }
+      y += 4;
+    }
+    doc.setTextColor(23, 23, 23);
+    y += 8;
   }
 
   // ---- Opstelling per periode (tabel: veldposities + bank, met wisselmarkeringen) ----
@@ -478,13 +646,15 @@ async function exportPDF() {
     // Bij meerdere rijen (bv. 2x2 voor 4 kwarten) de diagrammen kleiner houden zodat ze
     // samen op één pagina passen.
     if (numRows > 1) imgW = Math.min(imgW, 150);
-    const imgH = imgW * (504 / 326);
+    const imgH = imgW * PITCH_PDF_RATIO;
     const labelH = items[0].q != null ? 14 : 0;
     // Het hele diagrammenblok (kop + alle rijen + legende) bij elkaar houden: past het niet
     // meer op deze pagina, dan eerst naar een nieuwe pagina i.p.v. de rijen te splitsen
     // (dat gebeurde zodra er boven het blok extra secties zoals "Selectie" bijkwamen).
     ensure(21 + numRows * (imgH + labelH + 14) + 18);
-    heading(`Opstelling${m.formation ? ' · ' + m.formation : ''}`);
+    // "Startopstelling per kwart/helft/deel": de diagrammen tonen de stand bij de START van elke
+    // periode (formatie staat al in de inforegel bovenaan, dus niet dubbel vermelden).
+    heading(items.length > 1 ? `Startopstelling per ${pSingLow(m)}` : 'Startopstelling');
     const rowWidth = perRow * imgW + (perRow - 1) * gap;
     const rowStartX = MG + (CW - rowWidth) / 2; // centreren als de rij smaller is dan de volle breedte
     for (let i = 0; i < items.length; i += perRow) {
@@ -496,8 +666,7 @@ async function exportPDF() {
           doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
           doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, y, { align: 'center' });
         }
-        const png = await rasterizeSvgString(pitchSVG(m, it.ps, 326, it.capId), 326 * 2, 504 * 2);
-        if (png) { try { doc.addImage(png, 'PNG', x, y + labelH, imgW, imgH); } catch (e) {} }
+        drawPitchPdf(doc, m, it.ps, x, y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
         x += imgW + gap;
       }
       y += imgH + labelH + 14;
@@ -518,14 +687,18 @@ async function exportPDF() {
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });
     tableBlock(`Tussenstand per ${pSingLow(m)}`, { head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
-      styles: { fontSize: 9, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } });
+      styles: { fontSize: 9, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } },
+      24, `Tussenstand: ${homeName(m)} – ${awayName(m)}`);
   }
 
   // ---- Wedstrijdstatistieken ----
+  // Expliciet "voor / tegen" i.p.v. "1 – 0": dat las als een tussenstand, en dan is de volgorde
+  // bij een uitwedstrijd (waar de score omgewisseld staat) dubbelzinnig.
+  const vt = (a, b) => `${stat(a)} voor / ${stat(b)} tegen`;
   const pdfStats = [
-    [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${stat('corner_us')} – ${stat('corner_them')}`],
-    [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${stat('freekick_us')} – ${stat('freekick_them')}`],
-    [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${stat('penalty_us')} – ${stat('penalty_them')}`],
+    [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${vt('corner_us', 'corner_them')}`],
+    [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${vt('freekick_us', 'freekick_them')}`],
+    [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
     [stat('yellow_card') + stat('red_card'), `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
@@ -613,11 +786,19 @@ async function exportPDF() {
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
       { head: [[{ content: head, colSpan: 2 }]], body: rows, showHead: 'firstPage',
         styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 60 } } }, 10);
+        columnStyles: { 0: { cellWidth: 60 } } }, 10,
+      gi === 0 ? `Minuut binnen het ${pSingLow(m)} · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
   });
 
-  doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-  doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
+  // Voettekst + paginanummer op ELKE pagina: één losse doc.text() na het opbouwen belandde
+  // enkel op de pagina die dan actief was (de laatste).
+  const totalPages = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
+  for (let pg = 1; pg <= totalPages; pg++) {
+    doc.setPage(pg);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
+    doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
+    doc.text(`${pg} / ${totalPages}`, MG + CW, PH - 20, { align: 'right' });
+  }
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.

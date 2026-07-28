@@ -486,11 +486,11 @@ function _lcNav(dir) {
 function renderLineupCarousel(m) {
   const total = Math.max(1, m.quarters.length);
   _lcIdx = 0;
-  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting), captainAtStartOfQuarter(m, 1));
+  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting), captainAtStartOfQuarter(m, 1), m.quarters.length ? 1 : undefined);
   const slides = Array.from({length: total}, (_, i) => {
     const ps = playersAtPeriodStart(m, i + 1);
     const capId = captainAtStartOfQuarter(m, i + 1);
-    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId)}</div>`;
+    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId, i + 1)}</div>`;
   }).join('');
   return `<div class="lc-wrap" id="lc-wrap">
     <div class="lc-nav">

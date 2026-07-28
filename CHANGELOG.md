@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.47
+- **Verbeterd:** de wedstrijd-PDF is nu ongeveer 45x kleiner (van ~8 MB naar ~170 KB). De
+  velddiagrammen worden getekend als echte PDF-vectoren in plaats van als foto's, dus ze blijven
+  ook scherp als je inzoomt of afdrukt, en de rugnummers en namen zijn selecteerbare tekst.
+- **Verbeterd:** de voettekst en een paginanummer ("2 / 3") staan nu op elke pagina van de PDF —
+  voorheen enkel op de laatste.
+- **Verbeterd:** de sectie Selectie toont nu rugnummers, staat op familienaam gesorteerd en
+  vermeldt ook wie afwezig was en wie niet geselecteerd was.
+- **Verbeterd:** de bank staat in de tabel "Opstelling per kwart" nu op één rij met de namen onder
+  elkaar, i.p.v. rijen "Bank 1/2/3" waarin dezelfde rij per kwart van speler verwisselde.
+- **Verbeterd:** bij elke tussenstand staat nu vermeld welke ploeg vooraan staat (thuis – uit), en
+  de wedstrijdstatistieken lezen als "1 voor / 0 tegen" i.p.v. "1 – 0", dat op een score leek.
+- **Verbeterd:** een doelpunt van de tegenstander heet nu "Doelpunt <ploegnaam>" i.p.v.
+  "Tegendoel", in lijn met de andere gebeurtenissen die de ploegnaam vermelden.
+- **Nieuw:** het wedstrijdverslag in de app toont nu ook de Selectie en de tabel
+  "Opstelling per kwart" (zijwaarts schuifbaar, met de positiekolom vast in beeld) — die stonden
+  tot nu enkel in de PDF.
+- **Verbeterd:** namen onder de spelers op het veld krijgen een donker plaatje, zodat ze leesbaar
+  blijven waar twee spelers dicht bij elkaar staan; in de PDF blijven ze binnen het veld.
+- **Nieuw:** in de velddiagrammen staat bij een speler die tijdens dat deel gewisseld werd nu ook
+  wie hem kwam vervangen ("» Hebbrecht"), en bij twee wissels op dezelfde plek de hele reeks
+  ("» Segers » Deprez"). Zowel in de app als in de PDF.
+- **Verbeterd:** de titel boven de velddiagrammen is nu "Startopstelling per kwart" (of per helft /
+  per deel), want ze tonen de stand bij het begin van elk deel — niet één opstelling voor de
+  hele wedstrijd.
+
 ## v0.5.46
 - **Verbeterd:** in de tabel "Opstelling per kwart" van de wedstrijd-PDF staan nu de volledige
   namen (voorheen afgekort als "Voornaam A."); een markering zoals "(wissel uit)" staat op een

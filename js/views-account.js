@@ -1568,6 +1568,9 @@ function calcMinutesPerQuarter(m) {
 }
 
 function pName(m, id){ const p = m.players.find(x=>x.id===id); return p ? p.name : '?'; }
+// Naam van de tegenstander voor eventlabels: bij een doelpunt tegen lees je liever wie scoorde
+// dan enkel "Tegendoel" — zelfde lijn als de "voor <ploegnaam>"-labels bij hoekschop/vrije trap.
+function oppName(m) { return (m && m.opponent) || 'tegenstander'; }
 // evtLabel() bouwt HTML op (gebruikt in innerHTML voor het gebeurtenissenlog, o.a. bij
 // kijkers) — spelersnamen en vrije tekst (reason/cornerType) komen van gebruikersinvoer
 // en moeten hier ge-esc't worden. pName() zelf blijft ongefilterd: die wordt ook gebruikt
@@ -1576,7 +1579,7 @@ function evtLabel(e, m) {
   const pn = id => esc(pName(m, id));
   switch(e.type) {
     case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
-    case 'goal_them': return `${icI(IC.goal)} Tegendoel`;
+    case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}`;
     case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pn(e.playerId)})`;
     case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
@@ -1607,7 +1610,7 @@ function evtLabel(e, m) {
 function evtLabelPlain(e, m) {
   switch(e.type) {
     case 'goal_us': { let s = `Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
-    case 'goal_them': return 'Tegendoel';
+    case 'goal_them': return `Doelpunt ${oppName(m)}`;
     case 'own_goal': return `Eigen doel (${pName(m,e.playerId)})`;
     case 'own_goal_them': return 'Eigen doel tegenstander';
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
@@ -1874,28 +1877,32 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y, dn, captainId) {
+function pitchDot(m, p, x, y, dn, captainId, subLbl) {
   const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
   const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
+  const sub = subLbl ? `<span class="pdot-sub">&raquo; ${esc(subLbl)}</span>` : '';
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}" style="left:${x}%;top:${y}%">
-    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span></div>`;
+    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}</span>${sub}</div>`;
 }
-function renderPitch(m, players, captainId) {
+// qNum (optioneel): toont bij de speler wie hem tijdens dat deel kwam vervangen.
+function renderPitch(m, players, captainId, qNum) {
   const dns = fieldDisplayNames(players);
+  const subs = m ? subsDuringPeriod(m, qNum) : new Map();
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId);
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, subs.get(p.id));
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, subs.get(p.id)); });
   }
+  const subLeg = subs.size ? ' · &raquo; = gewisseld voor' : '';
   return `<div class="pitch">${pitchLines()}${dots}</div>
-  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer · onder = naam</div>`;
+  <div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer · onder = naam${subLeg}</div>`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
@@ -1908,53 +1915,28 @@ function captainAtStartOfQuarter(m, qNum) {
   return before[before.length - 1].playerId;
 }
 
-// Zelfstandige SVG-veldweergave voor de PDF (los venster, zonder de app-CSS).
-function pitchSVG(m, players, svgWidth = 280, captainId = undefined) {
-  const capId = captainId !== undefined ? captainId : m.captainId;
-  const W = 320, H = 480, R = 15;
-  const pts = [];
-  players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => pts.push({ p, x: p.x, y: p.y }));
-  const byLine = {};
-  players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number')).forEach(p => { (byLine[p.line] = byLine[p.line] || []).push(p); });
-  Object.entries(byLine).forEach(([line, ps]) => {
-    const y = LINE_Y[line] != null ? LINE_Y[line] : 50, n = ps.length;
-    ps.forEach((p, i) => pts.push({ p, x: n === 1 ? 50 : 18 + i * (64 / (n - 1)), y }));
-  });
-  const dns = fieldDisplayNames(pts.map(({p}) => p));
-  const dots = pts.map(({ p, x, y }) => {
-    const cx = (x / 100 * W).toFixed(1), cy = (y / 100 * H).toFixed(1);
-    const gk = p.line === 'Doel', cap = (capId === p.id) ? ' ©' : '';
-    return `<g><circle cx="${cx}" cy="${cy}" r="${R}" fill="${gk ? '#f5821f' : '#101010'}" stroke="#fff" stroke-width="2"/>` +
-      `<text x="${cx}" y="${(+cy + 4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${esc(p.posNum || p.number || '?')}</text>` +
-      `<text x="${cx}" y="${(+cy + R + 12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff">${esc((dns.get(p.id) || _lastName(p.name || '')) + cap)}</text></g>`;
-  }).join('');
-  const PAW=189,PAD=75,GAW=86,GAD=25,GW=36,GD=10,CCR=43,PENY=50,CR=8;
-  const pax=((W-PAW)/2).toFixed(1), gax=((W-GAW)/2).toFixed(1), gx=((W-GW)/2).toFixed(1);
-  return `<svg viewBox="-3 -${GD+2} ${W+6} ${H+GD*2+4}" width="${svgWidth}" style="max-width:100%">
-    <defs>
-      <pattern id="grass" x="0" y="0" width="${W}" height="60" patternUnits="userSpaceOnUse">
-        <rect width="${W}" height="30" fill="#1b8040"/>
-        <rect y="30" width="${W}" height="30" fill="#1e9449"/>
-      </pattern>
-      <clipPath id="fc"><rect x="0" y="0" width="${W}" height="${H}" rx="8"/></clipPath>
-    </defs>
-    <g clip-path="url(#fc)"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#grass)"/></g>
-    <rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="none" stroke="#fff" stroke-width="2.5"/>
-    <line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#fff" stroke-width="2"/>
-    <circle cx="${W/2}" cy="${H/2}" r="${CCR}" fill="none" stroke="#fff" stroke-width="2"/>
-    <circle cx="${W/2}" cy="${H/2}" r="3" fill="#fff"/>
-    <rect x="${pax}" y="0" width="${PAW}" height="${PAD}" fill="none" stroke="#fff" stroke-width="2"/>
-    <rect x="${pax}" y="${H-PAD}" width="${PAW}" height="${PAD}" fill="none" stroke="#fff" stroke-width="2"/>
-    <rect x="${gax}" y="0" width="${GAW}" height="${GAD}" fill="none" stroke="#fff" stroke-width="2"/>
-    <rect x="${gax}" y="${H-GAD}" width="${GAW}" height="${GAD}" fill="none" stroke="#fff" stroke-width="2"/>
-    <circle cx="${W/2}" cy="${PENY}" r="3" fill="#fff"/>
-    <circle cx="${W/2}" cy="${H-PENY}" r="3" fill="#fff"/>
-    <path d="M ${CR} 0 A ${CR} ${CR} 0 0 0 0 ${CR}" fill="none" stroke="#fff" stroke-width="2"/>
-    <path d="M ${W-CR} 0 A ${CR} ${CR} 0 0 1 ${W} ${CR}" fill="none" stroke="#fff" stroke-width="2"/>
-    <path d="M 0 ${H-CR} A ${CR} ${CR} 0 0 0 ${CR} ${H}" fill="none" stroke="#fff" stroke-width="2"/>
-    <path d="M ${W} ${H-CR} A ${CR} ${CR} 0 0 1 ${W-CR} ${H}" fill="none" stroke="#fff" stroke-width="2"/>
-    ${dots}
-  </svg>`;
+// Wie tijdens een periode vervangen werd, gekoppeld aan de speler die er bij de START van die
+// periode stond: Map(startspeler-id -> "Deprez" of "Deprez » Segers" bij twee wissels op dezelfde
+// plek). Pauzewissels (atBreak) zitten al in playersAtPeriodStart en horen hier dus niet bij.
+// Gebruikt in de velddiagrammen (scherm + PDF) om de wissel bij de speler te tonen.
+function subsDuringPeriod(m, qNum) {
+  const out = new Map();
+  if (!qNum) return out;
+  const subs = (m.events || []).filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && e.playerOutId && e.playerInId)
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  const chains = new Map(); // startspeler-id -> { names: [], lastId }
+  for (const e of subs) {
+    // Ging de uitgaande speler zelf pas tijdens dit deel het veld op? Dan hoort deze wissel bij
+    // dezelfde plek/ketting als die eerdere wissel.
+    let root = e.playerOutId;
+    for (const [k, v] of chains) if (v.lastId === e.playerOutId) { root = k; break; }
+    const c = chains.get(root) || { names: [], lastId: null };
+    c.names.push(_lastName(pName(m, e.playerInId)));
+    c.lastId = e.playerInId;
+    chains.set(root, c);
+  }
+  for (const [k, v] of chains) out.set(k, v.names.join(' » '));
+  return out;
 }
 
 // ===================== HOME =====================

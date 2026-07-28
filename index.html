@@ -336,9 +336,22 @@
     .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:repeating-linear-gradient(to bottom,#1b8040 0px,#1b8040 30px,#1e9449 30px,#1e9449 60px);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
     .pitch-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     .pdot{position:absolute;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.4)}
-    .pdot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:70px;overflow:hidden;text-overflow:ellipsis}
+    /* Naamlabel onder de bol: donker doorschijnend plaatje eronder, zodat twee labels die bij
+       lange familienamen tegen elkaar aanschuiven toch leesbaar blijven (i.p.v. wit-op-gras
+       dat in elkaar overloopt). z-index tilt het label boven de buurbol. */
+    .pdot-lbl{position:absolute;top:36px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:78px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
+    /* Tweede regeltje onder de naam: wie deze speler tijdens het deel kwam vervangen. */
+    .pdot-sub{position:absolute;top:51px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#fdd6a0;white-space:nowrap;background:rgba(0,0,0,.5);border-radius:5px;padding:1px 4px;max-width:86px;overflow:hidden;text-overflow:ellipsis;z-index:2}
     .pdot-org{background:#f5821f}
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}
+    /* Opstelling-per-periode-tabel in het wedstrijdverslag: horizontaal scrollbaar met een
+       vastgezette positiekolom, want 1 + 4 kolommen met volledige namen passen niet op een gsm. */
+    .lut-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .lut{border-collapse:collapse;font-size:12.5px;min-width:100%}
+    .lut th,.lut td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap;vertical-align:top}
+    .lut thead th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--txt2);background:var(--card)}
+    .lut th.lut-fix{position:sticky;left:0;background:var(--card);font-weight:800;box-shadow:1px 0 0 var(--bdr)}
+    .lut tbody tr:last-child th,.lut tbody tr:last-child td{border-bottom:none}
     /* Lineup carousel */
     .lc-wrap{position:relative}
     .lc-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
