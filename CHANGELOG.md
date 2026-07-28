@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.6.0
+- **Nieuw:** de selectie heeft nu vier duidelijke standen per speler: **Basis**, **Wissel**,
+  **NG** (niet geselecteerd) en **NB** (niet beschikbaar, wat vroeger het kruisje was). Een tweede
+  tik op de actieve stand doet niets meer, zodat je niet meer per ongeluk terugvalt op "niets
+  aangeduid".
+- **Nieuw:** bij **NB** kan je een reden kiezen — ziek, geblesseerd, speelt elders of andere reden.
+  Dat is optioneel: geen reden kiezen werkt zoals voorheen.
+- **Nieuw:** koos je **"speelt elders"**, dan telt die wedstrijd niet als gemiste wedstrijd in het
+  aanwezigheidspercentage. De app deed dat al automatisch voor A/B-ploegen op dezelfde dag; nu kan
+  je het ook zelf aangeven, bijvoorbeeld als die andere wedstrijd niet in de app staat.
+- **Verbeterd:** het verslag en de PDF tonen de selectie in vier groepen: de selectie zelf, dan
+  "Niet beschikbaar" (met de reden tussen haakjes), "Geselecteerd maar niet aanwezig" en
+  "Niet geselecteerd".
+- **Verbeterd:** "Afwezig" heet nu "Niet aanwezig" wanneer het gaat over iemand die wel geselecteerd
+  was maar er niet was — minder scherp voor wie zich last minute afmeldt. De CSV-export gebruikt
+  daar ook Basis/Wissel/Niet aanwezig.
+- Ook de tornooiselectie werkt met NG/NB en een reden, en de handleiding is bijgewerkt.
+
 ## v0.5.48
 - **Verbeterd:** onder de tabel "Opstelling per kwart" staat nu een legende die de positielabels
   uitlegt (KP = keeper, V/M/S = verdediging/middenveld/spits, L/C/R = links/centraal/rechts) — in

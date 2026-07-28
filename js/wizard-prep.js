@@ -213,22 +213,36 @@ function wizNext() {
 // ----- Stap 2: selectie -----
 function setSel(pid, val) {
   const p = wiz.pool.find(x => x.pid === pid); if (!p) return;
-  p.sel = (p.sel === val) ? 'none' : val;
+  // Alle vier de standen zijn expliciet (NG = 'none'), dus een tik op de actieve knop doet niets
+  // meer — voorheen viel je dan terug op "niets aanduiden", wat onbedoeld kon gebeuren.
+  p.sel = val;
   if (p.sel !== 'basis') p.slot = null;
+  if (p.sel !== 'absent') p.absentReason = '';
   render();
 }
 function setPoolNum(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
+function setAbsentReason(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) { p.absentReason = val; render(); } }
+// Optioneel redenmenu bij NB. 'Speelt elders' is de enige keuze die de statistieken beïnvloedt
+// (die wedstrijd telt dan niet als gemist), de andere zijn informatie voor het verslag.
+function absentReasonSelect(pid, cur, onchange) {
+  return `<select class="abs-reason" onchange="${onchange}('${pid}',this.value)" aria-label="Reden niet beschikbaar">
+    <option value="" ${!cur?'selected':''}>reden (optioneel)</option>
+    ${ABSENT_REASONS.map(r => `<option value="${r.key}" ${cur===r.key?'selected':''}>${r.label}</option>`).join('')}
+  </select>`;
+}
 function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
   const isSelected = p.sel === 'basis' || p.sel === 'bank';
   return `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
-    <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small></div>
+    <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small>
+      ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
       <button class="${p.sel==='bank'?'bank':''}" onclick="setSel('${p.pid}','bank')">Wissel</button>
-      <button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Afwezig (onbeschikbaar/afgemeld)">✗</button>
+      <button class="${(!p.sel||p.sel==='none')?'ng':''}" onclick="setSel('${p.pid}','none')" title="Niet geselecteerd — telt nergens mee">NG</button>
+      <button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
     </div></div>`;
 }
 function setWizCaptain(pid) { wiz.captainPid = (wiz.captainPid === pid) ? null : pid; render(); }
@@ -241,10 +255,10 @@ function wizStep2() {
     <div class="card" style="display:flex;gap:10px;text-align:center">
       <div style="flex:1"><div style="font-size:22px;font-weight:900;color:${bc===need?'var(--grn)':'var(--org)'}">${bc}/${need}</div><div style="font-size:11px;color:var(--txt2)">BASIS</div></div>
       <div style="flex:1"><div style="font-size:22px;font-weight:900">${bankCount()}</div><div style="font-size:11px;color:var(--txt2)">WISSEL</div></div>
-      ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
+      ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
     ${(() => { const nums = wiz.pool.filter(p => (p.sel === 'basis' || p.sel === 'bank') && (p.number || '').toString().trim()).map(p => p.number.toString().trim()); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer bij geselecteerde spelers: ${dup.map(esc).join(', ')}</div>` : ''; })()}
-    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b>, <b>Wissel</b> of <b style="color:var(--rd)">✗ afwezig</b> (onbeschikbaar/afgemeld — telt mee in het aanwezigheids-%). <b>Niets aanduiden</b> = niet geselecteerd (niet overwogen, bv. speelt bij de B-ploeg) — telt nergens in mee. Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b> (start), <b>Wissel</b>, <b>NG</b> = niet geselecteerd (telt nergens in mee) of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%). Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen. Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
@@ -594,7 +608,7 @@ async function finishWizard(startNow) {
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
     players: allP,
-    absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null })),
+    absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null, reason: p.absentReason || '' })),
   };
   let m;
   if (wiz.editId) {
@@ -625,11 +639,12 @@ function editMatchWizard(m) {
     const rp = findRoster(p.rosterId, p.name); if (rp) rosterUsed.add(rp.id);
     return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
   });
-  // 2. Afwezig gemarkeerde spelers (✗) mee in de pool — anders wist finishWizard ze bij het opslaan.
+  // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.
+  //    De eventueel gekozen reden gaat mee, zodat herbewerken die niet stil laat vallen.
   (m.absentPlayers || []).forEach(a => {
     const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
     const rp = findRoster(ab.rosterId, ab.name); if (rp) rosterUsed.add(rp.id);
-    pool.push({ pid: uid(), srcId: ab.rosterId || (rp ? rp.id : null), srcGlobalId: rp ? (rp.globalId || null) : null, name: ab.name || (rp ? rp.name : 'Speler'), number: rp ? (rp.number || '') : '', pos: rp ? (rp.pos || '') : '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: 'absent', slot: null });
+    pool.push({ pid: uid(), srcId: ab.rosterId || (rp ? rp.id : null), srcGlobalId: rp ? (rp.globalId || null) : null, name: ab.name || (rp ? rp.name : 'Speler'), number: rp ? (rp.number || '') : '', pos: rp ? (rp.pos || '') : '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: 'absent', absentReason: ab.reason || '', slot: null });
   });
   // 3. Overige rosterspelers die (nog) niet geselecteerd waren → beschikbaar als 'none', zodat ze
   //    bij het herbewerken alsnog opgesteld kunnen worden.
@@ -695,7 +710,8 @@ function startSelectieWizard() {
       pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
       name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '',
       fromName: tTeam ? tTeam.name : '', guest: false,
-      sel: s.sel === 'absent' ? 'absent' : 'none', slot: null,
+      sel: s.sel === 'absent' ? 'absent' : 'none',
+      absentReason: s.sel === 'absent' ? (s.absentReason || '') : '', slot: null,
     }));
     wiz.poolTeamId = t ? t.teamId : wiz.teamId;
   } else {

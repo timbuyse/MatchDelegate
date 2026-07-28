@@ -358,52 +358,64 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);
 }
 
-// Selectie van een wedstrijd in drie groepen, gesorteerd op familienaam. Gedeeld door de PDF
-// en het verslag op het scherm, zodat beide altijd hetzelfde tonen.
-//  - selected    : kern + bank (met rugnummer)
-//  - absent      : bij de selectie als afwezig aangeduid (m.absentPlayers) of live als no-show (p.absent)
-//  - notSelected : rosterspelers die niet in de wedstrijd zaten (leeg als de ploeg niet meer bestaat)
+// Selectie van een wedstrijd in vier groepen, gesorteerd op familienaam. Gedeeld door de PDF en
+// het verslag op het scherm, zodat beide altijd hetzelfde tonen.
+//  - selected       : kern + wissels (met rugnummer)
+//  - notAvailable   : NB in de selectie (m.absentPlayers), eventueel met reden
+//  - notPresent     : wél geselecteerd, maar tijdens de wedstrijd als niet aanwezig gemarkeerd
+//  - notSelected    : NG — rosterspelers die niet in de wedstrijd zaten (leeg als de ploeg weg is)
 function matchSelectionGroups(m) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  const selected = m.players.filter(p => !p.absent)
-    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null })).sort(byLast);
-  const absent = m.players.filter(p => p.absent)
-    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null }));
+  const pick = p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null });
+  const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
+  const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
   const team = typeof teamById === 'function' ? teamById(m.teamId) : null;
+  const notAvailable = [];
   for (const a of (m.absentPlayers || [])) {
-    const rec = typeof a === 'string' ? { name: a, rosterId: null } : { name: a.name || '', rosterId: a.rosterId || null };
+    const rec = typeof a === 'string' ? { name: a, rosterId: null, reason: '' } : { name: a.name || '', rosterId: a.rosterId || null, reason: a.reason || '' };
     if (!rec.name) continue;
-    const dup = absent.some(x => (rec.rosterId && x.rosterId === rec.rosterId) || x.name === rec.name);
+    const dup = [...notPresent, ...notAvailable].some(x => (rec.rosterId && x.rosterId === rec.rosterId) || x.name === rec.name);
     if (dup) continue;
-    // Afwezigen uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
+    // NB'ers uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
     // ploeg, dus daar opzoeken zodat de lijst er niet half genummerd uitziet.
     const r = ((team && team.players) || []).find(p => (rec.rosterId && p.id === rec.rosterId) || p.name === rec.name);
-    absent.push({ name: rec.name, number: (r && r.number) || '', rosterId: rec.rosterId });
+    notAvailable.push({ name: rec.name, number: (r && r.number) || '', rosterId: rec.rosterId, reason: rec.reason });
   }
-  absent.sort(byLast);
+  notAvailable.sort(byLast);
   const known = new Set();
-  [...selected, ...absent].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
+  [...selected, ...notPresent, ...notAvailable].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
   const notSelected = ((team && team.players) || [])
     .filter(p => !known.has(p.id) && !known.has(p.name))
     .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.id })).sort(byLast);
-  return { selected, absent, notSelected };
+  return { selected, notAvailable, notPresent, notSelected };
 }
 // Uitleg bij de positielabels van de opstellingstabel (KP/VCL/ML/SC...): die afkortingen worden
 // afgeleid uit lijn + plaats op de breedte en zijn zonder legende niet te raden.
 const POS_LABEL_LEGEND = 'KP = keeper · V/M/S = verdediging/middenveld/spits · L/C/R = links/centraal/rechts (CL/CR = centraal links/rechts)';
-// Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens").
-function nameWithNum(p) { return (p.number ? p.number + ' ' : '') + p.name; }
+// Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens"); bij een NB'er komt de
+// eventuele reden erachter tussen haakjes ("13 Lars Marysse (speelt elders)").
+function nameWithNum(p) {
+  const r = p.reason ? absentReasonLabel(p.reason) : '';
+  return (p.number ? p.number + ' ' : '') + p.name + (r ? ` (${r.toLowerCase()})` : '');
+}
+// De vier selectiegroepen als [label, namen]-blokken, in vaste volgorde. Eén bron voor het
+// verslag op het scherm en de PDF-sectie.
+function selectionBlocks(m) {
+  const g = matchSelectionGroups(m);
+  const blocks = [];
+  if (g.selected.length) blocks.push(['', g.selected]);
+  if (g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
+  if (g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
+  if (g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
+  return { groups: g, blocks };
+}
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
 function selectionCardHtml(m) {
-  const g = matchSelectionGroups(m);
-  if (!g.selected.length && !g.absent.length && !g.notSelected.length) return '';
-  const line = (lbl, list) => !list.length ? '' :
-    `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${lbl}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`;
-  return `<div class="sec">Selectie (${g.selected.length})</div>
+  const { groups, blocks } = selectionBlocks(m);
+  if (!blocks.length) return '';
+  return `<div class="sec">Selectie (${groups.selected.length})</div>
     <div class="card">
-      ${line('', g.selected)}
-      ${line('Afwezig:', g.absent)}
-      ${line('Niet geselecteerd:', g.notSelected)}
+      ${blocks.map(([lbl, list]) => `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${esc(lbl)}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`).join('')}
     </div>`;
 }
 // Tabel "Opstelling per periode" op het scherm, uit dezelfde bron als de PDF
@@ -612,18 +624,14 @@ async function exportPDF() {
   }
 
   // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
-  const selGroups = matchSelectionGroups(m);
-  if (selGroups.selected.length || selGroups.absent.length || selGroups.notSelected.length) {
-    const blocks = [];
-    if (selGroups.selected.length) blocks.push(['', selGroups.selected.map(nameWithNum).join(', ')]);
-    if (selGroups.absent.length) blocks.push(['Afwezig: ', selGroups.absent.map(nameWithNum).join(', ')]);
-    if (selGroups.notSelected.length) blocks.push(['Niet geselecteerd: ', selGroups.notSelected.map(nameWithNum).join(', ')]);
+  const selBlocks = selectionBlocks(m).blocks;
+  if (selBlocks.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10);
-    const wrapped = blocks.map(([lbl, txt]) => doc.splitTextToSize(lbl + txt, CW));
-    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 13, 0) + (blocks.length - 1) * 4);
+    const wrapped = selBlocks.map(([lbl, list]) => doc.splitTextToSize((lbl ? lbl + ' ' : '') + list.map(nameWithNum).join(', '), CW));
+    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 13, 0) + (selBlocks.length - 1) * 4);
     for (let i = 0; i < wrapped.length; i++) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(10);
-      doc.setTextColor(...(blocks[i][0] ? [107, 114, 128] : [23, 23, 23]));
+      doc.setTextColor(...(selBlocks[i][0] ? [107, 114, 128] : [23, 23, 23]));
       for (const line of wrapped[i]) { ensure(13); doc.text(line, MG, y); y += 13; }
       y += 4;
     }
@@ -735,7 +743,7 @@ async function exportPDF() {
   const playerHead = ['#', 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
   const absentRowIdx = new Set();
   const playerRows = m.players.map((p, idx) => {
-    if (p.absent) { absentRowIdx.add(idx); return [p.number || '', p.name || '', 'Afwezig', ...qCols.map(() => ''), '', '', '', '']; }
+    if (p.absent) { absentRowIdx.add(idx); return [p.number || '', p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
     const min = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;

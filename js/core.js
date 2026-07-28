@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.5.48'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.6.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -18,6 +18,16 @@ function pSing(m) { return pType(m).sing; }              // bv. "Kwart"
 function pSingLow(m) { return pType(m).sing.toLowerCase(); } // bv. "kwart"
 function pPlural(m) { return pType(m).plural; }          // bv. "kwarten"
 function pAbbr(m) { return pType(m).abbr; }              // bv. "K"
+// Redenen bij "niet beschikbaar" (NB) in de selectie — optioneel: geen reden blijft geldig.
+// 'elders' is de ENIGE reden met een rekengevolg: die wedstrijd telt niet als gemist in het
+// aanwezigheids-% (de speler voetbalde, alleen bij een andere ploeg). De rest is informatie.
+const ABSENT_REASONS = [
+  { key: 'ziek',     label: 'Ziek' },
+  { key: 'blessure', label: 'Geblesseerd' },
+  { key: 'elders',   label: 'Speelt elders' },
+  { key: 'ander',    label: 'Andere reden' },
+];
+function absentReasonLabel(key) { const r = ABSENT_REASONS.find(x => x.key === key); return r ? r.label : ''; }
 const DURATIONS = { helften: [30, 45], delen: [15, 20], kwarten: [10, 15, 20] };
 const DUR_DEFAULT = { helften: 30, delen: 20, kwarten: 15 };
 // Veelgebruikte formaties per wedstrijdtype. Slot = {line, x, y} (x,y in % van het veld; doel onderaan).

@@ -111,7 +111,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
     return `<div class="prow" style="opacity:.5">
       <div class="pnum pnum-off">${p.number||'?'}</div>
       <div style="flex:1"><div class="pname" style="text-decoration:line-through">${esc(p.name)}${cap}</div></div>
-      <div class="pmins" style="margin-left:6px;color:var(--rd)">Afwezig</div>
+      <div class="pmins" style="margin-left:6px;color:var(--rd)">Niet aanwezig</div>
     </div>`;
   }
   const ms = minsData ? minsData.ms : 0;
@@ -746,7 +746,7 @@ function exportMatchCSV() {
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
-    const status = p.absent ? 'Afwezig' : p.starting ? 'Basis' : 'Bank';
+    const status = p.absent ? 'Niet aanwezig' : p.starting ? 'Basis' : 'Wissel';
     row('', p.name || '', p.number || '', p.line || p.pos || '', status, minMs ? minMs + "'" : '', g || '', a || '', yc || '', rc || '');
   }
 

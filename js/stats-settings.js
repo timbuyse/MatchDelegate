@@ -113,6 +113,10 @@ async function loadStats() {
       const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
       const _kr = selKeyR(ab.rosterId, m.date);
       if ((_kr && selectedOnDate.has(_kr)) || selectedOnDate.has(selKeyN(ab.name, m.date))) continue; // die dag elders geselecteerd → niet afwezig
+      // Reden "speelt elders": de speler voetbalde wel, alleen bij een ploeg buiten deze
+      // statistieken. Dat is dus geen gemiste wedstrijd — zelfde gedachte als de A/B-correctie
+      // hierboven, maar dan handmatig aangegeven omdat die wedstrijd hier niet in de lijst zit.
+      if (ab.reason === 'elders') continue;
       const r = getp(ab.rosterId, ab.name); r.absent++;
     }
     for (const e of m.events) {
@@ -257,8 +261,10 @@ async function loadPlayerDetail() {
   // telt niet als afwezig — hij speelde dan bij de A/B-tegenhanger.
   const selectedDates = new Set(doneList.map(m => m.date || ''));
   for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason)) {
-    const wasAbsent = (m.absentPlayers || []).some(a => { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; return rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name; });
-    if (wasAbsent && !selectedDates.has(m.date || '')) absent++;
+    // Zelfde uitzondering als in loadStats: reden "speelt elders" is geen gemiste wedstrijd.
+    const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
+      .find(ab => rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name);
+    if (rec && rec.reason !== 'elders' && !selectedDates.has(m.date || '')) absent++;
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
   // Aparte telling: in hoeveel tornooien de speler geselecteerd stond (aantal wedstrijden binnen dat tornooi is niet relevant).
@@ -533,11 +539,15 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/08_opstelling.png',
     inhoud: `
       <div class="sec">Stap 2 — Selectie</div>
-      <p>Verdeel spelers per rol:</p>
+      <p>Kies per speler één van vier standen:</p>
       <ul class="hdl-list">
-        <li><b style="color:#4caf50">Basis</b> — start in de basisopstelling.</li>
-        <li><b style="color:#2196f3">Wissel</b> — wisselspeler.</li>
-        <li><b style="color:#f44336">X</b> — niet geselecteerd.</li>
+        <li><b style="color:#4caf50">Basis</b> — start de wedstrijd.</li>
+        <li><b style="color:#2196f3">Wissel</b> — zit in de selectie, start op de bank.</li>
+        <li><b>NG</b> — niet geselecteerd; deze speler telt nergens mee in de statistieken.</li>
+        <li><b style="color:#f44336">NB</b> — niet beschikbaar (ziek, geblesseerd, afgemeld …). Telt
+          mee als gemiste wedstrijd in het aanwezigheidspercentage. Je kan er een <b>reden</b> bij
+          kiezen; koos je <b>'speelt elders'</b>, dan telt die wedstrijd niet als gemist — de speler
+          voetbalde immers, alleen bij een andere ploeg.</li>
       </ul>
       <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>
       <div class="sec">Stap 3 — Opstelling</div>

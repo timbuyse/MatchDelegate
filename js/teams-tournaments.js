@@ -350,6 +350,7 @@ function editTournament(id) {
     const s = byKey[p.srcId] || byKey[p.name];
     const val = s ? (s.sel || 'mee') : null;
     p.sel = val === 'absent' ? 'absent' : (val ? 'mee' : 'none');
+    p.absentReason = (p.sel === 'absent' && s) ? (s.absentReason || '') : '';
     // Tornooi-specifiek rugnummer terugzetten — trnWizBuildPool nam het rosternummer, waardoor
     // een aangepast tornooinummer bij herbewerken stil verloren ging.
     if (s && s.number) p.number = s.number;
@@ -409,15 +410,17 @@ function trnWizBack() { if (trnWiz.step > 1) { trnWiz.step--; render(); } }
 function trnWizLeave() { trnWiz = null; go(currentTournament ? 'tournament' : 'tournaments'); }
 function setTrnSel(pid, val) {
   const p = trnWiz.pool.find(x => x.pid === pid); if (!p) return;
-  p.sel = (p.sel === val) ? 'none' : val;
+  p.sel = val; // NG is een eigen knop, dus geen terugval naar 'none' bij een tweede tik
+  if (p.sel !== 'absent') p.absentReason = '';
   render();
 }
 function setTrnPoolNum(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
+function setTrnAbsentReason(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) { p.absentReason = val; render(); } }
 async function saveTournamentWiz() {
   const squad = {
     players: trnWiz.pool
       .filter(p => p.sel === 'mee' || p.sel === 'absent')
-      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel })),
+      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '' })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
@@ -478,18 +481,20 @@ function renderTrnStep2() {
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
-    <div class="nm">${esc(p.name)}<small>${posDisplay(p) || '—'}</small></div>
+    <div class="nm">${esc(p.name)}<small>${posDisplay(p) || '—'}</small>
+      ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}</div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
-      <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Afwezig (onbeschikbaar/afgemeld)">✗</button>
+      <button class="${(!p.sel||p.sel==='none')?'ng':''}" onclick="setTrnSel('${p.pid}','none')" title="Niet geselecteerd — telt nergens mee">NG</button>
+      <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
     </div></div>`;
   return `
     <div class="card" style="display:flex;gap:10px;text-align:center;margin-bottom:12px">
       <div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--grn)">${mee}</div><div style="font-size:11px;color:var(--txt2)">MEE</div></div>
-      ${ab ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${ab}</div><div style="font-size:11px;color:var(--txt2)">AFWEZIG</div></div>` : ''}
+      ${ab ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${ab}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
-    <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">✗ afwezig</b> = onbeschikbaar/afgemeld. <b>Niets aanduiden</b> = niet geselecteerd (niet overwogen).</div>
+    <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Mee</b> = in de tornooiselectie, <b>NG</b> = niet geselecteerd (telt nergens mee), <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%). Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
     <div class="card">${trnWiz.pool.length ? trnWiz.pool.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="trnWizBack()">← Vorige</button>
