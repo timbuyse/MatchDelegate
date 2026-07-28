@@ -388,6 +388,9 @@ function matchSelectionGroups(m) {
     .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.id })).sort(byLast);
   return { selected, absent, notSelected };
 }
+// Uitleg bij de positielabels van de opstellingstabel (KP/VCL/ML/SC...): die afkortingen worden
+// afgeleid uit lijn + plaats op de breedte en zijn zonder legende niet te raden.
+const POS_LABEL_LEGEND = 'KP = keeper · V/M/S = verdediging/middenveld/spits · L/C/R = links/centraal/rechts (CL/CR = centraal links/rechts)';
 // Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens").
 function nameWithNum(p) { return (p.number ? p.number + ' ' : '') + p.name; }
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
@@ -417,6 +420,7 @@ function lineupTableHtml(m) {
   return `<div class="sec">Opstelling per ${pSingLow(m)}</div>
     <div class="card" style="padding:0">
       <div class="lut-wrap"><table class="lut"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="lut-legend">${POS_LABEL_LEGEND}</div>
     </div>`;
 }
 // Thuis- en uitploeg bij naam: elke tussenstand wordt als "thuis – uit" weergegeven, dus bij een
@@ -551,12 +555,17 @@ async function exportPDF() {
   const tableBlock = (title, opts, gapAfter = 24, note = '') => {
     const full = { margin: { left: MG, right: MG, top: MG, bottom: MG }, rowPageBreak: 'avoid', ...opts };
     const h = measureTable(full);
-    const headH = (title ? 30 : 0) + (note ? 14 : 0);
+    // Een lange toelichting (bv. de legende van de positielabels) moet afbreken i.p.v. voorbij de
+    // rechtermarge te lopen — dus vooraf opsplitsen en de hoogte meerekenen.
+    let noteLines = [];
+    if (note) { doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); noteLines = doc.splitTextToSize(note, CW); }
+    const headH = (title ? 30 : 0) + noteLines.length * 11 + (note ? 4 : 0);
     if (h != null && y + headH + h > PH - MG) { doc.addPage(); y = MG; }
     if (title) heading(title);
-    if (note) {
+    if (noteLines.length) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
-      doc.text(note, MG, y); y += 14; doc.setTextColor(23, 23, 23);
+      for (const ln of noteLines) { doc.text(ln, MG, y); y += 11; }
+      y += 4; doc.setTextColor(23, 23, 23);
     }
     doc.autoTable({ ...full, startY: y });
     y = doc.lastAutoTable.finalY + gapAfter;
@@ -629,7 +638,7 @@ async function exportPDF() {
   if (lineupTable) {
     tableBlock(`Opstelling per ${pSingLow(m)}`, { head: [lineupTable.head], body: lineupTable.body,
       styles: { fontSize: 8.5, cellPadding: 5 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } });
+      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } } }, 24, POS_LABEL_LEGEND);
   }
 
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----

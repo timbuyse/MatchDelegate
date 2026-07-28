@@ -9,6 +9,11 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.5.48
+- **Verbeterd:** onder de tabel "Opstelling per kwart" staat nu een legende die de positielabels
+  uitlegt (KP = keeper, V/M/S = verdediging/middenveld/spits, L/C/R = links/centraal/rechts) — in
+  de PDF en in het verslag in de app.
+
 ## v0.5.47
 - **Verbeterd:** de wedstrijd-PDF is nu ongeveer 45x kleiner (van ~8 MB naar ~170 KB). De
   velddiagrammen worden getekend als echte PDF-vectoren in plaats van als foto's, dus ze blijven
