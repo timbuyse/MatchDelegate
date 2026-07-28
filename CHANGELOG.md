@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.6.1
+- **Verbeterd:** de aparte knop **NG** is weer weg — met vier knoppen werd de rij te breed op een
+  smartphone. Niets aanduiden betekent gewoon "niet geselecteerd", en een tweede tik op Basis,
+  Wissel of NB maakt je keuze weer ongedaan. Bovenaan de selectie staat dat nu ook uitgelegd.
+  Geldt voor de wedstrijd- en de tornooiselectie; NB met reden blijft ongewijzigd.
+
 ## v0.6.0
 - **Nieuw:** de selectie heeft nu vier duidelijke standen per speler: **Basis**, **Wissel**,
   **NG** (niet geselecteerd) en **NB** (niet beschikbaar, wat vroeger het kruisje was). Een tweede

@@ -213,9 +213,9 @@ function wizNext() {
 // ----- Stap 2: selectie -----
 function setSel(pid, val) {
   const p = wiz.pool.find(x => x.pid === pid); if (!p) return;
-  // Alle vier de standen zijn expliciet (NG = 'none'), dus een tik op de actieve knop doet niets
-  // meer — voorheen viel je dan terug op "niets aanduiden", wat onbedoeld kon gebeuren.
-  p.sel = val;
+  // Geen aparte NG-knop (die maakte de rij te breed op een smartphone): niet-geselecteerd is de
+  // standaard, en een tweede tik op de actieve knop zet de speler daar weer op terug.
+  p.sel = (p.sel === val) ? 'none' : val;
   if (p.sel !== 'basis') p.slot = null;
   if (p.sel !== 'absent') p.absentReason = '';
   render();
@@ -241,7 +241,6 @@ function selRow(p) {
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
       <button class="${p.sel==='bank'?'bank':''}" onclick="setSel('${p.pid}','bank')">Wissel</button>
-      <button class="${(!p.sel||p.sel==='none')?'ng':''}" onclick="setSel('${p.pid}','none')" title="Niet geselecteerd — telt nergens mee">NG</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
     </div></div>`;
 }
@@ -258,7 +257,7 @@ function wizStep2() {
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
     ${(() => { const nums = wiz.pool.filter(p => (p.sel === 'basis' || p.sel === 'bank') && (p.number || '').toString().trim()).map(p => p.number.toString().trim()); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer bij geselecteerde spelers: ${dup.map(esc).join(', ')}</div>` : ''; })()}
-    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">Kies per speler: <b>Basis</b> (start), <b>Wissel</b>, <b>NG</b> = niet geselecteerd (telt nergens in mee) of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%). Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen. Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen. Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}

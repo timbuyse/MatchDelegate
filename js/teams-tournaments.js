@@ -410,7 +410,7 @@ function trnWizBack() { if (trnWiz.step > 1) { trnWiz.step--; render(); } }
 function trnWizLeave() { trnWiz = null; go(currentTournament ? 'tournament' : 'tournaments'); }
 function setTrnSel(pid, val) {
   const p = trnWiz.pool.find(x => x.pid === pid); if (!p) return;
-  p.sel = val; // NG is een eigen knop, dus geen terugval naar 'none' bij een tweede tik
+  p.sel = (p.sel === val) ? 'none' : val; // tweede tik = terug naar niet-geselecteerd (de standaard)
   if (p.sel !== 'absent') p.absentReason = '';
   render();
 }
@@ -485,7 +485,6 @@ function renderTrnStep2() {
       ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}</div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
-      <button class="${(!p.sel||p.sel==='none')?'ng':''}" onclick="setTrnSel('${p.pid}','none')" title="Niet geselecteerd — telt nergens mee">NG</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
     </div></div>`;
   return `
@@ -494,7 +493,7 @@ function renderTrnStep2() {
       ${ab ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${ab}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
-    <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Mee</b> = in de tornooiselectie, <b>NG</b> = niet geselecteerd (telt nergens mee), <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%). Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
+    <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens mee). <b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
     <div class="card">${trnWiz.pool.length ? trnWiz.pool.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="trnWizBack()">← Vorige</button>

@@ -539,11 +539,11 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/08_opstelling.png',
     inhoud: `
       <div class="sec">Stap 2 — Selectie</div>
-      <p>Kies per speler één van vier standen:</p>
+      <p>Duid je een speler niet aan, dan is hij <b>niet geselecteerd</b>: hij telt nergens mee in de
+        statistieken. Verder kan je per speler kiezen (nog eens tikken maakt de keuze ongedaan):</p>
       <ul class="hdl-list">
         <li><b style="color:#4caf50">Basis</b> — start de wedstrijd.</li>
         <li><b style="color:#2196f3">Wissel</b> — zit in de selectie, start op de bank.</li>
-        <li><b>NG</b> — niet geselecteerd; deze speler telt nergens mee in de statistieken.</li>
         <li><b style="color:#f44336">NB</b> — niet beschikbaar (ziek, geblesseerd, afgemeld …). Telt
           mee als gemiste wedstrijd in het aanwezigheidspercentage. Je kan er een <b>reden</b> bij
           kiezen; koos je <b>'speelt elders'</b>, dan telt die wedstrijd niet als gemist — de speler
