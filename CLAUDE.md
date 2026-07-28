@@ -55,3 +55,25 @@ Test-data scripts live in Tim's companion folder outside this repo, never commit
 - Firebase sync behavior verified when data logic changed
 - If this change also applies to voetbalapp, flag it explicitly
 - **Bump `APP_VERSION` in `core.js` on every deploy.** The `sw.js` cache name is derived automatically from `APP_VERSION` at registration time (`?v=` query param) — no separate manual `CACHE` constant to bump anymore. Without an `APP_VERSION` bump, users keep seeing the old cached version.
+
+## Sessiegeheugen (laatst bijgewerkt: 2026-07-28)
+
+Recente context zodat een volgende sessie kan verderwerken:
+
+- **v0.5.43 live** (PR #3 gemerged naar `master`; de default branch is `master`, niet `main`):
+  - Fix: de oranje header-lijn in de wedstrijd-PDF kwam soms door de tekst — meta-/inforegels
+    worden nu vooraf gesplitst met `splitTextToSize` en de cursor schuift per werkelijke regel op.
+  - Nieuw in de PDF: sectie **"Selectie"** (alfabetisch, kern + bank, zonder afwezigen) en tabel
+    **"Opstelling per kwart/deel/helft"** (`lineupPerQuarterRows()` in `js/detail-pdf.js`):
+    één rij per veldpositie met labels KP / V·M·S + L/C/R (afgeleid uit lijn + x-volgorde),
+    daarna Bank-rijen; markeringen `(wissel uit)`, `(wissel in)`, `(rood)`, `(blessure uit)`
+    voor gebeurtenissen tijdens de periode. Gebruikt `playersAtPeriodStart` zodat tabel en
+    velddiagrammen consistent blijven. Kolomkoppen via `pAbbr(m)` (K1/H1/D1).
+- **Open punt:** Tim kreeg een console-script (chat, niet gecommit — hoort in de companion-map)
+  om bij de gespeelde U11-testwedstrijd de spelers zonder speelminuten uit `m.players` te halen
+  (filter op `status === 'done'`, bevestigingsdialoog, daarna `recomputeScore` +
+  `recomputeOnField` + `dbSave`). Nog niet bevestigd of dit gelukt is.
+- **Weetjes:** afgewerkte wedstrijden hebben `m.status === 'done'` (gepland: `'planned'`,
+  bezig: `'live'`); afwezigen zitten als `p.absent` in `m.players` of in `m.absentPlayers`.
+  In de remote-omgeving (Claude Code on the web) wordt gewerkt op branch
+  `claude/match-delegate-app-updates-cxcevj` met PR's naar `master`.
