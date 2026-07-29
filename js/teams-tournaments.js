@@ -281,22 +281,13 @@ async function loadTournamentDetail() {
   // identiek voor elke wedstrijd: ze staan hier (en in het tornooiverslag), niet in elk
   // wedstrijdverslag apart. Namen staan als doorlopende, links uitgelijnde tekst onder elkaar —
   // rechts uitlijnen in een stat-row werkte niet voor lijsten die over meerdere regels lopen.
-  const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
   const squadAll = tournamentSquadList(t);
-  const squadMee = squadAll.filter(s => s.sel !== 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '' })).sort(byLast);
-  const squadAbsent = squadAll.filter(s => s.sel === 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '' })).sort(byLast);
-  const knownSquad = new Set();
-  squadAll.forEach(s => { if (s.srcId) knownSquad.add(s.srcId); knownSquad.add((s.name || '').trim()); });
-  const notSelected = ((team && team.players) || [])
-    .filter(p => !knownSquad.has(p.id) && !knownSquad.has((p.name || '').trim()))
-    .map(p => ({ name: p.name || '', number: p.number || '' })).sort(byLast);
-  const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${squadMee.length} spelers${t.matchType?' · '+t.matchType:''}</span></div>`;
+  const sg = tournamentSelectionGroups(t);
+  const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${sg.mee.length} spelers${t.matchType?' · '+t.matchType:''}</span></div>`;
   const namesP = (label, arr) => arr.length
     ? `<p style="font-size:14px;line-height:1.6;margin-top:6px">${label ? `<span style="color:var(--txt2)">${label}</span> ` : ''}${esc(arr.map(nameWithNum).join(', '))}</p>`
     : '';
-  const squadBlock = namesP('', squadMee) + namesP('Niet geselecteerd:', notSelected) + namesP('Niet beschikbaar:', squadAbsent);
+  const squadBlock = namesP('Geselecteerd:', sg.mee) + namesP('Niet geselecteerd:', sg.notSelected) + namesP('Niet beschikbaar:', sg.absent);
   const statsHtml = done.length ? `<div class="card" style="margin-bottom:12px">
     <div class="stat-big">
       <div class="stat-box"><div class="v" style="color:var(--grn)">${w}</div><div class="l">Gewonnen</div></div>
@@ -328,6 +319,37 @@ async function loadTournamentDetail() {
 // Eén dagoverzicht over alle wedstrijden van een tornooi samen. Bewust géén opstelling per deel en
 // géén tijdlijn: dat staat al in het verslag/PDF van elke wedstrijd apart. Tornooiwedstrijden zitten
 // niet in de gewone statistieken, dus dit rekent volledig op zichzelf, enkel binnen deze dag.
+// Selectiegroepen van een tornooi: dagbreed en dus identiek voor elke wedstrijd van dat tornooi.
+// Wie meegaat, wie niet geselecteerd werd (ploegkern minus tornooiselectie) en wie niet beschikbaar
+// is (met reden). Eén bron voor de tornooipagina, het tornooiverslag en beide PDF's.
+function tournamentSelectionGroups(t) {
+  const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
+  const all = tournamentSquadList(t);
+  const mee = all.filter(s => s.sel !== 'absent')
+    .map(s => ({ name: s.name || '', number: s.number || '' })).sort(byLast);
+  // Een reden hoort enkel bij een NB'er: staat er door oudere of half bewerkte data toch een reden
+  // bij iemand die meegaat, dan negeren we die (anders leest de selectie als "(speelt elders)").
+  const absent = all.filter(s => s.sel === 'absent')
+    .map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '' })).sort(byLast);
+  const known = new Set();
+  all.forEach(s => { if (s.srcId) known.add(s.srcId); known.add((s.name || '').trim()); });
+  const team = teamById(t.teamId);
+  const notSelected = ((team && team.players) || [])
+    .filter(p => !known.has(p.id) && !known.has((p.name || '').trim()))
+    .map(p => ({ name: p.name || '', number: p.number || '' })).sort(byLast);
+  return { mee, absent, notSelected };
+}
+// "Wedstrijd 2 van 4": plaats van een wedstrijd binnen zijn tornooi, in dezelfde volgorde als de
+// tornooipagina (datum, dan aanmaakmoment). Nodig in de wedstrijd-PDF, die los doorgestuurd wordt.
+async function tournamentMatchPosition(trnId, matchId) {
+  try {
+    const all = await dbAll();
+    const list = all.filter(x => x.tournamentId === trnId)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+    const idx = list.findIndex(x => x.id === matchId);
+    return { index: idx >= 0 ? idx + 1 : 0, total: list.length };
+  } catch (e) { return { index: 0, total: 0 }; }
+}
 function goTournamentReport(id) {
   const t = tournamentById(id); if (!t) return;
   currentTournament = t; go('tournamentReport');
@@ -387,20 +409,8 @@ function tournamentReportData(t, matches) {
   // De dagselectie komt uit het tornooi zelf: daar duidde je "mee" en "NB" (met reden) aan, en sinds
   // v0.7.5 staat NB nergens anders meer.
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  const sqRaw = tournamentSquadList(t);
-  // Een reden hoort enkel bij een NB'er: staat er door oudere of half bewerkte data toch een reden
-  // bij iemand die meegaat, dan negeren we die (anders leest de dagselectie als "(speelt elders)").
-  const sq = sqRaw.map(s => ({ name: s.name || '', number: s.number || '', sel: s.sel, reason: s.sel === 'absent' ? (s.absentReason || '') : '' }));
-  const squadMee = sq.filter(s => s.sel !== 'absent').sort(byLast);
-  const squadAbsent = sq.filter(s => s.sel === 'absent').sort(byLast);
-  // Vierde groep, zoals in het wedstrijdverslag: rooster­spelers die bij de tornooiselectie helemaal
-  // niet aangeduid werden. Leeg als de ploeg intussen verwijderd is.
-  const known = new Set();
-  sqRaw.forEach(s => { if (s.srcId) known.add(s.srcId); known.add((s.name || '').trim()); });
-  const team = teamById(t.teamId);
-  const squadNotSelected = (((team && team.players) || [])
-    .filter(p => !known.has(p.id) && !known.has((p.name || '').trim()))
-    .map(p => ({ name: p.name || '', number: p.number || '', reason: '' }))).sort(byLast);
+  const sg = tournamentSelectionGroups(t);
+  const squadMee = sg.mee, squadAbsent = sg.absent, squadNotSelected = sg.notSelected;
   const players = Object.values(pl);
   return {
     done, planned: matches.length - done.length, results, players,
@@ -482,11 +492,14 @@ async function loadTournamentReport() {
       </div>
       <p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens 3/1/0 over je eigen wedstrijden — geen officiële eindstand van het tornooi.</p>
     </div>
-    <button class="btn btn-green" style="margin-bottom:12px" onclick="shareTournamentReport()">${icI(IC.share)} Dagoverzicht delen</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button class="btn btn-green" onclick="shareTournamentReport()">${icI(IC.share)} Delen</button>
+      <button class="btn btn-org" onclick="exportTournamentPDF()">${icI(IC.fileText)} PDF</button>
+    </div>
     ${r.planned ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} ${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt — die cijfers zitten hier niet in.</div>` : ''}
     ${sec('Tornooi-info', infoRows || '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>')}
     ${sec(`Uitslagen (${r.done.length})`, resultRows)}
-    ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6">${nameList(r.squadMee)}</p>`
+    ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6"><span style="color:var(--txt2)">Geselecteerd:</span> ${nameList(r.squadMee)}</p>`
       + (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : '')
       + (r.squadNotSelected.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet geselecteerd:</span> ${nameList(r.squadNotSelected)}</p>` : '')
       + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : ''))}
@@ -528,6 +541,181 @@ async function shareTournamentReport() {
   const text = lines.join('\n');
   if (navigator.share) { try { await navigator.share({ title: t.name, text }); } catch (e) {} }
   else { try { await navigator.clipboard.writeText(text); showToast('Dagoverzicht gekopieerd naar klembord', 'ok'); } catch (e) { showToast(text, ''); } }
+}
+
+// ----- Tornooiverslag als PDF -----
+// Zelfde opmaaktaal als de wedstrijd-PDF (marges, sectiekoppen, tabelstijl, voettekst). De
+// opmaak-helpers hieronder zijn een compacte kopie van die in exportPDF() (js/detail-pdf.js): daar
+// wordt de cursor `y` op tientallen plaatsen rechtstreeks gebruikt, dus die functie omvormen naar
+// gedeelde helpers was een te grote ingreep in een werkende PDF. Wijzig je hier de opmaak, kijk dan
+// ook daar (en omgekeerd).
+async function exportTournamentPDF() {
+  const t = currentTournament; if (!t) return;
+  showToast('PDF wordt gemaakt...', 'ok');
+  try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
+  const all = await dbAll();
+  const matches = all.filter(x => x.tournamentId === t.id)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const r = tournamentReportData(t, matches);
+  if (!r.done.length) { showToast('Nog geen afgewerkte wedstrijden om te rapporteren.', 'err'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const _docText = doc.text.bind(doc);
+  doc.text = (text, ...rest) => _docText(Array.isArray(text) ? text.map(x => typeof x === 'string' ? pdfSafe(x) : x) : (typeof text === 'string' ? pdfSafe(text) : text), ...rest);
+  const L = createPdfLayout(doc);
+  const { PW, PH, MG, CW } = L;
+  const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock, textBlock = L.textBlock;
+  const HEAD_STYLE = { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' };
+  const mn = ms => Math.round(ms / 60000);
+  const team = teamById(t.teamId);
+
+  // ---- Header ----
+  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
+  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
+  let clubW = 0;
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
+  const tx = MG + 50, tw = CW - 50 - clubW;
+  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
+  const titleLines = doc.splitTextToSize(t.name || 'Tornooi', tw);
+  doc.text(titleLines, tx, L.y + 13);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+  let my = L.y + 13 + (titleLines.length - 1) * 16 + 14;
+  const metaBits = [team ? team.name : (t.teamName || ''), t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '', t.location, t.matchType].filter(Boolean);
+  const metaLines = doc.splitTextToSize(metaBits.join(' · '), tw);
+  doc.text(metaLines, tx, my); my += metaLines.length * 13;
+  const infoBits = [t.trainer && ('Trainer: ' + t.trainer), t.responsible && ('Ploegverantwoordelijke: ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
+  if (infoBits.length) {
+    const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
+    doc.text(infoLines, tx, my); my += infoLines.length * 13;
+  }
+  L.y = Math.max(L.y + 56, my + 4);
+  doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, L.y, MG + CW, L.y);
+  L.y += 26;
+
+  // ---- Dagresultaat ----
+  doc.setFont(undefined, 'bold'); doc.setFontSize(20); doc.setTextColor(23, 23, 23);
+  doc.text(`${r.w}W · ${r.d}G · ${r.l}V`, PW / 2, L.y + 16, { align: 'center' });
+  L.y += 34;
+  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+  const resBits = [`${r.done.length} ${r.done.length === 1 ? 'wedstrijd' : 'wedstrijden'} gespeeld`,
+    `doelpunten ${r.gf}-${r.ga} (${r.gf - r.ga >= 0 ? '+' : ''}${r.gf - r.ga})`,
+    `${r.points} punten volgens 3/1/0`,
+    r.cleanSheets ? `${r.cleanSheets}× de nul gehouden` : ''].filter(Boolean);
+  doc.text(resBits.join(' · '), PW / 2, L.y, { align: 'center', maxWidth: CW });
+  L.y += 16;
+  if (r.planned) {
+    doc.setFontSize(9.5);
+    doc.text(`${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt en zit hier niet in.`, PW / 2, L.y, { align: 'center', maxWidth: CW });
+    L.y += 14;
+  }
+  doc.setFontSize(9.5);
+  doc.text('De punten gaan enkel over de eigen wedstrijden en zijn geen officiële eindstand van het tornooi.', PW / 2, L.y, { align: 'center', maxWidth: CW });
+  L.y += 22; doc.setTextColor(23, 23, 23);
+
+  // ---- Uitslagen ----
+  tableBlock(`Uitslagen (${r.done.length})`, {
+    head: [['Uur', 'Tegenstander', 'Uitslag', '', 'Doelpuntenmakers']],
+    body: r.results.map(({ m, res, scorers }) => {
+      const cnt = {};
+      scorers.forEach(n => { cnt[n] = (cnt[n] || 0) + 1; });
+      return [m.time || '', m.opponent || '', scoreTxt(m), res, Object.entries(cnt).map(([n, c]) => c > 1 ? `${n} (${c})` : n).join(', ') || '-'];
+    }),
+    styles: { fontSize: 10, cellPadding: 5, valign: 'top' }, headStyles: HEAD_STYLE,
+    columnStyles: { 0: { cellWidth: 42 }, 2: { cellWidth: 50, halign: 'center' }, 3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' } },
+  }, 24, 'W = winst · G = gelijk · V = verlies. Bij een tornooi staat de eigen ploeg altijd eerst.');
+
+  // ---- Dagselectie ----
+  const selGroups = [['Geselecteerd:', r.squadMee, true],
+    ['Geselecteerd maar niet aanwezig:', r.notPresent, false],
+    ['Niet geselecteerd:', r.squadNotSelected, false],
+    ['Niet beschikbaar:', r.squadAbsent, false]].filter(g => g[1].length);
+  if (selGroups.length) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11);
+    const wrapped = selGroups.map(([lbl, list]) => doc.splitTextToSize(lbl + ' ' + list.map(nameWithNum).join(', '), CW));
+    heading(`Dagselectie (${r.squadMee.length})`, wrapped.reduce((n, w) => n + w.length * 15 + 4, 0));
+    for (let i = 0; i < wrapped.length; i++) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(11);
+      doc.setTextColor(...(selGroups[i][2] ? [23, 23, 23] : [107, 114, 128]));
+      for (const ln of wrapped[i]) { ensure(15); doc.text(ln, MG, L.y); L.y += 15; }
+      L.y += 4;
+    }
+    doc.setTextColor(23, 23, 23); L.y += 12;
+  }
+
+  // ---- Speeltijd + fair-play ----
+  const played = r.players.filter(p => p.squad > 0);
+  if (played.length) {
+    const minutes = played.slice().sort((a, b) => b.ms - a.ms);
+    tableBlock('Speeltijd over de dag', {
+      head: [['#', 'Naam', 'Gespeeld', 'Totaal', 'Gem./match']],
+      body: minutes.map(p => [p.number || '', p.name || '',
+        `${p.mp} van ${r.done.length}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`,
+        `${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-']),
+      styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
+      columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } },
+    }, 24);
+    const fair = played.slice().sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
+    tableBlock('Fair-play · minste speeltijd', {
+      head: [['#', 'Naam', 'In selectie', 'Gem./selectie']],
+      body: fair.map(p => [p.number || '', p.name || '', `${p.mp}/${p.squad} gespeeld`, `${mn(p.ms / p.squad)}'`]),
+      styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
+      columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 80, halign: 'right' } },
+    }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde, telt niet mee.');
+  }
+
+  // ---- Doelpunten, assists, keepers, kaarten ----
+  const tally = (arr, val) => arr.map(p => `${p.name}${val(p) > 1 ? ` (${val(p)})` : ''}`).join(', ');
+  const scorers = r.players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
+  const assisters = r.players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists);
+  const keepers = r.players.filter(p => p.keeperMp > 0).sort((a, b) => b.keeperMs - a.keeperMs);
+  const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
+  if (scorers.length || assisters.length) {
+    const parts = [scorers.length ? 'Doelpunten: ' + tally(scorers, p => p.goals) : '', assisters.length ? 'Assists: ' + tally(assisters, p => p.assists) : ''].filter(Boolean);
+    textBlock('Doelpunten & assists', parts.join('   ·   '));
+  }
+  if (keepers.length) textBlock('Keeper(s)', keepers.map(p => `${p.name}: ${p.keeperMp} ${p.keeperMp === 1 ? 'wedstrijd' : 'wedstrijden'} in doel, ${p.cs} clean sheet${p.cs === 1 ? '' : 's'}`).join('   ·   '));
+  if (carded.length) textBlock('Kaarten', carded.map(p => `${p.name}: ${[p.yc ? p.yc + '× geel' : '', p.rc ? p.rc + '× rood' : ''].filter(Boolean).join(' + ')}`).join('   ·   '));
+
+  // Geen notitie-sectie in het dagoverzicht: elk wedstrijdverslag hieronder bevat zijn eigen
+  // notities, dus die zouden anders twee keer in hetzelfde document staan. (Op het scherm staat het
+  // dagoverzicht wél apart, en daar horen ze net wel bij.)
+
+  // ---- De wedstrijdverslagen, in volgorde ----
+  // Na het dagoverzicht volgt elke wedstrijd apart, elk op een nieuwe pagina. Zonder de tornooi-info:
+  // die staat vooraan in dit document en zou zich per wedstrijd herhalen. De secties zelf komen uit
+  // pdfMatchBody() (js/detail-pdf.js), dezelfde functie als de losse wedstrijd-PDF gebruikt.
+  for (let i = 0; i < r.done.length; i++) {
+    const m = r.done[i];
+    doc.addPage(); L.y = L.MG;
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
+    doc.text(`WEDSTRIJD ${i + 1} VAN ${r.done.length}`, MG, L.y + 9);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
+    const wTitle = doc.splitTextToSize(`${tName(m)} vs ${m.opponent || ''}`, CW - 110);
+    doc.text(wTitle, MG, L.y + 30);
+    doc.setFontSize(20);
+    doc.text(scoreTxt(m).replace('-', ' – '), MG + CW, L.y + 30, { align: 'right' });
+    let wy = L.y + 30 + (wTitle.length - 1) * 16 + 15;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10.5); doc.setTextColor(107, 114, 128);
+    const wBits = [m.time, `${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, m.matchType,
+      m.formation && ('Opstelling: ' + m.formation), m.referee && ('Scheidsrechter: ' + m.referee),
+      m.jersey && ('Truikleur: ' + m.jersey),
+      allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | ')),
+      m.motmId && ('Man van de match: ' + pName(m, m.motmId))].filter(Boolean);
+    const wLines = doc.splitTextToSize(wBits.join(' · '), CW);
+    doc.text(wLines, MG, wy);
+    wy += wLines.length * 13;
+    L.y = wy + 6;
+    doc.setDrawColor(245, 130, 31); doc.setLineWidth(1.5); doc.line(MG, L.y, MG + CW, L.y);
+    L.y += 22; doc.setTextColor(23, 23, 23);
+    await pdfMatchBody(doc, L, m);
+  }
+
+  L.footer();
+  const fileTitle = `${t.date ? t.date + '_' : ''}${(t.name || 'tornooi')}_tornooiverslag`.replace(/[\\/:*?"<>|]/g, '-');
+  doc.save(`${fileTitle}.pdf`);
+  showToast(`PDF gedownload: ${fileTitle}.pdf`, 'ok');
 }
 
 function deleteTournamentConfirm(id) {

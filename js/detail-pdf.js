@@ -34,7 +34,7 @@ function renderDetail() {
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantw.',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantw.',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     ${(() => {
@@ -262,6 +262,32 @@ function rasterizeToPngFit(src, maxW, maxH) {
     img.src = src;
   });
 }
+// Welk icoon hoort bij welk soort gebeurtenis — dezelfde toewijzing als evtLabel() op het scherm.
+// Wijzig je daar het icoon van een gebeurtenis, pas het hier ook aan.
+const PDF_EVT_ICON = {
+  goal_us: 'goal', goal_them: 'goal', own_goal: 'goal', own_goal_them: 'goal',
+  corner_us: 'corner', corner_them: 'corner', substitution: 'swap', posSwap: 'compass',
+  yellow_card: 'cardY', red_card: 'cardR', penalty_us: 'penalty', penalty_them: 'penalty',
+  freekick_us: 'bolt', freekick_them: 'bolt', injury: 'injury', shot_us: 'shot', shot_them: 'shot',
+  save_us: 'save', save_them: 'save', disallowed_us: 'disallowed', disallowed_them: 'disallowed',
+  captain_change: 'captain', quarter_start: 'playFilled', quarter_end: 'stopFilled',
+};
+// De iconen van de gebeurtenissen als kleine PNG's, klaar voor doc.addImage(). jsPDF kan geen SVG
+// tekenen, dus rasteriseren we de ECHTE app-iconen (i.p.v. ze in de PDF na te tekenen): zo blijven
+// scherm en PDF hetzelfde. Eén keer per PDF opgebouwd, enkel voor de soorten die effectief voorkomen.
+// `currentColor` moet een echte kleur worden, want in een <img> erft een SVG geen tekstkleur.
+async function pdfEventIcons(events) {
+  const icons = {};
+  const keys = [...new Set((events || []).map(e => PDF_EVT_ICON[e.type]).filter(k => k && IC[k]))];
+  for (const k of keys) {
+    const svg = IC[k]
+      .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" ')
+      .replace(/currentColor/g, '#374151');
+    icons[k] = await rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), 64, 64);
+  }
+  return icons;
+}
+function pdfEventIcon(icons, e) { const k = e && PDF_EVT_ICON[e.type]; return (k && icons[k]) || null; }
 // Verhouding van het velddiagram (326 x 504 eenheden, zoals de veldweergave op het scherm).
 const PITCH_PDF_RATIO = 504 / 326;
 // Tekent het velddiagram als ECHTE PDF-vectoren i.p.v. een ingebedde PNG. Voordien werd
@@ -453,20 +479,35 @@ function nameWithNum(p) {
 // verslag op het scherm en de PDF-sectie.
 function selectionBlocks(m) {
   const g = matchSelectionGroups(m);
+  // Derde element = "hoofdlijst": bepaalt in de PDF de tekstkleur (zwart voor de selectie, grijs voor
+  // de nevengroepen). Vroeger hing die kleur af van "heeft dit blok een label", maar sinds de
+  // selectie zelf ook "Geselecteerd:" als label heeft, zou dat de namen grijs maken.
   const blocks = [];
-  if (g.selected.length) blocks.push(['', g.selected]);
+  // Bij een TORNOOIWEDSTRIJD is de selectie voor elke wedstrijd van die dag dezelfde (je duidt ze één
+  // keer aan voor het hele tornooi), net als "niet beschikbaar" en "niet geselecteerd" — die staan op
+  // de tornooipagina en in het tornooiverslag. Hier blijft dus enkel wat per wedstrijd kán afwijken:
+  // wie niet aanwezig was (bv. na twee wedstrijden naar huis) en, als de trainer toch iemand uitvinkte,
+  // wie niet voor deze wedstrijd geselecteerd was. Is er geen afwijking, dan valt de kaart weg.
+  if (m.tournamentId) {
+    // Zonder label: de sectiekop is hier al "Niet aanwezig (n)".
+    if (g.notPresent.length) blocks.push(['', g.notPresent, true]);
+    if (g.notSelected.length) blocks.push(['Niet voor deze wedstrijd geselecteerd:', g.notSelected]);
+    return { groups: g, blocks };
+  }
+  if (g.selected.length) blocks.push(['Geselecteerd:', g.selected, true]);
   if (g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
   if (g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
-  // Bij een tornooiwedstrijd gaat het enkel om wie deze wedstrijd niet speelde (wie meeging naar het
-  // tornooi staat vast); bij een gewone wedstrijd om de rest van de ploegkern.
-  if (g.notSelected.length) blocks.push([m.tournamentId ? 'Niet voor deze wedstrijd geselecteerd:' : 'Niet geselecteerd:', g.notSelected]);
+  if (g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
   return { groups: g, blocks };
 }
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
 function selectionCardHtml(m) {
   const { groups, blocks } = selectionBlocks(m);
   if (!blocks.length) return '';
-  return `<div class="sec">Selectie (${groups.selected.length})</div>
+  // Bij een tornooiwedstrijd staat hier enkel nog de afwijking op de tornooiselectie, dus is een kop
+  // "Selectie (8)" misleidend.
+  const title = (m.tournamentId && groups.notPresent.length) ? `Niet aanwezig (${groups.notPresent.length})` : `Selectie (${groups.selected.length})`;
+  return `<div class="sec">${title}</div>
     <div class="card">
       ${blocks.map(([lbl, list]) => `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${esc(lbl)}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`).join('')}
     </div>`;
@@ -476,126 +517,109 @@ function selectionCardHtml(m) {
 function homeName(m) { return isAway(m) ? m.opponent : tName(m); }
 function awayName(m) { return isAway(m) ? tName(m) : m.opponent; }
 
-// Wedstrijd-PDF: écht, doorzoekbaar PDF via jsPDF (geen screenshot/rasterbeeld van de pagina).
-// Enkel het veld-opstellingsdiagram wordt als afbeelding ingevoegd (het is een tekening,
-// geen tekst) — alle tabellen en tekst hieronder zijn selecteerbare/doorzoekbare PDF-tekst.
-async function exportPDF() {
-  const m = match; if (!m) return;
-  showToast('PDF wordt gemaakt...', 'ok');
-  try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
-
-  const mins = calcMinutes(m);
-  const qData = calcMinutesPerQuarter(m);
-  const stat = (type) => m.events.filter(e => e.type === type).length;
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  // Alle PDF-tekst automatisch WinAnsi-veilig maken (zie pdfSafe). Dekt ook autoTable, dat de
-  // celtekst intern via doc.text tekent.
-  const _docText = doc.text.bind(doc);
-  doc.text = (text, ...rest) => _docText(Array.isArray(text) ? text.map(t => typeof t === 'string' ? pdfSafe(t) : t) : (typeof text === 'string' ? pdfSafe(text) : text), ...rest);
-  const PW = 595.28, PH = 841.89, MG = 40, CW = PW - MG * 2;
-  let y = MG;
-  const ensure = need => { if (y + need > PH - MG) { doc.addPage(); y = MG; } };
+// ===================== GEDEELDE PDF-OPMAAK =====================
+// Paginamaten, cursor (L.y), sectiekoppen, pagina-einden en tabellen die als één blok bij elkaar
+// blijven. Gedeeld door de wedstrijd-PDF (exportPDF) en de tornooi-PDF (exportTournamentPDF), zodat
+// beide er identiek uitzien en een wijziging aan de opmaak op één plek gebeurt.
+function createPdfLayout(doc) {
+  const Ctor = window.jspdf.jsPDF;
+  const L = { PW: 595.28, PH: 841.89, MG: 40, CW: 595.28 - 80, y: 40 };
+  L.ensure = need => { if (L.y + need > L.PH - L.MG) { doc.addPage(); L.y = L.MG; } };
   // `need` = hoogte van wat direct ná de kop komt: zo blijft een sectiekop nooit alleen
   // onderaan een pagina staan met zijn inhoud op de volgende.
-  const heading = (text, need = 0) => {
-    ensure(30 + need);
+  L.heading = (text, need = 0) => {
+    L.ensure(30 + need);
     doc.setFont(undefined, 'bold'); doc.setFontSize(12); doc.setTextColor(107, 114, 128);
-    doc.text(text.toUpperCase(), MG, y);
-    y += 5; doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.75); doc.line(MG, y, MG + CW, y);
-    y += 16; doc.setTextColor(23, 23, 23);
+    doc.text(String(text).toUpperCase(), L.MG, L.y);
+    L.y += 5; doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.75); doc.line(L.MG, L.y, L.MG + L.CW, L.y);
+    L.y += 16; doc.setTextColor(23, 23, 23);
   };
   // Meet de hoogte van een autoTable door hem in een wegwerp-document te tekenen (autoTable
-  // heeft geen "meet-alleen"-modus). Geeft null als de tabel niet op één pagina past — dan is
+  // heeft geen "meet-alleen"-modus). Geeft null als de tabel niet op één pagina past —?" dan is
   // samenhouden onmogelijk en mag hij gewoon splitsen.
-  const measureTable = opts => {
+  L.measureTable = opts => {
     try {
-      const tmp = new jsPDF({ unit: 'pt', format: 'a4' });
-      tmp.autoTable({ ...opts, startY: MG });
+      const tmp = new Ctor({ unit: 'pt', format: 'a4' });
+      tmp.autoTable({ ...opts, startY: L.MG });
       const pages = tmp.getNumberOfPages ? tmp.getNumberOfPages() : tmp.internal.getNumberOfPages();
       if (pages > 1) return null;
-      return tmp.lastAutoTable.finalY - MG;
+      return tmp.lastAutoTable.finalY - L.MG;
     } catch (e) { return null; }
   };
   // Tekent een tabel (met optionele sectiekop) als één samenhangend blok: past kop + tabel niet
   // meer op deze pagina, dan schuift het geheel naar een nieuwe pagina i.p.v. afgekapt te worden.
   // rowPageBreak:'avoid' voorkomt bovendien dat een meerregelige rij middendoor geknipt wordt.
   // `note` = grijze toelichtingsregel tussen kop en tabel (bv. welke ploeg als eerste staat).
-  const tableBlock = (title, opts, gapAfter = 24, note = '') => {
-    const full = { margin: { left: MG, right: MG, top: MG, bottom: MG }, rowPageBreak: 'avoid', ...opts };
-    const h = measureTable(full);
-    // Een lange toelichting (bv. de legende van de positielabels) moet afbreken i.p.v. voorbij de
-    // rechtermarge te lopen — dus vooraf opsplitsen en de hoogte meerekenen.
+  L.tableBlock = (title, opts, gapAfter = 24, note = '') => {
+    const full = { margin: { left: L.MG, right: L.MG, top: L.MG, bottom: L.MG }, rowPageBreak: 'avoid', ...opts };
+    const h = L.measureTable(full);
+    // Een lange toelichting moet afbreken i.p.v. voorbij de rechtermarge te lopen —?" dus vooraf
+    // opsplitsen en de hoogte meerekenen.
     let noteLines = [];
-    if (note) { doc.setFont(undefined, 'normal'); doc.setFontSize(9.5); noteLines = doc.splitTextToSize(note, CW); }
+    if (note) { doc.setFont(undefined, 'normal'); doc.setFontSize(9.5); noteLines = doc.splitTextToSize(note, L.CW); }
     const headH = (title ? 30 : 0) + noteLines.length * 12 + (note ? 4 : 0);
-    if (h != null && y + headH + h > PH - MG) { doc.addPage(); y = MG; }
-    if (title) heading(title);
+    if (h != null && L.y + headH + h > L.PH - L.MG) { doc.addPage(); L.y = L.MG; }
+    if (title) L.heading(title);
     if (noteLines.length) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(9.5); doc.setTextColor(107, 114, 128);
-      for (const ln of noteLines) { doc.text(ln, MG, y); y += 12; }
-      y += 4; doc.setTextColor(23, 23, 23);
+      for (const ln of noteLines) { doc.text(ln, L.MG, L.y); L.y += 12; }
+      L.y += 4; doc.setTextColor(23, 23, 23);
     }
-    doc.autoTable({ ...full, startY: y });
-    y = doc.lastAutoTable.finalY + gapAfter;
+    doc.autoTable({ ...full, startY: L.y });
+    L.y = doc.lastAutoTable.finalY + gapAfter;
   };
-
-  // ---- Header ----
-  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
-  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, y, 40, 40); } catch (e) {} }
-  // Clublogo rechtsboven, naast het MatchDelegate-merklogo (onvervormd, max 40×40 pt).
-  let clubW = 0;
-  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
-  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
-  const tx = MG + 50, tw = CW - 50 - clubW;
-  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
-  const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
-  const titleLines = doc.splitTextToSize(title, tw);
-  doc.text(titleLines, tx, y + 13);
-  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
-  // Metaregels net onder de (mogelijk meerregelige) titel plaatsen i.p.v. op vaste offsets,
-  // zodat een lange titel de datum-/inforegel niet overlapt en de header-hoogte meegroeit.
-  // Ook deze regels kunnen door maxWidth over meerdere regels wikkelen — my moet dan met
-  // het werkelijke aantal regels opschuiven, anders komt de oranje lijn door de tekst.
-  let my = y + 13 + (titleLines.length - 1) * 16 + 14;
-  const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tw);
-  doc.text(metaLines, tx, my);
-  my += metaLines.length * 13;
-  if (infoBits.length) {
-    const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
-    doc.text(infoLines, tx, my);
-    my += infoLines.length * 13;
-  }
-  y = Math.max(y + 56, my + 4);
-  doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, y, MG + CW, y);
-  y += 26;
-
-  // ---- Score ----
-  doc.setFont(undefined, 'bold'); doc.setFontSize(30); doc.setTextColor(23, 23, 23);
-  doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, y + 24, { align: 'center' });
-  y += 46;
-  if (m.motmId) {
-    doc.setFont(undefined, 'bold'); doc.setFontSize(12);
-    doc.text(`Man van de match: ${pName(m, m.motmId)}`, PW / 2, y, { align: 'center' });
-    y += 20;
-  }
+  // Sectiekop met vrije tekst eronder (wikkelt en respecteert pagina-einden).
+  L.textBlock = (title, txt, size = 11) => {
+    if (!txt) return;
+    doc.setFont(undefined, 'normal'); doc.setFontSize(size);
+    const lines = doc.splitTextToSize(txt, L.CW);
+    L.heading(title, Math.min(lines.length, 4) * 15);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(size); doc.setTextColor(23, 23, 23);
+    for (const ln of lines) { L.ensure(15); doc.text(ln, L.MG, L.y); L.y += 15; }
+    L.y += 12;
+  };
+  // Voettekst + paginanummer op ELKE pagina: één losse doc.text() na het opbouwen belandt enkel op
+  // de pagina die dan actief is (de laatste).
+  L.footer = () => {
+    const total = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
+    for (let pg = 1; pg <= total; pg++) {
+      doc.setPage(pg);
+      doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
+      doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, L.PW / 2, L.PH - 20, { align: 'center' });
+      doc.text(`${pg} / ${total}`, L.MG + L.CW, L.PH - 20, { align: 'right' });
+    }
+  };
+  return L;
+}
+// Alle secties óver de wedstrijd zelf in een bestaand document tekenen: selectie, opstelling per
+// deel, tussenstand, statistieken, keeper(s), spelers, foto's, notities en de tijdlijn. Gebruikt door
+// de wedstrijd-PDF én door de tornooi-PDF, die na het dagoverzicht elke wedstrijd toevoegt. De kop
+// (logo's, titel, score) en het tornooiblok staan bij de aanroeper: die verschillen per document.
+async function pdfMatchBody(doc, L, m) {
+  const { PW, PH, MG, CW } = L;
+  const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock;
+  const mins = calcMinutes(m);
+  const qData = calcMinutesPerQuarter(m);
+  const stat = (type) => m.events.filter(e => e.type === type).length;
 
   // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
-  const selBlocks = selectionBlocks(m).blocks;
+  // Bij een tornooiwedstrijd bevat dit enkel de afwijking op de tornooiselectie (zie selectionBlocks),
+  // dus krijgt de sectie daar een passende kop; zonder afwijking valt ze helemaal weg.
+  const selGroups = selectionBlocks(m);
+  const selBlocks = selGroups.blocks;
   if (selBlocks.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
     const wrapped = selBlocks.map(([lbl, list]) => doc.splitTextToSize((lbl ? lbl + ' ' : '') + list.map(nameWithNum).join(', '), CW));
-    heading('Selectie', wrapped.reduce((n, w) => n + w.length * 15, 0) + (selBlocks.length - 1) * 4);
+    const selTitle = (m.tournamentId && selGroups.groups.notPresent.length) ? 'Niet aanwezig' : 'Selectie';
+    heading(selTitle, wrapped.reduce((n, w) => n + w.length * 15, 0) + (selBlocks.length - 1) * 4);
     for (let i = 0; i < wrapped.length; i++) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
-      doc.setTextColor(...(selBlocks[i][0] ? [107, 114, 128] : [23, 23, 23]));
-      for (const line of wrapped[i]) { ensure(15); doc.text(line, MG, y); y += 15; }
-      y += 4;
+      doc.setTextColor(...(selBlocks[i][2] ? [23, 23, 23] : [107, 114, 128]));
+      for (const line of wrapped[i]) { ensure(15); doc.text(line, MG, L.y); L.y += 15; }
+      L.y += 4;
     }
     doc.setTextColor(23, 23, 23);
-    y += 8;
+    L.y += 8;
   }
 
   // De tabel "Opstelling per <deel>" staat niet meer in de PDF: de velddiagrammen tonen sinds
@@ -645,39 +669,68 @@ async function exportPDF() {
       for (const it of rowItems) {
         if (it.q != null) {
           doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
-          doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, y, { align: 'center' });
+          doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, L.y, { align: 'center' });
         }
-        drawPitchPdf(doc, m, it.ps, x, y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
+        drawPitchPdf(doc, m, it.ps, x, L.y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
         // Bank onder het veld: wie in de selectie zat maar dat deel niet op het veld kwam. Wie inviel
         // staat al bij de speler die hij verving (wisselicoon), dus die hoort hier niet meer bij.
         const bl = benchLines[items.indexOf(it)];
         if (bl) {
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
           const lines = doc.splitTextToSize(bl, imgW);
-          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, y + labelH + imgH + benchSize + 3 + li * benchLineH, { align: 'center' }));
+          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, L.y + labelH + imgH + benchSize + 3 + li * benchLineH, { align: 'center' }));
           doc.setTextColor(23, 23, 23);
         }
         x += imgW + gap;
       }
-      y += rowH;
+      L.y += rowH;
     }
     // Geen legende onder de diagrammen: oranje keeper, positienummer, ©, wisselpijltjes en de
     // kaartjes spreken voor zich (Tims beslissing) — dat scheelt ook een regel op de pagina.
-    y += 4;
+    L.y += 4;
   }
 
   // ---- Tussenstand per periode ----
   if (m.quarters.length) {
+    const goalIcons = await pdfEventIcons(m.events);
+    const goalsPerRow = [];
     const rows = m.quarters.map(q => {
       const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
       const cumText = isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`;
-      const gs = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)
-        .map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
+      const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
+      goalsPerRow.push(evts);
+      const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });
     tableBlock(`Tussenstand per ${pSingLow(m)}`, { head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,
-      styles: { fontSize: 10, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' } },
+      styles: { fontSize: 10, cellPadding: 5, valign: 'top' }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+      // Ruimte links in de doelpuntenkolom voor het icoon per regel.
+      columnStyles: { 3: { cellPadding: { top: 5, right: 5, bottom: 5, left: 21 } } },
+      didDrawCell: data => {
+        if (data.section !== 'body' || data.column.index !== 3) return;
+        const evts = goalsPerRow[data.row.index] || [];
+        const lines = Array.isArray(data.cell.text) ? data.cell.text : [];
+        if (!evts.length || !lines.length) return;
+        const fs = (data.cell.styles && data.cell.styles.fontSize) || 10;
+        const lineH = fs * 1.15, s = 9;
+        // Een doelpunt met assist kan over twee regels wikkelen, dus het icoon van doelpunt i staat
+        // niet zomaar op regel i: per doelpunt zelf uitrekenen hoeveel regels het inneemt, met
+        // dezelfde breedte en lettergrootte als autoTable gebruikt. Klopt de som niet met het
+        // werkelijke aantal regels, dan laten we de iconen liever weg dan ze verkeerd te zetten.
+        data.doc.setFont(undefined, 'normal'); data.doc.setFontSize(fs);
+        const avail = data.cell.width - 21 - 5;
+        const spans = evts.map(e => data.doc.splitTextToSize(`${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`, avail).length);
+        if (spans.reduce((a, b) => a + b, 0) !== lines.length) return;
+        let line = 0;
+        for (let i = 0; i < evts.length; i++) {
+          const png = pdfEventIcon(goalIcons, evts[i]);
+          if (png) {
+            try { data.doc.addImage(png, 'PNG', data.cell.x + 5, data.cell.y + 5 + line * lineH + (lineH - s) / 2, s, s); } catch (e) {}
+          }
+          line += spans[i];
+        }
+      } },
       24, `Tussenstand: ${homeName(m)} – ${awayName(m)}`);
   }
 
@@ -694,8 +747,8 @@ async function exportPDF() {
   if (pdfStats.length) {
     heading('Wedstrijdstatistieken', 17);
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
-    doc.text(pdfStats.map(([, t]) => t).join('   ·   '), MG, y, { maxWidth: CW });
-    y += 26;
+    doc.text(pdfStats.map(([, t]) => t).join('   ·   '), MG, L.y, { maxWidth: CW });
+    L.y += 26;
   }
 
   // ---- Keeper(s) ----
@@ -707,8 +760,8 @@ async function exportPDF() {
       .sort((a, b) => b[1] - a[1])
       .map(([pid, ms]) => `${pName(m, pid)}: ${Math.round(ms / 60000)} min`)
       .join('   ·   ');
-    doc.text(keeperText, MG, y, { maxWidth: CW });
-    y += 26;
+    doc.text(keeperText, MG, L.y, { maxWidth: CW });
+    L.y += 26;
   }
 
   // ---- Spelers ----
@@ -739,10 +792,10 @@ async function exportPDF() {
     let x = MG;
     for (const src of photos) {
       const png = await rasterizeToPng(src, Math.round(imgW * 2), Math.round(imgH * 2));
-      if (png) { try { doc.addImage(png, 'PNG', x, y, imgW, imgH); } catch (e) {} }
+      if (png) { try { doc.addImage(png, 'PNG', x, L.y, imgW, imgH); } catch (e) {} }
       x += imgW + gap;
     }
-    y += imgH + 20;
+    L.y += imgH + 20;
   }
 
   // ---- Notities (enkel beheerder) ----
@@ -752,8 +805,8 @@ async function exportPDF() {
     const lines = doc.splitTextToSize(m.notes, CW);
     heading('Notities', Math.min(lines.length, 4) * 15);
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
-    for (const line of lines) { ensure(15); doc.text(line, MG, y); y += 15; }
-    y += 10;
+    for (const line of lines) { ensure(15); doc.text(line, MG, L.y); L.y += 15; }
+    L.y += 10;
   }
   const notedPlayers = m.players.filter(p => p.note);
   if (canManage() && notedPlayers.length) {
@@ -761,37 +814,137 @@ async function exportPDF() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     for (const p of notedPlayers) {
       const lines = doc.splitTextToSize(`${p.name}: ${p.note}`, CW);
-      for (const line of lines) { ensure(15); doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.text(line, MG, y); y += 15; }
+      for (const line of lines) { ensure(15); doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.text(line, MG, L.y); L.y += 15; }
     }
-    y += 10;
+    L.y += 10;
   }
 
   // ---- Volledige tijdlijn ----
+  // Met dezelfde icoontjes als op het scherm: een lege smalle kolom houdt de plaats vrij, het icoon
+  // zelf wordt in didDrawCell getekend (autoTable kan geen afbeelding in celtekst zetten).
+  const evtIcons = await pdfEventIcons(m.events);
   const timelineGroups = eventsByQuarter(m);
   timelineGroups.forEach((g, gi) => {
     // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
     // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
     const cumText = !g.cum ? '' : (isAway(m) ? `${g.cum.them}–${g.cum.us}` : `${g.cum.us}–${g.cum.them}`);
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}` : ''}`;
-    const rows = g.list.length ? g.list.map(e => [eventMinLocal(e, m), evtLabelPlain(e, m)]) : [['', 'Geen events']];
-    // Kopcel over beide kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
+    const rows = g.list.length ? g.list.map(e => [eventMinLocal(e, m), '', evtLabelPlain(e, m)]) : [['', '', 'Geen events']];
+    // Kopcel over alle kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
     // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
-      { head: [[{ content: head, colSpan: 2 }]], body: rows, showHead: 'firstPage',
+      { head: [[{ content: head, colSpan: 3 }]], body: rows, showHead: 'firstPage',
         styles: { fontSize: 10, cellPadding: 4.5 }, headStyles: { fillColor: [241, 243, 245], textColor: [23, 23, 23], fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 60 } } }, 10,
+        columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 18 } },
+        didDrawCell: data => {
+          if (data.section !== 'body' || data.column.index !== 1) return;
+          const png = pdfEventIcon(evtIcons, g.list[data.row.index]);
+          if (!png) return;
+          const s = 11;
+          try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s); } catch (e) {}
+        } }, 10,
       gi === 0 ? `Minuut binnen het ${pSingLow(m)} · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
   });
 
-  // Voettekst + paginanummer op ELKE pagina: één losse doc.text() na het opbouwen belandde
-  // enkel op de pagina die dan actief was (de laatste).
-  const totalPages = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
-  for (let pg = 1; pg <= totalPages; pg++) {
-    doc.setPage(pg);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-    doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, PW / 2, PH - 20, { align: 'center' });
-    doc.text(`${pg} / ${totalPages}`, MG + CW, PH - 20, { align: 'right' });
+}
+
+// Wedstrijd-PDF: écht, doorzoekbaar PDF via jsPDF (geen screenshot/rasterbeeld van de pagina).
+// Enkel het veld-opstellingsdiagram wordt als afbeelding ingevoegd (het is een tekening,
+// geen tekst) — alle tabellen en tekst hieronder zijn selecteerbare/doorzoekbare PDF-tekst.
+async function exportPDF() {
+  const m = match; if (!m) return;
+  showToast('PDF wordt gemaakt...', 'ok');
+  try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
+
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  // Alle PDF-tekst automatisch WinAnsi-veilig maken (zie pdfSafe). Dekt ook autoTable, dat de
+  // celtekst intern via doc.text tekent.
+  const _docText = doc.text.bind(doc);
+  doc.text = (text, ...rest) => _docText(Array.isArray(text) ? text.map(t => typeof t === 'string' ? pdfSafe(t) : t) : (typeof text === 'string' ? pdfSafe(text) : text), ...rest);
+  const L = createPdfLayout(doc);
+  const { PW, PH, MG, CW } = L;
+  const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock;
+
+  // ---- Header ----
+  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
+  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
+  // Clublogo rechtsboven, naast het MatchDelegate-merklogo (onvervormd, max 40×40 pt).
+  let clubW = 0;
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
+  const tx = MG + 50, tw = CW - 50 - clubW;
+  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
+  const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
+  const titleLines = doc.splitTextToSize(title, tw);
+  doc.text(titleLines, tx, L.y + 13);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+  // Metaregels net onder de (mogelijk meerregelige) titel plaatsen i.p.v. op vaste offsets,
+  // zodat een lange titel de datum-/inforegel niet overlapt en de header-hoogte meegroeit.
+  // Ook deze regels kunnen door maxWidth over meerdere regels wikkelen — my moet dan met
+  // het werkelijke aantal regels opschuiven, anders komt de oranje lijn door de tekst.
+  let my = L.y + 13 + (titleLines.length - 1) * 16 + 14;
+  const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tw);
+  doc.text(metaLines, tx, my);
+  my += metaLines.length * 13;
+  if (infoBits.length) {
+    const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
+    doc.text(infoLines, tx, my);
+    my += infoLines.length * 13;
   }
+  L.y = Math.max(L.y + 56, my + 4);
+  doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, L.y, MG + CW, L.y);
+  L.y += 26;
+
+  // ---- Score ----
+  doc.setFont(undefined, 'bold'); doc.setFontSize(30); doc.setTextColor(23, 23, 23);
+  doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, L.y + 24, { align: 'center' });
+  L.y += 46;
+  if (m.motmId) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(12);
+    doc.text(`Man van de match: ${pName(m, m.motmId)}`, PW / 2, L.y, { align: 'center' });
+    L.y += 20;
+  }
+
+  // ---- Tornooi (enkel bij een tornooiwedstrijd) ----
+  // Een PDF wordt los doorgestuurd, dus hier hoort wél de tornooi-informatie en de dagselectie in:
+  // die staan sinds v0.7.5/v0.8.3 bewust op tornooiniveau en dus niet meer in de wedstrijd zelf.
+  const pdfTrn = m.tournamentId ? tournamentById(m.tournamentId) : null;
+  if (pdfTrn) {
+    const pos = await tournamentMatchPosition(pdfTrn.id, m.id);
+    const tg = tournamentSelectionGroups(pdfTrn);
+    const trnBits = [
+      pos.total ? `Wedstrijd ${pos.index} van ${pos.total}` : '',
+      pdfTrn.date ? fmtDate(new Date(pdfTrn.date + 'T00:00:00').getTime()) : '',
+      pdfTrn.location, pdfTrn.matchType,
+      pdfTrn.trainer && ('Trainer: ' + pdfTrn.trainer),
+      pdfTrn.responsible && ('Ploegverantwoordelijke: ' + pdfTrn.responsible),
+      pdfTrn.standing && ('Eindstand: ' + pdfTrn.standing),
+    ].filter(Boolean);
+    const trnGroups = [['Geselecteerd:', tg.mee, true], ['Niet geselecteerd:', tg.notSelected, false], ['Niet beschikbaar:', tg.absent, false]]
+      .filter(g => g[1].length);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11);
+    const bitLines = trnBits.length ? doc.splitTextToSize(trnBits.join(' · '), CW) : [];
+    const grpLines = trnGroups.map(([lbl, list]) => doc.splitTextToSize(lbl + ' ' + list.map(nameWithNum).join(', '), CW));
+    heading(`Tornooi · ${pdfTrn.name || ''}`, bitLines.length * 13 + 6 + grpLines.reduce((n, w) => n + w.length * 15 + 4, 0));
+    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+    for (const ln of bitLines) { ensure(13); doc.text(ln, MG, L.y); L.y += 13; }
+    if (bitLines.length && grpLines.length) L.y += 6;
+    for (let i = 0; i < grpLines.length; i++) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(11);
+      doc.setTextColor(...(trnGroups[i][2] ? [23, 23, 23] : [107, 114, 128]));
+      for (const ln of grpLines[i]) { ensure(15); doc.text(ln, MG, L.y); L.y += 15; }
+      L.y += 4;
+    }
+    doc.setTextColor(23, 23, 23);
+    L.y += 12;
+  }
+
+  await pdfMatchBody(doc, L, m);
+
+  L.footer();
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.

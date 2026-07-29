@@ -9,6 +9,39 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.9.0
+- **Nieuw: tornooiverslag als PDF.** In het tornooiverslag staat naast "Delen" nu een knop **PDF**.
+  Die maakt hetzelfde dagoverzicht als op het scherm, in dezelfde opmaak als de wedstrijd-PDF: kop met
+  clublogo's, dagresultaat, alle uitslagen met doelpuntenmakers, de dagselectie in vier groepen, een
+  tabel speeltijd (met "2 van de 3" en de afmeldingen), een fair-play-tabel, doelpunten en assists,
+  keeper(s) met clean sheets en kaarten. **Daarachter volgt elk wedstrijdverslag apart**, in volgorde
+  en elk op een nieuwe pagina, met een kop "Wedstrijd 2 van 3", de uitslag en de wedstrijdinfo — dus
+  zonder de tornooi-informatie te herhalen. Eén document met alles van die dag.
+  Bestandsnaam: `datum_tornooinaam_tornooiverslag.pdf`.
+- Intern: de wedstrijdsecties van de PDF (selectie, opstelling per deel, tussenstand, statistieken,
+  keeper(s), spelers, foto's, notities, tijdlijn) zitten nu in één functie die zowel de losse
+  wedstrijd-PDF als de tornooi-PDF gebruikt, met een gedeelde opmaaklaag (marges, sectiekoppen,
+  tabellen, voettekst). Zo blijven beide PDF's automatisch hetzelfde ogen.
+- **Nieuw:** de **wedstrijd-PDF van een tornooiwedstrijd** begint nu met een sectie **Tornooi**: naam,
+  "Wedstrijd 2 van 4", datum, locatie, format, trainer, ploegverantwoordelijke, eindstand, en de
+  dagselectie (geselecteerd · niet geselecteerd · niet beschikbaar). Een PDF wordt los doorgestuurd,
+  dus die informatie hoort erin — op het scherm blijft ze op de tornooipagina staan. In het verslag op
+  het scherm staat nu ook een regel **Tornooi** met de naam.
+- **Nieuw:** de PDF gebruikt nu **dezelfde icoontjes als het scherm** in de volledige tijdlijn en bij
+  de doelpunten in "Tussenstand per deel". De echte app-iconen worden daarvoor omgezet naar kleine
+  afbeeldingen (jsPDF kan geen SVG tekenen), dus scherm en PDF blijven gelijk.
+
+## v0.8.3
+- **Verbeterd:** in het verslag (en de PDF) van een **tornooiwedstrijd** stond de volledige selectie
+  nog eens opgesomd, terwijl die voor elke wedstrijd van dat tornooi dezelfde is. Die kaart valt nu
+  weg; er blijft enkel over wat per wedstrijd kán verschillen, en enkel als het voorkomt: wie **niet
+  aanwezig** was (bv. iemand die na twee wedstrijden naar huis ging) en, mocht de trainer toch iemand
+  uitgevinkt hebben, wie niet voor die wedstrijd geselecteerd was. De volledige lijsten staan op de
+  tornooipagina en in het tornooiverslag.
+- **Verbeterd:** in de selectie staat nu ook een label **"Geselecteerd:"** vóór de namen — op de
+  tornooipagina, in het tornooiverslag én in de kaart "Selectie" van een gewoon wedstrijdverslag (en
+  de PDF daarvan), waar de eerste lijst zonder label stond en dus niet benoemd was.
+
 ## v0.8.2
 - **Verbeterd:** op de tornooipagina stond bij Selectie enkel "10 spelers · 8v8". De **namen** staan
   er nu bij (met rugnummer, alfabetisch op familienaam), net als in het tornooiverslag.
