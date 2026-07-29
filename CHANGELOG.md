@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.8.2
+- **Verbeterd:** op de tornooipagina stond bij Selectie enkel "10 spelers · 8v8". De **namen** staan
+  er nu bij (met rugnummer, alfabetisch op familienaam), net als in het tornooiverslag.
+- **Opgelost:** de lijsten "Niet beschikbaar" en "Niet geselecteerd" waren rechts uitgelijnd, wat
+  onleesbaar werd zodra ze over meerdere regels liepen. Ze staan nu links, onder elkaar.
+- **Verbeterd:** volgorde is nu selectie → niet geselecteerd → niet beschikbaar, zowel op de
+  tornooipagina als in het tornooiverslag (daar met "geselecteerd maar niet aanwezig" direct na de
+  selectie, want dat gaat wél over die dag).
+
 ## v0.8.1
 - **Opgelost:** de uitslag van een tornooiwedstrijd stond omgekeerd. Een 3-1 winst las als "1-3", in
   de wedstrijdlijst, het verslag, de PDF en het deelbericht. Oorzaak: de locatie van een
