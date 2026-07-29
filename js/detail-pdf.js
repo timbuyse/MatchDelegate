@@ -862,6 +862,7 @@ views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
 views.tournaments = renderTournamentList;
 views.tournament = renderTournament;
+views.tournamentReport = renderTournamentReport;
 views.tournamentNew = renderTournamentNew;
 views.prep = renderPrep;
 views.new = renderNew;

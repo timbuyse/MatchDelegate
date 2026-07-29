@@ -275,6 +275,7 @@ async function loadTournamentDetail() {
     ['Locatie', t.location],
     ['Trainer', t.trainer],
     ['Ploegverantwoordelijke', t.responsible],
+    ['Eindstand', t.standing],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
   const squadAll = tournamentSquadList(t);
   const squadMee = squadAll.filter(s => s.sel !== 'absent').length;
@@ -296,6 +297,8 @@ async function loadTournamentDetail() {
   const noSquad = !squadAll.length;
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
+  // Dagoverzicht: pas zinvol zodra er één wedstrijd afgewerkt is. Ook voor kijkers zichtbaar.
+  const reportBtn = done.length ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="goTournamentReport('${t.id}')">${icI(IC.clipboard)} Tornooiverslag</button>` : '';
   const matchList = matches.length
     ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
@@ -303,10 +306,205 @@ async function loadTournamentDetail() {
     <div class="card">${infoRows}${squadRow}${absentRow}</div>
     ${squadWarning}
     ${statsHtml}
+    ${reportBtn}
     ${newMatchBtn}
     <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}
     ${canManage() ? `<div class="danger"><button class="btn btn-red" onclick="deleteTournamentConfirm('${t.id}')">${icI(IC.trash)} Tornooi verwijderen</button></div>` : ''}`;
+}
+
+// ===================== TORNOOIVERSLAG (DAGOVERZICHT) =====================
+// Eén dagoverzicht over alle wedstrijden van een tornooi samen. Bewust géén opstelling per deel en
+// géén tijdlijn: dat staat al in het verslag/PDF van elke wedstrijd apart. Tornooiwedstrijden zitten
+// niet in de gewone statistieken, dus dit rekent volledig op zichzelf, enkel binnen deze dag.
+function goTournamentReport(id) {
+  const t = tournamentById(id); if (!t) return;
+  currentTournament = t; go('tournamentReport');
+}
+// Alle cijfers van de dag op één plek, zodat het scherm, het deelbericht en (later) de PDF exact
+// dezelfde getallen tonen. `matches` = alle wedstrijden van het tornooi (ook nog niet gespeelde).
+function tournamentReportData(t, matches) {
+  const done = matches.filter(m => m.status === 'done');
+  const pl = {};
+  // Zelfde spelerssleutel als de statistieken: rosterId indien beschikbaar, anders de naam. Zo
+  // blijft een speler één rij, ook als een oudere wedstrijd nog geen rosterId meedroeg.
+  const getp = (rosterId, name, number) => {
+    const k = rosterId ? 'r:' + rosterId : 'n:' + (name || '').trim().toLowerCase();
+    if (!pl[k]) pl[k] = { name: name || '', number: number || '', rosterId: rosterId || null,
+      squad: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
+    const r = pl[k];
+    if (!r.number && number) r.number = number;
+    return r;
+  };
+  const results = [];
+  let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
+  for (const m of done) {
+    gf += m.scoreUs; ga += m.scoreThem;
+    const res = m.scoreUs > m.scoreThem ? 'W' : m.scoreUs < m.scoreThem ? 'V' : 'G';
+    if (res === 'W') w++; else if (res === 'V') l++; else d++;
+    if (m.scoreThem === 0) cleanSheets++;
+    const mins = calcMinutes(m);
+    const kMs = keeperMinutes(m); // null bij oudere wedstrijden zonder keeperByQ
+    for (const p of (m.players || [])) {
+      const r = getp(p.rosterId, p.name, p.number);
+      // No-show ("Niet aanwezig" tijdens de wedstrijd) telt niet als selectie — zelfde regel als in
+      // de statistieken, anders lijkt het alsof de trainer hem geen speelkansen gaf.
+      if (p.absent) { r.notPresent++; continue; }
+      r.squad++;
+      const ms = mins[p.id] ? mins[p.id].ms : 0;
+      r.ms += ms;
+      if (ms > 0) r.mp++;
+      const wasKeeper = (m.keeperByQ && Object.keys(m.keeperByQ).length) ? wasKeeperAtAll(m, p.id) : p.line === 'Doel';
+      if (ms > 0 && wasKeeper) {
+        r.keeperMp++;
+        r.keeperMs += (kMs && kMs[p.id]) || ms;
+        if (m.scoreThem === 0) r.cs++;
+      }
+    }
+    const byId = id => (m.players || []).find(x => x.id === id) || null;
+    const scorers = [];
+    for (const e of (m.events || [])) {
+      if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId) {
+        const p = byId(e.playerId); if (p) { getp(p.rosterId, p.name, p.number).goals++; scorers.push(p.name); }
+      }
+      if (e.type === 'goal_us' && e.assistId) { const p = byId(e.assistId); if (p) getp(p.rosterId, p.name, p.number).assists++; }
+      if (e.type === 'yellow_card' && e.playerId) { const p = byId(e.playerId); if (p) getp(p.rosterId, p.name, p.number).yc++; }
+      if (e.type === 'red_card' && e.playerId) { const p = byId(e.playerId); if (p) getp(p.rosterId, p.name, p.number).rc++; }
+    }
+    results.push({ m, res, scorers });
+  }
+  // De dagselectie komt uit het tornooi zelf: daar duidde je "mee" en "NB" (met reden) aan, en sinds
+  // v0.7.5 staat NB nergens anders meer.
+  const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
+  const sq = tournamentSquadList(t).map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '', sel: s.sel }));
+  const squadMee = sq.filter(s => s.sel !== 'absent').sort(byLast);
+  const squadAbsent = sq.filter(s => s.sel === 'absent').sort(byLast);
+  const players = Object.values(pl);
+  return {
+    done, planned: matches.length - done.length, results, players,
+    w, d, l, gf, ga, cleanSheets, points: w * 3 + d,
+    squadMee, squadAbsent,
+    notPresent: players.filter(p => p.notPresent > 0).sort(byLast),
+    notes: done.filter(m => (m.notes || '').trim()),
+  };
+}
+function renderTournamentReport() {
+  const t = currentTournament;
+  if (!t) return '<div class="content"><p>Niet gevonden.</p></div>';
+  setTimeout(loadTournamentReport, 0);
+  return `<div class="hdr"><button class="back" onclick="goTournament('${t.id}')">‹</button>
+    <div><h1>${icI(IC.clipboard)} Tornooiverslag</h1><div class="hdr-sub">${esc(t.name)}${t.date ? ' · ' + fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}</div></div>
+  </div>
+  <div class="content" id="trn-report"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+async function loadTournamentReport() {
+  const t = currentTournament;
+  if (!t) return;
+  const el = document.getElementById('trn-report');
+  if (!el) return;
+  const all = await dbAll();
+  const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const r = tournamentReportData(t, matches);
+  if (!r.done.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">${IC.clipboard}</div><p>Nog geen afgewerkte wedstrijden.<br>Het verslag verschijnt zodra er een wedstrijd afgelopen is.</p></div>`;
+    return;
+  }
+  const team = teamById(t.teamId);
+  const mn = ms => Math.round(ms / 60000);
+  const row = (left, mid, right) => `<div class="stat-row"><span style="flex:1">${left}</span>${mid ? `<span style="color:var(--txt2);font-size:13px">${mid}</span>` : ''}<span style="font-weight:800;min-width:64px;text-align:right">${right}</span></div>`;
+  const nameList = arr => esc(arr.map(nameWithNum).join(', '));
+  const infoRows = [
+    ['Ploeg', team ? team.name : (t.teamName || '')],
+    ['Locatie', t.location],
+    ['Format', t.matchType],
+    ['Trainer', t.trainer],
+    ['Ploegverantwoordelijke', t.responsible],
+    ['Eindstand', t.standing],
+  ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
+  // Resultaten: één rij per wedstrijd, met de doelpuntenmakers eronder. Tikken opent het verslag
+  // van die wedstrijd.
+  const resColor = res => res === 'W' ? 'var(--grn)' : res === 'V' ? 'var(--rd)' : 'var(--txt2)';
+  const resultRows = r.results.map(({ m, res, scorers }) => {
+    const cnt = {};
+    scorers.forEach(n => { cnt[n] = (cnt[n] || 0) + 1; });
+    const scLine = Object.entries(cnt).map(([n, c]) => c > 1 ? `${n} (${c})` : n).join(', ');
+    return `<div class="stat-row" style="cursor:pointer;align-items:flex-start" onclick="go('detail','${m.id}')">
+      <span style="min-width:44px;color:var(--txt2);font-size:13px">${esc(m.time || '')}</span>
+      <span style="flex:1">${esc(m.opponent || '')}<small style="display:block;color:var(--txt2)">${scLine ? icI(IC.ball) + ' ' + esc(scLine) : '—'}</small></span>
+      <span style="font-weight:800;min-width:52px;text-align:right;color:${resColor(res)}">${scoreTxt(m)}</span>
+    </div>`;
+  }).join('');
+  // Speeltijd: squad = het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen),
+  // dus 0 minuten na 4x op de bank is zichtbaar. Dat is net het punt van een tornooiverslag.
+  const played = r.players.filter(p => p.squad > 0);
+  const minutes = played.slice().sort((a, b) => b.ms - a.ms);
+  const fair = played.slice().sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
+  const scorers = r.players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
+  const assisters = r.players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists);
+  const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
+  const keepers = r.players.filter(p => p.keeperMp > 0).sort((a, b) => b.keeperMs - a.keeperMs);
+  const sec = (title, body) => `<div class="sec">${title}</div><div class="card">${body}</div>`;
+  el.innerHTML = `
+    <div class="card">
+      <div class="stat-big" style="margin-bottom:10px">
+        <div class="stat-box"><div class="v">${r.done.length}</div><div class="l">Gespeeld</div></div>
+        <div class="stat-box"><div class="v" style="color:var(--grn)">${r.w}</div><div class="l">Winst</div></div>
+        <div class="stat-box"><div class="v">${r.d}</div><div class="l">Gelijk</div></div>
+        <div class="stat-box"><div class="v" style="color:var(--rd)">${r.l}</div><div class="l">Verlies</div></div>
+      </div>
+      <div class="stat-big">
+        <div class="stat-box"><div class="v">${r.gf}</div><div class="l">Doelpunten voor</div></div>
+        <div class="stat-box"><div class="v">${r.ga}</div><div class="l">Doelpunten tegen</div></div>
+        <div class="stat-box"><div class="v">${r.gf-r.ga>=0?'+':''}${r.gf-r.ga}</div><div class="l">Saldo</div></div>
+        <div class="stat-box"><div class="v">${r.points}</div><div class="l">Punten</div></div>
+      </div>
+      <p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens 3/1/0 over je eigen wedstrijden — geen officiële eindstand van het tornooi.</p>
+    </div>
+    <button class="btn btn-green" style="margin-bottom:12px" onclick="shareTournamentReport()">${icI(IC.share)} Dagoverzicht delen</button>
+    ${r.planned ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} ${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt — die cijfers zitten hier niet in.</div>` : ''}
+    ${sec('Tornooi-info', infoRows || '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>')}
+    ${sec(`Uitslagen (${r.done.length})`, resultRows)}
+    ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6">${nameList(r.squadMee)}</p>`
+      + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : '')
+      + (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : ''))}
+    ${sec(`${icI(IC.timer)} Speeltijd over de dag`, minutes.length
+      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp}/${p.squad} wedstrijden gespeeld</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
+      : '<p style="color:var(--txt2);font-size:14px">—</p>')}
+    ${sec(`${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft.</p>`
+      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.squad} gesp.`, `${mn(p.ms / p.squad)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+    ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
+      scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
+      + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}
+    ${keepers.length ? sec(`${icI(IC.save)} Keeper(s)`, keepers.map(p => row(esc(p.name), `${p.keeperMp} ${p.keeperMp === 1 ? 'wedstrijd' : 'wedstrijden'} in doel`, `${p.cs} CS`)).join('')) : ''}
+    ${carded.length ? sec(`${icI(IC.cardY)} Kaarten`, carded.map(p => `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc ? icI(IC.cardY).repeat(p.yc) : ''}${p.rc ? icI(IC.cardR).repeat(p.rc) : ''}</span></div>`).join('')) : ''}
+    ${(canManage() && r.notes.length) ? sec(`Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span>`,
+      r.notes.map(m => `<p class="notes-txt" style="margin-bottom:8px"><span style="color:var(--txt2);font-size:13px">vs ${esc(m.opponent || '')}:</span><br>${esc(m.notes)}</p>`).join('')) : ''}`;
+}
+// Deelbericht voor de ploeggroep: uitslagen + dagresultaat + doelpuntenmakers, zonder speeltijden
+// (die zijn intern) en zonder notities.
+async function shareTournamentReport() {
+  const t = currentTournament; if (!t) return;
+  const all = await dbAll();
+  const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const r = tournamentReportData(t, matches);
+  if (!r.done.length) { showToast('Nog geen afgewerkte wedstrijden om te delen.', 'err'); return; }
+  const team = teamById(t.teamId);
+  const lines = [`🏅 ${t.name}${t.date ? ' — ' + fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}`];
+  lines.push(`${team ? team.name : (t.teamName || '')}${t.location ? ' · ' + t.location : ''}`);
+  lines.push('');
+  r.results.forEach(({ m, scorers }) => {
+    const cnt = {};
+    scorers.forEach(n => { cnt[n] = (cnt[n] || 0) + 1; });
+    const scLine = Object.entries(cnt).map(([n, c]) => c > 1 ? `${n} (${c})` : n).join(', ');
+    lines.push(`${m.time ? m.time + ' ' : ''}vs ${m.opponent || ''}: ${scoreTxt(m)}${scLine ? ' — ⚽ ' + scLine : ''}`);
+  });
+  lines.push('', `${r.w}W · ${r.d}G · ${r.l}V — doelpunten ${r.gf}-${r.ga}`);
+  if (r.cleanSheets) lines.push(`🧱 ${r.cleanSheets}× de nul gehouden`);
+  if (t.standing) lines.push(`🏆 Eindstand: ${t.standing}`);
+  lines.push('', `— ${activeClubName || getClubName()}`);
+  const text = lines.join('\n');
+  if (navigator.share) { try { await navigator.share({ title: t.name, text }); } catch (e) {} }
+  else { try { await navigator.clipboard.writeText(text); showToast('Dagoverzicht gekopieerd naar klembord', 'ok'); } catch (e) { showToast(text, ''); } }
 }
 
 function deleteTournamentConfirm(id) {
@@ -396,6 +594,8 @@ function captureTrnStep1() {
   const trainerOther = document.getElementById('trn-trainer-other');
   if (trnWiz.trainerIsOther && trainerOther) trnWiz.trainer = trainerOther.value.trim();
   trnWiz.responsible = (v('trn-responsible') || '').trim();
+  // Alleen overschrijven als het veld op dit scherm staat (stap 1) — anders zou stap 2 het wissen.
+  if (document.getElementById('trn-standing')) trnWiz.standing = (v('trn-standing') || '').trim();
 }
 function trnWizNext() {
   if (trnWiz.step === 1) {
@@ -427,7 +627,8 @@ async function saveTournamentWiz() {
     id: trnWiz.id, name: trnWiz.name, date: trnWiz.date, location: trnWiz.location,
     teamId: trnWiz.teamId, teamName: team ? team.name : '',
     matchType: trnWiz.matchType || '8v8',
-    trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '', squad,
+    trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
+    standing: trnWiz.standing || '', squad,
   };
   const arr = getTournaments();
   const idx = arr.findIndex(t => t.id === obj.id);
@@ -470,6 +671,10 @@ function renderTrnStep1() {
     </div>
     <div class="fg"><label>Ploegverantwoordelijke (optioneel)</label>
       <input id="trn-responsible" type="text" value="${esc(trnWiz.responsible||'')}" placeholder="Naam (optioneel)" autocomplete="off">
+    </div>
+    <div class="fg"><label>Eindstand (optioneel)</label>
+      <input id="trn-standing" type="text" value="${esc(trnWiz.standing||'')}" placeholder="bv. 3e van 8" autocomplete="off">
+      <div style="font-size:11px;color:var(--txt2);padding-top:4px">Vul je zelf in na het tornooi — de app kent de uitslagen van de andere ploegen niet.</div>
     </div>
   </div>
   <button class="btn btn-green" onclick="trnWizNext()">Volgende → Selectie</button>

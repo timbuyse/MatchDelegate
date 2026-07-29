@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.8.0
+- **Nieuw: tornooiverslag.** Op de tornooipagina staat een knop **Tornooiverslag** zodra er één
+  wedstrijd afgewerkt is (ook voor kijkers). Het geeft het overzicht van de hele dag samen:
+  dagresultaat (winst/gelijk/verlies, doelpunten, saldo, punten volgens 3/1/0), alle uitslagen op een
+  rij met de doelpuntenmakers (tik erop om naar die wedstrijd te gaan), de dagselectie met de
+  niet-beschikbare spelers en hun reden, de speeltijd van elke speler over de hele dag, een
+  fair-play-lijstje (gemiddelde speeltijd per selectie, laagste bovenaan), doelpunten en assists,
+  keeper(s) met clean sheets, kaarten, en de notities van de wedstrijden (enkel voor beheerders).
+- **Nieuw:** knop **Dagoverzicht delen** — één blok tekst voor de ploeggroep met de uitslagen, de
+  doelpuntenmakers en het dagresultaat.
+- **Nieuw:** een tornooi heeft een optioneel veld **Eindstand** (bv. "3e van 8"). Dat vul je zelf in:
+  de app kent de uitslagen van de andere ploegen niet, dus een echt klassement kan ze niet berekenen.
+  De punten in het verslag gaan enkel over je eigen wedstrijden en zijn geen officiële stand.
+- Bewust niet in het tornooiverslag: de opstelling per deel en de tijdlijn. Die staan al in het
+  verslag en de PDF van elke wedstrijd apart, en zouden het dagoverzicht drie keer zo lang maken.
+- De PDF-export van het tornooiverslag volgt in een volgende versie.
+
 ## v0.7.5
 - **Opgelost:** bij een tornooi duidde je bij de selectie al aan wie meegaat en wie niet beschikbaar
   is (NB), maar in de wedstrijden van dat tornooi doken NB-spelers toch weer op in de selectielijst.
