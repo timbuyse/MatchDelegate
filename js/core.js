@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.9.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.10.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -224,6 +224,26 @@ function toggleDark() { localStorage.setItem('voetbal_dark', darkOn() ? '0' : '1
 function getTeamsV2() { try { return JSON.parse(localStorage.getItem('voetbal_teams_v2') || '[]'); } catch (e) { return []; } }
 function saveTeamsV2(arr) { localStorage.setItem('voetbal_teams_v2', JSON.stringify(arr)); cloudOnLocalTeamsSave(arr); }
 function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
+// Horen twee wedstrijden bij dezelfde ploeg? Bij voorkeur via het stabiele teamId (sinds v0.5.34),
+// met de teamName-fallback voor oudere wedstrijden. De matches-store is niet per ploeg gescheiden.
+function sameTeamAsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a.teamId && b.teamId) return a.teamId === b.teamId;
+  return !!(a.teamName && a.teamName === b.teamName);
+}
+// Staat deze wedstrijd duidelijk vergeten open? Live, en de wandklok is meer dan een half uur
+// voorbij het moment waarop het lopende blok had moeten eindigen. Zo blijft een normale rust of een
+// blok dat wat uitloopt buiten schot, maar valt een wedstrijd die na de handdruk nooit afgesloten
+// werd wél op — die laat zijn klok anders uren doorlopen.
+const FORGOTTEN_MATCH_GRACE_MS = 30 * 60000;
+function looksForgotten(m) {
+  if (!m || m.status !== 'live') return false;
+  const qs = m.quarters || [];
+  const q = qs[qs.length - 1];
+  if (!q || !q.startTime) return false;
+  const nominal = (m.quarterDuration || 0) * 60000;
+  return Date.now() > q.startTime + nominal + FORGOTTEN_MATCH_GRACE_MS;
+}
 // Tornooien (localStorage)
 function getTournaments() { try { return JSON.parse(localStorage.getItem('voetbal_tournaments') || '[]'); } catch(e) { return []; } }
 // LET OP: dit schrijft enkel lokaal, bewust ZONDER cloud-sync. Vroeger duwde deze functie de hele

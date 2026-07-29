@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.10.0
+Tweede ronde uit de doorlichting van de tornooimodule, plus één nieuwe functie die er tijdens het
+nakijken uit voortkwam.
+- **Nieuw: gastspelers in de tornooiselectie.** Je kan nu een **speler van een andere ploeg** of een
+  **losse speler** toevoegen aan de selectie van een tornooi — dat kon voordien alleen per wedstrijd.
+  Zo'n gast staat apart onder "Gastspelers" met zijn herkomst erbij, en verschijnt overal als
+  "(gast · U11B)": in de dagselectie, het tornooiverslag, het deelbericht en beide PDF's. Hij blijft
+  bewaard als je het tornooi later opnieuw opent, en zijn gastlabel gaat mee bij het toevoegen en
+  klonen van wedstrijden. Voordien moest je zo iemand ofwel in je ploegkern zetten (waar hij dan in
+  je seizoenscijfers bleef staan), ofwel per wedstrijd toevoegen, waarna hij in de speeltijd stond
+  maar in geen enkele selectielijst.
+- **Opgelost:** een tornooi bewerken liet spelers vallen die **niet meer in de ploegkern** stonden —
+  bijvoorbeeld iemand die de ploeg verliet — terwijl zijn minuten en doelpunten in hetzelfde verslag
+  bleven staan. Die spelers blijven nu in de dagselectie.
+- **Opgelost:** "Selectie & opstelling" liep **vast** als er minder spelers meegingen dan het veld
+  vraagt. Met 7 beschikbare spelers voor 8v8 bleef er "Kies exact 8 basisspelers (nu 7)" staan,
+  zonder uitweg. Nu vraagt de app of je met 7 verder wil en blijft er simpelweg een positie leeg.
+  Meer spelers opstellen dan het veld toelaat, blijft uiteraard geweigerd.
+- **Opgelost:** een wedstrijd die je **vergeet af te sluiten** liet zijn klok gewoon doorlopen, zodat
+  elke basisspeler er na twee uur ~140 minuten bij kreeg en de speeltijdtabel van de dag onbruikbaar
+  werd. Drie dingen zijn aangepast: start je een volgende wedstrijd terwijl er nog een loopt, dan
+  waarschuwt de app met het startuur erbij en kan je die eerst afsluiten; het correctieveld stelt bij
+  een duidelijk vergeten klok de **voorziene** blokduur voor in plaats van de verstreken tijd (wie
+  gewoon bevestigde, zette voordien die 140 minuten vast); en op het homescherm komt een melding met
+  een afsluitknop zodra een wedstrijd een half uur voorbij zijn voorziene einde nog openstaat.
+
 ## v0.9.3
 Eerste ronde uit de grondige doorlichting van de tornooimodule, vóór de veldtest van 16 augustus.
 Dit zijn de drie zwaarste punten:

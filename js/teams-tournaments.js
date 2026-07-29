@@ -328,11 +328,11 @@ function tournamentSelectionGroups(t) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
   const all = tournamentSquadList(t);
   const mee = all.filter(s => s.sel !== 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '' })).sort(byLast);
+    .map(s => ({ name: s.name || '', number: s.number || '', guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
   // Een reden hoort enkel bij een NB'er: staat er door oudere of half bewerkte data toch een reden
   // bij iemand die meegaat, dan negeren we die (anders leest de selectie als "(speelt elders)").
   const absent = all.filter(s => s.sel === 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '' })).sort(byLast);
+    .map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '', guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
   const known = new Set();
   all.forEach(s => { if (s.srcId) known.add(s.srcId); known.add((s.name || '').trim()); });
   const team = teamById(t.teamId);
@@ -870,14 +870,33 @@ function editTournament(id) {
   const allSquad = tournamentSquadList(t); // incl. NB — die keuze moet hier juist herbewerkbaar blijven
   const byKey = {};
   allSquad.forEach(s => { byKey[s.srcId || s.name] = s; });
+  const gebruikt = new Set();
   trnWiz.pool.forEach(p => {
-    const s = byKey[p.srcId] || byKey[p.name];
+    const key = byKey[p.srcId] ? p.srcId : (byKey[p.name] ? p.name : null);
+    const s = key ? byKey[key] : null;
+    if (key) gebruikt.add(key);
     const val = s ? (s.sel || 'mee') : null;
     p.sel = val === 'absent' ? 'absent' : (val ? 'mee' : 'none');
     p.absentReason = (p.sel === 'absent' && s) ? (s.absentReason || '') : '';
     // Tornooi-specifiek rugnummer terugzetten — trnWizBuildPool nam het rosternummer, waardoor
     // een aangepast tornooinummer bij herbewerken stil verloren ging.
     if (s && s.number) p.number = s.number;
+  });
+  // Squadleden zonder tegenhanger in het rooster achteraan toevoegen i.p.v. ze te laten vallen:
+  // gastspelers en losse spelers staan per definitie niet in het rooster, en een speler die de
+  // ploeg intussen verliet verdween hier stil uit de dagselectie terwijl zijn minuten en
+  // doelpunten in hetzelfde verslag bleven staan.
+  allSquad.forEach(s => {
+    const key = s.srcId || s.name;
+    if (gebruikt.has(key)) return;
+    gebruikt.add(key);
+    trnWiz.pool.push({
+      pid: s.pid || uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
+      name: s.name || '', number: s.number || '', pos: s.pos || '', side: s.side || '',
+      guest: !!s.guest, fromName: s.fromName || '',
+      sel: s.sel === 'absent' ? 'absent' : 'mee',
+      absentReason: s.sel === 'absent' ? (s.absentReason || '') : '',
+    });
   });
   trnWiz.poolTeamId = trnWiz.teamId;
   go('tournamentNew');
@@ -952,7 +971,10 @@ async function saveTournamentWiz() {
   const squad = {
     players: trnWiz.pool
       .filter(p => p.sel === 'mee' || p.sel === 'absent')
-      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '' })),
+      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '',
+        // Gasten (andere ploeg of losse speler) horen bij de dagselectie zelf, niet bij het rooster.
+        // Zo blijven de selectiegroepen, speeltijd, verslag en PDF vanzelf kloppen.
+        guest: !!p.guest, fromName: p.guest ? (p.fromName || '') : '' })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
@@ -1021,9 +1043,10 @@ function renderTrnStep2() {
   const team = teamById(trnWiz.teamId);
   const mee = trnWiz.pool.filter(p => p.sel === 'mee').length;
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
+  const own = trnWiz.pool.filter(p => !p.guest), guests = trnWiz.pool.filter(p => p.guest);
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
-    <div class="nm">${esc(p.name)}<small>${posDisplay(p) || '—'}</small>
+    <div class="nm">${esc(p.name)}<small>${p.guest ? 'Gast · ' + esc(p.fromName || 'andere ploeg') : (posDisplay(p) || '—')}</small>
       ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}</div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
@@ -1036,7 +1059,12 @@ function renderTrnStep2() {
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens mee). <b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
-    <div class="card">${trnWiz.pool.length ? trnWiz.pool.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
+    <div class="card">${own.length ? own.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
+    ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow2).join('')}</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
+      <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
+    </div>
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="trnWizBack()">← Vorige</button>
       <button class="btn btn-green" onclick="saveTournamentWiz()">${icI(IC.check)}Tornooi opslaan</button>
@@ -1062,7 +1090,7 @@ function addTournamentMatch(trnId) {
   const numStarters = parseInt(matchType) || 8;
   const pool = allSquadPlayers.map((s, i) => ({
     pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
-    fromName: team ? team.name : '', guest: false,
+    fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest,
     sel: i < numStarters ? 'basis' : 'bank', slot: null,
   }));
   const now = new Date();
@@ -1109,7 +1137,7 @@ async function cloneTournamentMatch(matchId, trnId) {
   const _usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
   _sqList.forEach(s => {
     if (s.srcId ? _usedSrc.has(s.srcId) : pool.some(p => (p.name || '').trim() === (s.name || '').trim())) return;
-    pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: team ? team.name : '', guest: false, sel: 'none', slot: null });
+    pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest, sel: 'none', slot: null });
   });
   wiz = {
     step: 1, trnMode: true, tournamentId: trnId,

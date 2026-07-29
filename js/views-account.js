@@ -2199,6 +2199,18 @@ async function loadHome() {
     el.innerHTML = guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml;
     return;
   }
+  // Vergeten-open-wedstrijd-melding: een live wedstrijd die niet afgesloten werd laat zijn klok op
+  // wandkloktijd doorlopen, en op het homescherm zie je door slice(0,1) hoogstens één live
+  // wedstrijd — een vergeten wedstrijd 1 van een tornooidag bleef dus volledig onzichtbaar.
+  // looksForgotten() wacht een half uur na het voorziene einde, zodat een normale rust of een blok
+  // dat wat uitloopt geen melding geeft.
+  let forgotten = canManage() ? all.filter(looksForgotten) : [];
+  if (homeFilter !== 'all') forgotten = forgotten.filter(m => m.teamName === homeFilter);
+  const forgottenBanner = forgotten.length
+    ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${forgotten.length === 1 ? 'Eén wedstrijd staat' : forgotten.length + ' wedstrijden staan'} nog open.</b> De klok loopt door, wat de speelminuten vertekent. Sluit ${forgotten.length === 1 ? 'ze' : 'ze allemaal'} af zodra je kan.
+        ${forgotten.map(m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''} afsluiten</button>`).join('')}
+      </div>`
+    : '';
   const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>${upcomingHtml}` : '';
   const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
   const noneSection = (!upcoming.length && !upcomingTrn.length)
@@ -2211,7 +2223,7 @@ async function loadHome() {
         ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:40px;height:40px;object-fit:contain">` : ''}
         ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 async function loadMatches() {

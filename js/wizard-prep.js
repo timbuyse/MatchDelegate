@@ -206,7 +206,19 @@ function wizNext() {
     if (wiz.poolTeamId !== wiz.teamId) { buildPool(); wiz.poolTeamId = wiz.teamId; }
     wiz.step = 2; render();
   } else if (wiz.step === 2) {
-    if (basisCount() !== fieldSizeW()) { showToast(`Kies exact ${fieldSizeW()} basisspelers (nu ${basisCount()}).`, 'err'); return; }
+    // Méér dan het veldaantal kan niet, maar MINDER moet wel kunnen: met 7 beschikbare spelers
+    // voor 8v8 speel je gewoon met 7. Voordien blokkeerde een exact-aantal-eis dit scherm volledig,
+    // en bij een tornooiwedstrijd was er geen uitweg (de pool is dan de dagselectie en de knoppen
+    // om iemand bij te halen staan verborgen). Stap 3 en finishWizard eisen enkel dat elke
+    // aangeduide basisspeler een plaats heeft, niet dat de formatie vol is.
+    const need = fieldSizeW(), bc = basisCount();
+    if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
+    if (bc === 0) { showToast('Duid minstens één basisspeler aan, of gebruik "Plannen zonder opstelling".', 'err'); return; }
+    if (bc < need) {
+      showConfirm(`Je hebt <b>${bc} van de ${need}</b> basisspelers aangeduid. Verder met ${bc}? Er blijft dan een positie leeg op het veld.`,
+        () => { wiz.step = 3; render(); }, 'Verder', 'btn-green');
+      return;
+    }
     wiz.step = 3; render();
   }
 }
@@ -278,12 +290,21 @@ function wizStep2() {
     </div>`;
 }
 // ----- Gastspelers -----
+// Deze picker dient twee wizards: de wedstrijdwizard (wiz — een gast belandt op de bank) en de
+// tornooi-selectiewizard (trnWiz — een gast gaat mee naar het tornooi, dus sel 'mee'). Eén
+// implementatie met de actieve wizard als context. Bepaald door het SCHERM en niet door
+// truthiness: wiz kan na een eerdere wizard nog blijven hangen.
+function guestCtx() {
+  if (view === 'tournamentNew' && trnWiz) return { pool: trnWiz.pool, teamId: trnWiz.teamId, sel: 'mee' };
+  return { pool: wiz.pool, teamId: wiz.teamId, sel: 'bank' };
+}
 let guestModalTeam = null, guestPick = [], guestTeamsCache = [];
 async function addGuestsModal() {
   guestTeamsCache = [];
-  let teams = getTeamsV2().filter(t => t.id !== wiz.teamId);
+  const ctx = guestCtx();
+  let teams = getTeamsV2().filter(t => t.id !== ctx.teamId);
   if (!teams.length && cloudReady && fbdb) {
-    const otherIds = Object.keys(userTeams).filter(id => id !== wiz.teamId);
+    const otherIds = Object.keys(userTeams).filter(id => id !== ctx.teamId);
     if (otherIds.length) {
       openModal(`<h3>Gastspelers toevoegen</h3><p style="text-align:center;color:var(--txt2);margin:16px 0">Ploegen laden…</p>`);
       const fetched = [];
@@ -299,7 +320,7 @@ async function addGuestsModal() {
       }));
       if (fetched.length) {
         guestTeamsCache = fetched;
-        teams = [...getTeamsV2().filter(t => t.id !== wiz.teamId), ...fetched.filter(t => !getTeamsV2().some(x => x.id === t.id))];
+        teams = [...getTeamsV2().filter(t => t.id !== ctx.teamId), ...fetched.filter(t => !getTeamsV2().some(x => x.id === t.id))];
       }
     }
   }
@@ -314,7 +335,7 @@ async function addGuestsModal() {
 function guestTeamById(id) { return teamById(id) || guestTeamsCache.find(t => t.id === id) || null; }
 function guestListHtml() {
   const t = guestTeamById(guestModalTeam); if (!t) return '';
-  const existing = wiz.pool.map(p => p.srcId);
+  const existing = guestCtx().pool.map(p => p.srcId);
   if (!t.players.length) return '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>';
   return t.players.map(p => { const already = existing.includes(p.id);
     return `<div class="selrow"><div class="pn">${p.number || '?'}</div><div class="nm">${esc(p.name)}${already ? '<small>al in selectie</small>' : ''}</div>
@@ -323,7 +344,8 @@ function guestListHtml() {
 function toggleGuest(srcId) { const i = guestPick.indexOf(srcId); if (i >= 0) guestPick.splice(i, 1); else guestPick.push(srcId); }
 function confirmGuests() {
   const t = guestTeamById(guestModalTeam);
-  guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !wiz.pool.some(pp => pp.srcId === srcId)) wiz.pool.push({ pid: uid(), srcId: p.id, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: t.name, guest: true, sel: 'bank', slot: null }); });
+  const ctx = guestCtx();
+  guestPick.forEach(srcId => { const p = t.players.find(x => x.id === srcId); if (p && !ctx.pool.some(pp => pp.srcId === srcId)) ctx.pool.push({ pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.pos || '', side: p.side || '', fromName: t.name, guest: true, sel: ctx.sel, slot: null }); });
   guestPick = []; closeModal(); render();
 }
 function addLoosePlayerModal() {
@@ -340,7 +362,8 @@ function confirmLoosePlayer() {
   if (!first && !last) { showToast('Geef minstens een naam in.', 'err'); return; }
   const name = [first, last].filter(Boolean).join(' ');
   const id = uid();
-  wiz.pool.push({ pid: id, srcId: id, name, number: '', pos: '', fromName: 'Losse speler', guest: true, sel: 'bank', slot: null });
+  const ctx = guestCtx();
+  ctx.pool.push({ pid: id, srcId: id, name, number: '', pos: '', fromName: 'Losse speler', guest: true, sel: ctx.sel, slot: null });
   closeModal(); render();
 }
 // ----- Stap 3: opstelling -----
@@ -600,8 +623,11 @@ async function finishWizard(startNow) {
   // roster-sync net op het verkeerde moment overschreven zijn — vandaar altijd null zonder duidelijke
   // oorzaak. Gasten (andere bronploeg) hebben hier geen srcGlobalId; dat is geen regressie,
   // gastoptredens worden al apart via rosterId gedetecteerd (zie guestElsewhere in stats-settings.js).
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  // guest meeschrijven: cloneTournamentMatch en editMatchWizard lezen dit veld, en zonder
+  // meeschrijven verloor een gastspeler bij klonen of herbewerken stil zijn gastlabel en belandde
+  // hij tussen de eigen spelers.
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
   const allP = starters.concat(bench);
   let capId = null;
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
@@ -719,7 +745,9 @@ function startSelectieWizard() {
     wiz.pool = tournamentSquadMee(t).map(s => ({
       pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
       name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '',
-      fromName: tTeam ? tTeam.name : '', guest: false,
+      // Gasten zitten sinds v0.9.4 in de dagselectie zelf; hun herkomst en gastvlag overnemen
+      // i.p.v. iedereen als eigen speler te behandelen.
+      fromName: s.guest ? (s.fromName || '') : (tTeam ? tTeam.name : ''), guest: !!s.guest,
       sel: 'none', slot: null,
     }));
     wiz.poolTeamId = t ? t.teamId : wiz.teamId;
@@ -815,6 +843,25 @@ async function startPlanned() {
     showToast('Vul eerst de selectie en opstelling in voor je de wedstrijd start.', 'err');
     return;
   }
+  // Een vergeten wedstrijd laat zijn klok op wandkloktijd doorlopen (getGameTimeMs stopt enkel bij
+  // een endTime), dus na twee uur staat elke basisspeler op absurde speelminuten en is de
+  // fair-play-tabel van de dag onbruikbaar. Op een tornooidag met vier wedstrijden op een rij is
+  // dat het makkelijkst te maken foutje, daarom hier expliciet waarschuwen i.p.v. stil te starten.
+  const others = (await dbAll()).filter(m => m.status === 'live' && m.id !== match.id && sameTeamAsMatch(m, match));
+  if (others.length) {
+    const o = others[0];
+    const q = (o.quarters || [])[(o.quarters || []).length - 1];
+    const sinds = q && q.startTime ? ` (gestart om ${new Date(q.startTime).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })})` : '';
+    openModal(`<h3>${icI(IC.warn)} Nog een wedstrijd loopt</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:14px"><b>${esc(o.opponent || 'Wedstrijd')}</b>${sinds} staat nog als lopend gemarkeerd. Sluit die eerst af, anders blijft zijn klok doorlopen en krijgen die spelers veel te veel speelminuten.</p>
+      <button class="btn btn-green" onclick="closeModal();go('live','${o.id}')">${icI(IC.check)} Die wedstrijd afsluiten</button>
+      <button class="btn btn-orgpale" style="margin-top:8px" onclick="closeModal();doStartPlanned()">Toch starten</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
+  await doStartPlanned();
+}
+async function doStartPlanned() {
   match.status = 'live'; await dbSave(match); await go('live', match.id);
 }
 // ----- Snel resultaat invoeren (wedstrijd die al gespeeld is, zonder live opvolging) -----

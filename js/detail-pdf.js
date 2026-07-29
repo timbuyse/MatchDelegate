@@ -429,7 +429,7 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
 //    hele ploegkern (anders stonden de NB'ers en de niet-opgeroepen spelers in elk wedstrijdverslag)
 function matchSelectionGroups(m) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  const pick = p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null });
+  const pick = p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null, guest: !!p.guest });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34), met dezelfde naam-fallback als
@@ -444,7 +444,7 @@ function matchSelectionGroups(m) {
     [...selected, ...notPresent].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
     const notSelected = tournamentSquadMee(trn)
       .filter(s => !known.has(s.srcId) && !known.has(s.name))
-      .map(s => ({ name: s.name || '', number: s.number || '', rosterId: s.srcId || null })).sort(byLast);
+      .map(s => ({ name: s.name || '', number: s.number || '', rosterId: s.srcId || null, guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
     return { selected, notAvailable: [], notPresent, notSelected };
   }
   const notAvailable = [];
@@ -471,9 +471,13 @@ function matchSelectionGroups(m) {
 }
 // Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens"); bij een NB'er komt de
 // eventuele reden erachter tussen haakjes ("13 Lars Marysse (speelt elders)").
+// Eén opmaakpunt voor alle spelerslijsten (tornooipagina, verslag, deelbericht en beide PDF's).
+// Een gastspeler krijgt zijn herkomst mee, zodat hij nergens als eigen ploegspeler leest.
 function nameWithNum(p) {
-  const r = p.reason ? absentReasonLabel(p.reason) : '';
-  return (p.number ? p.number + ' ' : '') + p.name + (r ? ` (${r.toLowerCase()})` : '');
+  const bits = [];
+  if (p.guest) bits.push('gast' + (p.fromName ? ' · ' + p.fromName : ''));
+  if (p.reason) bits.push(absentReasonLabel(p.reason).toLowerCase());
+  return (p.number ? p.number + ' ' : '') + p.name + (bits.length ? ` (${bits.join(', ')})` : '');
 }
 // De vier selectiegroepen als [label, namen]-blokken, in vaste volgorde. Eén bron voor het
 // verslag op het scherm en de PDF-sectie.

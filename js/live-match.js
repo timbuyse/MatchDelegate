@@ -264,8 +264,14 @@ function endMatch() {
   const label = pSingLow(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
-  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
-    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${Math.round(getQElapsed(match)/60000)}" min="1"></div></div>` : '';
+  // Loopt de klok meer dan dubbel de voorziene duur, dan is ze duidelijk vergeten en is de
+  // verstreken tijd geen bruikbaar voorstel meer: dan de NOMINALE duur voorinvullen. Voordien stond
+  // de foute waarde vóóringevuld (bv. 140 min voor een blok van 20) en moest je de juiste zelf
+  // typen — wie gewoon bevestigde, zette die 140 minuten definitief vast.
+  const vergeten = !!durMs && getQElapsed(match) > durMs * 2;
+  const prefill = vergeten ? (match.quarterDuration || 1) : Math.round(getQElapsed(match) / 60000);
+  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}
+    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${prefill}" min="1"></div></div>` : '';
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     ${warn}
     <div class="fg"><label>Notities (optioneel)</label>
