@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.9.2
+Naar boven gekomen bij het nalezen van de eerste echte PDF's:
+- **Opgelost:** bij een wedstrijd van één blok stond er **"1 delen × 20 min"** in de PDF. Nu "1 deel".
+- **Opgelost:** in de wedstrijd-PDF stond de **locatie twee keer** (in de datumregel én als "Locatie:"
+  in de inforegel). Bij een tornooiwedstrijd zijn die immers gelijk; ze staat er nu één keer.
+- **Verbeterd:** het tornooiblok in de wedstrijd-PDF herhaalde datum, locatie, format, trainer en
+  ploegverantwoordelijke die al bovenaan stonden. Er blijft nu over wat het écht toevoegt:
+  "Wedstrijd 3 van 4", de eindstand, de puntenverdeling en de dagselectie. Wijkt de datum of locatie
+  van het tornooi af van die van de wedstrijd (bv. een verplaatste wedstrijd), dan komt ze er wel bij.
+- **Opgelost:** in de tabel Uitslagen van de tornooi-PDF had de W/G/V-kolom geen kop, en met een kop
+  wikkelde die over twee regels. De kolom is nu breed genoeg en heet **W/G/V**; de uitleg eronder is
+  ingekort tot "Bij een tornooi staat de eigen ploeg altijd eerst."
+
 ## v0.9.1
 - **Nieuw:** je kan de **puntenverdeling per tornooi zelf ingeven** — winst / gelijk / verlies, in de
   tornooi-info (stap 1 van de wizard), zowel bij het aanmaken als achteraf, bijvoorbeeld samen met de

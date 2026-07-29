@@ -625,15 +625,16 @@ async function exportTournamentPDF() {
 
   // ---- Uitslagen ----
   tableBlock(`Uitslagen (${r.done.length})`, {
-    head: [['Uur', 'Tegenstander', 'Uitslag', '', 'Doelpuntenmakers']],
+    head: [['Uur', 'Tegenstander', 'Uitslag', 'W/G/V', 'Doelpuntenmakers']],
     body: r.results.map(({ m, res, scorers }) => {
       const cnt = {};
       scorers.forEach(n => { cnt[n] = (cnt[n] || 0) + 1; });
       return [m.time || '', m.opponent || '', scoreTxt(m), res, Object.entries(cnt).map(([n, c]) => c > 1 ? `${n} (${c})` : n).join(', ') || '-'];
     }),
     styles: { fontSize: 10, cellPadding: 5, valign: 'top' }, headStyles: HEAD_STYLE,
-    columnStyles: { 0: { cellWidth: 42 }, 2: { cellWidth: 50, halign: 'center' }, 3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' } },
-  }, 24, 'W = winst · G = gelijk · V = verlies. Bij een tornooi staat de eigen ploeg altijd eerst.');
+    // Kolom 3 breed genoeg voor de kop "W/G/V" op één regel (die wikkelde bij 38 pt).
+    columnStyles: { 0: { cellWidth: 42 }, 2: { cellWidth: 50, halign: 'center' }, 3: { cellWidth: 50, halign: 'center', fontStyle: 'bold' } },
+  }, 24, 'Bij een tornooi staat de eigen ploeg altijd eerst.');
 
   // ---- Dagselectie ----
   const selGroups = [['Geselecteerd:', r.squadMee, true],
@@ -707,7 +708,7 @@ async function exportTournamentPDF() {
     doc.text(scoreTxt(m).replace('-', ' – '), MG + CW, L.y + 30, { align: 'right' });
     let wy = L.y + 30 + (wTitle.length - 1) * 16 + 15;
     doc.setFont(undefined, 'normal'); doc.setFontSize(10.5); doc.setTextColor(107, 114, 128);
-    const wBits = [m.time, `${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, m.matchType,
+    const wBits = [m.time, `${pCount(m)} × ${m.quarterDuration} min`, m.matchType,
       m.formation && ('Opstelling: ' + m.formation), m.referee && ('Scheidsrechter: ' + m.referee),
       m.jersey && ('Truikleur: ' + m.jersey),
       allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | ')),

@@ -868,7 +868,10 @@ async function exportPDF() {
   showToast('PDF wordt gemaakt...', 'ok');
   try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
 
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), m.venue && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  // `venue` alleen erbij als het iets toevoegt: bij een tornooiwedstrijd is de locatie gelijk aan
+  // m.location, dat al in de metaregel hierboven staat — dan stond ze er twee keer.
+  const sameVenue = (m.venue || '').trim().toLowerCase() === (m.location || '').trim().toLowerCase();
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -898,7 +901,7 @@ async function exportPDF() {
   // Ook deze regels kunnen door maxWidth over meerdere regels wikkelen — my moet dan met
   // het werkelijke aantal regels opschuiven, anders komt de oranje lijn door de tekst.
   let my = L.y + 13 + (titleLines.length - 1) * 16 + 14;
-  const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${m.numQuarters} ${pPlural(m)} × ${m.quarterDuration} min`, tw);
+  const metaLines = doc.splitTextToSize(`${matchWhen(m)} · ${m.location} · ${m.matchType} · ${pCount(m)} × ${m.quarterDuration} min`, tw);
   doc.text(metaLines, tx, my);
   my += metaLines.length * 13;
   if (infoBits.length) {
@@ -927,13 +930,17 @@ async function exportPDF() {
   if (pdfTrn) {
     const pos = await tournamentMatchPosition(pdfTrn.id, m.id);
     const tg = tournamentSelectionGroups(pdfTrn);
+    // Enkel wat de inforegels bovenaan nog niet zeggen: datum, locatie, format, trainer en
+    // ploegverantwoordelijke van het tornooi staan daar al (ze zijn gelijk aan die van de wedstrijd).
+    // Wijkt de datum of locatie van het tornooi toch af — bv. een wedstrijd die verplaatst werd —
+    // dan komt ze er wel bij staan.
+    const eq = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
     const trnBits = [
       pos.total ? `Wedstrijd ${pos.index} van ${pos.total}` : '',
-      pdfTrn.date ? fmtDate(new Date(pdfTrn.date + 'T00:00:00').getTime()) : '',
-      pdfTrn.location, pdfTrn.matchType,
-      pdfTrn.trainer && ('Trainer: ' + pdfTrn.trainer),
-      pdfTrn.responsible && ('Ploegverantwoordelijke: ' + pdfTrn.responsible),
+      (pdfTrn.date && !eq(pdfTrn.date, m.date)) ? fmtDate(new Date(pdfTrn.date + 'T00:00:00').getTime()) : '',
+      (pdfTrn.location && !eq(pdfTrn.location, m.location)) ? pdfTrn.location : '',
       pdfTrn.standing && ('Eindstand: ' + pdfTrn.standing),
+      tournamentUsesPoints(pdfTrn) ? `Punten: ${tournamentPointsLabel(pdfTrn)} (winst/gelijk/verlies)` : '',
     ].filter(Boolean);
     const trnGroups = [['Geselecteerd:', tg.mee, true], ['Niet geselecteerd:', tg.notSelected, false], ['Niet beschikbaar:', tg.absent, false]]
       .filter(g => g[1].length);

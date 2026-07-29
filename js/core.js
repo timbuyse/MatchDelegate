@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.9.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.9.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -18,6 +18,8 @@ function pSing(m) { return pType(m).sing; }              // bv. "Kwart"
 function pSingLow(m) { return pType(m).sing.toLowerCase(); } // bv. "kwart"
 function pPlural(m) { return pType(m).plural; }          // bv. "kwarten"
 function pAbbr(m) { return pType(m).abbr; }              // bv. "K"
+// "2 delen" / "1 deel": bij een wedstrijd van één blok stond er anders "1 delen".
+function pCount(m, n) { const c = n == null ? (m && m.numQuarters) : n; return `${c} ${c === 1 ? pSingLow(m) : pPlural(m)}`; }
 // Redenen bij "niet beschikbaar" (NB) in de selectie — optioneel: geen reden blijft geldig.
 // 'elders' is de ENIGE reden met een rekengevolg: die wedstrijd telt niet als gemist in het
 // aanwezigheids-% (de speler voetbalde, alleen bij een andere ploeg). De rest is informatie.
