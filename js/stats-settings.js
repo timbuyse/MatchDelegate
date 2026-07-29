@@ -571,6 +571,7 @@ const HANDLEIDING_PAGINAS = [
           doorgevoerd zodra je dat deel start.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
+        <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het kruisje naast zijn naam en kies <b>'Niet aanwezig'</b>. Hij krijgt dan geen speelminuten en telt als gemiste wedstrijd; via <b>'Herstel'</b> draai je het terug.</li>
         <li>Tik op <b>'Deel score'</b> om de stand te delen.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
       </ol>
@@ -591,12 +592,37 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Posities herplaatsen'</b> — pas de opstelling aan.</li>
         <li><b>'Wedstrijd verwijderen'</b> — verwijder definitief.</li>
       </ul>
+      <p class="hdl-tip"><b>'Posities herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
+      <div class="sec">Wat staat er in het verslag?</div>
+      <ul class="hdl-list">
+        <li><b>Selectie</b> in vier groepen: wie in de selectie zat, wie <b>niet beschikbaar</b> was (met de reden erbij), wie <b>geselecteerd was maar niet aanwezig</b>, en wie <b>niet geselecteerd</b> was.</li>
+        <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de start. Onder elk veld staat de bank van dat deel; bij een speler die gewisseld werd staat zijn vervanger met een wisselicoon, en gele of rode kaarten staan als kaartje achter zijn naam.</li>
+        <li><b>Tussenstand per deel</b>, wedstrijdstatistieken, keeperminuten, een spelerstabel met speelminuten per deel, en de volledige tijdlijn.</li>
+      </ul>
       <div class="sec">PDF & delen</div>
       <ul class="hdl-list">
-        <li>Tik op <b>'PDF'</b> voor een officieel wedstrijdverslag.</li>
+        <li>Tik op <b>'PDF'</b> voor een officieel wedstrijdverslag. De namen zijn selecteerbare tekst, dus je kan in de PDF zoeken.</li>
         <li>Tik op <b>'Delen'</b> om te delen via je toestel.</li>
         <li>Tik op <b>'Deel score'</b> voor de stand.</li>
       </ul>
+    `
+  },
+  {
+    titel: 'Statistieken',
+    inhoud: `
+      <p>Via de tegel <b>Statistieken</b> op het homescherm zie je het overzicht van je ploeg per seizoen. Bovenaan staat een samenvattingskaart (gespeeld, gewonnen, gelijk, verloren, doelpunten); daaronder staan de secties die je open- en dichtklapt door op de titel te tikken.</p>
+      <ul class="hdl-list">
+        <li><b>Topschutters</b> en <b>Assists</b>.</li>
+        <li><b>Clean sheets</b> — per keeper, op basis van de minuten die hij effectief in doel stond.</li>
+        <li><b>Meeste speelminuten</b> en <b>Fair-play · minste speeltijd</b> — die tweede rekent de <i>gemiddelde</i> speeltijd per selectie, dus wie vaak geselecteerd wordt maar weinig speelt, staat bovenaan. Bedoeld om eerlijke speelkansen op te volgen.</li>
+        <li><b>Geselecteerd</b> — in hoeveel procent van de wedstrijden een speler in de selectie zat. Wie <b>NB</b> stond, telt als gemiste wedstrijd, behalve met de reden 'speelt elders'.</li>
+        <li><b>Posities</b> en <b>Kaarten</b>.</li>
+      </ul>
+      <div class="sec">Wat mag een kijker zien?</div>
+      <p>Bij elke sectie staat voor jou als beheerder een <b>oog-icoontje</b>. Tik erop om die sectie vrij te geven aan kijkers, of ze weer privé te zetten. Standaard zijn Topschutters, Assists en Clean sheets publiek en de rest privé. Een kijker ziet onderaan de melding dat er meer statistieken bestaan voor ploegbeheerders. Het <b>individuele spelersdetail</b> blijft altijd voorbehouden aan ploegbeheerders.</p>
+      <div class="sec">Per speler</div>
+      <p>Tik op een speler voor zijn detailpagina: doelpunten, assists, speelminuten, kaarten, keeperbeurten en zijn aanwezigheid. Onderaan staat <b>'Carrière — eerder bij'</b>: wedstrijden bij een vorige ploeg, voor spelers die via <b>'Speler overzetten'</b> verhuisd zijn.</p>
+      <p class="hdl-tip"><b>Tornooiwedstrijden tellen niet mee</b> in deze statistieken — net zoals ze in een aparte lijst staan. Wel wordt geteld in hoeveel tornooien een speler in de selectie zat.</p>
     `
   },
   {
@@ -607,7 +633,9 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li><b>Ploegnaam</b> en <b>ploegverantwoordelijke</b>.</li>
         <li><b>Trainers</b> — tot 3 trainers invullen.</li>
-        <li><b>Spelers</b> — rugnummer, voornaam, familienaam en positie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
+        <li><b>Spelers</b> — rugnummer, voornaam, familienaam en voorkeurspositie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
+        <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. 'Auto-plaats' in de wizard gebruikt dat om hem op de juiste flank te zetten.</li>
+        <li><b>Standaard wedstrijdvorm en opstelling</b> — stel per ploeg in met welke vorm (bv. 8v8) en welke formatie je meestal speelt. Een nieuwe wedstrijd start dan met die instelling; per wedstrijd kan je ze nog wijzigen.</li>
       </ul>
     `
   },
@@ -651,8 +679,26 @@ const HANDLEIDING_PAGINAS = [
   {
     titel: 'Tornooi',
     inhoud: `
-      <p>Match Delegate beschikt over een <b>tornooifunctie</b>.</p>
-      <p style="margin-top:10px;color:var(--txt2)">De documentatie hierover is nog in opmaak en wordt binnenkort toegevoegd aan deze handleiding.</p>
+      <p>Een tornooi bundelt meerdere korte wedstrijden op één dag, met één selectie voor de hele dag. Je vindt het via de tegel <b>Tornooien</b> op het homescherm.</p>
+      <div class="sec">Stap 1 — Tornooi aanmaken</div>
+      <ul class="hdl-list">
+        <li><b>Naam</b> (bv. Paastornooi Gent), <b>ploeg</b>, <b>datum</b> en <b>locatie</b>.</li>
+        <li><b>Type wedstrijd</b> — de vorm waarin je die dag speelt (bv. 5v5 of 8v8).</li>
+        <li><b>Trainer</b> en optioneel de <b>ploegverantwoordelijke</b>.</li>
+      </ul>
+      <div class="sec">Stap 2 — Selectie voor de hele dag</div>
+      <p>Duid per speler aan of hij <b>Mee</b> is naar het tornooi, of <b>NB</b> (niet beschikbaar, met een reden naar keuze). Wie je niet aanduidt, is niet geselecteerd. Je kan hier ook per speler het rugnummer voor die dag aanpassen.</p>
+      <p class="hdl-tip">Zonder selectie kan je nog geen wedstrijden toevoegen — de app waarschuwt je en biedt meteen de knop om ze in te geven.</p>
+      <div class="sec">Wedstrijden toevoegen</div>
+      <ol class="hdl-list">
+        <li>Open het tornooi en tik op <b>'+ Wedstrijd toevoegen'</b>.</li>
+        <li>Vul de <b>tegenstander</b>, het <b>uur</b>, het <b>aantal blokken</b> en de <b>duur per blok</b> in — tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten.</li>
+        <li>Kies uit je tornooiselectie wie <b>Basis</b> of <b>Wissel</b> is en zet de opstelling. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
+      </ol>
+      <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen.</p>
+      <div class="sec">Overzicht</div>
+      <p>Bovenaan het tornooi zie je de info en het aantal geselecteerde spelers; zodra er wedstrijden gespeeld zijn, komt daar de balans (gewonnen, gelijk, verloren, doelpunten) bij. Onderaan kan je het hele tornooi verwijderen.</p>
+      <p class="hdl-tip">Tornooiwedstrijden staan apart: ze verschijnen niet in de gewone wedstrijdenlijst en tellen niet mee in de seizoensstatistieken. Wel wordt bijgehouden in hoeveel tornooien een speler in de selectie zat.</p>
     `
   }
 ];

@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.2
+- **Nieuw:** de handleiding heeft een pagina **Statistieken**: wat elke sectie betekent, hoe fair-play
+  gemeten wordt, hoe je met het oog-icoontje per sectie kiest wat kijkers mogen zien, wat er op de
+  spelerdetailpagina staat, en dat tornooiwedstrijden niet meetellen.
+- **Nieuw:** de pagina **Tornooi** was een placeholder en beschrijft nu de volledige flow: tornooi
+  aanmaken, selectie voor de hele dag, wedstrijden toevoegen, klonen en het overzicht.
+- **Verbeterd:** de pagina over het wedstrijdverslag legt nu uit wat er in het verslag en de PDF
+  staat (de vier selectiegroepen, opstelling per deel met bank en kaarten, tussenstanden, tijdlijn),
+  en waarschuwt dat "Posities herplaatsen" niet meer werkt zodra er wissels gebeurd zijn.
+- **Verbeterd:** bij ploegbeheer staat nu de kant-voorkeur voor verdedigers (centraal/links/rechts) en
+  de standaard wedstrijdvorm + opstelling per ploeg beschreven; bij de live wedstrijd hoe je iemand
+  als niet aanwezig markeert.
+
 ## v0.7.1
 - **Verbeterd:** de tekst in de PDF staat groter en is daardoor vlotter leesbaar op papier: de namen
   op het veld en de bankregel eronder (van 7,7 naar 9,3 pt), de inforegels in de kop, de
