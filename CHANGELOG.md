@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.3
+- **Verbeterd:** alle schermafbeeldingen in de handleiding zijn vernieuwd. Ze kwamen nog van eind
+  juni en toonden onder meer het oude kruisje in de selectie, de oude beheerschermen en het oude
+  wedstrijdverslag. De nieuwe beelden gebruiken een verzonnen testploeg, dus er staan geen echte
+  namen in.
+- **Nieuw:** er staan nu ook beelden bij de pauze-opstelling, de statistiekenpagina (met de
+  oog-icoontjes), het tornooi, het homescherm en het aanmaken van een ploeg.
+- **Opgelost:** stond een speler door een oudere of half bewerkte wedstrijd zowel in de selectie als
+  in de afwezigenlijst, dan verscheen hij in het verslag in twee elkaar tegensprekende groepen. Wie
+  in de selectie zat, wint nu.
+- De handleiding-PDF gebruikt intern gecomprimeerde beelden, waardoor die download rond 900 KB
+  blijft in plaats van meer dan 3 MB.
+
 ## v0.7.2
 - **Nieuw:** de handleiding heeft een pagina **Statistieken**: wat elke sectie betekent, hoe fair-play
   gemeten wordt, hoe je met het oog-icoontje per sectie kiest wat kijkers mogen zien, wat er op de

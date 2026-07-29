@@ -405,7 +405,10 @@ function matchSelectionGroups(m) {
   for (const a of (m.absentPlayers || [])) {
     const rec = typeof a === 'string' ? { name: a, rosterId: null, reason: '' } : { name: a.name || '', rosterId: a.rosterId || null, reason: a.reason || '' };
     if (!rec.name) continue;
-    const dup = [...notPresent, ...notAvailable].some(x => (rec.rosterId && x.rosterId === rec.rosterId) || x.name === rec.name);
+    // Ook tegen `selected` ontdubbelen: staat iemand per ongeluk zowel in de wedstrijdselectie als
+    // in de afwezigenlijst (kan door een oude of half bewerkte wedstrijd), dan zou hij in twee
+    // elkaar tegensprekende groepen verschijnen. Wie effectief in de selectie zat, wint.
+    const dup = [...selected, ...notPresent, ...notAvailable].some(x => (rec.rosterId && x.rosterId === rec.rosterId) || x.name === rec.name);
     if (dup) continue;
     // NB'ers uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
     // ploeg, dus daar opzoeken zodat de lijst er niet half genummerd uitziet.
