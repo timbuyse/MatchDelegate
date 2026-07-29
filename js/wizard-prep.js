@@ -212,6 +212,8 @@ function wizNext() {
 }
 // ----- Stap 2: selectie -----
 function setSel(pid, val) {
+  // In tornooimodus bestaat NB niet per wedstrijd (dat gaf je in bij de tornooiselectie).
+  if (val === 'absent' && wiz.trnMode) return;
   const p = wiz.pool.find(x => x.pid === pid); if (!p) return;
   // Geen aparte NG-knop (die maakte de rij te breed op een smartphone): niet-geselecteerd is de
   // standaard, en een tweede tik op de actieve knop zet de speler daar weer op terug.
@@ -233,15 +235,18 @@ function absentReasonSelect(pid, cur, onchange) {
 function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
   const isSelected = p.sel === 'basis' || p.sel === 'bank';
+  // Tornooiwedstrijd: enkel Basis · Wissel. Beschikbaarheid (NB) hoort bij de tornooiselectie —
+  // wie NB is, gaat niet mee en staat hier dus ook niet in de lijst.
+  const trn = !!wiz.trnMode;
   return `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small>
-      ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
+      ${(!trn && p.sel === 'absent') ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
     <div class="seg">
       <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
       <button class="${p.sel==='bank'?'bank':''}" onclick="setSel('${p.pid}','bank')">Wissel</button>
-      <button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
+      ${trn ? '' : `<button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>`}
     </div></div>`;
 }
 function setWizCaptain(pid) { wiz.captainPid = (wiz.captainPid === pid) ? null : pid; render(); }
@@ -257,7 +262,9 @@ function wizStep2() {
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
     ${(() => { const nums = wiz.pool.filter(p => (p.sel === 'basis' || p.sel === 'bank') && (p.number || '').toString().trim()).map(p => p.number.toString().trim()); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer bij geselecteerde spelers: ${dup.map(esc).join(', ')}</div>` : ''; })()}
-    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen. Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">${wiz.trnMode
+      ? `<b>Niets aanduiden = niet geselecteerd voor deze wedstrijd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start) of <b>Wissel</b>; nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Enkel wie meegaat naar het tornooi staat in deze lijst — <b>niet beschikbaar (NB)</b> geef je in bij de selectie van het tornooi zelf.`
+      : `<b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.`} Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
@@ -638,19 +645,32 @@ function editMatchWizard(m) {
     const rp = findRoster(p.rosterId, p.name); if (rp) rosterUsed.add(rp.id);
     return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
   });
+  const trn = m.tournamentId ? tournamentById(m.tournamentId) : null;
   // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.
   //    De eventueel gekozen reden gaat mee, zodat herbewerken die niet stil laat vallen.
-  (m.absentPlayers || []).forEach(a => {
+  //    Bij een tornooiwedstrijd niet: daar hoort NB bij de tornooiselectie, niet bij de wedstrijd.
+  if (!trn) (m.absentPlayers || []).forEach(a => {
     const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
     const rp = findRoster(ab.rosterId, ab.name); if (rp) rosterUsed.add(rp.id);
     pool.push({ pid: uid(), srcId: ab.rosterId || (rp ? rp.id : null), srcGlobalId: rp ? (rp.globalId || null) : null, name: ab.name || (rp ? rp.name : 'Speler'), number: rp ? (rp.number || '') : '', pos: rp ? (rp.pos || '') : '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: 'absent', absentReason: ab.reason || '', slot: null });
   });
-  // 3. Overige rosterspelers die (nog) niet geselecteerd waren → beschikbaar als 'none', zodat ze
-  //    bij het herbewerken alsnog opgesteld kunnen worden.
-  roster.forEach(r => {
-    if (rosterUsed.has(r.id)) return;
-    pool.push({ pid: uid(), srcId: r.id, srcGlobalId: r.globalId || null, name: r.name, number: r.number || '', pos: r.pos || '', side: r.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
-  });
+  // 3. Overige spelers die (nog) niet geselecteerd waren → beschikbaar als 'none', zodat ze bij het
+  //    herbewerken alsnog opgesteld kunnen worden. Bij een tornooiwedstrijd komt die aanvulling uit
+  //    de tornooiselectie (enkel wie meegaat) i.p.v. uit het volledige ploegrooster — anders werden
+  //    niet-geselecteerden en NB-spelers hier alsnog kiesbaar.
+  if (trn) {
+    const usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
+    const usedName = new Set(pool.map(p => (p.name || '').trim().toLowerCase()));
+    tournamentSquadMee(trn).forEach(s => {
+      if ((s.srcId && usedSrc.has(s.srcId)) || usedName.has((s.name || '').trim().toLowerCase())) return;
+      pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
+    });
+  } else {
+    roster.forEach(r => {
+      if (rosterUsed.has(r.id)) return;
+      pool.push({ pid: uid(), srcId: r.id, srcGlobalId: r.globalId || null, name: r.name, number: r.number || '', pos: r.pos || '', side: r.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
+    });
+  }
   wiz = {
     step: 1, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
     teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
@@ -693,24 +713,14 @@ function startSelectieWizard() {
     wiz.tournamentId = m.tournamentId;
     const t = tournamentById(m.tournamentId);
     const tTeam = t ? teamById(t.teamId) : null;
-    const squad = t ? (t.squad || {}) : {};
-    // Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat: squad.base/bench/absent.
-    // Beide normaliseren naar één lijst met een sel-veld, zodat de pool consistent gebouwd wordt.
-    const trnSquad = squad.players
-      ? squad.players
-      : [
-          ...(squad.base   || []).map(s => ({ ...s, sel: 'mee' })),
-          ...(squad.bench  || []).map(s => ({ ...s, sel: 'mee' })),
-          ...(squad.absent || []).map(s => ({ ...s, sel: 'absent' })),
-        ];
-    // squad-spelers komen niet-geselecteerd in de pool ('none' — coach herkiest basis/bank per
-    // wedstrijd); enkel wie in het tornooi als afwezig stond, blijft 'absent'.
-    wiz.pool = trnSquad.map(s => ({
+    // Enkel wie meegaat naar het tornooi komt in de pool: NB-spelers gaven we al bij de
+    // tornooiselectie op en zijn per wedstrijd niet meer te kiezen. Allen starten op 'none'
+    // (de coach kiest basis/bank per wedstrijd).
+    wiz.pool = tournamentSquadMee(t).map(s => ({
       pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
       name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '',
       fromName: tTeam ? tTeam.name : '', guest: false,
-      sel: s.sel === 'absent' ? 'absent' : 'none',
-      absentReason: s.sel === 'absent' ? (s.absentReason || '') : '', slot: null,
+      sel: 'none', slot: null,
     }));
     wiz.poolTeamId = t ? t.teamId : wiz.teamId;
   } else {

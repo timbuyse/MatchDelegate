@@ -276,11 +276,15 @@ async function loadTournamentDetail() {
     ['Trainer', t.trainer],
     ['Ploegverantwoordelijke', t.responsible],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
-  const squad = t.squad || {};
-  const squadMee = squad.players
-    ? squad.players.filter(s => s.sel !== 'absent').length
-    : (squad.base||[]).length + (squad.bench||[]).length;
+  const squadAll = tournamentSquadList(t);
+  const squadMee = squadAll.filter(s => s.sel !== 'absent').length;
   const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${squadMee} spelers${t.matchType?' · '+t.matchType:''}</span></div>`;
+  // NB wordt enkel hier, op tornooiniveau, bijgehouden (niet per wedstrijd) — daarom tonen we de
+  // namen hier, anders is die info nergens meer terug te vinden.
+  const squadAbsent = squadAll.filter(s => s.sel === 'absent');
+  const absentRow = squadAbsent.length
+    ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Niet beschikbaar</span><span style="font-weight:600;text-align:right">${squadAbsent.map(s => esc(s.name) + (absentReasonLabel(s.absentReason) ? ` <span style="font-weight:400;color:var(--txt2)">(${absentReasonLabel(s.absentReason).toLowerCase()})</span>` : '')).join(', ')}</span></div>`
+    : '';
   const statsHtml = done.length ? `<div class="card" style="margin-bottom:12px">
     <div class="stat-big">
       <div class="stat-box"><div class="v" style="color:var(--grn)">${w}</div><div class="l">Gewonnen</div></div>
@@ -289,14 +293,14 @@ async function loadTournamentDetail() {
       <div class="stat-box"><div class="v">${gf}–${ga}</div><div class="l">Doelpunten</div></div>
     </div>
   </div>` : '';
-  const noSquad = squad.players ? !squad.players.length : !((squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length);
+  const noSquad = !squadAll.length;
   const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
   const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const matchList = matches.length
     ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
-    <div class="card">${infoRows}${squadRow}</div>
+    <div class="card">${infoRows}${squadRow}${absentRow}</div>
     ${squadWarning}
     ${statsHtml}
     ${newMatchBtn}
@@ -339,11 +343,7 @@ function editTournament(id) {
   const t = tournamentById(id); if (!t) return;
   trnWiz = Object.assign({}, t, { step: 1, isNew: false, pool: [], poolTeamId: null, matchType: t.matchType || '8v8' });
   trnWizBuildPool();
-  const squad = t.squad || {};
-  // Nieuw formaat: squad.players; oud formaat: squad.base + squad.bench + squad.absent
-  const allSquad = squad.players
-    ? squad.players
-    : [...(squad.base||[]), ...(squad.bench||[]), ...(squad.absent||[])];
+  const allSquad = tournamentSquadList(t); // incl. NB — die keuze moet hier juist herbewerkbaar blijven
   const byKey = {};
   allSquad.forEach(s => { byKey[s.srcId || s.name] = s; });
   trnWiz.pool.forEach(p => {
@@ -506,14 +506,8 @@ function addTournamentMatch(trnId) {
   if (!canManage()) return;
   const t = tournamentById(trnId); if (!t) return;
   const team = teamById(t.teamId);
-  const squad = t.squad || {};
-  // Nieuw formaat: squad.players; oud formaat: squad.base/bench/absent
-  const allSquadPlayers = squad.players
-    ? squad.players.filter(s => s.sel !== 'absent')
-    : [...(squad.base||[]), ...(squad.bench||[])];
-  const totalSquad = squad.players
-    ? squad.players.length
-    : (squad.base||[]).length + (squad.bench||[]).length + (squad.absent||[]).length;
+  const allSquadPlayers = tournamentSquadMee(t);
+  const totalSquad = tournamentSquadList(t).length;
   if (!totalSquad) {
     openModal(`<h3>Selectie ontbreekt</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Geef eerst een selectie in voor dit tornooi voor je wedstrijden toevoegt.</p>
@@ -566,11 +560,10 @@ async function cloneTournamentMatch(matchId, trnId) {
     slot: null,
     _x: p.x, _y: p.y,
   }));
-  // Squadspelers die niet in de bronmatch stonden (afwezig/niet geselecteerd) toch in de pool
-  // opnemen als 'none' — anders zijn ze in de kloon enkel via de gast-modal (fout gelabeld als
-  // gast) terug toe te voegen.
-  const _sq = t.squad || {};
-  const _sqList = _sq.players ? _sq.players : [...(_sq.base || []), ...(_sq.bench || []), ...(_sq.absent || [])];
+  // Tornooispelers die niet in de bronmatch stonden (die wedstrijd niet geselecteerd) toch in de
+  // pool opnemen als 'none' — anders zijn ze in de kloon enkel via de gast-modal (fout gelabeld als
+  // gast) terug toe te voegen. Enkel wie meegaat: NB-spelers horen hier niet meer bij.
+  const _sqList = tournamentSquadMee(t);
   const _usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
   _sqList.forEach(s => {
     if (s.srcId ? _usedSrc.has(s.srcId) : pool.some(p => (p.name || '').trim() === (s.name || '').trim())) return;

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.5
+- **Opgelost:** bij een tornooi duidde je bij de selectie al aan wie meegaat en wie niet beschikbaar
+  is (NB), maar in de wedstrijden van dat tornooi doken NB-spelers toch weer op in de selectielijst.
+  Dat gebeurde bij "Selectie & opstelling", bij "Kloon als nieuwe wedstrijd" en bij "Bewerken" — bij
+  dat laatste kwam zelfs de volledige ploegkern terug in de lijst, ook spelers die helemaal niet in
+  de tornooiselectie zaten. In een tornooiwedstrijd zie je nu overal exact de spelers die meegaan.
+- **Verbeterd:** in een tornooiwedstrijd heb je nog maar twee keuzes per speler: **Basis** of
+  **Wissel**. De NB-knop is daar weg, want beschikbaarheid geef je één keer in bij de selectie van
+  het tornooi. Nog eens op dezelfde knop tikken betekent nog altijd "niet geselecteerd voor deze
+  wedstrijd" (bv. een speler die één wedstrijd rust).
+- **Nieuw:** op de tornooipagina staat nu een regel **Niet beschikbaar** met de namen en de reden
+  (ziek, geblesseerd, speelt elders…), zodat die informatie zichtbaar blijft.
+- Een NB bij een tornooi telt niet als gemiste wedstrijd in de statistieken: één ziekmelding voor een
+  tornooidag zou anders als vier gemiste wedstrijden gaan wegen.
+
 ## v0.7.4
 - **Opgelost:** de handleiding-PDF liep uit tot 48 pagina's met paginagrote afbeeldingen en veel
   witruimte. De schermafbeeldingen werden over de volle breedte uitgerekt, waardoor ze hoger werden

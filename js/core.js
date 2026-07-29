@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.7.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.7.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -221,6 +221,21 @@ function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
 function getTournaments() { try { return JSON.parse(localStorage.getItem('voetbal_tournaments') || '[]'); } catch(e) { return []; } }
 function saveTournaments(arr) { localStorage.setItem('voetbal_tournaments', JSON.stringify(arr)); cloudOnLocalTournamentsSave(arr); }
 function tournamentById(id) { return getTournaments().find(t => t.id === id) || null; }
+// Tornooiselectie uitlezen. Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat:
+// squad.base/bench/absent. Beide worden hier naar één lijst met een sel-veld genormaliseerd, zodat
+// elke aanroeper dezelfde spelers ziet (vroeger stond die normalisatie 5x apart, met verschillen).
+function tournamentSquadList(t) {
+  const sq = (t && t.squad) || {};
+  if (sq.players) return sq.players;
+  return [
+    ...(sq.base   || []).map(s => Object.assign({}, s, { sel: 'mee' })),
+    ...(sq.bench  || []).map(s => Object.assign({}, s, { sel: 'mee' })),
+    ...(sq.absent || []).map(s => Object.assign({}, s, { sel: 'absent' })),
+  ];
+}
+// Wie effectief meegaat naar het tornooi. Beschikbaarheid (NB) geef je één keer in bij de
+// tornooiselectie; enkel deze spelers mogen dus in de pool van een tornooiwedstrijd komen.
+function tournamentSquadMee(t) { return tournamentSquadList(t).filter(s => s.sel !== 'absent'); }
 function goTournament(id) { currentTournament = tournamentById(id); go('tournament'); }
 // Score & opstelling herberekenen uit de events (na correctie/verwijdering)
 function recomputeScore(m) {

@@ -268,11 +268,7 @@ async function loadPlayerDetail() {
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
   // Aparte telling: in hoeveel tornooien de speler geselecteerd stond (aantal wedstrijden binnen dat tornooi is niet relevant).
-  const inTournamentSquad = t => {
-    const squad = t.squad || {};
-    const pool = squad.players ? squad.players.filter(s => s.sel !== 'absent') : [...(squad.base || []), ...(squad.bench || [])];
-    return pool.some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
-  };
+  const inTournamentSquad = t => tournamentSquadMee(t).some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
   const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
   const tournamentCount = getTournaments().filter(t => tInTeam(t) && seasonOf(t) === playerDetailSeason && inTournamentSquad(t)).length;
   // Gastoptredens bij ANDERE ploegen opsporen — enkel via het stabiele rosterId (dat blijft
