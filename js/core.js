@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.9.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.9.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -241,6 +241,23 @@ function tournamentSquadList(t) {
 // Wie effectief meegaat naar het tornooi. Beschikbaarheid (NB) geef je één keer in bij de
 // tornooiselectie; enkel deze spelers mogen dus in de pool van een tornooiwedstrijd komen.
 function tournamentSquadMee(t) { return tournamentSquadList(t).filter(s => s.sel !== 'absent'); }
+// Puntenverdeling van een tornooi (winst/gelijk/verlies). Verschilt per tornooi: 3/1/0 is de
+// standaard, maar 2/1/0 komt bij jeugdtornooien ook voor. Tornooien van vóór v0.9.1 hebben geen
+// `points`-veld en vallen dus automatisch terug op 3/1/0.
+const TRN_POINTS_DEFAULT = { win: 3, draw: 1, loss: 0 };
+function tournamentPoints(t) {
+  const p = (t && t.points) || {};
+  const num = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : d; };
+  return {
+    win: num(p.win, TRN_POINTS_DEFAULT.win),
+    draw: num(p.draw, TRN_POINTS_DEFAULT.draw),
+    loss: num(p.loss, TRN_POINTS_DEFAULT.loss),
+  };
+}
+// "3/1/0" — om het schema bij het puntentotaal te vermelden.
+function tournamentPointsLabel(t) { const p = tournamentPoints(t); return `${p.win}/${p.draw}/${p.loss}`; }
+// Alles op 0 = er wordt niet op punten gespeeld; dan laten we de puntenregel helemaal weg.
+function tournamentUsesPoints(t) { const p = tournamentPoints(t); return (p.win + p.draw + p.loss) > 0; }
 function goTournament(id) { currentTournament = tournamentById(id); go('tournament'); }
 // Score & opstelling herberekenen uit de events (na correctie/verwijdering)
 function recomputeScore(m) {

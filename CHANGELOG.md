@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.9.1
+- **Nieuw:** je kan de **puntenverdeling per tornooi zelf ingeven** — winst / gelijk / verlies, in de
+  tornooi-info (stap 1 van de wizard), zowel bij het aanmaken als achteraf, bijvoorbeeld samen met de
+  eindstand. Standaard 3/1/0, dus bestaande tornooien veranderen niet. Het verslag rekent ermee en
+  noemt het schema erbij ("3 punten volgens 2/1/0"), op het scherm, in de PDF en in het deelbericht.
+  Zet je alle drie op 0, dan verdwijnt de puntenregel volledig — voor een tornooi waar niet op punten
+  gespeeld wordt. Wijkt het schema af van 3/1/0, dan staat het ook op de tornooipagina.
+- **Opgelost:** bij een wedstrijd van **één** deel nam het velddiagram in de PDF een volledige pagina
+  in. De eerste pagina bleef daardoor zo goed als leeg (enkel de info), de kop "Opstelling" stond
+  alleen op een pagina en het veld kwam er onnodig groot achteraan. Oorzaak: bij één diagram was er
+  geen tweede kolom die de hoogte begrensde, dus volgde die uit de volledige paginahoogte. Het veld
+  vult nu de ruimte die op die pagina nog over is (met een bovengrens van iets meer dan een halve
+  pagina), zodat de info en het veld samen op één pagina staan en de tabellen erna doorlopen. Is er te
+  weinig ruimte over voor een leesbaar veld, dan begint het op de volgende pagina met die maat.
+  Resultaat voor het testtornooi: een wedstrijdverslag gaat van 5 naar 3 pagina's en de tornooi-PDF
+  van 19 naar 10. Wedstrijden met meerdere delen (twee of meer diagrammen) blijven ongewijzigd.
+
 ## v0.9.0
 - **Nieuw: tornooiverslag als PDF.** In het tornooiverslag staat naast "Delen" nu een knop **PDF**.
   Die maakt hetzelfde dagoverzicht als op het scherm, in dezelfde opmaak als de wedstrijd-PDF: kop met

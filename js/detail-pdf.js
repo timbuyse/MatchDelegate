@@ -648,8 +648,20 @@ async function pdfMatchBody(doc, L, m) {
     // 10 eenheden van de 326 brede viewBox), zodat de bank niet als bijzaak leest.
     const benchSize0 = Math.max(7, ((CW - (perRow - 1) * gap) / perRow) / 326 * 12);
     const benchH = benchLines.some(Boolean) ? benchSize0 * 2.6 + 4 : 0;
-    // Eén veld mag nooit hoger zijn dan een volle pagina (speelt enkel bij één enkel diagram).
-    const maxImgH = (PH - MG * 2) - labelH - benchH - 14;
+    const availH = (PH - MG * 2) - labelH - benchH - 14;
+    // Eén enkel diagram (wedstrijd van één deel) mag de pagina niet opeisen. Zonder tweede kolom
+    // volgde de hoogte uit de vólle paginahoogte: het veld vulde dan een hele pagina, de kop
+    // "Opstelling" bleef alleen achter op de pagina ervóór en alles erna schoof door.
+    // Nu vult het de ruimte die op DEZE pagina nog over is (met een bovengrens van iets meer dan de
+    // halve pagina), zodat de info erboven en het veld samen op één pagina staan en de tabellen
+    // erna gewoon doorlopen. Blijft er te weinig over voor een leesbaar veld, dan begint het op een
+    // nieuwe pagina met die bovengrens als maat.
+    let maxImgH = availH;
+    if (items.length === 1) {
+      const cap = Math.min(availH, (PH - MG * 2) * 0.55);
+      const rest = (PH - MG) - L.y - 30 - labelH - benchH - 14;   // 30 = hoogte van de sectiekop
+      maxImgH = rest >= 300 ? Math.min(cap, rest) : cap;
+    }
     const imgW = Math.min((CW - (perRow - 1) * gap) / perRow, maxImgH / PITCH_PDF_RATIO);
     const imgH = imgW * PITCH_PDF_RATIO;
     const benchSize = Math.max(7, imgW / 326 * 12), benchLineH = benchSize * 1.25;

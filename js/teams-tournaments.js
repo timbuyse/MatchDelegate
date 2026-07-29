@@ -276,6 +276,8 @@ async function loadTournamentDetail() {
     ['Trainer', t.trainer],
     ['Ploegverantwoordelijke', t.responsible],
     ['Eindstand', t.standing],
+    // Enkel vermelden als de puntenverdeling afwijkt van de standaard 3/1/0, anders is het ruis.
+    ['Punten', tournamentPointsLabel(t) === '3/1/0' ? '' : tournamentPointsLabel(t) + ' (winst/gelijk/verlies)'],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
   // Selectie van de tornooidag. NB en "niet geselecteerd" gelden voor de hele dag en zijn dus
   // identiek voor elke wedstrijd: ze staan hier (en in het tornooiverslag), niet in elk
@@ -412,9 +414,13 @@ function tournamentReportData(t, matches) {
   const sg = tournamentSelectionGroups(t);
   const squadMee = sg.mee, squadAbsent = sg.absent, squadNotSelected = sg.notSelected;
   const players = Object.values(pl);
+  // Puntenverdeling komt van het tornooi zelf (standaard 3/1/0, per tornooi aanpasbaar).
+  const pts = tournamentPoints(t);
   return {
     done, planned: matches.length - done.length, results, players,
-    w, d, l, gf, ga, cleanSheets, points: w * 3 + d,
+    w, d, l, gf, ga, cleanSheets,
+    points: w * pts.win + d * pts.draw + l * pts.loss,
+    pointsLabel: tournamentPointsLabel(t), usesPoints: tournamentUsesPoints(t),
     squadMee, squadAbsent, squadNotSelected,
     notPresent: players.filter(p => p.notPresent > 0).sort(byLast),
     notes: done.filter(m => (m.notes || '').trim()),
@@ -488,9 +494,9 @@ async function loadTournamentReport() {
         <div class="stat-box"><div class="v">${r.gf}</div><div class="l">Doelpunten voor</div></div>
         <div class="stat-box"><div class="v">${r.ga}</div><div class="l">Doelpunten tegen</div></div>
         <div class="stat-box"><div class="v">${r.gf-r.ga>=0?'+':''}${r.gf-r.ga}</div><div class="l">Saldo</div></div>
-        <div class="stat-box"><div class="v">${r.points}</div><div class="l">Punten</div></div>
+        ${r.usesPoints ? `<div class="stat-box"><div class="v">${r.points}</div><div class="l">Punten</div></div>` : ''}
       </div>
-      <p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens 3/1/0 over je eigen wedstrijden — geen officiële eindstand van het tornooi.</p>
+      ${r.usesPoints ? `<p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens ${r.pointsLabel} (winst/gelijk/verlies) over je eigen wedstrijden — geen officiële eindstand van het tornooi.</p>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button class="btn btn-green" onclick="shareTournamentReport()">${icI(IC.share)} Delen</button>
@@ -534,7 +540,7 @@ async function shareTournamentReport() {
     const scLine = Object.entries(cnt).map(([n, c]) => c > 1 ? `${n} (${c})` : n).join(', ');
     lines.push(`${m.time ? m.time + ' ' : ''}vs ${m.opponent || ''}: ${scoreTxt(m)}${scLine ? ' — ⚽ ' + scLine : ''}`);
   });
-  lines.push('', `${r.w}W · ${r.d}G · ${r.l}V — doelpunten ${r.gf}-${r.ga}`);
+  lines.push('', `${r.w}W · ${r.d}G · ${r.l}V — doelpunten ${r.gf}-${r.ga}${r.usesPoints ? ` — ${r.points} punten (${r.pointsLabel})` : ''}`);
   if (r.cleanSheets) lines.push(`🧱 ${r.cleanSheets}× de nul gehouden`);
   if (t.standing) lines.push(`🏆 Eindstand: ${t.standing}`);
   lines.push('', `— ${activeClubName || getClubName()}`);
@@ -601,7 +607,7 @@ async function exportTournamentPDF() {
   doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
   const resBits = [`${r.done.length} ${r.done.length === 1 ? 'wedstrijd' : 'wedstrijden'} gespeeld`,
     `doelpunten ${r.gf}-${r.ga} (${r.gf - r.ga >= 0 ? '+' : ''}${r.gf - r.ga})`,
-    `${r.points} punten volgens 3/1/0`,
+    r.usesPoints ? `${r.points} punten volgens ${r.pointsLabel}` : '',
     r.cleanSheets ? `${r.cleanSheets}× de nul gehouden` : ''].filter(Boolean);
   doc.text(resBits.join(' · '), PW / 2, L.y, { align: 'center', maxWidth: CW });
   L.y += 16;
@@ -610,9 +616,12 @@ async function exportTournamentPDF() {
     doc.text(`${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt en zit hier niet in.`, PW / 2, L.y, { align: 'center', maxWidth: CW });
     L.y += 14;
   }
-  doc.setFontSize(9.5);
-  doc.text('De punten gaan enkel over de eigen wedstrijden en zijn geen officiële eindstand van het tornooi.', PW / 2, L.y, { align: 'center', maxWidth: CW });
-  L.y += 22; doc.setTextColor(23, 23, 23);
+  if (r.usesPoints) {
+    doc.setFontSize(9.5);
+    doc.text(`De punten (${r.pointsLabel} voor winst/gelijk/verlies) gaan enkel over de eigen wedstrijden en zijn geen officiële eindstand van het tornooi.`, PW / 2, L.y, { align: 'center', maxWidth: CW });
+    L.y += 22;
+  } else L.y += 8;
+  doc.setTextColor(23, 23, 23);
 
   // ---- Uitslagen ----
   tableBlock(`Uitslagen (${r.done.length})`, {
@@ -807,6 +816,12 @@ function captureTrnStep1() {
   trnWiz.responsible = (v('trn-responsible') || '').trim();
   // Alleen overschrijven als het veld op dit scherm staat (stap 1) — anders zou stap 2 het wissen.
   if (document.getElementById('trn-standing')) trnWiz.standing = (v('trn-standing') || '').trim();
+  if (document.getElementById('trn-pts-win')) {
+    // Leeg of onzin laten terugvallen op de standaard van dat veld, i.p.v. op NaN.
+    const d = tournamentPoints(trnWiz);
+    const num = (id, def) => { const n = parseInt(v(id), 10); return Number.isFinite(n) && n >= 0 ? Math.min(99, n) : def; };
+    trnWiz.points = { win: num('trn-pts-win', d.win), draw: num('trn-pts-draw', d.draw), loss: num('trn-pts-loss', d.loss) };
+  }
 }
 function trnWizNext() {
   if (trnWiz.step === 1) {
@@ -839,7 +854,7 @@ async function saveTournamentWiz() {
     teamId: trnWiz.teamId, teamName: team ? team.name : '',
     matchType: trnWiz.matchType || '8v8',
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
-    standing: trnWiz.standing || '', squad,
+    standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
   };
   const arr = getTournaments();
   const idx = arr.findIndex(t => t.id === obj.id);
@@ -887,6 +902,14 @@ function renderTrnStep1() {
       <input id="trn-standing" type="text" value="${esc(trnWiz.standing||'')}" placeholder="bv. 3e van 8" autocomplete="off">
       <div style="font-size:11px;color:var(--txt2);padding-top:4px">Vul je zelf in na het tornooi — de app kent de uitslagen van de andere ploegen niet.</div>
     </div>
+    ${(() => { const p = tournamentPoints(trnWiz); return `<div class="fg"><label>Punten per wedstrijd</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><div style="font-size:11px;color:var(--txt2);padding-bottom:2px">Winst</div><input id="trn-pts-win" type="number" min="0" max="99" inputmode="numeric" value="${p.win}"></div>
+        <div><div style="font-size:11px;color:var(--txt2);padding-bottom:2px">Gelijk</div><input id="trn-pts-draw" type="number" min="0" max="99" inputmode="numeric" value="${p.draw}"></div>
+        <div><div style="font-size:11px;color:var(--txt2);padding-bottom:2px">Verlies</div><input id="trn-pts-loss" type="number" min="0" max="99" inputmode="numeric" value="${p.loss}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);padding-top:4px">Verschilt per tornooi (3/1/0, 2/1/0, …). Zet alle drie op 0 als er niet op punten gespeeld wordt — dan valt de puntenregel weg in het verslag.</div>
+    </div>`; })()}
   </div>
   <button class="btn btn-green" onclick="trnWizNext()">Volgende → Selectie</button>
   <button class="btn btn-orgpale" onclick="saveTournamentWizStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Opslaan zonder selectie</button>`;
