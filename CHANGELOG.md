@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.7.4
+- **Opgelost:** de handleiding-PDF liep uit tot 48 pagina's met paginagrote afbeeldingen en veel
+  witruimte. De schermafbeeldingen werden over de volle breedte uitgerekt, waardoor ze hoger werden
+  dan een A4 en elk een eigen pagina opeisten. Ze staan nu op een vaste hoogte (ongeveer 10,5 cm),
+  twee naast elkaar, en er komt geen gedwongen pagina-einde meer na elke sectie. Resultaat: rond de
+  13 pagina's zonder halflege bladen.
+
 ## v0.7.3
 - **Verbeterd:** alle schermafbeeldingen in de handleiding zijn vernieuwd. Ze kwamen nog van eind
   juni en toonden onder meer het oude kruisje in de selectie, de oude beheerschermen en het oude

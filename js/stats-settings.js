@@ -781,12 +781,16 @@ async function exportHandleidingPDF() {
   showToast('PDF wordt voorbereid...', '');
   await loadHandleidingScreenshots();
   const heeftScreenshots = Object.keys(HANDLEIDING_SCREENSHOTS).length > 0;
+  // Schermafbeeldingen zijn telefoonbeelden (verhouding ongeveer 1:2,17). Met `width:100%` werden ze
+  // in een body van 780 px ruim 40 cm hoog — hoger dan een A4 — waardoor elk beeld een eigen pagina
+  // opeiste en de PDF tot ~48 pagina's uitdijde. Daarom een vaste HOOGTE met vrije breedte: twee
+  // beelden passen dan naast elkaar en blijven op papier ongeveer 4,9 bij 10,5 cm.
   function imgTag(key, style) {
     if (!key) return '';
     const k = key.replace('handleiding/screenshots/', '').replace('.png', '');
     const src = HANDLEIDING_SCREENSHOTS[k];
     if (!src) return '';
-    return `<img src="${src}" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;margin:12px 0;display:block${style ? ';' + style : ''}">`;
+    return `<img src="${src}" style="height:10.5cm;width:auto;border-radius:8px;border:1px solid #e5e7eb;display:block${style ? ';' + style : ''}">`;
   }
 
   const secties = HANDLEIDING_PAGINAS.map((pg, i) => {
@@ -794,7 +798,7 @@ async function exportHandleidingPDF() {
     return `
       <div class="sectie${i < HANDLEIDING_PAGINAS.length - 1 ? ' page-break' : ''}">
         <h2>${i + 1}. ${pg.titel}</h2>
-        ${imgs}
+        ${imgs ? `<div class="shots">${imgs}</div>` : ''}
         ${pg.inhoud}
       </div>`;
   }).join('');
@@ -818,13 +822,20 @@ async function exportHandleidingPDF() {
       .hdl-list{padding-left:20px;margin:8px 0;line-height:1.8;font-size:14px}
       .hdl-list li{margin-bottom:4px}
       .sectie{margin-bottom:40px}
+      /* Twee schermafbeeldingen naast elkaar; ze mogen niet over een paginagrens vallen. */
+      .shots{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin:12px 0}
       .page-break{page-break-after:auto}
       a{color:#16a34a}
       @media print{
         body{padding:16px}
-        .page-break{page-break-after:always}
+        /* Geen gedwongen pagina-einde per sectie: dat gaf een halfleeg blad na elke sectie (met de
+           14 secties en 16 beelden liep de PDF zo tot 48 pagina's op). De tekst loopt nu door;
+           koppen blijven bij hun inhoud en een beeldenblok wordt niet in twee gesneden. */
         h2{page-break-after:avoid}
         img{page-break-inside:avoid}
+        .shots{page-break-inside:avoid}
+        .sectie{page-break-inside:auto}
+        @page{margin:14mm}
       }
     </style>
   </head><body>
