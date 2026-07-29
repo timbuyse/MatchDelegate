@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.9.3
+Eerste ronde uit de grondige doorlichting van de tornooimodule, vóór de veldtest van 16 augustus.
+Dit zijn de drie zwaarste punten:
+- **Opgelost:** een tornooi verwijderen maakte al zijn wedstrijden **onvindbaar**. Ze bleven wel
+  bewaard, maar verdwenen uit de wedstrijdenlijst, van het homescherm en uit de statistieken —
+  terwijl de bevestiging beloofde dat ze zouden blijven. Nu kan een tornooi met wedstrijden niet
+  meer zomaar verwijderd worden: verwijder die eerst, of kies uitdrukkelijk **"Wedstrijden meteen
+  ook verwijderen"**. Die weg vraagt je wachtwoord, waarschuwt dat het onomkeerbaar is, en bewaart
+  eerst een back-up (met de notities en de volledige tornooigegevens) die de app-eigenaar kan
+  terugvinden. Lukt die back-up niet, dan wordt er niets verwijderd.
+- **Opgelost:** tornooien konden **stil verloren gaan**. Ze werden als één geheel naar de cloud
+  geschreven en bij het terugkomen zonder meer over je eigen versie gekopieerd. Wie zonder
+  verbinding een selectie of eindstand aanpaste en de app sloot vóór de synchronisatie, zag dat
+  werk verdwijnen; en twee mensen die elk een tornooi toevoegden, wisten elkaars tornooi. Nu wordt
+  elk tornooi apart bewaard en behoudt de app de recentste versie. *(Twee mensen die op hetzelfde
+  moment hetzelfde tornooi bewerken: daar geldt nog steeds dat de laatste het haalt — zelfde
+  afspraak als voor de klok tijdens een wedstrijd: laat één persoon registreren.)*
+- **Opgelost:** bij een wedstrijd van **één blok** maakte "Wedstrijdinfo bewerken" er stil **3 delen**
+  van, ook als je alleen het uur of de tegenstander aanpaste. Na 20 minuten kwam er dan "Einde
+  deel 1" in plaats van "Einde match", verscheen de pauzewissel en bleef de wedstrijd op "live"
+  staan (en dus buiten het tornooiverslag). De keuze **"1 blok"** staat nu ook in dat scherm.
+- **Nieuw:** je kan een gewone wedstrijd nu ook in **één blok** laten spelen; dat kon voordien
+  alleen bij een tornooiwedstrijd.
+
 ## v0.9.2
 Naar boven gekomen bij het nalezen van de eerste echte PDF's:
 - **Opgelost:** bij een wedstrijd van één blok stond er **"1 delen × 20 min"** in de PDF. Nu "1 deel".

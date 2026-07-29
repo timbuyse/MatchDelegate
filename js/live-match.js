@@ -322,7 +322,7 @@ function modalEditMatchInfo() {
   const partsBlock = notStarted ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>
-        <select id="ei-pt" onchange="eiPeriodChange()">${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+        <select id="ei-pt" onchange="eiPeriodChange()"><option value="1" ${match.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.numQuarters!==1&&match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
       <div class="fg"><label>Duur van een blok</label>
         <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
         <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>
@@ -367,8 +367,12 @@ function eiSetLoc(val, btn) {
   const h = document.getElementById('ei-loc'); if (h) h.value = val;
   [...btn.parentElement.children].forEach(b => b.classList.toggle('act', b === btn));
 }
+// De blokken-selector kan ook "1 blok" zijn (waarde "1"): dat is periodKey 'delen' met
+// numQuarters 1, net zoals readTrnPeriodSel() in de tornooiwizard. Vertaal dat hier vóór de
+// duurlijst opnieuw opgebouwd wordt, anders is er geen enkele duuroptie voor de waarde "1".
 function eiPeriodChange() {
-  const pk = (document.getElementById('ei-pt') || {}).value || 'kwarten';
+  const raw = (document.getElementById('ei-pt') || {}).value || 'kwarten';
+  const pk = raw === '1' ? 'delen' : raw;
   const sel = document.getElementById('ei-qd');
   if (sel) sel.innerHTML = durOptsHtml(pk, DUR_DEFAULT[pk]);
   const ci = document.getElementById('ei-qd-custom'); if (ci) ci.style.display = 'none';
@@ -381,8 +385,12 @@ async function saveMatchInfo() {
   match.time = v('ei-time');
   const loc = v('ei-loc'); if (loc) match.location = loc;
   if (document.getElementById('ei-pt')) {
-    match.periodKey = v('ei-pt') || match.periodKey;
-    match.numQuarters = PERIOD_TYPES[match.periodKey].count;
+    // numQuarters uit de selector lezen i.p.v. af te leiden uit periodKey: een wedstrijd van
+    // 1 blok heeft periodKey 'delen' met numQuarters 1, en die werd hier stil 3 delen (de
+    // selector kon die waarde niet eens tonen). Zelfde logica als readTrnPeriodSel().
+    const raw = v('ei-pt');
+    if (raw === '1') { match.periodKey = 'delen'; match.numQuarters = 1; }
+    else if (PERIOD_TYPES[raw]) { match.periodKey = raw; match.numQuarters = PERIOD_TYPES[raw].count; }
     match.quarterDuration = readDur('ei-qd', 'ei-qd-custom', match.quarterDuration);
   }
   const formEl = document.getElementById('ei-formation');

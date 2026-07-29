@@ -728,15 +728,120 @@ async function exportTournamentPDF() {
   showToast(`PDF gedownload: ${fileTitle}.pdf`, 'ok');
 }
 
-function deleteTournamentConfirm(id) {
+// Hoort deze wedstrijd bij de actieve ploeg? Zelfde dubbele criterium als elders in de app: bij
+// voorkeur het stabiele m.teamId, met de teamName-fallback voor wedstrijden van vóór v0.5.34.
+// De matches-store in IndexedDB is niet per ploeg gescheiden, vandaar deze controle.
+function trnMatchIsOwn(m) {
+  if (m.teamId && teamById(m.teamId)) return true;
+  const tn = teamNames[activeTeamId] || '';
+  return !!(tn && m.teamName === tn);
+}
+// Een tornooi verwijderen terwijl er nog wedstrijden aan hangen maakte die wedstrijden onvindbaar:
+// ze houden hun tournamentId, en élke lijst (wedstrijden, home, volgende wedstrijd) en alle
+// statistieken filteren op !m.tournamentId. Daarom kan een tornooi mét wedstrijden niet meer
+// zomaar verwijderd worden; wie alles in één keer wil wissen, moet dat expliciet bevestigen met
+// zijn wachtwoord en krijgt een back-up in deletedMatches (enkel leesbaar voor de beheerder(s)
+// van die ploeg, de clubbeheerder en de eigenaar).
+async function deleteTournamentConfirm(id) {
   const t = tournamentById(id); if (!t) return;
+  let mine = null;
+  try { mine = (await dbAll()).filter(m => m.tournamentId === id); } catch (e) { mine = null; }
+  if (!mine) { showToast('Kon de wedstrijden niet nalezen, probeer opnieuw.', 'err'); return; }
+  const n = mine.length;
+  if (n === 0) {
+    openModal(`<h3>Tornooi verwijderen?</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd. Dit kan niet ongedaan gemaakt worden.</p>
+      <button class="btn btn-red" onclick="doDeleteTournament('${id}')">${icI(IC.trash)} Ja, verwijderen</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
+  const wedstrijden = `${n} wedstrijd${n === 1 ? '' : 'en'}`;
+  // De back-up landt onder de ACTIEVE ploeg (zo staan de rules van deletedMatches), dus alles in één
+  // keer wissen kan enkel als álle wedstrijden van dit tornooi ook bij die ploeg horen. En zonder
+  // cloud/aanmelding is er geen wachtwoordcontrole en geen back-up mogelijk — dan bieden we die weg
+  // niet aan.
+  const canAll = cloudReady && !!currentUser && !!fbdb && !!activeTeamId;
+  const sameTeam = mine.every(trnMatchIsOwn);
+  const allBlock = !canAll
+    ? `<p style="text-align:center;color:var(--txt2);font-size:13px">Alles in één keer verwijderen kan enkel met internetverbinding, omdat er dan een back-up bewaard kan worden.</p>`
+    : !sameTeam
+      ? `<p style="text-align:center;color:var(--txt2);font-size:13px">Dit tornooi hoort bij een andere ploeg. Open eerst die ploeg om alles in één keer te verwijderen.</p>`
+      : `<button class="btn btn-red" onclick="askDeleteTournamentAll('${id}')">${icI(IC.trash)} Wedstrijden meteen ook verwijderen</button>`;
   openModal(`<h3>Tornooi verwijderen?</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd. De wedstrijden blijven bewaard maar zijn niet meer gelinkt aan dit tornooi.</p>
-    <button class="btn btn-red" onclick="doDeleteTournament('${id}')">${icI(IC.trash)} Ja, verwijderen</button>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:10px">"${esc(t.name)}" heeft nog <b>${wedstrijden}</b>. Verwijder die eerst via de tornooipagina, of verwijder alles in één keer.</p>
+    ${allBlock}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+function askDeleteTournamentAll(id) {
+  const t = tournamentById(id); if (!t) return;
+  openModal(`<h3>${icI(IC.warn)} Alles verwijderen?</h3>
+    <p style="text-align:center;color:var(--rd);font-size:13px;margin-bottom:10px"><b>Onomkeerbaar.</b> Het tornooi "${esc(t.name)}" én al zijn wedstrijden worden verwijderd, met alle doelpunten, wissels, opstellingen en notities.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Er wordt een back-up bewaard die enkel de app-eigenaar kan terugvinden.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
+    <div class="fg fg-pwd"><input id="trndel-pwd" type="password" placeholder="wachtwoord" autofocus><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
+    <div class="auth-err" id="trndel-err"></div>
+    <button class="btn btn-red" onclick="doDeleteTournamentAll('${id}')">Permanent verwijderen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+let _trnDeleteBusy = false;
+async function doDeleteTournamentAll(id) {
+  if (!canManage() || !fbdb || !currentUser || !activeTeamId) return;
+  const t = tournamentById(id); if (!t) return;
+  const pwd = (document.getElementById('trndel-pwd') || {}).value || '';
+  const err = document.getElementById('trndel-err');
+  if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
+  if (_trnDeleteBusy) return; // dubbeltik-guard: een 2e run zou de back-up kunnen overschrijven
+  _trnDeleteBusy = true;
+  if (err) err.textContent = 'Bezig...';
+  try {
+    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
+    await currentUser.reauthenticateWithCredential(cred);
+    const mine = (await dbAll()).filter(m => m.tournamentId === id);
+    // Nog eens narekenen op het moment zelf: de back-up mag nooit onder een andere ploeg landen.
+    if (!mine.every(trnMatchIsOwn)) {
+      if (err) err.textContent = 'Deze wedstrijden horen bij een andere ploeg.';
+      return;
+    }
+    const snap = jclone(t);
+    let gewist = 0;
+    for (const m of mine) {
+      // Back-up vóór de echte verwijdering, met het tornooi-object erbij zodat de dag (selectie,
+      // eindstand, puntenverdeling) volledig reconstrueerbaar blijft. fbOnce() i.p.v. een ruwe
+      // once('value'): die resolvet offline zonder gecachte waarde nooit.
+      // Lukt de back-up niet, dan verwijderen we NIETS meer: zonder vangnet mag deze actie niet
+      // doorgaan. Wat al gewist is, is dan wél geback-upt, dus er gaat nooit data verloren.
+      try {
+        const nr = notesRef(m.id);
+        const notesSnap = nr ? await fbOnce(nr) : null;
+        await fbdb.ref('deletedMatches/' + activeTeamId + '/' + m.id).set({
+          deletedAt: Date.now(),
+          deletedBy: currentUser.uid,
+          deletedByEmail: currentUser.email || '',
+          match: jclone(m),
+          notes: notesSnap ? notesSnap.val() : null,
+          tournament: snap,
+        });
+      } catch (e) {
+        if (err) err.textContent = gewist
+          ? `Back-up mislukt na ${gewist} wedstrijd${gewist === 1 ? '' : 'en'} — gestopt. Probeer opnieuw.`
+          : 'Back-up mislukt, er is niets verwijderd. Probeer opnieuw.';
+        return;
+      }
+      await dbDel(m.id);
+      gewist++;
+    }
+    deleteTournament(id);
+    currentTournament = null;
+    showToast(`Tornooi en ${mine.length} wedstrijd${mine.length === 1 ? '' : 'en'} verwijderd.`, 'ok');
+    closeModal();
+    go('tournaments');
+  } catch (e) {
+    if (err) err.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
+      ? 'Ongeldig wachtwoord.' : 'Verwijderen mislukt, probeer opnieuw.';
+  } finally { _trnDeleteBusy = false; }
+}
 function doDeleteTournament(id) {
-  saveTournaments(getTournaments().filter(t => t.id !== id));
+  deleteTournament(id);
   currentTournament = null; closeModal(); go('tournaments');
 }
 
@@ -857,10 +962,7 @@ async function saveTournamentWiz() {
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
     standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
   };
-  const arr = getTournaments();
-  const idx = arr.findIndex(t => t.id === obj.id);
-  if (idx >= 0) arr[idx] = obj; else arr.push(obj);
-  saveTournaments(arr);
+  saveTournament(obj); // upsert lokaal + enkel dit ene tornooi naar de cloud
   currentTournament = obj; trnWiz = null;
   go('tournament');
 }

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.9.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.9.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -226,7 +226,29 @@ function saveTeamsV2(arr) { localStorage.setItem('voetbal_teams_v2', JSON.string
 function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
 // Tornooien (localStorage)
 function getTournaments() { try { return JSON.parse(localStorage.getItem('voetbal_tournaments') || '[]'); } catch(e) { return []; } }
-function saveTournaments(arr) { localStorage.setItem('voetbal_tournaments', JSON.stringify(arr)); cloudOnLocalTournamentsSave(arr); }
+// LET OP: dit schrijft enkel lokaal, bewust ZONDER cloud-sync. Vroeger duwde deze functie de hele
+// tornooi-array met één set() naar de cloud (last-writer-wins), waardoor een tornooi dat een ander
+// toestel intussen toevoegde stil verdween. Gebruik saveTournament()/deleteTournament() voor alles
+// wat ook moet syncen; blijft er ooit een aanroeper op deze functie hangen, dan synct die gewoon
+// niet — veel veiliger dan de volledige cloudnode overschrijven.
+function setTournamentsLocal(arr) { localStorage.setItem('voetbal_tournaments', JSON.stringify(arr)); }
+function saveTournaments(arr) { setTournamentsLocal(arr); }
+// Eén tornooi opslaan (lokaal + enkel dat ene child in de cloud), met een tijdstempel zodat
+// applyCloudTournaments een recentere lokale versie kan herkennen. Zelfde patroon als dbSave().
+function saveTournament(t) {
+  if (!t || !t.id) return;
+  t.updatedAt = Date.now();
+  const arr = getTournaments();
+  const i = arr.findIndex(x => x.id === t.id);
+  if (i >= 0) arr[i] = t; else arr.push(t);
+  setTournamentsLocal(arr);
+  cloudOnLocalTournamentSave(t);
+}
+function deleteTournament(id) {
+  if (!id) return;
+  setTournamentsLocal(getTournaments().filter(t => t.id !== id));
+  cloudOnLocalTournamentDelete(id);
+}
 function tournamentById(id) { return getTournaments().find(t => t.id === id) || null; }
 // Tornooiselectie uitlezen. Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat:
 // squad.base/bench/absent. Beide worden hier naar één lijst met een sel-veld genormaliseerd, zodat
@@ -1079,9 +1101,16 @@ function cloudOnLocalTeamsSave(arr) {
   const r = teamRef('roster'); if (!r || !isAdmin) return;
   try { r.set(jclone(arr || [])).catch(_syncFail); } catch (e) {}
 }
-function cloudOnLocalTournamentsSave(arr) {
-  const r = teamRef('tournaments'); if (!r || !isAdmin) return;
-  try { r.set(jclone(arr || [])).catch(_syncFail); } catch (e) {}
+// Per tornooi schrijven i.p.v. de hele array (zelfde reden als bij matches, zie B14/A3): met één
+// set() van de volledige node wist de laatste schrijver stil de tornooien van een ander toestel.
+function cloudOnLocalTournamentSave(t) {
+  if (!t || !t.id) return;
+  const r = teamRef('tournaments/' + t.id); if (!r || !isAdmin) return;
+  try { r.set(jclone(t)).catch(_syncFail); } catch (e) {}
+}
+function cloudOnLocalTournamentDelete(id) {
+  const r = teamRef('tournaments/' + id); if (!r || !isAdmin || !id) return;
+  try { r.remove().catch(_syncFail); } catch (e) {}
 }
 // ---- lezen ----
 function stopTeamListeners() {
@@ -1403,12 +1432,50 @@ function applyCloudTeams(val) {
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   cloudRefreshUI();
 }
+// Tornooien stonden vroeger als één array in de cloud en werden hier onvoorwaardelijk over de
+// lokale versie gekopieerd. Wie offline een selectie of eindstand aanpaste en de app sloot vóór de
+// sync kon gebeuren, zag zijn werk bij de volgende start stil overschreven door de oude
+// cloudversie. Nu per id vergelijken op updatedAt, met dezelfde terugpush-logica als
+// applyCloudMatch. Twee beheerders die tegelijk HETZELFDE tornooi bewerken blijven
+// last-writer-wins (per tornooi, niet per veld) — bewust, zie groep D.
+let _trnShapeMigrated = false;
 function applyCloudTournaments(val) {
-  const cloud = Array.isArray(val) ? val : Object.values(val || {});
-  const cloudIds = new Set(cloud.map(t => t && t.id).filter(Boolean));
-  const localOnly = getTournaments().filter(t => !t.fromCloud && !cloudIds.has(t.id));
-  const merged = localOnly.concat(cloud.map(t => Object.assign({}, t, { fromCloud: true })));
-  localStorage.setItem('voetbal_tournaments', JSON.stringify(merged));
+  const raw = (Array.isArray(val) ? val : Object.values(val || {})).filter(t => t && t.id);
+  // Ontdubbelen op id, nieuwste wint. Nodig als vangnet voor de oude array-vorm: die had
+  // numerieke sleutels, dus tijdens de migratie kan hetzelfde tornooi even twee keer in de node
+  // staan en zou het anders dubbel in de lijst verschijnen.
+  const cloudById = new Map();
+  for (const t of raw) {
+    const prev = cloudById.get(t.id);
+    if (!prev || (t.updatedAt || 0) >= (prev.updatedAt || 0)) cloudById.set(t.id, t);
+  }
+  const local = getTournaments();
+  const localById = new Map(local.map(t => [t.id, t]));
+  const merged = [];
+  const repush = [];
+  for (const [id, ct] of cloudById) {
+    const lt = localById.get(id);
+    if (lt && isAdmin && (lt.updatedAt || 0) > (ct.updatedAt || 0)) {
+      // Lokaal recenter bewerkt dan wat de cloud heeft → lokaal behouden en terugduwen.
+      // Geen lus: na de echo zijn de tijdstempels gelijk en valt dit weg.
+      merged.push(lt); repush.push(lt);
+    } else {
+      merged.push(Object.assign({}, ct, { fromCloud: true }));
+    }
+  }
+  // Tornooien die nooit in de cloud stonden (zuiver lokale modus) blijven behouden.
+  for (const lt of local) if (!cloudById.has(lt.id) && !lt.fromCloud) merged.push(lt);
+  setTournamentsLocal(merged);
+  repush.forEach(t => cloudOnLocalTournamentSave(t));
+  // Eenmalige vormmigratie: de oude array-node één keer herschrijven als object gesleuteld op
+  // tornooi-id, zodat de per-child writes hierboven niet naast de oude numerieke sleutels landen.
+  if (!_trnShapeMigrated && isAdmin && Array.isArray(val) && raw.length) {
+    _trnShapeMigrated = true;
+    const byId = {};
+    for (const [id, ct] of cloudById) byId[id] = jclone(ct);
+    const r = teamRef('tournaments');
+    if (r) { try { r.set(byId).catch(_syncFail); } catch (e) {} }
+  }
   cloudRefreshUI();
 }
 
