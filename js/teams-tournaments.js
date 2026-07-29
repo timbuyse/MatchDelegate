@@ -280,11 +280,17 @@ async function loadTournamentDetail() {
   const squadAll = tournamentSquadList(t);
   const squadMee = squadAll.filter(s => s.sel !== 'absent').length;
   const squadRow = `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Selectie</span><span style="font-weight:600">${squadMee} spelers${t.matchType?' · '+t.matchType:''}</span></div>`;
-  // NB wordt enkel hier, op tornooiniveau, bijgehouden (niet per wedstrijd) — daarom tonen we de
-  // namen hier, anders is die info nergens meer terug te vinden.
+  // NB en "niet geselecteerd" gelden voor de hele tornooidag en zijn dus identiek voor elke
+  // wedstrijd: ze staan hier (en in het tornooiverslag), niet in elk wedstrijdverslag apart.
   const squadAbsent = squadAll.filter(s => s.sel === 'absent');
   const absentRow = squadAbsent.length
     ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Niet beschikbaar</span><span style="font-weight:600;text-align:right">${squadAbsent.map(s => esc(s.name) + (absentReasonLabel(s.absentReason) ? ` <span style="font-weight:400;color:var(--txt2)">(${absentReasonLabel(s.absentReason).toLowerCase()})</span>` : '')).join(', ')}</span></div>`
+    : '';
+  const knownSquad = new Set();
+  squadAll.forEach(s => { if (s.srcId) knownSquad.add(s.srcId); knownSquad.add((s.name || '').trim()); });
+  const notSelected = ((team && team.players) || []).filter(p => !knownSquad.has(p.id) && !knownSquad.has((p.name || '').trim()));
+  const notSelRow = notSelected.length
+    ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Niet geselecteerd</span><span style="font-weight:600;text-align:right">${notSelected.map(p => esc(p.name)).join(', ')}</span></div>`
     : '';
   const statsHtml = done.length ? `<div class="card" style="margin-bottom:12px">
     <div class="stat-big">
@@ -303,7 +309,7 @@ async function loadTournamentDetail() {
     ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
-    <div class="card">${infoRows}${squadRow}${absentRow}</div>
+    <div class="card">${infoRows}${squadRow}${absentRow}${notSelRow}</div>
     ${squadWarning}
     ${statsHtml}
     ${reportBtn}
@@ -376,14 +382,23 @@ function tournamentReportData(t, matches) {
   // De dagselectie komt uit het tornooi zelf: daar duidde je "mee" en "NB" (met reden) aan, en sinds
   // v0.7.5 staat NB nergens anders meer.
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  const sq = tournamentSquadList(t).map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '', sel: s.sel }));
+  const sqRaw = tournamentSquadList(t);
+  const sq = sqRaw.map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '', sel: s.sel }));
   const squadMee = sq.filter(s => s.sel !== 'absent').sort(byLast);
   const squadAbsent = sq.filter(s => s.sel === 'absent').sort(byLast);
+  // Vierde groep, zoals in het wedstrijdverslag: rooster­spelers die bij de tornooiselectie helemaal
+  // niet aangeduid werden. Leeg als de ploeg intussen verwijderd is.
+  const known = new Set();
+  sqRaw.forEach(s => { if (s.srcId) known.add(s.srcId); known.add((s.name || '').trim()); });
+  const team = teamById(t.teamId);
+  const squadNotSelected = (((team && team.players) || [])
+    .filter(p => !known.has(p.id) && !known.has((p.name || '').trim()))
+    .map(p => ({ name: p.name || '', number: p.number || '', reason: '' }))).sort(byLast);
   const players = Object.values(pl);
   return {
     done, planned: matches.length - done.length, results, players,
     w, d, l, gf, ga, cleanSheets, points: w * 3 + d,
-    squadMee, squadAbsent,
+    squadMee, squadAbsent, squadNotSelected,
     notPresent: players.filter(p => p.notPresent > 0).sort(byLast),
     notes: done.filter(m => (m.notes || '').trim()),
   };
@@ -466,12 +481,13 @@ async function loadTournamentReport() {
     ${sec(`Uitslagen (${r.done.length})`, resultRows)}
     ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6">${nameList(r.squadMee)}</p>`
       + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : '')
-      + (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : ''))}
+      + (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : '')
+      + (r.squadNotSelected.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet geselecteerd:</span> ${nameList(r.squadNotSelected)}</p>` : ''))}
     ${sec(`${icI(IC.timer)} Speeltijd over de dag`, minutes.length
-      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp}/${p.squad} wedstrijden gespeeld</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
+      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
       : '<p style="color:var(--txt2);font-size:14px">—</p>')}
-    ${sec(`${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft.</p>`
-      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.squad} gesp.`, `${mn(p.ms / p.squad)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+    ${sec(`${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond, telt hier niet mee.</p>`
+      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.squad} in selectie`, `${mn(p.ms / p.squad)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}

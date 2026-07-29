@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.8.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.8.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -144,7 +144,12 @@ const IC = {
 };
 const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
-function isAway(m) { return !!(m && m.location && m.location.toLowerCase() !== 'thuis'); }
+// Uitwedstrijd? Bepaalt overal enkel de weergave-volgorde: thuisploeg eerst in score, titel,
+// tussenstanden en het deelbericht.
+// Een TORNOOIWEDSTRIJD is neutraal terrein: er is geen thuisploeg, en de locatie van zo'n wedstrijd
+// is de locatie van het tornooi ("Sportpark Aalter"), dus zou alles als uitwedstrijd gelezen worden
+// en stond je eigen score overal tweede — een 3-1 winst las als "1-3". Eigen ploeg dus altijd eerst.
+function isAway(m) { return !!(m && !m.tournamentId && m.location && m.location.toLowerCase() !== 'thuis'); }
 function matchTitle(m) {
   const own = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : ''), opp = esc(m.opponent || '');
   return isAway(m) ? `${opp} vs ${own}` : `${own} vs ${opp}`;

@@ -395,12 +395,32 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
 //  - notAvailable   : NB in de selectie (m.absentPlayers), eventueel met reden
 //  - notPresent     : wél geselecteerd, maar tijdens de wedstrijd als niet aanwezig gemarkeerd
 //  - notSelected    : NG — rosterspelers die niet in de wedstrijd zaten (leeg als de ploeg weg is)
+// Bij een TORNOOIWEDSTRIJD gelden twee uitzonderingen, want beschikbaarheid en tornooiselectie geef
+// je één keer voor de hele dag in en zijn dus identiek voor elke wedstrijd (ze staan op de
+// tornooipagina en in het tornooiverslag):
+//  - notAvailable blijft leeg — NB hoort bij het tornooi, niet bij de wedstrijd (v0.7.5)
+//  - notSelected  = enkel wie meeging naar het tornooi maar deze wedstrijd niet speelde, i.p.v. de
+//    hele ploegkern (anders stonden de NB'ers en de niet-opgeroepen spelers in elk wedstrijdverslag)
 function matchSelectionGroups(m) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
   const pick = p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
-  const team = typeof teamById === 'function' ? teamById(m.teamId) : null;
+  // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34), met dezelfde naam-fallback als
+  // editMatchWizard: wedstrijden van vóór die versie hebben geen teamId, en zonder ploeg bleef de
+  // groep "Niet geselecteerd" daar onterecht leeg.
+  const team = typeof teamById === 'function'
+    ? (teamById(m.teamId) || (typeof getTeamsV2 === 'function' ? (getTeamsV2().find(t => t.name === m.teamName) || null) : null))
+    : null;
+  const trn = (m.tournamentId && typeof tournamentById === 'function') ? tournamentById(m.tournamentId) : null;
+  if (trn) {
+    const known = new Set();
+    [...selected, ...notPresent].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
+    const notSelected = tournamentSquadMee(trn)
+      .filter(s => !known.has(s.srcId) && !known.has(s.name))
+      .map(s => ({ name: s.name || '', number: s.number || '', rosterId: s.srcId || null })).sort(byLast);
+    return { selected, notAvailable: [], notPresent, notSelected };
+  }
   const notAvailable = [];
   for (const a of (m.absentPlayers || [])) {
     const rec = typeof a === 'string' ? { name: a, rosterId: null, reason: '' } : { name: a.name || '', rosterId: a.rosterId || null, reason: a.reason || '' };
@@ -437,7 +457,9 @@ function selectionBlocks(m) {
   if (g.selected.length) blocks.push(['', g.selected]);
   if (g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
   if (g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
-  if (g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
+  // Bij een tornooiwedstrijd gaat het enkel om wie deze wedstrijd niet speelde (wie meeging naar het
+  // tornooi staat vast); bij een gewone wedstrijd om de rest van de ploegkern.
+  if (g.notSelected.length) blocks.push([m.tournamentId ? 'Niet voor deze wedstrijd geselecteerd:' : 'Niet geselecteerd:', g.notSelected]);
   return { groups: g, blocks };
 }
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.

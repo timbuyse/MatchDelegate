@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.8.1
+- **Opgelost:** de uitslag van een tornooiwedstrijd stond omgekeerd. Een 3-1 winst las als "1-3", in
+  de wedstrijdlijst, het verslag, de PDF en het deelbericht. Oorzaak: de locatie van een
+  tornooiwedstrijd is de locatie van het tornooi ("Sportpark Aalter"), en alles wat niet letterlijk
+  "Thuis" is, gold als uitwedstrijd — dus kwam je eigen score tweede. Een tornooi is neutraal
+  terrein: je eigen ploeg staat er nu altijd eerst.
+- **Opgelost:** de selectie in het tornooiverslag toonde drie groepen; de vierde — **Niet
+  geselecteerd** (spelers uit het rooster die je bij de tornooiselectie niet aanduidde) — ontbrak.
+  Nu staan alle vier de groepen er, net zoals in het wedstrijdverslag.
+- **Opgelost:** bij wedstrijden van vóór v0.5.34 (die nog geen vaste ploegverwijzing hebben) bleef de
+  groep **Niet geselecteerd** in het verslag en de PDF leeg. De ploeg wordt nu ook op naam gezocht,
+  zoals elders in de app al gebeurde.
+- **Verbeterd:** wie niet beschikbaar of niet geselecteerd is, geldt voor de hele tornooidag en stond
+  daarom onnodig in elk wedstrijdverslag van dat tornooi. In het verslag van een tornooiwedstrijd
+  staat nu enkel wat per wedstrijd verschilt: de selectie, wie niet aanwezig was, en wie **niet voor
+  deze wedstrijd** geselecteerd was (uit de spelers die meegingen). De volledige lijsten staan op de
+  tornooipagina — die heeft naast "Niet beschikbaar" nu ook een regel **Niet geselecteerd** — en in
+  het tornooiverslag.
+- **Verbeterd:** in "Speeltijd over de dag" stond bij een speler die zich voor één wedstrijd afmeldde
+  "2/2 gespeeld", wat leest als "van de wedstrijden van dit tornooi". Er staat nu **"2 van de 3
+  tornooiwedstrijden gespeeld · 1× niet aanwezig"**. De rekenregel blijft dezelfde: een wedstrijd
+  waarvoor een speler zich afmeldde, drukt zijn gemiddelde niet — anders lijkt het alsof de trainer
+  hem geen speelkansen gaf. Dat staat nu ook expliciet bij Fair-play, waar de teller "2/2 in
+  selectie" heet.
+
 ## v0.8.0
 - **Nieuw: tornooiverslag.** Op de tornooipagina staat een knop **Tornooiverslag** zodra er één
   wedstrijd afgewerkt is (ook voor kijkers). Het geeft het overzicht van de hele dag samen:
