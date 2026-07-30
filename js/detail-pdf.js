@@ -85,7 +85,7 @@ function renderDetail() {
           if (!qData) return row;
           const parts = qData.qNums.map(qNum => {
             const ms = qData.result[p.id]?.[qNum] || 0;
-            return `${abbr}${qNum}: ${ms > 0 ? Math.round(ms/60000)+"'" : '—'}`;
+            return `${abbr}${qNum}: ${ms > 0 ? playedMin(ms)+"'" : '—'}`;
           });
           return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
         }).join('');
@@ -836,12 +836,12 @@ async function pdfMatchBody(doc, L, m) {
   const absentRowIdx = new Set();
   const playerRows = sortedByName(m.players).map((p, idx) => {
     if (p.absent) { absentRowIdx.add(idx); return [...numCell(p), p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
-    const min = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
+    const min = mins[p.id] ? playedMin(mins[p.id].ms) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
-    const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? Math.round(ms / 60000) + "'" : '—'; }) : [];
+    const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? playedMin(ms) + "'" : '—'; }) : [];
     return [...numCell(p), p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
   });
   // Iets minder celvulling zodat de 12 kolommen bij een grotere letter nog naast elkaar passen.

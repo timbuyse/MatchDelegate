@@ -644,7 +644,7 @@ async function loadTournamentReport() {
       ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
       : '<p style="color:var(--txt2);font-size:14px">—</p>')}
     ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond telt hier niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`
-      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.timed} in selectie`, `${mn(p.ms / p.timed)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}

@@ -9,6 +9,166 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.16.2
+- **Opgelost:** speelminuten werden op sommige plaatsen **afgekapt** en op andere **afgerond**.
+  Daardoor stond dezelfde speler in het wedstrijdverslag op 9' en in het dagoverzicht van het tornooi
+  op 10', las een wissel op exact 4 minuten als "3' · 20%" (20% van 20 min is 4') en stond in de
+  statistieken "47' · gem. 48'/match". Alles rondt nu af, dus elk getal klopt met het getal ernaast.
+  Geldt voor het verslag, het livescherm, de wissel- en pauzeschermen, beide PDF's, de CSV en de
+  statistieken.
+- **Opgelost:** in het tornooiverslag stond bij fair-play "1/3 **in selectie**", terwijl dat cijfer
+  het aantal **gespeelde** wedstrijden is — wie de hele dag in de selectie zat maar één keer speelde,
+  las dat als "ik stond er maar één keer bij". Er staat nu "1/3 gespeeld", net zoals in de PDF en in
+  de seizoensstatistieken. Het gemiddelde ernaast blijft bewust per **selectie** gerekend: dat is net
+  wat fair-play meet.
+
+## v0.16.1
+- **Gewijzigd:** de regel voor rugnummers is nu simpel: **een nummer wordt getoond als die speler er
+  een heeft**. Het vinkje bij de ploeg regelt enkel het rooster (de kolom, de invoervakjes, sorteren
+  op nummer) en of een *nieuwe* wedstrijd of tornooiselectie nummers overneemt. Een wedstrijd die al
+  gespeeld is, draagt haar eigen nummers en blijft die tonen — dat is de waarheid van dát verslag.
+  Daarmee is de aanpak van v0.16.0 teruggedraaid.
+- **Nieuw:** knop **Rugnummers** op het wedstrijdverslag. Daar pas je de nummers van een afgewerkte
+  wedstrijd aan of wis je ze in één tik ("Alle nummers wissen"). Bewust een apart venster: via
+  "Spelers bewerken" kan je ook spelers verwijderen en lijnen wijzigen, en dat wil je op een
+  gespeelde wedstrijd niet, want de events en statistieken hangen eraan.
+- **Gewijzigd:** **élke spelerslijst staat nu alfabetisch op familienaam** — de speelminuten in het
+  verslag, de spelerstabel in de PDF, de CSV, de bank bij de voorbereiding, "op het veld" en "bank"
+  in het livescherm, en de spelersnotities. "Sorteer op naam" bij een ploeg sorteerde op *voornaam*
+  en doet dat nu ook op familienaam. Klassementen (topschutters, meeste minuten, fair-play) en de
+  bank in de pauze-opstelling ("minst gespeeld eerst") houden hun eigen orde.
+- **Nieuw:** de spelerslijst van een ploeg is sorteerbaar op de drie kolommen die er staan: nummer,
+  naam en voorkeurspositie. Op positie volgt hij de vaste volgorde Keeper → Spits, niet de alfabetische:
+  zo leest die lijst als een opstelling.
+- **Opgelost:** "Posities herplaatsen" stond op elk verslag, maar weigert zodra er een wissel of
+  positiewissel gelogd is — bij een echt gespeelde wedstrijd was het dus een knop die enkel een
+  foutmelding gaf. Ze heet nu **"Startopstelling herplaatsen"** en verschijnt enkel als het ook kan;
+  anders staat er een regel die naar "Positiewissel" verwijst.
+- **Opgelost:** in de spelersnotities stonden "#1", "#2" voor de namen, ook bij een ploeg zonder
+  rugnummers.
+
+## v0.16.0
+Aanpak "geen rugnummers = nergens rugnummers, ook met terugwerkende kracht". **Teruggedraaid in
+v0.16.1**: ze botste met de mogelijkheid om per wedstrijd tóch een nummer in te vullen (geleende
+truitjes), want dat invoerveld werd dan een dode belofte.
+
+## v0.15.0
+- **Nieuw:** **rugnummers zijn optioneel per ploeg** — vinkje "Vaste rugnummers gebruiken" in het
+  spelersbeheer. Bij jeugdploegen zijn vaste nummers vaak niet de norm. Staat het uit, dan verdwijnen
+  de kolom Rugnr, de invoervakjes, de waarschuwing voor dubbele nummers en "sorteer op nummer", en
+  neemt een nieuwe wedstrijd of tornooiselectie geen nummers meer over uit het rooster. Uitzetten
+  **wist niets**: zet je het later weer aan, dan staat alles er nog. Per wedstrijd een nummer
+  invullen blijft altijd mogelijk.
+- **Opgelost:** een leeg rugnummer werd overal als **"?"** getoond. Nu verdwijnt het hele bolletje
+  als er geen nummer is (een leeg gevuld rondje leest als een fout), en toont een spelerknop de naam
+  groot i.p.v. een nummer.
+- **Gewijzigd:** de bol op het velddiagram toont **enkel het positienummer**, ook in de PDF. Voordien
+  viel hij bij een ontbrekend positienummer terug op het rugnummer, wat twee soorten cijfers door
+  elkaar haalde.
+- **Opgelost:** in de PDF's valt de kolom "#" weg als geen enkele speler van die wedstrijd een nummer
+  heeft. De CSV houdt bewust zijn kolom "Nummer" met lege cellen: een export met een vaste
+  kolomindeling blijft importeerbaar.
+
+## v0.14.2
+Laatste ronde uit de doorlichting van de tornooimodule — **daarmee is die volledig afgewerkt**.
+- **Opgelost:** een speler die je pas later aan de tornooiselectie toevoegde, stond in de verslagen
+  van de wedstrijden van vóór dat moment bij "niet geselecteerd". De app onthoudt nu wanneer iemand
+  bij de selectie kwam.
+- **Opgelost:** de kapitein ging verloren bij "Kloon als nieuwe wedstrijd".
+- **Opgelost:** een tornooi dat (nog) niet gevonden werd, gaf een kale "Niet gevonden"-melding zonder
+  weg terug; nu een echte lege staat met een knop naar de lijst.
+- **Opgelost:** twee naamgenoten in dezelfde ploeg werden in de dagselectie samengevoegd tot één
+  speler.
+- **Opgelost:** stond iedereen op niet beschikbaar, dan kwam je in een selectiescherm zonder één
+  speler terecht.
+- **Opgelost:** een bewust leeggemaakt rugnummer viel bij het herbewerken van een tornooi terug op
+  het nummer uit het rooster.
+- **Verbeterd:** vierde groep "Niet geselecteerd" ook op de tornooipagina, clean sheets bij de
+  cijfers bovenaan, de voetnoot over de scorevolgorde ook op het scherm, geen lege "0/0/0"-regel meer,
+  het ploeg-label in de PDF-kop, "Tornooilocatie" in de CSV, en de tornooi-PDF is merkbaar sneller
+  (de iconen worden één keer omgezet i.p.v. bij elke wedstrijd).
+- **Opgelost:** een gast zag starttegels die voor hem toch niet werken; die zijn nu weg.
+
+## v0.14.1
+- **Opgelost:** het tornooiverslag verest zich nu ook wanneer een medebeheerder tijdens de dag iets
+  wijzigt — voordien bleef je naar de oude cijfers kijken tot je het scherm verliet.
+- **Opgelost:** het deelbericht meldt nu of er nog wedstrijden **niet afgewerkt** zijn. "1W · 1G · 1V"
+  las in de ploeggroep anders als het volledige tornooi.
+- **Opgelost:** een wedstrijd die je via "Snel resultaat" invoerde (score zonder speeltijd) verlaagde
+  het fair-play-gemiddelde van iedereen. Zulke wedstrijden tellen nu niet meer mee in dat gemiddelde,
+  maar wél als "in de selectie".
+- **Opgelost:** de wedstrijden in de tornooi-PDF zijn doorlopend genummerd over de hele dag, gelijk
+  aan wat op het scherm staat.
+- **Opgelost:** wie je via "Spelers bewerken" aan een tornooiwedstrijd toevoegt, komt nu ook in de
+  **tornooiselectie** van die dag — anders kreeg hij speelminuten zonder in de selectie te staan.
+- **Opgelost:** een gastspeler verloor zijn label "gast" bij het klonen of herbewerken van een
+  wedstrijd.
+- **Opgelost:** bij een tornooiwedstrijd stond nog een thuis/uit-keuze; een tornooi is neutraal
+  terrein, dus daar staat nu gewoon de locatie.
+- **Opgelost:** koos je bij een tornooiwedstrijd "2 helften" na eerder 20 minuten, dan werd dat stil
+  2 × 20 minuten. En het veld voor een vrije duur toont nu het ingevulde getal i.p.v. leeg "Vrij…".
+- **Opgelost:** de wizard van een tornooiwedstrijd bracht je bij het teruggaan naar het startscherm
+  i.p.v. naar het tornooi, en vroeg niets bij het verlaten van half ingevulde gegevens. Bij het
+  bewerken van een tornooi vraagt de app dat nu enkel als er écht iets gewijzigd is.
+
+## v0.14.0
+- **Nieuw:** de **voorkeurspositie** van een speler is fijner geworden: Keeper, Verdediger (links,
+  centraal, rechts), Middenvelder (verdedigend, centraal, aanvallend), Vleugelspeler (links, rechts)
+  en Spits. Voordien was het de linienaam met enkel bij de verdediging een kant. Oude waarden blijven
+  leesbaar en worden automatisch omgezet ("Aanval" wordt Spits — wie eigenlijk vleugelspeler is, zet
+  je zelf om).
+- **Verbeterd:** **Auto-plaats** gebruikt die verfijning. Een uitgesproken keuze (links, rechts,
+  verdedigend, aanvallend) krijgt eerst zijn plek en "centraal" vult op — voordien bepaalde de
+  volgorde in de spelerslijst waar iemand belandde. Bij een formatie met één spitspositie schuift een
+  vleugelspeler naar de breedste vrije middenveldplek i.p.v. de spits te verdringen.
+- De vier linies (Doel, Verdediging, Middenveld, Aanval) blijven ongewijzigd: formaties, het
+  velddiagram en "posities per linie" in de statistieken werken zoals voordien.
+
+## v0.13.0
+- **Nieuw:** **filter op soort wedstrijd** in de statistieken én in het detail van een speler: alle
+  wedstrijden (standaard), competitie, vriendschappelijk, beker of andere. De keuze geldt op beide
+  schermen, zodat wie naar de bekerwedstrijden kijkt en dan op een speler tikt, daar hetzelfde ziet.
+- **Nieuw:** het **seizoen staat nu altijd bovenaan** de statistieken, ook als er maar één seizoen
+  is — dezelfde balk als in het spelerdetail. Deze cijfers gelden altijd over één seizoen, en zonder
+  die regel leken ze over alles te gaan.
+- **Opgelost:** een wedstrijd zonder datum werd door de alfabetische sortering het standaardseizoen,
+  waardoor de statistiekenpagina leeg leek. "Onbekend" staat nu achteraan.
+- **Opgelost:** het kadertje **Tornooien** in het spelerdetail was onbereikbaar wanneer een tornooi
+  vóór de eerste wedstrijd van dat seizoen viel: dat seizoen bestond dan niet in de kiezer.
+
+## v0.12.2
+- **Opgelost:** **Wedstrijd heropenen** voegde altijd een deel toe. Sloot je per ongeluk te vroeg af,
+  dan kreeg je een fantoomdeel in het verslag. De app vraagt nu waarom je heropent: *verkeerd
+  afgesloten* hervat het laatste deel (zonder extra deel, en de tijd tussen het foute afsluiten en nu
+  telt niemand als speeltijd), *verlenging* voegt een deel toe, en *nooit gestart* zet de wedstrijd
+  terug op gepland.
+- **Opgelost:** een wedstrijd die nooit gestart is, kon je stil afsluiten op 0-0; nu vraagt de app
+  eerst, met de veilige uitweg vooraan.
+- **Verbeterd:** de waarschuwing "ben je vergeten af te sluiten?" hangt nu aan de **lengte van het
+  blok** (een kwart ervan, minimaal 3 minuten) i.p.v. aan een vaste 10 minuten. Bij blokken van 20
+  minuten kon je zo 9 minuten te laat afsluiten — 45% extra speeltijd voor iedereen op het veld —
+  zonder één waarschuwing.
+
+## v0.12.1
+- **Gewijzigd:** een tornooi hoort bij de ploeg waarin je het aanmaakt, dus die ploeg staat er nu als
+  **vaste regel** i.p.v. als keuzelijst. Bij een bestaand tornooi was wisselen zelfs verkeerd: de al
+  aangemaakte wedstrijden bleven bij de oude ploeg staan.
+- **Opgelost:** kende de app het rooster van de ploeg even niet (bv. nog niet gesynchroniseerd), dan
+  kon het bewaren van een tornooi de hele dagselectie **inclusief de redenen van afwezigheid** wissen,
+  ook in de cloud. Nu blijft een bestaande selectie staan en zegt de app wat er scheelt.
+- **Opgelost:** een speler die je tijdens de dag als afwezig markeerde, kon via het ongedaan maken van
+  een actie of via de wisselknop tóch weer op het veld belanden.
+- **Opgelost:** "ook niet beschikbaar voor de rest van het tornooi" deed stil niets bij een gastspeler
+  of bij iemand die de ploeg intussen verliet; nu krijg je een eerlijke melding.
+
+## v0.12.0
+- **Opgelost (privacy):** wie **niet beschikbaar** was en **waarom** ("ziek", "blessure") stond in het
+  deel van de tornooigegevens dat elk ploeglid kan lezen — ook een kijker of een gast, rechtstreeks
+  uit de databank en dus buiten de app om. Voor minderjarigen is dat het gevoeligste stukje gegevens
+  in de app. Dat deel verhuist nu naar hetzelfde beheerder-only pad als de wedstrijdnotities. Wat een
+  kijker mag zien blijft ongewijzigd: wie meegaat is zichtbaar, wie niet gekozen of niet beschikbaar
+  was niet. Bestaande tornooien worden automatisch omgezet.
+
 ## v0.11.3
 - **Nieuw:** onderaan het tornooiverslag en het wedstrijdverslag staat nu voor beheerders een regel
   die zegt **wat een kijker daar níet ziet**, met een knop naar Statistieken om het aan te passen.

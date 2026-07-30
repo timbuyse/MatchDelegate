@@ -125,7 +125,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
     </div>`;
   }
   const ms = minsData ? minsData.ms : 0;
-  const m = Math.floor(ms / 60000);
+  const m = playedMin(ms);
   const cap = (match && match.captainId === p.id) ? ` ${icI(IC.captain)}` : '';
   const motm = (match && match.motmId === p.id) ? ` ${icI(IC.motm)}` : '';
   const pct = totalMs > 0 ? Math.round(ms / totalMs * 100) : null;
@@ -852,7 +852,7 @@ function exportMatchCSV() {
   // SELECTIE
   row('SELECTIE', 'Naam', 'Nummer', 'Positie', 'Status', 'Speelminuten', 'Goals', 'Assists', 'Gele kaarten', 'Rode kaarten');
   for (const p of sortedByName(m.players)) {
-    const minMs = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
+    const minMs = mins[p.id] ? playedMin(mins[p.id].ms) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
@@ -1435,7 +1435,7 @@ function modalSub() {
   // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
   const off = match.players.filter(p => !onIds.has(p.id) && !p.absent).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
-  const mm = id => Math.floor((mins[id]?.ms || 0) / 60000);
+  const mm = id => playedMin(mins[id]?.ms);
   subOut = null; subIn = null;
   const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.swap)} Wissel`;
   const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
@@ -1559,7 +1559,7 @@ function pauseLineupHtml(m) {
   const on = preview.filter(p => p.onField && !p.absent);
   const bench = preview.filter(p => !p.onField && !p.absent)
     .sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
-  const mm = id => Math.floor((mins[id]?.ms || 0) / 60000);
+  const mm = id => playedMin(mins[id]?.ms);
   const selId = _lineupSel ? _lineupSel.id : null;
   const nSubs = (m.pendingSubs || []).length, nSwaps = (m.pendingPosSwaps || []).length;
   return `
@@ -1755,7 +1755,7 @@ function modalSubAfterInjury(outId) {
   const mins = calcMinutes(match);
   const off = playersOnBench(match).slice().sort((a,b) => (mins[a.id]?.ms||0) - (mins[b.id]?.ms||0));
   const minMs = off.length ? (mins[off[0].id]?.ms||0) : 0;
-  const mm = id => Math.floor((mins[id]?.ms||0)/60000);
+  const mm = id => playedMin(mins[id]?.ms);
   openModal(`<h3>${icI(IC.swap)} Wissel na blessure</h3>
     <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">🤕 ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>

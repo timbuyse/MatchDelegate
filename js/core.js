@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.16.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.16.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -216,6 +216,13 @@ function scoreHtml(m, cls) {
 function scoreTxt(m) {
   return isAway(m) ? `${m.scoreThem}-${m.scoreUs}` : `${m.scoreUs}-${m.scoreThem}`;
 }
+// Speelminuten van één speler als getal om te tonen. ÉÉN regel voor de hele app: afronden.
+// Voordien kapte de spelerslijst af (Math.floor) terwijl het dagoverzicht van een tornooi, de
+// deel-kolommen en het percentage afrondden. Dezelfde speler stond dan op 9' in het
+// wedstrijdverslag en 10' in het dagoverzicht, en een wissel op exact 4 min las als "3' · 20%"
+// (20% van 20 min = 4'). Wijzig je dit, kijk dan ook naar `mn()` in teams-tournaments.js en
+// stats-settings.js — die doen hetzelfde voor de totalen.
+function playedMin(ms) { return Math.round((ms || 0) / 60000); }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
