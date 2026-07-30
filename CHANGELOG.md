@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.11.2
+- **Opgelost:** je keuzes over wat kijkers mogen zien (de oogjes bij de statistieken) golden **niet**
+  in het tornooiverslag en het wedstrijdverslag. Een ouder-kijker zag daar dus de speelminuten per
+  speler, de rangschikking "wie speelde het minst", de kaarten en de volledige selectie met wie
+  afwezig was en waarom — precies wat je in Statistieken had uitgezet. Die verslagen volgen nu
+  dezelfde keuzes, op het scherm én in de PDF's (die een kijker kan downloaden). **Wie meegaat of
+  meespeelde blijft altijd zichtbaar**; wie niet gekozen werd of niet beschikbaar was, volgt je
+  keuze. Zet je een sectie publiek, dan verschijnt ze ook in de verslagen. Notities blijven zoals
+  altijd enkel voor beheerders.
+- **Opgelost:** een clubbeheerder die geen lid is van een ploeg, kon stil zonder beheerknoppen komen
+  te zitten: zijn rechten hingen aan één gegevensoproep die na 4 seconden opgaf, zonder melding, en
+  alleen een herstart hielp. De app probeert nu drie keer, onthoudt bij welke club een ploeg hoort
+  (zodat je rechten de volgende keer meteen goed staan, ook bij een trage verbinding) en zegt het
+  eerlijk als het echt niet lukt.
+
 ## v0.11.1
 - **Opgelost:** beheer je meerdere ploegen, dan toonde de tornooilijst ook de tornooien van je
   **andere** ploeg. Ze waren daar zelfs bewerkbaar, en bij opslaan belandde die gegevens onder de

@@ -65,6 +65,7 @@ function renderDetail() {
     <div class="sec">${match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling'}</div>
     <div class="card">${renderLineupCarousel(match)}</div>
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
+    ${!statSectionVisible('minutes') ? '' : `
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
@@ -86,7 +87,7 @@ function renderDetail() {
           return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
         }).join('');
       })()}
-    </div>
+    </div>`}
     ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
@@ -492,16 +493,20 @@ function selectionBlocks(m) {
   // de tornooipagina en in het tornooiverslag. Hier blijft dus enkel wat per wedstrijd kán afwijken:
   // wie niet aanwezig was (bv. na twee wedstrijden naar huis) en, als de trainer toch iemand uitvinkte,
   // wie niet voor deze wedstrijd geselecteerd was. Is er geen afwijking, dan valt de kaart weg.
+  // Wie meegespeeld heeft mag een kijker altijd zien; wie niet gekozen werd of niet beschikbaar was
+  // (met reden) volgt de statsPublic-keuze 'selected' — zelfde regel als het tornooiverslag en de
+  // statistiekenpagina. Geldt hier in één keer voor het scherm (selectionCardHtml) én de PDF.
+  const nevengroepen = statSectionVisible('selected');
   if (m.tournamentId) {
     // Zonder label: de sectiekop is hier al "Niet aanwezig (n)".
-    if (g.notPresent.length) blocks.push(['', g.notPresent, true]);
-    if (g.notSelected.length) blocks.push(['Niet voor deze wedstrijd geselecteerd:', g.notSelected]);
+    if (nevengroepen && g.notPresent.length) blocks.push(['', g.notPresent, true]);
+    if (nevengroepen && g.notSelected.length) blocks.push(['Niet voor deze wedstrijd geselecteerd:', g.notSelected]);
     return { groups: g, blocks };
   }
   if (g.selected.length) blocks.push(['Geselecteerd:', g.selected, true]);
-  if (g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
-  if (g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
-  if (g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
+  if (nevengroepen && g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
+  if (nevengroepen && g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
+  if (nevengroepen && g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
   return { groups: g, blocks };
 }
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
@@ -510,7 +515,11 @@ function selectionCardHtml(m) {
   if (!blocks.length) return '';
   // Bij een tornooiwedstrijd staat hier enkel nog de afwijking op de tornooiselectie, dus is een kop
   // "Selectie (8)" misleidend.
-  const title = (m.tournamentId && groups.notPresent.length) ? `Niet aanwezig (${groups.notPresent.length})` : `Selectie (${groups.selected.length})`;
+  // Kop op de ZICHTBARE blokken baseren: bij een tornooiwedstrijd blijven voor een kijker enkel de
+  // nevengroepen over, en die kunnen verborgen zijn — dan is "Niet aanwezig (1)" boven een lege
+  // kaart misleidend (de kaart valt dan trouwens al weg via de blocks.length-check hierboven).
+  const toontNotPresent = blocks.some(b => b[1] === groups.notPresent);
+  const title = (m.tournamentId && toontNotPresent) ? `Niet aanwezig (${groups.notPresent.length})` : `Selectie (${groups.selected.length})`;
   return `<div class="sec">${title}</div>
     <div class="card">
       ${blocks.map(([lbl, list]) => `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${esc(lbl)}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`).join('')}
@@ -614,7 +623,7 @@ async function pdfMatchBody(doc, L, m) {
   if (selBlocks.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
     const wrapped = selBlocks.map(([lbl, list]) => doc.splitTextToSize((lbl ? lbl + ' ' : '') + list.map(nameWithNum).join(', '), CW));
-    const selTitle = (m.tournamentId && selGroups.groups.notPresent.length) ? 'Niet aanwezig' : 'Selectie';
+    const selTitle = (m.tournamentId && selBlocks.some(b => b[1] === selGroups.groups.notPresent)) ? 'Niet aanwezig' : 'Selectie';
     heading(selTitle, wrapped.reduce((n, w) => n + w.length * 15, 0) + (selBlocks.length - 1) * 4);
     for (let i = 0; i < wrapped.length; i++) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
@@ -795,7 +804,9 @@ async function pdfMatchBody(doc, L, m) {
     return [p.number || '', p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
   });
   // Iets minder celvulling zodat de 12 kolommen bij een grotere letter nog naast elkaar passen.
-  tableBlock('Spelers', { head: [playerHead], body: playerRows,
+  // Deze tabel bevat de speelminuten per speler (en wie niet aanwezig was), dus ze volgt dezelfde
+  // statsPublic-keuze als de sectie Speelminuten op het scherm — een kijker kan deze PDF downloaden.
+  if (statSectionVisible('minutes')) tableBlock('Spelers', { head: [playerHead], body: playerRows,
     styles: { fontSize: 9.5, cellPadding: 4 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
     didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } });
 

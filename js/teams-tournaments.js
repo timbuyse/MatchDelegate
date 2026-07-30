@@ -506,6 +506,14 @@ async function loadTournamentReport() {
   const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const keepers = r.players.filter(p => p.keeperMp > 0).sort((a, b) => b.keeperMs - a.keeperMs);
   const sec = (title, body) => `<div class="sec">${title}</div><div class="card">${body}</div>`;
+  // Zichtbaarheid voor kijkers volgt dezelfde keuzes als de statistiekenpagina (de oogjes uit
+  // v0.5.20, opgeslagen in teams/{id}/info/statsPublic). Voordien toonde dit verslag élke kijker de
+  // speeltijd, de fair-play-rangschikking, de kaarten en de volledige dagselectie — precies wat daar
+  // standaard verborgen staat. Wie meegaat naar het tornooi mag wél altijd getoond worden; wie niet
+  // gekozen werd of niet beschikbaar was (met reden) niet.
+  const mag = statSectionVisible;
+  let verborgen = 0;
+  const secIf = (k, title, body) => { if (!mag(k)) { verborgen++; return ''; } return sec(title, body); };
   el.innerHTML = `
     <div class="card">
       <div class="stat-big" style="margin-bottom:10px">
@@ -530,21 +538,24 @@ async function loadTournamentReport() {
     ${sec('Tornooi-info', infoRows || '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>')}
     ${sec(`Uitslagen (${r.done.length})`, resultRows)}
     ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6"><span style="color:var(--txt2)">Geselecteerd:</span> ${nameList(r.squadMee)}</p>`
-      + (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : '')
-      + (r.squadNotSelected.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet geselecteerd:</span> ${nameList(r.squadNotSelected)}</p>` : '')
-      + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : ''))}
-    ${sec(`${icI(IC.timer)} Speeltijd over de dag`, minutes.length
+      + (mag('selected')
+        ? (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : '')
+          + (r.squadNotSelected.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet geselecteerd:</span> ${nameList(r.squadNotSelected)}</p>` : '')
+          + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : '')
+        : (() => { const rest = r.notPresent.length + r.squadNotSelected.length + r.squadAbsent.length; if (rest) verborgen++; return ''; })()))}
+    ${secIf('minutes', `${icI(IC.timer)} Speeltijd over de dag`, minutes.length
       ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
       : '<p style="color:var(--txt2);font-size:14px">—</p>')}
-    ${sec(`${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond, telt hier niet mee.</p>`
+    ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond, telt hier niet mee.</p>`
       + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.squad} in selectie`, `${mn(p.ms / p.squad)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}
     ${keepers.length ? sec(`${icI(IC.save)} Keeper(s)`, keepers.map(p => row(esc(p.name), `${p.keeperMp} ${p.keeperMp === 1 ? 'wedstrijd' : 'wedstrijden'} in doel`, `${p.cs} CS`)).join('')) : ''}
-    ${carded.length ? sec(`${icI(IC.cardY)} Kaarten`, carded.map(p => `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc ? icI(IC.cardY).repeat(p.yc) : ''}${p.rc ? icI(IC.cardR).repeat(p.rc) : ''}</span></div>`).join('')) : ''}
+    ${carded.length ? secIf('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p => `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc ? icI(IC.cardY).repeat(p.yc) : ''}${p.rc ? icI(IC.cardR).repeat(p.rc) : ''}</span></div>`).join('')) : ''}
     ${(canManage() && r.notes.length) ? sec(`Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span>`,
-      r.notes.map(m => `<p class="notes-txt" style="margin-bottom:8px"><span style="color:var(--txt2);font-size:13px">vs ${esc(m.opponent || '')}:</span><br>${esc(m.notes)}</p>`).join('')) : ''}`;
+      r.notes.map(m => `<p class="notes-txt" style="margin-bottom:8px"><span style="color:var(--txt2);font-size:13px">vs ${esc(m.opponent || '')}:</span><br>${esc(m.notes)}</p>`).join('')) : ''}
+    ${verborgen ? `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:14px">Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : ''}`;
 }
 // Deelbericht voor de ploeggroep: uitslagen + dagresultaat + doelpuntenmakers, zonder speeltijden
 // (die zijn intern) en zonder notities.
@@ -661,10 +672,14 @@ async function exportTournamentPDF() {
   }, 24, 'Bij een tornooi staat de eigen ploeg altijd eerst.');
 
   // ---- Dagselectie ----
+  // Zelfde zichtbaarheidsregels als het verslag op het scherm: een kijker kan deze PDF downloaden,
+  // dus wat daar verborgen is, hoort hier ook niet in. Wie meegaat mag wel altijd vermeld worden.
+  const pdfMag = statSectionVisible;
   const selGroups = [['Geselecteerd:', r.squadMee, true],
-    ['Geselecteerd maar niet aanwezig:', r.notPresent, false],
-    ['Niet geselecteerd:', r.squadNotSelected, false],
-    ['Niet beschikbaar:', r.squadAbsent, false]].filter(g => g[1].length);
+    ...(pdfMag('selected') ? [
+      ['Geselecteerd maar niet aanwezig:', r.notPresent, false],
+      ['Niet geselecteerd:', r.squadNotSelected, false],
+      ['Niet beschikbaar:', r.squadAbsent, false]] : [])].filter(g => g[1].length);
   if (selGroups.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(11);
     const wrapped = selGroups.map(([lbl, list]) => doc.splitTextToSize(lbl + ' ' + list.map(nameWithNum).join(', '), CW));
@@ -680,7 +695,7 @@ async function exportTournamentPDF() {
 
   // ---- Speeltijd + fair-play ----
   const played = r.players.filter(p => p.squad > 0);
-  if (played.length) {
+  if (played.length && pdfMag('minutes')) {
     const minutes = played.slice().sort((a, b) => b.ms - a.ms);
     tableBlock('Speeltijd over de dag', {
       head: [['#', 'Naam', 'Gespeeld', 'Totaal', 'Gem./match']],
@@ -690,6 +705,8 @@ async function exportTournamentPDF() {
       styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
       columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } },
     }, 24);
+  }
+  if (played.length && pdfMag('fairplay')) {
     const fair = played.slice().sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
     tableBlock('Fair-play · minste speeltijd', {
       head: [['#', 'Naam', 'In selectie', 'Gem./selectie']],
@@ -710,7 +727,7 @@ async function exportTournamentPDF() {
     textBlock('Doelpunten & assists', parts.join('   ·   '));
   }
   if (keepers.length) textBlock('Keeper(s)', keepers.map(p => `${p.name}: ${p.keeperMp} ${p.keeperMp === 1 ? 'wedstrijd' : 'wedstrijden'} in doel, ${p.cs} clean sheet${p.cs === 1 ? '' : 's'}`).join('   ·   '));
-  if (carded.length) textBlock('Kaarten', carded.map(p => `${p.name}: ${[p.yc ? p.yc + '× geel' : '', p.rc ? p.rc + '× rood' : ''].filter(Boolean).join(' + ')}`).join('   ·   '));
+  if (carded.length && pdfMag('cards')) textBlock('Kaarten', carded.map(p => `${p.name}: ${[p.yc ? p.yc + '× geel' : '', p.rc ? p.rc + '× rood' : ''].filter(Boolean).join(' + ')}`).join('   ·   '));
 
   // Geen notitie-sectie in het dagoverzicht: elk wedstrijdverslag hieronder bevat zijn eigen
   // notities, dus die zouden anders twee keer in hetzelfde document staan. (Op het scherm staat het

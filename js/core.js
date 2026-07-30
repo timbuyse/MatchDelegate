@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.11.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.11.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -409,9 +409,10 @@ async function clearLocalDeviceData(uid) {
     });
   } catch (e) {}
   ['voetbal_teams_v2', 'voetbal_tournaments', 'voetbal_club_name', 'voetbal_club_logo',
-   'voetbal_theme', 'voetbal_teamNames', 'voetbal_setup_done', 'voetbal_last_backup',
-   'voetbal_adminRequested', 'voetbal_adminApprovedSeen', 'voetbal_activeTeamId']
+   'voetbal_theme', 'voetbal_teamNames', 'voetbal_teamClubIds', 'voetbal_setup_done',
+   'voetbal_last_backup', 'voetbal_adminRequested', 'voetbal_adminApprovedSeen', 'voetbal_activeTeamId']
     .forEach(k => localStorage.removeItem(k));
+  teamClubIds = {};
   if (uid) localStorage.removeItem('voetbal_userTeams_' + uid);
   if (uid) localStorage.removeItem('voetbal_teamOrder_' + uid); // ploeg-id's van de vorige gebruiker
 }
@@ -459,6 +460,19 @@ let activeClubLogo = '';   // gedenormaliseerd clublogo (data-URI) van de actiev
 let isClubAdmin = false;   // is de huidige gebruiker clubbeheerder van de actieve ploeg's club?
 let activeStatsPublic = {}; // { sectieKey: bool } — welke statistieksecties de beheerder publiek zette (teams/{id}/info/statsPublic)
 let teamClubNames = {};    // { teamId: clubName } — cache voor groepering op het ploegkeuzescherm
+// { teamId: clubId } — nodig om isClubAdmin (myClubs[clubId]) SYNCHROON te kunnen bepalen bij het
+// selecteren van een ploeg. Voordien hing dat volledig aan de info-fetch: liep die in een timeout,
+// dan bleef een clubbeheerder-niet-ploeglid stil kijker tot een herstart. Bewaard in localStorage,
+// zelfde patroon als voetbal_teamNames.
+let teamClubIds = {};
+function loadTeamClubIds() {
+  try { const c = JSON.parse(localStorage.getItem('voetbal_teamClubIds') || '{}'); for (const k in c) if (!teamClubIds[k]) teamClubIds[k] = c[k]; } catch (e) {}
+}
+function rememberTeamClubId(teamId, clubId) {
+  if (!teamId) return;
+  if (clubId) teamClubIds[teamId] = clubId; else delete teamClubIds[teamId];
+  try { localStorage.setItem('voetbal_teamClubIds', JSON.stringify(teamClubIds)); } catch (e) {}
+}
 let teamClubLogos = {};    // { teamId: clubLogo } — cache clublogo per ploeg (ploegkeuzescherm)
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
 
@@ -1011,10 +1025,23 @@ async function selectTeam(teamId) {
   try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   activeTeamId = teamId;
   isAdmin = (userTeams[teamId] === 'admin');
-  // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal; voor de rest
-  // wachten we op de clubId-fetch hieronder (achtergrond) vóór we isClubAdmin definitief zetten.
+  // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal.
   activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
   isClubAdmin = isOwner;
+  // Kennen we de club van deze ploeg al van een vorige keer? Dan isClubAdmin (en dus isAdmin)
+  // meteen zetten, vóór cloudListen() en go('home'). Zo hangen de beheerknoppen en de
+  // beheerder-only listeners niet langer aan een fetch die in een timeout kan lopen.
+  // Enkel elevatie: myClubs wordt bij elke aanmelding vers opgehaald, dus een ingetrokken
+  // clubbeheerdersrol kan hier nooit blijven hangen. Klopt de onthouden club niet meer, dan
+  // corrigeert de fetch hieronder het alsnog (en de rules weigeren intussen elke schrijfactie).
+  loadTeamClubIds();
+  const cachedClubId = teamClubIds[teamId];
+  if (!isClubAdmin && cachedClubId && myClubs[cachedClubId]) {
+    activeClubId = cachedClubId;
+    if (teamClubNames[teamId]) activeClubName = teamClubNames[teamId];
+    isClubAdmin = true;
+    isAdmin = true;
+  }
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup). Enkel als hij
   // effectief een rol heeft: een clubbeheerder die geen ploeglid is, mag niet als 'viewer'
@@ -1036,13 +1063,37 @@ async function selectTeam(teamId) {
   // Info van de actieve ploeg in één fetch: naam (voor de filter/weergave) + club-context (fase 2):
   // clubId (welke club), clubName (gedenormaliseerd, ook leesbaar voor kijkers) en of de huidige
   // gebruiker daar clubbeheerder van is. Tot deze fetch klaar is valt isClubAdmin terug op isOwner.
-  fbOnce(fbdb.ref('teams/' + teamId + '/info')).then(s => {
+  fetchTeamInfo(teamId);
+  go('home');
+}
+// Ploeginfo ophalen mét herhaalpogingen. Voordien was dit één fbOnce met een stille catch: liep die
+// in zijn timeout van 4 s (trage 4G op het veld), dan bleef een clubbeheerder-niet-ploeglid zonder
+// enige melding kijker — geen "+ Nieuw tornooi", geen bewerkknoppen — tot een herstart. Dezelfde
+// fetch bepaalt ook de clubnaam, het logo, statsPublic en de archief-check.
+async function fetchTeamInfo(teamId, poging = 0) {
+  const wachtMs = [0, 2000, 5000];
+  if (poging >= wachtMs.length) {
+    // Alle pogingen mislukt: eerlijk zeggen i.p.v. een uitgekleed scherm zonder uitleg.
+    if (activeTeamId === teamId && (view === 'home' || view === 'matches')) {
+      showToast('Kon de ploeggegevens niet ophalen — sommige beheerknoppen ontbreken mogelijk. Tik op Instellingen › Ploeg om opnieuw te proberen.', 'err');
+    }
+    return;
+  }
+  if (poging > 0) await new Promise(r => setTimeout(r, wachtMs[poging]));
+  // Intussen van ploeg gewisseld of afgemeld? Dan niets meer doen — een late poging mag nooit de
+  // club-context van een andere ploeg zetten.
+  if (activeTeamId !== teamId || !currentUser || !fbdb) return;
+  let s;
+  try { s = await fbOnce(fbdb.ref('teams/' + teamId + '/info')); }
+  catch (e) { return fetchTeamInfo(teamId, poging + 1); }
+  {
     if (activeTeamId !== teamId || !s.exists()) return; // ondertussen van ploeg gewisseld
     const info = s.val() || {};
     activeClubId = info.clubId || null;
     activeClubName = info.clubName || '';
     activeClubLogo = info.clubLogo || '';
     activeStatsPublic = info.statsPublic || {};
+    rememberTeamClubId(teamId, activeClubId); // ook wissen als de ploeg géén club (meer) heeft
     if (activeClubName) teamClubNames[teamId] = activeClubName;
     if (activeClubLogo) teamClubLogos[teamId] = activeClubLogo; else delete teamClubLogos[teamId];
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
@@ -1061,16 +1112,19 @@ async function selectTeam(teamId) {
     // Clubbeheerder beheert de ploegen van zijn club (fase 2d): behandel hem als beheerder van
     // deze ploeg, ook al is hij geen ploeglid. Verandert isAdmin → altijd herrenderen.
     const wasAdmin = isAdmin;
-    if (isClubAdmin) isAdmin = true;
+    // Uit de echte rol + de nu bekende club-context, in BEIDE richtingen: klopt de onthouden
+    // clubId niet meer (ploeg verhuisd naar een andere club), dan moet de elevatie die hierboven
+    // uit de cache kwam ook weer weg.
+    isAdmin = (userTeams[teamId] === 'admin') || isClubAdmin;
     // Elevatie naar beheerder ná de initiële cloudListen(): de beheerder-only listeners
     // (o.a. teamNotes) zijn toen niet opgezet omdat isAdmin nog false was. Herstart ze nu,
-    // net zoals onSelfRoleChanged bij een rolwijziging doet.
-    if (isAdmin && !wasAdmin) { stopTeamListeners(); cloudListen(); listenCoAdminRequests(); }
+    // net zoals onSelfRoleChanged bij een rolwijziging doet. Bij een degradatie idem, zodat
+    // beheerder-only listeners netjes stoppen.
+    if (isAdmin !== wasAdmin) { stopTeamListeners(); cloudListen(); listenCoAdminRequests(); }
     const changed = info.name && teamNames[teamId] !== info.name;
     if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
     if (isAdmin !== wasAdmin || ((changed || activeClubName) && (view === 'home' || view === 'matches'))) render();
-  }).catch(() => {});
-  go('home');
+  }
 }
 
 // Naam + e-mail van een lid bewaren zodat de beheerder de kijkers kan zien.
@@ -1537,6 +1591,15 @@ function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudT
 // zag een KIJKER bij een falende SDK-load plots de volledige beheerdersweergave. Pure lokale
 // modus (geen cloud-ploeg bekend) blijft alles tonen.
 function canSeeStats() { return !isGuest && !viewerMode && (isAdmin || isOwner || (!cloudReady && !offlineWithKnownCloudTeam())); }
+// Mag deze statistieksectie getoond worden aan wie nu kijkt? Beheerders zien alles; voor kijkers
+// gelden de oogjes uit v0.5.20 (teams/{id}/info/statsPublic, standaard STATS_DEFAULT_PUBLIC).
+// Eén plek voor die regel, want ze geldt nu op de statistiekenpagina, in het tornooiverslag en in
+// het wedstrijdverslag — op het scherm én in de PDF's, die een kijker allemaal kan openen.
+function statSectionVisible(key) {
+  if (canSeeStats()) return true;
+  if (key in activeStatsPublic) return !!activeStatsPublic[key];
+  return !!(typeof STATS_DEFAULT_PUBLIC !== 'undefined' && STATS_DEFAULT_PUBLIC[key]);
+}
 
 // ---- UI chip + account modal ----
 function updateCloudChip() {

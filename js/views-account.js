@@ -1239,6 +1239,9 @@ function renderTeamSelect() {
           const info = s.val() || {};
           if (info.name) { teamNames[id] = info.name; if (el) el.textContent = info.name; }
           if (info.clubName && teamClubNames[id] !== info.clubName) { teamClubNames[id] = info.clubName; needsRerender = true; }
+          // clubId onthouden zodat selectTeam() de clubbeheerder-rechten synchroon kan zetten en
+          // niet meer afhangt van een info-fetch die in een timeout kan lopen (zie fetchTeamInfo).
+          rememberTeamClubId(id, info.clubId || null);
           const nl = info.clubLogo || ''; if ((teamClubLogos[id] || '') !== nl) { if (nl) teamClubLogos[id] = nl; else delete teamClubLogos[id]; needsRerender = true; }
           // Ploeg die intussen gearchiveerd raakte → uit de lijst halen (herrenderen).
           if (info.archived && !archivedTeams[id]) { archivedTeams[id] = true; needsRerender = true; }
