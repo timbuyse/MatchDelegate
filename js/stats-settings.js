@@ -105,7 +105,7 @@ async function loadStats() {
   const getp = (rosterId, name, num) => {
     const nm = (name || 'Speler').trim();
     const k = rosterId || nm;
-    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, absent: 0, lines: {} });
+    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, lines: {} });
     if (name) r.name = nm;
     if (num) r.number = num;
     return r;
@@ -128,6 +128,9 @@ async function loadStats() {
     if (m.scoreUs > m.scoreThem) w++; else if (m.scoreUs < m.scoreThem) l++; else d++;
     if (m.scoreThem === 0) cleanSheets++;
     const mins = calcMinutes(m);
+    // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
+    // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
+    const gemeten = getGameTimeMs(m) > 0;
     for (const p of (m.players || [])) {
       const r = getp(p.rosterId, p.name, p.number); const ms = mins[p.id] ? mins[p.id].ms : 0;
       // No-show ("Niet aanwezig" tijdens de wedstrijd): telt als afwezig, niet als geselecteerd —
@@ -136,6 +139,7 @@ async function loadStats() {
       // A/B-tegenhanger op dezelfde dag niet dubbel als afwezig telt.)
       if (p.absent) { r.absent++; continue; }
       r.squad++;
+      if (gemeten) r.timed++;
       if (ms > 0) { r.mp++; r.lines[p.line] = (r.lines[p.line] || 0) + 1; }
       r.ms += ms;
       // keeperByQ (per-kwart bijgehouden, zie syncKeeper()) i.p.v. de eind-positie: anders krijgt
@@ -179,12 +183,13 @@ async function loadStats() {
   const topList = (arr, val, unit) => arr.length ? arr.map((p, i) => `<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${val(p)}${unit}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>';
   const scorers = players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 10);
   const assisters = players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 10);
-  // "Meeste speelminuten" en "Fair-play" op basis van GESELECTEERD (squad), niet van gespeeld:
-  // een speler die wél in de selectie stond maar 0 minuten kreeg (bank, niet ingevallen) hoort net
-  // zichtbaar te zijn — dat is de eerlijkheids-signaal. Wie op ✗/niets stond zit niet in squad en
-  // blijft er terecht buiten.
+  // Beide lijsten vertrekken van GESELECTEERD, niet van gespeeld: een speler die wél in de selectie
+  // stond maar 0 minuten kreeg (bank, niet ingevallen) hoort net zichtbaar te zijn — dat is het
+  // eerlijkheids-signaal. Wie op ✗/niets stond zit niet in squad en blijft er terecht buiten.
+  // Fair-play deelt echter door `timed` (wedstrijden waarin er ook echt tijd geregistreerd is): een
+  // "Snel resultaat" heeft een score maar geen speeltijd en verlaagde zo het gemiddelde van iedereen.
   const minutes = players.filter(p => p.squad > 0).sort((a, b) => b.ms - a.ms);
-  const fairplay = players.filter(p => p.squad > 0).sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
+  const fairplay = players.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
@@ -206,7 +211,7 @@ async function loadStats() {
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${Math.floor(p.ms/60000)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.squad} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.squad/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span>`, posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')) : '')

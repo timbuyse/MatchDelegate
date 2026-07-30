@@ -88,7 +88,7 @@ function renderNew() {
     const trnTitles = { 1: 'Tegenstander', 2: 'Selectie', 3: 'Opstelling' };
     const pills = [1, 2, 3].map(n => `<div class="step-pill ${wiz.step===n?'on':wiz.step>n?'done':''}"></div>`).join('');
     const body = wiz.step === 1 ? renderTrnMatchStep1() : wiz.step === 2 ? wizStep2() : wizStep3();
-    const backAction = wiz.step === 1 ? `wiz=null;go('tournament')` : `wizBack()`;
+    const backAction = wiz.step === 1 ? `wizLeave()` : `wizBack()`;
     return `<div class="hdr"><button class="back" onclick="${backAction}">‹</button><h1>Tornooimatch${t?' · '+esc(t.name):''} · ${trnTitles[wiz.step]}</h1></div>
       <div class="steps">${pills}</div>
       <div class="content">${body}</div>`;
@@ -172,6 +172,10 @@ function captureStep1() {
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
+  // numQuarters volgt de selector. Deze wizard kent geen "1 blok"-optie, maar finishWizard laat
+  // wiz.numQuarters wél voorgaan op periodKey: "Gebruik als template" op een tornooiwedstrijd van
+  // één blok toonde daardoor "3 delen" en sloeg 1 deel op.
+  if (document.getElementById('n-pt') && PERIOD_TYPES[wiz.periodKey]) wiz.numQuarters = PERIOD_TYPES[wiz.periodKey].count;
   const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
   const trainerSel = document.getElementById('n-trainer-sel');
@@ -189,14 +193,21 @@ function buildPool() {
   wiz.pool = own.concat(guests);
 }
 function wizBack() { if (wiz.step > 1) { wiz.step--; render(); } }
+// Dient beide wedstrijdwizards: de gewone (terug naar het startscherm) en die van een tornooimatch
+// (terug naar de tornooipagina). Die laatste gooide de wizard weg zonder iets te vragen, terwijl
+// hier al een dirty-guard stond. De tegenstander wordt uit het veld zelf gelezen: op stap 1 zit hij
+// nog niet in wiz (captureStep1 loopt pas bij "Volgende").
 function wizLeave() {
-  const dirty = wiz && ((wiz.opponent || '').trim() || (wiz.pool || []).some(p => p.sel && p.sel !== 'none'));
+  const oppEl = document.getElementById('n-opp');
+  const opp = oppEl ? oppEl.value : ((wiz && wiz.opponent) || '');
+  const naar = (wiz && wiz.trnMode) ? 'tournament' : 'home';
+  const dirty = wiz && ((opp || '').trim() || (wiz.pool || []).some(p => p.sel && p.sel !== 'none'));
   if (dirty) {
     openModal(`<h3>Wedstrijd niet bewaren?</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Je ingevulde gegevens gaan verloren.</p>
-      <button class="btn btn-red" onclick="closeModal();wiz=null;go('home')">Verlaten zonder bewaren</button>
+      <button class="btn btn-red" onclick="closeModal();wiz=null;go('${naar}')">Verlaten zonder bewaren</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Blijven</button>`);
-  } else { wiz = null; go('home'); }
+  } else { wiz = null; go(naar); }
 }
 function wizNext() {
   if (wiz.step === 1) {
@@ -661,8 +672,11 @@ async function finishWizard(startNow) {
   // guest meeschrijven: cloneTournamentMatch en editMatchWizard lezen dit veld, en zonder
   // meeschrijven verloor een gastspeler bij klonen of herbewerken stil zijn gastlabel en belandde
   // hij tussen de eigen spelers.
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: posLine(p.pos) || 'Middenveld', posNum: '', starting: false, onField: false }));
+  // fromName enkel bij een gast: dan blijft "Gast · KVE Aalter" ook na herbewerken of klonen staan
+  // i.p.v. terug te vallen op het algemene "andere ploeg".
+  const gastVeld = p => p.guest ? { guest: true, fromName: p.fromName || '' } : { guest: false };
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }, gastVeld(p)); });
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: posLine(p.pos) || 'Middenveld', posNum: '', starting: false, onField: false }, gastVeld(p)));
   const allP = starters.concat(bench);
   let capId = null;
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
@@ -707,7 +721,10 @@ function editMatchWizard(m) {
     // Voorkeurspositie uit het rooster halen als we de speler daar vinden: die is fijner dan de
     // lijn waarin hij deze wedstrijd stond (een vleugelspeler en een spits staan beide in 'Aanval').
     // Zonder rooster valt hij terug op de lijn, die normPos omzet naar de bijhorende positie.
-    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
+    // guest/fromName overnemen uit de wedstrijd: hier stond `guest: false` voor élke speler, dus een
+    // gastspeler verloor bij herbewerken zijn label en belandde bij de eigen spelers — precies wat
+    // finishWizard met het meeschrijven van `guest` juist wilde voorkomen.
+    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: p.guest ? (p.fromName || '') : m.teamName, guest: !!p.guest, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
   });
   const trn = m.tournamentId ? tournamentById(m.tournamentId) : null;
   // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.
@@ -963,7 +980,7 @@ function modalEditPlayers() {
     <input type="text" value="${esc(p.note||'')}" placeholder="Notitie over deze speler (optioneel)" onchange="match.players[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;margin-bottom:6px">
     <div style="margin:0 0 14px"><span class="start-chip ${match.captainId===p.id?'on':''}" onclick="setCaptain('${p.id}')">${icI(IC.captain)} Kapitein</span></div>`).join('');
   openModal(`<h3>${icI(IC.edit)} Spelers bewerken</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wijzigt enkel deze wedstrijd — het spelersrooster van je ploeg blijft ongewijzigd.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wijzigt enkel deze wedstrijd — het spelersrooster van je ploeg blijft ongewijzigd.${match.tournamentId ? ' Wie je hier toevoegt, komt ook in de <b>tornooiselectie</b> van vandaag: anders zou hij speelminuten krijgen zonder in de selectie te staan.' : ''}</p>
     <div id="edit-rows">${rows}</div>
     <button class="btn btn-pale" onclick="addPlayerToMatch()" style="margin-top:6px">+ Speler toevoegen</button>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)}Opslaan</button>
@@ -983,11 +1000,39 @@ function setCaptain(id) {
   match.captainId = (match.captainId === id) ? null : id;
   modalEditPlayers();
 }
+// Een speler die je hier toevoegt zit enkel in m.players. Bij een TORNOOIwedstrijd komen de
+// selectiegroepen uit het tornooi (sinds v0.7.5), dus zo'n speler kreeg wel speelminuten, doelpunten
+// en een plek in de PDF, maar stond in géén enkele groep — niet als geselecteerd, niet als NB, niet
+// als niet-geselecteerd. Hij wordt daarom mee in de dagselectie gezet.
+function syncMatchPlayersToTournamentSquad(m) {
+  const t = m.tournamentId ? tournamentById(m.tournamentId) : null;
+  if (!t) return [];
+  const list = tournamentSquadList(t).map(s => Object.assign({}, s));
+  const kent = p => list.some(s => (s.srcId && p.rosterId && s.srcId === p.rosterId)
+    || (s.name || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
+  const nieuw = (m.players || []).filter(p => (p.name || '').trim() && !kent(p));
+  if (!nieuw.length) return [];
+  nieuw.forEach(p => list.push({
+    pid: uid(), srcId: p.rosterId || null, globalId: p.globalId || null,
+    name: p.name, number: p.number || '', pos: '', side: '', sel: 'mee', absentReason: '',
+    // Bewust géén gastlabel: we weten niet of dit een gast is of een eigen speler die gewoon niet
+    // in de dagselectie stond. Dat label zet je zelf in de tornooiselectie.
+    guest: false, fromName: '',
+  }));
+  t.squad = { players: list };
+  saveTournament(t);
+  if (currentTournament && currentTournament.id === t.id) currentTournament = t;
+  return nieuw.map(p => p.name);
+}
 async function saveEditPlayers() {
   match.players.forEach(p => { if (!p.name) p.name = 'Speler'; });
   syncKeeper(); // keeper volgt automatisch de doellijn
+  const toegevoegd = syncMatchPlayersToTournamentSquad(match);
   await dbSave(match);
   closeModal();
   render();
+  if (toegevoegd.length) {
+    showToast(`${toegevoegd.join(', ')} ${toegevoegd.length === 1 ? 'is' : 'zijn'} ook aan de tornooiselectie toegevoegd.`, 'ok');
+  }
 }
 

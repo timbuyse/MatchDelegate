@@ -407,7 +407,7 @@ function tournamentReportData(t, matches) {
   const getp = (rosterId, name, number) => {
     const k = rosterId ? 'r:' + rosterId : 'n:' + (name || '').trim().toLowerCase();
     if (!pl[k]) pl[k] = { name: name || '', number: number || '', rosterId: rosterId || null,
-      squad: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
+      squad: 0, timed: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
     const r = pl[k];
     if (!r.number && number) r.number = number;
     return r;
@@ -415,6 +415,11 @@ function tournamentReportData(t, matches) {
   const results = [];
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
   for (const m of done) {
+    // Is er in deze wedstrijd überhaupt tijd geregistreerd? Bij "Snel resultaat invoeren" niet: dan
+    // staat de score vast maar heeft niemand speelminuten. Zo'n wedstrijd mag de noemer van de
+    // fair-play-tabel niet verlagen (wie 3 wedstrijden volledig speelde zakte anders naar 15'/match),
+    // terwijl hij wél meetelt als "in de selectie" — dat was hij immers echt.
+    const gemeten = getGameTimeMs(m) > 0;
     gf += m.scoreUs; ga += m.scoreThem;
     const res = m.scoreUs > m.scoreThem ? 'W' : m.scoreUs < m.scoreThem ? 'V' : 'G';
     if (res === 'W') w++; else if (res === 'V') l++; else d++;
@@ -427,6 +432,7 @@ function tournamentReportData(t, matches) {
       // de statistieken, anders lijkt het alsof de trainer hem geen speelkansen gaf.
       if (p.absent) { r.notPresent++; continue; }
       r.squad++;
+      if (gemeten) r.timed++;
       const ms = mins[p.id] ? mins[p.id].ms : 0;
       r.ms += ms;
       if (ms > 0) r.mp++;
@@ -517,7 +523,10 @@ async function loadTournamentReport() {
   // dus 0 minuten na 4x op de bank is zichtbaar. Dat is net het punt van een tornooiverslag.
   const played = r.players.filter(p => p.squad > 0);
   const minutes = played.slice().sort((a, b) => b.ms - a.ms);
-  const fair = played.slice().sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
+  // Fair-play rekent per wedstrijd waarin er tijd geregistreerd is (timed), niet per selectie:
+  // een "Snel resultaat" heeft geen speelminuten en zou het gemiddelde van iedereen omlaag halen.
+  // Wie enkel zulke wedstrijden had, kan hier dus niet in staan — er is niets om te vergelijken.
+  const fair = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   const scorers = r.players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
   const assisters = r.players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists);
   const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
@@ -563,8 +572,8 @@ async function loadTournamentReport() {
     ${secIf('minutes', `${icI(IC.timer)} Speeltijd over de dag`, minutes.length
       ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
       : '<p style="color:var(--txt2);font-size:14px">—</p>')}
-    ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond, telt hier niet mee.</p>`
-      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.squad} in selectie`, `${mn(p.ms / p.squad)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+    ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond telt hier niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`
+      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.timed} in selectie`, `${mn(p.ms / p.timed)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}
@@ -594,6 +603,9 @@ async function shareTournamentReport() {
     lines.push(`${m.time ? m.time + ' ' : ''}vs ${m.opponent || ''}: ${scoreTxt(m)}${scLine ? ' — ⚽ ' + scLine : ''}`);
   });
   lines.push('', `${r.w}W · ${r.d}G · ${r.l}V — doelpunten ${r.gf}-${r.ga}${r.usesPoints ? ` — ${r.points} punten (${r.pointsLabel})` : ''}`);
+  // Het scherm en de PDF waarschuwen hier expliciet voor; zonder deze regel las "1W · 1G · 1V" in
+  // de ploeggroep als het volledige tornooi terwijl er nog wedstrijden op de planning stonden.
+  if (r.planned) lines.push(`⏳ ${r.planned} van de ${r.done.length + r.planned} wedstrijden nog niet afgewerkt — deze cijfers gaan over de rest.`);
   if (r.cleanSheets) lines.push(`🧱 ${r.cleanSheets}× de nul gehouden`);
   if (t.standing) lines.push(`🏆 Eindstand: ${t.standing}`);
   lines.push('', `— ${activeClubName || getClubName()}`);
@@ -724,14 +736,15 @@ async function exportTournamentPDF() {
       columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } },
     }, 24);
   }
-  if (played.length && pdfMag('fairplay')) {
-    const fair = played.slice().sort((a, b) => (a.ms / a.squad) - (b.ms / b.squad));
+  // Zelfde noemer als op het scherm: enkel wedstrijden met geregistreerde speeltijd (zie `timed`).
+  const fairPdf = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
+  if (fairPdf.length && pdfMag('fairplay')) {
     tableBlock('Fair-play · minste speeltijd', {
       head: [['#', 'Naam', 'In selectie', 'Gem./selectie']],
-      body: fair.map(p => [p.number || '', p.name || '', `${p.mp}/${p.squad} gespeeld`, `${mn(p.ms / p.squad)}'`]),
+      body: fairPdf.map(p => [p.number || '', p.name || '', `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'`]),
       styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
       columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 80, halign: 'right' } },
-    }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde, telt niet mee.');
+    }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.');
   }
 
   // ---- Doelpunten, assists, keepers, kaarten ----
@@ -759,7 +772,11 @@ async function exportTournamentPDF() {
     const m = r.done[i];
     doc.addPage(); L.y = L.MG;
     doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(107, 114, 128);
-    doc.text(`WEDSTRIJD ${i + 1} VAN ${r.done.length}`, MG, L.y + 9);
+    // Nummeren over ALLE wedstrijden van de dag, niet over de afgewerkte: de losse wedstrijd-PDF
+    // doet dat ook (tournamentMatchPosition), en dezelfde wedstrijd las anders "WEDSTRIJD 3 VAN 4"
+    // hier en "Wedstrijd 4 van 5" daar. Zelfde sortering, dus dezelfde nummers.
+    const absIdx = matches.findIndex(x => x.id === m.id) + 1;
+    doc.text(absIdx ? `WEDSTRIJD ${absIdx} VAN ${matches.length}` : `WEDSTRIJD ${i + 1}`, MG, L.y + 9);
     doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
     const wTitle = doc.splitTextToSize(`${tName(m)} vs ${m.opponent || ''}`, CW - 110);
     doc.text(wTitle, MG, L.y + 30);
@@ -931,6 +948,7 @@ function newTournament() {
     responsible: team ? (team.responsible || '') : '',
     trainerIsOther: false, pool: [], poolTeamId: null,
   };
+  trnWiz._sig = trnWizSig(); // vertrekpunt voor de "niet bewaard"-vraag bij het verlaten
   go('tournamentNew');
 }
 function editTournament(id) {
@@ -970,6 +988,7 @@ function editTournament(id) {
     });
   });
   trnWiz.poolTeamId = trnWiz.teamId;
+  trnWiz._sig = trnWizSig(); // idem: pas ná het herstellen van de bestaande selectie
   go('tournamentNew');
 }
 // Geeft terug of de pool écht opnieuw opgebouwd is. Vindt teamById() de ploeg niet (rooster nog
@@ -1053,7 +1072,32 @@ function trnWizNext() {
   }
 }
 function trnWizBack() { if (trnWiz.step > 1) { trnWiz.step--; render(); } }
-function trnWizLeave() { trnWiz = null; go(currentTournament ? 'tournament' : 'tournaments'); }
+// Signatuur van alles wat je in deze wizard kan ingeven. Zo vraagt trnWizLeave() enkel om
+// bevestiging als er écht iets gewijzigd is: bij het bewerken van een bestaand tornooi is de naam
+// altijd ingevuld, dus "is er iets ingevuld?" zou altijd waar zijn en bij elke terugtik zeuren.
+function trnWizSig() {
+  if (!trnWiz) return '';
+  return JSON.stringify([trnWiz.name, trnWiz.date, trnWiz.location, trnWiz.matchType, trnWiz.trainer,
+    trnWiz.responsible, trnWiz.standing, trnWiz.points, trnWiz.teamId,
+    // Enkel wie effectief gekozen is: bij een nieuw tornooi is de pool op stap 1 nog leeg en wordt
+    // hij pas op stap 2 opgebouwd (allemaal 'none'). Zonder deze filter zou dat alleen al als een
+    // wijziging tellen.
+    (trnWiz.pool || []).filter(p => p.sel && p.sel !== 'none')
+      .map(p => [p.pid, p.sel, p.absentReason || '', p.number || '']).sort()]);
+}
+function trnWizLeave() {
+  // Stap 1 staat nog in de DOM: eerst overnemen, anders ziet de signatuur een net getypte naam niet.
+  if (trnWiz && trnWiz.step === 1 && document.getElementById('trn-name')) captureTrnStep1();
+  const bestemming = currentTournament ? 'tournament' : 'tournaments';
+  if (trnWiz && trnWiz._sig && trnWizSig() !== trnWiz._sig) {
+    openModal(`<h3>Wijzigingen niet bewaren?</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Wat je hier aanpaste aan ${trnWiz.isNew ? 'dit nieuwe tornooi' : 'de selectie of de info'} gaat verloren.</p>
+      <button class="btn btn-red" onclick="closeModal();trnWiz=null;go('${bestemming}')">Verlaten zonder bewaren</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Blijven</button>`);
+    return;
+  }
+  trnWiz = null; go(bestemming);
+}
 function setTrnSel(pid, val) {
   const p = trnWiz.pool.find(x => x.pid === pid); if (!p) return;
   p.sel = (p.sel === val) ? 'none' : val; // tweede tik = terug naar niet-geselecteerd (de standaard)
@@ -1286,7 +1330,14 @@ function renderTrnMatchStep1() {
         <select id="n-pt" onchange="trnPeriodChange()"><option value="1" ${wiz.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.numQuarters!==1&&wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
       <div class="fg"><label>Duur van een blok</label>
         <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
-        <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;display:none;width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value=""></div>
+        ${(() => {
+          // Vrije duur zichtbaar mét het getal erin, zoals in de gewone wizard. Stond hier
+          // hardgecodeerd verborgen en leeg, dus een tornooiwedstrijd met blokken van 12 min toonde
+          // bij bewerken "Vrij…" zonder dat je zag hoeveel minuten het was.
+          const vast = DURATIONS[wiz.periodKey] || [15];
+          const eigen = !!wiz.quarterDuration && !vast.includes(wiz.quarterDuration);
+          return `<input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${eigen?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${eigen?wiz.quarterDuration:''}">`;
+        })()}</div>
     </div>
   </div>
   <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
@@ -1308,7 +1359,16 @@ function readTrnPeriodSel() {
 function trnPeriodChange() {
   readTrnPeriodSel();
   const qd = document.getElementById('n-qd');
-  if (qd) { qd.innerHTML = durOptsHtml(wiz.periodKey, wiz.quarterDuration); const ci = document.getElementById('n-qd-custom'); if (ci) ci.style.display = qd.value === '0' ? '' : 'none'; }
+  if (!qd) return;
+  // Terugvallen op de standaardduur van de nieuwe blokvorm, zoals onPeriodChange() in de gewone
+  // wizard. Voordien bleef de oude duur staan: koos je "2 helften" na 20 minuten, dan zat 20 niet
+  // in de lijst [30, 45] en sprong de selector op "Vrij…" met een leeg vakje — waarna readDur stil
+  // terugviel op 20 en je 2×20' opsloeg in plaats van 2×30'.
+  const def = DUR_DEFAULT[wiz.periodKey] || wiz.quarterDuration;
+  wiz.quarterDuration = def;
+  qd.innerHTML = durOptsHtml(wiz.periodKey, def);
+  const ci = document.getElementById('n-qd-custom');
+  if (ci) { ci.style.display = qd.value === '0' ? '' : 'none'; if (qd.value !== '0') ci.value = ''; }
 }
 function trnMatchNext() {
   wiz.opponent = (document.getElementById('n-opp')?.value || '').trim();

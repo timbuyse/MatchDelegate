@@ -406,11 +406,19 @@ function modalEditMatchInfo() {
       <div class="fg"><label>Datum</label><input id="ei-date" type="date" value="${match.date||''}"></div>
       <div class="fg"><label>Startuur</label><input id="ei-time" type="time" value="${match.time||''}"></div>
     </div>
-    <div class="fg"><label>Thuis of uit?</label>
-      <div class="tgl" id="ei-loc-tgl">
-        <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
-        <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
-      </div></div>
+    ${match.tournamentId
+      // Een tornooiwedstrijd staat op neutraal terrein en erft de locatie van het tornooi. De
+      // thuis/uit-keuze had hier geen betekenis (isAway() negeert ze bij een tornooi) maar overschreef
+      // wél de tornooilocatie: één tik en de plaats verdween uit de kop van het verslag en de PDF.
+      ? `<div class="fg"><label>Locatie</label>
+          <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(match.location || '—')}</div>
+          <div style="font-size:11px;color:var(--txt2)">Komt van het tornooi — een tornooiwedstrijd is neutraal terrein, dus geen thuis of uit. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
+        </div>`
+      : `<div class="fg"><label>Thuis of uit?</label>
+          <div class="tgl" id="ei-loc-tgl">
+            <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
+            <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
+          </div></div>`}
     ${partsBlock}
     ${(FORMATIONS[match.matchType]||[]).length ? `<div class="fg"><label>Spelvorm (formatie)</label>
       <select id="ei-formation">${(FORMATIONS[match.matchType]||[]).map(f=>`<option value="${esc(f.name)}" ${match.formation===f.name?'selected':''}>${esc(f.name)}</option>`).join('')}
@@ -706,7 +714,9 @@ async function shareReport() {
   if (ycLine) lines.push(`🟨 ${ycLine}`);
   if (rcLine) lines.push(`🟥 ${rcLine}`);
   if (m.motmId) lines.push(`⭐ Man v/d match: ${pName(m, m.motmId)}`);
-  if (isAdmin && m.notes) lines.push('', m.notes);
+  // canManage() i.p.v. isAdmin: in "Kijken"-modus zie je de notities zelf niet op het scherm, dus
+  // dan horen ze ook niet in een bericht dat je doorstuurt.
+  if (canManage() && m.notes) lines.push('', m.notes);
   // Volgende geplande wedstrijd van dezelfde ploeg
   try {
     const all = await dbAll();

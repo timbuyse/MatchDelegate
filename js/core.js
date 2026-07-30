@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.14.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.14.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1702,7 +1702,16 @@ function cloudRefreshUI() {
   else if (view === 'stats' && typeof loadStats === 'function') loadStats();
   else if (view === 'teams') render();
   else if (view === 'tournaments') render();
-  else if (view === 'tournament') loadTournamentDetail();
+  // currentTournament is een momentopname: zonder verversen bleven de tornooipagina én het verslag
+  // op de oude versie hangen wanneer een ander toestel het tornooi aanpaste. En het verslag had
+  // helemaal geen branch, dus daar zag je een tweede beheerder wedstrijd 4 niet afsluiten.
+  else if (view === 'tournament' || view === 'tournamentReport') {
+    if (currentTournament) {
+      const vers = tournamentById(currentTournament.id);
+      if (vers) currentTournament = vers;
+    }
+    if (view === 'tournament') loadTournamentDetail(); else loadTournamentReport();
+  }
   else if ((view === 'detail' || view === 'live' || view === 'prep') && match) {
     // Ook voor beheerders verversen (co-admin-fix): anders pusht een beheerder bij zijn
     // volgende actie een verouderd object en wist hij de events van de andere beheerder.
