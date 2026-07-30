@@ -49,7 +49,7 @@ function renderTeamView() {
   // Spelerdetail is beheerder-only (openPlayerDetail doet voor kijkers stil niets) — geen
   // klik-affordance tonen die nergens toe leidt.
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
-      <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
+      ${teamUsesNumbers(t) ? `<span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>` : ''}
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
@@ -72,7 +72,7 @@ function renderTeamOverview() {
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
   const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
   const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
-      <span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>
+      ${teamUsesNumbers(t) ? `<span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>` : ''}
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
@@ -404,18 +404,22 @@ async function loadTournamentDetail() {
 function tournamentSelectionGroups(t) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
   const all = tournamentSquadList(t);
+  // Zelfde doorgeefpunt als bij een wedstrijd: gebruikt de ploeg geen vaste rugnummers, dan komen ze
+  // hier al niet meer in de groepen — en dus niet op de tornooipagina, in het verslag of in de PDF's.
+  const nums = trnUsesNumbers(t);
+  const num = p => nums ? (p.number || '') : '';
   const mee = all.filter(s => s.sel !== 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '', guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
+    .map(s => ({ name: s.name || '', number: num(s), guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
   // Een reden hoort enkel bij een NB'er: staat er door oudere of half bewerkte data toch een reden
   // bij iemand die meegaat, dan negeren we die (anders leest de selectie als "(speelt elders)").
   const absent = all.filter(s => s.sel === 'absent')
-    .map(s => ({ name: s.name || '', number: s.number || '', reason: s.absentReason || '', guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
+    .map(s => ({ name: s.name || '', number: num(s), reason: s.absentReason || '', guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
   const known = new Set();
   all.forEach(s => { if (s.srcId) known.add(s.srcId); known.add((s.name || '').trim()); });
   const team = teamById(t.teamId);
   const notSelected = ((team && team.players) || [])
     .filter(p => !known.has(p.id) && !known.has((p.name || '').trim()))
-    .map(p => ({ name: p.name || '', number: p.number || '' })).sort(byLast);
+    .map(p => ({ name: p.name || '', number: num(p) })).sort(byLast);
   return { mee, absent, notSelected };
 }
 // "Wedstrijd 2 van 4": plaats van een wedstrijd binnen zijn tornooi, in dezelfde volgorde als de
@@ -440,9 +444,12 @@ function tournamentReportData(t, matches) {
   const pl = {};
   // Zelfde spelerssleutel als de statistieken: rosterId indien beschikbaar, anders de naam. Zo
   // blijft een speler één rij, ook als een oudere wedstrijd nog geen rosterId meedroeg.
+  // Rugnummers onderdrukken als de ploeg ze niet gebruikt (zie teamUsesNumbers): dan blijven ze ook
+  // uit de speeltijd- en fair-play-tabellen van het verslag en de PDF.
+  const trnNums = trnUsesNumbers(t);
   const getp = (rosterId, name, number) => {
     const k = rosterId ? 'r:' + rosterId : 'n:' + (name || '').trim().toLowerCase();
-    if (!pl[k]) pl[k] = { name: name || '', number: number || '', rosterId: rosterId || null,
+    if (!pl[k]) pl[k] = { name: name || '', number: (trnNums && number) || '', rosterId: rosterId || null,
       squad: 0, timed: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
     const r = pl[k];
     if (!r.number && number) r.number = number;
@@ -1265,7 +1272,7 @@ function renderTrnStep2() {
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const own = trnWiz.pool.filter(p => !p.guest), guests = trnWiz.pool.filter(p => p.guest);
   const selRow2 = p => `<div class="selrow">
-    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
+    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     <div class="nm">${esc(p.name)}<small>${p.guest ? 'Gast · ' + esc(p.fromName || 'andere ploeg') : (posDisplay(p) || '—')}</small>
       ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}</div>
     <div class="seg">
@@ -1279,8 +1286,8 @@ function renderTrnStep2() {
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens mee). <b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
-    <div class="card">${own.length ? own.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
-    ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow2).join('')}</div>` : ''}
+    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie') + own.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
+    ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg')}${guests.map(selRow2).join('')}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>

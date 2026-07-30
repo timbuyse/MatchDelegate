@@ -265,7 +265,7 @@ function selRow(p) {
   // wie NB is, gaat niet mee en staat hier dus ook niet in de lijst.
   const trn = !!wiz.trnMode;
   return `<div class="selrow">
-    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="?" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
+    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small>
       ${(!trn && p.sel === 'absent') ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
@@ -292,8 +292,8 @@ function wizStep2() {
       ? `<b>Niets aanduiden = niet geselecteerd voor deze wedstrijd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start) of <b>Wissel</b>; nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Enkel wie meegaat naar het tornooi staat in deze lijst — <b>niet beschikbaar (NB)</b> geef je in bij de selectie van het tornooi zelf.`
       : `<b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.`} Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
-    <div class="card">${own.length ? own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
-    ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${guests.map(selRow).join('')}</div>` : ''}
+    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie', true) + own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
+    ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg', true)}${guests.map(selRow).join('')}</div>` : ''}
     ${wiz.noGuests ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
@@ -352,7 +352,7 @@ function guestListHtml() {
   const existing = guestCtx().pool.map(p => p.srcId);
   if (!t.players.length) return '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>';
   return t.players.map(p => { const already = existing.includes(p.id);
-    return `<div class="selrow">${numDot(p, 'pn')}<div class="nm">${esc(p.name)}${already ? '<small>al in selectie</small>' : ''}</div>
+    return `<div class="selrow">${numDot(p, 'pn', null, teamUsesNumbers(t))}<div class="nm">${esc(p.name)}${already ? '<small>al in selectie</small>' : ''}</div>
       <input type="checkbox" ${already ? 'disabled' : ''} onchange="toggleGuest('${p.id}')" style="width:22px;height:22px"></div>`; }).join('');
 }
 function toggleGuest(srcId) { const i = guestPick.indexOf(srcId); if (i >= 0) guestPick.splice(i, 1); else guestPick.push(srcId); }
@@ -482,7 +482,7 @@ function wizStep3() {
       <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
+    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn', teamUsesNumbers(teamById(wiz.teamId)))}${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
     <div class="wiz-nav" style="margin-top:14px">
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
@@ -843,7 +843,7 @@ function renderPrep() {
     <div class="sec">Opstelling (${starters.length})</div>
     <div class="card">${renderPitch(m, starters)}</div>
     <div class="sec">Bank (${bench.length})</div>
-    <div class="card">${bench.length ? bench.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off')}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
+    <div class="card">${bench.length ? bench.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', null, matchUsesNumbers(m))}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
     ${ro ? '' : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button><div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }

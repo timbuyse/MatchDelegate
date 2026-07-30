@@ -69,7 +69,9 @@ function renderDetail() {
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
-        <div class="pnum"></div>
+        ${/* Lege plaatshouder voor het rugnummerbolletje — weg als de ploeg geen nummers gebruikt,
+             anders schuift deze kopregel op t.o.v. de rijen eronder. */ ''}
+        ${matchUsesNumbers(match) ? '<div class="pnum"></div>' : ''}
         <div style="flex:1">Speler</div>
         <div class="pmins" style="font-size:11px">Min · %</div>
       </div>
@@ -444,7 +446,13 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
 //    hele ploegkern (anders stonden de NB'ers en de niet-opgeroepen spelers in elk wedstrijdverslag)
 function matchSelectionGroups(m) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  const pick = p => ({ name: p.name || '', number: p.number || '', rosterId: p.rosterId || null, guest: !!p.guest });
+  // Eén doorgeefpunt voor de rugnummers van dit verslag: gebruikt de ploeg geen vaste rugnummers,
+  // dan komen ze hier al niet meer in de groepen terecht — en dus nergens in het verslag, het
+  // deelbericht of de PDF. Een wedstrijd draagt namelijk zijn eigen kopie van de nummers mee, ook
+  // een wedstrijd die al gespeeld was vóór de ploeg de nummers uitzette.
+  const nums = matchUsesNumbers(m);
+  const num = p => nums ? (p.number || '') : '';
+  const pick = p => ({ name: p.name || '', number: num(p), rosterId: p.rosterId || null, guest: !!p.guest });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34), met dezelfde naam-fallback als
@@ -463,7 +471,7 @@ function matchSelectionGroups(m) {
     const naDezeMatch = s => s.addedAt && m.createdAt && s.addedAt > m.createdAt;
     const notSelected = tournamentSquadMee(trn)
       .filter(s => !known.has(s.srcId) && !known.has(s.name) && !naDezeMatch(s))
-      .map(s => ({ name: s.name || '', number: s.number || '', rosterId: s.srcId || null, guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
+      .map(s => ({ name: s.name || '', number: num(s), rosterId: s.srcId || null, guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
     return { selected, notAvailable: [], notPresent, notSelected };
   }
   const notAvailable = [];
@@ -478,14 +486,14 @@ function matchSelectionGroups(m) {
     // NB'ers uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
     // ploeg, dus daar opzoeken zodat de lijst er niet half genummerd uitziet.
     const r = ((team && team.players) || []).find(p => (rec.rosterId && p.id === rec.rosterId) || p.name === rec.name);
-    notAvailable.push({ name: rec.name, number: (r && r.number) || '', rosterId: rec.rosterId, reason: rec.reason });
+    notAvailable.push({ name: rec.name, number: nums ? ((r && r.number) || '') : '', rosterId: rec.rosterId, reason: rec.reason });
   }
   notAvailable.sort(byLast);
   const known = new Set();
   [...selected, ...notPresent, ...notAvailable].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
   const notSelected = ((team && team.players) || [])
     .filter(p => !known.has(p.id) && !known.has(p.name))
-    .map(p => ({ name: p.name || '', number: p.number || '', rosterId: p.id })).sort(byLast);
+    .map(p => ({ name: p.name || '', number: num(p), rosterId: p.id })).sort(byLast);
   return { selected, notAvailable, notPresent, notSelected };
 }
 // Naam met rugnummer ervoor, voor de selectielijsten ("7 Wout Coppens"); bij een NB'er komt de
@@ -811,7 +819,7 @@ async function pdfMatchBody(doc, L, m) {
   const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
   // De '#'-kolom valt weg als geen enkele speler een rugnummer heeft: rugnummers zijn optioneel
   // (zie teamUsesNumbers), en een kolom met louter lege cellen is enkel ruis.
-  const anyNum = m.players.some(p => pNum(p));
+  const anyNum = matchUsesNumbers(m) && m.players.some(p => pNum(p));
   const numCol = anyNum ? ['#'] : [];
   const numCell = p => anyNum ? [pNum(p)] : [];
   const playerHead = [...numCol, 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];

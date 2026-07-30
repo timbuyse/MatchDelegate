@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.15.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.16.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -89,10 +89,29 @@ function posSideValid(pos, side) { return !!posSides(pos)[side]; }
 // Los daarvan geldt overal: een nummer wordt enkel getoond als er ook echt een is. Voordien stond
 // er "?" in elk bolletje en elke chip, wat las alsof er iets ontbrak of stuk was.
 function teamUsesNumbers(team) { return !team || team.useNumbers !== false; }
+// De ploeg achter een wedstrijd. Bij voorkeur via teamId; oudere wedstrijden hebben er geen en
+// vallen terug op de naam. Nodig omdat een wedstrijd zijn eigen kopie van de rugnummers meedraagt:
+// zet de ploeg de nummers uit, dan horen ze ook in die (al bestaande) wedstrijden niet meer te staan.
+function teamOfMatch(m) {
+  if (!m) return null;
+  return (m.teamId && teamById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName) || null;
+}
+function matchUsesNumbers(m) { return teamUsesNumbers(teamOfMatch(m)); }
+function trnUsesNumbers(t) { return teamUsesNumbers(t && t.teamId ? teamById(t.teamId) : null); }
 function pNum(p) { const n = (p && p.number != null) ? String(p.number).trim() : ''; return n; }
-// Het rugnummerbolletje, of niets: een leeg gevuld bolletje leest als een fout.
-function numDot(p, cls, stijl) { const n = pNum(p); return n ? `<div class="${cls}"${stijl ? ` style="${stijl}"` : ''}>${esc(n)}</div>` : ''; }
-function numSpan(p, cls) { const n = pNum(p); return n ? `<span class="${cls}">${esc(n)}</span>` : ''; }
+// Het rugnummerbolletje, of niets: een leeg gevuld bolletje leest als een fout. `aan === false`
+// onderdrukt het nummer volledig (ploeg zonder vaste rugnummers).
+function numDot(p, cls, stijl, aan) { const n = aan === false ? '' : pNum(p); return n ? `<div class="${cls}"${stijl ? ` style="${stijl}"` : ''}>${esc(n)}</div>` : ''; }
+function numSpan(p, cls, aan) { const n = aan === false ? '' : pNum(p); return n ? `<span class="${cls}">${esc(n)}</span>` : ''; }
+// Kopregel boven een selectielijst (.selrow): benoemt het smalle invoervakje vooraan, want een leeg
+// vakje zonder label liet je gokken wat er in moet. De kolommen volgen exact de rij zelf: 40px voor
+// het vakje, dan (in de wedstrijdwizard) 22px voor de kapiteinsknop, dan de naam.
+function selRowHead(rest, metKapitein) {
+  return `<div style="display:flex;align-items:flex-end;gap:10px;padding:0 0 6px;font-size:10px;font-weight:700;color:var(--txt2);text-transform:uppercase">
+    <span style="width:40px;flex-shrink:0;text-align:center">Rugnr</span>
+    ${metKapitein ? '<span style="width:22px;flex-shrink:0"></span>' : ''}
+    <span style="flex:1">${rest || 'Speler'}</span></div>`;
+}
 // Voorkeurspositie + de gekozen kant/rol, voor weergave bij spelersbeheer en selectie.
 function posDisplay(p) {
   const pos = normPos(p && p.pos);
