@@ -741,9 +741,12 @@ function editMatchWizard(m) {
   //    niet-geselecteerden en NB-spelers hier alsnog kiesbaar.
   if (trn) {
     const usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
-    const usedName = new Set(pool.map(p => (p.name || '').trim().toLowerCase()));
+    // Op naam ontdubbelen mag enkel als er GEEN stabiele id's zijn om op te vergelijken: twee
+    // naamgenoten (bv. twee keer "Lucas Peeters") met elk hun eigen srcId zijn twee spelers, en de
+    // tweede verdween hier stil uit de pool.
+    const usedName = new Set(pool.filter(p => !p.srcId).map(p => (p.name || '').trim().toLowerCase()));
     tournamentSquadMee(trn).forEach(s => {
-      if ((s.srcId && usedSrc.has(s.srcId)) || usedName.has((s.name || '').trim().toLowerCase())) return;
+      if (s.srcId ? usedSrc.has(s.srcId) : usedName.has((s.name || '').trim().toLowerCase())) return;
       pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
     });
   } else {
@@ -1014,6 +1017,9 @@ function syncMatchPlayersToTournamentSquad(m) {
   if (!nieuw.length) return [];
   nieuw.forEach(p => list.push({
     pid: uid(), srcId: p.rosterId || null, globalId: p.globalId || null,
+    // addedAt: zo weten de verslagen van wedstrijden die al gespeeld waren dat hij er toen nog niet
+    // bij was (zie selectionGroups in detail-pdf.js).
+    addedAt: Date.now(),
     name: p.name, number: p.number || '', pos: '', side: '', sel: 'mee', absentReason: '',
     // Bewust géén gastlabel: we weten niet of dit een gast is of een eigen speler die gewoon niet
     // in de dagselectie stond. Dat label zet je zelf in de tornooiselectie.

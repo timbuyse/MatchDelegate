@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.14.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.14.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1377,7 +1377,16 @@ async function syncTeamNaming(newName, extraOldNames) {
   for (const m of matches) {
     if (oldNames.has(m.teamName)) { m.teamName = newName; await dbSave(m); migrated = true; }
   }
-  if (migrated && (view === 'home' || view === 'matches')) render();
+  // Tornooien dragen óók een gedenormaliseerde teamName (voor de lijst en het verslag). Die bleef
+  // op de oude naam staan na een naamswijziging, zodat een tornooi in de lijst nog "U11IP" toonde
+  // terwijl de ploeg intussen anders heet.
+  const trns = getTournaments();
+  let trnMigrated = false;
+  for (const t of trns) {
+    if (oldNames.has(t.teamName)) { t.teamName = newName; saveTournament(t); trnMigrated = true; }
+  }
+  if (trnMigrated && currentTournament && oldNames.has(currentTournament.teamName)) currentTournament.teamName = newName;
+  if ((migrated || trnMigrated) && (view === 'home' || view === 'matches' || view === 'tournaments' || view === 'tournament')) render();
 }
 function applyCloudClub(val) {
   if (!val) return;

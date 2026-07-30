@@ -721,8 +721,16 @@ async function shareReport() {
   try {
     const all = await dbAll();
     const today = new Date().toISOString().split('T')[0];
-    const next = all.filter(x => x.teamName === m.teamName && x.status === 'planned' && (x.date || '') >= today).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
-    if (next) lines.push('', `📅 Volgende: ${tName(next)} vs ${next.opponent} — ${matchWhen(next)}${next.location ? ' · ' + next.location : ''}`);
+    // Geplande TORNOOIwedstrijden hier weglaten: die staan niet in de wedstrijdenlijst en de datum
+    // van een tornooidag zegt de ploeggroep niets ("Volgende: vs Opp2" zonder context). En de
+    // volgorde volgt isAway, zoals overal elders — anders stond bij een uitwedstrijd de eigen ploeg
+    // hier wél eerst en in de rest van het bericht niet.
+    const next = all.filter(x => x.teamName === m.teamName && x.status === 'planned' && !x.tournamentId && (x.date || '') >= today).sort((a, b) => (a.date || '').localeCompare(b.date || ''))[0];
+    if (next) {
+      const thuis = isAway(next) ? next.opponent : tName(next);
+      const uit = isAway(next) ? tName(next) : next.opponent;
+      lines.push('', `📅 Volgende: ${thuis} vs ${uit} — ${matchWhen(next)}${next.location ? ' · ' + next.location : ''}`);
+    }
   } catch (e) {}
   lines.push('', `— ${activeClubName || getClubName()}`);
   const text = lines.join('\n');
@@ -774,7 +782,10 @@ function exportMatchCSV() {
   row('Tegenstander', opp);
   row('Datum', m.date || '');
   row('Tijdstip', m.time || '');
-  row('Thuis/uit', m.location || '');
+  // Bij een tornooiwedstrijd is `location` de tornooilocatie, geen thuis/uit — dit was de enige
+  // plek die isAway() niet volgde en zette "Sportpark Aalter" onder de kop "Thuis/uit".
+  if (m.tournamentId) row('Tornooilocatie', m.location || '');
+  else row('Thuis/uit', m.location || '');
   row('Locatie', m.venue || '');
   row('Wedstrijdtype', m.matchType || '');
   row('Competitie', m.competition || '');

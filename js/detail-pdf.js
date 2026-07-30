@@ -278,14 +278,22 @@ const PDF_EVT_ICON = {
 // tekenen, dus rasteriseren we de ECHTE app-iconen (i.p.v. ze in de PDF na te tekenen): zo blijven
 // scherm en PDF hetzelfde. Eén keer per PDF opgebouwd, enkel voor de soorten die effectief voorkomen.
 // `currentColor` moet een echte kleur worden, want in een <img> erft een SVG geen tekstkleur.
+// Cache over PDF's heen: de iconen zijn altijd dezelfde 64×64 PNG's. Bij een tornooi-PDF van 8
+// wedstrijden werd dezelfde set ~16 keer opnieuw gerasterizeerd (elke ronde een <img>-load plus een
+// canvas), wat op een telefoon merkbaar traag was. Eén Map volstaat; ze wordt nooit ongeldig, want
+// de iconen zitten in de code en veranderen enkel met een app-update (en dan is de pagina nieuw).
+const _pdfIconCache = new Map();
 async function pdfEventIcons(events) {
   const icons = {};
   const keys = [...new Set((events || []).map(e => PDF_EVT_ICON[e.type]).filter(k => k && IC[k]))];
   for (const k of keys) {
-    const svg = IC[k]
-      .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" ')
-      .replace(/currentColor/g, '#374151');
-    icons[k] = await rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), 64, 64);
+    if (!_pdfIconCache.has(k)) {
+      const svg = IC[k]
+        .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" ')
+        .replace(/currentColor/g, '#374151');
+      _pdfIconCache.set(k, await rasterizeToPng('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), 64, 64));
+    }
+    icons[k] = _pdfIconCache.get(k);
   }
   return icons;
 }
@@ -444,8 +452,12 @@ function matchSelectionGroups(m) {
   if (trn) {
     const known = new Set();
     [...selected, ...notPresent].forEach(p => { if (p.rosterId) known.add(p.rosterId); known.add(p.name); });
+    // Wie pas ná deze wedstrijd aan de dagselectie toegevoegd is (addedAt), hoort hier niet: hij
+    // stond dan onder "Niet voor deze wedstrijd geselecteerd" terwijl hij er nog niet eens bij was.
+    // Squad-entries van vóór dit veld hebben geen addedAt en blijven dus gewoon meegerekend.
+    const naDezeMatch = s => s.addedAt && m.createdAt && s.addedAt > m.createdAt;
     const notSelected = tournamentSquadMee(trn)
-      .filter(s => !known.has(s.srcId) && !known.has(s.name))
+      .filter(s => !known.has(s.srcId) && !known.has(s.name) && !naDezeMatch(s))
       .map(s => ({ name: s.name || '', number: s.number || '', rosterId: s.srcId || null, guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
     return { selected, notAvailable: [], notPresent, notSelected };
   }

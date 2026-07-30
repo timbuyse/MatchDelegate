@@ -2123,11 +2123,14 @@ async function loadHome() {
   // Zelfde filter toepassen als de wedstrijdenlijst zelf (loadMatches) — anders telt de
   // tegel hier alles wat lokaal gecached staat, incl. een andere ploeg op dit toestel.
   const tileMatches = homeFilter === 'all' ? looseMatches : looseMatches.filter(m => m.teamName === homeFilter);
-  const tiles = `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
+  // Een gast mag enkel home/live/instellingen/handleiding openen (GUEST_ALLOWED_VIEWS), dus élke
+  // tegel hier was voor hem een dode knop: tikken bracht hem via go() gewoon terug op home. De
+  // gastbanner zegt al waar hij aan toe is ("enkel live wedstrijden volgen").
+  const tiles = isGuest ? '' : `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
     <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${tileMatches.length}</span></button>
     ${teamTile}
     <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
-    ${!isGuest ? `<button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>` : ''}
+    <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
   </div>`;
   const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
   const offlineBanner = !isOffline ? '' : (canManage()

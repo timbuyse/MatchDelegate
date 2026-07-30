@@ -288,9 +288,16 @@ function renderTournamentList() {
   </div>`;
 }
 
+// Zonder tornooi in het geheugen (bv. na een refresh op deze pagina) stond hier een kale regel
+// "Niet gevonden." zonder hoofding: geen terugknop, dus een doodlopend scherm.
+function trnNotFound(titel) {
+  return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${titel}</h1></div>
+    <div class="content"><div class="empty"><div class="ei">${IC.medal}</div><p>Dit tornooi is niet gevonden.<br>Ga terug naar de lijst en kies het opnieuw.</p>
+      <button class="btn btn-green" style="margin-top:12px" onclick="go('tournaments')">Naar de tornooien</button></div></div>`;
+}
 function renderTournament() {
   const t = currentTournament;
-  if (!t) return '<div class="content"><p>Niet gevonden.</p></div>';
+  if (!t) return trnNotFound('Tornooi');
   setTimeout(loadTournamentDetail, 0);
   const editBtn = canManage() ? `<button class="hdr-btn" onclick="editTournament('${t.id}')">${icI(IC.edit)}</button>` : '';
   return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
@@ -318,7 +325,8 @@ async function loadTournamentDetail() {
     ['Ploegverantwoordelijke', t.responsible],
     ['Eindstand', t.standing],
     // Enkel vermelden als de puntenverdeling afwijkt van de standaard 3/1/0, anders is het ruis.
-    ['Punten', tournamentPointsLabel(t) === '3/1/0' ? '' : tournamentPointsLabel(t) + ' (winst/gelijk/verlies)'],
+    // Alles op 0 = er wordt niet op punten gespeeld; dan hoort er geen "0/0/0"-regel te staan.
+    ['Punten', (!tournamentUsesPoints(t) || tournamentPointsLabel(t) === '3/1/0') ? '' : tournamentPointsLabel(t) + ' (winst/gelijk/verlies)'],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
   // Selectie van de tornooidag. NB en "niet geselecteerd" gelden voor de hele dag en zijn dus
   // identiek voor elke wedstrijd: ze staan hier (en in het tornooiverslag), niet in elk
@@ -330,13 +338,23 @@ async function loadTournamentDetail() {
   const namesP = (label, arr) => arr.length
     ? `<p style="font-size:14px;line-height:1.6;margin-top:6px">${label ? `<span style="color:var(--txt2)">${label}</span> ` : ''}${esc(arr.map(nameWithNum).join(', '))}</p>`
     : '';
-  const squadBlock = namesP('Geselecteerd:', sg.mee) + namesP('Niet geselecteerd:', sg.notSelected) + namesP('Niet beschikbaar:', sg.absent);
+  // Vierde groep, zoals in het verslag: wie meeging maar tijdens een wedstrijd als niet aanwezig
+  // gemarkeerd werd (naar huis, of nooit opgedaagd). Die stond hier niet, waardoor de tornooipagina
+  // en het verslag een andere indeling gaven voor dezelfde dag.
+  const noShowNamen = [...new Set(done.flatMap(m => (m.players || []).filter(p => p.absent).map(p => (p.name || '').trim())))]
+    .filter(Boolean).sort((a, b) => _lastName(a).localeCompare(_lastName(b), 'nl'));
+  const meeNietAanwezig = sg.mee.filter(s => noShowNamen.includes((s.name || '').trim()));
+  const squadBlock = namesP('Geselecteerd:', sg.mee)
+    + namesP('Geselecteerd maar niet aanwezig:', meeNietAanwezig)
+    + namesP('Niet geselecteerd:', sg.notSelected) + namesP('Niet beschikbaar:', sg.absent);
+  const cleanSheets = done.filter(m => m.scoreThem === 0).length;
   const statsHtml = done.length ? `<div class="card" style="margin-bottom:12px">
     <div class="stat-big">
       <div class="stat-box"><div class="v" style="color:var(--grn)">${w}</div><div class="l">Gewonnen</div></div>
       <div class="stat-box"><div class="v">${d}</div><div class="l">Gelijk</div></div>
       <div class="stat-box"><div class="v" style="color:var(--rd)">${l}</div><div class="l">Verloren</div></div>
       <div class="stat-box"><div class="v">${gf}–${ga}</div><div class="l">Doelpunten</div></div>
+      ${cleanSheets ? `<div class="stat-box"><div class="v">${cleanSheets}</div><div class="l">Nul gehouden</div></div>` : ''}
     </div>
   </div>` : '';
   const noSquad = !squadAll.length;
@@ -475,7 +493,7 @@ function tournamentReportData(t, matches) {
 }
 function renderTournamentReport() {
   const t = currentTournament;
-  if (!t) return '<div class="content"><p>Niet gevonden.</p></div>';
+  if (!t) return trnNotFound('Tornooiverslag');
   setTimeout(loadTournamentReport, 0);
   return `<div class="hdr"><button class="back" onclick="goTournament('${t.id}')">‹</button>
     <div><h1>${icI(IC.clipboard)} Tornooiverslag</h1><div class="hdr-sub">${esc(t.name)}${t.date ? ' · ' + fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}</div></div>
@@ -552,9 +570,12 @@ async function loadTournamentReport() {
         <div class="stat-box"><div class="v">${r.gf}</div><div class="l">Doelpunten voor</div></div>
         <div class="stat-box"><div class="v">${r.ga}</div><div class="l">Doelpunten tegen</div></div>
         <div class="stat-box"><div class="v">${r.gf-r.ga>=0?'+':''}${r.gf-r.ga}</div><div class="l">Saldo</div></div>
-        ${r.usesPoints ? `<div class="stat-box"><div class="v">${r.points}</div><div class="l">Punten</div></div>` : ''}
+        ${r.usesPoints ? `<div class="stat-box"><div class="v">${r.points}</div><div class="l">Punten</div></div>`
+          // Clean sheets stonden wél in het deelbericht en de PDF, maar niet hier. Enkel als er geen
+          // puntenregel is, want anders wordt de rij te druk op een gsm.
+          : r.cleanSheets ? `<div class="stat-box"><div class="v">${r.cleanSheets}</div><div class="l">Nul gehouden</div></div>` : ''}
       </div>
-      ${r.usesPoints ? `<p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens ${r.pointsLabel} (winst/gelijk/verlies) over je eigen wedstrijden — geen officiële eindstand van het tornooi.</p>` : ''}
+      ${r.usesPoints ? `<p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens ${r.pointsLabel} (winst/gelijk/verlies) over je eigen wedstrijden — geen officiële eindstand van het tornooi.${r.cleanSheets ? ` De ploeg hield ${r.cleanSheets}× de nul.` : ''}</p>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button class="btn btn-green" onclick="shareTournamentReport()">${icI(IC.share)} Delen</button>
@@ -562,7 +583,10 @@ async function loadTournamentReport() {
     </div>
     ${r.planned ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} ${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt — die cijfers zitten hier niet in.</div>` : ''}
     ${sec('Tornooi-info', infoRows || '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>')}
-    ${sec(`Uitslagen (${r.done.length})`, resultRows)}
+    ${sec(`Uitslagen (${r.done.length})`, resultRows
+      // Deze voetnoot stond enkel in de PDF, terwijl de vraag "waarom staat onze score eerst?" juist
+      // op het scherm opkomt. Een tornooi is neutraal terrein, dus er is geen thuisploeg.
+      + `<p style="font-size:11px;color:var(--txt2);margin-top:8px">Bij een tornooi staat de eigen ploeg altijd eerst — er is geen thuis- of uitploeg.</p>`)}
     ${sec(`Dagselectie (${r.squadMee.length})`, `<p style="font-size:14px;line-height:1.6"><span style="color:var(--txt2)">Geselecteerd:</span> ${nameList(r.squadMee)}</p>`
       + (mag('selected')
         ? (r.notPresent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Geselecteerd maar niet aanwezig:</span> ${esc(r.notPresent.map(p => p.name).join(', '))}</p>` : '')
@@ -784,7 +808,9 @@ async function exportTournamentPDF() {
     doc.text(scoreTxt(m).replace('-', ' – '), MG + CW, L.y + 30, { align: 'right' });
     let wy = L.y + 30 + (wTitle.length - 1) * 16 + 15;
     doc.setFont(undefined, 'normal'); doc.setFontSize(10.5); doc.setTextColor(107, 114, 128);
-    const wBits = [m.time, `${pCount(m)} × ${m.quarterDuration} min`, m.matchType,
+    // subteam (het A/B-ploeglabel) hoorde hier ook bij: bij twee deelploegen op hetzelfde tornooi
+    // was in dit verslag niet te zien welke van de twee gespeeld had.
+    const wBits = [m.time, m.subteam && ('Ploeg ' + m.subteam), `${pCount(m)} × ${m.quarterDuration} min`, m.matchType,
       m.formation && ('Opstelling: ' + m.formation), m.referee && ('Scheidsrechter: ' + m.referee),
       m.jersey && ('Truikleur: ' + m.jersey),
       allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | ')),
@@ -917,6 +943,7 @@ async function doDeleteTournamentAll(id) {
   } finally { _trnDeleteBusy = false; }
 }
 function doDeleteTournament(id) {
+  if (!canManage()) return; // zelfde reden als bij saveTournamentWiz: dit wist data
   deleteTournament(id);
   currentTournament = null; closeModal(); go('tournaments');
 }
@@ -968,8 +995,10 @@ function editTournament(id) {
     p.sel = val === 'absent' ? 'absent' : (val ? 'mee' : 'none');
     p.absentReason = (p.sel === 'absent' && s) ? (s.absentReason || '') : '';
     // Tornooi-specifiek rugnummer terugzetten — trnWizBuildPool nam het rosternummer, waardoor
-    // een aangepast tornooinummer bij herbewerken stil verloren ging.
-    if (s && s.number) p.number = s.number;
+    // een aangepast tornooinummer bij herbewerken stil verloren ging. Een BEWUST leeggemaakt nummer
+    // hoort ook leeg te blijven: met `if (s.number)` viel het terug op het roosternummer, en dan
+    // stond er in het verslag weer een nummer dat je net had weggehaald.
+    if (s && s.sel) p.number = s.number || '';
   });
   // Squadleden zonder tegenhanger in het rooster achteraan toevoegen i.p.v. ze te laten vallen:
   // gastspelers en losse spelers staan per definitie niet in het rooster, en een speler die de
@@ -1106,11 +1135,26 @@ function setTrnSel(pid, val) {
 }
 function setTrnPoolNum(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
 function setTrnAbsentReason(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) { p.absentReason = val; render(); } }
+// Eigen guard, ook al zijn alle UI-paden hierheen al afgeschermd: deze functie schrijft een tornooi
+// weg (lokaal én naar de cloud), dus ze mag niet enkel op de knoppen vertrouwen.
 async function saveTournamentWiz() {
+  if (!canManage() || !trnWiz) return;
+  // Wie al in de bewaarde selectie stond, houdt zijn addedAt; wie er nu bij komt krijgt er een.
+  // De verslagen van wedstrijden die toen al gespeeld waren, laten hem daarmee buiten "niet
+  // geselecteerd" (zie selectionGroups). Een tornooi dat nog nooit bewaard is (nieuw) krijgt geen
+  // stempels: dan was iedereen er van het begin bij.
+  const bestaand = trnWiz.isNew ? new Map()
+    : new Map(tournamentSquadList(tournamentById(trnWiz.id) || {}).map(s => [s.pid || s.srcId || s.name, s.addedAt || null]));
+  const stempel = p => {
+    if (trnWiz.isNew) return {};
+    const k = p.pid || p.srcId || p.name;
+    if (bestaand.has(k)) { const a = bestaand.get(k); return a ? { addedAt: a } : {}; }
+    return { addedAt: Date.now() };
+  };
   const squad = {
     players: trnWiz.pool
       .filter(p => p.sel === 'mee' || p.sel === 'absent')
-      .map(p => ({ pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '',
+      .map(p => Object.assign(stempel(p), { pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '',
         // Gasten (andere ploeg of losse speler) horen bij de dagselectie zelf, niet bij het rooster.
         // Zo blijven de selectiegroepen, speeltijd, verslag en PDF vanzelf kloppen.
         guest: !!p.guest, fromName: p.guest ? (p.fromName || '') : '' })),
@@ -1226,11 +1270,16 @@ function addTournamentMatch(trnId) {
   const t = tournamentById(trnId); if (!t) return;
   const team = teamById(t.teamId);
   const allSquadPlayers = tournamentSquadMee(t);
-  const totalSquad = tournamentSquadList(t).length;
-  if (!totalSquad) {
+  // Guard op wie effectief MEEGAAT, niet op de volledige squad: staat iedereen op "niet
+  // beschikbaar", dan is de squad wel gevuld maar de pool leeg, en liep je door naar een
+  // selectiescherm zonder één speler.
+  if (!allSquadPlayers.length) {
+    const iedereenNb = tournamentSquadList(t).length > 0;
     openModal(`<h3>Selectie ontbreekt</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Geef eerst een selectie in voor dit tornooi voor je wedstrijden toevoegt.</p>
-      <button class="btn btn-green" onclick="closeModal();editTournament('${trnId}')">${icI(IC.edit)} Selectie ingeven</button>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${iedereenNb
+        ? 'Elke speler in dit tornooi staat op <b>niet beschikbaar</b>, dus er is niemand om op te stellen. Pas de selectie aan.'
+        : 'Geef eerst een selectie in voor dit tornooi voor je wedstrijden toevoegt.'}</p>
+      <button class="btn btn-green" onclick="closeModal();editTournament('${trnId}')">${icI(IC.edit)} Selectie aanpassen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
@@ -1312,6 +1361,13 @@ async function cloneTournamentMatch(matchId, trnId) {
   // blijft de opstelling leeg bij "Gebruik als template".
   const cloneForm = FORMATIONS[matchType] && FORMATIONS[matchType][fi];
   if (cloneForm) wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = cloneForm.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
+  // Kapitein meenemen, zoals editMatchWizard doet: bij een tornooi is dat elke wedstrijd dezelfde
+  // speler, dus hem in elke kloon opnieuw aanduiden was pure herhaling. De eerste pool-entries
+  // volgen de volgorde van src.players, dus de index klopt.
+  if (src.captainId) {
+    const ci = (src.players || []).findIndex(p => p.id === src.captainId);
+    if (ci >= 0 && wiz.pool[ci]) wiz.captainPid = wiz.pool[ci].pid;
+  }
   go('new');
 }
 function renderTrnMatchStep1() {
