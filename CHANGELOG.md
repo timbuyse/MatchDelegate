@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.11.0
+- **Opgelost:** iemand als **niet aanwezig** markeren terwijl hij al gespeeld had, wiste stil zijn
+  speelminuten — terwijl zijn doelpunten uit diezelfde wedstrijd wél bleven staan, er geen enkel
+  event gelogd werd, er geen vervanger gevraagd werd (je speelde dus met 7 verder) en hij in het
+  verslag nog op zijn positie op het veld stond. "Niet aanwezig" is bedoeld voor wie niet opdaagt,
+  en dat blijft ongewijzigd. Maar staat of stond de speler op het veld, dan stelt de app nu eerst
+  **"Blessure / verlaat het veld"** voor: die stopt zijn teller op het juiste moment (zijn 15
+  gespeelde minuten blijven dus bewaard), logt een event en biedt meteen een vervanger aan. Wie hem
+  écht per ongeluk in de selectie had gezet, kan nog altijd kiezen voor "Toch niet aanwezig", nu met
+  de vermelding hoeveel minuten daarmee gewist worden.
+- **Nieuw:** bij een tornooiwedstrijd kan je iemand in één beweging **ook voor de rest van het
+  tornooi** op niet beschikbaar zetten. Voordien was zo'n afmelding enkel voor die ene wedstrijd:
+  wie na wedstrijd 2 naar huis ging, stond in wedstrijd 4 automatisch weer in de basis en kreeg
+  minuten toegeschreven die hij niet speelde.
+- **Verbeterd:** de schermafbeeldingen in de handleiding waren te groot — ze werden zelfs opgeblazen
+  tot boven hun eigen formaat, wat ze ook onscherp maakte. Ze staan nu op maximaal 300 px, en waar
+  een pagina twee afbeeldingen heeft, komen die op een breed scherm naast elkaar (die pagina's zijn
+  daardoor ongeveer 40% korter). Op een telefoon verandert er niets; inzoomen kan gewoon met een
+  pinch.
+
 ## v0.10.0
 Tweede ronde uit de doorlichting van de tornooimodule, plus één nieuwe functie die er tijdens het
 nakijken uit voortkwam.

@@ -712,8 +712,9 @@ function renderHandleiding(p) {
   const tabs = HANDLEIDING_PAGINAS.map((pg, i) =>
     `<button class="hdl-tab${i === p ? ' active' : ''}" onclick="hdlGo(${i})">${pg.titel}</button>`
   ).join('');
-  const imgs = (pagina.img ? `<img src="${pagina.img}" class="hdl-img" onerror="this.style.display='none'">` : '') +
-               (pagina.img2 ? `<img src="${pagina.img2}" class="hdl-img" style="margin-top:10px" onerror="this.style.display='none'">` : '');
+  const shot = src => `<img src="${src}" class="hdl-img" onerror="this.style.display='none'">`;
+  const imgList = (pagina.img ? shot(pagina.img) : '') + (pagina.img2 ? shot(pagina.img2) : '');
+  const imgs = imgList ? `<div class="hdl-shots">${imgList}</div>` : '';
   const pdfKnop = p === 0 ? `<button class="btn btn-pale" style="margin-bottom:16px;width:100%" onclick="exportHandleidingPDF()">${icI(IC.clipboard)} Download handleiding als PDF</button>` : '';
   return `
     <div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.clipboard)} Handleiding</h1></div>

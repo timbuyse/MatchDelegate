@@ -436,7 +436,16 @@
     .hdl-tab.active{background:var(--grn);color:#fff;font-weight:600}
     .hdl-body{padding:16px 16px 32px}
     .hdl-titel{font-size:19px;font-weight:700;margin-bottom:14px;color:var(--txt)}
-    .hdl-img{width:100%;border-radius:10px;border:1px solid var(--bdr);display:block}
+    /* Schermafbeeldingen zijn gsm-opnames van 430x932. Met width:100% werden ze in een body van
+       600 px opgeblazen tot 568 px breed (dus onscherp) en ruim 1200 px hoog. Nu geplafonneerd op
+       300 px en gecentreerd; wie details wil lezen, zoomt in met een pinch (de viewport-regel laat
+       dat toe). */
+    .hdl-shots{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:14px}
+    .hdl-img{width:100%;max-width:300px;border-radius:10px;border:1px solid var(--bdr);display:block}
+    /* min-width:0 is nodig: een img als flex-item heeft standaard min-width:auto, en dat is voor een
+       afbeelding haar eigen breedte (430 px) — twee daarvan passen niet in de kolom, waardoor ze
+       altijd onder elkaar sprongen i.p.v. naast elkaar. */
+    .hdl-shots .hdl-img{flex:1 1 240px;min-width:0}
     .hdl-list{padding-left:20px;margin:8px 0;line-height:1.8;font-size:14px;color:var(--txt)}
     .hdl-list li{margin-bottom:4px}
     .hdl-rol{display:flex;flex-direction:column;background:var(--card);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px}

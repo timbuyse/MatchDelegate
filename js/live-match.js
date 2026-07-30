@@ -1035,17 +1035,68 @@ function modalExtra() {
     ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
+// Heeft deze speler in deze wedstrijd effectief op het veld gestaan? Zo ja, dan is "niet aanwezig"
+// het verkeerde gereedschap: dat is bedoeld voor wie niet opgedaagd is (0 minuten), en het zou zijn
+// al gespeelde minuten wissen terwijl zijn doelpunten uit diezelfde wedstrijd blijven staan.
+function hasPlayedInMatch(m, pid) {
+  const p = (m.players || []).find(x => x.id === pid);
+  if (!p || (m.currentQuarter || 0) === 0) return false;   // vóór de aftrap is niemand nog gespeeld
+  if (p.starting) return true;
+  return (m.events || []).some(e => e.type === 'substitution' && e.playerInId === pid);
+}
+// Zet deze speler in de DAGSELECTIE van het tornooi op NB. doMarkAbsent is puur wedstrijd-lokaal,
+// dus wie halfweg de dag naar huis gaat kwam in de volgende wedstrijden automatisch weer in de
+// basis (addTournamentMatch vult de pool met tournamentSquadMee) en kreeg minuten toegeschreven
+// die hij niet speelde.
+function markTournamentUnavailable(pid) {
+  const t = match.tournamentId ? tournamentById(match.tournamentId) : null;
+  if (!t) return false;
+  const p = (match.players || []).find(x => x.id === pid);
+  if (!p) return false;
+  const list = tournamentSquadList(t).map(s => Object.assign({}, s));
+  const hit = list.find(s => (s.srcId && p.rosterId && s.srcId === p.rosterId)
+    || (s.name || '').trim() === (p.name || '').trim());
+  if (!hit) return false;
+  hit.sel = 'absent';
+  t.squad = { players: list };
+  saveTournament(t);
+  return true;
+}
+function _trnAbsentAangevinkt() { return !!(document.getElementById('ma-trn') || {}).checked; }
 function modalMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
-  openModal(`<h3>${icI(IC.injury)} Niet aanwezig</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(p.name)}</b> markeren als niet aanwezig?<br><span style="font-size:12px">Speeltijd wordt op 0 gezet. Dit is ongedaan te maken.</span></p>
-    <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Niet aanwezig</button>
+  const gespeeld = hasPlayedInMatch(match, pid);
+  const min = Math.floor(((calcMinutes(match)[pid] || {}).ms || 0) / 60000);
+  // Bij een tornooiwedstrijd meteen ook voor de rest van de dag kunnen afmelden.
+  const trn = match.tournamentId ? tournamentById(match.tournamentId) : null;
+  const trnOptie = trn ? `<label class="chkrow" style="margin-bottom:14px"><input type="checkbox" id="ma-trn"> Ook <b>niet beschikbaar</b> voor de rest van het tornooi</label>` : '';
+  if (!gespeeld) {
+    openModal(`<h3>${icI(IC.injury)} Niet aanwezig</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(p.name)}</b> markeren als niet aanwezig?<br><span style="font-size:12px">Speeltijd wordt op 0 gezet. Dit is ongedaan te maken.</span></p>
+      ${trnOptie}
+      <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Niet aanwezig</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
+  openModal(`<h3>${icI(IC.injury)} ${esc(p.name)} van het veld</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Hij speelde al <b>${min} min</b>. Registreer je hem als <b>blessure</b>, dan stopt zijn teller nu en kan je meteen iemand inbrengen.</p>
+    ${trnOptie}
+    <button class="btn btn-green" onclick="markAbsentViaInjury('${pid}')">${icI(IC.injury)} Blessure / verlaat het veld</button>
+    <p style="text-align:center;color:var(--txt2);font-size:12px;margin:14px 0 6px">Stond hij per ongeluk in de selectie?</p>
+    <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Toch niet aanwezig — wist zijn ${min} min</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// De tornooikeuze staat in de vorige modal, dus die hier meteen toepassen — daarna neemt de
+// bestaande blessureflow het over (event + teller stoppen + vervanger aanbieden).
+function markAbsentViaInjury(pid) {
+  if (_trnAbsentAangevinkt()) markTournamentUnavailable(pid);
+  modalInjury(pid);
 }
 async function doMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
+  if (_trnAbsentAangevinkt()) markTournamentUnavailable(pid);
   p.absent = true;
   if (p.onField) p.onField = false;
   // Ook uit de ingeplande pauzewissels/positiewissels halen — een afwezige speler mag bij de
@@ -1545,9 +1596,12 @@ async function logPenalty(scored) {
 
 // ===================== MODAL: INJURY =====================
 let injPlayerId = null, injType = 'kramp';
-function modalInjury() {
+// preId: speler al aangeduid en "verlaat het veld" aangevinkt — gebruikt door de "Niet aanwezig"-
+// modal, die voor iemand die al gespeeld heeft naar deze flow doorverwijst (zie modalMarkAbsent).
+function modalInjury(preId) {
   const on = playersOnFieldForEvent(match);
-  injPlayerId = null; injType = 'kramp';
+  injPlayerId = (preId && on.some(p => p.id === preId)) ? preId : null;
+  injType = 'kramp';
   openModal(`<h3>${icI(IC.injury)} Blessure</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
     <div id="inj-players">${pgGrid(on.map(p=>pgBtn(p,'inj-pb',`selectInjuryPlayer('${p.id}',this)`)).join(''))}</div>
@@ -1557,9 +1611,16 @@ function modalInjury() {
       <button onclick="tglInjType('licht',this)">Lichte blessure</button>
       <button onclick="tglInjType('ernstig',this)">Ernstig</button>
     </div>
-    <label class="chkrow" style="margin-bottom:16px"><input type="checkbox" id="inj-off"> Speler verlaat het veld</label>
+    <label class="chkrow" style="margin-bottom:16px"><input type="checkbox" id="inj-off"${injPlayerId ? ' checked' : ''}> Speler verlaat het veld</label>
     <button class="btn btn-green" onclick="confirmInjury()">${icI(IC.check)}Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  // Voorselectie zichtbaar maken: de keuze wordt met inline stijlen gemarkeerd (gpSel), niet met
+  // een klasse, dus dat moet na het renderen gebeuren.
+  if (injPlayerId) {
+    const i = on.findIndex(p => p.id === injPlayerId);
+    const btn = document.querySelectorAll('#inj-players button')[i];
+    if (btn) gpSel(btn);
+  }
 }
 function selectInjuryPlayer(id, el) { injPlayerId = id; gpSelIn('inj-players', el); }
 function tglInjType(type, btn) {
