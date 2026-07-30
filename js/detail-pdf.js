@@ -111,6 +111,7 @@ function renderDetail() {
       <button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
+    ${viewerVisibilityHintHtml(['selected', 'minutes'])}
   </div>`;
 }
 function pickPhoto(slot) {

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.11.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.11.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1595,10 +1595,30 @@ function canSeeStats() { return !isGuest && !viewerMode && (isAdmin || isOwner |
 // gelden de oogjes uit v0.5.20 (teams/{id}/info/statsPublic, standaard STATS_DEFAULT_PUBLIC).
 // Eén plek voor die regel, want ze geldt nu op de statistiekenpagina, in het tornooiverslag en in
 // het wedstrijdverslag — op het scherm én in de PDF's, die een kijker allemaal kan openen.
-function statSectionVisible(key) {
-  if (canSeeStats()) return true;
+function statSectionVisible(key) { return canSeeStats() || statSectionPublic(key); }
+// Enkel de keuze zelf, zonder de beheerder-uitzondering — nodig om een beheerder te kunnen vertellen
+// wat een KIJKER hier wel en niet ziet.
+function statSectionPublic(key) {
   if (key in activeStatsPublic) return !!activeStatsPublic[key];
   return !!(typeof STATS_DEFAULT_PUBLIC !== 'undefined' && STATS_DEFAULT_PUBLIC[key]);
+}
+// Hint onderaan een verslag, enkel voor beheerders: wat ziet een kijker hier níet, en waar wijzig je
+// dat? De instelling staat bewust op één plek (de oogjes bij Statistieken, per ploeg) — dit maakt
+// alleen vindbaar dát ze ook de verslagen bepaalt, want in het verslag zelf was daar niets van te
+// zien.
+const _VIEWER_HINT_LABELS = {
+  minutes: 'de speelminuten', fairplay: 'de fair-play-lijst', cards: 'de kaarten',
+  selected: 'wie niet geselecteerd of niet beschikbaar was',
+};
+function viewerVisibilityHintHtml(keys) {
+  if (!canSeeStats()) return '';
+  const verborgen = keys.filter(k => !statSectionPublic(k)).map(k => _VIEWER_HINT_LABELS[k] || k);
+  const kern = verborgen.length
+    ? `<b>Verborgen voor kijkers:</b> ${esc(verborgen.join(', '))}.`
+    : 'Kijkers zien dit verslag volledig.';
+  return `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:16px;line-height:1.6">
+    ${icI(IC.eye)} ${kern} Je past dat aan met de oogjes bij <b>Statistieken</b> (geldt voor alle verslagen van deze ploeg).
+    <button class="btn btn-pale btn-sm no-print" style="margin-top:8px" onclick="go('stats')">${icI(IC.chart)} Naar Statistieken</button></p>`;
 }
 
 // ---- UI chip + account modal ----

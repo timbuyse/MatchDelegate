@@ -555,7 +555,8 @@ async function loadTournamentReport() {
     ${carded.length ? secIf('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p => `<div class="stat-row"><span style="flex:1">${esc(p.name)}</span><span>${p.yc ? icI(IC.cardY).repeat(p.yc) : ''}${p.rc ? icI(IC.cardR).repeat(p.rc) : ''}</span></div>`).join('')) : ''}
     ${(canManage() && r.notes.length) ? sec(`Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span>`,
       r.notes.map(m => `<p class="notes-txt" style="margin-bottom:8px"><span style="color:var(--txt2);font-size:13px">vs ${esc(m.opponent || '')}:</span><br>${esc(m.notes)}</p>`).join('')) : ''}
-    ${verborgen ? `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:14px">Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : ''}`;
+    ${verborgen ? `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:14px">Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : ''}
+    ${viewerVisibilityHintHtml(['selected', 'minutes', 'fairplay', 'cards'])}`;
 }
 // Deelbericht voor de ploeggroep: uitslagen + dagresultaat + doelpuntenmakers, zonder speeltijden
 // (die zijn intern) en zonder notities.

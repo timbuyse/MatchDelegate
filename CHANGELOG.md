@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.11.3
+- **Nieuw:** onderaan het tornooiverslag en het wedstrijdverslag staat nu voor beheerders een regel
+  die zegt **wat een kijker daar níet ziet**, met een knop naar Statistieken om het aan te passen.
+  Sinds v0.11.2 bepalen die oogjes ook de verslagen, maar in het verslag zelf was daar niets van te
+  merken. Staat alles publiek, dan zegt de regel dat het verslag volledig zichtbaar is. Kijkers zien
+  deze regel niet.
+
 ## v0.11.2
 - **Opgelost:** je keuzes over wat kijkers mogen zien (de oogjes bij de statistieken) golden **niet**
   in het tornooiverslag en het wedstrijdverslag. Een ouder-kijker zag daar dus de speelminuten per
