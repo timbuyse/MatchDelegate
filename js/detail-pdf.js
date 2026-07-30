@@ -408,7 +408,12 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     doc.circle(cx, cy, L(R), 'FD');
     doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold');
     doc.setFontSize(numSize);
-    doc.text(String(p.posNum || p.number || '?'), cx, cy + numSize * 0.35, { align: 'center' });
+    // In de bol staat ENKEL het positienummer (vast per plaats in de formatie), nooit het rugnummer:
+    // die zijn optioneel en horen buiten het veld (chips, lijsten). Zelfde regel als op het scherm,
+    // zie pitchDot(). Geen positienummer (oude wedstrijd waarvan de x/y niet meer op een slot valt)
+    // → lege bol met enkel de naam eronder, i.p.v. het vroegere "?".
+    const bolTekst = String(p.posNum || '');
+    if (bolTekst) doc.text(bolTekst, cx, cy + numSize * 0.35, { align: 'center' });
     // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
     // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).
     const label = (dns.get(p.id) || _lastName(p.name || '')) + (capId === p.id ? ' ©' : '');
@@ -804,17 +809,22 @@ async function pdfMatchBody(doc, L, m) {
 
   // ---- Spelers ----
   const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
-  const playerHead = ['#', 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
+  // De '#'-kolom valt weg als geen enkele speler een rugnummer heeft: rugnummers zijn optioneel
+  // (zie teamUsesNumbers), en een kolom met louter lege cellen is enkel ruis.
+  const anyNum = m.players.some(p => pNum(p));
+  const numCol = anyNum ? ['#'] : [];
+  const numCell = p => anyNum ? [pNum(p)] : [];
+  const playerHead = [...numCol, 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
   const absentRowIdx = new Set();
   const playerRows = m.players.map((p, idx) => {
-    if (p.absent) { absentRowIdx.add(idx); return [p.number || '', p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
+    if (p.absent) { absentRowIdx.add(idx); return [...numCell(p), p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
     const min = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
     const qVals = qData ? qData.qNums.map(qNum => { const ms = qData.result[p.id]?.[qNum] || 0; return ms > 0 ? Math.round(ms / 60000) + "'" : '—'; }) : [];
-    return [p.number || '', p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
+    return [...numCell(p), p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
   });
   // Iets minder celvulling zodat de 12 kolommen bij een grotere letter nog naast elkaar passen.
   // Deze tabel bevat de speelminuten per speler (en wie niet aanwezig was), dus ze volgt dezelfde

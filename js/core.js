@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.14.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.15.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -83,6 +83,16 @@ function posLine(pos) { const m = posMeta(pos); return m ? m.line : ''; }
 function posSides(pos) { const m = posMeta(pos); return m ? m.sides : {}; }
 function posSideLabel(pos) { const m = posMeta(pos); return m ? m.sideLabel : ''; }
 function posSideValid(pos, side) { return !!posSides(pos)[side]; }
+// ----- Rugnummers zijn optioneel -----
+// Bij jeugdploegen zijn vaste rugnummers niet de norm (wisselende truitjes), dus een ploeg kan ze
+// uitzetten met `useNumbers: false`. Bestaande ploegen hebben dat veld niet en gebruiken ze dus wel.
+// Los daarvan geldt overal: een nummer wordt enkel getoond als er ook echt een is. Voordien stond
+// er "?" in elk bolletje en elke chip, wat las alsof er iets ontbrak of stuk was.
+function teamUsesNumbers(team) { return !team || team.useNumbers !== false; }
+function pNum(p) { const n = (p && p.number != null) ? String(p.number).trim() : ''; return n; }
+// Het rugnummerbolletje, of niets: een leeg gevuld bolletje leest als een fout.
+function numDot(p, cls, stijl) { const n = pNum(p); return n ? `<div class="${cls}"${stijl ? ` style="${stijl}"` : ''}>${esc(n)}</div>` : ''; }
+function numSpan(p, cls) { const n = pNum(p); return n ? `<span class="${cls}">${esc(n)}</span>` : ''; }
 // Voorkeurspositie + de gekozen kant/rol, voor weergave bij spelersbeheer en selectie.
 function posDisplay(p) {
   const pos = normPos(p && p.pos);

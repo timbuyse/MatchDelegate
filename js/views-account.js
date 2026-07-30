@@ -1889,6 +1889,9 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   // tap = { fn, selId }: maakt de bol aantikbaar (pauze-opstelling in het livescherm).
   const tapAttr = tap ? ` onclick="${tap.fn}('field','${p.id}')" style="cursor:pointer;` : ' style="';
   const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);' : '';
+  // In de bol staat ENKEL het positienummer (vast per plaats in de formatie), nooit het rugnummer —
+  // die zijn optioneel en horen buiten het veld (chips, lijsten). De terugval op het rugnummer is
+  // bewust geschrapt: bij een oude wedstrijd zonder positienummer blijft de bol leeg met de naam.
   // Kaartjes achter de NAAM (niet bij de bol: daar leken ze bij het positienummer te horen), de
   // vervanger met wisselicoon op een regeltje onder de naam.
   const cards = !mk ? '' : [
@@ -1898,7 +1901,7 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   const sub = (mk && mk.subs && mk.subs.length)
     ? `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(mk.subs.join(' · '))}</span>` : '';
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
-    ${p.posNum||p.number||'?'}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
+    ${p.posNum||''}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
 }
 // qNum (optioneel): toont per speler de wissel/kaart/blessure van dat deel, en de bank eronder.
 // tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.

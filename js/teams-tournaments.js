@@ -98,9 +98,14 @@ function renderTeamEdit() {
   if (!canManage()) return renderTeamView();
   if (!teamEditMode) return renderTeamOverview();
   const posKeys = Object.keys(POSITIONS);
+  // Rugnummers zijn optioneel per ploeg (bij jeugd zijn vaste nummers niet de norm). Staat het uit,
+  // dan verdwijnt het nummervakje hier en krijgt de naam die ruimte; de al ingevulde nummers blijven
+  // bewaard, ze worden enkel niet gebruikt — zet je het vinkje terug aan, dan staan ze er weer.
+  const useNums = teamUsesNumbers(editingTeam);
+  const rowCols = useNums ? '56px 1fr 1fr auto' : '1fr 1fr auto';
   const rows = editingTeam.players.map((p, i) => `
-    <div class="pirow">
-      <input type="number" placeholder="Rugnr" value="${esc(p.number)}" onchange="editingTeam.players[${i}].number=this.value" inputmode="numeric" aria-label="Rugnummer">
+    <div class="pirow" style="grid-template-columns:${rowCols}">
+      ${useNums ? `<input type="number" placeholder="Rugnr" value="${esc(p.number)}" onchange="editingTeam.players[${i}].number=this.value" inputmode="numeric" aria-label="Rugnummer">` : ''}
       <input type="text" placeholder="Voornaam" value="${esc(pFirstName(p))}" oninput="editingTeam.players[${i}].firstName=this.value" autocomplete="off">
       <input type="text" placeholder="Familienaam" value="${esc(pLastName(p))}" oninput="editingTeam.players[${i}].lastName=this.value" autocomplete="off">
       <button class="delbtn" onclick="teamDelPlayer(${i})">×</button>
@@ -111,7 +116,11 @@ function renderTeamEdit() {
     <div class="pirow2" id="team-side-fg-${i}" style="grid-template-columns:1fr;margin-bottom:12px;${teamSideRowHtml(i, p)?'':'display:none'}">
       ${teamSideRowHtml(i, p)}
     </div>`).join('');
-  const colHead = `<div style="display:grid;grid-template-columns:56px 1fr 1fr 38px;gap:6px;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><span>Rugnr</span><span>Voornaam</span><span>Familienaam</span><span></span></div>`;
+  const colHead = `<div style="display:grid;grid-template-columns:${useNums ? '56px 1fr 1fr 38px' : '1fr 1fr 38px'};gap:6px;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${useNums ? '<span>Rugnr</span>' : ''}<span>Voornaam</span><span>Familienaam</span><span></span></div>`;
+  const numToggle = `<label class="chkrow" style="margin-bottom:10px"><input type="checkbox" ${useNums ? 'checked' : ''} onchange="teamToggleNumbers(this.checked)"> Vaste rugnummers gebruiken</label>
+    <p style="font-size:11px;color:var(--txt2);margin:-4px 0 12px">${useNums
+      ? 'Zet dit uit als je ploeg geen vaste rugnummers heeft. De nummers verdwijnen dan uit de app; per wedstrijd kan je er nog altijd één invullen.'
+      : 'Er staan nergens rugnummers. Wil je er voor één wedstrijd toch, dan vul je ze in bij de selectie van die wedstrijd.'}</p>`;
   const trainers = editingTeam.trainers || [];
   const trainerRows = [0, 1, 2].map(i => {
     const t = trainers[i] || { name: '' };
@@ -138,8 +147,11 @@ function renderTeamEdit() {
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
     <div class="sec">Spelers (${editingTeam.players.length})</div>
-    ${(() => { const nums = editingTeam.players.map(p => (p.number || '').trim()).filter(Boolean); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer: ${dup.map(esc).join(', ')}</div>` : ''; })()}
-    ${editingTeam.players.length > 1 ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('nr')">↕ Sorteer op nr</button><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('name')">↕ Sorteer op naam</button></div>` : ''}
+    ${numToggle}
+    ${useNums ? (() => { const nums = editingTeam.players.map(p => (p.number || '').trim()).filter(Boolean); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer: ${dup.map(esc).join(', ')}</div>` : ''; })() : ''}
+    ${editingTeam.players.length > 1 ? (useNums
+      ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px"><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('nr')">↕ Sorteer op nr</button><button class="btn btn-gray btn-sm" onclick="teamSortPlayers('name')">↕ Sorteer op naam</button></div>`
+      : `<button class="btn btn-gray btn-sm" style="margin-bottom:8px" onclick="teamSortPlayers('name')">↕ Sorteer op naam</button>`) : ''}
     <div class="card">${editingTeam.players.length ? colHead : ''}<div id="t-rows">${rows || '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
         <button class="btn btn-pale btn-sm" onclick="teamAddPlayer()">+ Speler</button>
@@ -149,6 +161,9 @@ function renderTeamEdit() {
     ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
 }
+// Vinkje "Vaste rugnummers gebruiken". Volledige herrender, want de kolomindeling van élke
+// spelersrij verandert mee. De ingevulde nummers blijven staan (niet wissen: omkeerbaar).
+function teamToggleNumbers(aan) { editingTeam.useNumbers = !!aan; render(); }
 // Standaard opstelling volgt de gekozen wedstrijdvorm in de ploeg-editor.
 function teamFormatChange(val) {
   editingTeam.defaultMatchType = MATCH_TYPES[val] ? val : '8v8';
@@ -201,6 +216,9 @@ function saveTeamEdit() {
     responsible: (editingTeam.responsible || '').trim(),
     defaultMatchType: eDmt,
     defaultFormation: eDform,
+    // Enkel wegschrijven als het uitstaat: zo blijven bestaande ploegen (zonder dit veld) gewoon
+    // rugnummers gebruiken, en blijft het object schoon voor wie ze wél gebruikt.
+    ...(teamUsesNumbers(editingTeam) ? {} : { useNumbers: false }),
     trainers: (editingTeam.trainers || []).map(t => ({ id: t.id || uid(), name: (t.name || '').trim() })).filter(t => t.name),
     players: editingTeam.players.filter(p => (pFirstName(p) || pLastName(p) || '').trim()).map(p => {
       const fn = ((p.firstName !== undefined ? p.firstName : pFirstName(p)) || '').trim();
@@ -749,25 +767,31 @@ async function exportTournamentPDF() {
 
   // ---- Speeltijd + fair-play ----
   const played = r.players.filter(p => p.squad > 0);
+  // Geen enkele speler een rugnummer? Dan valt de '#'-kolom weg (rugnummers zijn optioneel) en
+  // schuiven de kolombreedtes één plaats op.
+  const anyNum = r.players.some(p => pNum(p));
+  const numCol = anyNum ? ['#'] : [];
+  const numCell = p => anyNum ? [pNum(p)] : [];
+  const colShift = obj => { if (anyNum) return obj; const out = {}; for (const k in obj) out[Number(k) - 1] = obj[k]; delete out['-1']; return out; };
   if (played.length && pdfMag('minutes')) {
     const minutes = played.slice().sort((a, b) => b.ms - a.ms);
     tableBlock('Speeltijd over de dag', {
-      head: [['#', 'Naam', 'Gespeeld', 'Totaal', 'Gem./match']],
-      body: minutes.map(p => [p.number || '', p.name || '',
+      head: [[...numCol, 'Naam', 'Gespeeld', 'Totaal', 'Gem./match']],
+      body: minutes.map(p => [...numCell(p), p.name || '',
         `${p.mp} van ${r.done.length}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`,
         `${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-']),
       styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
-      columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } },
+      columnStyles: colShift({ 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } }),
     }, 24);
   }
   // Zelfde noemer als op het scherm: enkel wedstrijden met geregistreerde speeltijd (zie `timed`).
   const fairPdf = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   if (fairPdf.length && pdfMag('fairplay')) {
     tableBlock('Fair-play · minste speeltijd', {
-      head: [['#', 'Naam', 'In selectie', 'Gem./selectie']],
-      body: fairPdf.map(p => [p.number || '', p.name || '', `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'`]),
+      head: [[...numCol, 'Naam', 'In selectie', 'Gem./selectie']],
+      body: fairPdf.map(p => [...numCell(p), p.name || '', `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'`]),
       styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
-      columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 80, halign: 'right' } },
+      columnStyles: colShift({ 0: { cellWidth: 24 }, 3: { cellWidth: 80, halign: 'right' } }),
     }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.');
   }
 
@@ -1035,10 +1059,13 @@ function trnWizBuildPool() {
     trnWiz.pool = [];
     return false;
   }
+  // Zonder vaste rugnummers in de ploeg starten de nummervelden leeg (per tornooidag mag je er nog
+  // altijd één invullen) — zie teamUsesNumbers.
+  const numsAan = teamUsesNumbers(team);
   trnWiz.pool = team.players.map(p => ({
     pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null,
     name: ((pFirstName(p) + ' ' + pLastName(p)).trim()) || p.name || '',
-    number: p.number || '', pos: p.pos || '', side: p.side || '', sel: 'none',
+    number: numsAan ? (p.number || '') : '', pos: p.pos || '', side: p.side || '', sel: 'none',
   }));
   return true;
 }

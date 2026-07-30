@@ -82,7 +82,7 @@ function renderLive() {
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
-        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow"><div class="pnum pnum-off" style="opacity:.4">${p.number||'?'}</div><div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div></div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
+        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div></div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
       </div>`;
   } else {
     tabContent = miniScore + (match.events.length
@@ -105,11 +105,21 @@ function renderLive() {
   </div>`;
 }
 
+// Binnenkant van een spelerkeuzeknop (wie scoorde / assist / kaart / wissel): groot rugnummer met de
+// familienaam eronder. Heeft de speler geen nummer — rugnummers zijn optioneel — dan staat de naam
+// zelf groot, want anders is de knop een lege doos met een klein woordje eronder.
+function playerBtnInner(p, kleur) {
+  const naam = esc(_lastName(p.name));
+  const klein = `<span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${naam}</span>`;
+  const n = pNum(p);
+  if (!n) return `<span style="font-size:13px;font-weight:900;color:${kleur};line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${naam}</span>`;
+  return `<span style="font-size:22px;font-weight:900;color:${kleur};line-height:1">${esc(n)}</span>` + klein;
+}
 function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
   if (minsData && minsData.absent) {
     const cap = (match && match.captainId === p.id) ? ` ${icI(IC.captain)}` : '';
     return `<div class="prow" style="opacity:.5">
-      <div class="pnum pnum-off">${p.number||'?'}</div>
+      ${numDot(p, 'pnum pnum-off')}
       <div style="flex:1"><div class="pname" style="text-decoration:line-through">${esc(p.name)}${cap}</div></div>
       <div class="pmins" style="margin-left:6px;color:var(--rd)">Niet aanwezig</div>
     </div>`;
@@ -123,7 +133,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
   const mid = pct !== null && pct >= 50 && pct < 75;
   const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
   return `<div class="prow">
-    <div class="pnum ${isOff?'pnum-off':''}">${p.number||'?'}</div>
+    ${numDot(p, 'pnum ' + (isOff?'pnum-off':''))}
     <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${bar}</div>
     <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
     ${extraBtn}
@@ -579,7 +589,7 @@ function _renderEpModal() {
     return `<div class="pslot ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}</div>`;
   }).join('');
   const chipsHtml = unplaced.length
-    ? unplaced.map(p => `<span class="place-chip ${_ep.sel===p.id?'sel':''}" onclick="_epSelectPlayer('${p.id}')"><span class="pcn">${p.number||'?'}</span>${esc(p.name)}</span>`).join('')
+    ? unplaced.map(p => `<span class="place-chip ${_ep.sel===p.id?'sel':''}" onclick="_epSelectPlayer('${p.id}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
     : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`;
   const formSel = forms.map((f,i) => `<option value="${i}" ${i===_ep.fi?'selected':''}>${esc(f.name)}</option>`).join('');
   document.getElementById('modal').innerHTML = `<div class="modal-ov"><div class="modal">
@@ -616,7 +626,7 @@ async function saveNotes() {
 }
 function modalMotm() {
   openModal(`<h3>${icI(IC.motm)} Man van de match</h3>
-    ${match.players.map(p => `<div class="mopt ${match.motmId===p.id?'sel':''}" onclick="setMotm('${p.id}')"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
+    ${match.players.map(p => `<div class="mopt ${match.motmId===p.id?'sel':''}" onclick="setMotm('${p.id}')">${numDot(p, 'mopt-num')}${esc(p.name)}</div>`).join('')}
     <div class="mopt mopt-skip" onclick="setMotm(null)">Geen / wissen</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -1300,13 +1310,13 @@ function modalGoal() {
     <div id="goal-us-section">
       <div class="sec">Welke speler scoorde?</div>
       <div id="goal-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
+        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}</button>`).join('')}
         <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">eigen doel teg.</span></button>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
         <div id="assist-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt2);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt2)')}</button>`).join('')}
           <button type="button" class="ap-btn" data-id="none" onclick="selectAssist(null,this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:18px;color:var(--txt2)">—</span><span style="font-size:10px;color:var(--txt2)">geen</span></button>
         </div>
       </div>
@@ -1320,7 +1330,7 @@ function modalGoal() {
       <div id="own-goal-players" class="hidden">
         <div class="sec">Welke speler?</div>
         <div id="own-goal-player-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}</button>`).join('')}
         </div>
       </div>
     </div>
@@ -1362,7 +1372,7 @@ function selectAssist(id, el) {
   gpSel(el);
 }
 function pgBtn(p, cls, onclick, extra = '') {
-  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span>${extra}</button>`;
+  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${extra}</button>`;
 }
 function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${btns}</div>`; }
 function gpSel(el) {
@@ -1559,7 +1569,7 @@ function pauseLineupHtml(m) {
       ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId })}
       <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
       <div class="place-chips">${bench.length
-        ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')"><span class="pcn">${p.number || '?'}</span>${esc(_lastName(p.name))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
+        ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(_lastName(p.name))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
       ${(nSubs || nSwaps) ? `<div class="sec">Ingepland (${nSubs + nSwaps})</div>
         ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
@@ -1636,7 +1646,7 @@ function modalCard(color) {
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
     <div class="sec" style="margin-top:0">Voor welke speler?</div>
-    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:22px;font-weight:900;color:var(--txt);line-height:1">${p.number||'?'}</span><span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_lastName(p.name))}</span></button>`).join(''))}
+    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}</button>`).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCard(color, pid) {
@@ -1768,7 +1778,7 @@ function modalFreekick() {
     <div id="fk-player-section">
       <div class="sec">Wie neemt de vrije trap?</div>
       <div id="fk-players">
-        ${on.map(p=>`<div class="mopt" onclick="selectFkPlayer('${p.id}',this)"><div class="mopt-num">${p.number||'?'}</div>${esc(p.name)}</div>`).join('')}
+        ${on.map(p=>`<div class="mopt" onclick="selectFkPlayer('${p.id}',this)">${numDot(p, 'mopt-num')}${esc(p.name)}</div>`).join('')}
         <div class="mopt mopt-skip" onclick="selectFkPlayer(null,this)">Niet ingeven</div>
       </div>
     </div>
