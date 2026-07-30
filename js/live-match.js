@@ -215,15 +215,20 @@ async function resumeQuarter() {
   requestWake();
   await dbSave(match); startTimer(); render();
 }
+// Drempel voor de "ben je vergeten af te sluiten?"-nudge, relatief aan de blokduur: een kwart van
+// het deel, met een minimum van 3 min zodat korte blokken niet bij elke minuut zeuren. Een vaste
+// 10 min was bij blokken van 20 min veel te laks — 9 min te laat afsluiten (+45% op de speeltijd
+// van elke speler op het veld) gaf dan geen enkele waarschuwing.
+function overtimeNudgeMin(m) { return Math.max(3, Math.round(((m && m.quarterDuration) || 0) * 0.25)); }
 // Beëindig het huidige deel handmatig -> pauze tussen de delen (klok staat stil tot de volgende start).
-// Vergeten af te sluiten? Bij fors overtime (>10 min boven de geplande duur) waarschuwen en
-// de mogelijkheid geven de werkelijke duur te corrigeren, i.p.v. stilzwijgend Date.now() te
-// nemen — anders vertekent zo'n vergeten tik alle speeltijden van dit deel.
+// Vergeten af te sluiten? Bij fors overtime (zie overtimeNudgeMin) waarschuwen en de mogelijkheid
+// geven de werkelijke duur te corrigeren, i.p.v. stilzwijgend Date.now() te nemen — anders
+// vertekent zo'n vergeten tik alle speeltijden van dit deel.
 function endPeriod() {
   const label = pSingLow(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
-  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
+  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
     <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="ep-correct-min" type="number" inputmode="numeric" value="${Math.round(getQElapsed(match)/60000)}" min="1"></div></div>` : '';
   openModal(`<h3>Einde ${label} ${match.currentQuarter}?</h3>
     ${warn}
@@ -242,14 +247,61 @@ async function doEndPeriod() {
   match.quarterStatus = 'between';
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
 }
-// Afgesloten wedstrijd heropenen (foutklik, of verlenging spelen). Voegt automatisch een extra
-// deel toe zodat "Start volgend deel" meteen weer beschikbaar is.
+// Afgesloten wedstrijd heropenen. Dat gebeurt om twee heel verschillende redenen, en die moeten
+// uit elkaar: een foutieve afsluiting hervat het LAATSTE deel, een verlenging voegt er een toe.
+// Voordien deed heropenen altijd +1, waardoor een per ongeluk afgesloten wedstrijd van één blok
+// stil een wedstrijd van twee delen werd — met een "deel 2" in het verslag en in beide PDF's.
 function confirmReopenMatch() {
   const label = pSingLow(match);
+  const laatste = match.quarters[match.quarters.length - 1];
+  const hervatbaar = !!(laatste && laatste.startTime && laatste.endTime);
+  // Nooit gestart en toch afgesloten (mis-tik op "Afsluiten"): er is geen deel om te hervatten,
+  // dus dan is de juiste herstelactie ze terugzetten naar "gepland".
+  if (!match.quarters.length) {
+    openModal(`<h3>Wedstrijd heropenen?</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Deze wedstrijd is afgesloten zonder ooit gestart te zijn. We zetten ze terug op <b>gepland</b>, zodat ze uit de uitslagen verdwijnt en je ze gewoon kan starten.</p>
+      <button class="btn btn-org" onclick="doUnfinishToPlanned()">${icI(IC.check)}Terug naar gepland</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
   openModal(`<h3>Wedstrijd heropenen?</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd gaat terug naar 'live' en er wordt een extra ${label} toegevoegd, zodat je kan verdergaan (bv. na een foutieve afsluiting, of voor een verlenging).</p>
-    <button class="btn btn-org" onclick="doReopenMatch()">${icI(IC.live)} Ja, heropenen</button>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Waarom heropen je de wedstrijd?</p>
+    ${hervatbaar ? `<button class="btn btn-org" onclick="doResumeLastPeriod()">${icI(IC.live)} Verkeerd afgesloten — verder in ${label} ${laatste.num}</button>
+      <p style="text-align:center;color:var(--txt2);font-size:12px;margin:6px 0 12px">De klok gaat verder waar ze stond; er komt geen extra ${label} bij.</p>` : ''}
+    <button class="btn btn-pale" onclick="doReopenMatch()">${icI(IC.plus)} Verlenging — extra ${label} toevoegen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doUnfinishToPlanned() {
+  if (match.quarters.length) { closeModal(); return; }
+  match.status = 'planned'; match.quarterStatus = 'not_started'; match.currentQuarter = 0;
+  closeModal();
+  await dbSave(match);
+  go('prep', match.id);
+}
+// Foutieve afsluiting ongedaan maken: het laatste deel loopt weer, zonder extra deel.
+async function doResumeLastPeriod() {
+  if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard
+  const q = match.quarters[match.quarters.length - 1];
+  if (!q || !q.startTime || !q.endTime) { closeModal(); return; }
+  // De tijd tussen het (foute) afsluiten en nu telt als pauze — zo hervat de klok exact waar ze
+  // stond i.p.v. de wandkloktijd sindsdien als speeltijd bij te tellen (zelfde truc als
+  // resumeQuarter). Anders kreeg iedereen op het veld er de bedenktijd gratis bij.
+  q.totalPaused = (q.totalPaused || 0) + Math.max(0, Date.now() - q.endTime);
+  q.endTime = null; q.pausedAt = null;
+  // Het quarter_end-event van dit deel hoort er niet meer te staan. Met tombstone, zodat de
+  // co-admin-merge in applyCloudMatch het niet vanaf een ander toestel terugbrengt.
+  for (let i = match.events.length - 1; i >= 0; i--) {
+    const e = match.events[i];
+    if (e.type === 'quarter_end' && (e.quarterNum == null || e.quarterNum === q.num)) {
+      tombstoneEvent(match, e.id); match.events.splice(i, 1); break;
+    }
+  }
+  match.status = 'live'; match.quarterStatus = 'running'; match.currentQuarter = q.num;
+  requestWake();
+  closeModal();
+  await dbSave(match);
+  startTimer();
+  go('live', match.id);
 }
 async function doReopenMatch() {
   if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard: anders telkens +1 fantoomdeel
@@ -260,7 +312,20 @@ async function doReopenMatch() {
   await dbSave(match);
   go('live', match.id);
 }
+// "Afsluiten" staat in de hoofding, dus op een gsm is een mis-tik snel gebeurd. Bij een wedstrijd
+// die nog nooit gestart is, zette die tik ze zonder enige vraag op 0-0 "Gespeeld" met nul delen —
+// en zo verscheen ze ook in de uitslagen van het dagverslag. Eerst de veilige uitweg aanbieden.
 function endMatch() {
+  if (!match.quarters.length) {
+    openModal(`<h3>Deze wedstrijd is nog niet gestart</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Afsluiten zet ze op <b>0-0 "Gespeeld"</b> zonder speeltijd, en dan komt ze zo ook in de uitslagen van het dagverslag te staan.</p>
+      <button class="btn btn-pale" onclick="closeModal()">${icI(IC.check)}Laten staan als gepland</button>
+      <button class="btn btn-red" style="margin-top:8px" onclick="endMatchModal()">Toch afsluiten op 0-0</button>`);
+    return;
+  }
+  endMatchModal();
+}
+function endMatchModal() {
   const label = pSingLow(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
@@ -270,7 +335,7 @@ function endMatch() {
   // typen — wie gewoon bevestigde, zette die 140 minuten definitief vast.
   const vergeten = !!durMs && getQElapsed(match) > durMs * 2;
   const prefill = vergeten ? (match.quarterDuration || 1) : Math.round(getQElapsed(match) / 60000);
-  const warn = (durMs && overtimeMin > 10) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}
+  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}
     <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${prefill}" min="1"></div></div>` : '';
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     ${warn}
