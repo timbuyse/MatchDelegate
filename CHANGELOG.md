@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.11.1
+- **Opgelost:** beheer je meerdere ploegen, dan toonde de tornooilijst ook de tornooien van je
+  **andere** ploeg. Ze waren daar zelfs bewerkbaar, en bij opslaan belandde die gegevens onder de
+  ploeg die op dat moment actief was. De lijst laat nu enkel nog de tornooien van de actieve ploeg
+  zien. Tornooien die (nog) bij geen enkele ploeg horen — pas aangemaakt, of van vóór de cloud —
+  blijven zichtbaar, zodat er niets onbereikbaar wordt; die worden wel enkel lokaal bewaard en de app
+  meldt dat.
+
 ## v0.11.0
 - **Opgelost:** iemand als **niet aanwezig** markeren terwijl hij al gespeeld had, wiste stil zijn
   speelminuten — terwijl zijn doelpunten uit diezelfde wedstrijd wél bleven staan, er geen enkel

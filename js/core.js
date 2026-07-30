@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.11.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.11.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1125,6 +1125,15 @@ function cloudOnLocalTeamsSave(arr) {
 // set() van de volledige node wist de laatste schrijver stil de tornooien van een ander toestel.
 function cloudOnLocalTournamentSave(t) {
   if (!t || !t.id) return;
+  // Vangnet tegen een cross-team-write: teamRef schrijft altijd naar de ACTIEVE ploeg, dus een
+  // tornooi van een andere ploeg (voetbal_tournaments is één globale sleutel) zou hier onder de
+  // verkeerde ploeg belanden. Enkel blokkeren als we het rooster van de actieve ploeg echt kennen —
+  // is dat nog niet gesynct, dan is teamById() nietszeggend en mag een legitieme write niet sneuvelen.
+  const bekend = getTeamsV2();
+  if (cloudReady && t.teamId && bekend.length && !bekend.some(x => x.id === t.teamId)) {
+    showToast('Dit tornooi hoort bij een andere ploeg — lokaal bewaard, niet gesynchroniseerd.', 'err');
+    return;
+  }
   const r = teamRef('tournaments/' + t.id); if (!r || !isAdmin) return;
   try { r.set(jclone(t)).catch(_syncFail); } catch (e) {}
 }

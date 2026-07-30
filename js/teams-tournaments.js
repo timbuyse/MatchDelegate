@@ -215,9 +215,33 @@ function setTrainer(i, val) {
 }
 
 // ===================== TORNOOIEN =====================
+// Hoort dit tornooi bij de ploeg die nu actief is? voetbal_tournaments is één globale
+// localStorage-sleutel die bij een ploegwissel niet gewist wordt, dus zonder filter zag je in de
+// lijst van ploeg B ook de tornooien van ploeg A — bewerkbaar, en bij opslaan belandde die data
+// onder B (teamRef schrijft altijd naar de ACTIEVE ploeg). Op teamId en niet op teamName, want
+// syncTeamNaming migreert de teamName van tornooien niet mee bij een hernoeming.
+// In cloudmodus bevat getTeamsV2() enkel het rooster van de actieve ploeg, dus teamById() is daar
+// precies de juiste test. Zonder cloud (meerdere ploegen lokaal) volgen we de bestaande
+// homeFilter: 'all' betekent daar een bewuste keuze van de gebruiker om alles te zien.
+function tournamentInActiveTeam(t) {
+  if (!t) return false;
+  // Een tornooi dat nooit in de cloud stond (zuiver lokaal aangemaakt, of net opgeslagen en de echo
+  // is nog niet terug) hoort bij geen enkele cloudploeg. Dat blijft zichtbaar: onzichtbaar maken zou
+  // het onbereikbaar maken, en dat is precies de fout die bij het verwijderen van een tornooi al eens
+  // data onvindbaar maakte. Opslaan ervan blijft lokaal — cloudOnLocalTournamentSave blokkeert de
+  // cloud-write en zegt dat ook.
+  if (cloudReady && !t.fromCloud) return true;
+  // Enkel verbergen wat aantoonbaar bij een ANDERE ploeg hoort. Een ouder cloudtornooi zonder
+  // teamId is niet toe te wijzen; dat tonen we, want het kwam uit de node van een eigen ploeg en
+  // verbergen zou het onbereikbaar maken.
+  if (cloudReady) return !t.teamId || !!teamById(t.teamId);
+  if (homeFilter === 'all') return true;
+  const team = teamById(t.teamId);
+  return !!(team && team.name === homeFilter);
+}
 function renderTournamentList() {
   const today = new Date().toISOString().split('T')[0];
-  const all = getTournaments().slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const all = getTournaments().filter(tournamentInActiveTeam).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const planned = all.filter(t => !t.date || t.date >= today);
   const done    = all.filter(t => t.date && t.date < today).reverse();
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
