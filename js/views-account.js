@@ -1476,9 +1476,11 @@ function playersOnFieldForEvent(m) {
 }
 // Veldbezetting inclusief reeds ingeplande pauzewissels (voor het plannen van meerdere wissels op rij).
 function effectiveOnField(m) {
-  const on = new Set(m.players.filter(p => p.onField).map(p => p.id));
+  const on = new Set(m.players.filter(p => p.onField && !p.absent).map(p => p.id));
   for (const s of (m.pendingSubs || [])) { on.delete(s.outId); on.add(s.inId); }
-  return m.players.filter(p => on.has(p.id));
+  // Vangnet: een afwezig gemarkeerde speler hoort hier nooit in, ook niet via een ingeplande
+  // pauzewissel van vóór die markering. Anders toont de wisselmodal een naam die al weg is.
+  return m.players.filter(p => on.has(p.id) && !p.absent);
 }
 
 function calcMinutes(m) {

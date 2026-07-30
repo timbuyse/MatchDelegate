@@ -888,10 +888,22 @@ function doDeleteTournament(id) {
 }
 
 // ----- Tornooi-wizard -----
+// De ploeg van een tornooi komt uit de context waarin je het aanmaakt, niet uit een keuzelijst.
+// In de cloud werk je altijd binnen één ploeg; lokaal is het de ploeg die op het homescherm
+// gefilterd staat. Blijft er daarna meer dan één kandidaat over (lokale modus met meerdere ploegen
+// en filter "Alle ploegen"), dan is er geen context en toont stap 1 alsnog een keuze.
+function trnTeamCandidates() {
+  const teams = getTeamsV2();
+  if (!cloudReady && homeFilter && homeFilter !== 'all') {
+    const m = teams.filter(t => t.name === homeFilter);
+    if (m.length) return m;
+  }
+  return teams;
+}
 function newTournament() {
   if (!canManage()) return;
   const now = new Date();
-  const team = getTeamsV2()[0] || null;
+  const team = trnTeamCandidates()[0] || null;
   const teamTrainers = team ? (team.trainers || []).filter(tr => tr.name) : [];
   trnWiz = {
     step: 1, id: uid(), isNew: true,
@@ -943,15 +955,31 @@ function editTournament(id) {
   trnWiz.poolTeamId = trnWiz.teamId;
   go('tournamentNew');
 }
+// Geeft terug of de pool écht opnieuw opgebouwd is. Vindt teamById() de ploeg niet (rooster nog
+// niet gesynct, of een tornooi uit de lokale modus), dan blijft een bestaande pool staan: hem
+// leegmaken zou saveTournamentWiz die leegte als een lege squad.players laten wegschrijven en zo
+// de dagselectie inclusief NB-redenen wissen — ook in de cloud. Is de pool toch al leeg, dan valt
+// er niets te beschermen en verandert er niets.
 function trnWizBuildPool() {
   const team = teamById(trnWiz.teamId);
-  trnWiz.pool = team ? team.players.map(p => ({
+  if (!team) {
+    if ((trnWiz.pool || []).length) {
+      showToast('Ploeg niet gevonden — de bestaande selectie blijft ongewijzigd.', 'err');
+      return false;
+    }
+    trnWiz.pool = [];
+    return false;
+  }
+  trnWiz.pool = team.players.map(p => ({
     pid: uid(), srcId: p.id, srcGlobalId: p.globalId || null,
     name: ((pFirstName(p) + ' ' + pLastName(p)).trim()) || p.name || '',
     number: p.number || '', pos: p.pos || '', side: p.side || '', sel: 'none',
-  })) : [];
+  }));
+  return true;
 }
+// Enkel bereikbaar zolang stap 1 nog een keuzelijst toont (nieuw tornooi, geen ploegcontext).
 function trnWizTeamChange() {
+  const oudeTeamId = trnWiz.teamId;
   captureTrnStep1();
   const team = teamById(trnWiz.teamId);
   if (team) {
@@ -959,7 +987,13 @@ function trnWizTeamChange() {
     trnWiz.trainer = trainers.length ? trainers[0].name : '';
     trnWiz.responsible = team.responsible || '';
     trnWiz.trainerIsOther = false;
-    trnWizBuildPool(); trnWiz.poolTeamId = trnWiz.teamId;
+    // Een andere ploeg betekent een ander rooster, dus de selectie wordt opnieuw opgebouwd. Niet
+    // stil doen als er al iets gekozen was (bv. na terugkeren uit stap 2).
+    const gekozen = trnWiz.teamId !== oudeTeamId ? (trnWiz.pool || []).filter(p => p.sel && p.sel !== 'none').length : 0;
+    if (trnWizBuildPool()) {
+      trnWiz.poolTeamId = trnWiz.teamId;
+      if (gekozen) showToast(`Andere ploeg gekozen — de selectie van ${gekozen} speler${gekozen === 1 ? '' : 's'} is opnieuw opgebouwd.`, 'err');
+    }
   }
   render();
 }
@@ -994,8 +1028,10 @@ function trnWizNext() {
   if (trnWiz.step === 1) {
     captureTrnStep1();
     if (!trnWiz.name) { showToast('Geef het tornooi een naam.', 'err'); return; }
-    if (!trnWiz.teamId) { showToast('Kies een ploeg.', 'err'); return; }
-    if (trnWiz.poolTeamId !== trnWiz.teamId) { trnWizBuildPool(); trnWiz.poolTeamId = trnWiz.teamId; }
+    if (!trnWiz.teamId) { showToast('Maak eerst een ploeg aan.', 'err'); return; }
+    // poolTeamId enkel bijwerken als de herbouw echt gelukt is — anders blijft de mismatch staan
+    // en probeert de app het opnieuw zodra het rooster wél gekend is.
+    if (trnWiz.poolTeamId !== trnWiz.teamId && trnWizBuildPool()) trnWiz.poolTeamId = trnWiz.teamId;
     trnWiz.step = 2; render();
   }
 }
@@ -1040,11 +1076,21 @@ function renderTournamentNew() {
     <div class="content">${body}</div>`;
 }
 function renderTrnStep1() {
-  const teams = getTeamsV2();
-  const teamSel = teams.length
+  const teams = trnTeamCandidates();
+  // Een tornooi hoort bij de ploeg waarin je het aanmaakt, dus normaal is er niets te kiezen:
+  // de ploeg staat er als vaste regel. Bij een bestaand tornooi is wisselen zelfs verkeerd — de
+  // al aangemaakte wedstrijden blijven bij de oude ploeg staan, dus dat wordt half werk. De
+  // keuzelijst blijft enkel over waar er écht geen context is: lokale modus met meerdere ploegen
+  // en het homescherm op "Alle ploegen".
+  const vast = teamById(trnWiz.teamId);
+  const teamSel = (trnWiz.isNew && teams.length > 1)
     ? `<select id="trn-team-sel" onchange="trnWizTeamChange()">${teams.map(t => `<option value="${t.id}" ${trnWiz.teamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`
-    : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
-  const selectedTeam = teamById(trnWiz.teamId) || (teams.length ? teams[0] : null);
+    : vast
+      ? `<div style="font-size:15px;font-weight:600;padding:6px 0">${esc(vast.name)}</div>`
+      : teams.length
+        ? `<div style="font-size:15px;font-weight:600;padding:6px 0">${esc(teams[0].name)}</div>`
+        : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
+  const selectedTeam = vast || (teams.length ? teams[0] : null);
   const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(tr => tr.name) : [];
   const trainerOpts = teamTrainers.map(tr => `<option value="${esc(tr.name)}" ${!trnWiz.trainerIsOther&&trnWiz.trainer===tr.name?'selected':''}>${esc(tr.name)}</option>`).join('');
   return `<div class="card">

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.12.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.12.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -327,9 +327,14 @@ function scoreUpToQuarter(m, qNum) {
   return { us, them };
 }
 function recomputeOnField(m) {
+  // Wie als "niet aanwezig" gemarkeerd is, staat nooit op het veld — wat de events ook zeggen.
+  // De beginstand hield daar al rekening mee, maar de replay hieronder zette een speler die
+  // eerder via een wissel inkwam er stil weer op. Zo stond iemand die al naar huis was na een
+  // undoLast (of het verwijderen van een event) opnieuw op het veld én in de wisselmodal.
+  const absent = new Set(m.players.filter(p => p.absent).map(p => p.id));
   const on = {}; m.players.forEach(p => on[p.id] = !!p.starting && !p.absent);
   for (const e of [...m.events].sort((a, b) => a.gameTimeMs - b.gameTimeMs)) {
-    if (e.type === 'substitution') { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId) on[e.playerInId] = true; }
+    if (e.type === 'substitution') { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId && !absent.has(e.playerInId)) on[e.playerInId] = true; }
     if (e.type === 'red_card' && e.playerId) on[e.playerId] = false;
     if (e.type === 'injury' && e.leavesField && e.playerId) on[e.playerId] = false;
   }

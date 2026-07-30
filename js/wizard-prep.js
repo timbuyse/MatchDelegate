@@ -831,11 +831,12 @@ async function finishStep1Only() {
 function saveTournamentWizStep1Only() {
   captureTrnStep1();
   if (!trnWiz.name) { showToast('Geef het tornooi een naam.', 'err'); return; }
-  if (!trnWiz.teamId) { showToast('Kies een ploeg.', 'err'); return; }
+  if (!trnWiz.teamId) { showToast('Maak eerst een ploeg aan.', 'err'); return; }
   // Pool NIET leegmaken: bij het bewerken van een bestaand tornooi staat hier de herstelde
   // selectie (editTournament) — leegmaken zou de squad stil wissen. Enkel herbouwen als de
-  // ploeg intussen gewijzigd is (zelfde guard als trnWizNext).
-  if (trnWiz.poolTeamId !== trnWiz.teamId) { trnWizBuildPool(); trnWiz.poolTeamId = trnWiz.teamId; }
+  // ploeg intussen gewijzigd is (zelfde guard als trnWizNext), en poolTeamId enkel bijwerken
+  // als die herbouw ook echt gelukt is.
+  if (trnWiz.poolTeamId !== trnWiz.teamId && trnWizBuildPool()) trnWiz.poolTeamId = trnWiz.teamId;
   saveTournamentWiz();
 }
 async function startPlanned() {

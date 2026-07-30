@@ -866,6 +866,9 @@ function rebuildPositions(m, baseline) {
   const pos = {}, onF = {};
   m.players.forEach(p => { onF[p.id] = false; });
   (baseline || []).forEach(b => { onF[b.id] = true; pos[b.id] = { x: b.x, y: b.y, line: b.line, posNum: b.posNum }; });
+  // Zelfde regel als in recomputeOnField: een afwezig gemarkeerde speler blijft van het veld, ook
+  // al brengt een oudere wissel hem in de replay hieronder weer in (undo/event verwijderen).
+  const absent = new Set(m.players.filter(p => p.absent).map(p => p.id));
   m.players.forEach(p => { if (p.absent) onF[p.id] = false; });
   const evs = [...m.events].filter(e => e.type === 'substitution' || e.type === 'posSwap' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
@@ -873,7 +876,7 @@ function rebuildPositions(m, baseline) {
     if (e.type === 'substitution') {
       if (e.playerInId) e.posBefore = pos[e.playerInId] ? { ...pos[e.playerInId] } : null; // snapshot repareren
       if (e.playerOutId) onF[e.playerOutId] = false;
-      if (e.playerInId) { onF[e.playerInId] = true; if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] }; }
+      if (e.playerInId && !absent.has(e.playerInId)) { onF[e.playerInId] = true; if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] }; }
     } else if (e.type === 'posSwap' && e.pA && e.pB) {
       const a = pos[e.pA], b = pos[e.pB];
       e.posA = a ? { ...a } : e.posA; e.posB = b ? { ...b } : e.posB; // snapshots repareren
@@ -1090,13 +1093,23 @@ function modalMarkAbsent(pid) {
 // De tornooikeuze staat in de vorige modal, dus die hier meteen toepassen — daarna neemt de
 // bestaande blessureflow het over (event + teller stoppen + vervanger aanbieden).
 function markAbsentViaInjury(pid) {
-  if (_trnAbsentAangevinkt()) markTournamentUnavailable(pid);
+  // Zelfde eerlijkheid als in doMarkAbsent: lukt de afmelding voor de rest van het tornooi niet,
+  // zeg het dan i.p.v. het stil te laten mislukken.
+  if (_trnAbsentAangevinkt() && !markTournamentUnavailable(pid)) {
+    const p = (match.players || []).find(pl => pl.id === pid);
+    showToast(`${(p || {}).name || 'Deze speler'} staat niet in de tornooiselectie — enkel voor deze wedstrijd afgemeld.`, 'err');
+  }
   modalInjury(pid);
 }
 async function doMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
-  if (_trnAbsentAangevinkt()) markTournamentUnavailable(pid);
+  // Vinkje aan maar de speler staat niet in de tornooiselectie (gastspeler, of iemand die de ploeg
+  // intussen verliet)? Dan geldt de afmelding enkel voor deze wedstrijd — dat moet je weten,
+  // anders denk je hem voor de hele dag afgemeld te hebben.
+  if (_trnAbsentAangevinkt() && !markTournamentUnavailable(pid)) {
+    showToast(`${p.name} staat niet in de tornooiselectie — enkel voor deze wedstrijd afgemeld.`, 'err');
+  }
   p.absent = true;
   if (p.onField) p.onField = false;
   // Ook uit de ingeplande pauzewissels/positiewissels halen — een afwezige speler mag bij de
