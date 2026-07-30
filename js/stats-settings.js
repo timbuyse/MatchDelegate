@@ -1,5 +1,6 @@
 // ===================== SEIZOENSSTATISTIEKEN =====================
 let statsFilter = 'all', seasonFilter = null;
+let kindFilter = 'all'; // soort wedstrijd — zie MATCH_KINDS
 // Welke statistieksecties standaard zichtbaar zijn voor kijkers (vóór de beheerder iets kiest).
 // De samenvattingskaart bovenaan staat hier niet in — die is altijd publiek.
 const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false };
@@ -20,6 +21,28 @@ function toggleStatPublic(key) {
 }
 function setStatsFilter(v) { statsFilter = v; loadStats(); }
 function setSeasonFilter(v) { seasonFilter = v; loadStats(); }
+// Soort wedstrijd. Hangt aan het bestaande vrije veld m.competition ("Soort" in de wizard): de drie
+// standaardwaarden staan vast, en alles daarbuiten — een eigen soort via "Andere…", of een oudere
+// wedstrijd waar niets is ingevuld — valt onder 'other'. Tornooiwedstrijden komen hier nooit langs,
+// die zitten al buiten de statistieken.
+const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker'];
+function matchKindOf(m) {
+  const c = ((m && m.competition) || '').trim();
+  return MATCH_KINDS.includes(c) ? c : 'other';
+}
+function kindMatches(m) { return kindFilter === 'all' || matchKindOf(m) === kindFilter; }
+function kindFilterBar() {
+  const opts = [['all', 'Alle wedstrijden'], ...MATCH_KINDS.map(k => [k, k]), ['other', 'Andere']];
+  return `<div class="filterbar"><select onchange="setKindFilter(this.value)">
+      ${opts.map(([v, l]) => `<option value="${v}" ${kindFilter === v ? 'selected' : ''}>${l}</option>`).join('')}
+    </select></div>`;
+}
+// Eén gedeelde keuze voor het seizoensoverzicht én het spelerdetail: wie naar de bekerwedstrijden
+// kijkt en dan op een speler tikt, verwacht daar hetzelfde. Het seizoen blijft bewust wél per
+// scherm (dat kan legitiem verschillen: een speler heeft niet in elk seizoen gespeeld).
+function setKindFilter(v) { kindFilter = v; if (view === 'playerDetail') loadPlayerDetail(); else loadStats(); }
+// Label voor de lege staat, zodat "niets te zien" niet als "geen wedstrijden" leest.
+function kindLabelLow() { return kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase(); }
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
 function seasonOf(m) {
   const d = m.date ? new Date(m.date + 'T00:00:00') : (m.createdAt ? new Date(m.createdAt) : null);
@@ -54,15 +77,26 @@ async function loadStats() {
   // naam) en nieuwere wedstrijden (mét rosterId) kwamen anders dubbel in de lijst terecht, zie
   // getp() hieronder. Standaard het meest recente seizoen met een wedstrijd.
   if (!seasonFilter || !seasons.includes(seasonFilter)) seasonFilter = seasons[0] || null;
+  // De seizoenskiezer staat er ook bij één seizoen (zelfde balk als in het spelerdetail): deze
+  // cijfers gelden ALTIJD voor één seizoen, dus zonder die regel lijken ze over alles te gaan.
+  // Bij één gespeelde wedstrijd in juni springt de pagina straks stil naar het nieuwe seizoen
+  // zodra de eerste augustuswedstrijd afgewerkt is — dan moet zichtbaar zijn wélk seizoen je ziet.
   // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
-  const list = all.filter(m => m.status === 'done' && !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter) && seasonOf(m) === seasonFilter);
+  // De soortfilter zit bewust NIET in `candidates` hierboven: de seizoenslijst mag niet verspringen
+  // (of verdwijnen) omdat je even op "Beker" filtert — dan kon je niet meer terug van seizoen wisselen.
+  const list = candidates.filter(m => seasonOf(m) === seasonFilter && kindMatches(m));
   const filterBar = `${(!cloudReady && teams.length) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
-    </select></div>` : ''}${seasons.length > 1 ? `<div class="filterbar"><select onchange="setSeasonFilter(this.value)">
+    </select></div>` : ''}${seasons.length ? `<div class="filterbar"><select onchange="setSeasonFilter(this.value)">
       ${seasons.map(s => `<option value="${s}" ${seasonFilter===s?'selected':''}>Seizoen ${s}</option>`).join('')}
-    </select></div>` : ''}`;
-  if (!list.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen wedstrijden.</p></div>`; return; }
+    </select></div>` : ''}${candidates.length ? kindFilterBar() : ''}`;
+  if (!list.length) {
+    const leeg = kindFilter === 'all'
+      ? 'Nog geen wedstrijden.'
+      : `Geen wedstrijden van soort "${esc(kindLabelLow())}" in seizoen ${esc(seasonFilter || '')}.`;
+    el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>`; return;
+  }
   // Oudste eerst verwerken, zodat de weergavenaam van een speler steeds de meest recente is (bv. na een naamscorrectie).
   const sortedList = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
@@ -212,22 +246,50 @@ async function loadPlayerDetail() {
   // opzoeken via de eerste match waarin die al bewaard staat — voor het carrière-overzicht verderop.
   let resolvedGlobalId = null;
   for (const m of allDone) { const p = findPlayer(m); if (p && p.globalId) { resolvedGlobalId = p.globalId; break; } }
-  const seasons = [...new Set(allDone.map(seasonOf))].sort().reverse();
+  // Tornooien waarvoor deze speler geselecteerd stond. Staan hier al vóór de seizoenslijst, omdat
+  // die seizoenen mee in de dropdown moeten: bouwden we de lijst enkel uit gespeelde wedstrijden,
+  // dan was een tornooi vóór de eerste wedstrijd van het seizoen onbereikbaar — het seizoen bestond
+  // dan simpelweg niet in de kiezer, en het tornooiblok hieronder kwam nooit in beeld.
+  const inTournamentSquad = t => tournamentSquadMee(t).some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
+  const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
+  const myTournaments = getTournaments().filter(t => tInTeam(t) && inTournamentSquad(t));
+  const seasons = [...new Set([...allDone.map(seasonOf), ...myTournaments.map(seasonOf)])].sort().reverse();
   // 'Onbekend' achteraan, niet als default — zie loadStats().
   const _unkIdx2 = seasons.indexOf('Onbekend');
   if (_unkIdx2 >= 0) { seasons.splice(_unkIdx2, 1); seasons.push('Onbekend'); }
   // Geen "alle seizoenen" meer, zie loadStats() hierboven voor de reden (dubbele spelers
-  // door rosterId- vs. naam-matching tussen oude en nieuwe wedstrijden). Standaard het
-  // meest recente seizoen waarin deze speler een wedstrijd speelde.
+  // door rosterId- vs. naam-matching tussen oude en nieuwe wedstrijden). Standaard het meest
+  // recente seizoen waarin deze speler écht een wedstrijd speelde — een seizoen dat enkel via een
+  // tornooiselectie in de lijst staat, is wel kiesbaar maar geen goede startpagina (die zou leeg
+  // ogen op één tornooiregel na). Zijn er helemaal geen gespeelde wedstrijden, dan valt hij terug
+  // op het recentste seizoen uit de lijst.
   if (!playerDetailSeason || !seasons.includes(playerDetailSeason)) {
-    playerDetailSeason = seasons[0] || null;
+    const gespeeld = new Set(allDone.map(seasonOf));
+    playerDetailSeason = seasons.find(s => gespeeld.has(s)) || seasons[0] || null;
   }
-  const filterBar = allDone.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
+  const filterBar = seasons.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
       ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
-    </select></div>` : '';
-  const doneList = allDone.filter(m => seasonOf(m) === playerDetailSeason);
+    </select></div>` + kindFilterBar() : '';
+  // Een tornooi heeft geen "soort", dus bij een actieve soortfilter hoort dit kadertje er niet bij
+  // (0 = het blok wordt niet gerenderd) — anders lees je een bekerfilter met tornooien erin.
+  const tournamentCount = kindFilter !== 'all' ? 0
+    : myTournaments.filter(t => seasonOf(t) === playerDetailSeason).length;
+  const tournamentBlock = tournamentCount
+    ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>`
+    : '';
+  // Soortfilter op dezelfde manier als in loadStats: buiten de seizoenslijst gehouden, wél op de
+  // wedstrijden zelf. Hij geldt hieronder ook voor de afwezigheidscorrectie en de gastoptredens,
+  // anders zouden die uit wedstrijden van een ánder soort blijven meetellen.
+  const doneList = allDone.filter(m => seasonOf(m) === playerDetailSeason && kindMatches(m));
   doneList.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
-  if (!doneList.length) { el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.</p></div>`; return; }
+  if (!doneList.length) {
+    const leeg = kindFilter === 'all'
+      ? `Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.`
+      : `Geen wedstrijden van soort "${esc(kindLabelLow())}" voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.`;
+    // Het tornooiblok hoort hier wél bij: een speler kan in een tornooiselectie staan in een seizoen
+    // waarin nog geen enkele wedstrijd gespeeld is (bv. een tornooi vóór de competitiestart).
+    el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>` + tournamentBlock; return;
+  }
   let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
   const rows = [];
   for (const m of doneList) {
@@ -260,17 +322,14 @@ async function loadPlayerDetail() {
   // (doneList bevat enkel wedstrijden waarin hij effectief geselecteerd was). Een ✗ op zo'n dag
   // telt niet als afwezig — hij speelde dan bij de A/B-tegenhanger.
   const selectedDates = new Set(doneList.map(m => m.date || ''));
-  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason)) {
+  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason && kindMatches(m2))) {
     // Zelfde uitzondering als in loadStats: reden "speelt elders" is geen gemiste wedstrijd.
     const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
       .find(ab => rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name);
     if (rec && rec.reason !== 'elders' && !selectedDates.has(m.date || '')) absent++;
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
-  // Aparte telling: in hoeveel tornooien de speler geselecteerd stond (aantal wedstrijden binnen dat tornooi is niet relevant).
-  const inTournamentSquad = t => tournamentSquadMee(t).some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
-  const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
-  const tournamentCount = getTournaments().filter(t => tInTeam(t) && seasonOf(t) === playerDetailSeason && inTournamentSquad(t)).length;
+  // (De tornooitelling zelf staat bovenaan, samen met de seizoenslijst — zie myTournaments.)
   // Gastoptredens bij ANDERE ploegen opsporen — enkel via het stabiele rosterId (dat blijft
   // ploeg-overschrijdend hetzelfde bij een echte gastbeurt, zie addGuestsModal in wizard-prep.js);
   // op naam matchen zou spelers met dezelfde naam bij onverwante ploegen foutief kunnen samenvoegen.
@@ -279,7 +338,7 @@ async function loadPlayerDetail() {
   if (rosterId && playerDetailTeamName) {
     for (const m of all) {
       if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
-      if (seasonOf(m) !== playerDetailSeason) continue;
+      if (seasonOf(m) !== playerDetailSeason || !kindMatches(m)) continue;
       if ((m.players || []).some(p => p.rosterId === rosterId)) guestElsewhere[m.teamName] = (guestElsewhere[m.teamName] || 0) + 1;
     }
   }
@@ -324,7 +383,7 @@ async function loadPlayerDetail() {
         <div class="stat-box"><div class="v">${pct != null ? pct + '%' : '–'}</div><div class="l">Geselecteerd</div></div>
       </div>
     </div>
-    ${tournamentCount ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>` : ''}
+    ${tournamentBlock}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
     ${(yc || rc) ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card"><div class="stat-row"><span style="flex:1">Gele kaarten</span><span style="font-weight:800">${yc}</span></div><div class="stat-row"><span style="flex:1">Rode kaarten</span><span style="font-weight:800">${rc}</span></div></div>` : ''}
