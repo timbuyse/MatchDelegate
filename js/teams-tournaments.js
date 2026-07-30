@@ -17,13 +17,27 @@ function renderTeamsList() {
 function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; go('teamEdit'); }
 function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); teamEditMode = false; go('teamEdit'); }
 function toggleTeamEditMode() { teamEditMode = !teamEditMode; render(); }
-// Kant-veld (centraal/links/rechts) is enkel zinvol bij Verdediging — tonen/verbergen
-// zonder volledige herrender (zelfde patroon als wizTrainerSelChange).
+// Het tweede lijstje verschilt per positie: een kant (links/rechts) bij Verdediger en
+// Vleugelspeler, een rol (verdedigend/aanvallend) bij Middenvelder, en niets bij Keeper of Spits.
+// Enkel dat ene blokje herschrijven i.p.v. een volledige herrender (zelfde reden als bij
+// wizTrainerSelChange): de rugnummers in dit scherm staan op onchange, dus een herrender
+// midden in het typen zou een nog niet vastgelegd nummer wissen.
+function teamSideRowHtml(i, p) {
+  const sides = posSides(p.pos);
+  const keys = Object.keys(sides);
+  if (!keys.length) return '';
+  return `<select onchange="editingTeam.players[${i}].side=this.value"><option value="">${esc(posSideLabel(p.pos))} (optioneel)…</option>${keys.map(k => `<option value="${k}" ${p.side===k?'selected':''}>${esc(sides[k])}</option>`).join('')}</select>`;
+}
 function teamPosChange(i, val) {
-  editingTeam.players[i].pos = val;
-  if (val !== 'Verdediging') editingTeam.players[i].side = '';
+  const p = editingTeam.players[i];
+  p.pos = val;
+  if (!posSideValid(val, p.side)) p.side = ''; // kant/rol van de vorige positie hoort hier niet meer
   const fg = document.getElementById('team-side-fg-' + i);
-  if (fg) fg.style.display = val === 'Verdediging' ? '' : 'none';
+  if (fg) {
+    const html = teamSideRowHtml(i, p);
+    fg.innerHTML = html;
+    fg.style.display = html ? '' : 'none';
+  }
 }
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
 function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
@@ -83,7 +97,7 @@ function renderTeamEdit() {
   if (!editingTeam) return '<div class="content"><p>Geen ploeg.</p></div>';
   if (!canManage()) return renderTeamView();
   if (!teamEditMode) return renderTeamOverview();
-  const lines = ['Doel', 'Verdediging', 'Middenveld', 'Aanval'];
+  const posKeys = Object.keys(POSITIONS);
   const rows = editingTeam.players.map((p, i) => `
     <div class="pirow">
       <input type="number" placeholder="Rugnr" value="${esc(p.number)}" onchange="editingTeam.players[${i}].number=this.value" inputmode="numeric" aria-label="Rugnummer">
@@ -92,10 +106,10 @@ function renderTeamEdit() {
       <button class="delbtn" onclick="teamDelPlayer(${i})">×</button>
     </div>
     <div class="pirow2" style="grid-template-columns:1fr;margin-bottom:12px">
-      <select onchange="teamPosChange(${i},this.value)"><option value="">Voorkeurspositie…</option>${lines.map(l => `<option value="${esc(l)}" ${p.pos===l?'selected':''}>${lineLabel(l)}</option>`).join('')}</select>
+      <select onchange="teamPosChange(${i},this.value)"><option value="">Voorkeurspositie…</option>${posKeys.map(k => `<option value="${esc(k)}" ${normPos(p.pos)===k?'selected':''}>${esc(k)}</option>`).join('')}</select>
     </div>
-    <div class="pirow2" id="team-side-fg-${i}" style="grid-template-columns:1fr;margin-bottom:12px;${p.pos==='Verdediging'?'':'display:none'}">
-      <select onchange="editingTeam.players[${i}].side=this.value"><option value="">Kant (optioneel)…</option>${Object.entries(DEFENSE_SIDES).map(([k,label]) => `<option value="${k}" ${p.side===k?'selected':''}>${label}</option>`).join('')}</select>
+    <div class="pirow2" id="team-side-fg-${i}" style="grid-template-columns:1fr;margin-bottom:12px;${teamSideRowHtml(i, p)?'':'display:none'}">
+      ${teamSideRowHtml(i, p)}
     </div>`).join('');
   const colHead = `<div style="display:grid;grid-template-columns:56px 1fr 1fr 38px;gap:6px;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"><span>Rugnr</span><span>Voornaam</span><span>Familienaam</span><span></span></div>`;
   const trainers = editingTeam.trainers || [];
@@ -194,7 +208,10 @@ function saveTeamEdit() {
       // globalId blijft de speler identificeren over ploegen heen (bv. na een overzetting via
       // de eigenaarstool "Speler overzetten"); spelers van vóór die feature krijgen er hier
       // lazy alsnog één, zodat elke speler vanaf nu overzetbaar is.
-      return { id: p.id, globalId: p.globalId || uid(), firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos: p.pos || '', side: (p.pos === 'Verdediging' && p.side) || '' };
+      // normPos zet een oude waarde (de lijnnaam, van vóór v0.14) hier meteen om naar de nieuwe
+      // positielijst; een kant/rol die niet bij de positie hoort valt weg.
+      const pos = normPos(p.pos);
+      return { id: p.id, globalId: p.globalId || uid(), firstName: fn, lastName: ln, name: (fn + ' ' + ln).trim() || p.name || '', number: p.number || '', pos, side: posSideValid(pos, p.side) ? p.side : '' };
     })
   };
   if (editingTeam.fromCloud) clean.fromCloud = true;
@@ -1210,7 +1227,9 @@ async function cloneTournamentMatch(matchId, trnId) {
     srcGlobalId: p.globalId || null,
     name: p.name,
     number: p.number,
-    pos: p.line || p.pos || '',
+    // Zelfde volgorde als elders (detail-pdf.js): een bewaarde voorkeurspositie is fijner dan de
+    // lijn, en normPos vangt een oude lijnnaam op.
+    pos: p.pos || p.line || '',
     side: p.side || '',
     fromName: src.teamName || (team ? team.name : ''),
     guest: !!p.guest,

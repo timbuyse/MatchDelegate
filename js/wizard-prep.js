@@ -397,18 +397,53 @@ function autoPlace() {
   const basis = wiz.pool.filter(p => p.sel === 'basis');
   basis.forEach(p => p.slot = null);
   const used = {}, slotUsed = {};
-  // Verdedigers met een kant-voorkeur (links/centraal/rechts) eerst op de best passende
-  // Verdediging-slot plaatsen, op basis van de x-coördinaat van elke slot in de formatie —
-  // vóór de gewone lijn-match hieronder (die geen onderscheid maakt binnen een lijn).
-  basis.filter(p => p.pos === 'Verdediging' && p.side).forEach(p => {
-    const candidates = form.slots.map((s, i) => ({ s, i })).filter(({ s, i }) => s.line === 'Verdediging' && !slotUsed[i]);
-    if (!candidates.length) return;
-    const best = p.side === 'links' ? candidates.reduce((a, b) => b.s.x < a.s.x ? b : a)
-      : p.side === 'rechts' ? candidates.reduce((a, b) => b.s.x > a.s.x ? b : a)
-      : candidates.reduce((a, b) => Math.abs(b.s.x - 50) < Math.abs(a.s.x - 50) ? b : a);
+  // Spelers met een verfijnde voorkeur eerst op de best passende slot van hun lijn zetten, vóór de
+  // gewone lijn-match hieronder (die geen onderscheid maakt binnen een lijn). Waarop de verfijning
+  // slaat, staat in POSITIONS: bij een verdediger of vleugelspeler is het de breedte (x-as, links/
+  // rechts), bij een middenvelder de diepte (y-as; y=90 ligt aan eigen doel, dus "verdedigend" is
+  // de hoogste y). Een spits zonder verdere keuze krijgt de meest centrale aanvalsslot.
+  const kies = (kandidaten, axis, keuze) => {
+    if (axis === 'y') {
+      if (keuze === 'verdedigend') return kandidaten.reduce((a, b) => b.s.y > a.s.y ? b : a);
+      if (keuze === 'aanvallend') return kandidaten.reduce((a, b) => b.s.y < a.s.y ? b : a);
+      const ys = kandidaten.map(c => c.s.y), mid = (Math.min(...ys) + Math.max(...ys)) / 2;
+      return kandidaten.reduce((a, b) => Math.abs(b.s.y - mid) < Math.abs(a.s.y - mid) ? b : a);
+    }
+    if (keuze === 'links')  return kandidaten.reduce((a, b) => b.s.x < a.s.x ? b : a);
+    if (keuze === 'rechts') return kandidaten.reduce((a, b) => b.s.x > a.s.x ? b : a);
+    return kandidaten.reduce((a, b) => Math.abs(b.s.x - 50) < Math.abs(a.s.x - 50) ? b : a);
+  };
+  const vrije = line => form.slots.map((s, i) => ({ s, i })).filter(({ s, i }) => s.line === line && !slotUsed[i]);
+  const plaats = (p, kandidaten, axis, keuze) => {
+    const best = kies(kandidaten, axis, keuze);
     p.slot = best.i; used[p.pid] = 1; slotUsed[best.i] = 1;
+  };
+  // Een uitgesproken keuze (links/rechts, verdedigend/aanvallend) gaat vóór "centraal": wie een
+  // hoek van het veld wil, is het meest beperkt, en wat overblijft is per definitie het midden.
+  // Zonder die volgorde bepaalde de volgorde in de spelerslijst de uitkomst.
+  const extreem = s => s === 'links' || s === 'rechts' || s === 'verdedigend' || s === 'aanvallend';
+  const uitgesprokenEerst = (a, b) => (extreem(b.side) ? 1 : 0) - (extreem(a.side) ? 1 : 0);
+  ['Verdediger', 'Middenvelder'].forEach(pos => {
+    const m = POSITIONS[pos];
+    basis.filter(p => normPos(p.pos) === pos && posSideValid(p.pos, p.side)).sort(uitgesprokenEerst)
+      .forEach(p => { const k = vrije(m.line); if (k.length) plaats(p, k, m.axis, p.side); });
   });
-  form.slots.forEach((s, i) => { if (slotUsed[i]) return; const c = basis.find(p => p.slot == null && !used[p.pid] && p.pos === s.line); if (c) { c.slot = i; used[c.pid] = 1; slotUsed[i] = 1; } });
+  // Aanvalslijn apart, want daar zitten twee posities in één lijn: een vleugelspeler kan uitwijken
+  // naar het middenveld, een spits niet. Zijn er meer kandidaten dan aanvalsslots (bv. de dubbele
+  // ruit in 8v8 heeft er maar één), dan schuift de vleugelspeler op naar de breedst gelegen vrije
+  // middenveldslot — anders pikte hij de enige aanvalsslot en belandde de spits ergens op de rest.
+  const vleugels = basis.filter(p => normPos(p.pos) === 'Vleugelspeler');
+  const spitsen = basis.filter(p => normPos(p.pos) === 'Spits');
+  let overschot = Math.max(0, vleugels.length + spitsen.length - vrije('Aanval').length);
+  while (overschot > 0 && vleugels.length) {
+    const p = vleugels.pop();
+    const k = vrije('Middenveld');
+    if (k.length) plaats(p, k, 'x', p.side);
+    overschot--;
+  }
+  vleugels.sort(uitgesprokenEerst).forEach(p => { const k = vrije('Aanval'); if (k.length) plaats(p, k, 'x', p.side); });
+  spitsen.forEach(p => { const k = vrije('Aanval'); if (k.length) plaats(p, k, 'x', 'centraal'); });
+  form.slots.forEach((s, i) => { if (slotUsed[i]) return; const c = basis.find(p => p.slot == null && !used[p.pid] && posLine(p.pos) === s.line); if (c) { c.slot = i; used[c.pid] = 1; slotUsed[i] = 1; } });
   form.slots.forEach((s, i) => { if (basis.some(p => p.slot === i)) return; const c = basis.find(p => p.slot == null && !used[p.pid]); if (c) { c.slot = i; used[c.pid] = 1; } });
   wiz.selPlace = null; render();
 }
@@ -627,7 +662,7 @@ async function finishWizard(startNow) {
   // meeschrijven verloor een gastspeler bij klonen of herbewerken stil zijn gastlabel en belandde
   // hij tussen de eigen spelers.
   const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return { _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }; });
-  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: p.pos || 'Middenveld', posNum: '', starting: false, onField: false }));
+  const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => ({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', guest: !!p.guest, line: posLine(p.pos) || 'Middenveld', posNum: '', starting: false, onField: false }));
   const allP = starters.concat(bench);
   let capId = null;
   if (wiz.captainPid) { const c = allP.find(x => x._pid === wiz.captainPid); if (c) capId = c.id; }
@@ -669,7 +704,10 @@ function editMatchWizard(m) {
   // 1. Reeds geselecteerde spelers (basis/bank) — behoud posities, rugnummers en (verderop) de kapitein.
   const pool = m.players.map(p => {
     const rp = findRoster(p.rosterId, p.name); if (rp) rosterUsed.add(rp.id);
-    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
+    // Voorkeurspositie uit het rooster halen als we de speler daar vinden: die is fijner dan de
+    // lijn waarin hij deze wedstrijd stond (een vleugelspeler en een spits staan beide in 'Aanval').
+    // Zonder rooster valt hij terug op de lijn, die normPos omzet naar de bijhorende positie.
+    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: m.teamName, guest: false, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
   });
   const trn = m.tournamentId ? tournamentById(m.tournamentId) : null;
   // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.13.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.14.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -59,13 +59,36 @@ const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval
 // Weergavelabel voor een lijn/positie — 'Doel' wordt getoond als 'Doelman', de opgeslagen waarde blijft 'Doel'.
 const LINE_LABEL = { 'Doel': 'Doelman', 'Verdediging': 'Verdediging', 'Middenveld': 'Middenveld', 'Aanval': 'Aanval' };
 function lineLabel(l) { return LINE_LABEL[l] || l; }
-// Optionele verfijning van de voorkeurspositie, enkel voor Verdediging (p.side op de speler).
-const DEFENSE_SIDES = { centraal: 'Centraal', links: 'Links', rechts: 'Rechts' };
-// Voorkeurspositie + (indien Verdediging) de gekozen kant, voor weergave bij spelersbeheer/selectie.
+// ----- Voorkeurspositie van een speler in het rooster (p.pos + p.side) -----
+// Fijner dan de vier lijnen hierboven: een vleugelspeler en een spits zitten beide in de lijn
+// 'Aanval', en bij een middenvelder is de tweede keuze diepte (verdedigend/aanvallend) i.p.v. een
+// kant. De LIJNEN zelf blijven bewust de vier bekende waarden — daaraan hangen de formaties, LINE_Y,
+// het veldtekenen, beide PDF's en de statistiek "posities per linie". Elke positie hoort dus bij
+// precies één lijn (posLine), en 'axis' zegt waarop de tweede keuze slaat bij het auto-plaatsen:
+// 'x' = breedte (links/rechts), 'y' = diepte (verdedigend/aanvallend).
+const POSITIONS = {
+  Keeper:        { line: 'Doel',        sideLabel: '',     axis: 'x', sides: {} },
+  Verdediger:    { line: 'Verdediging', sideLabel: 'Kant', axis: 'x', sides: { links: 'Links', centraal: 'Centraal', rechts: 'Rechts' } },
+  Middenvelder:  { line: 'Middenveld',  sideLabel: 'Rol',  axis: 'y', sides: { verdedigend: 'Verdedigend', centraal: 'Centraal', aanvallend: 'Aanvallend' } },
+  Vleugelspeler: { line: 'Aanval',      sideLabel: 'Kant', axis: 'x', sides: { links: 'Links', rechts: 'Rechts' } },
+  Spits:         { line: 'Aanval',      sideLabel: '',     axis: 'x', sides: {} },
+};
+// Vóór v0.14 werd de lijnnaam zelf als voorkeurspositie bewaard. Die waarden blijven leesbaar
+// (rooster van een ander toestel dat nog niet opnieuw bewaard is, of een oude back-up): "Aanval"
+// wordt Spits — wie eigenlijk vleugelspeler is, kiest de beheerder zelf.
+const LEGACY_POS = { 'Doel': 'Keeper', 'Verdediging': 'Verdediger', 'Middenveld': 'Middenvelder', 'Aanval': 'Spits' };
+function normPos(pos) { const p = (pos || '').trim(); return POSITIONS[p] ? p : (LEGACY_POS[p] || ''); }
+function posMeta(pos) { return POSITIONS[normPos(pos)] || null; }
+function posLine(pos) { const m = posMeta(pos); return m ? m.line : ''; }
+function posSides(pos) { const m = posMeta(pos); return m ? m.sides : {}; }
+function posSideLabel(pos) { const m = posMeta(pos); return m ? m.sideLabel : ''; }
+function posSideValid(pos, side) { return !!posSides(pos)[side]; }
+// Voorkeurspositie + de gekozen kant/rol, voor weergave bij spelersbeheer en selectie.
 function posDisplay(p) {
-  if (!p || !p.pos) return '';
-  const base = lineLabel(p.pos);
-  return (p.pos === 'Verdediging' && p.side && DEFENSE_SIDES[p.side]) ? base + ' · ' + DEFENSE_SIDES[p.side] : base;
+  const pos = normPos(p && p.pos);
+  if (!pos) return '';
+  const s = posSides(pos)[p.side];
+  return s ? pos + ' · ' + s : pos;
 }
 // ----- Professionele lijn-iconen (SVG, erven kleur via currentColor) -----
 const _svg = (b) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${b}</svg>`;
