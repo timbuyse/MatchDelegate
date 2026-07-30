@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.11.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.12.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1189,11 +1189,51 @@ function cloudOnLocalTournamentSave(t) {
     return;
   }
   const r = teamRef('tournaments/' + t.id); if (!r || !isAdmin) return;
-  try { r.set(jclone(t)).catch(_syncFail); } catch (e) {}
+  try {
+    const { pub, priv } = splitTournamentSquad(t);
+    r.set(pub).catch(_syncFail);
+    const sr = trnSquadRef(t.id);
+    if (sr) {
+      if (priv.length) sr.set({ players: priv, updatedAt: t.updatedAt || Date.now() }).catch(_syncFail);
+      else sr.remove().catch(_syncFail);
+    }
+  } catch (e) {}
+}
+// De niet-beschikbare spelers van een tornooi, met hun reden ("ziek", "blessure", …), horen NIET
+// in de "tournaments"-node: die zit onder teams/$teamId en is dus leesbaar voor élk ploeglid —
+// ook een kijker of een gast met viewer-rol, rechtstreeks via Firebase, buiten de UI om. Voor
+// minderjarigen is dat het gevoeligste stukje data in de app. Ze verhuizen daarom naar teamNotes
+// (beheerder-only, zie notesRef/database.rules.json), exact zoals de wedstrijdnotities. Zo is er
+// géén rules-wijziging nodig.
+// Bijwerking die precies klopt met de statsPublic-keuze ("Geselecteerd" blijft publiek, de rest
+// niet): "niet geselecteerd" staat nergens opgeslagen (= rooster min selectie), dus zodra de
+// absent-lijst weg is kan een kijker die twee groepen ook ruw niet meer onderscheiden.
+// Lokaal blijft alles gewoon in één tornooi-object staan.
+function trnSquadRef(id) { return notesRef('tournamentSquad/' + id); }
+function splitTournamentSquad(t) {
+  const pub = jclone(t);
+  const priv = [];
+  const sq = pub.squad;
+  if (sq) {
+    if (Array.isArray(sq.players)) {
+      sq.players = sq.players.filter(p => {
+        if (p && p.sel === 'absent') { priv.push(p); return false; }
+        return true;
+      });
+    }
+    // Oud formaat (squad.base/bench/absent): ook hier de absent-lijst afsplitsen, anders zet een
+    // tornooi van vóór de players-vorm bij het eerste terugpushen stil zijn redenen publiek.
+    if (Array.isArray(sq.absent)) {
+      sq.absent.forEach(p => { if (p) priv.push(Object.assign({}, p, { sel: 'absent' })); });
+      delete sq.absent;
+    }
+  }
+  return { pub, priv };
 }
 function cloudOnLocalTournamentDelete(id) {
   const r = teamRef('tournaments/' + id); if (!r || !isAdmin || !id) return;
   try { r.remove().catch(_syncFail); } catch (e) {}
+  try { const sr = trnSquadRef(id); if (sr) sr.remove().catch(_syncFail); } catch (e) {}
 }
 // ---- lezen ----
 function stopTeamListeners() {
@@ -1418,8 +1458,12 @@ async function cleanupOrphanMatches(cloudIds, teamName) {
 // en worden hier teruggekoppeld naar de lokale match — nodig zodat een tweede beheerder
 // (ander toestel) ze ook ziet, en na het wissen van lokale opslag.
 async function applyCloudNotes(obj) {
+  // Hetzelfde beheerder-only pad draagt ook de niet-beschikbare spelers van elk tornooi
+  // (zie splitTournamentSquad) — die staan onder één vaste sleutel naast de wedstrijdnotities.
+  applyCloudTournamentSquads((obj || {}).tournamentSquad || {});
   if (!db) return;
   for (const id of Object.keys(obj)) {
+    if (id === 'tournamentSquad') continue;
     const n = obj[id]; if (!n) continue;
     const existing = await dbGet(id); if (!existing) continue;
     existing.notes = n.notes || '';
@@ -1522,6 +1566,53 @@ function applyCloudTeams(val) {
 // applyCloudMatch. Twee beheerders die tegelijk HETZELFDE tornooi bewerken blijven
 // last-writer-wins (per tornooi, niet per veld) — bewust, zie groep D.
 let _trnShapeMigrated = false;
+let _trnSquadMigrated = false;
+// Cache van het beheerder-only deel van de dagselectie (tornooi-id → NB-spelers), gevuld door
+// applyCloudTournamentSquads. _trnSquadLoaded zegt of de teamNotes-snapshot al binnen is: zolang
+// dat niet zo is mag een lege cache niet als "er zijn er geen" gelezen worden, anders zou een
+// tornooi in dat tijdsvenster zijn NB-groep lijken te verliezen.
+let cloudTrnSquad = {};
+let _trnSquadLoaded = false;
+// Het NB-deel komt via het aparte, beheerder-only pad binnen en wordt hier teruggekoppeld naar de
+// lokale tornooien — nodig voor een tweede beheerder (ander toestel) en na het wissen van lokale
+// opslag. Werkt in beide richtingen: aanvullen én weghalen wat elders geschrapt werd.
+function applyCloudTournamentSquads(obj) {
+  cloudTrnSquad = {};
+  for (const id of Object.keys(obj || {})) {
+    const raw = (obj[id] && obj[id].players) || [];
+    cloudTrnSquad[id] = (Array.isArray(raw) ? raw : Object.values(raw))
+      .filter(p => p && p.name)
+      .map(p => Object.assign({}, p, { sel: 'absent' }));
+  }
+  _trnSquadLoaded = true;
+  const arr = getTournaments();
+  let changed = false;
+  for (const t of arr) {
+    // Enkel tornooien die uit de cloud komen: een zuiver lokaal tornooi (nooit gesynct) mag hier
+    // niets verliezen, en het oude squad-formaat wordt pas bij de eerstvolgende save gesplitst.
+    if (!t.fromCloud || !t.squad || !Array.isArray(t.squad.players)) continue;
+    const priv = jclone(cloudTrnSquad[t.id] || []);
+    const huidig = t.squad.players.filter(p => p && p.sel === 'absent');
+    if (JSON.stringify(huidig) === JSON.stringify(priv)) continue;
+    t.squad.players = [...t.squad.players.filter(p => !(p && p.sel === 'absent')), ...priv];
+    changed = true;
+  }
+  if (changed) { setTournamentsLocal(arr); cloudRefreshUI(); } // lokaal-only: geen sync-lus
+}
+// De cloud-versie van een tornooi mist de NB-spelers (zie splitTournamentSquad). Aanvullen met wat
+// we hebben: het beheerder-only pad zodra dat binnen is, anders de lokale versie zodat de NB-groep
+// niet even uit het scherm verdwijnt tussen de twee listeners.
+function withTournamentSquad(ct, lt) {
+  const sq = ct.squad;
+  if (!sq || !Array.isArray(sq.players)) return ct;
+  if (sq.players.some(p => p && p.sel === 'absent')) return ct; // nog niet gesplitst tornooi
+  const priv = _trnSquadLoaded
+    ? (cloudTrnSquad[ct.id] || [])
+    : (lt ? tournamentSquadList(lt).filter(p => p && p.sel === 'absent') : []);
+  if (!priv.length) return ct;
+  ct.squad = Object.assign({}, sq, { players: [...sq.players, ...jclone(priv)] });
+  return ct;
+}
 function applyCloudTournaments(val) {
   const raw = (Array.isArray(val) ? val : Object.values(val || {})).filter(t => t && t.id);
   // Ontdubbelen op id, nieuwste wint. Nodig als vangnet voor de oude array-vorm: die had
@@ -1536,14 +1627,17 @@ function applyCloudTournaments(val) {
   const localById = new Map(local.map(t => [t.id, t]));
   const merged = [];
   const repush = [];
+  const teSplitsen = [];
   for (const [id, ct] of cloudById) {
     const lt = localById.get(id);
+    // Staat het NB-deel nog ín de publieke node? Dan is dit tornooi van vóór de splitsing.
+    if (tournamentSquadList(ct).some(p => p && p.sel === 'absent')) teSplitsen.push(id);
     if (lt && isAdmin && (lt.updatedAt || 0) > (ct.updatedAt || 0)) {
       // Lokaal recenter bewerkt dan wat de cloud heeft → lokaal behouden en terugduwen.
       // Geen lus: na de echo zijn de tijdstempels gelijk en valt dit weg.
       merged.push(lt); repush.push(lt);
     } else {
-      merged.push(Object.assign({}, ct, { fromCloud: true }));
+      merged.push(withTournamentSquad(Object.assign({}, ct, { fromCloud: true }), lt));
     }
   }
   // Tornooien die nooit in de cloud stonden (zuiver lokale modus) blijven behouden.
@@ -1554,10 +1648,22 @@ function applyCloudTournaments(val) {
   // tornooi-id, zodat de per-child writes hierboven niet naast de oude numerieke sleutels landen.
   if (!_trnShapeMigrated && isAdmin && Array.isArray(val) && raw.length) {
     _trnShapeMigrated = true;
+    // Meteen in de gesplitste vorm herschrijven (pub, zonder de NB-spelers) — anders zou deze
+    // set() de redenen van een oud tornooi opnieuw publiek zetten, net vóór de privacy-migratie
+    // hieronder ze weer wegneemt.
     const byId = {};
-    for (const [id, ct] of cloudById) byId[id] = jclone(ct);
+    for (const [id, ct] of cloudById) byId[id] = splitTournamentSquad(ct).pub;
     const r = teamRef('tournaments');
     if (r) { try { r.set(byId).catch(_syncFail); } catch (e) {} }
+  }
+  // Eenmalige privacy-migratie: tornooien die de NB-spelers nog ín de publieke node hebben één keer
+  // opnieuw wegschrijven — cloudOnLocalTournamentSave verhuist dat deel dan naar het beheerder-only
+  // pad en wist het uit "tournaments". Via het gemergde object, zodat een lokaal recentere versie
+  // wint. Geen lus: na de echo is de node schoon (en de vlag blokkeert een tweede ronde).
+  if (isAdmin && !_trnSquadMigrated && teSplitsen.length) {
+    _trnSquadMigrated = true;
+    const byId = new Map(merged.map(t => [t.id, t]));
+    teSplitsen.forEach(id => { const t = byId.get(id); if (t) cloudOnLocalTournamentSave(t); });
   }
   cloudRefreshUI();
 }
