@@ -69,16 +69,17 @@ function renderDetail() {
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
     <div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
-        ${/* Lege plaatshouder voor het rugnummerbolletje — weg als de ploeg geen nummers gebruikt,
-             anders schuift deze kopregel op t.o.v. de rijen eronder. */ ''}
-        ${matchUsesNumbers(match) ? '<div class="pnum"></div>' : ''}
+        ${/* Lege plaatshouder voor het rugnummerbolletje — enkel als er in deze wedstrijd effectief
+             nummers staan, anders schuift deze kopregel op t.o.v. de rijen eronder. */ ''}
+        ${match.players.some(p => pNum(p)) ? '<div class="pnum"></div>' : ''}
         <div style="flex:1">Speler</div>
         <div class="pmins" style="font-size:11px">Min · %</div>
       </div>
       ${(() => {
         const qData = calcMinutesPerQuarter(match);
         const abbr = pAbbr(match);
-        return match.players.map(p => {
+        // Alfabetisch op familienaam, zoals elke spelerslijst in de app (sortedByName).
+        return sortedByName(match.players).map(p => {
           const row = playerRowHtml(p, mins[p.id], !p.onField, getGameTimeMs(match));
           if (p.absent) return row;
           if (!qData) return row;
@@ -108,7 +109,17 @@ function renderDetail() {
         <button class="btn btn-orgpale" onclick="modalPlayerNotes()">${icI(IC.edit)} Spelernotities</button>
         <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
       </div>
-      ${(FORMATIONS[match.matchType]||[]).length ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Posities herplaatsen</button>` : ''}
+      ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
+           de ploeg overstapt op spelen zonder vaste nummers. Los van "Spelers bewerken", dat op een
+           afgewerkte wedstrijd te veel kan (spelers verwijderen, lijnen wijzigen). */ ''}
+      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalMatchNumbers()">${icI(IC.shirt)} Rugnummers</button>
+      ${/* "Posities herplaatsen" herplaatst de STARTopstelling. Zodra er een wissel of positiewissel
+           gelogd is, weigert modalEditPositions dat (het zou de kwart-reconstructie corrumperen) —
+           dan stond hier een knop die alleen een foutmelding gaf. Nu verbergen we ze in dat geval,
+           met een regeltje dat naar de juiste weg verwijst. */ ''}
+      ${((FORMATIONS[match.matchType]||[]).length && !(match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap'))
+        ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Startopstelling herplaatsen</button>`
+        : ((FORMATIONS[match.matchType]||[]).length ? `<p style="font-size:11px;color:var(--txt2);margin:-2px 0 8px">De startopstelling kan niet meer herplaatst worden — er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met <b>Positiewissel</b> in het livescherm.</p>` : '')}
       <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>
       <button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
@@ -446,12 +457,11 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
 //    hele ploegkern (anders stonden de NB'ers en de niet-opgeroepen spelers in elk wedstrijdverslag)
 function matchSelectionGroups(m) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
-  // Eén doorgeefpunt voor de rugnummers van dit verslag: gebruikt de ploeg geen vaste rugnummers,
-  // dan komen ze hier al niet meer in de groepen terecht — en dus nergens in het verslag, het
-  // deelbericht of de PDF. Een wedstrijd draagt namelijk zijn eigen kopie van de nummers mee, ook
-  // een wedstrijd die al gespeeld was vóór de ploeg de nummers uitzette.
-  const nums = matchUsesNumbers(m);
-  const num = p => nums ? (p.number || '') : '';
+  // Een rugnummer wordt getoond als de speler er een heeft — de wedstrijd draagt haar eigen kopie
+  // mee, en die blijft de waarheid voor dát verslag. Wil je ze weg, dan wis je ze in de wedstrijd
+  // zelf ("Rugnummers" op het verslag); de ploeginstelling regelt enkel het rooster en wat er in
+  // een nieuwe wedstrijd voorgevuld wordt.
+  const num = p => p.number || '';
   const pick = p => ({ name: p.name || '', number: num(p), rosterId: p.rosterId || null, guest: !!p.guest });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
@@ -486,7 +496,7 @@ function matchSelectionGroups(m) {
     // NB'ers uit de selectiestap dragen geen rugnummer mee — dat staat enkel in de kern van de
     // ploeg, dus daar opzoeken zodat de lijst er niet half genummerd uitziet.
     const r = ((team && team.players) || []).find(p => (rec.rosterId && p.id === rec.rosterId) || p.name === rec.name);
-    notAvailable.push({ name: rec.name, number: nums ? ((r && r.number) || '') : '', rosterId: rec.rosterId, reason: rec.reason });
+    notAvailable.push({ name: rec.name, number: (r && r.number) || '', rosterId: rec.rosterId, reason: rec.reason });
   }
   notAvailable.sort(byLast);
   const known = new Set();
@@ -819,12 +829,12 @@ async function pdfMatchBody(doc, L, m) {
   const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
   // De '#'-kolom valt weg als geen enkele speler een rugnummer heeft: rugnummers zijn optioneel
   // (zie teamUsesNumbers), en een kolom met louter lege cellen is enkel ruis.
-  const anyNum = matchUsesNumbers(m) && m.players.some(p => pNum(p));
+  const anyNum = m.players.some(p => pNum(p));
   const numCol = anyNum ? ['#'] : [];
   const numCell = p => anyNum ? [pNum(p)] : [];
   const playerHead = [...numCol, 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
   const absentRowIdx = new Set();
-  const playerRows = m.players.map((p, idx) => {
+  const playerRows = sortedByName(m.players).map((p, idx) => {
     if (p.absent) { absentRowIdx.add(idx); return [...numCell(p), p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
     const min = mins[p.id] ? Math.floor(mins[p.id].ms / 60000) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;

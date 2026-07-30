@@ -352,7 +352,7 @@ function guestListHtml() {
   const existing = guestCtx().pool.map(p => p.srcId);
   if (!t.players.length) return '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>';
   return t.players.map(p => { const already = existing.includes(p.id);
-    return `<div class="selrow">${numDot(p, 'pn', null, teamUsesNumbers(t))}<div class="nm">${esc(p.name)}${already ? '<small>al in selectie</small>' : ''}</div>
+    return `<div class="selrow">${numDot(p, 'pn')}<div class="nm">${esc(p.name)}${already ? '<small>al in selectie</small>' : ''}</div>
       <input type="checkbox" ${already ? 'disabled' : ''} onchange="toggleGuest('${p.id}')" style="width:22px;height:22px"></div>`; }).join('');
 }
 function toggleGuest(srcId) { const i = guestPick.indexOf(srcId); if (i >= 0) guestPick.splice(i, 1); else guestPick.push(srcId); }
@@ -482,7 +482,7 @@ function wizStep3() {
       <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn', teamUsesNumbers(teamById(wiz.teamId)))}${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
+    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
     <div class="wiz-nav" style="margin-top:14px">
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
@@ -843,7 +843,7 @@ function renderPrep() {
     <div class="sec">Opstelling (${starters.length})</div>
     <div class="card">${renderPitch(m, starters)}</div>
     <div class="sec">Bank (${bench.length})</div>
-    <div class="card">${bench.length ? bench.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', null, matchUsesNumbers(m))}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
+    <div class="card">${bench.length ? sortedByName(bench).map(p => `<div class="prow">${numDot(p, 'pnum pnum-off')}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
     ${ro ? '' : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button><div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
@@ -961,15 +961,48 @@ async function saveQuickResult() {
 
 // ===================== EDIT PLAYERS =====================
 function modalPlayerNotes() {
-  const rows = match.players.map((p, i) => `
+  // Alfabetisch op familienaam zoals elke spelerslijst, en het rugnummer enkel als de ploeg ze
+  // gebruikt. De index voor het onchange-pad moet wél die van match.players blijven.
+
+  const rows = sortedByName(match.players).map(p => {
+    const i = match.players.indexOf(p);
+    return `
     <div style="margin-bottom:10px">
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(p.number ? '#' + p.number + ' ' : '')}${esc(p.name || 'Speler')}</div>
       <input type="text" value="${esc(p.note||'')}" placeholder="Notitie (optioneel)" onchange="match.players[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px">
-    </div>`).join('');
+    </div>`; }).join('');
   openModal(`<h3>${icI(IC.edit)} Spelernotities</h3>
     <div>${rows}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)} Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Enkel de rugnummers van deze wedstrijd, los van modalEditPlayers: daar kan je ook spelers
+// verwijderen of van lijn wisselen, en dat wil je op een afgewerkte wedstrijd niet — events en
+// statistieken hangen eraan. Een nummer is een label, dus dat is wél veilig aanpasbaar, ook
+// achteraf. "Alles wissen" is er voor de ploeg die overstapt naar spelen zonder vaste nummers.
+function modalMatchNumbers() {
+  const rows = sortedByName(match.players).map(p => {
+    const i = match.players.indexOf(p);
+    return `<div class="selrow">
+      <input type="number" class="pn-inp" value="${esc(p.number || '')}" placeholder="" inputmode="numeric" aria-label="Rugnummer van ${esc(p.name)}" onchange="match.players[${i}].number=this.value.trim()">
+      <div class="nm">${esc(p.name || 'Speler')}<small>${esc(p.line || '')}</small></div>
+    </div>`; }).join('');
+  openModal(`<h3>${icI(IC.shirt)} Rugnummers</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Alleen voor deze wedstrijd — het rooster van je ploeg blijft ongewijzigd. Laat een vakje leeg als die speler geen nummer had.</p>
+    ${selRowHead('Speler · lijn')}
+    <div>${rows}</div>
+    <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchNumbers()">${icI(IC.check)} Opslaan</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="clearMatchNumbers()">Alle nummers wissen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function clearMatchNumbers() {
+  match.players.forEach(p => { p.number = ''; });
+  modalMatchNumbers(); // opnieuw tekenen met lege vakjes; opslaan blijft een aparte tik
+}
+async function saveMatchNumbers() {
+  await dbSave(match);
+  closeModal(); render();
+  showToast('Rugnummers van deze wedstrijd bijgewerkt.', 'ok');
 }
 function modalEditPlayers() {
   const lines = MATCH_TYPES[match.matchType].lines;

@@ -42,17 +42,47 @@ function teamPosChange(i, val) {
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
 function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
 function closeTeamEdit() { editingTeam = null; go(cloudReady ? 'home' : 'teams'); }
-function renderTeamView() {
-  const t = editingTeam;
-  const trainers = (t.trainers || []).filter(tr => tr.name);
-  const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
+// De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
+// die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
+// Standaard alfabetisch op familienaam — zoals elke andere spelerslijst in de app.
+let teamListSort = 'naam';
+function setTeamListSort(v) { teamListSort = v; render(); }
+function teamListSorted(t) {
+  const arr = [...(t.players || [])];
+  if (teamListSort === 'nr' && teamUsesNumbers(t)) {
+    return arr.sort((a, b) => ((parseInt(a.number) || 999) - (parseInt(b.number) || 999)) || byLastNameNl({ name: pLastName(a) }, { name: pLastName(b) }));
+  }
+  if (teamListSort === 'positie') {
+    // Op de vaste volgorde van POSITIONS (keeper → spits), niet alfabetisch: dat leest als een
+    // opstelling. Zonder positie achteraan.
+    const keys = Object.keys(POSITIONS);
+    const rank = p => { const i = keys.indexOf(normPos(p.pos)); return i < 0 ? 99 : i; };
+    return arr.sort((a, b) => (rank(a) - rank(b)) || (pLastName(a) + pFirstName(a)).localeCompare(pLastName(b) + pFirstName(b), 'nl'));
+  }
+  return arr.sort((a, b) => (pLastName(a) + ' ' + pFirstName(a)).localeCompare(pLastName(b) + ' ' + pFirstName(b), 'nl'));
+}
+function teamListHead(t) {
+  const knop = (key, label, extra) => `<span onclick="setTeamListSort('${key}')" style="cursor:pointer;${extra || ''}${teamListSort === key ? 'color:var(--grn)' : ''}">${label}${teamListSort === key ? ' ▾' : ''}</span>`;
+  return `<div class="stat-row" style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txt2);border-bottom:1px solid var(--bdr)">
+    ${teamUsesNumbers(t) ? knop('nr', 'Nr', 'min-width:38px;') : ''}
+    ${knop('naam', 'Naam', 'flex:1;')}
+    ${knop('positie', 'Positie')}
+  </div>`;
+}
+function teamPlayerRows(t) {
+  const sorted = teamListSorted(t);
+  if (!sorted.length) return '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   // Spelerdetail is beheerder-only (openPlayerDetail doet voor kijkers stil niets) — geen
   // klik-affordance tonen die nergens toe leidt.
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
+  return teamListHead(t) + sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
       ${teamUsesNumbers(t) ? `<span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>` : ''}
       <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
-    </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
+    </div>`).join('');
+}
+function renderTeamView() {
+  const t = editingTeam;
+  const trainers = (t.trainers || []).filter(tr => tr.name);
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
     <div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — ploegen worden door de beheerder beheerd</div>
@@ -61,7 +91,7 @@ function renderTeamView() {
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
     </div>` : ''}
     <div class="sec">Spelers (${t.players.length})</div>
-    <div class="card">${rows}</div>
+    <div class="card">${teamPlayerRows(t)}</div>
   </div>`;
 }
 function renderTeamOverview() {
@@ -70,12 +100,6 @@ function renderTeamOverview() {
   const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
-  const sorted = [...t.players].sort((a, b) => (parseInt(a.number) || 999) - (parseInt(b.number) || 999));
-  const rows = sorted.length ? sorted.map(p => `<div class="stat-row" ${canSeeStats() ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(pFirstName(p) + ' ' + pLastName(p))}','${jsq(t.name)}','${jsq(p.id)}')"` : ''}>
-      ${teamUsesNumbers(t) ? `<span style="min-width:38px;font-weight:800;color:var(--txt2)">${esc(p.number)||'–'}</span>` : ''}
-      <span style="flex:1;font-weight:600">${esc(pFirstName(p))} ${esc(pLastName(p))}</span>
-      ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
-    </div>`).join('') : '<p style="color:var(--txt2);font-size:13px;text-align:center;padding:6px 0">Nog geen spelers.</p>';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
     <div class="card">
@@ -90,7 +114,7 @@ function renderTeamOverview() {
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
     </div>
     <div class="sec">Spelers (${t.players.length})</div>
-    <div class="card">${rows}</div>
+    <div class="card">${teamPlayerRows(t)}</div>
   </div>`;
 }
 function renderTeamEdit() {
@@ -176,7 +200,9 @@ function teamDelPlayer(i) { editingTeam.players.splice(i, 1); render(); }
 function teamSortPlayers(by) {
   editingTeam.players.sort((a, b) => {
     if (by === 'nr') { const na = parseInt(a.number) || 999, nb = parseInt(b.number) || 999; return na - nb; }
-    return (pFirstName(a) + pLastName(a)).localeCompare(pFirstName(b) + pLastName(b), 'nl');
+    // Op FAMILIENAAM, met de voornaam als tiebreaker. Sorteerde voordien op voornaam, wat niet is
+    // wat je van "sorteer op naam" verwacht in een spelerslijst.
+    return (pLastName(a) + ' ' + pFirstName(a)).localeCompare(pLastName(b) + ' ' + pFirstName(b), 'nl');
   });
   render();
 }
@@ -404,10 +430,9 @@ async function loadTournamentDetail() {
 function tournamentSelectionGroups(t) {
   const byLast = (a, b) => _lastName(a.name || '').localeCompare(_lastName(b.name || ''), 'nl');
   const all = tournamentSquadList(t);
-  // Zelfde doorgeefpunt als bij een wedstrijd: gebruikt de ploeg geen vaste rugnummers, dan komen ze
-  // hier al niet meer in de groepen — en dus niet op de tornooipagina, in het verslag of in de PDF's.
-  const nums = trnUsesNumbers(t);
-  const num = p => nums ? (p.number || '') : '';
+  // Een rugnummer wordt getoond als de speler er een heeft: de tornooiselectie draagt haar eigen
+  // nummers, die je daar leeg kan laten of wissen.
+  const num = p => p.number || '';
   const mee = all.filter(s => s.sel !== 'absent')
     .map(s => ({ name: s.name || '', number: num(s), guest: !!s.guest, fromName: s.fromName || '' })).sort(byLast);
   // Een reden hoort enkel bij een NB'er: staat er door oudere of half bewerkte data toch een reden
@@ -444,12 +469,9 @@ function tournamentReportData(t, matches) {
   const pl = {};
   // Zelfde spelerssleutel als de statistieken: rosterId indien beschikbaar, anders de naam. Zo
   // blijft een speler één rij, ook als een oudere wedstrijd nog geen rosterId meedroeg.
-  // Rugnummers onderdrukken als de ploeg ze niet gebruikt (zie teamUsesNumbers): dan blijven ze ook
-  // uit de speeltijd- en fair-play-tabellen van het verslag en de PDF.
-  const trnNums = trnUsesNumbers(t);
   const getp = (rosterId, name, number) => {
     const k = rosterId ? 'r:' + rosterId : 'n:' + (name || '').trim().toLowerCase();
-    if (!pl[k]) pl[k] = { name: name || '', number: (trnNums && number) || '', rosterId: rosterId || null,
+    if (!pl[k]) pl[k] = { name: name || '', number: number || '', rosterId: rosterId || null,
       squad: 0, timed: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
     const r = pl[k];
     if (!r.number && number) r.number = number;

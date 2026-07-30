@@ -374,7 +374,7 @@ async function loadPlayerDetail() {
     <div class="card">
       <div style="text-align:center;margin-bottom:10px">
         <div style="font-size:20px;font-weight:800">${esc(name)}</div>
-        <div style="font-size:13px;color:var(--txt2)">${(number && teamUsesNumbers(getTeamsV2().find(t => t.name === playerDetailTeamName))) ? ('Rugnr. ' + esc(number) + (pos ? ' · ' : '')) : ''}${pos ? esc(pos) : ''}</div>
+        <div style="font-size:13px;color:var(--txt2)">${number ? ('Rugnr. ' + esc(number) + (pos ? ' · ' : '')) : ''}${pos ? esc(pos) : ''}</div>
         ${playerDetailTeamName ? `<div style="font-size:12px;color:var(--txt2);margin-top:6px">Statistieken voor wedstrijden bij <b>${esc(playerDetailTeamName)}</b></div>` : ''}
       </div>
       <div class="stat-big">

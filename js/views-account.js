@@ -1467,8 +1467,17 @@ function eventMinLocal(e, m) {
   const extraMin = Math.ceil((withinQ - nomMs) / 60000);
   return `${m.quarterDuration || 15}'+${extraMin}'`;
 }
-function playersOnField(m) { return m.players.filter(p => p.onField && !p.absent); }
-function playersOnBench(m) { return m.players.filter(p => !p.onField && !p.absent); }
+// Vaste ordening voor élke spelerslijst: alfabetisch op FAMILIENAAM, met de voornaam als
+// tiebreaker. Eén regel voor het hele scherm, het verslag, de PDF en de CSV, zodat je een naam
+// altijd op dezelfde plaats zoekt. Rangschikkingen (topschutters, meeste minuten, fair-play) houden
+// natuurlijk hun eigen orde — dat zijn geen lijsten maar klassementen.
+function byLastNameNl(a, b) {
+  const an = (a && a.name) || '', bn = (b && b.name) || '';
+  return _lastName(an).localeCompare(_lastName(bn), 'nl') || an.localeCompare(bn, 'nl');
+}
+function sortedByName(list) { return (list || []).slice().sort(byLastNameNl); }
+function playersOnField(m) { return sortedByName(m.players.filter(p => p.onField && !p.absent)); }
+function playersOnBench(m) { return sortedByName(m.players.filter(p => !p.onField && !p.absent)); }
 // Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
 function playersOnFieldForEvent(m) {
   if (_postEventQuarter != null) return playersAtPeriodStart(m, _postEventQuarter);
