@@ -25,7 +25,7 @@ This was a true single-file app until v0.4.2, when the JavaScript was split out 
   - `detail-pdf.js` — finished-match detail view and PDF export.
 - `firebase/` — the Firebase compat SDK is vendored here, not loaded from gstatic.
 - Also present: `fonts/`, `pdf/`, `handleiding/` (in-app manual; root-level `handleiding-screenshots.js` is a ~900 KB generated base64 blob).
-- Note the gap: the `<script src>` tags in `index.html` carry **no** `?v=APP_VERSION`, while `sw.js` does track `APP_VERSION`. The browser HTTP cache can therefore hold stale JS even after the service-worker cache is cleared.
+- The `<script src>` tags in `index.html` carry no `?v=APP_VERSION`, but that is **not** a stale-cache hole: `sw.js` serves every `js/*.js` network-first with `cache:'no-store'` (see the `isAppJs` branch), precisely so the HTTP cache cannot hand back an old build. Adding a version query to the tags would mean hardcoding the number in seven places next to `APP_VERSION` — a regression of the single-version-source that B16 established. It only bites while **testing**, when the service worker has been unregistered: without it everything falls back to the plain HTTP cache. See the reload recipe under "Running locally".
 
 ## Running locally
 

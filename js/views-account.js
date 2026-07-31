@@ -21,7 +21,7 @@ function renderBeheer() {
         <span style="flex:1;font-size:13px;color:var(--txt2)">Deze ploeg bekijken als kijker</span>
         <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
       </div>
-      ${isApprovedAdmin ? `<button style="background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;padding:0;display:flex;align-items:center;gap:6px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
+      ${isApprovedAdmin ? `<button class="btn btn-red" style="margin-top:16px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
     </div>` : (!isGuest ? `
     <div class="sec">Deze ploeg</div>
     <div class="card">
@@ -803,6 +803,22 @@ async function joinTeamByToken(token) {
 }
 
 // ---- Uitnodigingslink tonen ----
+// QR-code lokaal tekenen met de meegeleverde generator (qr/qrcode.js). Vroeger kwam dit plaatje van
+// api.qrserver.com: dat werkte niet zonder internet — net aan de zijlijn waar je iemand wil laten
+// aansluiten — en het stuurde de uitnodigings-URL mét geldige code naar een externe server.
+// Levert een SVG (scherp op elk scherm, geen canvas nodig). Faalt de generator of ontbreekt hij,
+// dan geeft dit een lege string terug en toont de modal de bestaande tekstfallback met code + link.
+function qrSvg(data, px) {
+  if (typeof qrcode !== 'function') return '';
+  try {
+    const qr = qrcode(0, 'M'); // 0 = automatisch de kleinste passende versie
+    qr.addData(data);
+    qr.make();
+    const size = px || 180;
+    return `<div style="width:${size}px;height:${size}px;background:#fff;border-radius:10px;padding:6px;box-sizing:border-box" role="img" aria-label="QR-code uitnodiging">
+      ${qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}</div>`;
+  } catch (e) { console.error('qrSvg:', e); return ''; }
+}
 async function showInviteModal(teamId) {
   // Bepaal welke ploeg: meegegeven of actieve ploeg
   const tid = teamId || activeTeamId;
@@ -847,14 +863,12 @@ async function showInviteModal(teamId) {
   const teamName = info.name || 'Ploeg';
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
-  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&data=' + encodeURIComponent(joinUrl);
   const shareText = 'Volg ' + teamName + ' via Match Delegate. Open de link of gebruik code ' + token + '.';
+  const qr = qrSvg(joinUrl);
   openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(teamName)}</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Scan de QR-code of deel de link. Werkt ook voor mensen zonder account.</p>
-    <div id="invite-qr-wrap" style="display:flex;justify-content:center;margin-bottom:12px">
-      <img src="${qrUrl}" width="180" height="180" style="border-radius:10px;background:#fff;padding:6px" alt="QR-code uitnodiging" onerror="this.closest('#invite-qr-wrap').style.display='none';document.getElementById('invite-qr-fallback').style.display=''">
-    </div>
-    <p id="invite-qr-fallback" style="display:none;text-align:center;color:var(--org2);font-size:12px;margin-bottom:8px">${icI(IC.warn)} QR-code niet beschikbaar — gebruik de code of link hieronder.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${qr ? 'Scan de QR-code of deel de link.' : 'Deel de link of de code hieronder.'} Werkt ook voor mensen zonder account.</p>
+    ${qr ? `<div id="invite-qr-wrap" style="display:flex;justify-content:center;margin-bottom:12px">${qr}</div>`
+         : `<p style="text-align:center;color:var(--org2);font-size:12px;margin-bottom:8px">${icI(IC.warn)} QR-code niet beschikbaar — gebruik de code of link hieronder.</p>`}
     <div class="invite-code" style="margin-bottom:8px">${token}</div>
     <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
     ${isAdmin ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="confirmRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren (oude wordt ongeldig)</button>` : ''}
@@ -2019,6 +2033,17 @@ function renderMaintenance() {
 async function toggleMaintenance() {
   if (!fbdb) return;
   const newVal = !maintenanceActive;
+  // AANzetten sluit de app voor iedereen — alle ploegen, alle kijkers, ook een lopende wedstrijd.
+  // Dat was de enige zware actie zonder drempel, terwijl één kijker verwijderen wél bevestiging
+  // vraagt en een ploeg verwijderen zelfs het wachtwoord. UITzetten herstelt en blijft één tik.
+  if (newVal) {
+    showConfirm('Onderhoudsmodus aanzetten? De app wordt onmiddellijk onbruikbaar voor iedereen — alle ploegen en alle kijkers, ook tijdens een lopende wedstrijd.',
+      () => doToggleMaintenance(true), 'Aanzetten', 'btn-red');
+    return;
+  }
+  doToggleMaintenance(false);
+}
+async function doToggleMaintenance(newVal) {
   maintenanceActive = newVal;
   render();
   try {

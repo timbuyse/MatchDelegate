@@ -3,6 +3,7 @@
 const CACHE = 'voetbal-v' + (new URL(location.href).searchParams.get('v') || 'dev');
 const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './logo.png', './background_logo.jpg',
   './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js',
+  './qr/qrcode.js',
   './js/core.js', './js/views-account.js', './js/stats-settings.js', './js/teams-tournaments.js',
   './js/wizard-prep.js', './js/live-match.js', './js/detail-pdf.js',
   './pdf/jspdf.umd.min.js', './pdf/jspdf.plugin.autotable.min.js'];
