@@ -2049,9 +2049,9 @@ const views = {
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
         <img src="logo_no_background.png" class="hdr-crest" alt="Match Delegate">
-        ${teamName ? `<div style="min-width:0;overflow:hidden">
-          <div class="hdr-club-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${teamName}</div>
-          ${clubName ? `<div style="font-size:12px;font-weight:600;color:#fff;opacity:.75;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clubName}</div>` : ''}
+        ${teamName ? `<div style="flex:1 1 auto;min-width:0;overflow:hidden">
+          <div class="hdr-club-name">${teamName}</div>
+          ${clubName ? `<div class="hdr-club-sub">${clubName}</div>` : ''}
         </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>

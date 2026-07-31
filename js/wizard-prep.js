@@ -463,10 +463,15 @@ function autoPlace() {
 }
 function clearPlacement() { wiz.pool.forEach(p => p.slot = null); wiz.selPlace = null; render(); }
 function wizPitch(form) {
+  // Zelfde veldnaam als op het live-veld en in het wedstrijddetail: enkel de achternaam, met een
+  // initiaal erbij als twee spelers in de basis dezelfde achternaam hebben. De volledige naam paste
+  // niet in het label (lange familienamen werden afgekapt tot "Franciszek Dabrow…").
+  const basis = wiz.pool.filter(p => p.sel === 'basis');
+  const dns = fieldDisplayNames(basis.map(p => ({ id: p.pid, name: p.name })));
   const slots = form.slots.map((s, i) => {
     const posNum = computePosNum(wiz.matchType, i, form.slots);
     const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(dns.get(p.pid) || _lastName(p.name))}</span></div>`;
     return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}</div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;
@@ -760,6 +765,15 @@ function editMatchWizard(m) {
   }
   wiz = {
     step: 1, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
+    // noGuests verbergt "+ Speler van andere ploeg" en "+ Losse speler" in stap 2 (zie wizStep2).
+    // Enkel bij een TORNOOIwedstrijd: daar is de pool de dagselectie van het tornooi en horen gasten
+    // via die selectie binnen te komen (zie tournamentSquadMee in startSelectieWizard). Bij een
+    // gewone wedstrijd moeten de knoppen er altijd zijn — ook wanneer je de selectie pas achteraf
+    // invult; dat was tot v0.16.3 niet zo (startSelectieWizard zette noGuests onvoorwaardelijk).
+    // Tim bevestigde op 2026-07-31 dat een gast op een tornooidag niet als noodoplossing wordt
+    // gebruikt. Wil je dat later toch weer toelaten: zet noGuests hier op false (het blokkeert dan
+    // enkel nog in startSelectieWizard, of nergens als je het daar ook aanpast).
+    noGuests: !!m.tournamentId,
     teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
@@ -786,7 +800,11 @@ function startSelectieWizard() {
   const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
   wiz = {
     step: 2, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
-    teamId: team ? team.id : '', noGuests: true,
+    // Zie de toelichting bij noGuests in editMatchWizard: enkel een tornooiwedstrijd schermt de
+    // gastknoppen af. Dit pad (selectie pas achteraf invullen na "Plannen zonder selectie") zette
+    // ze vroeger altijd uit, waardoor je hier géén losse speler of speler van een andere ploeg meer
+    // kon toevoegen terwijl dat via "+ Nieuwe wedstrijd" en "Bewerken" wel kon.
+    teamId: team ? team.id : '', noGuests: !!m.tournamentId,
     opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     numQuarters: m.numQuarters,
