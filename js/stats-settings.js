@@ -408,11 +408,11 @@ function renderSettings(isFirst) {
   return `
   <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
-    ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Ploeg uitnodigen, leden beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
+    ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Kijkers uitnodigen, beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:15px">${icI(IC.moon)} Donkere modus</b><div style="font-size:12px;color:var(--txt2)">Rustiger scherm, handig 's avonds.</div></div>
-        <span class="start-chip ${darkOn()?'on':''}" onclick="toggleDark()">${darkOn()?'Aan':'Uit'}</span></div>
+      <div><b style="font-size:15px">${icI(IC.moon)} Donkere modus</b><div style="font-size:12px;color:var(--txt2);margin-bottom:9px">Rustiger scherm, handig 's avonds. Met <b>Automatisch</b> volgt de app de instelling van je toestel${darkPref()==='auto'?` — nu ${systemDark()?'donker':'licht'}`:''}.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${[['0','Uit'],['1','Aan'],['auto','Automatisch']].map(([v,l]) => `<span class="start-chip ${darkPref()===v?'on':''}" onclick="setDarkPref('${v}')">${l}</span>`).join('')}</div></div>
     </div>
     ${('Notification' in window) ? `<div class="sec">Meldingen</div>
     <div class="card">

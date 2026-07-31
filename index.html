@@ -93,7 +93,11 @@
     .more-details summary{font-size:13px;font-weight:700;color:var(--grn2);cursor:pointer;list-style:none}
     .more-details summary::-webkit-details-marker{display:none}
     .pmins-low{color:var(--org)!important;font-weight:800}
-    .evt-del{margin-left:auto;background:var(--rdp);border:none;color:var(--rd);width:28px;height:28px;border-radius:7px;font-size:15px;cursor:pointer;flex-shrink:0}
+    /* 28x28 was te klein voor wat deze knop doet: tijdens een lopende wedstrijd haalt hij een speler
+       van het veld of gooit hij een geplande wissel weg. Op 36px blijft het een discreet knopje maar
+       is het raakvlak ruim een vingertop. .evt-edit staat ernaast in de gebeurtenissenlijst en volgt
+       dezelfde maat. */
+    .evt-del{margin-left:auto;background:var(--rdp);border:none;color:var(--rd);width:36px;height:36px;border-radius:8px;font-size:17px;cursor:pointer;flex-shrink:0}
     .stat-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr);font-size:14px}
     .stat-row:last-child{border-bottom:none}
     .stat-rank{width:24px;font-weight:800;color:var(--txt2)}
@@ -187,7 +191,7 @@
     .today-match .tm-sub{font-size:12px;opacity:.7;margin-top:2px}
     .evtbtn.disabled{opacity:.35;pointer-events:none}
     /* Player row */
-    .pn-inp{width:40px;height:34px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;font-weight:700;text-align:center;padding:0 2px;-webkit-appearance:none;background:#fff;flex-shrink:0;color:var(--txt)}
+    .pn-inp{width:34px;height:34px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;font-weight:700;text-align:center;padding:0 2px;-webkit-appearance:none;background:#fff;flex-shrink:0;color:var(--txt)}
     .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bdr)}
     .prow:last-child{border-bottom:none}
     .pnum{width:34px;height:34px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
@@ -283,7 +287,7 @@
     .fairbar span{display:block;height:100%;background:var(--grn)}
     .fairbar.mid span{background:var(--orn)}
     .fairbar.low span{background:var(--rd)}
-    .evt-edit{background:var(--grnp);border:none;color:var(--grn2);width:28px;height:28px;border-radius:7px;font-size:14px;cursor:pointer;flex-shrink:0}
+    .evt-edit{background:var(--grnp);border:none;color:var(--grn2);width:36px;height:36px;border-radius:8px;font-size:16px;cursor:pointer;flex-shrink:0}
     .searchbar input{width:100%;padding:11px;border:2px solid var(--bdr);border-radius:10px;font-size:15px;background:var(--card);color:var(--txt);-webkit-appearance:none;margin-bottom:10px}
     /* Home dashboard-tegels */
     .home-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px}
@@ -309,13 +313,19 @@
     .step-pill.on{background:var(--grn)}
     .step-pill.done{background:var(--grn2)}
     .wiz-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-    .seg{display:flex;border:2px solid var(--bdr);border-radius:9px;overflow:hidden;flex-shrink:0}
-    .seg button{border:none;background:#fff;padding:8px 11px;font-size:13px;font-weight:700;color:var(--txt2);cursor:pointer}
+    /* Basis · Wissel · NB zaten als segmented control tegen elkaar aan (nul pixels ertussen), zodat
+       een tik die horizontaal een paar pixels afweek op de buurknop landde — de enige plek in dit
+       scherm waar een misser een verkeerde uitkomst geeft i.p.v. geen uitkomst. Nu drie losse
+       pillen met 5px ertussen. De ruimte daarvoor komt uit een smaller rugnummerveld en kleinere
+       tussenruimtes in .selrow, zodat de rij niet breder wordt. De achtergrond gaat via een
+       variabele i.p.v. hard #fff: zo kloppen ze ook in donkere modus. */
+    .seg{display:flex;gap:5px;flex-shrink:0}
+    .seg button{border:none;background:var(--bdr);border-radius:8px;padding:8px 11px;font-size:13px;font-weight:700;color:var(--txt2);cursor:pointer}
     .seg button.basis{background:var(--grn);color:#fff}
     .seg button.bank{background:var(--org);color:#fff}
     /* Reden bij NB — enkel zichtbaar zodra NB gekozen is, dus mag compact. */
     .abs-reason{display:block;margin-top:4px;font-size:12px;padding:3px 6px;border:1px solid var(--bdr);border-radius:7px;background:var(--card);color:var(--txt);max-width:170px}
-    .selrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr)}
+    .selrow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--bdr)}
     .selrow:last-child{border-bottom:none}
     .selrow .pn{width:30px;height:30px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
     .cap-btn{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);background:#fff;color:var(--txt2);font-weight:800;font-size:10px;cursor:pointer;flex-shrink:0;line-height:1;padding:0}

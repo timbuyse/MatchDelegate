@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.16.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -272,10 +272,28 @@ function applyTheme(t) {
   const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = t.dark;
 }
 function applyStoredTheme() { let t = null; try { t = JSON.parse(localStorage.getItem('voetbal_theme') || 'null'); } catch (e) {} applyTheme(t || GENERIC_THEME); }
-// Donkere modus (per toestel)
-function darkOn() { return localStorage.getItem('voetbal_dark') === '1'; } // standaard UIT (licht); enkel '1' = donker
+// Donkere modus (per toestel). Drie standen in voetbal_dark:
+//   '1'    = altijd donker
+//   'auto' = volg de systeeminstelling van het toestel
+//   '0' of niets = altijd licht — dit blijft bewust de STANDAARD. Wie de app enkel opent om mee te
+//   kijken (ouders) mag niet plots een ander uiterlijk krijgen omdat zijn gsm op donker staat; wie
+//   het wil, zet 'auto' zelf aan in Instellingen.
+function darkPref() { const v = localStorage.getItem('voetbal_dark'); return (v === '1' || v === 'auto') ? v : '0'; }
+function systemDark() { try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { return false; } }
+function darkOn() { const p = darkPref(); return p === '1' || (p === 'auto' && systemDark()); }
 function applyDark() { document.body.classList.toggle('dark', darkOn()); }
-function toggleDark() { localStorage.setItem('voetbal_dark', darkOn() ? '0' : '1'); applyDark(); render(); }
+function setDarkPref(v) { localStorage.setItem('voetbal_dark', v); applyDark(); render(); }
+// Staat de voorkeur op 'auto', dan moet de app meteen mee omschakelen wanneer het toestel 's avonds
+// vanzelf naar donker gaat. Zonder deze listener zie je dat pas na een herstart van de app.
+(function watchSystemDark() {
+  if (!window.matchMedia) return;
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => { if (darkPref() !== 'auto') return; applyDark(); if (typeof render === 'function') render(); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange); // oudere WebKit (iOS < 14)
+  } catch (e) {}
+})();
 // ----- Ploegen v2: {id, name, players:[{id,name,number,pos}]} -----
 function getTeamsV2() { try { return JSON.parse(localStorage.getItem('voetbal_teams_v2') || '[]'); } catch (e) { return []; } }
 function saveTeamsV2(arr) { localStorage.setItem('voetbal_teams_v2', JSON.stringify(arr)); cloudOnLocalTeamsSave(arr); }
