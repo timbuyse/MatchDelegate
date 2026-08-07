@@ -9,6 +9,48 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.1
+- **Gewijzigd:** de **QR-code van een uitnodiging wordt nu op het toestel zelf getekend** in plaats van
+  opgehaald bij een externe dienst. Die dienst werkte niet zonder internet — net aan de zijlijn waar je
+  iemand wil laten aansluiten — en viel tijdens het testen ook effectief een keer weg. Bovendien ging de
+  uitnodigingslink, mét de geldige toegangscode, mee naar die server. De code is nu een scherpe tekening
+  in plaats van een afbeelding, werkt offline, en als het tekenen toch mislukt blijft de bestaande
+  terugval met code en link staan.
+- **Nieuw:** de **onderhoudsmodus vraagt bevestiging bij het aanzetten**. Die ene tik sloot de app voor
+  alle ploegen en alle kijkers, ook tijdens een lopende wedstrijd, en was de enige zware actie zonder
+  drempel — een kijker verwijderen vroeg wel bevestiging, een ploeg verwijderen zelfs het wachtwoord.
+  Uitzetten herstelt alles en blijft dus één tik.
+- **Gewijzigd:** "Ploeg verwijderen" in het beheerscherm was een klein tekstlinkje, terwijl dezelfde
+  actie in het tornooischerm een volwaardige knop is. Nu ook hier een echte rode knop.
+
+## v0.17.0
+- **Nieuw:** de **donkere modus kan de instelling van je toestel volgen**. In Instellingen staan nu drie
+  keuzes: altijd licht, altijd donker, of "volg toestel", met de huidige stand van het toestel erbij
+  vermeld. Altijd licht blijft bewust de standaard: wie de app enkel opent om mee te kijken, mag niet
+  plots een ander uiterlijk krijgen omdat zijn telefoon op donker staat. Zet je toestel 's avonds
+  vanzelf om, dan schakelt de app meteen mee, zonder herstart.
+- **Opgelost:** in het selectiescherm zaten **Basis/Wissel/NB** tegen elkaar aan, waardoor een tik die
+  een paar pixels afweek op de buurknop landde. Het zijn nu drie losse knopjes met ruimte ertussen; die
+  ruimte komt uit een smaller rugnummervakje, zodat de rij niet breder wordt. Dezelfde knoppen stonden
+  ook op een harde witte achtergrond en gaven in donkere modus witte blokken.
+- **Opgelost:** de **verwijderknop bij een gebeurtenis was te klein** voor wat hij doet — tijdens een
+  lopende wedstrijd haalt hij een speler van het veld of gooit hij een geplande wissel weg. Hij is
+  merkbaar groter, net als de bewerkknop ernaast.
+- **Gewijzigd:** in Instellingen werd "Ploeg uitnodigen, leden beheren of verwijderen" duidelijker als
+  "Kijkers uitnodigen, beheren of verwijderen".
+
+## v0.16.3
+- **Opgelost:** de **ploegnaam werd in de kopbalk afgekapt** op courante telefoonbreedtes — op een smal
+  scherm zelfs tot "U1...". De clubnaam onder de ploegnaam verschijnt nu pas op bredere schermen (hij
+  staat toch voluit onderaan), het clublogo is iets kleiner en de naam krijgt alle ruimte die overblijft.
+- **Opgelost:** op het **opstellingsveld in de wizard** werden lange familienamen afgekapt
+  ("Franciszek Dabrow…"). Daar staat nu, net als op het live-veld en in het wedstrijdverslag, enkel de
+  achternaam, met een initiaal erbij als twee spelers dezelfde achternaam hebben.
+- **Opgelost:** na **"Plannen zonder selectie"** verdwenen "+ Speler van andere ploeg" en "+ Losse
+  speler" uit het selectiescherm, waardoor je achteraf geen gastspeler meer kon toevoegen. Die knoppen
+  blijven nu staan; enkel bij een tornooiwedstrijd zijn ze verborgen, want daar komen gasten via de
+  tornooiselectie binnen.
+
 ## v0.16.2
 - **Opgelost:** speelminuten werden op sommige plaatsen **afgekapt** en op andere **afgerond**.
   Daardoor stond dezelfde speler in het wedstrijdverslag op 9' en in het dagoverzicht van het tornooi
