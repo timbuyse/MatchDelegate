@@ -34,7 +34,7 @@ function renderDetail() {
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',match.trainer],['Ploegverantw.',match.responsible],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],['Trainer',matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     ${(() => {
@@ -120,7 +120,7 @@ function renderDetail() {
       ${((FORMATIONS[match.matchType]||[]).length && !(match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap'))
         ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Startopstelling herplaatsen</button>`
         : ((FORMATIONS[match.matchType]||[]).length ? `<p style="font-size:11px;color:var(--txt2);margin:-2px 0 8px">De startopstelling kan niet meer herplaatst worden — er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met <b>Positiewissel</b> in het livescherm.</p>` : '')}
-      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>
+      ${cloneMatchBtnHtml(match)}
       <button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
@@ -171,17 +171,49 @@ function photoSectionHtml(m, ro) {
   if (ro && !hasPhotos) return '';
   return `<div class="sec">Foto's</div><div class="card"><div class="photo-grid">${html}</div></div>`;
 }
+// "Gebruik als template" hoort niet bij een tornooiwedstrijd: cloneMatch() maakt een LOSSE
+// wedstrijd (geen tournamentId, geen tornooimodus), en dat is op een tornooidag nooit wat je wil.
+// Daar bestaat "Kloon als nieuwe wedstrijd" voor, die de kloon in hetzelfde tornooi houdt — die
+// bieden we hier ook aan, zodat je er niet voor terug moet naar de tornooipagina.
+function cloneMatchBtnHtml(m) {
+  if (!m) return '';
+  return m.tournamentId
+    ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneTournamentMatch('${m.id}','${m.tournamentId}')">${icI(IC.copy)} Kloon als nieuwe tornooiwedstrijd</button>`
+    : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>`;
+}
 function cloneMatch() {
   if (!canManage() || !match) return;
   const src = match;
+  // Eigen guard naast het verbergen van de knop: een tornooiwedstrijd klonen loopt via
+  // cloneTournamentMatch, anders belandt de kloon buiten het tornooi.
+  if (src.tournamentId) { cloneTournamentMatch(src.id, src.tournamentId); return; }
   const team = teamById(src.teamId);
+  const matchType = src.matchType || '11v11';
+  // Formatie-index uit de bewaarde formatienaam halen. Hier stond `src.formationIndex`, een veld dat
+  // niet op een wedstrijdobject bestaat: elke kloon viel dus terug op de eerste formatie.
+  const fi = Math.max(0, (FORMATIONS[matchType] || []).findIndex(f => f.name === src.formation));
   const pool = (src.players || []).map(p => ({
-    pid: uid(), srcId: p.rosterId || p.id,
+    pid: uid(),
+    // p.id is het speler-id BINNEN de wedstrijd, geen rooster-id: als srcId gebruiken koppelde de
+    // speler aan niets en liet buildPool/finishWizard hem als losse naam achter.
+    srcId: p.rosterId || null,
+    srcGlobalId: p.globalId || null,
     name: p.name, number: p.number,
     pos: p.pos || p.line || '',
+    side: p.side || '',
+    fromName: p.guest ? (p.fromName || '') : (src.teamName || (team ? team.name : '')),
+    guest: !!p.guest,
     sel: p.starting ? 'basis' : 'bank',
-    slot: null, x: p.x, y: p.y, line: p.line, posNum: p.posNum,
+    slot: null, _x: p.x, _y: p.y,
   }));
+  // Spelers die deze wedstrijd niet meededen alsnog in de pool als 'none', zoals editMatchWizard
+  // doet — anders waren ze in de kloon enkel via de gast-modal (fout gelabeld als gast) terug te
+  // halen.
+  const usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
+  (team ? team.players || [] : []).forEach(r => {
+    if (usedSrc.has(r.id)) return;
+    pool.push({ pid: uid(), srcId: r.id, srcGlobalId: r.globalId || null, name: r.name, number: r.number || '', pos: r.pos || '', side: r.side || '', fromName: team.name, guest: false, sel: 'none', slot: null });
+  });
   wiz = {
     step: 1,
     teamId: src.teamId || (team ? team.id : ''),
@@ -189,7 +221,7 @@ function cloneMatch() {
     date: new Date().toISOString().split('T')[0],
     time: src.time || '10:00',
     location: src.location || 'Thuis',
-    matchType: src.matchType || '11v11',
+    matchType,
     periodKey: src.periodKey || 'kwarten',
     quarterDuration: src.quarterDuration || 25,
     numQuarters: src.numQuarters || 4,
@@ -202,9 +234,18 @@ function cloneMatch() {
     responsible: src.responsible || '',
     trainerIsOther: false,
     pool, poolTeamId: src.teamId || '',
-    formationIndex: src.formationIndex || 0,
+    formationIndex: fi,
     selPlace: null,
   };
+  // Basisspelers terugzetten op hun formatieslot (x/y-match), zoals editMatchWizard en
+  // cloneTournamentMatch — anders opende stap 3 met een leeg veld.
+  const form = FORMATIONS[matchType] && FORMATIONS[matchType][fi];
+  if (form) wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
+  // Kapitein meenemen: de eerste pool-entries volgen de volgorde van src.players.
+  if (src.captainId) {
+    const ci = (src.players || []).findIndex(p => p.id === src.captainId);
+    if (ci >= 0 && wiz.pool[ci]) wiz.captainPid = wiz.pool[ci].pid;
+  }
   go('new');
 }
 function confirmDelete() {
@@ -927,7 +968,7 @@ async function exportPDF() {
   // `venue` alleen erbij als het iets toevoegt: bij een tornooiwedstrijd is de locatie gelijk aan
   // m.location, dat al in de metaregel hierboven staat — dan stond ze er twee keer.
   const sameVenue = (m.venue || '').trim().toLowerCase() === (m.location || '').trim().toLowerCase();
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), m.trainer && ('Trainer: ' + m.trainer), m.responsible && ('Afgevaardigde: ' + m.responsible), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), matchTrainer(m) && ('Trainer: ' + matchTrainer(m)), matchResponsible(m) && ('Afgevaardigde: ' + matchResponsible(m)), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });

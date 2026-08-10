@@ -711,7 +711,7 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li><b>Naam</b> (bv. Paastornooi Gent), <b>ploeg</b>, <b>datum</b> en <b>locatie</b>.</li>
         <li><b>Type wedstrijd</b> — de vorm waarin je die dag speelt (bv. 5v5 of 8v8).</li>
-        <li><b>Trainer</b> en optioneel de <b>ploegverantwoordelijke</b>.</li>
+        <li><b>Trainer</b> en optioneel de <b>ploegverantwoordelijke</b>. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
       </ul>
       <div class="sec">Stap 2 — Selectie voor de hele dag</div>
       <p>Duid per speler aan of hij <b>Mee</b> is naar het tornooi, of <b>NB</b> (niet beschikbaar, met een reden naar keuze). Wie je niet aanduidt, is niet geselecteerd. Je kan hier ook per speler het rugnummer voor die dag aanpassen.</p>
@@ -722,7 +722,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Vul de <b>tegenstander</b>, het <b>uur</b>, het <b>aantal blokken</b> en de <b>duur per blok</b> in — tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten.</li>
         <li>Kies uit je tornooiselectie wie <b>Basis</b> of <b>Wissel</b> is en zet de opstelling. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
       </ol>
-      <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen.</p>
+      <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
       <div class="sec">Overzicht</div>
       <p>Bovenaan het tornooi zie je de info en het aantal geselecteerde spelers; zodra er wedstrijden gespeeld zijn, komt daar de balans (gewonnen, gelijk, verloren, doelpunten) bij. Onderaan kan je het hele tornooi verwijderen.</p>
       <p class="hdl-tip">Tornooiwedstrijden staan apart: ze verschijnen niet in de gewone wedstrijdenlijst en tellen niet mee in de seizoensstatistieken. Wel wordt bijgehouden in hoeveel tornooien een speler in de selectie zat.</p>

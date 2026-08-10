@@ -1286,7 +1286,7 @@ function renderTrnStep1() {
     </div>`; })()}
   </div>
   <button class="btn btn-green" onclick="trnWizNext()">Volgende → Selectie</button>
-  <button class="btn btn-orgpale" onclick="saveTournamentWizStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Opslaan zonder selectie</button>`;
+  <button class="btn btn-orgpale" onclick="saveTournamentWizStep1Only()" style="margin-top:8px">${trnWiz.isNew ? icI(IC.calendar) + ' Opslaan zonder selectie' : icI(IC.check) + ' Opslaan'}</button>`;
 }
 function renderTrnStep2() {
   const team = teamById(trnWiz.teamId);
@@ -1453,7 +1453,7 @@ function renderTrnMatchStep1() {
     </div>
   </div>
   <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
-  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder opstelling</button>`;
+  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${wiz.editId ? icI(IC.check) + ' Opslaan' : icI(IC.calendar) + ' Plannen zonder opstelling'}</button>`;
 }
 function trnWizTypeChange() {
   wiz.matchType = document.getElementById('n-type').value;

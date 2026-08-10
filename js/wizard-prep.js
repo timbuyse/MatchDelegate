@@ -162,7 +162,7 @@ function wizStep1() {
       </details>
     </div>
     <button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
-    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder selectie</button>`;
+    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${wiz.editId ? icI(IC.check) + ' Opslaan' : icI(IC.calendar) + ' Plannen zonder selectie'}</button>`;
 }
 function captureStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -710,6 +710,7 @@ async function finishWizard(startNow) {
     m.status = startNow ? 'live' : 'planned';
   }
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
+  syncTournamentStaff(m);
   wiz = null; await dbSave(m); match = m;
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   await go(startNow ? 'live' : 'prep', m.id);
@@ -843,7 +844,7 @@ function renderPrep() {
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
-  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], ['Trainer', m.trainer], ['Ploegverantwoordelijke', m.responsible], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
+  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], ['Trainer', matchTrainer(m)], ['Ploegverantwoordelijke', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
@@ -862,7 +863,7 @@ function renderPrep() {
     <div class="card">${renderPitch(m, starters)}</div>
     <div class="sec">Bank (${bench.length})</div>
     <div class="card">${bench.length ? sortedByName(bench).map(p => `<div class="prow">${numDot(p, 'pnum pnum-off')}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
-    ${ro ? '' : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button><div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
+    ${ro ? '' : `${cloneMatchBtnHtml(m)}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
 async function finishStep1Only() {
@@ -903,6 +904,7 @@ async function finishStep1Only() {
     formation: '', players: [], absentPlayers: [], status: 'planned',
   }, common);
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
+  syncTournamentStaff(m);
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   wiz = null; await dbSave(m); match = m;
   await go('prep', m.id);

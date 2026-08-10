@@ -446,8 +446,19 @@ function modalEditMatchInfo() {
       </div>
       <div class="fg"><label>Scheidsrechter</label><input id="ei-ref" type="text" value="${esc(match.referee||'')}" placeholder="Naam" autocomplete="off"></div>
       <div class="fg"><label>Locatie</label><input id="ei-venue" type="text" value="${esc(match.venue||'')}" placeholder="bv. sportveld, kunstgras B2" autocomplete="off"></div>
-      <div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
-      <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>
+      ${match.tournamentId
+        // Op een tornooidag zijn trainer en ploegverantwoordelijke voor alle wedstrijden dezelfde:
+        // die geef je één keer bij het tornooi in. Kon je ze hier per wedstrijd overschrijven, dan
+        // liep de wedstrijd stil uit de pas met het tornooi (en omgekeerd: een wijziging bij het
+        // tornooi kwam nooit in de wedstrijd terecht). Zelfde aanpak als bij de locatie hierboven.
+        ? `<div class="fg"><label>Trainer</label>
+            <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchTrainer(match) || '—')}</div></div>
+          <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label>
+            <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchResponsible(match) || '—')}</div>
+            <div style="font-size:11px;color:var(--txt2)">Trainer en ploegverantwoordelijke komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
+          </div>`
+        : `<div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
+          <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>`}
     </details>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -486,8 +497,11 @@ async function saveMatchInfo() {
   const prevFormation = match.formation;
   if (formEl) match.formation = formEl.value;
   const formationChanged = formEl && match.formation !== prevFormation;
-  match.trainer = v('ei-trainer').trim();
-  match.responsible = v('ei-responsible').trim();
+  // Bij een tornooiwedstrijd staan deze twee velden er niet (ze komen van het tornooi): dan niets
+  // overschrijven, anders wist de lege v() de bewaarde terugvalwaarde.
+  if (document.getElementById('ei-trainer')) match.trainer = v('ei-trainer').trim();
+  if (document.getElementById('ei-responsible')) match.responsible = v('ei-responsible').trim();
+  syncTournamentStaff(match);
   match.referee = v('ei-ref').trim();
   const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() : compSel;
   match.matchday = v('ei-md').trim();
@@ -803,8 +817,8 @@ function exportMatchCSV() {
   row('Opstelling', m.formation || '');
   row('Aantal periodes', m.numQuarters || '');
   row('Duur per periode (min)', m.quarterDuration || '');
-  row('Trainer', m.trainer || '');
-  row('Afgevaardigde', m.responsible || '');
+  row('Trainer', matchTrainer(m));
+  row('Afgevaardigde', matchResponsible(m));
   row('Scheidsrechter', m.referee || '');
   row('Truikleur', m.jersey || '');
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));

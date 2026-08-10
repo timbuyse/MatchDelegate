@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -359,6 +359,31 @@ function tournamentSquadList(t) {
 // Wie effectief meegaat naar het tornooi. Beschikbaarheid (NB) geef je één keer in bij de
 // tornooiselectie; enkel deze spelers mogen dus in de pool van een tornooiwedstrijd komen.
 function tournamentSquadMee(t) { return tournamentSquadList(t).filter(s => s.sel !== 'absent'); }
+// Trainer en ploegverantwoordelijke van een tornooiwedstrijd komen van het TORNOOI, niet van de
+// wedstrijd: op een tornooidag zijn ze voor alle wedstrijden dezelfde. Ze werden bij het aanmaken
+// van de wedstrijd één keer gekopieerd, dus wie ze nadien in het tornooi wijzigde, zag dat nergens
+// terug. Lees ze daarom altijd via deze twee helpers.
+// De kopie in de wedstrijd (m.trainer / m.responsible) blijft bestaan als terugval — een kijker of
+// een gewist tornooi levert hier geen tornooi op, en dan is de oude waarde nog altijd beter dan
+// niets. Het datamodel verandert niet.
+function matchTrainer(m) {
+  if (!m) return '';
+  const t = m.tournamentId ? tournamentById(m.tournamentId) : null;
+  return (t && t.trainer) || m.trainer || '';
+}
+function matchResponsible(m) {
+  if (!m) return '';
+  const t = m.tournamentId ? tournamentById(m.tournamentId) : null;
+  return (t && t.responsible) || m.responsible || '';
+}
+// De terugvalkopie in de wedstrijd bijwerken telkens ze bewaard wordt, zodat ze niet verouderd
+// raakt tegenover het tornooi. Roep dit aan vlak vóór dbSave() van een tornooiwedstrijd.
+function syncTournamentStaff(m) {
+  if (!m || !m.tournamentId) return;
+  const t = tournamentById(m.tournamentId); if (!t) return;
+  m.trainer = t.trainer || '';
+  m.responsible = t.responsible || '';
+}
 // Puntenverdeling van een tornooi (winst/gelijk/verlies). Verschilt per tornooi: 3/1/0 is de
 // standaard, maar 2/1/0 komt bij jeugdtornooien ook voor. Tornooien van vóór v0.9.1 hebben geen
 // `points`-veld en vallen dus automatisch terug op 3/1/0.

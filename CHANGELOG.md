@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.2
+- **Opgelost:** **trainer en ploegverantwoordelijke van een tornooiwedstrijd komen nu van het tornooi
+  zelf.** Ze werden bij het aanmaken van de wedstrijd één keer overgenomen, dus wie ze nadien in het
+  tornooi wijzigde, zag dat in geen enkele wedstrijd terug — en via "Info bewerken" kon je ze per
+  wedstrijd nog eens anders zetten ook. Op een tornooidag zijn ze voor alle wedstrijden dezelfde: je
+  geeft ze één keer in bij het tornooi, en elke wedstrijd, elk verslag en elke PDF volgt. In "Info
+  bewerken" staan ze bij een tornooiwedstrijd nu als leesregel, net zoals de locatie. Bestaande
+  tornooiwedstrijden zijn meteen mee — er verandert niets aan de bewaarde gegevens.
+- **Opgelost:** **"Gebruik als template" verdwijnt bij een tornooiwedstrijd.** Die knop maakte een
+  losse wedstrijd zonder tornooi, wat op een tornooidag nooit de bedoeling is. In de plaats staat er
+  nu **"Kloon als nieuwe tornooiwedstrijd"**, dezelfde actie als op de tornooipagina, zodat je er niet
+  meer voor terug moet.
+- **Opgelost:** bij het **bewerken** van een wedstrijd of tornooi heette de tweede knop nog altijd
+  "Plannen zonder selectie" of "Opslaan zonder selectie", ook als er al lang een selectie ingevuld was.
+  Er staat nu gewoon **"Opslaan"**.
+- **Opgelost:** **"Gebruik als template" bij een gewone wedstrijd nam de opstelling niet mee.** De
+  kloon viel altijd terug op de eerste formatie en opende met een leeg veld. Nu blijven formatie,
+  posities, kapitein en gastlabels behouden, en spelers die deze wedstrijd niet meededen staan meteen
+  in de lijst in plaats van enkel als "gast" toevoegbaar te zijn.
+
 ## v0.17.1
 - **Gewijzigd:** de **QR-code van een uitnodiging wordt nu op het toestel zelf getekend** in plaats van
   opgehaald bij een externe dienst. Die dienst werkte niet zonder internet — net aan de zijlijn waar je
