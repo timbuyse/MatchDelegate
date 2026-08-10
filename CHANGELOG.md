@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.6
+- **Nieuw:** wijzig je de standaardduur van een tornooi, dan vraagt de app of de **al geplande
+  wedstrijden** mee moeten. Ze somt op welke wedstrijden nu een andere duur hebben, zodat je ziet wat
+  je overschrijft. Lopende en gespeelde wedstrijden blijven altijd ongemoeid — daar zijn de blokken
+  al afgewerkt.
+- **Opgelost in het tornooiverslag (scherm en PDF):**
+  - De tabel **Speeltijd over de dag** heeft duidelijke kolomkoppen die op één regel passen:
+    *Gespeelde wedstrijden · Totaal speelminuten · Gem. per gespeelde match*. Voordien brak
+    "Gem./match" middenin een woord af, en die kop verzweeg bovendien dat de deler het aantal
+    **gespeelde** wedstrijden is. Alle cijferkolommen zijn nu rechts uitgelijnd, koppen inbegrepen.
+  - In de **fair-play-tabel** stond onder de kop "In selectie" de tekst "2 van 3 gespeeld" — twee
+    gegevens onder één kop, waarvan het gespeelde deel al in de tabel erboven staat. Er staat nu
+    enkel *Aantal keer geselecteerd*, met het gemiddelde per selectie ernaast.
+  - **Doelpunten en assists** staan elk op een eigen regel in plaats van achter elkaar.
+  - De **wedstrijdduur** staat nu ook in de kop van het tornooiverslag, en de puntenzin eronder
+    herhaalt het schema niet meer (dat staat één regel hoger al).
+- **Opgelost:** bij een wedstrijd van **één blok** ontbrak de **bankregel** onder het velddiagram in
+  de PDF, terwijl het scherm ze wel toonde. Dat trof net tornooiwedstrijden, die vrijwel altijd uit
+  één blok bestaan.
+
 ## v0.17.5
 - **Gewijzigd:** op het **velddiagram** staat nu de **voornaam met de eerste letter van de
   familienaam** ("Maxim B.") in plaats van de familienaam. Dat is hoe een ploeg elkaar noemt, en op

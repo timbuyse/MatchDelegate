@@ -648,10 +648,10 @@ async function loadTournamentReport() {
           + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : '')
         : (() => { const rest = r.notPresent.length + r.squadNotSelected.length + r.squadAbsent.length; if (rest) verborgen++; return ''; })()))}
     ${secIf('minutes', `${icI(IC.timer)} Speeltijd over de dag`, minutes.length
-      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/match` : '', `${mn(p.ms)}'`)).join('')
+      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/gespeelde match` : '', `${mn(p.ms)}'`)).join('')
       : '<p style="color:var(--txt2);font-size:14px">—</p>')}
     ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond telt hier niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`
-      + (fair.length ? fair.map(p => row(esc(p.name), `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'/match`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+      + (fair.length ? fair.map(p => row(esc(p.name), `${p.timed}× geselecteerd`, `${mn(p.ms / p.timed)}'/selectie`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}
@@ -731,7 +731,7 @@ async function exportTournamentPDF() {
   doc.text(titleLines, tx, L.y + 13);
   doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
   let my = L.y + 13 + (titleLines.length - 1) * 16 + 14;
-  const metaBits = [team ? team.name : (t.teamName || ''), t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '', t.location, t.matchType].filter(Boolean);
+  const metaBits = [team ? team.name : (t.teamName || ''), t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '', t.location, t.matchType, tournamentPeriodsLabel(t)].filter(Boolean);
   const metaLines = doc.splitTextToSize(metaBits.join(' · '), tw);
   doc.text(metaLines, tx, my); my += metaLines.length * 13;
   const infoBits = [t.trainer && ('Trainer: ' + t.trainer), t.responsible && ('Ploegverantwoordelijke: ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
@@ -761,7 +761,8 @@ async function exportTournamentPDF() {
   }
   if (r.usesPoints) {
     doc.setFontSize(9.5);
-    doc.text(`De punten (${r.pointsLabel} voor ${r.pointsLegend}) gaan enkel over de eigen wedstrijden en zijn geen officiële eindstand van het tornooi.`, PW / 2, L.y, { align: 'center', maxWidth: CW });
+    // Zonder het schema tussen haakjes: dat staat één regel hoger al in de resultaatregel.
+    doc.text('De punten gaan enkel over de eigen wedstrijden en zijn geen officiële eindstand van het tornooi.', PW / 2, L.y, { align: 'center', maxWidth: CW });
     L.y += 22;
   } else L.y += 8;
   doc.setTextColor(23, 23, 23);
@@ -809,25 +810,41 @@ async function exportTournamentPDF() {
   const numCol = anyNum ? ['#'] : [];
   const numCell = p => anyNum ? [pNum(p)] : [];
   const colShift = obj => { if (anyNum) return obj; const out = {}; for (const k in obj) out[Number(k) - 1] = obj[k]; delete out['-1']; return out; };
+  // autoTable laat een kolom-halign niet doorwerken op de kopcel (headStyles wint), waardoor de
+  // titels links stonden boven rechts uitgelijnde cijfers. Alles rechts behalve # en de naam.
+  const naamIdx = anyNum ? 1 : 0;
+  const rechtsUitgelijndeKoppen = d => { if (d.section === 'head' && d.column.index > naamIdx) d.cell.styles.halign = 'right'; };
   if (played.length && pdfMag('minutes')) {
     const minutes = played.slice().sort((a, b) => b.ms - a.ms);
     tableBlock('Speeltijd over de dag', {
-      head: [[...numCol, 'Naam', 'Gespeeld', 'Totaal', 'Gem./match']],
+      // Koppen die zeggen wat er staat: de noemer van het gemiddelde is het aantal wedstrijden waarin
+      // de speler effectief speelde, niet het aantal wedstrijden van de dag. Wie een wedstrijd op de
+      // bank bleef, telt hier dus niet mee — in de fair-play-tabel hieronder net wél.
+      // Kopletter 9 en ruimere kolommen, zodat elke titel op één regel past; alles rechts uitgelijnd
+      // behalve de naam, net als de cijfers eronder (zie didParseCell).
+      head: [[...numCol, 'Naam', 'Gespeelde wedstrijden', 'Totaal speelminuten', 'Gem. per gespeelde match']],
       body: minutes.map(p => [...numCell(p), p.name || '',
         `${p.mp} van ${r.done.length}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`,
         `${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-']),
-      styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
-      columnStyles: colShift({ 0: { cellWidth: 24 }, 3: { cellWidth: 48, halign: 'right' }, 4: { cellWidth: 66, halign: 'right' } }),
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: Object.assign({}, HEAD_STYLE, { fontSize: 9 }),
+      columnStyles: colShift({ 0: { cellWidth: 24 }, 2: { cellWidth: 112, halign: 'right' }, 3: { cellWidth: 102, halign: 'right' }, 4: { cellWidth: 128, halign: 'right' } }),
+      didParseCell: rechtsUitgelijndeKoppen,
     }, 24);
   }
   // Zelfde noemer als op het scherm: enkel wedstrijden met geregistreerde speeltijd (zie `timed`).
   const fairPdf = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   if (fairPdf.length && pdfMag('fairplay')) {
     tableBlock('Fair-play · minste speeltijd', {
-      head: [[...numCol, 'Naam', 'In selectie', 'Gem./selectie']],
-      body: fairPdf.map(p => [...numCell(p), p.name || '', `${p.mp}/${p.timed} gespeeld`, `${mn(p.ms / p.timed)}'`]),
-      styles: { fontSize: 10, cellPadding: 5 }, headStyles: HEAD_STYLE,
-      columnStyles: colShift({ 0: { cellWidth: 24 }, 3: { cellWidth: 80, halign: 'right' } }),
+      // Eén getal per kolom: hoe vaak hij in de selectie zat, en zijn gemiddelde over die selecties.
+      // Voordien stond in de kolom "In selectie" de tekst "2 van 3 gespeeld" — twee gegevens onder
+      // één kop, en het gespeelde deel staat al in de tabel hierboven.
+      head: [[...numCol, 'Naam', 'Aantal keer geselecteerd', 'Gem. per selectie']],
+      body: fairPdf.map(p => [...numCell(p), p.name || '', `${p.timed}`, `${mn(p.ms / p.timed)}'`]),
+      styles: { fontSize: 10, cellPadding: 5 },
+      headStyles: Object.assign({}, HEAD_STYLE, { fontSize: 9 }),
+      columnStyles: colShift({ 0: { cellWidth: 24 }, 2: { cellWidth: 128, halign: 'right' }, 3: { cellWidth: 96, halign: 'right' } }),
+      didParseCell: rechtsUitgelijndeKoppen,
     }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.');
   }
 
@@ -838,8 +855,10 @@ async function exportTournamentPDF() {
   const keepers = r.players.filter(p => p.keeperMp > 0).sort((a, b) => b.keeperMs - a.keeperMs);
   const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   if (scorers.length || assisters.length) {
+    // Elk op een eigen regel: achter elkaar met een puntje ertussen liep de assistlijst midden in
+    // de doelpuntenlijst door en was niet meer te zien waar de ene ophield.
     const parts = [scorers.length ? 'Doelpunten: ' + tally(scorers, p => p.goals) : '', assisters.length ? 'Assists: ' + tally(assisters, p => p.assists) : ''].filter(Boolean);
-    textBlock('Doelpunten & assists', parts.join('   ·   '));
+    textBlock('Doelpunten & assists', parts.join('\n'));
   }
   if (keepers.length) textBlock('Keeper(s)', keepers.map(p => `${p.name}: ${p.keeperMp} ${p.keeperMp === 1 ? 'wedstrijd' : 'wedstrijden'} in doel, ${p.cs} clean sheet${p.cs === 1 ? '' : 's'}`).join('   ·   '));
   if (carded.length && pdfMag('cards')) textBlock('Kaarten', carded.map(p => `${p.name}: ${[p.yc ? p.yc + '× geel' : '', p.rc ? p.rc + '× rood' : ''].filter(Boolean).join(' + ')}`).join('   ·   '));
@@ -1259,9 +1278,49 @@ async function saveTournamentWiz() {
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
     standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
   };
+  // Is de standaardduur gewijzigd? Dan vragen we achteraf of de al geplande wedstrijden mee moeten
+  // (zie vraagDuurToepassen). Vóór het opslaan bepalen, want daarna is de oude waarde weg.
+  const vorige = tournamentPeriods(tournamentById(trnWiz.id));
+  const nieuwe = tournamentPeriods(obj);
+  const duurGewijzigd = !trnWiz.isNew
+    && (vorige.numQuarters !== nieuwe.numQuarters || vorige.quarterDuration !== nieuwe.quarterDuration || vorige.periodKey !== nieuwe.periodKey);
   saveTournament(obj); // upsert lokaal + enkel dit ene tornooi naar de cloud
   currentTournament = obj; trnWiz = null;
-  go('tournament');
+  await go('tournament');
+  if (duurGewijzigd) vraagDuurToepassen(obj);
+}
+// De standaardduur van het tornooi is net gewijzigd: aanbieden om de al GEPLANDE wedstrijden mee te
+// zetten. Enkel geplande — bij een lopende of gespeelde wedstrijd zijn de blokken al afgewerkt en
+// zou een andere duur de speelminuten en het verslag onbetrouwbaar maken.
+async function vraagDuurToepassen(t) {
+  const gepland = (await dbAll()).filter(m => m.tournamentId === t.id && m.status === 'planned');
+  if (!gepland.length) return;
+  const p = tournamentPeriods(t);
+  const zelfde = m => m.numQuarters === p.numQuarters && m.quarterDuration === p.quarterDuration;
+  const teWijzigen = gepland.filter(m => !zelfde(m));
+  if (!teWijzigen.length) return; // ze stonden al zo — niets te vragen
+  const n = teWijzigen.length;
+  openModal(`<h3>${icI(IC.timer)} Ook de geplande wedstrijden?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:6px">De standaardduur van dit tornooi staat nu op <b>${tournamentPeriodsLabel(t)}</b>.
+    ${n === 1 ? 'Eén geplande wedstrijd heeft' : `${n} geplande wedstrijden hebben`} nog een andere duur:</p>
+    <p style="text-align:center;font-size:13px;color:var(--txt2);margin-bottom:16px">${teWijzigen.map(m => `${esc(m.opponent || 'Wedstrijd')} (${m.numQuarters} × ${m.quarterDuration} min)`).join('<br>')}</p>
+    <button class="btn btn-green" onclick="pasDuurToe('${t.id}')">${icI(IC.check)} Ja, ${n === 1 ? 'die wedstrijd' : 'die ' + n + ' wedstrijden'} aanpassen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Nee, laten staan</button>`);
+}
+async function pasDuurToe(trnId) {
+  const t = tournamentById(trnId); if (!t) { closeModal(); return; }
+  const p = tournamentPeriods(t);
+  const gepland = (await dbAll()).filter(m => m.tournamentId === trnId && m.status === 'planned');
+  let n = 0;
+  for (const m of gepland) {
+    if (m.numQuarters === p.numQuarters && m.quarterDuration === p.quarterDuration && m.periodKey === p.periodKey) continue;
+    m.periodKey = p.periodKey; m.numQuarters = p.numQuarters; m.quarterDuration = p.quarterDuration;
+    await dbSave(m);
+    n++;
+  }
+  closeModal();
+  showToast(n === 1 ? 'Eén wedstrijd aangepast.' : `${n} wedstrijden aangepast.`, 'ok');
+  render();
 }
 function renderTournamentNew() {
   if (!trnWiz) return '<div class="content"><p>Geen wizard.</p></div>';

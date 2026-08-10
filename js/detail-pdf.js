@@ -731,7 +731,11 @@ async function pdfMatchBody(doc, L, m) {
     // "Opstelling per <deel>" overbodig werd.
     const labelH = items[0].q != null ? 14 : 0;
     const benchLines = items.map(it => {
-      const names = it.q != null ? periodBenchNames(m, it.q) : [];
+      // Bij één blok is it.q null (er is geen "Deel 1"-label nodig), maar de bank hoort er wél bij:
+      // op het scherm staat ze onder hetzelfde diagram, en in de PDF viel ze daardoor stil weg —
+      // net bij tornooiwedstrijden, die vrijwel altijd uit één blok bestaan.
+      const q = it.q != null ? it.q : (m.quarters && m.quarters.length ? 1 : null);
+      const names = q != null ? periodBenchNames(m, q) : [];
       return names.length ? ('Bank: ' + names.join(', ')) : '';
     });
     const gap = 12;
