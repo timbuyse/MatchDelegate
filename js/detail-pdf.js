@@ -407,7 +407,9 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     const yy = LINE_Y[line] != null ? LINE_Y[line] : 50, n = ps.length;
     ps.forEach((p, i) => pts.push({ p, x: n === 1 ? 50 : 18 + i * (64 / (n - 1)), y: yy }));
   });
-  const dns = fieldDisplayNames(pts.map(({ p }) => p));
+  // Zie renderPitch: ontdubbelen over de hele wedstrijdselectie, zodat een invaller met dezelfde
+  // voornaam in het wisselplaatje eronder ook zijn letter krijgt.
+  const dns = fieldDisplayNames((m && m.players && m.players.length) ? m.players : pts.map(({ p }) => p));
   const marks = periodPlayerMarks(m, qNum);
   // 12 eenheden (i.p.v. 10) voor de namen: op papier las 10 te klein. Het nummer in de bol blijft
   // op 13 — groter past niet binnen de bol (radius 15).
@@ -470,7 +472,7 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     if (bolTekst) doc.text(bolTekst, cx, cy + numSize * 0.35, { align: 'center' });
     // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
     // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).
-    const label = (dns.get(p.id) || _lastName(p.name || '')) + (capId === p.id ? ' ©' : '');
+    const label = (dns.get(p.id) || _firstName(p.name || '')) + (capId === p.id ? ' ©' : '');
     const mk = marks.get(p.id);
     const nameChip = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255], 0, cardsWidth(mk, nameSize));
     if (cardCount(mk)) drawCards(mk, nameChip.tailX, nameChip.midY, nameSize);
@@ -1037,7 +1039,7 @@ async function exportPDF() {
       (pdfTrn.date && !eq(pdfTrn.date, m.date)) ? fmtDate(new Date(pdfTrn.date + 'T00:00:00').getTime()) : '',
       (pdfTrn.location && !eq(pdfTrn.location, m.location)) ? pdfTrn.location : '',
       pdfTrn.standing && ('Eindstand: ' + pdfTrn.standing),
-      tournamentUsesPoints(pdfTrn) ? `Punten: ${tournamentPointsLabel(pdfTrn)} (winst/gelijk/verlies)` : '',
+      tournamentUsesPoints(pdfTrn) ? `Punten: ${tournamentPointsLabel(pdfTrn)} (${tournamentPointsLegend(pdfTrn)})` : '',
     ].filter(Boolean);
     const trnGroups = [['Geselecteerd:', tg.mee, true], ['Niet geselecteerd:', tg.notSelected, false], ['Niet beschikbaar:', tg.absent, false]]
       .filter(g => g[1].length);

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.5
+- **Gewijzigd:** op het **velddiagram** staat nu de **voornaam met de eerste letter van de
+  familienaam** ("Maxim B.") in plaats van de familienaam. Dat is hoe een ploeg elkaar noemt, en op
+  een jeugdploeg herken je zo sneller wie waar staat. Geldt overal waar het veld getekend wordt: in
+  de app, in de wizard, in het verslag en in de PDF, inclusief de bankregel eronder en het naampje
+  van wie inviel. Hebben twee spelers dezelfde voornaam én dezelfde beginletter (Lars Marysse naast
+  Lars Meersman), dan komen er letters bij tot ze verschillen: "Lars Ma." en "Lars Me.".
+- In **tabellen en lijsten** verandert er niets: de selectie, de spelerstabel, de doelpunten, de
+  tijdlijn en de notities houden overal de volledige naam.
+- **Nieuw:** de puntenverdeling van een tornooi kan een **gelijkspel met doelpunten anders belonen
+  dan een 0-0**. Er staan nu vier vakjes (winst · gelijk mét doelpunten · gelijk 0-0 · verlies) en
+  het verslag toont dan bijvoorbeeld "3/2/1/0". Vul je bij allebei hetzelfde in, dan blijft alles
+  zoals het was en staat er gewoon "3/1/0". Bestaande tornooien rekenen ongewijzigd verder: een
+  ontbrekende 0-0-waarde volgt vanzelf de gewone gelijkspelwaarde.
+
 ## v0.17.4
 - **Nieuw:** een tornooi bepaalt nu ook de **standaardduur van zijn wedstrijden** — aantal blokken en
   duur per blok, naast het type wedstrijd dat er al stond. Dat is het principe van een tornooi: alle

@@ -1878,15 +1878,54 @@ function _lastName(name) {
   const parts = name.trim().split(/\s+/);
   return parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
 }
-// Map van speler-id → veldnaam: enkel achternaam, met initiaal als er duplicaten zijn.
+// Voornaam = het eerste woord. Dat is wat er op het veld staat: een trainer roept een voornaam,
+// en op een jeugdploeg herken je zo sneller wie waar staat dan aan de familienaam.
+function _firstName(name) {
+  if (!name) return '';
+  return name.trim().split(/\s+/)[0];
+}
+// Map van speler-id → veldnaam: voornaam + de eerste letter van de familienaam ("Maxim B."). Botsen
+// twee spelers daar nog op (Lars Marysse naast Lars Meersman), dan komen er letters bij tot ze
+// verschillen. Geef bij voorkeur de VOLLEDIGE spelerslijst van de wedstrijd mee, niet enkel wie op
+// het veld staat: anders krijgt een invaller met dezelfde voornaam als een basisspeler te weinig
+// letters, terwijl beide namen na een wissel op hetzelfde diagram verschijnen.
 function fieldDisplayNames(players) {
-  const lastNames = players.map(p => _lastName(p.name || ''));
+  const firstNames = players.map(p => _firstName(p.name || ''));
+  // Een naam van één woord heeft geen familienaam — _lastName geeft dan datzelfde woord terug, en
+  // zonder deze uitzondering werd "Cher" op het veld "Cher Cher".
+  const lastNames = players.map((p, i) => {
+    const ln = _lastName(p.name || '').trim();
+    return ln.toLowerCase() === _firstName(p.name || '').toLowerCase() ? '' : ln;
+  });
+  // Eén letter is de standaard, maar bij "Lars Marysse" naast "Lars Meersman" zou dat twee keer
+  // "Lars M." geven. Per groep gelijke voornamen zoeken we daarom het kleinste aantal letters
+  // waarmee iedereen in die groep verschilt.
+  const kort = new Map(); // voornaam (kleine letters) → aantal letters van de familienaam
+  firstNames.forEach((fn, i) => {
+    const key = fn.toLowerCase();
+    if (kort.has(key)) return;
+    const groep = lastNames.filter((_, j) => firstNames[j].toLowerCase() === key);
+    if (groep.length < 2) { kort.set(key, 1); return; }
+    let n = 1;
+    const maxLen = Math.max(...groep.map(l => l.length));
+    while (n < maxLen && new Set(groep.map(l => l.slice(0, n).toLowerCase())).size < groep.length) n++;
+    kort.set(key, n);
+  });
   return new Map(players.map((p, i) => {
-    const ln = lastNames[i];
-    const isDup = lastNames.filter(l => l.toLowerCase() === ln.toLowerCase()).length > 1;
-    const initial = isDup ? ((p.name||'').trim()[0]||'').toUpperCase() + '. ' : '';
-    return [p.id, initial + ln];
+    const n = kort.get(firstNames[i].toLowerCase()) || 1;
+    if (!lastNames[i]) return [p.id, firstNames[i]];
+    // trimEnd: bij een tussenvoegsel valt de afkapping soms op een spatie ("Van " → "Van.").
+    const stuk = lastNames[i].slice(0, n).trimEnd();
+    if (!stuk) return [p.id, firstNames[i]];
+    // Volledige familienaam (twee naamgenoten): geen punt erachter, dat leest als een afkorting.
+    return [p.id, firstNames[i] + ' ' + stuk + (stuk.length < lastNames[i].length ? '.' : '')];
   }));
+}
+// Veldnaam van één speler van een wedstrijd, met dezelfde ontdubbeling als het diagram zelf.
+function fieldName(m, id) {
+  const p = (m && m.players || []).find(x => x.id === id);
+  if (!p) return '?';
+  return fieldDisplayNames(m.players).get(id) || _firstName(p.name || '');
 }
 function pitchLines() {
   return `<svg class="pitch-lines" viewBox="0 0 320 480">
@@ -1908,7 +1947,7 @@ function pitchLines() {
 function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
   const cap = (capId === p.id) ? ' ©' : '';
-  const lbl = `${esc(dn || _lastName(p.name))}${cap}`;
+  const lbl = `${esc(dn || _firstName(p.name))}${cap}`;
   // tap = { fn, selId }: maakt de bol aantikbaar (pauze-opstelling in het livescherm).
   const tapAttr = tap ? ` onclick="${tap.fn}('field','${p.id}')" style="cursor:pointer;` : ' style="';
   const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);' : '';
@@ -1929,7 +1968,10 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
 // qNum (optioneel): toont per speler de wissel/kaart/blessure van dat deel, en de bank eronder.
 // tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.
 function renderPitch(m, players, captainId, qNum, tap) {
-  const dns = fieldDisplayNames(players);
+  // Dedupliceren over de hele wedstrijdselectie, niet enkel over wie nu op het veld staat: een
+  // invaller met dezelfde voornaam verschijnt op hetzelfde diagram (in het wisselplaatje) en moet
+  // dus dezelfde letter krijgen.
+  const dns = fieldDisplayNames((m && m.players && m.players.length) ? m.players : players);
   const marks = m ? periodPlayerMarks(m, qNum) : new Map();
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
@@ -1989,7 +2031,7 @@ function periodPlayerMarks(m, qNum) {
   for (const e of evs) {
     if (e.type === 'substitution' && !e.atBreak && e.playerOutId && e.playerInId) {
       const root = rootOf(e.playerOutId);
-      get(root).subs.push(_lastName(pName(m, e.playerInId)));
+      get(root).subs.push(fieldName(m, e.playerInId));
       lastOf.set(root, e.playerInId);
     } else if (e.type === 'yellow_card' && e.playerId) {
       get(rootOf(e.playerId)).yellow++;
@@ -2005,8 +2047,9 @@ function periodBenchNames(m, qNum) {
   if (!qNum) return [];
   const onField = new Set(playersAtPeriodStart(m, qNum).map(p => p.id));
   (m.events || []).forEach(e => { if (e.type === 'substitution' && e.quarterNum === qNum && e.playerInId) onField.add(e.playerInId); });
+  const dns = fieldDisplayNames(m.players || []);
   return (m.players || []).filter(p => !p.absent && !onField.has(p.id))
-    .map(p => _lastName(p.name || ''))
+    .map(p => dns.get(p.id) || _firstName(p.name || ''))
     .sort((a, b) => a.localeCompare(b, 'nl'));
 }
 

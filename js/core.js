@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -406,23 +406,36 @@ function tournamentPeriodsLabel(t) {
   const p = tournamentPeriods(t);
   return `${p.numQuarters} × ${p.quarterDuration} min`;
 }
-// Puntenverdeling van een tornooi (winst/gelijk/verlies). Verschilt per tornooi: 3/1/0 is de
-// standaard, maar 2/1/0 komt bij jeugdtornooien ook voor. Tornooien van vóór v0.9.1 hebben geen
-// `points`-veld en vallen dus automatisch terug op 3/1/0.
+// Puntenverdeling van een tornooi. Verschilt per tornooi: 3/1/0 is de standaard, maar 2/1/0 komt bij
+// jeugdtornooien ook voor. Sommige tornooien belonen een gelijkspel MET doelpunten (1-1, 2-2) anders
+// dan een 0-0 — vandaar de aparte `drawNil`. Die valt terug op `draw` wanneer hij ontbreekt, dus
+// tornooien van vóór v0.17.5 rekenen exact zoals voorheen; tornooien van vóór v0.9.1 hebben helemaal
+// geen `points`-veld en vallen terug op 3/1/0.
 const TRN_POINTS_DEFAULT = { win: 3, draw: 1, loss: 0 };
 function tournamentPoints(t) {
   const p = (t && t.points) || {};
   const num = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : d; };
+  const draw = num(p.draw, TRN_POINTS_DEFAULT.draw);
   return {
     win: num(p.win, TRN_POINTS_DEFAULT.win),
-    draw: num(p.draw, TRN_POINTS_DEFAULT.draw),
+    draw,
+    drawNil: num(p.drawNil, draw),
     loss: num(p.loss, TRN_POINTS_DEFAULT.loss),
   };
 }
-// "3/1/0" — om het schema bij het puntentotaal te vermelden.
-function tournamentPointsLabel(t) { const p = tournamentPoints(t); return `${p.win}/${p.draw}/${p.loss}`; }
+// "3/1/0", of "3/2/1/0" wanneer een 0-0 anders telt dan een gelijkspel met doelpunten. Zolang die
+// twee gelijk zijn blijft het driedelige schema staan — dat is wat iedereen kent.
+function tournamentPointsLabel(t) {
+  const p = tournamentPoints(t);
+  return p.drawNil === p.draw ? `${p.win}/${p.draw}/${p.loss}` : `${p.win}/${p.draw}/${p.drawNil}/${p.loss}`;
+}
+// Uitleg die bij het schema hoort, zodat "3/2/1/0" leesbaar blijft.
+function tournamentPointsLegend(t) {
+  const p = tournamentPoints(t);
+  return p.drawNil === p.draw ? 'winst/gelijk/verlies' : 'winst/gelijk met doelpunten/0-0/verlies';
+}
 // Alles op 0 = er wordt niet op punten gespeeld; dan laten we de puntenregel helemaal weg.
-function tournamentUsesPoints(t) { const p = tournamentPoints(t); return (p.win + p.draw + p.loss) > 0; }
+function tournamentUsesPoints(t) { const p = tournamentPoints(t); return (p.win + p.draw + p.drawNil + p.loss) > 0; }
 function goTournament(id) { currentTournament = tournamentById(id); go('tournament'); }
 // Score & opstelling herberekenen uit de events (na correctie/verwijdering)
 function recomputeScore(m) {

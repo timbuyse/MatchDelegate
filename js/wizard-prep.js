@@ -467,11 +467,13 @@ function wizPitch(form) {
   // initiaal erbij als twee spelers in de basis dezelfde achternaam hebben. De volledige naam paste
   // niet in het label (lange familienamen werden afgekapt tot "Franciszek Dabrow…").
   const basis = wiz.pool.filter(p => p.sel === 'basis');
-  const dns = fieldDisplayNames(basis.map(p => ({ id: p.pid, name: p.name })));
+  // Ontdubbelen over iedereen die in de selectie zit (basis én bank), niet enkel over de
+  // basisspelers: een wisselspeler met dezelfde voornaam komt in de wedstrijd op hetzelfde veld.
+  const dns = fieldDisplayNames(wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').map(p => ({ id: p.pid, name: p.name })));
   const slots = form.slots.map((s, i) => {
     const posNum = computePosNum(wiz.matchType, i, form.slots);
     const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(dns.get(p.pid) || _lastName(p.name))}</span></div>`;
+    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(dns.get(p.pid) || _firstName(p.name))}</span></div>`;
     return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}</div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;

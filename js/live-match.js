@@ -1583,7 +1583,7 @@ function pauseLineupHtml(m) {
       ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId })}
       <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
       <div class="place-chips">${bench.length
-        ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(_lastName(p.name))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
+        ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
       ${(nSubs || nSwaps) ? `<div class="sec">Ingepland (${nSubs + nSwaps})</div>
         ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
