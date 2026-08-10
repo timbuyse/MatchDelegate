@@ -87,7 +87,7 @@ function renderTeamView() {
   <div class="content">
     <div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — ploegen worden door de beheerder beheerd</div>
     ${(t.responsible || trainers.length) ? `<div class="card">
-      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantwoordelijke</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
+      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantw.</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
     </div>` : ''}
     <div class="sec">Spelers (${t.players.length})</div>
@@ -110,7 +110,7 @@ function renderTeamOverview() {
     </div>
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2);min-width:140px">Standaardopstelling</span><span style="font-weight:600">${esc(oForm)} <span style="color:var(--txt2);font-weight:400">(${esc(oDmt)})</span></span></div>
-      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantwoordelijke</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
+      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantw.</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
       ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
     </div>
     <div class="sec">Spelers (${t.players.length})</div>
@@ -365,8 +365,11 @@ async function loadTournamentDetail() {
   const infoRows = [
     ['Ploeg', team ? team.name : (t.teamName || '')],
     ['Locatie', t.location],
+    ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     ['Trainer', t.trainer],
-    ['Ploegverantwoordelijke', t.responsible],
+    // Afgekort, zoals in het wedstrijddetail: voluit botst het label in deze smalle kolom tegen de
+    // naam ernaast.
+    ['Ploegverantw.', t.responsible],
     ['Eindstand', t.standing],
     // Enkel vermelden als de puntenverdeling afwijkt van de standaard 3/1/0, anders is het ruis.
     // Alles op 0 = er wordt niet op punten gespeeld; dan hoort er geen "0/0/0"-regel te staan.
@@ -567,8 +570,9 @@ async function loadTournamentReport() {
     ['Ploeg', team ? team.name : (t.teamName || '')],
     ['Locatie', t.location],
     ['Format', t.matchType],
+    ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     ['Trainer', t.trainer],
-    ['Ploegverantwoordelijke', t.responsible],
+    ['Ploegverantw.', t.responsible],
     ['Eindstand', t.standing],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
   // Resultaten: één rij per wedstrijd, met de doelpuntenmakers eronder. Tikken opent het verslag
@@ -1024,6 +1028,8 @@ function newTournament() {
     name: '', date: now.toISOString().split('T')[0],
     location: '', teamId: (team || {}).id || '',
     matchType: '8v8',
+    periodKey: TRN_PERIODS_DEFAULT.periodKey, numQuarters: TRN_PERIODS_DEFAULT.numQuarters,
+    quarterDuration: TRN_PERIODS_DEFAULT.quarterDuration,
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
     trainerIsOther: false, pool: [], poolTeamId: null,
@@ -1118,6 +1124,20 @@ function trnWizTeamChange() {
   }
   render();
 }
+// Wisselt de blokvorm van de standaardduur: duurlijst herbouwen en terugvallen op de standaardduur
+// van die vorm, net zoals trnPeriodChange() bij een tornooiwedstrijd doet. Zonder dat bleef een
+// duur staan die niet in de nieuwe lijst voorkomt, en sprong de selector op "Vrij…" met een leeg vakje.
+function trnDefPeriodChange() {
+  const el = document.getElementById('trn-pt'); if (!el || !trnWiz) return;
+  if (el.value === '1') { trnWiz.periodKey = 'delen'; trnWiz.numQuarters = 1; }
+  else if (PERIOD_TYPES[el.value]) { trnWiz.periodKey = el.value; trnWiz.numQuarters = PERIOD_TYPES[el.value].count; }
+  const qd = document.getElementById('trn-qd'); if (!qd) return;
+  const def = DUR_DEFAULT[trnWiz.periodKey] || tournamentPeriods(trnWiz).quarterDuration;
+  trnWiz.quarterDuration = def;
+  qd.innerHTML = durOptsHtml(trnWiz.periodKey, def);
+  const ci = document.getElementById('trn-qd-custom');
+  if (ci) { ci.style.display = qd.value === '0' ? '' : 'none'; if (qd.value !== '0') ci.value = ''; }
+}
 function trnTrainerSelChange(val) {
   trnWiz.trainerIsOther = val === '_other';
   if (!trnWiz.trainerIsOther) trnWiz.trainer = val;
@@ -1131,6 +1151,14 @@ function captureTrnStep1() {
   trnWiz.date = v('trn-date');
   trnWiz.location = (v('trn-location') || '').trim();
   const mt = document.getElementById('trn-matchtype'); if (mt) trnWiz.matchType = mt.value;
+  // Standaardduur. Zelfde vertaling als readTrnPeriodSel(): "1 blok" is periodKey 'delen' met
+  // numQuarters 1, de andere keuzes halen hun aantal uit PERIOD_TYPES.
+  const ptEl = document.getElementById('trn-pt');
+  if (ptEl) {
+    if (ptEl.value === '1') { trnWiz.periodKey = 'delen'; trnWiz.numQuarters = 1; }
+    else if (PERIOD_TYPES[ptEl.value]) { trnWiz.periodKey = ptEl.value; trnWiz.numQuarters = PERIOD_TYPES[ptEl.value].count; }
+    trnWiz.quarterDuration = readDur('trn-qd', 'trn-qd-custom', tournamentPeriods(trnWiz).quarterDuration);
+  }
   const trainerSel = document.getElementById('trn-trainer-sel');
   if (trainerSel) { trnWiz.trainerIsOther = trainerSel.value === '_other'; if (!trnWiz.trainerIsOther) trnWiz.trainer = trainerSel.value; }
   const trainerOther = document.getElementById('trn-trainer-other');
@@ -1163,7 +1191,7 @@ function trnWizBack() { if (trnWiz.step > 1) { trnWiz.step--; render(); } }
 function trnWizSig() {
   if (!trnWiz) return '';
   return JSON.stringify([trnWiz.name, trnWiz.date, trnWiz.location, trnWiz.matchType, trnWiz.trainer,
-    trnWiz.responsible, trnWiz.standing, trnWiz.points, trnWiz.teamId,
+    trnWiz.responsible, trnWiz.standing, trnWiz.points, trnWiz.teamId, tournamentPeriods(trnWiz),
     // Enkel wie effectief gekozen is: bij een nieuw tornooi is de pool op stap 1 nog leeg en wordt
     // hij pas op stap 2 opgebouwd (allemaal 'none'). Zonder deze filter zou dat alleen al als een
     // wijziging tellen.
@@ -1220,6 +1248,11 @@ async function saveTournamentWiz() {
     id: trnWiz.id, name: trnWiz.name, date: trnWiz.date, location: trnWiz.location,
     teamId: trnWiz.teamId, teamName: team ? team.name : '',
     matchType: trnWiz.matchType || '8v8',
+    // Standaardduur van de dag (zie tournamentPeriods): altijd genormaliseerd wegschrijven, zodat
+    // een tornooi van vóór v0.17.4 de velden krijgt zodra je het bewerkt.
+    periodKey: tournamentPeriods(trnWiz).periodKey,
+    numQuarters: tournamentPeriods(trnWiz).numQuarters,
+    quarterDuration: tournamentPeriods(trnWiz).quarterDuration,
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
     standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
   };
@@ -1260,6 +1293,22 @@ function renderTrnStep1() {
     <div class="fg"><label>Datum</label><input id="trn-date" type="date" value="${esc(trnWiz.date)}"></div>
     <div class="fg"><label>Locatie</label><input id="trn-location" type="text" placeholder="bv. Sportpark Gent" value="${esc(trnWiz.location)}" autocomplete="off"></div>
     <div class="fg"><label>Type wedstrijd</label><select id="trn-matchtype">${['3v3','5v5','8v8','11v11'].map(t=>`<option value="${t}" ${(trnWiz.matchType||'8v8')===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
+    ${(() => {
+      // Standaardduur van de dag. Op een tornooi spelen alle wedstrijden even lang, dus geef je dat
+      // hier één keer in i.p.v. bij elke wedstrijd opnieuw; de wedstrijdwizard vult ze voor en laat
+      // afwijken toe (een halve finale van 2 × 15' bijvoorbeeld).
+      const p = tournamentPeriods(trnWiz);
+      const vast = DURATIONS[p.periodKey] || [15];
+      const eigen = !vast.includes(p.quarterDuration);
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg"><label>Aantal blokken</label>
+          <select id="trn-pt" onchange="trnDefPeriodChange()"><option value="1" ${p.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k => `<option value="${k}" ${p.numQuarters!==1&&p.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+        <div class="fg"><label>Duur van een blok</label>
+          <select id="trn-qd" onchange="onDurChange('trn-qd','trn-qd-custom')">${durOptsHtml(p.periodKey, p.quarterDuration)}</select>
+          <input id="trn-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${eigen?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${eigen?p.quarterDuration:''}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);margin:-6px 0 12px">Geldt als standaard voor elke nieuwe wedstrijd van dit tornooi. Per wedstrijd kan je er nog van afwijken.</div>`;
+    })()}
     <div class="fg"><label>Trainer</label>
       <select id="trn-trainer-sel" onchange="trnTrainerSelChange(this.value)">
         ${trainerOpts}
@@ -1354,7 +1403,12 @@ function addTournamentMatch(trnId) {
     opponent: '', date: t.date || now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: t.location || 'Thuis', matchType,
-    periodKey: 'delen', quarterDuration: 20, numQuarters: 1,
+    // Duur uit het tornooi: op een tornooidag spelen alle wedstrijden even lang. Stond hier
+    // hardgecodeerd op 1 × 20', waardoor je het bij élke wedstrijd opnieuw moest omzetten.
+    // tournamentPeriods valt op diezelfde 1 × 20' terug voor tornooien zonder die velden.
+    periodKey: tournamentPeriods(t).periodKey,
+    quarterDuration: tournamentPeriods(t).quarterDuration,
+    numQuarters: tournamentPeriods(t).numQuarters,
     competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '',
     trainer: t.trainer || '', responsible: t.responsible || '', trainerIsOther: false,
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
@@ -1426,6 +1480,18 @@ async function cloneTournamentMatch(matchId, trnId) {
   }
   go('new');
 }
+// Regeltje onder een veld van de tornooimatch-wizard: wat zet het tornooi hier als standaard? Zowel
+// het format als het aantal blokken en de blokduur worden bij een nieuwe wedstrijd van het tornooi
+// overgenomen, en zonder vermelding zag je niet waar die voorgevulde waarden vandaan kwamen.
+// Bewust een vaststelling en geen "overgenomen van…": de selectors werken de DOM bij zonder opnieuw
+// te renderen, dus een zin die naar de huidige keuze verwijst zou na één wijziging niet meer kloppen.
+function trnStandaardHint(waardeFn, staart) {
+  const t = (wiz && wiz.tournamentId) ? tournamentById(wiz.tournamentId) : null;
+  if (!t) return '';
+  const val = waardeFn(t);
+  if (!val) return '';
+  return `<div style="font-size:11px;color:var(--txt2);margin:-2px 0 12px">Standaard van dit tornooi: <b>${esc(val)}</b>.${staart ? ' ' + staart : ''}</div>`;
+}
 function renderTrnMatchStep1() {
   return `<div class="card">
     <div class="fg"><label>Tegenstander</label><input id="n-opp" type="text" placeholder="Naam tegenstander..." autocomplete="off" value="${esc(wiz.opponent)}"></div>
@@ -1433,10 +1499,11 @@ function renderTrnMatchStep1() {
       <div class="fg"><label>Datum</label><input id="n-date" type="date" value="${wiz.date}"></div>
       <div class="fg"><label>Startuur</label><input id="n-time" type="time" value="${wiz.time}"></div>
     </div>
-    <div class="fg"><label>Format</label>
+    <div class="fg" style="margin-bottom:6px"><label>Format</label>
       <select id="n-type" onchange="trnWizTypeChange()">
         ${['3v3','5v5','8v8','11v11'].map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${tp.replace('v',' tegen ')}</option>`).join('')}
       </select></div>
+    ${trnStandaardHint(t => t.matchType ? (t.matchType || '').replace('v', ' tegen ') : '')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>
         <select id="n-pt" onchange="trnPeriodChange()"><option value="1" ${wiz.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k => `<option value="${k}" ${wiz.numQuarters!==1&&wiz.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
@@ -1451,6 +1518,7 @@ function renderTrnMatchStep1() {
           return `<input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${eigen?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${eigen?wiz.quarterDuration:''}">`;
         })()}</div>
     </div>
+    ${trnStandaardHint(tournamentPeriodsLabel, 'Je kan er voor deze wedstrijd van afwijken.')}
   </div>
   <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
   <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${wiz.editId ? icI(IC.check) + ' Opslaan' : icI(IC.calendar) + ' Plannen zonder opstelling'}</button>`;

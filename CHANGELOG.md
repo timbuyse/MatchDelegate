@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.4
+- **Nieuw:** een tornooi bepaalt nu ook de **standaardduur van zijn wedstrijden** — aantal blokken en
+  duur per blok, naast het type wedstrijd dat er al stond. Dat is het principe van een tornooi: alle
+  wedstrijden van de dag duren even lang, dus geef je het één keer in. Elke nieuwe wedstrijd neemt
+  het over, met onder de velden de vermelding wat de standaard van de dag is — ook onder het
+  **format** (8v8 bijvoorbeeld), dat al werd overgenomen zonder dat je zag waar het vandaan kwam;
+  wijkt één wedstrijd af
+  (een langere finale bijvoorbeeld), dan pas je dat gewoon in die wedstrijd aan. De duur staat ook op
+  de tornooipagina en in het tornooiverslag.
+- Tornooien van vóór deze versie hebben nog geen standaardduur en vallen terug op **1 blok van 20
+  minuten** — exact wat de app tot nu toe bij elke nieuwe tornooiwedstrijd invulde, dus daar verandert
+  niets aan. Zodra je zo'n tornooi bewerkt en opslaat, ligt de standaard vast.
+
+## v0.17.3
+- **Gewijzigd:** het label **"Ploegverantwoordelijke" heet in de infolijstjes overal "Ploegverantw."**,
+  zoals het al stond in het wedstrijdverslag. Het stond nog voluit op de tornooipagina, in het
+  tornooiverslag, in de geplande wedstrijd en in het ploegscherm, waar het voluit tegen de naam
+  ernaast botst. In de invulvelden blijft het woord voluit staan — daar is plaats genoeg.
+
 ## v0.17.2
 - **Opgelost:** **trainer en ploegverantwoordelijke van een tornooiwedstrijd komen nu van het tornooi
   zelf.** Ze werden bij het aanmaken van de wedstrijd één keer overgenomen, dus wie ze nadien in het

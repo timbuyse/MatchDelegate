@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -383,6 +383,28 @@ function syncTournamentStaff(m) {
   const t = tournamentById(m.tournamentId); if (!t) return;
   m.trainer = t.trainer || '';
   m.responsible = t.responsible || '';
+}
+// Standaard wedstrijdduur van een tornooi: hoeveel blokken en hoe lang een blok duurt. Op een
+// tornooidag ligt dat voor de hele dag vast, dus geef je het één keer bij het tornooi in en neemt
+// elke nieuwe wedstrijd het over — afwijken per wedstrijd blijft mogelijk in de wedstrijdwizard.
+// Tornooien van vóór v0.17.4 hebben deze velden niet en vallen terug op 1 blok van 20 minuten, de
+// waarde die tot dan hardgecodeerd in addTournamentMatch stond. Geen migratie nodig.
+const TRN_PERIODS_DEFAULT = { periodKey: 'delen', numQuarters: 1, quarterDuration: 20 };
+function tournamentPeriods(t) {
+  const p = t || {};
+  const pk = PERIOD_TYPES[p.periodKey] ? p.periodKey : TRN_PERIODS_DEFAULT.periodKey;
+  const nq = parseInt(p.numQuarters, 10);
+  const qd = parseInt(p.quarterDuration, 10);
+  return {
+    periodKey: pk,
+    numQuarters: Number.isFinite(nq) && nq > 0 ? nq : TRN_PERIODS_DEFAULT.numQuarters,
+    quarterDuration: Number.isFinite(qd) && qd > 0 ? qd : TRN_PERIODS_DEFAULT.quarterDuration,
+  };
+}
+// Leesbare weergave van die standaard, bv. "1 × 20 min" of "2 × 30 min".
+function tournamentPeriodsLabel(t) {
+  const p = tournamentPeriods(t);
+  return `${p.numQuarters} × ${p.quarterDuration} min`;
 }
 // Puntenverdeling van een tornooi (winst/gelijk/verlies). Verschilt per tornooi: 3/1/0 is de
 // standaard, maar 2/1/0 komt bij jeugdtornooien ook voor. Tornooien van vóór v0.9.1 hebben geen

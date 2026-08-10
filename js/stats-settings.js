@@ -711,6 +711,7 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li><b>Naam</b> (bv. Paastornooi Gent), <b>ploeg</b>, <b>datum</b> en <b>locatie</b>.</li>
         <li><b>Type wedstrijd</b> — de vorm waarin je die dag speelt (bv. 5v5 of 8v8).</li>
+        <li><b>Aantal blokken</b> en <b>duur van een blok</b> — de standaardduur van de dag (tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten). Elke nieuwe wedstrijd neemt ze over; wijkt er één af, dan pas je dat in die wedstrijd zelf aan.</li>
         <li><b>Trainer</b> en optioneel de <b>ploegverantwoordelijke</b>. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
       </ul>
       <div class="sec">Stap 2 — Selectie voor de hele dag</div>
@@ -719,7 +720,7 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Wedstrijden toevoegen</div>
       <ol class="hdl-list">
         <li>Open het tornooi en tik op <b>'+ Wedstrijd toevoegen'</b>.</li>
-        <li>Vul de <b>tegenstander</b>, het <b>uur</b>, het <b>aantal blokken</b> en de <b>duur per blok</b> in — tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten.</li>
+        <li>Vul de <b>tegenstander</b> en het <b>uur</b> in. Het aantal blokken en de duur staan al ingevuld volgens de standaard van het tornooi; wijkt deze wedstrijd af, dan pas je ze hier aan.</li>
         <li>Kies uit je tornooiselectie wie <b>Basis</b> of <b>Wissel</b> is en zet de opstelling. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
       </ol>
       <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
