@@ -647,11 +647,35 @@ async function loadTournamentReport() {
           + (r.squadNotSelected.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet geselecteerd:</span> ${nameList(r.squadNotSelected)}</p>` : '')
           + (r.squadAbsent.length ? `<p style="font-size:14px;line-height:1.6;margin-top:6px"><span style="color:var(--txt2)">Niet beschikbaar:</span> ${nameList(r.squadAbsent)}</p>` : '')
         : (() => { const rest = r.notPresent.length + r.squadNotSelected.length + r.squadAbsent.length; if (rest) verborgen++; return ''; })()))}
-    ${secIf('minutes', `${icI(IC.timer)} Speeltijd over de dag`, minutes.length
-      ? minutes.map(p => row(esc(p.name) + `<small style="color:var(--txt2);display:block">${p.mp} van de ${r.done.length} ${r.done.length === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'} gespeeld${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}</small>`, p.mp ? `gem. ${mn(p.ms / p.mp)}'/gespeelde match` : '', `${mn(p.ms)}'`)).join('')
-      : '<p style="color:var(--txt2);font-size:14px">—</p>')}
-    ${secIf('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per wedstrijd waarin de speler in de selectie stond (bank inbegrepen) — zo zie je in één blik of iedereen ongeveer gelijk gespeeld heeft. Een wedstrijd waarvoor hij als "niet aanwezig" stond telt hier niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`
-      + (fair.length ? fair.map(p => row(esc(p.name), `${p.timed}× geselecteerd`, `${mn(p.ms / p.timed)}'/selectie`)).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))}
+    ${(() => {
+      // Speeltijd en fair-play stonden in twee tabellen onder elkaar, met dezelfde elf namen en
+      // twee gemiddelden die je moest vergelijken door heen en weer te kijken. Nu één lijst, met
+      // beide gemiddelden naast elkaar per speler. De twee kijker-schakelaars blijven los werken:
+      // "gem. per selectie" hoort bij fair-play, de rest bij de speelminuten.
+      const toonMin = mag('minutes'), toonFair = mag('fairplay');
+      if (!toonMin && !toonFair) { verborgen += 2; return ''; }
+      if (!toonMin || !toonFair) verborgen++;
+      // Sorteren op wie het minst aan spelen kwam zodra fair-play zichtbaar is (dat was het punt van
+      // die tabel); anders op totale speeltijd, zoals de speeltijdtabel deed.
+      // Iedereen die in de selectie zat, ook wie enkel wedstrijden zonder geregistreerde tijd had
+      // ("Snel resultaat"): die heeft geen gemiddelde per selectie, maar hoort wel in de lijst.
+      const lijst = played.slice().sort(toonFair
+        ? (a, b) => (a.timed ? a.ms / a.timed : Infinity) - (b.timed ? b.ms / b.timed : Infinity)
+        : (a, b) => b.ms - a.ms);
+      if (!lijst.length) return sec(`${icI(IC.timer)} Speeltijd over de dag`, '<p style="color:var(--txt2);font-size:14px">—</p>');
+      const uitleg = `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">${toonFair
+        ? 'Twee gemiddelden per speler: <b>per gespeelde match</b> (hoe lang hij speelde als hij speelde) en <b>per selectie</b> (bank inbegrepen) — dat laatste toont of iedereen ongeveer gelijk aan spelen kwam. '
+        : ''}Een wedstrijd waarvoor de speler als "niet aanwezig" stond telt niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`;
+      const rijen = lijst.map(p => {
+        const bits = [`${p.mp} van ${p.squad} gespeeld`];
+        if (p.notPresent) bits.push(`${p.notPresent}× niet aanwezig`);
+        if (toonMin && p.mp) bits.push(`gem. ${mn(p.ms / p.mp)}'/gespeelde match`);
+        if (toonFair && p.timed) bits.push(`gem. ${mn(p.ms / p.timed)}'/selectie`);
+        const rechts = toonMin ? `${mn(p.ms)}'` : (p.timed ? `${mn(p.ms / p.timed)}'` : '–');
+        return row(esc(p.name) + `<small style="color:var(--txt2);display:block">${bits.join(' · ')}</small>`, '', rechts);
+      }).join('');
+      return sec(`${icI(IC.timer)} Speeltijd over de dag`, uitleg + rijen);
+    })()}
     ${(scorers.length || assisters.length) ? sec(`${icI(IC.ball)} Doelpunten &amp; assists`,
       scorers.map(p => row(esc(p.name), '', p.goals + '×')).join('')
       + (assisters.length ? `<hr><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding-bottom:4px">Assists</div>` + assisters.map(p => row(esc(p.name), '', p.assists + '×')).join('') : '')) : ''}
@@ -814,38 +838,38 @@ async function exportTournamentPDF() {
   // titels links stonden boven rechts uitgelijnde cijfers. Alles rechts behalve # en de naam.
   const naamIdx = anyNum ? 1 : 0;
   const rechtsUitgelijndeKoppen = d => { if (d.section === 'head' && d.column.index > naamIdx) d.cell.styles.halign = 'right'; };
-  if (played.length && pdfMag('minutes')) {
-    const minutes = played.slice().sort((a, b) => b.ms - a.ms);
+  // Eén tabel voor speeltijd én fair-play: het waren twee lijsten met dezelfde namen, en de twee
+  // gemiddelden die je wil vergelijken stonden een halve pagina uit elkaar. De kijker-schakelaars
+  // blijven wel los werken — "Gem. per selectie" hoort bij fair-play, de rest bij de speelminuten —
+  // dus de kolommen verschijnen naargelang wat een kijker mag zien.
+  const toonMin = pdfMag('minutes'), toonFair = pdfMag('fairplay');
+  if (played.length && (toonMin || toonFair)) {
+    // Minste speeltijd per selectie eerst zodra die kolom er staat (dat was het punt van de
+    // fair-play-lijst); anders de langste totale speeltijd eerst. Wie enkel wedstrijden zonder
+    // geregistreerde tijd had ("Snel resultaat") heeft geen gemiddelde en komt achteraan.
+    const rijen = played.slice().sort(toonFair
+      ? (a, b) => (a.timed ? a.ms / a.timed : Infinity) - (b.timed ? b.ms / b.timed : Infinity)
+      : (a, b) => b.ms - a.ms);
+    // Kopletter 9 en gemeten kolombreedtes, zodat elke titel op één regel past; alles rechts
+    // uitgelijnd behalve de naam, net als de cijfers eronder (zie didParseCell).
+    const head = [...numCol, 'Naam', 'Gespeeld'];
+    const breedtes = { 0: { cellWidth: 24 }, 2: { cellWidth: 60, halign: 'right' } };
+    let k = 3;
+    if (toonMin) { head.push('Totaal speelminuten', 'Gem. per gespeelde match'); breedtes[k++] = { cellWidth: 100, halign: 'right' }; breedtes[k++] = { cellWidth: 129, halign: 'right' }; }
+    if (toonFair) { head.push('Gem. per selectie'); breedtes[k++] = { cellWidth: 89, halign: 'right' }; }
     tableBlock('Speeltijd over de dag', {
-      // Koppen die zeggen wat er staat: de noemer van het gemiddelde is het aantal wedstrijden waarin
-      // de speler effectief speelde, niet het aantal wedstrijden van de dag. Wie een wedstrijd op de
-      // bank bleef, telt hier dus niet mee — in de fair-play-tabel hieronder net wél.
-      // Kopletter 9 en ruimere kolommen, zodat elke titel op één regel past; alles rechts uitgelijnd
-      // behalve de naam, net als de cijfers eronder (zie didParseCell).
-      head: [[...numCol, 'Naam', 'Gespeelde wedstrijden', 'Totaal speelminuten', 'Gem. per gespeelde match']],
-      body: minutes.map(p => [...numCell(p), p.name || '',
-        `${p.mp} van ${r.done.length}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`,
-        `${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-']),
+      head: [head],
+      body: rijen.map(p => {
+        const rij = [...numCell(p), p.name || '', `${p.mp} van ${p.squad}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`];
+        if (toonMin) rij.push(`${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-');
+        if (toonFair) rij.push(p.timed ? `${mn(p.ms / p.timed)}'` : '-');
+        return rij;
+      }),
       styles: { fontSize: 10, cellPadding: 5 },
       headStyles: Object.assign({}, HEAD_STYLE, { fontSize: 9 }),
-      columnStyles: colShift({ 0: { cellWidth: 24 }, 2: { cellWidth: 112, halign: 'right' }, 3: { cellWidth: 102, halign: 'right' }, 4: { cellWidth: 128, halign: 'right' } }),
+      columnStyles: colShift(breedtes),
       didParseCell: rechtsUitgelijndeKoppen,
-    }, 24);
-  }
-  // Zelfde noemer als op het scherm: enkel wedstrijden met geregistreerde speeltijd (zie `timed`).
-  const fairPdf = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
-  if (fairPdf.length && pdfMag('fairplay')) {
-    tableBlock('Fair-play · minste speeltijd', {
-      // Eén getal per kolom: hoe vaak hij in de selectie zat, en zijn gemiddelde over die selecties.
-      // Voordien stond in de kolom "In selectie" de tekst "2 van 3 gespeeld" — twee gegevens onder
-      // één kop, en het gespeelde deel staat al in de tabel hierboven.
-      head: [[...numCol, 'Naam', 'Aantal keer geselecteerd', 'Gem. per selectie']],
-      body: fairPdf.map(p => [...numCell(p), p.name || '', `${p.timed}`, `${mn(p.ms / p.timed)}'`]),
-      styles: { fontSize: 10, cellPadding: 5 },
-      headStyles: Object.assign({}, HEAD_STYLE, { fontSize: 9 }),
-      columnStyles: colShift({ 0: { cellWidth: 24 }, 2: { cellWidth: 128, halign: 'right' }, 3: { cellWidth: 96, halign: 'right' } }),
-      didParseCell: rechtsUitgelijndeKoppen,
-    }, 24, 'Totale speeltijd gedeeld door het aantal wedstrijden waarin de speler in de selectie stond (bank inbegrepen). Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.');
+    }, 24, `"Gespeeld" is in hoeveel van de wedstrijden waarvoor hij geselecteerd was, hij effectief speelde.${toonFair ? ' Het gemiddelde per selectie telt de bank mee en laat zo zien of iedereen ongeveer gelijk aan spelen kwam.' : ''} Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.`);
   }
 
   // ---- Doelpunten, assists, keepers, kaarten ----

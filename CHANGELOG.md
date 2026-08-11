@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.7
+- **Gewijzigd:** in het tornooiverslag staan **speeltijd en fair-play nu in één tabel** in plaats van
+  twee lijsten onder elkaar met dezelfde namen. Per speler staan beide gemiddelden naast elkaar:
+  *Gespeeld · Totaal speelminuten · Gem. per gespeelde match · Gem. per selectie*. Zo zie je in één
+  oogopslag het verschil tussen "hoe lang speelde hij als hij speelde" en "hoeveel kwam hij aan
+  spelen over de hele dag". De lijst staat gesorteerd met de minste speeltijd per selectie bovenaan.
+- Een beheerder kan speelminuten en fair-play nog altijd **apart** tonen of verbergen voor kijkers:
+  de kolom "Gem. per selectie" hoort bij fair-play, de rest bij de speelminuten, en de tabel past
+  zich aan naargelang wat zichtbaar is.
+
 ## v0.17.6
 - **Nieuw:** wijzig je de standaardduur van een tornooi, dan vraagt de app of de **al geplande
   wedstrijden** mee moeten. Ze somt op welke wedstrijden nu een andere duur hebben, zodat je ziet wat
