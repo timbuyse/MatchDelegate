@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.0
+- **Nieuw:** er is nu een **merkje met de naam erin**, in de opmaak van de opstartanimatie: het
+  pictogram met "Match Delegate" (en bij de hoge versie de groene balk en "Manage · Track · Share").
+  Tot nu toe bestond het merk enkel als los pictogram zonder naam, of als naam op een donkere tegel —
+  die tegel werkte nergens op een licht blad. Vier bestanden: liggend en staand, elk in een versie
+  voor een lichte en een donkere ondergrond.
+- **Gewijzigd:** in de **voettekst van beide PDF's** staat nu dat liggende merkje. De naam zit in het
+  beeld, dus in het midden staat enkel nog de clubnaam, met rechts de paginanummering.
+- **Gewijzigd:** de titelpagina van de **handleiding-PDF** draagt nu dat staande merkje, in plaats
+  van de naam en de baseline als losse tekstregels.
+- **Opgelost:** op het **gastmodus-scherm** stond "Gastmodus" in witte letters op een lichte
+  achtergrond — onleesbaar. Dat scherm heeft nu dezelfde kop als het aanmeldscherm (het logo op de
+  fotoachtergrond met de naam eronder), en "Gastmodus" staat als gewone titel in de kaart eronder,
+  net als "Welkom" bij het aanmelden. Meteen ook de donkere tegel weg die daar als enige nog stond.
+- **Gewijzigd:** het logo op het aanmeld- en gastscherm is iets groter (110 → 128 px).
+
 ## v0.17.9
 - **Gewijzigd:** in beide PDF's staat het **clublogo nu linksboven**, op de plaats waar eerder het
   MatchDelegate-logo stond. Een wedstrijd- of tornooiverslag is een document van de club, dus die

@@ -901,8 +901,10 @@ async function exportHandleidingPDF() {
       }
     </style>
   </head><body>
-    <h1 class="titel">Match Delegate</h1>
-    <div class="subtitel">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
+    ${/* Het merkje bevat pictogram, naam én baseline, dus die twee tekstregels staan hier niet meer
+          apart. Absolute URL: deze HTML wordt in een leeg venster geschreven en heeft daar geen
+          eigen basispad om een relatieve verwijzing tegen af te zetten. */ ''}
+    <img src="${new URL(APP_LOGO_HOOG, location.href).href}" alt="Match Delegate" style="width:190px;height:auto;margin:0 auto 28px;display:block">
     <h1 style="font-size:22px;margin-bottom:32px">Gebruikershandleiding</h1>
     ${!heeftScreenshots ? '<p style="color:#ef4444;margin-bottom:24px">⚠ Screenshots niet beschikbaar. Draai eerst <code>node handleiding/generate-b64.js</code> om ze toe te voegen.</p>' : ''}
     ${secties}

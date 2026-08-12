@@ -2,6 +2,10 @@
 // (B16: één versiebron i.p.v. dit getal apart handmatig bijhouden naast APP_VERSION).
 const CACHE = 'voetbal-v' + (new URL(location.href).searchParams.get('v') || 'dev');
 const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './logo_no_background.png', './logo.png', './background_logo.jpg',
+  // logo_breed staat in de voettekst van elke PDF, logo_hoog op de titelpagina van de handleiding.
+  // De _op_donker-versies zijn de tegenhangers voor een donkere ondergrond; die worden vandaag
+  // nergens in de app getoond en horen dus niet in de precache thuis.
+  './logo_breed.png', './logo_hoog.png',
   './firebase/firebase-app-compat.js', './firebase/firebase-auth-compat.js', './firebase/firebase-database-compat.js',
   './qr/qrcode.js',
   './js/core.js', './js/views-account.js', './js/stats-settings.js', './js/teams-tournaments.js',

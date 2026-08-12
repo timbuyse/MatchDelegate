@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.18.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -226,10 +226,18 @@ function playedMin(ms) { return Math.round((ms || 0) / 60000); }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
-// Zelfde merklogo zonder de donkere tegel eronder. In de voettekst van een PDF zou dat blokje op
-// wit papier zwaarder wegen dan de club zelf; het pictogram alleen blijft bijzaak. De naam
-// "Match Delegate" staat er als tekst naast, want dit bestand bevat geen woordmerk.
+// Zelfde merklogo zonder de donkere tegel eronder — losse bal, geen woordmerk. Gebruikt op de
+// splash en in de app-header, waar de naam er in tekst naast staat.
 const APP_LOGO_TRANSPARANT = 'logo_no_background.png';
+// Merkje mét de naam erin, doorzichtig, in twee vormen en elk in een versie voor een lichte en een
+// donkere ondergrond. Samengesteld uit hetzelfde pictogram; zie scratchpad/merkje.py.
+//  - breed: pictogram + naam naast elkaar, voor smalle stroken zoals de voettekst van een PDF.
+//    De naam is daar bewust groot t.o.v. het pictogram, anders is hij op 12 pt niet te lezen.
+//  - hoog : pictogram, groene balk, naam en baseline onder elkaar — de opstartanimatie als beeld.
+const APP_LOGO_BREED = 'logo_breed.png';
+const APP_LOGO_BREED_DONKER = 'logo_breed_op_donker.png';
+const APP_LOGO_HOOG = 'logo_hoog.png';
+const APP_LOGO_HOOG_DONKER = 'logo_hoog_op_donker.png';
 // Hoeveel pixels een logo in de PDF krijgt per PDF-punt. Eén punt is 1/72 inch, dus een logo dat
 // even veel pixels als punten meekrijgt, staat op 72 dpi in het document: wazig zodra je inzoomt
 // of afdrukt. Met 4 zit je op ≈288 dpi. Hoger heeft geen zin — het bewaarde clublogo is zelf niet

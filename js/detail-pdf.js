@@ -675,23 +675,23 @@ function createPdfLayout(doc) {
   };
   // Voettekst + paginanummer op ELKE pagina: één losse doc.text() na het opbouwen belandt enkel op
   // de pagina die dan actief is (de laatste).
-  // Drie delen: links het app-logo (op dezelfde marge als het clublogo bovenaan), in het midden de
-  // naam van de app en de club, rechts de paginanummering. Het app-logo stond vroeger linksboven;
-  // die plek is nu voor de club, want het verslag is een clubdocument.
-  // `logoUri` is optioneel: zonder logo blijft alleen de tekst staan.
-  L.footer = (logoUri) => {
+  // Drie delen: links het app-merkje (op dezelfde marge als het clublogo bovenaan), in het midden
+  // de clubnaam, rechts de paginanummering. Het app-logo stond vroeger linksboven; die plek is nu
+  // voor de club, want het verslag is een clubdocument.
+  // `merk` is optioneel en komt van rasterizeToPngFit: { uri, w, h } in punten. Het merkje draagt
+  // de naam "Match Delegate" zelf, dus die staat niet nog eens als tekst in het midden.
+  L.footer = (merk) => {
     const total = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
-    const maat = 14;                       // klein genoeg om bijzaak te blijven
     const basis = L.PH - 20;               // tekstlijn van de voettekst
     for (let pg = 1; pg <= total; pg++) {
       doc.setPage(pg);
-      if (logoUri) {
-        // Verticaal rond de tekstlijn centreren, zodat logo en tekst op één hoogte lezen.
-        try { doc.addImage(logoUri, 'PNG', L.MG, basis - maat + 3.5, maat, maat); } catch (e) {}
+      if (merk) {
+        // Verticaal rond de tekstlijn centreren, zodat merkje en tekst op één hoogte lezen.
+        try { doc.addImage(merk.uri, 'PNG', L.MG, basis - merk.h + 2.5, merk.w, merk.h); } catch (e) {}
       }
       doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
       const club = activeClubName || getClubName();
-      doc.text(`Match Delegate${club ? ' · ' + club : ''}`, L.PW / 2, basis, { align: 'center' });
+      if (club) doc.text(club, L.PW / 2, basis, { align: 'center' });
       doc.text(`${pg} / ${total}`, L.MG + L.CW, basis, { align: 'right' });
     }
   };
@@ -1008,7 +1008,8 @@ async function exportPDF() {
   if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h); } catch (e) {} }
   const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
   const tx = MG + kopInspring, tw = CW - kopInspring;
-  const voetLogo = await rasterizeToPng(APP_LOGO_TRANSPARANT, 14 * PDF_LOGO_DICHTHEID, 14 * PDF_LOGO_DICHTHEID);
+  // Merkje voor de voettekst: 12 pt hoog, breedte volgt de verhouding van het bestand.
+  const voetLogo = await rasterizeToPngFit(APP_LOGO_BREED, 200, 12, PDF_LOGO_DICHTHEID);
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
   const titleLines = doc.splitTextToSize(title, tw);

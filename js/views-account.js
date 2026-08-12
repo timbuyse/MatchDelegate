@@ -1175,10 +1175,21 @@ async function guestJoinWithCode() {
 
 function renderGuestJoin() {
   return `<div class="auth-wrap">
-    <div class="auth-logo"><img src="logo.png" alt="Match Delegate" class="auth-logo-img"></div>
-    <div class="auth-title">Gastmodus</div>
-    <div class="auth-sub">Volg een live wedstrijd zonder account</div>
+    ${/* Zelfde kop als het aanmeldscherm: de fotoachtergrond met het pictogram en de naam. Hier
+          stonden "Gastmodus" en de ondertitel los op de pagina met .auth-title/.auth-sub — die
+          klassen zijn wit, want ze horen op die donkere hero thuis. Op de lichte achtergrond van
+          dit scherm was de titel dus onleesbaar. Wat dit scherm apart maakt, staat nu in de kaart
+          eronder met .auth-welcome, net als "Welkom" bij het aanmelden. */ ''}
+    <div class="auth-hero">
+      <div class="auth-hero-dot1"></div>
+      <div class="auth-hero-dot2"></div>
+      <img src="${APP_LOGO_TRANSPARANT}" alt="Match Delegate" class="auth-logo-img">
+      <div class="auth-title">Match Delegate</div>
+      <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
+    </div>
     <div class="auth-box">
+      <div class="auth-welcome">Gastmodus</div>
+      <div class="auth-welcome-sub">Volg een live wedstrijd zonder account</div>
       <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:16px">
         ${icI(IC.eye)} Je bekijkt als gast. Enkel live wedstrijden volgen is mogelijk.
       </div>
