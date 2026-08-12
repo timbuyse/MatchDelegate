@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.9
+- **Gewijzigd:** in beide PDF's staat het **clublogo nu linksboven**, op de plaats waar eerder het
+  MatchDelegate-logo stond. Een wedstrijd- of tornooiverslag is een document van de club, dus die
+  hoort er als eerste te staan. Heeft de club geen logo, dan begint de titel gewoon op de marge.
+- **Gewijzigd:** het **app-logo verhuisde naar de voettekst**, die nu uit drie delen bestaat: links
+  het logo (op dezelfde marge als het clublogo bovenaan), in het midden "Match Delegate · clubnaam",
+  rechts de paginanummering. Daar staat de transparante versie van het logo — de vierkante tegel met
+  donkere achtergrond woog op wit papier zwaarder dan de club zelf.
+- **Gewijzigd:** "app created by Tim Buyse" staat niet meer in de voettekst.
+
 ## v0.17.8
 - **Opgelost:** het **clublogo stond wazig in de PDF**. Het werd op 40 bij 40 pixels getekend voor
   een vak van 40 bij 40 punten — dat is 72 dpi, precies de resolutie waarop een logo vervaagt zodra

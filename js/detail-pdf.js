@@ -675,13 +675,24 @@ function createPdfLayout(doc) {
   };
   // Voettekst + paginanummer op ELKE pagina: één losse doc.text() na het opbouwen belandt enkel op
   // de pagina die dan actief is (de laatste).
-  L.footer = () => {
+  // Drie delen: links het app-logo (op dezelfde marge als het clublogo bovenaan), in het midden de
+  // naam van de app en de club, rechts de paginanummering. Het app-logo stond vroeger linksboven;
+  // die plek is nu voor de club, want het verslag is een clubdocument.
+  // `logoUri` is optioneel: zonder logo blijft alleen de tekst staan.
+  L.footer = (logoUri) => {
     const total = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
+    const maat = 14;                       // klein genoeg om bijzaak te blijven
+    const basis = L.PH - 20;               // tekstlijn van de voettekst
     for (let pg = 1; pg <= total; pg++) {
       doc.setPage(pg);
+      if (logoUri) {
+        // Verticaal rond de tekstlijn centreren, zodat logo en tekst op één hoogte lezen.
+        try { doc.addImage(logoUri, 'PNG', L.MG, basis - maat + 3.5, maat, maat); } catch (e) {}
+      }
       doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
-      doc.text(`Match Delegate · ${activeClubName || getClubName()} · app created by Tim Buyse`, L.PW / 2, L.PH - 20, { align: 'center' });
-      doc.text(`${pg} / ${total}`, L.MG + L.CW, L.PH - 20, { align: 'right' });
+      const club = activeClubName || getClubName();
+      doc.text(`Match Delegate${club ? ' · ' + club : ''}`, L.PW / 2, basis, { align: 'center' });
+      doc.text(`${pg} / ${total}`, L.MG + L.CW, basis, { align: 'right' });
     }
   };
   return L;
@@ -990,15 +1001,14 @@ async function exportPDF() {
   const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock;
 
   // ---- Header ----
-  // 40 × PDF_LOGO_DICHTHEID pixels voor een vak van 40 pt: op 72 dpi (pixels = punten) oogt een
-  // logo wazig zodra je inzoomt of afdrukt.
-  const logoPng = await rasterizeToPng(getClubLogo(), 40 * PDF_LOGO_DICHTHEID, 40 * PDF_LOGO_DICHTHEID);
-  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
-  // Clublogo rechtsboven, naast het MatchDelegate-merklogo (onvervormd, max 40×40 pt).
-  let clubW = 0;
+  // Het CLUBlogo staat linksboven: dit is een document van de club. Het app-logo is naar de
+  // voettekst verhuisd (zie L.footer). Heeft de club geen logo, dan begint de titel gewoon op de
+  // marge — er komt geen vervangend logo in de plaats.
   const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
-  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
-  const tx = MG + 50, tw = CW - 50 - clubW;
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h); } catch (e) {} }
+  const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
+  const tx = MG + kopInspring, tw = CW - kopInspring;
+  const voetLogo = await rasterizeToPng(APP_LOGO_TRANSPARANT, 14 * PDF_LOGO_DICHTHEID, 14 * PDF_LOGO_DICHTHEID);
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
   const titleLines = doc.splitTextToSize(title, tw);
@@ -1071,7 +1081,7 @@ async function exportPDF() {
 
   await pdfMatchBody(doc, L, m);
 
-  L.footer();
+  L.footer(voetLogo);
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.

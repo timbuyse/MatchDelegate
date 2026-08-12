@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -226,6 +226,10 @@ function playedMin(ms) { return Math.round((ms || 0) / 60000); }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
+// Zelfde merklogo zonder de donkere tegel eronder. In de voettekst van een PDF zou dat blokje op
+// wit papier zwaarder wegen dan de club zelf; het pictogram alleen blijft bijzaak. De naam
+// "Match Delegate" staat er als tekst naast, want dit bestand bevat geen woordmerk.
+const APP_LOGO_TRANSPARANT = 'logo_no_background.png';
 // Hoeveel pixels een logo in de PDF krijgt per PDF-punt. Eén punt is 1/72 inch, dus een logo dat
 // even veel pixels als punten meekrijgt, staat op 72 dpi in het document: wazig zodra je inzoomt
 // of afdrukt. Met 4 zit je op ≈288 dpi. Hoger heeft geen zin — het bewaarde clublogo is zelf niet

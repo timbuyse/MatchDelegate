@@ -744,13 +744,12 @@ async function exportTournamentPDF() {
   const team = teamById(t.teamId);
 
   // ---- Header ----
-  // Zie PDF_LOGO_DICHTHEID in js/detail-pdf.js: pixels = punten geeft 72 dpi en dus een wazig logo.
-  const logoPng = await rasterizeToPng(getClubLogo(), 40 * PDF_LOGO_DICHTHEID, 40 * PDF_LOGO_DICHTHEID);
-  if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
-  let clubW = 0;
+  // Clublogo linksboven, app-logo in de voettekst — zelfde indeling als de wedstrijd-PDF.
   const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
-  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
-  const tx = MG + 50, tw = CW - 50 - clubW;
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h); } catch (e) {} }
+  const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
+  const voetLogo = await rasterizeToPng(APP_LOGO_TRANSPARANT, 14 * PDF_LOGO_DICHTHEID, 14 * PDF_LOGO_DICHTHEID);
+  const tx = MG + kopInspring, tw = CW - kopInspring;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const titleLines = doc.splitTextToSize(t.name || 'Tornooi', tw);
   doc.text(titleLines, tx, L.y + 13);
@@ -928,7 +927,7 @@ async function exportTournamentPDF() {
     await pdfMatchBody(doc, L, m);
   }
 
-  L.footer();
+  L.footer(voetLogo);
   const fileTitle = `${t.date ? t.date + '_' : ''}${(t.name || 'tornooi')}_tornooiverslag`.replace(/[\\/:*?"<>|]/g, '-');
   doc.save(`${fileTitle}.pdf`);
   showToast(`PDF gedownload: ${fileTitle}.pdf`, 'ok');
