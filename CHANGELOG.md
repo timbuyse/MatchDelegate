@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.17.8
+- **Opgelost:** het **clublogo stond wazig in de PDF**. Het werd op 40 bij 40 pixels getekend voor
+  een vak van 40 bij 40 punten — dat is 72 dpi, precies de resolutie waarop een logo vervaagt zodra
+  je inzoomt of afdrukt. Nu krijgt het vier pixels per punt (160 bij 160, ≈288 dpi), in de
+  wedstrijd-PDF én het tornooiverslag. Het MatchDelegate-logo ernaast ging in dezelfde beweging van
+  96 naar 160 pixels.
+- **Gewijzigd:** een clublogo wordt bij het uploaden bewaard op **maximaal 512 pixels** in plaats van
+  256, zodat er marge is voor scherpe weergave. Valt de PNG te groot uit, dan verkleint de app hem
+  eerst een stap (384, dan 256) voor ze naar JPEG overschakelt: een logo hoort zijn doorzichtige
+  achtergrond te houden, anders krijg je een witte blokrand op een donkere ondergrond. **Heb je je
+  clublogo al ingesteld? Laad het opnieuw op** — wat er nu staat is nog de oude, kleinere versie.
+
 ## v0.17.7
 - **Gewijzigd:** in het tornooiverslag staan **speeltijd en fair-play nu in één tabel** in plaats van
   twee lijsten onder elkaar met dezelfde namen. Per speler staan beide gemiddelden naast elkaar:

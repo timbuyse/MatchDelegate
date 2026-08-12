@@ -744,10 +744,11 @@ async function exportTournamentPDF() {
   const team = teamById(t.teamId);
 
   // ---- Header ----
-  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
+  // Zie PDF_LOGO_DICHTHEID in js/detail-pdf.js: pixels = punten geeft 72 dpi en dus een wazig logo.
+  const logoPng = await rasterizeToPng(getClubLogo(), 40 * PDF_LOGO_DICHTHEID, 40 * PDF_LOGO_DICHTHEID);
   if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
   let clubW = 0;
-  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
   if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
   const tx = MG + 50, tw = CW - 50 - clubW;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);

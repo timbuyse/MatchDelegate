@@ -347,7 +347,7 @@ function pickClubLogo(cid, onDone) {
     const file = inp.files && inp.files[0];
     if (!file) return;
     try {
-      const uri = await fileToClubLogoDataUri(file, 256);
+      const uri = await fileToClubLogoDataUri(file);   // standaardmaat: zie CLUB_LOGO_MAX_PX
       await writeClubLogo(cid, uri);
       if (onDone) onDone();
     } catch (e) { alert('Kon het logo niet instellen: ' + (e.message || 'onbekende fout')); }

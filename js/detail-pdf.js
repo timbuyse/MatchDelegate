@@ -300,7 +300,9 @@ function rasterizeToPng(src, w, h) {
 }
 // Als rasterizeToPng, maar behoudt de beeldverhouding binnen een max-vak. Geeft
 // { uri, w, h } terug (of null) zodat jsPDF de afbeelding onvervormd kan plaatsen.
-function rasterizeToPngFit(src, maxW, maxH) {
+// `w`/`h` zijn de maten in PDF-PUNTEN; `dichtheid` bepaalt hoeveel pixels daarachter zitten
+// (zie PDF_LOGO_DICHTHEID in js/core.js).
+function rasterizeToPngFit(src, maxW, maxH, dichtheid = 1) {
   return new Promise(resolve => {
     if (!src) { resolve(null); return; }
     const img = new Image();
@@ -309,8 +311,9 @@ function rasterizeToPngFit(src, maxW, maxH) {
         const scale = Math.min(maxW / img.width, maxH / img.height, 1) || 1;
         const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
         const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.width = Math.max(1, Math.round(w * dichtheid));
+        canvas.height = Math.max(1, Math.round(h * dichtheid));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve({ uri: canvas.toDataURL('image/png'), w, h });
       } catch (e) { resolve(null); }
     };
@@ -987,11 +990,13 @@ async function exportPDF() {
   const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock;
 
   // ---- Header ----
-  const logoPng = await rasterizeToPng(getClubLogo(), 96, 96);
+  // 40 × PDF_LOGO_DICHTHEID pixels voor een vak van 40 pt: op 72 dpi (pixels = punten) oogt een
+  // logo wazig zodra je inzoomt of afdrukt.
+  const logoPng = await rasterizeToPng(getClubLogo(), 40 * PDF_LOGO_DICHTHEID, 40 * PDF_LOGO_DICHTHEID);
   if (logoPng) { try { doc.addImage(logoPng, 'PNG', MG, L.y, 40, 40); } catch (e) {} }
   // Clublogo rechtsboven, naast het MatchDelegate-merklogo (onvervormd, max 40×40 pt).
   let clubW = 0;
-  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40);
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
   if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG + CW - clubLogo.w, L.y, clubLogo.w, clubLogo.h); clubW = clubLogo.w + 10; } catch (e) {} }
   const tx = MG + 50, tw = CW - 50 - clubW;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.17.7'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.17.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -226,12 +226,19 @@ function playedMin(ms) { return Math.round((ms || 0) / 60000); }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
+// Hoeveel pixels een logo in de PDF krijgt per PDF-punt. Eén punt is 1/72 inch, dus een logo dat
+// even veel pixels als punten meekrijgt, staat op 72 dpi in het document: wazig zodra je inzoomt
+// of afdrukt. Met 4 zit je op ≈288 dpi. Hoger heeft geen zin — het bewaarde clublogo is zelf niet
+// groter dan CLUB_LOGO_MAX_PX.
+const PDF_LOGO_DICHTHEID = 4;
 // Clublogo van de actieve ploeg (data-URI), of leeg als de club er geen heeft.
 function getActiveClubLogo() { return activeClubLogo || ''; }
 // Lees een afbeeldingsbestand in, verklein tot max `size` px en comprimeer tot een
 // kleine data-URI (geschikt om in RTDB te bewaren). Behoudt transparantie (PNG) bij
 // bestanden mét alpha, anders JPEG voor een kleinere payload. Geeft een data-URI terug.
-function fileToClubLogoDataUri(file, size = 256) {
+const CLUB_LOGO_MAX_PX = 512;    // was 256: te weinig pixels voor een scherp logo in de PDF
+const CLUB_LOGO_MAX_URI = 120000; // ±88 KB — grens waarboven we liever verkleinen dan bewaren
+function fileToClubLogoDataUri(file, size = CLUB_LOGO_MAX_PX) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) { reject(new Error('Geen afbeelding')); return; }
     const fr = new FileReader();
@@ -240,15 +247,24 @@ function fileToClubLogoDataUri(file, size = 256) {
       const img = new Image();
       img.onerror = () => reject(new Error('Ongeldige afbeelding'));
       img.onload = () => {
-        const scale = Math.min(1, size / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
-        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-        const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+        const teken = maat => {
+          const scale = Math.min(1, maat / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          return cv;
+        };
         const isPng = /png/i.test(file.type);
-        let uri = isPng ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.82);
-        // Als PNG toch groot uitvalt, val terug op JPEG (verliest transparantie maar blijft klein).
-        if (uri.length > 60000 && isPng) uri = cv.toDataURL('image/jpeg', 0.82);
-        resolve(uri);
+        if (!isPng) { resolve(teken(size).toDataURL('image/jpeg', 0.82)); return; }
+        // Een logo hoort transparant te blijven: JPEG zou er een witte blokrand van maken op een
+        // donkere achtergrond. Valt de PNG te groot uit (het logo gaat naar Firebase en wordt naar
+        // élke ploeg van de club gekopieerd), dan liever een paar pixels kleiner dan die
+        // transparantie kwijt. Pas als het dan nog niet past, wint de payload.
+        for (const maat of [size, 384, 256]) {
+          const uri = teken(maat).toDataURL('image/png');
+          if (uri.length <= CLUB_LOGO_MAX_URI) { resolve(uri); return; }
+        }
+        resolve(teken(size).toDataURL('image/jpeg', 0.82));
       };
       img.src = fr.result;
     };
