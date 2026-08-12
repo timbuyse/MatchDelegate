@@ -283,16 +283,37 @@ async function deleteCurrentMatch() {
 // Rasterizeert een afbeeldingsbron (pad, data-URL, of SVG-tekst als data-URI) naar een
 // PNG data-URL op de gevraagde pixelgrootte — nodig omdat jsPDF geen SVG kan tekenen.
 // Geeft null terug bij een fout i.p.v. te crashen (een ontbrekende foto mag de PDF niet breken).
+// Verkleinen in halveringsstappen. Eén grote sprong (bv. 320 naar 48 px) laat de browser maar een
+// handvol bronpixels bemonsteren: randen worden zacht en dunne lijnen verdwijnen half. Door telkens
+// te halveren tot vlak boven de doelmaat middelt elke stap netjes uit en blijft het beeld scherp.
+function _verkleinStapsgewijs(img, doelW, doelH) {
+  let cv = document.createElement('canvas');
+  cv.width = img.width || doelW; cv.height = img.height || doelH;
+  let ctx = cv.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0);
+  while (cv.width / 2 >= doelW && cv.height / 2 >= doelH) {
+    const k = document.createElement('canvas');
+    k.width = Math.max(doelW, Math.round(cv.width / 2));
+    k.height = Math.max(doelH, Math.round(cv.height / 2));
+    const kc = k.getContext('2d');
+    kc.imageSmoothingQuality = 'high';
+    kc.drawImage(cv, 0, 0, k.width, k.height);
+    cv = k;
+  }
+  const eind = document.createElement('canvas');
+  eind.width = doelW; eind.height = doelH;
+  const ec = eind.getContext('2d');
+  ec.imageSmoothingQuality = 'high';
+  ec.drawImage(cv, 0, 0, doelW, doelH);
+  return eind;
+}
 function rasterizeToPng(src, w, h) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/png'));
-      } catch (e) { resolve(null); }
+      try { resolve(_verkleinStapsgewijs(img, w, h).toDataURL('image/png')); }
+      catch (e) { resolve(null); }
     };
     img.onerror = () => resolve(null);
     img.src = src;
@@ -310,10 +331,8 @@ function rasterizeToPngFit(src, maxW, maxH, dichtheid = 1) {
       try {
         const scale = Math.min(maxW / img.width, maxH / img.height, 1) || 1;
         const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(w * dichtheid));
-        canvas.height = Math.max(1, Math.round(h * dichtheid));
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const canvas = _verkleinStapsgewijs(img, Math.max(1, Math.round(w * dichtheid)),
+                                                 Math.max(1, Math.round(h * dichtheid)));
         resolve({ uri: canvas.toDataURL('image/png'), w, h });
       } catch (e) { resolve(null); }
     };
@@ -678,17 +697,25 @@ function createPdfLayout(doc) {
   // Drie delen: links het app-merkje (op dezelfde marge als het clublogo bovenaan), in het midden
   // de clubnaam, rechts de paginanummering. Het app-logo stond vroeger linksboven; die plek is nu
   // voor de club, want het verslag is een clubdocument.
-  // `merk` is optioneel en komt van rasterizeToPngFit: { uri, w, h } in punten. Het merkje draagt
-  // de naam "Match Delegate" zelf, dus die staat niet nog eens als tekst in het midden.
+  // `merk` is optioneel en komt van rasterizeToPngFit: { uri, w, h } in punten — enkel het
+  // PICTOGRAM. De naam zetten we ernaast als echte PDF-tekst, niet als afbeelding: een gerasterde
+  // letter blijft zacht naast de vectortekst van de clubnaam en het paginanummer, ook op 576 dpi.
+  // Vet, hoofdletters en ruim gespatieerd, zodat het samen als één merkje leest.
   L.footer = (merk) => {
     const total = doc.getNumberOfPages ? doc.getNumberOfPages() : doc.internal.getNumberOfPages();
     const basis = L.PH - 20;               // tekstlijn van de voettekst
     for (let pg = 1; pg <= total; pg++) {
       doc.setPage(pg);
+      let x = L.MG;
       if (merk) {
-        // Verticaal rond de tekstlijn centreren, zodat merkje en tekst op één hoogte lezen.
-        try { doc.addImage(merk.uri, 'PNG', L.MG, basis - merk.h + 2.5, merk.w, merk.h); } catch (e) {}
+        // Verticaal rond de tekstlijn centreren, zodat pictogram en tekst op één hoogte lezen.
+        try { doc.addImage(merk.uri, 'PNG', x, basis - merk.h + 2.5, merk.w, merk.h, 'appmerk', PDF_BEELD_COMPRESSIE); } catch (e) {}
+        x += merk.w + 5;
       }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(8); doc.setTextColor(120, 128, 138);
+      if (doc.setCharSpace) doc.setCharSpace(0.7);
+      doc.text('MATCH DELEGATE', x, basis);
+      if (doc.setCharSpace) doc.setCharSpace(0);
       doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
       const club = activeClubName || getClubName();
       if (club) doc.text(club, L.PW / 2, basis, { align: 'center' });
@@ -848,7 +875,9 @@ async function pdfMatchBody(doc, L, m) {
         for (let i = 0; i < evts.length; i++) {
           const png = pdfEventIcon(goalIcons, evts[i]);
           if (png) {
-            try { data.doc.addImage(png, 'PNG', data.cell.x + 5, data.cell.y + 5 + line * lineH + (lineH - s) / 2, s, s); } catch (e) {}
+            // Geen eigen alias: het icoon verschilt per gebeurtenis, en jsPDF leidt er zelf een af
+            // uit de afbeelding, zodat hetzelfde icoon toch maar één keer in het bestand komt.
+            try { data.doc.addImage(png, 'PNG', data.cell.x + 5, data.cell.y + 5 + line * lineH + (lineH - s) / 2, s, s, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {}
           }
           line += spans[i];
         }
@@ -921,7 +950,7 @@ async function pdfMatchBody(doc, L, m) {
     let x = MG;
     for (const src of photos) {
       const png = await rasterizeToPng(src, Math.round(imgW * 2), Math.round(imgH * 2));
-      if (png) { try { doc.addImage(png, 'PNG', x, L.y, imgW, imgH); } catch (e) {} }
+      if (png) { try { doc.addImage(png, 'PNG', x, L.y, imgW, imgH, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {} }
       x += imgW + gap;
     }
     L.y += imgH + 20;
@@ -970,7 +999,7 @@ async function pdfMatchBody(doc, L, m) {
           const png = pdfEventIcon(evtIcons, g.list[data.row.index]);
           if (!png) return;
           const s = 11;
-          try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s); } catch (e) {}
+          try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {}
         } }, 10,
       gi === 0 ? `Minuut binnen het ${pSingLow(m)} · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
   });
@@ -1005,11 +1034,11 @@ async function exportPDF() {
   // voettekst verhuisd (zie L.footer). Heeft de club geen logo, dan begint de titel gewoon op de
   // marge — er komt geen vervangend logo in de plaats.
   const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
-  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h); } catch (e) {} }
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h, 'clublogo', PDF_BEELD_COMPRESSIE); } catch (e) {} }
   const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
   const tx = MG + kopInspring, tw = CW - kopInspring;
-  // Merkje voor de voettekst: 12 pt hoog, breedte volgt de verhouding van het bestand.
-  const voetLogo = await rasterizeToPngFit(APP_LOGO_BREED, 200, 12, PDF_LOGO_DICHTHEID);
+  // Enkel het pictogram voor de voettekst; de naam komt daar als tekst naast (zie L.footer).
+  const voetLogo = await rasterizeToPngFit(APP_LOGO_TRANSPARANT, 13, 13, PDF_LOGO_DICHTHEID);
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const title = isAway(m) ? `${m.opponent} vs ${tName(m)}` : `${tName(m)} vs ${m.opponent}`;
   const titleLines = doc.splitTextToSize(title, tw);

@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.1
+- **Opgelost:** de **logo's in de PDF waren onscherp**. Drie oorzaken, alle drie aangepakt:
+  - De naam "Match Delegate" in de voettekst was een *afbeelding* van tekst, pal naast de scherpe
+    lettertekst van de clubnaam ernaast. Nu staat daar het pictogram als beeld met de naam als
+    echte tekst — even scherp als de rest, op elke zoomstand en bij elke printer.
+  - Logo's werden in één keer van hun volle grootte naar het eindformaat verkleind. De app doet dat
+    nu in halveringsstappen, waardoor randen scherp blijven in plaats van te vervagen.
+  - De resolutie ging van vier naar acht beeldpunten per punt (≈576 dpi).
+- **Opgelost:** een PDF was daardoor onnodig zwaar. jsPDF bewaart afbeeldingen standaard
+  ongecomprimeerd — een logo van 320 bij 320 kostte zo 400 KB aan ruwe beeldpunten. Alle
+  afbeeldingen worden nu samengeperst: een wedstrijdverslag ging van 500 naar **80 KB**, dus ook
+  lichter dan vóór deze reeks, en dat mét de dubbele resolutie.
+
 ## v0.18.0
 - **Nieuw:** er is nu een **merkje met de naam erin**, in de opmaak van de opstartanimatie: het
   pictogram met "Match Delegate" (en bij de hoge versie de groene balk en "Manage · Track · Share").

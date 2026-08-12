@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.18.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.18.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -240,9 +240,16 @@ const APP_LOGO_HOOG = 'logo_hoog.png';
 const APP_LOGO_HOOG_DONKER = 'logo_hoog_op_donker.png';
 // Hoeveel pixels een logo in de PDF krijgt per PDF-punt. Eén punt is 1/72 inch, dus een logo dat
 // even veel pixels als punten meekrijgt, staat op 72 dpi in het document: wazig zodra je inzoomt
-// of afdrukt. Met 4 zit je op ≈288 dpi. Hoger heeft geen zin — het bewaarde clublogo is zelf niet
-// groter dan CLUB_LOGO_MAX_PX.
-const PDF_LOGO_DICHTHEID = 4;
+// of afdrukt. Met 8 zit je op ≈576 dpi, ruim boven wat een printer zet, en blijft het logo ook bij
+// stevig inzoomen scherp. Kost weinig: jsPDF neemt eenzelfde afbeelding maar één keer op, hoe vaak
+// ze ook geplaatst wordt.
+const PDF_LOGO_DICHTHEID = 8;
+// jsPDF bewaart een afbeelding standaard ONGECOMPRIMEERD: 320×320 px kostte zo 300 KB ruwe pixels
+// plus 100 KB voor het doorzichtigheidskanaal. Met deze vlag als `compression`-argument van
+// addImage() gaat datzelfde logo door zlib en blijft er een fractie van over — bij vlakke kleuren
+// zelfs een twintigste. Geef hem mee bij élke addImage, anders groeit een verslag met foto's en
+// logo's snel naar een halve megabyte.
+const PDF_BEELD_COMPRESSIE = 'SLOW';   // 'SLOW' = beste compressie; deze beelden zijn klein genoeg
 // Clublogo van de actieve ploeg (data-URI), of leeg als de club er geen heeft.
 function getActiveClubLogo() { return activeClubLogo || ''; }
 // Lees een afbeeldingsbestand in, verklein tot max `size` px en comprimeer tot een

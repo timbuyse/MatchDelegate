@@ -746,9 +746,9 @@ async function exportTournamentPDF() {
   // ---- Header ----
   // Clublogo linksboven, app-logo in de voettekst — zelfde indeling als de wedstrijd-PDF.
   const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
-  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h); } catch (e) {} }
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h, 'clublogo', PDF_BEELD_COMPRESSIE); } catch (e) {} }
   const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
-  const voetLogo = await rasterizeToPngFit(APP_LOGO_BREED, 200, 12, PDF_LOGO_DICHTHEID);
+  const voetLogo = await rasterizeToPngFit(APP_LOGO_TRANSPARANT, 13, 13, PDF_LOGO_DICHTHEID);
   const tx = MG + kopInspring, tw = CW - kopInspring;
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
   const titleLines = doc.splitTextToSize(t.name || 'Tornooi', tw);
