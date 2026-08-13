@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.2
+- **Gewijzigd:** een **gast wordt bij het afmelden ook verwijderd**, niet enkel afgemeld. Zijn
+  anonieme account is daarna toch onbruikbaar — er hangt geen e-mailadres aan om mee terug te keren —
+  en bleef tot nu toe als leeg account achter. Bij elke nieuwe kijker kwam er zo weer een bij.
+  Dit gebeurt uitsluitend bij een gast: een gewoon account wordt gewoon afgemeld, nooit verwijderd.
+  Lukt het verwijderen niet, dan volgt gewoon afmelden, zodat niemand op dat scherm blijft hangen.
+- Dit hangt bewust aan de **afmeldknop**, niet aan het sluiten van de app: die signalen vuren ook
+  als je even naar een andere app kijkt, en op een iPhone komt er bij het wegvegen vaak helemaal
+  geen signaal. Een gast die de app wegveegt zonder af te melden, laat dus nog steeds een account
+  achter — dat kan alleen aan de serverkant opgeruimd worden.
+
 ## v0.18.1
 - **Opgelost:** de **logo's in de PDF waren onscherp**. Drie oorzaken, alle drie aangepakt:
   - De naam "Match Delegate" in de voettekst was een *afbeelding* van tekst, pal naast de scherpe

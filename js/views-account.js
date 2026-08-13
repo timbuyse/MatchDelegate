@@ -715,9 +715,24 @@ function cloudLogout() {
   activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
   closeModal();
 }
+// Afmelden. Een GAST wordt bovendien verwijderd i.p.v. enkel afgemeld: zijn anonieme account is
+// daarna toch onbruikbaar (er hangt geen e-mailadres aan om mee terug te keren) en bleef anders als
+// wees in Firebase staan — bij elke nieuwe gast komt er dan weer een bij.
+// Enkel bij `isAnonymous`: een gewoon account verwijderen zou de gebruiker zijn toegang kosten.
+// Bewust gekoppeld aan deze knop en niet aan het sluiten van de app: de signalen daarvoor
+// (visibilitychange, pagehide) vuren ook als iemand even naar een andere app kijkt, en op iOS komt
+// er bij het wegvegen vaak helemaal geen signaal.
 function authDoSignOut() {
-  clearLocalDeviceData(currentUser ? currentUser.uid : null);
-  try { fbauth.signOut(); } catch (e) {}
+  const user = currentUser;
+  clearLocalDeviceData(user ? user.uid : null);
+  const afmelden = () => { try { fbauth.signOut(); } catch (e) {} };
+  if (user && user.isAnonymous) {
+    // delete() meldt zelf af als het lukt; lukt het niet (bv. omdat de aanmelding te lang geleden
+    // is), dan blijft gewoon afmelden over — de gast mag hier nooit op vastlopen.
+    try { user.delete().catch(afmelden); } catch (e) { afmelden(); }
+  } else {
+    afmelden();
+  }
   activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
 }
 
