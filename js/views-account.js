@@ -722,14 +722,19 @@ function cloudLogout() {
 // Bewust gekoppeld aan deze knop en niet aan het sluiten van de app: de signalen daarvoor
 // (visibilitychange, pagehide) vuren ook als iemand even naar een andere app kijkt, en op iOS komt
 // er bij het wegvegen vaak helemaal geen signaal.
-function authDoSignOut() {
+async function authDoSignOut() {
   const user = currentUser;
-  clearLocalDeviceData(user ? user.uid : null);
+  const uid = user ? user.uid : null;
+  const wasGast = !!(user && user.isAnonymous);
+  clearLocalDeviceData(uid);
   const afmelden = () => { try { fbauth.signOut(); } catch (e) {} };
-  if (user && user.isAnonymous) {
-    // delete() meldt zelf af als het lukt; lukt het niet (bv. omdat de aanmelding te lang geleden
-    // is), dan blijft gewoon afmelden over — de gast mag hier nooit op vastlopen.
-    try { user.delete().catch(afmelden); } catch (e) { afmelden(); }
+  if (wasGast) {
+    // Eerst zijn lidmaatschap en index-records opruimen — daarna mag het niet meer, want zonder
+    // account weigeren de regels elke schrijfactie en blijft hij als naamloze kijker in de
+    // ledenlijst staan. Pas daarna het account zelf. Mislukt dat, dan gewoon afmelden: een gast
+    // mag hier nooit op vastlopen.
+    try { await wisEigenCloudSporen(uid); } catch (e) {}
+    try { await user.delete(); } catch (e) { afmelden(); }
   } else {
     afmelden();
   }

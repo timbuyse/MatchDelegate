@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.18.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.18.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -225,6 +225,39 @@ function scoreTxt(m) {
 function playedMin(ms) { return Math.round((ms || 0) / 60000); }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
+// Alle eigen sporen van één gebruiker uit de cloud halen: lidmaatschappen, aanvragen en de
+// persoonlijke index-records. Gedeeld door "Account verwijderen" (Instellingen) en door het
+// afmelden van een gast — anders lopen die twee opruimingen uit elkaar.
+// Moet ALTIJD vóór user.delete() lopen: daarna bestaat auth.uid niet meer en weigeren de
+// beveiligingsregels elke schrijfactie, waardoor de records als wees achterblijven.
+// Data van de ploeg zelf (wedstrijden, spelers) blijft bewust staan; die is van de anderen.
+async function wisEigenCloudSporen(uid) {
+  if (!fbdb || !uid) return;
+  // Ploegen uit het geheugen én uit de database: een gast die de app opnieuw opende, heeft
+  // `userTeams` niet noodzakelijk gevuld, en dan zou zijn lidmaatschap blijven staan.
+  let tids = Object.keys(userTeams || {});
+  try {
+    const s = await fbOnce(fbdb.ref('users/' + uid + '/teams'));
+    tids = [...new Set(tids.concat(Object.keys(s.val() || {})))];
+  } catch (e) {}
+  for (const tid of tids) {
+    try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
+    // teamAdminRequests VÓÓR het lidmaatschap wissen: de self-verwijder-regel vereist dat je nog
+    // viewer bent — daarna wordt dit stil geweigerd en blijft een aanvraag met naam als wees achter.
+    try { await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove(); } catch (e) {}
+    try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
+  }
+  for (const cid of Object.keys(myClubs || {})) {
+    try { await fbdb.ref('clubs/' + cid + '/admins/' + uid).remove(); } catch (e) {}
+  }
+  try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
+  // Naam/e-mail los van een ploeg. Uitnodigingscodes (invites/) blijven ongemoeid: die zijn niet
+  // op uid geïndexeerd en verwijderen zou de actieve link van een hele ploeg kunnen breken.
+  try { await fbdb.ref('usersByEmail/' + uid).remove(); } catch (e) {}
+  try { await fbdb.ref('approvedAdmins/' + uid).remove(); } catch (e) {}
+  try { await fbdb.ref('adminRequests/' + uid).remove(); } catch (e) {}
+  try { await fbdb.ref('rejectedAdmins/' + uid).remove(); } catch (e) {}
+}
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
 // Zelfde merklogo zonder de donkere tegel eronder — losse bal, geen woordmerk. Gebruikt op de
 // splash en in de app-header, waar de naam er in tekst naast staat.

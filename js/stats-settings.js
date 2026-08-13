@@ -1122,29 +1122,10 @@ async function doDeleteAccount() {
     const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
     await currentUser.reauthenticateWithCredential(cred);
     const uid = currentUser.uid;
-    // Eigen sporen in elke ploeg opruimen vóór het account zelf weg is (nadien mag dat niet
-    // meer, want auth.uid bestaat dan niet meer). Team- en wedstrijddata van anderen blijft
-    // bewust bestaan (zie bevestigingstekst) — enkel de eigen gegevens van dit account verdwijnen.
-    for (const tid of Object.keys(userTeams)) {
-      try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
-      // teamAdminRequests VÓÓR het lidmaatschap wissen: de self-verwijder-rule vereist dat je
-      // nog viewer bent — na de members-remove wordt dit stil geweigerd en blijft een aanvraag
-      // met naam/e-mail als wees achter.
-      try { await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove(); } catch (e) {}
-      try { await fbdb.ref('teams/' + tid + '/members/' + uid).remove(); } catch (e) {}
-    }
-    // Eigen clubbeheerder-entries opruimen — anders blijft een ghost-uid in "Clubs beheren" staan.
-    for (const cid of Object.keys(myClubs || {})) {
-      try { await fbdb.ref('clubs/' + cid + '/admins/' + uid).remove(); } catch (e) {}
-    }
-    try { await fbdb.ref('users/' + uid).remove(); } catch (e) {}
-    // Overige persoonlijke sporen (naam/e-mail) los van een specifieke ploeg. Uitnodigingscodes
-    // (invites/) blijven bewust ongemoeid: die zijn niet op uid geïndexeerd en verwijderen zou
-    // per ongeluk de actieve uitnodigingslink van een hele ploeg kunnen breken voor anderen.
-    try { await fbdb.ref('usersByEmail/' + uid).remove(); } catch (e) {}
-    try { await fbdb.ref('approvedAdmins/' + uid).remove(); } catch (e) {}
-    try { await fbdb.ref('adminRequests/' + uid).remove(); } catch (e) {}
-    try { await fbdb.ref('rejectedAdmins/' + uid).remove(); } catch (e) {}
+    // Eigen sporen opruimen vóór het account zelf weg is; team- en wedstrijddata van anderen
+    // blijft bewust bestaan (zie de bevestigingstekst). Zelfde routine als bij het afmelden van
+    // een gast, zodat beide paden niet uit elkaar kunnen lopen.
+    await wisEigenCloudSporen(uid);
     await currentUser.delete();
     await clearLocalDeviceData(uid);
     closeModal();

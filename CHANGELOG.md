@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.3
+- **Gewijzigd:** een gast die afmeldt, verdwijnt nu ook **uit de ledenlijst**. Tot nu toe bleef hij
+  daar als naamloze kijker staan ("(naam nog niet gekend)") nadat zijn account al weg was — een
+  regel die naar niets meer verwees. Zijn lidmaatschap, eventuele beheeraanvraag en persoonlijke
+  index-records worden nu opgeruimd vlak vóór het account zelf, want daarna staan de
+  beveiligingsregels geen enkele wijziging meer toe.
+- Diezelfde opruiming gebeurde al bij **Account verwijderen** in Instellingen. Beide gebruiken nu
+  één gedeelde routine, zodat ze niet uit elkaar kunnen groeien. Wedstrijden en spelers van de
+  ploeg blijven onaangeroerd — die zijn van de anderen.
+
 ## v0.18.2
 - **Gewijzigd:** een **gast wordt bij het afmelden ook verwijderd**, niet enkel afgemeld. Zijn
   anonieme account is daarna toch onbruikbaar — er hangt geen e-mailadres aan om mee terug te keren —
