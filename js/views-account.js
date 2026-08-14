@@ -2162,9 +2162,18 @@ const views = {
       <div class="content" id="home-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   matches: () => {
+    // Bij het binnenkomen altijd op de huidige maand beginnen; bladeren binnen het scherm gaat
+    // via loadMatches() en blijft dus wél bewaard.
+    calMaand = null; calDag = null;
     loadMatches();
     return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.ball)} Wedstrijden</h1></div>
       <div class="content" id="matches-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+  },
+  agenda: () => {
+    calMaand = null; calDag = null;
+    loadAgenda();
+    return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.calendar)} Agenda</h1></div>
+      <div class="content" id="agenda-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   setup: () => renderSettings(true),
   settings: () => renderSettings(false),
@@ -2242,6 +2251,9 @@ async function loadHome() {
     ${teamTile}
     <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    ${/* Over de volle breedte: een vijfde tegel zou anders een gat naast zich laten. De agenda is
+          de enige plek waar wedstrijden en tornooien samen op één kalender staan. */ ''}
+    <button class="tile tile-breed" style="grid-column:1/-1" onclick="go('agenda')"><span class="tile-fi ic-i" aria-hidden="true">${IC.calendar}</span><span class="tl">Agenda</span></button>
   </div>`;
   const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
   const offlineBanner = !isOffline ? '' : (canManage()
@@ -2361,19 +2373,22 @@ function setMatchesWeergave(v) {
   try { localStorage.setItem('voetbal_matches_weergave', matchesWeergave); } catch (e) {}
   loadMatches();
 }
+// Dezelfde kalender staat in twee schermen; bladeren moet het scherm herladen waar je op staat.
+function kalenderHerlaad() { if (view === 'agenda') loadAgenda(); else loadMatches(); }
 function calSchuif(delta) {
   const [j, m] = (calMaand || isoMaandVan(new Date())).split('-').map(Number);
   const d = new Date(j, m - 1 + delta, 1);
   calMaand = isoMaandVan(d);
   calDag = null;
-  loadMatches();
+  kalenderHerlaad();
 }
-function calKies(iso) { calDag = (calDag === iso) ? null : iso; loadMatches(); }
+function calKies(iso) { calDag = (calDag === iso) ? null : iso; kalenderHerlaad(); }
 function isoMaandVan(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
 function isoDagVan(d) { return isoMaandVan(d) + '-' + String(d.getDate()).padStart(2, '0'); }
 
-// Bouwt het maandrooster voor de meegegeven wedstrijden.
-function renderKalender(matches) {
+// Bouwt het maandrooster. `tornooien` is optioneel: het wedstrijdenscherm geeft er geen mee (daar
+// horen ze niet thuis), de agenda wel. Zo blijft er één kalender om te onderhouden.
+function renderKalender(matches, tornooien = []) {
   const vandaag = isoDagVan(new Date());
   if (!calMaand) calMaand = vandaag.slice(0, 7);
   const [jaar, maand] = calMaand.split('-').map(Number);
@@ -2384,6 +2399,7 @@ function renderKalender(matches) {
     (perDag[datum] = perDag[datum] || []).push(soort);
   };
   matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : m.status === 'planned' ? 'plan' : 'done'));
+  tornooien.forEach(t => voegToe(t.date, 'trn'));
 
   // Maandag als eerste kolom (getDay() geeft zondag = 0).
   const eerste = new Date(jaar, maand - 1, 1);
@@ -2407,11 +2423,20 @@ function renderKalender(matches) {
   const gekozen = calDag
     ? matches.filter(m => m.date === calDag)
     : matches.filter(inMaand).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+  const trnGekozen = calDag
+    ? tornooien.filter(t => t.date === calDag)
+    : tornooien.filter(t => (t.date || '').startsWith(calMaand));
   const kop = calDag
     ? new Date(calDag + 'T00:00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
     : `${CAL_MAANDEN[maand - 1]} ${jaar}`;
-  const lijst = gekozen.map(matchItemHtml).join('')
-    || `<p style="color:var(--txt2);font-size:14px;text-align:center;padding:8px 0">Geen wedstrijden ${calDag ? 'op deze dag' : 'deze maand'}.</p>`;
+  // Een tornooi staat als één dagitem in de agenda; zijn eigen wedstrijden zitten in het tornooi
+  // zelf en zouden die dag anders vol stippen zetten.
+  const trnItems = trnGekozen.map(t => `<div class="match-item plan-border" onclick="goTournament('${t.id}')">
+      <div class="mi-info"><div class="mi-opp">${esc(t.name || 'Tornooi')}</div>
+      <div class="mi-date">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}</div>
+      <span class="badge badge-plan">${icI(IC.medal)} Tornooi</span></div></div>`).join('');
+  const lijst = (trnItems + gekozen.map(matchItemHtml).join(''))
+    || `<p style="color:var(--txt2);font-size:14px;text-align:center;padding:8px 0">Niets ${calDag ? 'op deze dag' : 'deze maand'}.</p>`;
 
   return `<div class="cal-nav">
       <button onclick="calSchuif(-1)" aria-label="Vorige maand">‹</button>
@@ -2423,9 +2448,37 @@ function renderKalender(matches) {
       <span><i class="cal-dot plan"></i> gepland</span>
       <span><i class="cal-dot live"></i> live</span>
       <span><i class="cal-dot done"></i> gespeeld</span>
+      ${tornooien.length ? '<span><i class="cal-dot trn"></i> tornooi</span>' : ''}
     </div>
     <div class="sec">${esc(kop)}</div>
     ${lijst}`;
+}
+
+// De agenda: dezelfde kalender, maar mét de tornooidagen erbij. Dat is het verschil met de kalender
+// bij Wedstrijden — daar horen tornooien niet thuis, hier wel, want dit is de agenda van de ploeg.
+async function loadAgenda() {
+  // Eerst de databaseoproep, dán pas het element opzoeken: de view-functie roept dit aan vóór ze
+  // haar HTML teruggeeft, dus #agenda-content bestaat pas na de eerste await (zelfde patroon als
+  // loadMatches en loadHome).
+  // Enkel losse wedstrijden: de wedstrijden ván een tornooi zitten in dat tornooi, en zouden die
+  // dag anders dubbel tellen.
+  const all = (await dbAll()).filter(m => !m.tournamentId);
+  const el = document.getElementById('agenda-content');
+  if (!el) return;
+  const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
+  if (cloudReady) homeFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
+  else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
+  const list = homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter);
+  const trns = getTournaments().filter(t => {
+    if (!cloudReady) return homeFilter === 'all' || (t.teamName || '') === homeFilter;
+    return tournamentInActiveTeam(t);
+  });
+  const filterBar = (!cloudReady && teams.length) ? `<div class="filterbar">
+    <select onchange="setHomeFilter(this.value)">
+      <option value="all" ${homeFilter === 'all' ? 'selected' : ''}>Alle ploegen</option>
+      ${teams.map(t => `<option value="${esc(t)}" ${homeFilter === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+    </select></div>` : '';
+  el.innerHTML = filterBar + renderKalender(list, trns);
 }
 
 async function loadMatches() {

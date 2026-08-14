@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.6
+- **Nieuw:** een **Agenda** op het startscherm van de ploeg, als brede tegel onder de vier andere.
+  Daar staan wedstrijden **en** tornooidagen samen op één kalender — het enige scherm waar dat zo
+  is. Tik op een tornooidag en je gaat naar het tornooi, tik op een wedstrijd en je gaat naar de
+  wedstrijd. De blokken "Eerstvolgende wedstrijd", "Laatst gespeeld" en "Eerstvolgende tornooi"
+  blijven gewoon staan; de agenda is er om verder vooruit te kijken.
+- Van een tornooi staat enkel de **dag** in de agenda, niet elke wedstrijd ervan apart — anders zou
+  één tornooidag de kalender vullen.
+- Beide kalenders openen op de **huidige maand**, ook als je de vorige keer verder gebladerd had.
+
 ## v0.18.5
 - **Nieuw:** de wedstrijden kunnen nu ook als **kalender** getoond worden. Bovenaan het scherm staat
   een schakelaar **Lijst · Kalender**; je keuze wordt onthouden.
