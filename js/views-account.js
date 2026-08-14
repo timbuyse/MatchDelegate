@@ -2345,6 +2345,89 @@ async function loadHome() {
   el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
+// ----- Kalenderweergave van de wedstrijden -----
+// De lijst blijft de standaard; de kalender is een tweede kijk op dezelfde wedstrijden, handig om
+// te zien hoe een maand eruitziet. Enkel losse wedstrijden dus, net als de lijst hier: tornooien
+// horen bij hun eigen scherm en zouden in dit blok misplaatst zijn.
+let matchesWeergave = localStorage.getItem('voetbal_matches_weergave') === 'kalender' ? 'kalender' : 'lijst';
+let calMaand = null;        // 'YYYY-MM' — null = huidige maand
+let calDag = null;          // 'YYYY-MM-DD' van de aangetikte dag
+const CAL_DAGEN = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+const CAL_MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
+  'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+
+function setMatchesWeergave(v) {
+  matchesWeergave = v === 'kalender' ? 'kalender' : 'lijst';
+  try { localStorage.setItem('voetbal_matches_weergave', matchesWeergave); } catch (e) {}
+  loadMatches();
+}
+function calSchuif(delta) {
+  const [j, m] = (calMaand || isoMaandVan(new Date())).split('-').map(Number);
+  const d = new Date(j, m - 1 + delta, 1);
+  calMaand = isoMaandVan(d);
+  calDag = null;
+  loadMatches();
+}
+function calKies(iso) { calDag = (calDag === iso) ? null : iso; loadMatches(); }
+function isoMaandVan(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function isoDagVan(d) { return isoMaandVan(d) + '-' + String(d.getDate()).padStart(2, '0'); }
+
+// Bouwt het maandrooster voor de meegegeven wedstrijden.
+function renderKalender(matches) {
+  const vandaag = isoDagVan(new Date());
+  if (!calMaand) calMaand = vandaag.slice(0, 7);
+  const [jaar, maand] = calMaand.split('-').map(Number);
+
+  const perDag = {};
+  const voegToe = (datum, soort) => {
+    if (!datum) return;
+    (perDag[datum] = perDag[datum] || []).push(soort);
+  };
+  matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : m.status === 'planned' ? 'plan' : 'done'));
+
+  // Maandag als eerste kolom (getDay() geeft zondag = 0).
+  const eerste = new Date(jaar, maand - 1, 1);
+  const voorloop = (eerste.getDay() + 6) % 7;
+  const dagenInMaand = new Date(jaar, maand, 0).getDate();
+
+  let cellen = '';
+  for (let i = 0; i < voorloop; i++) cellen += '<div class="cal-cell leeg"></div>';
+  for (let d = 1; d <= dagenInMaand; d++) {
+    const iso = `${calMaand}-${String(d).padStart(2, '0')}`;
+    // Eén stip per wedstrijd, niet per soort: twee wedstrijden op dezelfde dag hoor je te zien.
+    // Meer dan vier past niet in een cel; dan valt de rest weg (de lijst eronder toont ze wel).
+    const dots = (perDag[iso] || []).slice(0, 4).map(s => `<i class="cal-dot ${s}"></i>`).join('');
+    const klas = ['cal-cell', iso === vandaag ? 'vandaag' : '', iso === calDag ? 'sel' : ''].filter(Boolean).join(' ');
+    cellen += `<div class="${klas}" onclick="calKies('${iso}')">
+      <span class="cal-num">${d}</span><span class="cal-dots">${dots}</span></div>`;
+  }
+
+  // Wat er onder de kalender komt: de gekozen dag, of anders de hele maand op volgorde.
+  const inMaand = m => (m.date || '').startsWith(calMaand);
+  const gekozen = calDag
+    ? matches.filter(m => m.date === calDag)
+    : matches.filter(inMaand).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+  const kop = calDag
+    ? new Date(calDag + 'T00:00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
+    : `${CAL_MAANDEN[maand - 1]} ${jaar}`;
+  const lijst = gekozen.map(matchItemHtml).join('')
+    || `<p style="color:var(--txt2);font-size:14px;text-align:center;padding:8px 0">Geen wedstrijden ${calDag ? 'op deze dag' : 'deze maand'}.</p>`;
+
+  return `<div class="cal-nav">
+      <button onclick="calSchuif(-1)" aria-label="Vorige maand">‹</button>
+      <b>${CAL_MAANDEN[maand - 1]} ${jaar}</b>
+      <button onclick="calSchuif(1)" aria-label="Volgende maand">›</button>
+    </div>
+    <div class="cal-grid">${CAL_DAGEN.map(d => `<div class="cal-dow">${d}</div>`).join('')}${cellen}</div>
+    <div class="cal-legend">
+      <span><i class="cal-dot plan"></i> gepland</span>
+      <span><i class="cal-dot live"></i> live</span>
+      <span><i class="cal-dot done"></i> gespeeld</span>
+    </div>
+    <div class="sec">${esc(kop)}</div>
+    ${lijst}`;
+}
+
 async function loadMatches() {
   const all = (await dbAll()).filter(m => !m.tournamentId);
   const el = document.getElementById('matches-content');
@@ -2373,7 +2456,17 @@ async function loadMatches() {
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
-  el.innerHTML = newBtn + filterBar + searchBar + `<div id="match-list">${items}</div>`;
+  // Twee kijken op dezelfde wedstrijden. De zoekbalk hoort bij de lijst: in de kalender zoek je op
+  // datum, niet op naam.
+  const schakelaar = `<div class="cal-switch">
+    <button class="${matchesWeergave === 'lijst' ? 'act' : ''}" onclick="setMatchesWeergave('lijst')">${icI(IC.log)} Lijst</button>
+    <button class="${matchesWeergave === 'kalender' ? 'act' : ''}" onclick="setMatchesWeergave('kalender')">${icI(IC.calendar)} Kalender</button>
+  </div>`;
+  if (matchesWeergave === 'kalender') {
+    el.innerHTML = newBtn + filterBar + schakelaar + renderKalender(list);
+    return;
+  }
+  el.innerHTML = newBtn + filterBar + schakelaar + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
 let homeSearch = '';

@@ -151,6 +151,30 @@
     @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.35}}
     .grn{color:var(--grn)}
     .sb-info{font-size:13px;opacity:.7;margin-top:6px}
+    /* Kalenderweergave van de wedstrijden. Een cel is op een telefoon te smal voor tekst, dus in
+       het rooster staan enkel stipjes; de wedstrijden zelf komen onder de kalender te staan zodra
+       je een dag aantikt. */
+    .cal-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bdr);padding:3px;border-radius:10px;margin-bottom:12px}
+    .cal-switch button{padding:8px 10px;border:none;border-radius:8px;background:transparent;color:var(--txt2);font-size:14px;font-weight:700;cursor:pointer}
+    .cal-switch button.act{background:var(--card);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+    .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .cal-nav b{font-size:16px;text-transform:capitalize}
+    .cal-nav button{width:38px;height:38px;border-radius:10px;border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-size:18px;cursor:pointer}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+    .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;padding-bottom:2px}
+    .cal-cell{aspect-ratio:1;border-radius:10px;background:var(--card);border:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:2px}
+    .cal-cell.leeg{background:transparent;border-color:transparent;cursor:default}
+    .cal-cell.buiten{opacity:.35}
+    .cal-cell.vandaag{border-color:var(--grn);border-width:2px}
+    .cal-cell.sel{background:var(--grnp);border-color:var(--grn)}
+    .cal-num{font-size:13px;font-weight:700;line-height:1}
+    .cal-dots{display:flex;gap:2px;min-height:6px}
+    .cal-dot{width:6px;height:6px;border-radius:50%}
+    .cal-dot.plan{background:var(--org)}
+    .cal-dot.done{background:var(--txt2)}
+    .cal-dot.live{background:var(--rd)}
+    .cal-legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:10px 0 4px;font-size:11px;color:var(--txt2)}
+    .cal-legend span{display:flex;align-items:center;gap:4px}
     /* Timer */
     .timer-card{background:var(--blk2);color:#fff;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
     .timer-time{font-size:54px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:3px;line-height:1}

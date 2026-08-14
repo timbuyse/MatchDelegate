@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.5
+- **Nieuw:** de wedstrijden kunnen nu ook als **kalender** getoond worden. Bovenaan het scherm staat
+  een schakelaar **Lijst · Kalender**; je keuze wordt onthouden.
+- De kalender toont een maand met een stip per wedstrijd: oranje voor gepland, rood voor live en
+  grijs voor gespeeld. Tik een dag aan en je ziet die wedstrijden eronder; tik je niets aan, dan
+  staat de hele maand op volgorde onder de kalender. Met de pijltjes blader je door de maanden.
+- Net als de lijst in dat scherm toont de kalender **enkel losse wedstrijden** — tornooien horen bij
+  hun eigen scherm.
+
 ## v0.18.4
 - **Nieuw:** per ongeluk op **"Wedstrijd starten"** getikt? In het livescherm staat nu onder de
   startknop **"Toch nog niet gestart"**, die de wedstrijd terugzet naar gepland. Ze is dan ook niet
