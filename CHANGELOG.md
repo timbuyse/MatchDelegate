@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.18.4
+- **Nieuw:** per ongeluk op **"Wedstrijd starten"** getikt? In het livescherm staat nu onder de
+  startknop **"Toch nog niet gestart"**, die de wedstrijd terugzet naar gepland. Ze is dan ook niet
+  langer live zichtbaar voor kijkers. Voordien was zo'n misklik in de app niet meer terug te
+  draaien — de enige uitweg was de wedstrijd uitspelen of afsluiten.
+- De knop verschijnt **alleen zolang er echt niets gebeurd is**: geen enkel deel gelopen en geen
+  enkele gebeurtenis gelogd. Daarna zou terugzetten speelminuten en gebeurtenissen in een halve
+  toestand achterlaten, en weigert de app het ook als je het langs een omweg probeert.
+
 ## v0.18.3
 - **Gewijzigd:** een gast die afmeldt, verdwijnt nu ook **uit de ledenlijst**. Tot nu toe bleef hij
   daar als naamloze kijker staan ("(naam nog niet gekend)") nadat zijn account al weg was — een

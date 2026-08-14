@@ -50,6 +50,12 @@ function renderLive() {
             ? `<button class="qbtn qbtn-end" onclick="endMatch()">${icI(IC.finish)} Einde match</button>`
             : `<button class="qbtn qbtn-end" onclick="endPeriod()">${icI(IC.stopFilled)} Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
+      ${/* Misklik op "Wedstrijd starten" ongedaan maken. Enkel zolang er echt niets gebeurd is:
+            geen enkel deel gelopen en geen enkele gebeurtenis gelogd. Bewust een bescheiden knop
+            onder de startknop — het is een uitzondering, geen dagelijkse handeling. */ ''}
+      ${(canStartFirst && !(match.quarters || []).length && !(match.events || []).length)
+        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarGepland()">${icI(IC.undo)} Toch nog niet gestart</button>`
+        : ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
         <div class="sec" style="margin-top:0">${icI(IC.swap)} Klaar voor ${pSingLow(match)} ${qNum+1}</div>
@@ -154,6 +160,37 @@ function confirmLeave() {
 }
 
 // ===================== QUARTER CONTROLS =====================
+// "Wedstrijd starten" op het prep-scherm zet enkel de status op live — de klok begint pas bij
+// startQuarter(). Een misklik daar was tot nu toe niet meer terug te draaien in de app: de
+// wedstrijd stond live voor alle kijkers en er was enkel nog de weg naar het einde. Deze twee
+// functies zetten haar terug op gepland, maar alleen zolang er geen enkel deel gelopen heeft en
+// geen enkele gebeurtenis gelogd is — anders zou je speelminuten en events in een tussentoestand
+// achterlaten. De controle staat bewust twee keer: de knop verschijnt niet, en de actie weigert.
+function confirmTerugNaarGepland() {
+  if (!canManage() || !match) return;
+  if ((match.quarters || []).length || (match.events || []).length) {
+    showToast('Deze wedstrijd is al begonnen — terugzetten kan niet meer.', 'err');
+    return;
+  }
+  openModal(`<h3>${icI(IC.undo)} Toch nog niet starten?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd gaat terug naar <b>gepland</b> en is niet langer live zichtbaar voor kijkers. Er is nog niets bijgehouden, dus er gaat niets verloren.</p>
+    <button class="btn btn-green" onclick="terugNaarGepland()">${icI(IC.check)} Ja, terug naar gepland</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function terugNaarGepland() {
+  if (!canManage() || !match) return;
+  if ((match.quarters || []).length || (match.events || []).length) {
+    closeModal(); showToast('Deze wedstrijd is al begonnen — terugzetten kan niet meer.', 'err');
+    return;
+  }
+  match.status = 'planned';
+  match.currentQuarter = 0;
+  match.quarterStatus = 'not_started';
+  await dbSave(match);
+  closeModal();
+  showToast('Terug naar gepland.', 'ok');
+  await go('prep', match.id);
+}
 async function startQuarter() {
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
   _lineupSel = null;   // selectie uit de pauze-opstelling niet laten hangen
