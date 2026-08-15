@@ -22,7 +22,6 @@ function startWizard() {
     competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
-    trainerIsOther: false,
     pool: [], poolTeamId: null, formationIndex: md.formationIndex, selPlace: null,
   };
 }
@@ -32,7 +31,6 @@ function wizTeamChange() {
   if (team) {
     const trainers = (team.trainers || []).filter(t => t.name);
     wiz.trainer = trainers.length ? trainers[0].name : '';
-    wiz.trainerIsOther = false;
     wiz.responsible = team.responsible || '';
     // Standaard wedstrijdvorm + opstelling van de gekozen ploeg klaarzetten (per wedstrijd
     // aanpasbaar) — maar niet als de gebruiker het format in deze wizard al zelf koos
@@ -44,12 +42,6 @@ function wizTeamChange() {
     }
   }
   render();
-}
-function wizTrainerSelChange(val) {
-  wiz.trainerIsOther = val === '_other';
-  if (!wiz.trainerIsOther) wiz.trainer = val;
-  const fg = document.getElementById('n-trainer-other-fg');
-  if (fg) fg.style.display = wiz.trainerIsOther ? '' : 'none';
 }
 function durOptsHtml(periodKey, currentDur) {
   const fixed = DURATIONS[periodKey] || [15];
@@ -107,7 +99,6 @@ function wizStep1() {
     : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
   const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(t => t.name) : [];
-  const trainerOpts = teamTrainers.map(t => `<option value="${esc(t.name)}" ${!wiz.trainerIsOther&&wiz.trainer===t.name?'selected':''}>${esc(t.name)}</option>`).join('');
   const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
   return `
     <div class="card">
@@ -147,15 +138,7 @@ function wizStep1() {
         </div>
         <div class="fg"><label>Scheidsrechter</label><input id="n-ref" type="text" value="${esc(wiz.referee)}" placeholder="Naam"></div>
         <div class="fg"><label>Locatie</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. sportveld, kunstgras B2"></div>
-        <div class="fg"><label>Trainer</label>
-          <select id="n-trainer-sel" onchange="wizTrainerSelChange(this.value)">
-            ${trainerOpts}
-            <option value="_other" ${wiz.trainerIsOther?'selected':''}>Andere trainer…</option>
-          </select></div>
-        <div class="fg" id="n-trainer-other-fg" style="${wiz.trainerIsOther?'':'display:none'}">
-          <label>Naam trainer</label>
-          <input id="n-trainer-other" type="text" value="${esc(wiz.trainer||'')}" placeholder="Naam trainer" autocomplete="off">
-        </div>
+        ${trainerPickerHtml('n', teamTrainers, wiz.trainer)}
         <div class="fg"><label>Ploegverantwoordelijke</label>
           <input id="n-responsible" type="text" value="${esc(wiz.responsible||'')}" placeholder="Naam (optioneel)" autocomplete="off">
         </div>
@@ -178,10 +161,7 @@ function captureStep1() {
   if (document.getElementById('n-pt') && PERIOD_TYPES[wiz.periodKey]) wiz.numQuarters = PERIOD_TYPES[wiz.periodKey].count;
   const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
-  const trainerSel = document.getElementById('n-trainer-sel');
-  if (trainerSel) { wiz.trainerIsOther = trainerSel.value === '_other'; if (!wiz.trainerIsOther) wiz.trainer = trainerSel.value; }
-  const trainerOther = document.getElementById('n-trainer-other');
-  if (wiz.trainerIsOther && trainerOther) wiz.trainer = trainerOther.value.trim();
+  wiz.trainer = readTrainerPicker('n', wiz.trainer);
   wiz.responsible = (v('n-responsible') || '').trim();
 }
 function buildPool() {
@@ -780,7 +760,7 @@ function editMatchWizard(m) {
     teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
-    trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
+    trainer: m.trainer || '', responsible: m.responsible || '',
     pool,
     formationIndex: fi, selPlace: null,
   };
@@ -813,7 +793,7 @@ function startSelectieWizard() {
     numQuarters: m.numQuarters,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '',
     jersey: m.jersey || '', venue: m.venue || '',
-    trainer: m.trainer || '', responsible: m.responsible || '', trainerIsOther: false,
+    trainer: m.trainer || '', responsible: m.responsible || '',
     formationIndex: fi, selPlace: null, pool: [],
   };
   if (m.tournamentId) {
@@ -846,7 +826,7 @@ function renderPrep() {
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
   const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
-  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], ['Trainer', matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
+  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>

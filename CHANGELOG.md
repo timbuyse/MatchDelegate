@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.0
+- **Nieuw:** een wedstrijd kan door **meer dan één trainer** begeleid worden. Waar vroeger één
+  trainer uit een keuzelijst kwam, staat nu een **aanvinklijst** met de trainers van de ploeg: vink
+  er zoveel aan als er die dag bij zijn. Eronder blijft één vrij veld voor iemand die niet in het
+  ploegrooster staat (ook daar mogen meerdere namen, gescheiden door een komma).
+- Dat geldt op de drie plaatsen waar je trainers ingeeft: de **nieuwe-wedstrijdwizard** (onder
+  '+ Meer details'), **'Info bewerken'** bij een lopende of geplande wedstrijd, en **stap 1 van een
+  tornooi**. Bij een tornooiwedstrijd zelf blijft het ongewijzigd: die neemt de trainers van het
+  tornooi over, zoals voordien.
+- In het verslag, de PDF en het tornooioverzicht staat het label op **"Trainers"** zodra er meer dan
+  één is, en anders gewoon op "Trainer".
+- Onder de motorkap verandert er **niets aan het datamodel**: meerdere trainers zitten als één
+  komma-gescheiden tekst in hetzelfde veld. Bestaande wedstrijden en tornooien blijven dus
+  onveranderd leesbaar, en er is geen migratie nodig.
+
 ## v0.18.6
 - **Nieuw:** een **Agenda** op het startscherm van de ploeg, als brede tegel onder de vier andere.
   Daar staan wedstrijden **en** tornooidagen samen op één kalender — het enige scherm waar dat zo

@@ -488,13 +488,13 @@ function modalEditMatchInfo() {
         // die geef je één keer bij het tornooi in. Kon je ze hier per wedstrijd overschrijven, dan
         // liep de wedstrijd stil uit de pas met het tornooi (en omgekeerd: een wijziging bij het
         // tornooi kwam nooit in de wedstrijd terecht). Zelfde aanpak als bij de locatie hierboven.
-        ? `<div class="fg"><label>Trainer</label>
+        ? `<div class="fg"><label>${trainerLabel(matchTrainer(match))}</label>
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchTrainer(match) || '—')}</div></div>
           <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label>
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchResponsible(match) || '—')}</div>
-            <div style="font-size:11px;color:var(--txt2)">Trainer en ploegverantwoordelijke komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
+            <div style="font-size:11px;color:var(--txt2)">Trainer(s) en ploegverantwoordelijke komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
           </div>`
-        : `<div class="fg"><label>Trainer</label><input id="ei-trainer" type="text" value="${esc(match.trainer||'')}" placeholder="Naam trainer" autocomplete="off"></div>
+        : `${trainerPickerHtml('ei', ((teamById(match.teamId) || {}).trainers || []).filter(tr => tr.name), match.trainer)}
           <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>`}
     </details>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">${icI(IC.check)}Opslaan</button>
@@ -535,8 +535,9 @@ async function saveMatchInfo() {
   if (formEl) match.formation = formEl.value;
   const formationChanged = formEl && match.formation !== prevFormation;
   // Bij een tornooiwedstrijd staan deze twee velden er niet (ze komen van het tornooi): dan niets
-  // overschrijven, anders wist de lege v() de bewaarde terugvalwaarde.
-  if (document.getElementById('ei-trainer')) match.trainer = v('ei-trainer').trim();
+  // overschrijven, anders wist de lege waarde de bewaarde terugval. readTrainerPicker geeft in dat
+  // geval de meegegeven bestaande waarde terug.
+  match.trainer = readTrainerPicker('ei', match.trainer);
   if (document.getElementById('ei-responsible')) match.responsible = v('ei-responsible').trim();
   syncTournamentStaff(match);
   match.referee = v('ei-ref').trim();
@@ -854,6 +855,8 @@ function exportMatchCSV() {
   row('Opstelling', m.formation || '');
   row('Aantal periodes', m.numQuarters || '');
   row('Duur per periode (min)', m.quarterDuration || '');
+  // Vast label: dit is een export, en een kolomnaam die meebeweegt met het aantal trainers maakt
+  // het bestand moeilijker te verwerken. De namen zelf staan komma-gescheiden in de waarde.
   row('Trainer', matchTrainer(m));
   row('Afgevaardigde', matchResponsible(m));
   row('Scheidsrechter', m.referee || '');

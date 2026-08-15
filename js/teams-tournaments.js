@@ -366,7 +366,7 @@ async function loadTournamentDetail() {
     ['Ploeg', team ? team.name : (t.teamName || '')],
     ['Locatie', t.location],
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
-    ['Trainer', t.trainer],
+    [trainerLabel(t.trainer), t.trainer],
     // Afgekort, zoals in het wedstrijddetail: voluit botst het label in deze smalle kolom tegen de
     // naam ernaast.
     ['Ploegverantw.', t.responsible],
@@ -574,7 +574,7 @@ async function loadTournamentReport() {
     ['Locatie', t.location],
     ['Format', t.matchType],
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
-    ['Trainer', t.trainer],
+    [trainerLabel(t.trainer), t.trainer],
     ['Ploegverantw.', t.responsible],
     ['Eindstand', t.standing],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
@@ -758,7 +758,7 @@ async function exportTournamentPDF() {
   const metaBits = [team ? team.name : (t.teamName || ''), t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '', t.location, t.matchType, tournamentPeriodsLabel(t)].filter(Boolean);
   const metaLines = doc.splitTextToSize(metaBits.join(' · '), tw);
   doc.text(metaLines, tx, my); my += metaLines.length * 13;
-  const infoBits = [t.trainer && ('Trainer: ' + t.trainer), t.responsible && ('Ploegverantwoordelijke: ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
+  const infoBits = [t.trainer && (trainerLabel(t.trainer) + ': ' + t.trainer), t.responsible && ('Ploegverantwoordelijke: ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
   if (infoBits.length) {
     const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
     doc.text(infoLines, tx, my); my += infoLines.length * 13;
@@ -1078,7 +1078,7 @@ function newTournament() {
     quarterDuration: TRN_PERIODS_DEFAULT.quarterDuration,
     trainer: teamTrainers.length ? teamTrainers[0].name : '',
     responsible: team ? (team.responsible || '') : '',
-    trainerIsOther: false, pool: [], poolTeamId: null,
+    pool: [], poolTeamId: null,
   };
   trnWiz._sig = trnWizSig(); // vertrekpunt voor de "niet bewaard"-vraag bij het verlaten
   go('tournamentNew');
@@ -1159,7 +1159,6 @@ function trnWizTeamChange() {
     const trainers = (team.trainers || []).filter(tr => tr.name);
     trnWiz.trainer = trainers.length ? trainers[0].name : '';
     trnWiz.responsible = team.responsible || '';
-    trnWiz.trainerIsOther = false;
     // Een andere ploeg betekent een ander rooster, dus de selectie wordt opnieuw opgebouwd. Niet
     // stil doen als er al iets gekozen was (bv. na terugkeren uit stap 2).
     const gekozen = trnWiz.teamId !== oudeTeamId ? (trnWiz.pool || []).filter(p => p.sel && p.sel !== 'none').length : 0;
@@ -1184,12 +1183,6 @@ function trnDefPeriodChange() {
   const ci = document.getElementById('trn-qd-custom');
   if (ci) { ci.style.display = qd.value === '0' ? '' : 'none'; if (qd.value !== '0') ci.value = ''; }
 }
-function trnTrainerSelChange(val) {
-  trnWiz.trainerIsOther = val === '_other';
-  if (!trnWiz.trainerIsOther) trnWiz.trainer = val;
-  const fg = document.getElementById('trn-trainer-other-fg');
-  if (fg) fg.style.display = trnWiz.trainerIsOther ? '' : 'none';
-}
 function captureTrnStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const ts = document.getElementById('trn-team-sel'); if (ts) trnWiz.teamId = ts.value;
@@ -1205,10 +1198,7 @@ function captureTrnStep1() {
     else if (PERIOD_TYPES[ptEl.value]) { trnWiz.periodKey = ptEl.value; trnWiz.numQuarters = PERIOD_TYPES[ptEl.value].count; }
     trnWiz.quarterDuration = readDur('trn-qd', 'trn-qd-custom', tournamentPeriods(trnWiz).quarterDuration);
   }
-  const trainerSel = document.getElementById('trn-trainer-sel');
-  if (trainerSel) { trnWiz.trainerIsOther = trainerSel.value === '_other'; if (!trnWiz.trainerIsOther) trnWiz.trainer = trainerSel.value; }
-  const trainerOther = document.getElementById('trn-trainer-other');
-  if (trnWiz.trainerIsOther && trainerOther) trnWiz.trainer = trainerOther.value.trim();
+  trnWiz.trainer = readTrainerPicker('trn', trnWiz.trainer);
   trnWiz.responsible = (v('trn-responsible') || '').trim();
   // Alleen overschrijven als het veld op dit scherm staat (stap 1) — anders zou stap 2 het wissen.
   if (document.getElementById('trn-standing')) trnWiz.standing = (v('trn-standing') || '').trim();
@@ -1372,7 +1362,6 @@ function renderTrnStep1() {
         : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = vast || (teams.length ? teams[0] : null);
   const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(tr => tr.name) : [];
-  const trainerOpts = teamTrainers.map(tr => `<option value="${esc(tr.name)}" ${!trnWiz.trainerIsOther&&trnWiz.trainer===tr.name?'selected':''}>${esc(tr.name)}</option>`).join('');
   return `<div class="card">
     <div class="fg"><label>Naam van het tornooi</label><input id="trn-name" type="text" placeholder="bv. Paastornooi Gent" value="${esc(trnWiz.name)}" autocomplete="off"></div>
     <div class="fg"><label>Ploeg</label>${teamSel}</div>
@@ -1395,15 +1384,7 @@ function renderTrnStep1() {
       </div>
       <div style="font-size:11px;color:var(--txt2);margin:-6px 0 12px">Geldt als standaard voor elke nieuwe wedstrijd van dit tornooi. Per wedstrijd kan je er nog van afwijken.</div>`;
     })()}
-    <div class="fg"><label>Trainer</label>
-      <select id="trn-trainer-sel" onchange="trnTrainerSelChange(this.value)">
-        ${trainerOpts}
-        <option value="_other" ${trnWiz.trainerIsOther?'selected':''}>Andere trainer…</option>
-      </select></div>
-    <div class="fg" id="trn-trainer-other-fg" style="${trnWiz.trainerIsOther?'':'display:none'}">
-      <label>Naam trainer</label>
-      <input id="trn-trainer-other" type="text" value="${esc(trnWiz.trainer||'')}" placeholder="Naam trainer" autocomplete="off">
-    </div>
+    ${trainerPickerHtml('trn', teamTrainers, trnWiz.trainer)}
     <div class="fg"><label>Ploegverantwoordelijke (optioneel)</label>
       <input id="trn-responsible" type="text" value="${esc(trnWiz.responsible||'')}" placeholder="Naam (optioneel)" autocomplete="off">
     </div>
@@ -1503,7 +1484,7 @@ function addTournamentMatch(trnId) {
     quarterDuration: tournamentPeriods(t).quarterDuration,
     numQuarters: tournamentPeriods(t).numQuarters,
     competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '',
-    trainer: t.trainer || '', responsible: t.responsible || '', trainerIsOther: false,
+    trainer: t.trainer || '', responsible: t.responsible || '',
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
   };
   go('new');
@@ -1557,7 +1538,6 @@ async function cloneTournamentMatch(matchId, trnId) {
     matchday: '', referee: src.referee || '', jersey: src.jersey || '',
     venue: '', trainer: src.trainer || t.trainer || '',
     responsible: src.responsible || t.responsible || '',
-    trainerIsOther: false,
     pool, poolTeamId: t.teamId, formationIndex: fi, selPlace: null,
   };
   // Basisspelers terugplaatsen op hun formatie-slot (x/y-match), zoals editMatchWizard — anders
