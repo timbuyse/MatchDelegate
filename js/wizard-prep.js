@@ -12,7 +12,6 @@ function teamMatchDefaults(team) {
 function startWizard() {
   const now = new Date();
   const team = getTeamsV2()[0] || null;
-  const teamTrainers = team ? (team.trainers || []).filter(t => t.name) : [];
   const md = teamMatchDefaults(team);
   wiz = {
     step: 1, teamId: (team || {}).id || '', opponent: '', subteam: '',
@@ -20,8 +19,10 @@ function startWizard() {
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: md.matchType, periodKey: 'kwarten', quarterDuration: 15,
     competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
-    trainer: teamTrainers.length ? teamTrainers[0].name : '',
-    responsible: team ? (team.responsible || '') : '',
+    // Standaard staat de eerste trainer en de eerste ploegverantwoordelijke van de ploeg
+    // aangevinkt; de rest vink je er per wedstrijd bij.
+    trainer: teamTrainerNames(team)[0] || '',
+    responsible: teamResponsibleNames(team)[0] || '',
     pool: [], poolTeamId: null, formationIndex: md.formationIndex, selPlace: null,
   };
 }
@@ -29,9 +30,8 @@ function wizTeamChange() {
   captureStep1();
   const team = teamById(wiz.teamId);
   if (team) {
-    const trainers = (team.trainers || []).filter(t => t.name);
-    wiz.trainer = trainers.length ? trainers[0].name : '';
-    wiz.responsible = team.responsible || '';
+    wiz.trainer = teamTrainerNames(team)[0] || '';
+    wiz.responsible = teamResponsibleNames(team)[0] || '';
     // Standaard wedstrijdvorm + opstelling van de gekozen ploeg klaarzetten (per wedstrijd
     // aanpasbaar) — maar niet als de gebruiker het format in deze wizard al zelf koos
     // (eerst format zetten en dán pas de ploeg kiezen mag die keuze niet stil terugdraaien).
@@ -98,7 +98,6 @@ function wizStep1() {
     ? `<select id="n-team-sel" onchange="wizTeamChange()">${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
     : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
-  const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(t => t.name) : [];
   const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
   return `
     <div class="card">
@@ -138,10 +137,8 @@ function wizStep1() {
         </div>
         <div class="fg"><label>Scheidsrechter</label><input id="n-ref" type="text" value="${esc(wiz.referee)}" placeholder="Naam"></div>
         <div class="fg"><label>Locatie</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. sportveld, kunstgras B2"></div>
-        ${trainerPickerHtml('n', teamTrainers, wiz.trainer)}
-        <div class="fg"><label>Ploegverantwoordelijke</label>
-          <input id="n-responsible" type="text" value="${esc(wiz.responsible||'')}" placeholder="Naam (optioneel)" autocomplete="off">
-        </div>
+        ${staffPickerHtml('n', 'trn', teamTrainerNames(selectedTeam), wiz.trainer)}
+        ${staffPickerHtml('n', 'resp', teamResponsibleNames(selectedTeam), wiz.responsible)}
       </details>
     </div>
     <button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
@@ -161,8 +158,8 @@ function captureStep1() {
   if (document.getElementById('n-pt') && PERIOD_TYPES[wiz.periodKey]) wiz.numQuarters = PERIOD_TYPES[wiz.periodKey].count;
   const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
   wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
-  wiz.trainer = readTrainerPicker('n', wiz.trainer);
-  wiz.responsible = (v('n-responsible') || '').trim();
+  wiz.trainer = readStaffPicker('n', 'trn', wiz.trainer);
+  wiz.responsible = readStaffPicker('n', 'resp', wiz.responsible);
 }
 function buildPool() {
   const team = teamById(wiz.teamId);

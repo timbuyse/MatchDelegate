@@ -490,12 +490,12 @@ function modalEditMatchInfo() {
         // tornooi kwam nooit in de wedstrijd terecht). Zelfde aanpak als bij de locatie hierboven.
         ? `<div class="fg"><label>${trainerLabel(matchTrainer(match))}</label>
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchTrainer(match) || '—')}</div></div>
-          <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label>
+          <div class="fg" style="margin-bottom:0"><label>${responsibleLabel(matchResponsible(match))}</label>
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchResponsible(match) || '—')}</div>
-            <div style="font-size:11px;color:var(--txt2)">Trainer(s) en ploegverantwoordelijke komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
+            <div style="font-size:11px;color:var(--txt2)">Trainer(s) en ploegverantwoordelijke(n) komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
           </div>`
-        : `${trainerPickerHtml('ei', ((teamById(match.teamId) || {}).trainers || []).filter(tr => tr.name), match.trainer)}
-          <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke</label><input id="ei-responsible" type="text" value="${esc(match.responsible||'')}" placeholder="Naam" autocomplete="off"></div>`}
+        : `${staffPickerHtml('ei', 'trn', teamTrainerNames(teamById(match.teamId)), match.trainer)}
+          ${staffPickerHtml('ei', 'resp', teamResponsibleNames(teamById(match.teamId)), match.responsible)}`}
     </details>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -535,10 +535,10 @@ async function saveMatchInfo() {
   if (formEl) match.formation = formEl.value;
   const formationChanged = formEl && match.formation !== prevFormation;
   // Bij een tornooiwedstrijd staan deze twee velden er niet (ze komen van het tornooi): dan niets
-  // overschrijven, anders wist de lege waarde de bewaarde terugval. readTrainerPicker geeft in dat
+  // overschrijven, anders wist de lege waarde de bewaarde terugval. readStaffPicker geeft in dat
   // geval de meegegeven bestaande waarde terug.
-  match.trainer = readTrainerPicker('ei', match.trainer);
-  if (document.getElementById('ei-responsible')) match.responsible = v('ei-responsible').trim();
+  match.trainer = readStaffPicker('ei', 'trn', match.trainer);
+  match.responsible = readStaffPicker('ei', 'resp', match.responsible);
   syncTournamentStaff(match);
   match.referee = v('ei-ref').trim();
   const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() : compSel;

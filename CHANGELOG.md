@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.1
+- **Nieuw:** in **'Ploeg bewerken'** geef je nu **zoveel trainers en ploegverantwoordelijken in als
+  je wil**. De limiet van drie trainers is weg, en de ploegverantwoordelijke — tot nu één enkel
+  veld — kreeg dezelfde behandeling. Vul een naam in en tik op **'+ Nog een trainer'** of
+  **'+ Nog een ploegverantwoordelijke'** voor de volgende; met het rode kruisje haal je er één weg.
+- **Nieuw:** ook de **ploegverantwoordelijken** kies je nu per wedstrijd en per tornooi met een
+  aanvinklijst, net zoals de trainers sinds v0.19.0. Wie niet in de ploeg staat, typ je in het vrije
+  veld eronder (meerdere namen mogen, gescheiden door een komma).
+- Bij een nieuwe wedstrijd of een nieuw tornooi staat voortaan de **eerste trainer én de eerste
+  ploegverantwoordelijke** van de ploeg aangevinkt. Voordien werden bij de ploegverantwoordelijke
+  alle namen tegelijk overgenomen.
+- In het ploegoverzicht worden trainers en ploegverantwoordelijken **genummerd** zodra er meer dan
+  één is; bij precies één blijft het gewoon "Trainer" en "Ploegverantw.".
+- Opnieuw **geen wijziging aan het datamodel**: meerdere ploegverantwoordelijken zitten
+  komma-gescheiden in hetzelfde veld `responsible`, zoals de trainers in `trainer`. Bestaande
+  ploegen, wedstrijden en tornooien blijven onveranderd leesbaar.
+
 ## v0.19.0
 - **Nieuw:** een wedstrijd kan door **meer dan één trainer** begeleid worden. Waar vroeger één
   trainer uit een keuzelijst kwam, staat nu een **aanvinklijst** met de trainers van de ploeg: vink

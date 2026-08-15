@@ -583,8 +583,8 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Via de tegel <b>'Spelers'</b> op het homescherm kom je in <b>'Ploeg bewerken'</b>:</p>
       <ul class="hdl-list">
-        <li><b>Ploegnaam</b> en <b>ploegverantwoordelijke</b>.</li>
-        <li><b>Trainers</b> — tot 3 trainers invullen.</li>
+        <li><b>Ploegnaam</b>.</li>
+        <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
         <li><b>Spelers</b> — rugnummer, voornaam, familienaam en voorkeurspositie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
         <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. 'Auto-plaats' in de wizard gebruikt dat om hem op de juiste flank te zetten.</li>
         <li><b>Standaard wedstrijdvorm en opstelling</b> — stel per ploeg in met welke vorm (bv. 8v8) en welke formatie je meestal speelt. Een nieuwe wedstrijd start dan met die instelling; per wedstrijd kan je ze nog wijzigen.</li>
@@ -603,7 +603,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Format</b>: bv. 8 tegen 8, 11 tegen 11.</li>
         <li><b>Aantal blokken</b>: bv. 4 kwarten, 2 helften.</li>
         <li><b>Duur van een blok</b>: speelduur in minuten.</li>
-        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, trainer(s), enz. Bij de trainers vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn.</li>
+        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, trainer(s), ploegverantwoordelijke(n), enz. Bij de trainers en de ploegverantwoordelijken vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
       </ul>
       <p class="hdl-tip">Wil je plannen zonder opstelling? Tik op <b>'Plannen zonder selectie'</b>.</p>
     `
@@ -712,7 +712,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Naam</b> (bv. Paastornooi Gent), <b>ploeg</b>, <b>datum</b> en <b>locatie</b>.</li>
         <li><b>Type wedstrijd</b> — de vorm waarin je die dag speelt (bv. 5v5 of 8v8).</li>
         <li><b>Aantal blokken</b> en <b>duur van een blok</b> — de standaardduur van de dag (tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten). Elke nieuwe wedstrijd neemt ze over; wijkt er één af, dan pas je dat in die wedstrijd zelf aan.</li>
-        <li><b>Trainer(s)</b> en optioneel de <b>ploegverantwoordelijke</b>. Vink aan wie er die dag bij is — er mogen er meerdere zijn — of typ een naam die niet in de ploeg staat. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
+        <li><b>Trainer(s)</b> en <b>ploegverantwoordelijke(n)</b>. Vink aan wie er die dag bij is — er mogen er meerdere zijn — of typ een naam die niet in de ploeg staat. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
       </ul>
       <div class="sec">Stap 2 — Selectie voor de hele dag</div>
       <p>Duid per speler aan of hij <b>Mee</b> is naar het tornooi, of <b>NB</b> (niet beschikbaar, met een reden naar keuze). Wie je niet aanduidt, is niet geselecteerd. Je kan hier ook per speler het rugnummer voor die dag aanpassen.</p>

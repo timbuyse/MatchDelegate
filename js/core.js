@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.19.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.19.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -444,39 +444,51 @@ function matchResponsible(m) {
   const t = m.tournamentId ? tournamentById(m.tournamentId) : null;
   return (t && t.responsible) || m.responsible || '';
 }
-// --- Meerdere trainers -------------------------------------------------------------------
-// Een wedstrijd (of tornooi) kan door meer dan één trainer begeleid worden. Ze zitten bewust in
-// hetzelfde veld `trainer` als één komma-gescheiden tekst: het datamodel verandert niet, bestaande
-// wedstrijden blijven leesbaar, en een oudere app-versie of een kijker toont gewoon de hele tekst.
-// Lees ze nooit rechtstreeks uit als lijst — gebruik trainerList().
-function trainerList(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
-function trainerJoin(arr) { return (arr || []).map(x => String(x || '').trim()).filter(Boolean).join(', '); }
-// "Trainer" of "Trainers", naargelang er één of meer in het veld staan.
-function trainerLabel(s) { return trainerList(s).length > 1 ? 'Trainers' : 'Trainer'; }
-// Keuzeveld: de trainers van de ploeg aanvinken, plus een vrij veld voor wie niet in het rooster
-// staat (daar mogen ook meerdere namen, gescheiden door komma's). `prefix` is het id-voorvoegsel
-// van het scherm ('n' in de wedstrijdwizard, 'trn' bij een tornooi, 'ei' bij Info bewerken).
-function trainerPickerHtml(prefix, teamTrainers, current) {
-  const gekozen = trainerList(current);
+// --- Meerdere trainers en ploegverantwoordelijken -----------------------------------------
+// Een wedstrijd (of tornooi) kan door meer dan één trainer én meer dan één ploegverantwoordelijke
+// begeleid worden. Ze zitten bewust in dezelfde velden `trainer` en `responsible` als één
+// komma-gescheiden tekst: het datamodel verandert niet, bestaande wedstrijden, tornooien en ploegen
+// blijven leesbaar, en een oudere app-versie of een kijker toont gewoon de hele tekst. Datzelfde
+// geldt voor `team.responsible` in het rooster. Lees ze nooit als lijst uit zonder staffList().
+function staffList(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
+function staffJoin(arr) { return (arr || []).map(x => String(x || '').trim()).filter(Boolean).join(', '); }
+// Enkelvoud of meervoud, naargelang er één of meer namen in het veld staan.
+function trainerLabel(s) { return staffList(s).length > 1 ? 'Trainers' : 'Trainer'; }
+function responsibleLabel(s) { return staffList(s).length > 1 ? 'Ploegverantwoordelijken' : 'Ploegverantwoordelijke'; }
+// De namen die in het rooster van de ploeg staan — de aanvinkbare keuzes.
+function teamTrainerNames(team) { return (((team || {}).trainers) || []).map(t => (t.name || '').trim()).filter(Boolean); }
+function teamResponsibleNames(team) { return staffList((team || {}).responsible); }
+// Keuzeveld: de namen uit het ploegrooster aanvinken, plus een vrij veld voor wie er niet in staat
+// (daar mogen ook meerdere namen, gescheiden door komma's). `prefix` is het id-voorvoegsel van het
+// scherm ('n' in de wedstrijdwizard, 'trn' bij een tornooi, 'ei' bij Info bewerken), `soort` is
+// 'trn' voor trainers of 'resp' voor ploegverantwoordelijken.
+const STAFF_KIND = {
+  trn:  { label: 'Trainer(s)', een: 'trainer', hint: 'Meerdere trainers mogen: vink er meerdere aan, of scheid namen met een komma.' },
+  resp: { label: 'Ploegverantwoordelijke(n)', een: 'ploegverantwoordelijke', hint: 'Meerdere ploegverantwoordelijken mogen: vink er meerdere aan, of scheid namen met een komma.' },
+};
+function staffPickerHtml(prefix, soort, namen, current) {
+  const k = STAFF_KIND[soort];
+  const gekozen = staffList(current);
   const laag = gekozen.map(n => n.toLowerCase());
-  const known = (teamTrainers || []).map(t => (t.name || '').trim()).filter(Boolean);
-  const extra = gekozen.filter(n => !known.some(k => k.toLowerCase() === n.toLowerCase()));
-  const boxes = known.map(n => `<label class="chkrow"><input type="checkbox" class="${prefix}-trn-cb" value="${esc(n)}" ${laag.includes(n.toLowerCase()) ? 'checked' : ''}> ${esc(n)}</label>`).join('');
-  return `<div class="fg"><label>Trainer(s)</label>
+  const known = (namen || []).map(n => String(n || '').trim()).filter(Boolean);
+  const extra = gekozen.filter(n => !known.some(x => x.toLowerCase() === n.toLowerCase()));
+  const boxes = known.map(n => `<label class="chkrow"><input type="checkbox" class="${prefix}-${soort}-cb" value="${esc(n)}" ${laag.includes(n.toLowerCase()) ? 'checked' : ''}> ${esc(n)}</label>`).join('');
+  return `<div class="fg"><label>${k.label}</label>
     ${boxes ? `<div class="trn-pick">${boxes}</div>` : ''}
-    <input id="${prefix}-trainer-other" type="text" value="${esc(extra.join(', '))}" placeholder="${known.length ? 'Andere trainer (optioneel)' : 'Naam trainer (optioneel)'}" autocomplete="off" style="margin-top:8px">
-    <div style="font-size:11px;color:var(--txt2);margin-top:5px">Meerdere trainers mogen: vink er meerdere aan, of scheid namen met een komma.</div>
+    <input id="${prefix}-${soort}-other" type="text" value="${esc(extra.join(', '))}" placeholder="${known.length ? 'Andere ' + k.een + ' (optioneel)' : 'Naam ' + k.een + ' (optioneel)'}" autocomplete="off" style="margin-top:8px">
+    <div style="font-size:11px;color:var(--txt2);margin-top:5px">${k.hint}</div>
   </div>`;
 }
 // Leest het keuzeveld hierboven terug uit. Staat het niet op dit scherm (bv. een tornooiwedstrijd,
-// waar de trainers van het tornooi komen), dan blijft de bestaande waarde ongemoeid.
-function readTrainerPicker(prefix, fallback) {
-  const boxes = Array.from(document.querySelectorAll('.' + prefix + '-trn-cb'));
-  const other = document.getElementById(prefix + '-trainer-other');
+// waar trainer en ploegverantwoordelijke van het tornooi komen), dan blijft de bestaande waarde
+// ongemoeid.
+function readStaffPicker(prefix, soort, fallback) {
+  const boxes = Array.from(document.querySelectorAll('.' + prefix + '-' + soort + '-cb'));
+  const other = document.getElementById(prefix + '-' + soort + '-other');
   if (!boxes.length && !other) return fallback || '';
   const namen = boxes.filter(b => b.checked).map(b => b.value);
-  if (other) trainerList(other.value).forEach(n => { if (!namen.some(x => x.toLowerCase() === n.toLowerCase())) namen.push(n); });
-  return trainerJoin(namen);
+  if (other) staffList(other.value).forEach(n => { if (!namen.some(x => x.toLowerCase() === n.toLowerCase())) namen.push(n); });
+  return staffJoin(namen);
 }
 // De terugvalkopie in de wedstrijd bijwerken telkens ze bewaard wordt, zodat ze niet verouderd
 // raakt tegenover het tornooi. Roep dit aan vlak vóór dbSave() van een tornooiwedstrijd.

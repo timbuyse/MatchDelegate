@@ -80,6 +80,15 @@ function teamPlayerRows(t) {
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('');
 }
+// De ploegverantwoordelijken en trainers als inforegels. Genummerd zodra er meer dan één is —
+// bij precies één zou "Trainer 1" alleen maar suggereren dat er nog eentje mist.
+function teamStaffRowsHtml(t) {
+  const rij = (k, v) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`;
+  const resps = teamResponsibleNames(t);
+  const trainers = teamTrainerNames(t);
+  return resps.map((n, i) => rij('Ploegverantw.' + (resps.length > 1 ? ' ' + (i + 1) : ''), n)).join('')
+    + trainers.map((n, i) => rij('Trainer' + (trainers.length > 1 ? ' ' + (i + 1) : ''), n)).join('');
+}
 function renderTeamView() {
   const t = editingTeam;
   const trainers = (t.trainers || []).filter(tr => tr.name);
@@ -87,8 +96,7 @@ function renderTeamView() {
   <div class="content">
     <div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — ploegen worden door de beheerder beheerd</div>
     ${(t.responsible || trainers.length) ? `<div class="card">
-      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantw.</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
-      ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
+      ${teamStaffRowsHtml(t)}
     </div>` : ''}
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
@@ -96,7 +104,6 @@ function renderTeamView() {
 }
 function renderTeamOverview() {
   const t = editingTeam;
-  const trainers = (t.trainers || []).filter(tr => tr.name);
   const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
@@ -110,8 +117,7 @@ function renderTeamOverview() {
     </div>
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2);min-width:140px">Standaardopstelling</span><span style="font-weight:600">${esc(oForm)} <span style="color:var(--txt2);font-weight:400">(${esc(oDmt)})</span></span></div>
-      ${t.responsible?`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegverantw.</span><span style="font-weight:600">${esc(t.responsible)}</span></div>`:''}
-      ${trainers.map((tr,i)=>`<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Trainer ${i+1}</span><span style="font-weight:600">${esc(tr.name)}</span></div>`).join('')}
+      ${teamStaffRowsHtml(t)}
     </div>
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
@@ -145,12 +151,20 @@ function renderTeamEdit() {
     <p style="font-size:11px;color:var(--txt2);margin:-4px 0 12px">${useNums
       ? 'Zet dit uit als je ploeg geen vaste rugnummers heeft. De nummers verdwijnen dan uit de app; per wedstrijd kan je er nog altijd één invullen.'
       : 'Er staan nergens rugnummers. Wil je er voor één wedstrijd toch, dan vul je ze in bij de selectie van die wedstrijd.'}</p>`;
-  const trainers = editingTeam.trainers || [];
-  const trainerRows = [0, 1, 2].map(i => {
-    const t = trainers[i] || { name: '' };
-    return `<div class="fg" style="margin-bottom:8px"><label>Trainer ${i+1}${i > 0 ? ' (optioneel)' : ''}</label>
-      <input type="text" placeholder="Naam trainer" value="${esc(t.name)}" oninput="setTrainer(${i},this.value)" autocomplete="off"></div>`;
-  }).join('');
+  // Trainers en ploegverantwoordelijken: zoveel rijen als je wil. Er staat er altijd minstens één,
+  // ook al is die leeg — anders zie je bij een nieuwe ploeg geen enkel invulveld.
+  const staffRows = (soort, namen, enkel) => {
+    const lijst = namen.length ? namen : [''];
+    return lijst.map((naam, i) => `<div class="fg" style="margin-bottom:8px"><label>${enkel} ${i+1}${i > 0 ? ' (optioneel)' : ''}</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" placeholder="Naam ${enkel.toLowerCase()}" value="${esc(naam)}" oninput="setStaffName('${soort}',${i},this.value)" autocomplete="off">
+        ${lijst.length > 1 ? `<button class="delbtn" style="flex:none" onclick="delStaffName('${soort}',${i})" aria-label="Verwijderen">×</button>` : ''}
+      </div></div>`).join('');
+  };
+  const trainerRows = staffRows('trainers', staffNames('trainers'), 'Trainer')
+    + `<button class="btn btn-pale btn-sm" onclick="addStaffName('trainers')">+ Nog een trainer</button>`;
+  const respRows = staffRows('responsible', staffNames('responsible'), 'Ploegverantwoordelijke')
+    + `<button class="btn btn-pale btn-sm" onclick="addStaffName('responsible')">+ Nog een ploegverantwoordelijke</button>`;
   const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
   const dForms = FORMATIONS[dmt] || [];
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
@@ -160,8 +174,9 @@ function renderTeamEdit() {
       <div class="fg"><label>Ploegnaam</label>${(cloudReady && !editingTeam.isNew)
         ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">De ploegnaam wijzig je via <b>Beheer → "Naam ploeg wijzigen"</b>.</div>`
         : `<input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off">`}</div>
-      <div class="fg" style="margin-bottom:0"><label>Ploegverantwoordelijke (optioneel)</label><input type="text" placeholder="Naam ploegverantwoordelijke" value="${esc(editingTeam.responsible||'')}" oninput="editingTeam.responsible=this.value" autocomplete="off"></div>
     </div>
+    <div class="sec">Ploegverantwoordelijken</div>
+    <div class="card">${respRows}</div>
     <div class="sec">Standaard voor nieuwe wedstrijden</div>
     <div class="card">
       <div class="fg"><label>Standaard wedstrijdvorm</label><select onchange="teamFormatChange(this.value)">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k===dmt?'selected':''}>${k}</option>`).join('')}</select></div>
@@ -239,12 +254,15 @@ function saveTeamEdit() {
   const clean = {
     id: editingTeam.id,
     name: editingTeam.name.trim(),
-    responsible: (editingTeam.responsible || '').trim(),
+    // Meerdere ploegverantwoordelijken zitten komma-gescheiden in dit ene veld (zie staffList in
+    // core.js): het datamodel blijft zo ongewijzigd. syncStaffToTeam hield het bij tijdens het typen.
+    responsible: staffJoin(staffList(editingTeam.responsible)),
     defaultMatchType: eDmt,
     defaultFormation: eDform,
     // Enkel wegschrijven als het uitstaat: zo blijven bestaande ploegen (zonder dit veld) gewoon
     // rugnummers gebruiken, en blijft het object schoon voor wie ze wél gebruikt.
     ...(teamUsesNumbers(editingTeam) ? {} : { useNumbers: false }),
+    // syncStaffToTeam hield editingTeam.trainers al bij tijdens het typen.
     trainers: (editingTeam.trainers || []).map(t => ({ id: t.id || uid(), name: (t.name || '').trim() })).filter(t => t.name),
     players: editingTeam.players.filter(p => (pFirstName(p) || pLastName(p) || '').trim()).map(p => {
       const fn = ((p.firstName !== undefined ? p.firstName : pFirstName(p)) || '').trim();
@@ -269,10 +287,51 @@ function deleteTeamConfirm() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function doDeleteTeam() { saveTeamsV2(getTeamsV2().filter(t => t.id !== editingTeam.id)); editingTeam = null; closeModal(); go('teams'); }
-function setTrainer(i, val) {
-  if (!editingTeam.trainers) editingTeam.trainers = [];
-  while (editingTeam.trainers.length <= i) editingTeam.trainers.push({ id: uid(), name: '' });
-  editingTeam.trainers[i].name = val;
+// Trainers en ploegverantwoordelijken in de ploeg-editor. `soort` is 'trainers' (een lijst van
+// {id,name} in het rooster) of 'responsible' (één komma-gescheiden tekst — zie staffList in
+// core.js). Beide worden hier als een gewone namenlijst behandeld; wegschrijven gebeurt in
+// saveTeamEdit, zodat een half ingevulde rij nooit blijft plakken.
+// Tijdens het bewerken staan de namen in `editingTeam._staff`, inclusief een nog lege rij — die zou
+// in de opslagvorm (een lijst zonder lege namen, of een komma-gescheiden tekst) meteen verdwijnen
+// en dus wegvallen zodra het scherm hertekent. `_staff` wordt nooit bewaard: saveTeamEdit bouwt het
+// ploegobject veld per veld op.
+function staffNames(soort) {
+  if (!editingTeam._staff) editingTeam._staff = {};
+  if (!editingTeam._staff[soort]) {
+    const uit = soort === 'trainers' ? teamTrainerNames(editingTeam) : teamResponsibleNames(editingTeam);
+    editingTeam._staff[soort] = uit.length ? uit : [''];
+  }
+  return editingTeam._staff[soort];
+}
+// De ingevulde rijen meteen in het ploegobject zelf zetten (lege rijen vallen weg), zodat het
+// overzichtsscherm hetzelfde toont als de editor — net zoals de spelersrijen dat al deden.
+function syncStaffToTeam(soort) {
+  const namen = staffNames(soort).map(n => n.trim()).filter(Boolean);
+  if (soort === 'trainers') {
+    const oud = editingTeam.trainers || [];
+    // Bestaande id's op positie hergebruiken: een naamcorrectie mag geen nieuw trainer-id maken.
+    editingTeam.trainers = namen.map((name, i) => ({ id: (oud[i] || {}).id || uid(), name }));
+  } else {
+    editingTeam.responsible = staffJoin(namen);
+  }
+}
+function setStaffName(soort, i, val) {
+  const namen = staffNames(soort);
+  while (namen.length <= i) namen.push('');
+  namen[i] = val;
+  syncStaffToTeam(soort);
+}
+function addStaffName(soort) {
+  const namen = staffNames(soort);
+  // Een lege rij erbij zetten heeft geen zin zolang de laatste nog leeg is.
+  if (namen.length && !namen[namen.length - 1].trim()) { showToast('Vul eerst de laatste naam in.', 'err'); return; }
+  namen.push('');
+  render();
+}
+function delStaffName(soort, i) {
+  staffNames(soort).splice(i, 1);
+  syncStaffToTeam(soort);
+  render();
 }
 
 // ===================== TORNOOIEN =====================
@@ -758,7 +817,7 @@ async function exportTournamentPDF() {
   const metaBits = [team ? team.name : (t.teamName || ''), t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '', t.location, t.matchType, tournamentPeriodsLabel(t)].filter(Boolean);
   const metaLines = doc.splitTextToSize(metaBits.join(' · '), tw);
   doc.text(metaLines, tx, my); my += metaLines.length * 13;
-  const infoBits = [t.trainer && (trainerLabel(t.trainer) + ': ' + t.trainer), t.responsible && ('Ploegverantwoordelijke: ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
+  const infoBits = [t.trainer && (trainerLabel(t.trainer) + ': ' + t.trainer), t.responsible && (responsibleLabel(t.responsible) + ': ' + t.responsible), t.standing && ('Eindstand: ' + t.standing)].filter(Boolean);
   if (infoBits.length) {
     const infoLines = doc.splitTextToSize(infoBits.join(' · '), tw);
     doc.text(infoLines, tx, my); my += infoLines.length * 13;
@@ -1068,7 +1127,6 @@ function newTournament() {
   if (!canManage()) return;
   const now = new Date();
   const team = trnTeamCandidates()[0] || null;
-  const teamTrainers = team ? (team.trainers || []).filter(tr => tr.name) : [];
   trnWiz = {
     step: 1, id: uid(), isNew: true,
     name: '', date: now.toISOString().split('T')[0],
@@ -1076,8 +1134,9 @@ function newTournament() {
     matchType: '8v8',
     periodKey: TRN_PERIODS_DEFAULT.periodKey, numQuarters: TRN_PERIODS_DEFAULT.numQuarters,
     quarterDuration: TRN_PERIODS_DEFAULT.quarterDuration,
-    trainer: teamTrainers.length ? teamTrainers[0].name : '',
-    responsible: team ? (team.responsible || '') : '',
+    // Net als bij een wedstrijd: de eerste trainer en ploegverantwoordelijke staan voorgevinkt.
+    trainer: teamTrainerNames(team)[0] || '',
+    responsible: teamResponsibleNames(team)[0] || '',
     pool: [], poolTeamId: null,
   };
   trnWiz._sig = trnWizSig(); // vertrekpunt voor de "niet bewaard"-vraag bij het verlaten
@@ -1156,9 +1215,8 @@ function trnWizTeamChange() {
   captureTrnStep1();
   const team = teamById(trnWiz.teamId);
   if (team) {
-    const trainers = (team.trainers || []).filter(tr => tr.name);
-    trnWiz.trainer = trainers.length ? trainers[0].name : '';
-    trnWiz.responsible = team.responsible || '';
+    trnWiz.trainer = teamTrainerNames(team)[0] || '';
+    trnWiz.responsible = teamResponsibleNames(team)[0] || '';
     // Een andere ploeg betekent een ander rooster, dus de selectie wordt opnieuw opgebouwd. Niet
     // stil doen als er al iets gekozen was (bv. na terugkeren uit stap 2).
     const gekozen = trnWiz.teamId !== oudeTeamId ? (trnWiz.pool || []).filter(p => p.sel && p.sel !== 'none').length : 0;
@@ -1198,8 +1256,8 @@ function captureTrnStep1() {
     else if (PERIOD_TYPES[ptEl.value]) { trnWiz.periodKey = ptEl.value; trnWiz.numQuarters = PERIOD_TYPES[ptEl.value].count; }
     trnWiz.quarterDuration = readDur('trn-qd', 'trn-qd-custom', tournamentPeriods(trnWiz).quarterDuration);
   }
-  trnWiz.trainer = readTrainerPicker('trn', trnWiz.trainer);
-  trnWiz.responsible = (v('trn-responsible') || '').trim();
+  trnWiz.trainer = readStaffPicker('trn', 'trn', trnWiz.trainer);
+  trnWiz.responsible = readStaffPicker('trn', 'resp', trnWiz.responsible);
   // Alleen overschrijven als het veld op dit scherm staat (stap 1) — anders zou stap 2 het wissen.
   if (document.getElementById('trn-standing')) trnWiz.standing = (v('trn-standing') || '').trim();
   if (document.getElementById('trn-pts-win')) {
@@ -1361,7 +1419,6 @@ function renderTrnStep1() {
         ? `<div style="font-size:15px;font-weight:600;padding:6px 0">${esc(teams[0].name)}</div>`
         : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = vast || (teams.length ? teams[0] : null);
-  const teamTrainers = selectedTeam ? (selectedTeam.trainers || []).filter(tr => tr.name) : [];
   return `<div class="card">
     <div class="fg"><label>Naam van het tornooi</label><input id="trn-name" type="text" placeholder="bv. Paastornooi Gent" value="${esc(trnWiz.name)}" autocomplete="off"></div>
     <div class="fg"><label>Ploeg</label>${teamSel}</div>
@@ -1384,10 +1441,8 @@ function renderTrnStep1() {
       </div>
       <div style="font-size:11px;color:var(--txt2);margin:-6px 0 12px">Geldt als standaard voor elke nieuwe wedstrijd van dit tornooi. Per wedstrijd kan je er nog van afwijken.</div>`;
     })()}
-    ${trainerPickerHtml('trn', teamTrainers, trnWiz.trainer)}
-    <div class="fg"><label>Ploegverantwoordelijke (optioneel)</label>
-      <input id="trn-responsible" type="text" value="${esc(trnWiz.responsible||'')}" placeholder="Naam (optioneel)" autocomplete="off">
-    </div>
+    ${staffPickerHtml('trn', 'trn', teamTrainerNames(selectedTeam), trnWiz.trainer)}
+    ${staffPickerHtml('trn', 'resp', teamResponsibleNames(selectedTeam), trnWiz.responsible)}
     <div class="fg"><label>Eindstand (optioneel)</label>
       <input id="trn-standing" type="text" value="${esc(trnWiz.standing||'')}" placeholder="bv. 3e van 8" autocomplete="off">
       <div style="font-size:11px;color:var(--txt2);padding-top:4px">Vul je zelf in na het tornooi — de app kent de uitslagen van de andere ploegen niet.</div>
