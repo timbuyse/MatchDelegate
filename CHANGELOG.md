@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.3
+- **Nieuw:** een **positiewissel achteraf toevoegen** bij een afgewerkte wedstrijd. Bij
+  **'Event toevoegen'** staat nu een knop **Positiewissel**, naast Wissel. Je kiest eerst het deel
+  (en optioneel de minuut), daarna de twee spelers. Enkel spelers die in dat deel op het veld
+  stonden worden aangeboden — met iemand van de bank van positie wisselen betekent niets.
+- **Nieuw:** een **bestaande positiewissel bewerken**. Via het potloodje in het verloop pas je nu
+  ook aan **welke twee spelers** van positie wisselden, niet langer alleen de minuut. Twee keer
+  dezelfde speler wordt geweigerd; de rest van de bewerking blijft dan onaangeroerd.
+- Na zo'n toevoeging of aanpassing worden de posities en de **keeperminuten** opnieuw opgebouwd
+  vanaf de startopstelling, zodat een keeperwissel die via een positiewissel gebeurde ook achteraf
+  nog correct in de minuten belandt.
+- De filter **'Wissels'** boven het verloop toont voortaan ook de positiewisselingen — anders vond
+  je een net toegevoegde niet terug.
+- Ter herinnering: het **velddiagram** toont sinds v0.19.2 enkel de startopstelling en de wissels.
+  Een positiewissel die je hier toevoegt of aanpast verschijnt dus in het verloop en in de
+  keeperminuten, maar verplaatst geen bollen op de tekening.
+
+---
+
 ## v0.19.2
 - **Opgelost:** op het **velddiagram in het wedstrijdverslag** konden spelers boven elkaar belanden
   of naast hun positie zweven, vooral bij een wedstrijd met veel wissels én positiewisselingen.
