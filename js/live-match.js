@@ -74,7 +74,10 @@ function renderLive() {
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>`}
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>
-      <button class="btn btn-pale btn-sm" style="margin-top:2px;margin-bottom:14px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>`; })()}
+      <button class="btn btn-pale btn-sm" style="margin-top:2px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>
+      ${/* Klaargezette wissels: altijd bereikbaar, met een telletje zodat je ziet dat er iets
+           wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). */ ''}
+      <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(match) ? ` (${plannedCount(match)})` : ''}</button>`; })()}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score</button>`;
@@ -1286,6 +1289,10 @@ async function doMarkAbsent(pid) {
   // start van het volgende deel niet alsnog het veld op gestuurd worden.
   if (match.pendingSubs) match.pendingSubs = match.pendingSubs.filter(s => s.inId !== pid && s.outId !== pid);
   if (match.pendingPosSwaps) match.pendingPosSwaps = match.pendingPosSwaps.filter(s => s.pA !== pid && s.pB !== pid);
+  // Idem voor de klaargezette wissels: die zouden anders in het menu blijven staan met een
+  // speler die er niet meer is.
+  if (match.plannedSubs) match.plannedSubs = match.plannedSubs.filter(s => s.inId !== pid && s.outId !== pid);
+  if (match.plannedPosSwaps) match.plannedPosSwaps = match.plannedPosSwaps.filter(s => s.pA !== pid && s.pB !== pid);
   await dbSave(match); closeModal(); render();
 }
 async function doUnmarkAbsent(pid) {
@@ -1650,6 +1657,213 @@ function pauseLineupHtml(m) {
         ${(m.pendingPosSwaps || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}`
         : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Nog niets ingepland — de opstelling blijft zoals ze nu staat.</p>'}
     </div>`;
+}
+
+// ===================== GEPLANDE (KLAARGEZETTE) WISSELS =====================
+// match.plannedSubs / match.plannedPosSwaps: wissels die je op voorhand klaarzet — voor de aftrap,
+// tijdens een deel of in de pauze. Ze gaan NOOIT vanzelf af; jij drukt op "Nu doorvoeren".
+// Bewust los van pendingSubs/pendingPosSwaps, die iets anders betekenen: dat is de opstelling die
+// je in de pauze samenstelt en die bij de start van het volgende deel automatisch doorgevoerd
+// wordt. Beide lijsten staan wel samen in dit ene menu, elk onder hun eigen kop.
+// Nieuwe, optionele velden: een wedstrijd zonder deze lijsten blijft gewoon werken.
+
+// Kan er op dit moment iets doorgevoerd worden, en zo ja hoe?
+//   'live'  = deel loopt, wordt meteen een event
+//   'break' = pauze, komt in de pauze-opstelling (start van het volgende deel)
+//   null    = nog niet begonnen of afgelopen: enkel klaarzetten
+function plannedRunMode(m) {
+  if (!m || m.status === 'done') return null;
+  if (m.quarterStatus === 'running') return 'live';
+  if (m.quarterStatus === 'between') return 'break';
+  return null;
+}
+// Waarom een klaargezette wissel nu niet kan (of null als hij wel kan). De situatie kan veranderd
+// zijn sinds het klaarzetten: speler intussen gewisseld, afwezig gemarkeerd of uit de selectie.
+function plannedSubProbleem(m, s) {
+  const veld = new Set(effectiveOnField(m).map(p => p.id));
+  const uit = m.players.find(p => p.id === s.outId), inn = m.players.find(p => p.id === s.inId);
+  if (!uit || !inn) return 'Een van beide spelers zit niet meer in de selectie.';
+  if (inn.absent) return `${pName(m, s.inId)} is afwezig gemarkeerd.`;
+  if (!veld.has(s.outId)) return `${pName(m, s.outId)} staat niet op het veld.`;
+  if (veld.has(s.inId)) return `${pName(m, s.inId)} staat al op het veld.`;
+  return null;
+}
+function plannedSwapProbleem(m, s) {
+  const veld = new Set(effectiveOnField(m).map(p => p.id));
+  if (!m.players.find(p => p.id === s.pA) || !m.players.find(p => p.id === s.pB)) return 'Een van beide spelers zit niet meer in de selectie.';
+  if (!veld.has(s.pA)) return `${pName(m, s.pA)} staat niet op het veld.`;
+  if (!veld.has(s.pB)) return `${pName(m, s.pB)} staat niet op het veld.`;
+  return null;
+}
+function plannedCount(m) { return ((m && m.plannedSubs) || []).length + ((m && m.plannedPosSwaps) || []).length; }
+function modalPlannedSubs() {
+  const m = match; if (!m) return;
+  const mode = plannedRunMode(m);
+  const subs = m.plannedSubs || [], swaps = m.plannedPosSwaps || [];
+  const pendS = m.pendingSubs || [], pendP = m.pendingPosSwaps || [];
+  const uitleg = mode === 'live' ? 'Doorvoeren wordt meteen een wissel in het verloop.'
+    : mode === 'break' ? `Doorvoeren zet ze klaar bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}.`
+    : 'Doorvoeren kan zodra een deel bezig is. Tot dan kan je ze hier klaarzetten en aanpassen.';
+  const rij = (ico, tekst, probleem, runFn, editFn, delFn) => `
+    <div class="prow" style="padding:8px 0;align-items:flex-start">
+      <div style="flex:1;font-size:14px">${icI(ico)} ${tekst}
+        ${probleem ? `<div style="font-size:11px;color:var(--rd);margin-top:2px">${esc(probleem)}</div>` : ''}</div>
+      ${(mode && !probleem) ? `<button class="btn btn-green btn-sm" style="width:auto;padding:4px 10px;font-size:12px;margin:0 6px 0 0;flex-shrink:0" onclick="${runFn}">Nu doorvoeren</button>` : ''}
+      <button class="evt-edit" onclick="${editFn}" title="Aanpassen">${icI(IC.edit)}</button>
+      <button class="evt-del" onclick="${delFn}" title="Verwijderen">×</button>
+    </div>`;
+  const lijst = [
+    ...subs.map(s => rij(IC.swap,
+      `<b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`,
+      plannedSubProbleem(m, s), `runPlannedSub('${s.id}')`, `modalPlanSub('${s.id}')`, `removePlannedSub('${s.id}')`)),
+    ...swaps.map(s => rij(IC.compass,
+      `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`,
+      plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`)),
+  ].join('');
+  // De pauze-opstelling staat er enkel ter info bij: die gaat wél automatisch af, en het is
+  // verwarrend als je hier "geplande wissels" ziet die niet alles tonen wat er klaarstaat.
+  const auto = [
+    ...pendS.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
+    ...pendP.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
+  ].join('');
+  openModal(`<h3>${icI(IC.clipboard)} Geplande wissels</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg}</p>
+    <div class="sec" style="margin-top:0">Klaargezet <span style="color:var(--txt2);font-weight:400;text-transform:none">(jij kiest wanneer)</span></div>
+    <div id="gw-lijst">${lijst || '<p style="color:var(--txt2);font-size:13px;padding:4px 0">Nog niets klaargezet.</p>'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="btn btn-pale btn-sm" onclick="modalPlanSub()">${icI(IC.swap)} Wissel</button>
+      <button class="btn btn-pale btn-sm" onclick="modalPlanPosSwap()">${icI(IC.compass)} Positiewissel</button>
+    </div>
+    ${auto ? `<div class="sec">Gaat automatisch bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}</div>${auto}` : ''}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+// Kiezers voor het klaarzetten/aanpassen. Zonder id = nieuw, met id = bestaande aanpassen.
+let _planSel = { a: null, b: null, editId: null };
+function _preselect(containerId, id) {
+  if (!id) return;
+  const el = document.querySelector(`#${containerId} button[data-id="${id}"]`);
+  if (el) gpSel(el);
+}
+function selPlan(vak, id, el, containerId) { _planSel[vak] = id; gpSelIn(containerId, el); }
+function modalPlanSub(editId) {
+  const m = match; if (!m) return;
+  const best = editId ? (m.plannedSubs || []).find(s => s.id === editId) : null;
+  _planSel = { a: best ? best.outId : null, b: best ? best.inId : null, editId: editId || null };
+  const veld = sortedByName(effectiveOnField(m));
+  const veldIds = new Set(veld.map(p => p.id));
+  const bank = sortedByName((m.players || []).filter(p => !p.absent && !veldIds.has(p.id)));
+  openModal(`<h3>${icI(IC.swap)} Wissel klaarzetten</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
+    <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
+    <div id="pl-a">${veld.length ? pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Niemand op het veld.</p>'}</div>
+    <div class="sec">Wie komt ERIN?</div>
+    <div id="pl-b">${bank.length ? pgGrid(bank.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
+    <button class="btn btn-green" style="margin-top:12px" onclick="savePlanSub()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
+  _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
+}
+function modalPlanPosSwap(editId) {
+  const m = match; if (!m) return;
+  const best = editId ? (m.plannedPosSwaps || []).find(s => s.id === editId) : null;
+  _planSel = { a: best ? best.pA : null, b: best ? best.pB : null, editId: editId || null };
+  const veld = sortedByName(effectiveOnField(m));
+  openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
+    <div class="sec" style="margin-top:0">Eerste speler</div>
+    <div id="pl-a">${pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join(''))}</div>
+    <div class="sec">Tweede speler</div>
+    <div id="pl-b">${pgGrid(veld.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join(''))}</div>
+    <button class="btn btn-green" style="margin-top:12px" onclick="savePlanPosSwap()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
+  _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
+}
+async function savePlanSub() {
+  if (!_planSel.a || !_planSel.b) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    match.plannedSubs = match.plannedSubs || [];
+    const best = _planSel.editId ? match.plannedSubs.find(s => s.id === _planSel.editId) : null;
+    if (best) { best.outId = _planSel.a; best.inId = _planSel.b; }
+    else match.plannedSubs.push({ id: uid(), outId: _planSel.a, inId: _planSel.b });
+    await dbSave(match); render(); modalPlannedSubs();
+  } finally { _eventBusy = false; }
+}
+async function savePlanPosSwap() {
+  if (!_planSel.a || !_planSel.b) { showToast('Kies twee spelers.', 'err'); return; }
+  if (_planSel.a === _planSel.b) { showToast('Kies twee verschillende spelers.', 'err'); return; }
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    match.plannedPosSwaps = match.plannedPosSwaps || [];
+    const best = _planSel.editId ? match.plannedPosSwaps.find(s => s.id === _planSel.editId) : null;
+    if (best) { best.pA = _planSel.a; best.pB = _planSel.b; }
+    else match.plannedPosSwaps.push({ id: uid(), pA: _planSel.a, pB: _planSel.b });
+    await dbSave(match); render(); modalPlannedSubs();
+  } finally { _eventBusy = false; }
+}
+async function removePlannedSub(id) {
+  if (_eventBusy) return; _eventBusy = true;
+  try { match.plannedSubs = (match.plannedSubs || []).filter(s => s.id !== id); await dbSave(match); render(); modalPlannedSubs(); }
+  finally { _eventBusy = false; }
+}
+async function removePlannedPosSwap(id) {
+  if (_eventBusy) return; _eventBusy = true;
+  try { match.plannedPosSwaps = (match.plannedPosSwaps || []).filter(s => s.id !== id); await dbSave(match); render(); modalPlannedSubs(); }
+  finally { _eventBusy = false; }
+}
+async function runPlannedSub(id) {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    const s = (match.plannedSubs || []).find(x => x.id === id); if (!s) return;
+    const mode = plannedRunMode(match);
+    if (!mode) { showToast('Doorvoeren kan zodra een deel bezig is.', 'err'); return; }
+    const probleem = plannedSubProbleem(match, s);
+    if (probleem) { showToast(probleem, 'err'); return; }
+    if (mode === 'break') {
+      // In de pauze bestaat "nu" niet: dan is doorvoeren hetzelfde als een pauzewissel inplannen.
+      match.pendingSubs = match.pendingSubs || [];
+      match.pendingSubs.push({ outId: s.outId, inId: s.inId });
+      showToast(`Klaargezet bij de start van ${pSingLow(match)} ${match.currentQuarter + 1}.`, 'ok');
+    } else {
+      const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
+      // Zelfde afhandeling als confirmSub(): posBefore vastleggen, positie overnemen, keeper volgen.
+      const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
+      addEvent('substitution', { playerOutId: s.outId, playerInId: s.inId, posBefore });
+      if (pIn && pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; }
+      if (pOut) pOut.onField = false;
+      if (pIn) pIn.onField = true;
+      syncKeeper();
+      showToast('Wissel doorgevoerd.', 'ok');
+    }
+    match.plannedSubs = match.plannedSubs.filter(x => x.id !== id);
+    await dbSave(match); render(); modalPlannedSubs();
+  } finally { _eventBusy = false; }
+}
+async function runPlannedPosSwap(id) {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    const s = (match.plannedPosSwaps || []).find(x => x.id === id); if (!s) return;
+    const mode = plannedRunMode(match);
+    if (!mode) { showToast('Doorvoeren kan zodra een deel bezig is.', 'err'); return; }
+    const probleem = plannedSwapProbleem(match, s);
+    if (probleem) { showToast(probleem, 'err'); return; }
+    if (mode === 'break') {
+      match.pendingPosSwaps = match.pendingPosSwaps || [];
+      match.pendingPosSwaps.push({ pA: s.pA, pB: s.pB });
+      showToast(`Klaargezet bij de start van ${pSingLow(match)} ${match.currentQuarter + 1}.`, 'ok');
+    } else {
+      const pA = match.players.find(p => p.id === s.pA), pB = match.players.find(p => p.id === s.pB);
+      // Zelfde afhandeling als confirmPosSwap(): snapshot vóór de mutatie, dan de posities ruilen.
+      const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
+      const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
+      addEvent('posSwap', { pA: s.pA, pB: s.pB, posA, posB });
+      pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
+      pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
+      syncKeeper();
+      showToast('Positiewissel doorgevoerd.', 'ok');
+    }
+    match.plannedPosSwaps = match.plannedPosSwaps.filter(x => x.id !== id);
+    await dbSave(match); render(); modalPlannedSubs();
+  } finally { _eventBusy = false; }
 }
 
 // ===================== MODAL: POSITIEWISSEL =====================

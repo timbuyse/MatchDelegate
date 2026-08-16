@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.6
+- **Nieuw: geplande wissels.** Je kan nu **wissels en positiewissels op voorhand klaarzetten** —
+  al bij een geplande wedstrijd, en tijdens een lopend deel of in de pauze. Ze blijven staan tot jij
+  ze doorvoert. Het menu opent met de knop **'Geplande wissels'** op het tabblad Wedstrijd en in het
+  voorbereidingsscherm; het telletje op de knop toont hoeveel er klaarstaan.
+- In dat menu pas je een klaargezette wissel aan (potlood), gooi je hem weg (×) of druk je op
+  **'Nu doorvoeren'**. Loopt er een deel, dan komt de wissel meteen in het verloop. Zit je in de
+  pauze, dan wordt hij klaargezet bij de start van het volgende deel. Vóór de aftrap kan je enkel
+  klaarzetten — dat staat er ook bij.
+- **Er gaat nooit iets vanzelf af.** Een klaargezette wissel blijft wachten, ook bij de start van een
+  nieuw deel. De **pauze-opstelling** die je in het tabblad Opstelling maakt (bankspeler + veldspeler
+  aantikken) verandert niet: die wordt nog altijd automatisch doorgevoerd bij de start van het
+  volgende deel. Beide lijsten staan wel samen in dit ene menu, elk onder hun eigen kop, zodat je in
+  één oogopslag ziet wat er klaarstaat.
+- Is de situatie intussen veranderd — de speler is al gewisseld, staat niet meer op het veld of is
+  afwezig gemarkeerd — dan zegt het menu waarom die wissel nu niet kan en verdwijnt de knop
+  'Nu doorvoeren'. Wie afwezig gemarkeerd wordt, verdwijnt meteen uit de klaargezette lijst.
+
+---
+
 ## v0.19.5
 - **Nieuw:** een **keeperwissel is nu zichtbaar op het velddiagram**. Dat was de enige positiewissel
   die de tekening feitelijk onjuist maakte: de oranje bol op de doellijn beweerde dat die speler dat
