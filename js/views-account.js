@@ -1647,6 +1647,62 @@ function posSwapBeweging(m, e, pijl) {
   if (!a || !b) return `${pName(m, e.pA)} ${pijl === '→' ? '↔' : '<->'} ${pName(m, e.pB)}`;
   return `${a} · ${b}`;
 }
+// Positiewisselingen die op hetzelfde moment gebeuren vormen SAMEN één herschikking. "A ruilt met
+// B" gevolgd door "B ruilt met C" is netto: A naar B's plek, B naar C's plek, C naar A's plek. Elk
+// event apart tonen laat een tussenstand zien die nooit op het veld gestaan heeft — je las dan dat
+// iemand naar 9 ging en even later opnieuw ergens anders naartoe.
+// Deze functie rekent de reeks door en geeft per speler enkel het EINDpunt.
+function posSwapReeksBewegingen(m, events) {
+  const start = {}, pos = {};
+  for (const e of events) {
+    if (!e.pA || !e.pB || !e.posA || !e.posB) return null;   // oud event zonder posities: niet te bepalen
+    if (!(e.pA in pos)) { pos[e.pA] = { ...e.posA }; start[e.pA] = { ...e.posA }; }
+    if (!(e.pB in pos)) { pos[e.pB] = { ...e.posB }; start[e.pB] = { ...e.posB }; }
+    const t = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = t;
+  }
+  const uit = [];
+  Object.keys(pos).forEach(id => {
+    const s = start[id], n = pos[id];
+    if (!n || !n.posNum) return;
+    if (s && String(s.posNum) === String(n.posNum)) return;   // netto op zijn plek gebleven
+    const code = posCode(n.posNum, m.matchType);
+    uit.push({ id, naam: pName(m, id), plek: `${n.posNum}${code ? ' ' + code : ''}` });
+  });
+  return uit;
+}
+// Eén regel voor een reeks positiewisselingen. Bij één enkele wissel is dit hetzelfde als vroeger.
+function posSwapReeksTekst(m, events, pijl) {
+  const bew = posSwapReeksBewegingen(m, events);
+  if (!bew || !bew.length) {
+    // Geen posities bekend (oude wedstrijd): terugvallen op de ruilvorm, per event.
+    return events.map(e => `${pName(m, e.pA)} ${pijl === '→' ? '↔' : '<->'} ${pName(m, e.pB)}`).join(' · ');
+  }
+  return bew.map(b => `${b.naam} ${pijl} ${b.plek}`).join(' · ');
+}
+// Opeenvolgende positiewisselingen op hetzelfde moment samenvoegen tot één regel. "Hetzelfde
+// moment" is dezelfde SPEELMINUUT (niet dezelfde milliseconde): twee wissels die je 20 seconden
+// na elkaar intikt horen ook bij dezelfde herschikking. Pauzewissels groeperen enkel met
+// pauzewissels van hetzelfde deel. Alles wat geen posSwap is blijft ongemoeid; de onderliggende
+// events blijven apart bestaan, enkel de weergave voegt samen.
+function groepeerPosSwaps(list) {
+  const uit = [];
+  const minuut = ms => Math.floor((ms || 0) / 60000);
+  for (const e of list) {
+    const vorige = uit[uit.length - 1];
+    const zelfdeMoment = vorige && vorige.type === 'posSwapReeks'
+      && !!vorige.atBreak === !!e.atBreak
+      && vorige.quarterNum === e.quarterNum
+      && (vorige.atBreak || minuut(vorige.gameTimeMs) === minuut(e.gameTimeMs));
+    if (e.type === 'posSwap' && zelfdeMoment) { vorige.events.push(e); continue; }
+    if (e.type === 'posSwap') {
+      uit.push({ type: 'posSwapReeks', events: [e], atBreak: e.atBreak, quarterNum: e.quarterNum, gameTimeMs: e.gameTimeMs, id: e.id });
+      continue;
+    }
+    uit.push(e);
+  }
+  // Een reeks van één is gewoon dat ene event: dan hoeft er niets speciaals te gebeuren.
+  return uit.map(x => (x.type === 'posSwapReeks' && x.events.length === 1) ? x.events[0] : x);
+}
 // voor platte tekst (WhatsApp-deelbericht, CSV), waar HTML-entities fout zouden staan.
 function evtLabel(e, m) {
   const pn = id => esc(pName(m, id));
@@ -1659,6 +1715,7 @@ function evtLabel(e, m) {
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
+    case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -1692,6 +1749,7 @@ function evtLabelPlain(e, m) {
     // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
     case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, '->')}`;
+    case 'posSwapReeks': return `${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, '->')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -1758,11 +1816,19 @@ function renderEventLog(m) {
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
     let list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
     if (activeTypes) list = list.filter(e => activeTypes.has(e.type));
+    // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.
+    list = groepeerPosSwaps(list);
     const items = list.length
       ? list.map(e => {
           const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
           const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
-          return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${elog_ro ? '' : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`}</li>`;
+          // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
+          // reeks, want de delen ervan hebben los geen betekenis.
+          const knoppen = elog_ro ? ''
+            : (e.type === 'posSwapReeks'
+              ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
+              : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
+          return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
         }).join('')
       : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>';
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;

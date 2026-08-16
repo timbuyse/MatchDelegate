@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.27.1
+- **Positiewissels op hetzelfde moment staan nu als één regel in het verloop, de PDF en de CSV.**
+  Pauzepositiewissels (en positiewissels in dezelfde speelminuut) horen samen: *"A ruilt met B"*
+  gevolgd door *"B ruilt met C"* is netto één herschikking. Elk event apart tonen liet een
+  tussenstand zien die nooit op het veld gestaan heeft — in het verslag van kwart 4 stond bv.
+  *"Marco naar 9, Iluca naar 10"* en daarna *"Theo naar 9, Marco naar 3"*, terwijl het gewoon
+  *"Théo naar 9 · Marco naar 3 · Iluca naar 10"* was. De reeks wordt nu doorgerekend en per speler
+  staat enkel het eindpunt; wie netto op zijn plek blijft, valt weg.
+- De onderliggende events blijven apart opgeslagen (niets aan de data verandert); alleen de
+  weergave voegt samen. Verwijderen wist de hele reeks in één keer — de losse delen hebben apart
+  geen betekenis — met een bevestigingsvraag die de gecombineerde beweging toont.
+
+## v0.27.0
+- **Ook de knoppen 'Wissel' en 'Positiewissel' werken nu op het velddiagram.** Ze toonden nog rijen
+  naamkaartjes, terwijl het tabblad *Opstelling* sinds v0.24.0 al met het veld werkte — twee
+  manieren voor hetzelfde ding. Nu tik je overal hetzelfde: bij een wissel de speler op het veld die
+  eraf gaat en dan wie er van de bank in komt, bij een positiewissel de speler die verplaatst en dan
+  de plek waar hij naartoe gaat. Onderaan staat in gewone taal wat er gaat gebeuren
+  (*"Dries komt voor Finn"*, *"Bram B. naar 9 CAM · Lars L. naar 5 LV"*) voor je bevestigt.
+- De knoppen blijven bestaan omdat ze iets kunnen wat het veldtabblad niet kan: een wissel toevoegen
+  aan een **kwart dat al gespeeld is** (via *Event toevoegen*). Het veld toont dan de opstelling van
+  dát kwart. In de pauze wordt het net als vroeger een pauzewissel, met de opstelling van het
+  volgende kwart op het veld.
+- *Wissel na blessure* houdt zijn eigen scherm: daar is al bekend wie eraf gaat, dus hoef je alleen
+  nog te kiezen wie invalt.
+
 ## v0.26.1
 - **Overal waar een positiewissel getoond wordt, staat nu waar elke speler terechtkomt**:
   *"Bram Bal → 7 RM · Gust Geens → 5 LV"* in plaats van *"Bram Bal ↔ Gust Geens"*. Dat geldt voor

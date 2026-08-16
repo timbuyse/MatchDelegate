@@ -344,6 +344,7 @@ function rasterizeToPngFit(src, maxW, maxH, dichtheid = 1) {
 const PDF_EVT_ICON = {
   goal_us: 'goal', goal_them: 'goal', own_goal: 'goal', own_goal_them: 'goal',
   corner_us: 'corner', corner_them: 'corner', substitution: 'swap', posSwap: 'compass',
+  posSwapReeks: 'compass',
   yellow_card: 'cardY', red_card: 'cardR', penalty_us: 'penalty', penalty_them: 'penalty',
   freekick_us: 'bolt', freekick_them: 'bolt', injury: 'injury', shot_us: 'shot', shot_them: 'shot',
   save_us: 'save', save_them: 'save', disallowed_us: 'disallowed', disallowed_them: 'disallowed',
@@ -1036,7 +1037,9 @@ async function pdfMatchBody(doc, L, m) {
     // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
     const cumText = !g.cum ? '' : (isAway(m) ? `${g.cum.them}–${g.cum.us}` : `${g.cum.us}–${g.cum.them}`);
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}` : ''}`;
-    const rows = g.list.length ? g.list.map(e => [eventMinLocal(e, m), '', evtLabelPlain(e, m)]) : [['', '', 'Geen events']];
+    // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.
+    const lijst = groepeerPosSwaps(g.list);
+    const rows = lijst.length ? lijst.map(e => [eventMinLocal(e, m), '', evtLabelPlain(e, m)]) : [['', '', 'Geen events']];
     // Kopcel over alle kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
     // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
@@ -1045,7 +1048,7 @@ async function pdfMatchBody(doc, L, m) {
         columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 18 } },
         didDrawCell: data => {
           if (data.section !== 'body' || data.column.index !== 1) return;
-          const png = pdfEventIcon(evtIcons, g.list[data.row.index]);
+          const png = pdfEventIcon(evtIcons, lijst[data.row.index]);
           if (!png) return;
           const s = 11;
           try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {}

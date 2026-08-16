@@ -917,14 +917,15 @@ function exportMatchCSV() {
     goal_us: 'Doelpunt', goal_them: 'Doelpunt tegen',
     own_goal: 'Eigen doel', own_goal_them: 'Eigen doel (teg.)',
     yellow_card: 'Gele kaart', red_card: 'Rode kaart',
-    substitution: 'Wissel', posSwap: 'Positiewisseling',
+    substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
     injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
     freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
     corner_us: 'Hoekschop voor', corner_them: 'Hoekschop tegen',
     motm: 'Man v/d match', note: 'Notitie'
   };
   row('EVENTS', 'Periode', 'Minuut', 'Speeltijd (ms)', 'Type', 'Speler', 'Extra info');
-  for (const e of [...(m.events || [])].sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))) {
+  // Positiewisselingen op hetzelfde moment als één rij — zie groepeerPosSwaps in views-account.js.
+  for (const e of groepeerPosSwaps([...(m.events || [])].sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0)))) {
     const type = typeLabels[e.type] || e.type;
     const { min, extra } = eventMinGlobal(e, m);
     const minStr = min != null ? min + (extra ? '+' + extra : '') + "'" : '';
@@ -937,6 +938,9 @@ function exportMatchCSV() {
       // CSV-export: ook hier de bewegingen, niet de ruil — zie posSwapBeweging.
       player = posSwapBeweging(m, e, '->');
       extraInfo = e.atBreak ? 'Pauze-positiewissel' : '';
+    } else if (e.type === 'posSwapReeks') {
+      player = posSwapReeksTekst(m, e.events, '->');
+      extraInfo = e.atBreak ? 'Pauze-positiewissels' : '';
     } else if (e.playerId) {
       player = pName(m, e.playerId);
       if (e.assistId) extraInfo = 'Assist: ' + pName(m, e.assistId);
@@ -1023,6 +1027,24 @@ function confirmDeleteEvent(id) {
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${evtLabel(e, match)}"<br>De score en opstelling worden herberekend.</p>
     <button class="btn btn-red" onclick="doDeleteEvent('${id}')">${icI(IC.trash)} Verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Een reeks positiewisselingen die als één regel getoond wordt (zie groepeerPosSwaps): die hoort
+// ook als geheel te verdwijnen. Eén schakel eruit halen laat een herschikking achter die niemand
+// zo bedoeld heeft.
+function confirmDeleteEvents(ids) {
+  const evs = (ids || []).map(id => match.events.find(x => x.id === id)).filter(Boolean);
+  if (!evs.length) return;
+  if (evs.length === 1) return confirmDeleteEvent(evs[0].id);
+  openModal(`<h3>${evs.length} positiewisselingen verwijderen?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${posSwapReeksTekst(match, evs, '→')}"<br>Ze horen bij elkaar en gaan samen weg. De opstelling wordt herberekend.</p>
+    <button class="btn btn-red" onclick="doDeleteEvents(['${evs.map(e => e.id).join("','")}'])">${icI(IC.trash)} Verwijderen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doDeleteEvents(ids) {
+  // Nieuwste eerst: revertPosSwapPositions draait één wissel terug op de HUIDIGE stand, dus de
+  // volgorde moet omgekeerd chronologisch zijn — anders herstel je een tussenstand.
+  const geordend = (ids || []).slice().reverse();
+  for (const id of geordend) await doDeleteEvent(id);
 }
 // Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatch)
 // ze niet "terugbrengt" vanaf een ander toestel of uit een oude back-up.
@@ -1588,28 +1610,57 @@ async function logCorner(team) {
 
 // ===================== MODAL: SUB =====================
 let subOut = null, subIn = null;
-function modalSub() {
+// Wie er op het veld staat op het moment waarover dit scherm gaat, MET de posities van dat moment —
+// nodig om een veld te kunnen tekenen i.p.v. een rij naamkaartjes. Drie situaties:
+//   retro  : een event toevoegen aan een afgelopen deel → de opstelling waarmee dat deel begon
+//   pauze  : de opstelling waarmee het volgende deel begint (inclusief wat er al klaarstaat)
+//   live   : gewoon wie er nu staat
+function veldVoorWisselScherm(m) {
+  if (_postEventQuarter != null) return pitchPlayersAtPeriodStart(m, _postEventQuarter);
+  if (m.quarterStatus === 'between') return previewNextLineup(m).filter(p => p.onField && !p.absent);
+  return effectiveOnField(m);
+}
+// Wissel via het veld: tik een speler op het veld (die gaat eraf) en een op de bank (die komt erin).
+// Zelfde bediening als het tabblad Opstelling en de pauze-opstelling, zodat er nog maar één manier
+// is om een wissel aan te duiden. De knop blijft bestaan omdat hij ook werkt voor een deel dat al
+// gespeeld is ("Event toevoegen"), waar het tabblad Opstelling niet over gaat.
+function modalSub(behoud) {
   // Een wissel heeft een tijdstip nodig (speeltijd/opstelling): bij "Onbekend deel" niet toelaten.
   if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een wissel heeft een tijdstip nodig.', 'err'); return; }
   const between = match.quarterStatus === 'between' && _postEventQuarter === null;
-  const on = _postEventQuarter != null ? playersAtPeriodStart(match, _postEventQuarter) : effectiveOnField(match);
+  const on = veldVoorWisselScherm(match);
   const mins = calcMinutes(match);
   const onIds = new Set(on.map(p => p.id));
   // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
   const off = match.players.filter(p => !onIds.has(p.id) && !p.absent).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
-  subOut = null; subIn = null;
-  const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.swap)} Wissel`;
+  if (!behoud) { subOut = null; subIn = null; }
+  // Een selectie die niet meer klopt (bv. na het wisselen van deel) niet laten hangen.
+  if (subOut && !onIds.has(subOut)) subOut = null;
+  if (subIn && onIds.has(subIn)) subIn = null;
+  const qNum = _postEventQuarter != null ? _postEventQuarter : (between ? match.currentQuarter + 1 : match.currentQuarter);
+  const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}`
+    : (_postEventQuarter != null ? `${icI(IC.swap)} Wissel · ${pSing(match)} ${_postEventQuarter}` : `${icI(IC.swap)} Wissel`);
   const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
-  const hint = between ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>' : '';
-  openModal(`<h3>${title}</h3>${hint}
-    <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
-    <div id="sub-out">${pgGrid(on.map(p=>pgBtn(p,'sub-ob',`selectSubOut('${p.id}',this)`,`<span style="font-size:10px;color:var(--txt2)">${mm(p.id)}'</span>`)).join(''))}</div>
-    <div class="sec">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
-    <div id="sub-in">${off.length ? pgGrid(off.map(p=>{ const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${cta}</button>
+  const klaar = subOut && subIn;
+  openModal(`<h3>${title}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler op het veld die <b>eraf</b> gaat, en dan wie er van de bank <b>in</b> komt.${between ? ' Wordt doorgevoerd bij de start van het volgende deel.' : ''}</p>
+    ${renderPitch(match, on, captainAtStartOfQuarter(match, qNum), null, { fn: 'subVeldTap', selId: subOut })}
+    <div class="sec">Bank (${off.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+    <div class="place-chips">${off.length
+      ? off.map(p => { const low = (mins[p.id]?.ms || 0) === minMs; return `<span class="place-chip ${subIn === p.id ? 'sel' : ''}" onclick="subVeldTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))} <small style="opacity:.7;margin-left:4px;color:${low ? 'var(--org)' : 'inherit'}">${mm(p.id)}'${low ? ' ●' : ''}</small></span>`; }).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Geen spelers op de bank.</span>'}</div>
+    <p style="text-align:center;font-size:13px;margin-top:12px;color:${klaar ? 'var(--txt)' : 'var(--txt2)'}">${klaar
+      ? `<b>${esc(pName(match, subIn))}</b> komt voor <b>${esc(pName(match, subOut))}</b>`
+      : (subOut ? 'Kies nu een speler van de bank.' : (subIn ? 'Kies nu wie er van het veld gaat.' : 'Nog niets gekozen.'))}</p>
+    <button class="btn btn-green" style="margin-top:8px${klaar ? '' : ';opacity:.5'}" onclick="confirmSub()">${cta}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function subVeldTap(kind, id) {
+  if (kind === 'field') subOut = (subOut === id) ? null : id;
+  else subIn = (subIn === id) ? null : id;
+  modalSub(true);
 }
 function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
@@ -2407,34 +2458,46 @@ function liveLineupHtml(m) {
   </div>`;
 }
 let posSwapA = null, posSwapB = null;
-function modalPosSwap() {
+// Positiewissel via het veld: tik de speler die verplaatst en dan de plek waar hij naartoe gaat.
+// Op het veld tikken IS de positie kiezen — je ziet meteen waar iedereen staat, in plaats van een
+// nummer te moeten opzoeken. Zelfde bediening als het tabblad Opstelling en de pauze-opstelling.
+function modalPosSwap(behoud) {
   // Retro (via "Event toevoegen" op een afgewerkte wedstrijd): een positiewissel hoort op een
   // tijdstip, net als een wissel — zonder deel kan hij nergens in de reconstructie belanden.
   if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een positiewissel heeft een tijdstip nodig.', 'err'); return; }
-  posSwapA = null; posSwapB = null;
+  if (!behoud) { posSwapA = null; posSwapB = null; }
   const retro = _postEventQuarter != null;
   // Pauze-positiewissel enkel als je écht in de pauze staat: in retro-modus hoort het event in het
   // gekozen (afgelopen) deel, niet in de wachtrij voor het volgende. Zelfde conditie als confirmSub().
   const isBetween = match.quarterStatus === 'between' && !retro;
-  const on = playersOnFieldForEvent(match);
+  const on = veldVoorWisselScherm(match);
+  const onIds = new Set(on.map(p => p.id));
+  if (posSwapA && !onIds.has(posSwapA)) posSwapA = null;
+  if (posSwapB && !onIds.has(posSwapB)) posSwapB = null;
+  const qNum = retro ? _postEventQuarter : (isBetween ? match.currentQuarter + 1 : match.currentQuarter);
   const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
     : retro ? `${icI(IC.compass)} Positiewissel · ${pSing(match)} ${_postEventQuarter}`
     : `${icI(IC.compass)} Positiewissel`;
-  const uitleg = 'Kies een speler en daarna de <b>positie</b> waar hij naartoe gaat. Wie daar staat, neemt zijn plaats over.';
-  const hint = isBetween
-    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg} Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>`
-    : retro
-    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg} Komt in het verloop en telt mee voor de keeperminuten; het velddiagram toont enkel de startopstelling en de wissels.</p>`
-    : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg}</p>`;
-  openModal(`<h3>${title}</h3>${hint}
-    <div class="sec" style="margin-top:0">Welke speler verplaatst?</div>
-    <div id="psw-a">${pgGrid(on.map(p=>pgBtn(p,'psw-ab',`selectPosSwapA('${p.id}',this)`)).join(''))}</div>
-    ${/* Uitdrukkelijk zeggen dat het cijfer hier iets ANDERS is dan in de rij hierboven: daar staat
-         het rugnummer van de speler, hier het nummer van de plek. */ ''}
-    <div class="sec" id="psw-b-lbl" style="display:none">Naar welke positie? <span style="font-weight:400;text-transform:none;color:var(--txt2)">· positienummer en wie er nu staat</span></div>
-    <div id="psw-b" style="display:none"></div>
-    <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">${icI(IC.check)}Positiewissel doorvoeren</button>
+  const staart = isBetween ? ' Wordt doorgevoerd bij de start van het volgende deel.'
+    : retro ? ' Komt in het verloop en telt mee voor de keeperminuten.' : '';
+  // Waar ze belanden: A neemt de plek van B en omgekeerd.
+  const pA = on.find(p => p.id === posSwapA), pB = on.find(p => p.id === posSwapB);
+  const plek = p => { const c = posCode(p.posNum, match.matchType); return `${p.posNum}${c ? ' ' + c : ''}`; };
+  const klaar = pA && pB && pA.id !== pB.id;
+  openModal(`<h3>${title}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler die <b>verplaatst</b> en dan de <b>plek</b> waar hij naartoe gaat. Wie daar staat, neemt zijn plaats over.${staart}</p>
+    ${renderPitch(match, on, captainAtStartOfQuarter(match, qNum), null, { fn: 'posSwapVeldTap', selId: posSwapA || posSwapB })}
+    <p style="text-align:center;font-size:13px;margin-top:10px;color:${klaar ? 'var(--txt)' : 'var(--txt2)'}">${klaar
+      ? `<b>${esc(fieldName(match, pA.id))}</b> naar <b>${esc(plek(pB))}</b> · <b>${esc(fieldName(match, pB.id))}</b> naar <b>${esc(plek(pA))}</b>`
+      : (posSwapA ? 'Tik nu de plek waar hij naartoe gaat.' : 'Nog niemand gekozen.')}</p>
+    <button class="btn btn-green" style="margin-top:8px${klaar ? '' : ';opacity:.5'}" onclick="confirmPosSwap()">${icI(IC.check)} Positiewissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+function posSwapVeldTap(kind, id) {
+  if (kind !== 'field') return;
+  if (posSwapA === id) { posSwapA = null; posSwapB = null; modalPosSwap(true); return; }   // deselecteren
+  if (!posSwapA) posSwapA = id; else posSwapB = id;
+  modalPosSwap(true);
 }
 function selectPosSwapA(id, el) {
   posSwapA = id; posSwapB = null;
