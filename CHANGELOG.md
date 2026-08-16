@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.21.0
+- **Een positiewissel kies je nu op de plek, niet op de tweede speler.** Je duidt aan wie
+  verplaatst en daarna de **positie** waar hij naartoe gaat; wie daar staat, neemt zijn plaats over.
+  Zoals een trainer het zegt: "jij gaat naar de 9". Je hoeft niet meer op te zoeken wie daar ook
+  alweer stond. Geldt zowel voor een positiewissel tijdens de wedstrijd als voor eentje die je
+  klaarzet.
+- **Bij elk positienummer staat de code.** Bij 11v11: 1 DM · 2 RV · 3 CV · 4 CV · 5 LV · 6 CVM ·
+  7 RA · 8 CM · 9 SP/CA · 10 CAM · 11 LA. Op een klein veld heten dezelfde nummers anders — daar is
+  9 een CAM, 10 een CVM en zijn 7 en 11 middenvelders (RM/LM) in plaats van aanvallers. De knoppen
+  staan op positienummer gesorteerd (1 achteraan, 9 vooraan) en tonen wie er nu op die plek staat.
+- **Tijdens de wedstrijd wissel je posities ook gewoon door twee spelers op het veld aan te tikken**,
+  net als in de pauze. Omdat dit meteen een event met een tijdstip wordt, volgt er wel altijd een
+  bevestiging — in de pauze staat een misklik enkel klaar, tijdens het spel niet.
+- Wat er opgeslagen wordt verandert niet: het blijft een gewone positiewissel tussen twee spelers,
+  dus het verloop, de keeperminuten en het verslag werken precies zoals vroeger.
+
 ## v0.20.4
 - **Een wissel voor een later deel kijkt nu naar dát deel.** Zette je een wissel klaar voor kwart 3,
   dan toonde het scherm nog altijd wie er bij de aftrap van de wedstrijd op het veld stond. Nu

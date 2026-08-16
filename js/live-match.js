@@ -91,7 +91,10 @@ function renderLive() {
     const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
     tabContent = `
       ${miniScore}
-      ${canStartNext ? pauseLineupHtml(match) : `<div class="card">${renderPitch(match, on)}</div>`}
+      ${canStartNext ? pauseLineupHtml(match) : `<div class="card">
+        ${renderPitch(match, on, match.captainId, null, (ro || isDone || match.quarterStatus !== 'running') ? null : { fn: 'liveFieldTap', selId: _liveTapSel })}
+        ${(ro || isDone || match.quarterStatus !== 'running') ? '' : `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:8px">Tik <b>twee spelers</b> op het veld om ze van positie te wisselen.</p>`}
+      </div>`}
       <div class="card">
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
@@ -1482,6 +1485,26 @@ function pgBtn(p, cls, onclick, extra = '') {
   return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${extra}</button>`;
 }
 function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${btns}</div>`; }
+// Een positiewissel kies je sinds v0.21.0 op de PLEK, niet op de tweede speler: je duidt aan waar
+// speler A naartoe gaat, en wie daar staat neemt zijn plaats over. Dat is hoe een trainer het zegt
+// ("jij gaat naar de 9"), en je hoeft niet meer op te zoeken wie daar ook alweer stond. Wat er
+// opgeslagen wordt blijft een gewone posSwap met pA en pB — enkel de manier van kiezen verandert.
+// De knop draagt het positienummer en de code (zie POS_CODES), met de huidige speler eronder.
+function posDoelBtn(m, p, cls, onclick) {
+  const nr = p.posNum || '';
+  const code = posCode(nr, m.matchType);
+  return `<button type="button" class="${cls}" data-id="${p.id}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:1px">
+    <span style="font-weight:900;font-size:17px;line-height:1;color:var(--txt)">${esc(String(nr) || '–')}</span>
+    ${code ? `<span style="font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--txt2)">${esc(code)}</span>` : ''}
+    <span style="font-size:10px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(fieldName(m, p.id))}</span>
+  </button>`;
+}
+// Op positienummer sorteren: zo staan de knoppen in de volgorde die een trainer in het hoofd heeft
+// (1 achteraan, 9 vooraan) i.p.v. alfabetisch op de naam van wie er nu staat.
+function posDoelGrid(m, spelers, clsPrefix, fnNaam) {
+  const gesorteerd = [...spelers].sort((a, b) => (parseInt(a.posNum, 10) || 99) - (parseInt(b.posNum, 10) || 99));
+  return pgGrid(gesorteerd.map(p => posDoelBtn(m, p, clsPrefix, `${fnNaam}('${p.id}',this)`)).join(''));
+}
 function gpSel(el) {
   el.style.background = 'var(--grn)'; el.style.borderColor = 'var(--grn)';
   el.querySelectorAll('span').forEach(s => s.style.color = '#fff');
@@ -1919,6 +1942,8 @@ function _preselect(containerId, id) {
   if (el) gpSel(el);
 }
 function selPlan(vak, id, el, containerId) { _planSel[vak] = id; gpSelIn(containerId, el); }
+// De doelpositie-knoppen dragen het id van wie er nu staat: dat is meteen speler B van de wissel.
+function _selPlanDoel(id, el) { _planSel.b = id; gpSelIn('pl-b', el); }
 // Voor welk deel is deze wissel bedoeld? Optioneel veld `quarterNum` op de klaargezette wissel:
 // zonder deel blijft hij overal bruikbaar, precies zoals elke wissel die vóór v0.20.2 klaargezet
 // werd. Mét deel duikt hij enkel in dát deel op als snelle knop — zo staat het menu tijdens kwart 1
@@ -1985,12 +2010,12 @@ function modalPlanPosSwap(editId, behoud) {
   if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
   if (_planSel.b && !veldIds.has(_planSel.b)) _planSel.b = null;
   openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${planDeelUitleg(m, deel)}</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies een speler en daarna de <b>positie</b> waar hij naartoe gaat; wie daar staat neemt zijn plaats over. ${planDeelUitleg(m, deel)}</p>
     ${planDeelSelHtml(m, deel, 'swap')}
-    <div class="sec" style="margin-top:0">Eerste speler</div>
+    <div class="sec" style="margin-top:0">Welke speler verplaatst?</div>
     <div id="pl-a">${pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join(''))}</div>
-    <div class="sec">Tweede speler</div>
-    <div id="pl-b">${pgGrid(veld.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join(''))}</div>
+    <div class="sec">Naar welke positie? <span style="font-weight:400;text-transform:none;color:var(--txt2)">· positienummer en wie er nu staat</span></div>
+    <div id="pl-b">${posDoelGrid(m, veld, 'pl-bb', '_selPlanDoel')}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanPosSwap()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
@@ -2089,6 +2114,27 @@ async function runPlannedPosSwap(id) {
 }
 
 // ===================== MODAL: POSITIEWISSEL =====================
+// Positiewissel door twee spelers op het veld aan te tikken, terwijl het deel loopt. Zelfde
+// bediening als de pauze-opstelling, maar met één verschil dat telt: hier wordt het meteen een
+// event met een tijdstip. Daarom altijd eerst een bevestiging — in de pauze is een misklik
+// onschuldig (die staat enkel klaar), tijdens het spel niet.
+let _liveTapSel = null;
+function liveFieldTap(kind, id) {
+  if (kind !== 'field' || !canManage() || match.quarterStatus !== 'running') return;
+  if (_liveTapSel === id) { _liveTapSel = null; render(); return; }   // zelfde speler = deselecteren
+  if (!_liveTapSel) { _liveTapSel = id; render(); return; }
+  const a = _liveTapSel, b = id;
+  _liveTapSel = null; render();
+  // Dit is altijd een wissel in het LOPENDE deel, nooit een retro-event: die context expliciet
+  // leegmaken, anders zou een blijven hangen _postEventQuarter het event in een afgelopen deel
+  // laten belanden.
+  _postEventQuarter = null;
+  posSwapA = a; posSwapB = b;
+  openModal(`<h3>${icI(IC.compass)} Positiewissel</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(pName(match, a))}</b> en <b>${esc(pName(match, b))}</b> wisselen van positie.</p>
+    <button class="btn btn-green" onclick="confirmPosSwap()">${icI(IC.check)} Doorvoeren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
 let posSwapA = null, posSwapB = null;
 function modalPosSwap() {
   // Retro (via "Event toevoegen" op een afgewerkte wedstrijd): een positiewissel hoort op een
@@ -2103,15 +2149,18 @@ function modalPosSwap() {
   const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
     : retro ? `${icI(IC.compass)} Positiewissel · ${pSing(match)} ${_postEventQuarter}`
     : `${icI(IC.compass)} Positiewissel`;
+  const uitleg = 'Kies een speler en daarna de <b>positie</b> waar hij naartoe gaat. Wie daar staat, neemt zijn plaats over.';
   const hint = isBetween
-    ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>'
+    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg} Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>`
     : retro
-    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselden. Komt in het verloop en telt mee voor de keeperminuten; het velddiagram toont enkel de startopstelling en de wissels.</p>`
-    : '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselen.</p>';
+    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg} Komt in het verloop en telt mee voor de keeperminuten; het velddiagram toont enkel de startopstelling en de wissels.</p>`
+    : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg}</p>`;
   openModal(`<h3>${title}</h3>${hint}
-    <div class="sec" style="margin-top:0">Eerste speler</div>
+    <div class="sec" style="margin-top:0">Welke speler verplaatst?</div>
     <div id="psw-a">${pgGrid(on.map(p=>pgBtn(p,'psw-ab',`selectPosSwapA('${p.id}',this)`)).join(''))}</div>
-    <div class="sec" id="psw-b-lbl" style="display:none">Tweede speler</div>
+    ${/* Uitdrukkelijk zeggen dat het cijfer hier iets ANDERS is dan in de rij hierboven: daar staat
+         het rugnummer van de speler, hier het nummer van de plek. */ ''}
+    <div class="sec" id="psw-b-lbl" style="display:none">Naar welke positie? <span style="font-weight:400;text-transform:none;color:var(--txt2)">· positienummer en wie er nu staat</span></div>
     <div id="psw-b" style="display:none"></div>
     <button class="btn btn-green" style="margin-top:12px;display:none" id="psw-confirm" onclick="confirmPosSwap()">${icI(IC.check)}Positiewissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -2124,7 +2173,7 @@ function selectPosSwapA(id, el) {
   const bLbl = document.getElementById('psw-b-lbl');
   const btn = document.getElementById('psw-confirm');
   if (!bDiv || !bLbl || !btn) return;
-  bDiv.innerHTML = pgGrid(on.map(p => pgBtn(p, 'psw-bb', `selectPosSwapB('${p.id}',this)`)).join(''));
+  bDiv.innerHTML = posDoelGrid(match, on, 'psw-bb', 'selectPosSwapB');
   bLbl.style.display = ''; bDiv.style.display = ''; btn.style.display = 'none';
 }
 function selectPosSwapB(id, el) {

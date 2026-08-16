@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.20.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.21.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -8,6 +8,23 @@ const MATCH_TYPES = {
   '11v11':{ field: 11, lines: ['Doel','Verdediging','Middenveld','Aanval'] },
 };
 const LINE_Y = { 'Doel': 90, 'Verdediging': 68, 'Middenveld': 45, 'Aanval': 22 };
+// De codes bij de positienummers die computePosNum toekent (1 = doel, 2-5 verdediging, 6/8/10/11/7
+// middenveld, 9 aanval). Het nummer zegt wélke plek, de code hoe die plek heet.
+const POS_CODES_11 = {
+  1: 'DM', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
+  7: 'RA', 8: 'CM', 9: 'SP/CA', 10: 'CAM', 11: 'LA',
+};
+// Op een klein veld heten dezelfde nummers anders: de "spits" is er een aanvallende middenvelder en
+// de flanken zijn middenvelders i.p.v. aanvallers. 3, 4, 6 en 8 staan niet in de lijst die Tim
+// opgaf omdat 8v8 ze zelden of nooit toekent (zie computePosNum); ze volgen daarom de grote tabel.
+const POS_CODES_KLEIN = {
+  1: 'DM', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
+  7: 'RM', 8: 'CM', 9: 'CAM', 10: 'CVM', 11: 'LM',
+};
+function posCode(n, matchType) {
+  const tabel = matchType === '11v11' ? POS_CODES_11 : POS_CODES_KLEIN;
+  return tabel[parseInt(n, 10)] || '';
+}
 const PERIOD_TYPES = {
   'helften': { count: 2, sing: 'Helft', plural: 'helften', abbr: 'H' },
   'delen':   { count: 3, sing: 'Deel',  plural: 'delen',   abbr: 'D' },

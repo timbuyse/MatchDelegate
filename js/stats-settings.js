@@ -670,6 +670,7 @@ const HANDLEIDING_PAGINAS = [
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
         <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het kruisje naast zijn naam en kies <b>'Niet aanwezig'</b>. Hij krijgt dan geen speelminuten en telt als gemiste wedstrijd; via <b>'Herstel'</b> draai je het terug.</li>
+        <li>Wisselen twee spelers van plaats? Tik ze allebei aan op het veld in het tabblad <b>Opstelling</b> en bevestig. Via <b>'Meer'</b> → <b>'Positiewissel'</b> kan het ook: daar kies je de speler en dan het <b>positienummer</b> waar hij naartoe gaat.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
