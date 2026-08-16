@@ -359,9 +359,6 @@ function tournamentInActiveTeam(t) {
   const team = teamById(t.teamId);
   return !!(team && team.name === homeFilter);
 }
-// Een tornooi is afgesloten zodra het expliciet afgesloten werd. Zonder dat veld (alle bestaande
-// tornooien) valt het terug op de oude regel: de datum bepaalt of het bij de gespeelde hoort.
-function tournamentClosed(t) { return !!(t && t.status === 'done'); }
 function renderTournamentList() {
   const today = new Date().toISOString().split('T')[0];
   const all = getTournaments().filter(tournamentInActiveTeam).sort((a, b) => (a.date || '').localeCompare(b.date || ''));

@@ -2288,7 +2288,9 @@ async function loadHome() {
   upcoming = upcoming.slice(0, 1); // enkel de eerstvolgende
   const upcomingHtml = upcoming.length ? upcoming.map(matchItemHtml).join('') : '';
   // Eerstvolgende tornooi
-  let upcomingTrn = getTournaments().filter(t => (t.date || '') >= new Date().toISOString().split('T')[0]);
+  // Een afgesloten tornooi hoort hier niet meer bij, ook al ligt de datum nog in de toekomst: het
+  // is bewust opgeborgen. Zelfde regel als in de tornooilijst (zie tournamentClosed).
+  let upcomingTrn = getTournaments().filter(t => !tournamentClosed(t) && (t.date || '') >= new Date().toISOString().split('T')[0]);
   if (homeFilter !== 'all') upcomingTrn = upcomingTrn.filter(t => { const team = teamById(t.teamId); return team && team.name === homeFilter; });
   upcomingTrn.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   upcomingTrn = upcomingTrn.slice(0, 1);

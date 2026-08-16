@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.9
+- **Opgelost:** een **afgesloten tornooi** bleef op het **startscherm** nog onder 'Gepland' staan,
+  terwijl het in de tornooilijst wel al bij de gespeelde stond. Het blok 'eerstvolgende tornooi'
+  keek enkel naar de datum. Nu verdwijnt een afgesloten tornooi daar meteen en schuift het
+  eerstvolgende openstaande tornooi door; heropen je het, dan staat het er weer.
+
+---
+
 ## v0.19.8
 - **Nieuw: een tornooi afsluiten.** Onderaan de tornooipagina staat nu **'Tornooi afsluiten'**. Het
   tornooi verhuist dan naar de **gespeelde tornooien** — ongeacht de datum — en er kunnen geen
