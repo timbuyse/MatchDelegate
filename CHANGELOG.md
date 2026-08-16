@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.8
+- **Nieuw: een tornooi afsluiten.** Onderaan de tornooipagina staat nu **'Tornooi afsluiten'**. Het
+  tornooi verhuist dan naar de **gespeelde tornooien** — ongeacht de datum — en er kunnen geen
+  wedstrijden meer bijkomen. Bovenaan zie je wanneer het afgesloten werd, en met **'Tornooi
+  heropenen'** draai je het terug.
+- Staan er bij het afsluiten nog **wedstrijden op gepland**, dan zegt het scherm er hoeveel, met de
+  keuze om ze **meteen mee te verwijderen** of gewoon te laten staan.
+- Naam, selectie en info van een afgesloten tornooi blijven gewoon **aanpasbaar** — je hoeft niet
+  eerst te heropenen om iets recht te zetten. Enkel wedstrijden toevoegen en klonen valt weg.
+- Voordien bepaalde alleen de **datum** waar een tornooi in de lijst stond: dat van vandaag bleef de
+  hele dag onder 'Gepland' staan, en er was geen manier om het zelf op te bergen. Tornooien die je
+  niet afsluit volgen die datumregel gewoon verder, dus aan bestaande tornooien verandert er niets.
+
+---
+
 ## v0.19.7
 - **Het velddiagram toont voortaan enkel de opstelling bij de start van dat deel.** Geen namen van
   vervangers meer onder de bollen, en geen kaartjes. De bollen tonen wat altijd klopt: positienummer,

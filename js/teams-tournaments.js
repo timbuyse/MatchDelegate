@@ -359,18 +359,21 @@ function tournamentInActiveTeam(t) {
   const team = teamById(t.teamId);
   return !!(team && team.name === homeFilter);
 }
+// Een tornooi is afgesloten zodra het expliciet afgesloten werd. Zonder dat veld (alle bestaande
+// tornooien) valt het terug op de oude regel: de datum bepaalt of het bij de gespeelde hoort.
+function tournamentClosed(t) { return !!(t && t.status === 'done'); }
 function renderTournamentList() {
   const today = new Date().toISOString().split('T')[0];
   const all = getTournaments().filter(tournamentInActiveTeam).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  const planned = all.filter(t => !t.date || t.date >= today);
-  const done    = all.filter(t => t.date && t.date < today).reverse();
+  const planned = all.filter(t => !tournamentClosed(t) && (!t.date || t.date >= today));
+  const done    = all.filter(t => tournamentClosed(t) || (t.date && t.date < today)).reverse();
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
   const trnRow = (t, borderColor) => {
     const team = teamById(t.teamId);
     return `<div class="team-row" style="border-left-color:${borderColor}" onclick="goTournament('${t.id}')">
       <div>
         <div class="tn">${icI(IC.medal)} ${esc(t.name)}</div>
-        <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}</div>
+        <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}${tournamentClosed(t) ? ' · afgesloten' : ''}</div>
       </div>
       <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
     </div>`;
@@ -464,14 +467,23 @@ async function loadTournamentDetail() {
     </div>
   </div>` : '';
   const noSquad = !squadAll.length;
-  const squadWarning = (canManage() && noSquad) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
-  const newMatchBtn = (canManage() && !noSquad) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
+  const gesloten = tournamentClosed(t);
+  const squadWarning = (canManage() && noSquad && !gesloten) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Nog geen selectie ingegeven — geef eerst een selectie in voor je wedstrijden toevoegt. <button class="btn btn-org btn-sm" onclick="editTournament('${t.id}')">Selectie ingeven</button></div>` : '';
+  // Afgesloten tornooi: geen wedstrijden meer bij (ook niet klonen). De gegevens blijven wel
+  // aanpasbaar — een naam of selectie rechtzetten mag zonder eerst te heropenen.
+  const closedBanner = gesloten
+    ? `<div class="viewer-banner">${icI(IC.done)} Afgesloten${t.closedAt ? ' op ' + fmtDate(t.closedAt) : ''}${canManage() ? ' — geen wedstrijden meer toe te voegen' : ''}</div>` : '';
+  const newMatchBtn = (canManage() && !noSquad && !gesloten) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
+  const closeBtn = !canManage() ? '' : (gesloten
+    ? `<button class="btn btn-orgpale" style="margin-top:12px;width:100%" onclick="reopenTournament('${t.id}')">${icI(IC.undo)} Tornooi heropenen</button>`
+    : `<button class="btn btn-pale" style="margin-top:12px;width:100%" onclick="closeTournamentConfirm('${t.id}')">${icI(IC.done)} Tornooi afsluiten</button>`);
   // Dagoverzicht: pas zinvol zodra er één wedstrijd afgewerkt is. Ook voor kijkers zichtbaar.
   const reportBtn = done.length ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="goTournamentReport('${t.id}')">${icI(IC.clipboard)} Tornooiverslag</button>` : '';
   const matchList = matches.length
-    ? matches.map(m => `<div>${matchItemHtml(m)}${canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
-    : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad ? ' Voeg er een toe!' : ''}</p></div>`;
+    ? matches.map(m => `<div>${matchItemHtml(m)}${(canManage() && !gesloten) ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
+    : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad && !gesloten ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
+    ${closedBanner}
     <div class="card">${infoRows}${squadRow}${squadBlock}</div>
     ${squadWarning}
     ${statsHtml}
@@ -479,6 +491,7 @@ async function loadTournamentDetail() {
     ${newMatchBtn}
     <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}
+    ${closeBtn}
     ${canManage() ? `<div class="danger"><button class="btn btn-red" onclick="deleteTournamentConfirm('${t.id}')">${icI(IC.trash)} Tornooi verwijderen</button></div>` : ''}`;
 }
 
@@ -1006,6 +1019,57 @@ function trnMatchIsOwn(m) {
 // zomaar verwijderd worden; wie alles in één keer wil wissen, moet dat expliciet bevestigen met
 // zijn wachtwoord en krijgt een back-up in deletedMatches (enkel leesbaar voor de beheerder(s)
 // van die ploeg, de clubbeheerder en de eigenaar).
+// ===================== TORNOOI AFSLUITEN =====================
+// Afsluiten = de dag is voorbij: het tornooi verhuist naar de gespeelde tornooien, ongeacht de
+// datum, en er kunnen geen wedstrijden meer bijkomen. Bewust géén slot op de gegevens zelf — een
+// naam of selectie rechtzetten mag zonder te heropenen. Nieuwe, optionele velden (status/closedAt),
+// dus bestaande tornooien blijven zich gedragen zoals voorheen.
+let _trnCloseBusy = false;
+async function closeTournamentConfirm(id) {
+  if (!canManage()) return;
+  const t = tournamentById(id); if (!t) return;
+  let gepland = null;
+  try { gepland = (await dbAll()).filter(m => m.tournamentId === id && m.status === 'planned'); } catch (e) { gepland = null; }
+  if (!gepland) { showToast('Kon de wedstrijden niet nalezen, probeer opnieuw.', 'err'); return; }
+  const n = gepland.length;
+  const wedstrijden = `${n} wedstrijd${n === 1 ? '' : 'en'}`;
+  openModal(`<h3>${icI(IC.done)} Tornooi afsluiten?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:12px">"${esc(t.name)}" verhuist naar de gespeelde tornooien en er kunnen geen wedstrijden meer bijkomen. Je kan het altijd heropenen.</p>
+    ${n ? `<p style="text-align:center;font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:14px">${icI(IC.warn)} Er ${n === 1 ? 'staat' : 'staan'} nog ${wedstrijden} op gepland.</p>` : ''}
+    <button class="btn btn-green" onclick="doCloseTournament('${id}',false)">${icI(IC.check)} Afsluiten</button>
+    ${n ? `<button class="btn btn-red" style="margin-top:8px" onclick="doCloseTournament('${id}',true)">${icI(IC.trash)} Afsluiten en ${wedstrijden} verwijderen</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doCloseTournament(id, verwijderGepland) {
+  if (!canManage()) return;
+  const t = tournamentById(id); if (!t) return;
+  if (_trnCloseBusy) return;   // dubbeltik-guard: zou de wedstrijden twee keer proberen te wissen
+  _trnCloseBusy = true;
+  try {
+    if (verwijderGepland) {
+      const gepland = (await dbAll()).filter(m => m.tournamentId === id && m.status === 'planned');
+      for (const m of gepland) await dbDel(m.id);
+    }
+    t.status = 'done';
+    t.closedAt = Date.now();
+    saveTournament(t);
+    if (currentTournament && currentTournament.id === id) currentTournament = t;
+    closeModal(); render();
+    showToast('Tornooi afgesloten.', 'ok');
+  } finally { _trnCloseBusy = false; }
+}
+async function reopenTournament(id) {
+  if (!canManage()) return;
+  const t = tournamentById(id); if (!t) return;
+  // Expliciet op 'open' zetten i.p.v. het veld weg te gooien: zo is het ook voor de cloud-merge een
+  // echte wijziging en kan een ander toestel niet stil terugvallen op de oude waarde.
+  t.status = 'open';
+  t.closedAt = null;
+  saveTournament(t);
+  if (currentTournament && currentTournament.id === id) currentTournament = t;
+  render();
+  showToast('Tornooi heropend.', 'ok');
+}
 async function deleteTournamentConfirm(id) {
   const t = tournamentById(id); if (!t) return;
   let mine = null;
@@ -1502,6 +1566,9 @@ function renderTrnStep2() {
 function addTournamentMatch(trnId) {
   if (!canManage()) return;
   const t = tournamentById(trnId); if (!t) return;
+  // Ook al is de knop verborgen bij een afgesloten tornooi: de handler weigert het zelf, zodat een
+  // scherm dat nog van vóór het afsluiten dateert er geen wedstrijd meer in kan schuiven.
+  if (tournamentClosed(t)) { showToast('Dit tornooi is afgesloten. Heropen het om een wedstrijd toe te voegen.', 'err'); return; }
   const team = teamById(t.teamId);
   const allSquadPlayers = tournamentSquadMee(t);
   // Guard op wie effectief MEEGAAT, niet op de volledige squad: staat iedereen op "niet
@@ -1549,6 +1616,7 @@ async function cloneTournamentMatch(matchId, trnId) {
   const src = await dbGet(matchId);
   if (!src) return;
   const t = tournamentById(trnId); if (!t) return;
+  if (tournamentClosed(t)) { showToast('Dit tornooi is afgesloten. Heropen het om een wedstrijd toe te voegen.', 'err'); return; }
   const team = teamById(t.teamId);
   const now = new Date();
   const matchType = src.matchType || t.matchType || '8v8';
