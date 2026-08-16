@@ -1993,8 +1993,16 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
     ...Array.from({ length: mk.yellow || 0 }, () => '<i class="pdot-card pdot-cy"></i>'),
     mk.red ? '<i class="pdot-card pdot-cr"></i>' : '',
   ].filter(Boolean).join('');
-  const sub = (mk && mk.subs && mk.subs.length)
-    ? `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(mk.subs.join(' · '))}</span>` : '';
+  // Eén regeltje per vervanger, onder elkaar in chronologische volgorde. Twee namen op één regel
+  // (vroeger met ' · ' aan elkaar) liepen tegen de max-width van het plaatje en werden afgekapt.
+  // Staat de bol te laag om naam + regeltjes eronder kwijt te kunnen (de doelman: het veld knipt
+  // af, wat daar al met één regel gebeurde), dan komen ze naast de bol — richting het midden van
+  // het veld, zodat ze niet over de zijlijn hangen. De drempel volgt uit de hoogte die de stapel
+  // nodig heeft: ~7% voor de halve bol plus de naam, ~3,2% per regel.
+  const nSub = (mk && mk.subs) ? mk.subs.length : 0;
+  const naast = nSub && y > 100 - (7 + nSub * 3.2) ? (x > 60 ? ' side-l' : ' side-r') : '';
+  const sub = nSub
+    ? `<span class="pdot-subs${naast}">${mk.subs.map(n => `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(n)}</span>`).join('')}</span>` : '';
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
     ${p.posNum||''}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
 }
