@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.10
+- **Nieuw: opstelling per deel vooraf plannen.** In het voorbereidingsscherm van een geplande
+  wedstrijd staat nu **'Opstelling per kwart'** (of helft/deel). Per deel tik je een **bankspeler en
+  dan een veldspeler** om te wisselen, of **twee veldspelers** om ze van plaats te wisselen — net
+  zoals in de pauze. Elk deel begint als een kopie van het vorige, dus je past enkel aan wat
+  verandert.
+- **Vooraf nakijken:** in datzelfde scherm blader je met de tabjes bovenaan door de delen en zie je
+  telkens het volledige veld met de bank eronder. Een deel waarvoor je zelf iets plande krijgt een
+  stipje.
+- **Gebruiken doe je zelf.** In de pauze verschijnt **'Geplande opstelling gebruiken'**. Dat scherm
+  rekent uit welke wissels en positiewissels er nodig zijn om die opstelling te krijgen, toont ze,
+  en zet ze klaar voor de start van het volgende deel — waar je ze nog kan aanpassen of weggooien.
+  Er gebeurt nooit iets zonder dat jij erop drukt.
+- Het omrekenen kiest het **kleinst mogelijke aantal wissels**: een invaller neemt bij voorkeur
+  meteen de juiste plaats over, en spelers die enkel van plaats ruilen worden in zo weinig mogelijk
+  positiewissels gegoten. Staat er iemand uit je plan intussen op afwezig, dan wordt dat gemeld en
+  overgeslagen in plaats van stil doorgevoerd.
+- **Op het velddiagram** tellen positiewissels die bij de **start** van een deel gebeuren voortaan
+  mee — dat is precies wat een geplande opstelling is, dus je plan staat correct in het verslag.
+  Positiewissels tijdens het spel blijven genegeerd, zoals sinds v0.19.2.
+- Het menu **'Geplande wissels'** (v0.19.6) blijft ernaast bestaan voor losse wissels die je op
+  eender welk moment doorvoert.
+
+---
+
 ## v0.19.9
 - **Opgelost:** een **afgesloten tornooi** bleef op het **startscherm** nog onder 'Gepland' staan,
   terwijl het in de tornooilijst wel al bij de gespeelde stond. Het blok 'eerstvolgende tornooi'

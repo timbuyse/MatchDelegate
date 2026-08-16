@@ -597,14 +597,18 @@ function pitchPlayersAtPeriodStart(m, qNum) {
     if (e.type === 'substitution') {
       if (e.playerInId && e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
     } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
-      // De ENIGE positiewissel die het diagram wel volgt: een die de doellijn raakt. Zonder dit
-      // stond de oorspronkelijke doelman oranje op de doellijn voor een deel dat hij niet gekeept
-      // heeft — het diagram beweerde dan iets dat niet klopt. Alle andere positiewisselingen
-      // blijven genegeerd. Overlappende bollen kan dit niet geven: een positiewissel verwisselt
-      // twee plaatsen binnen dezelfde formatie, dus de posities blijven een permutatie van de
-      // startplaatsen. Een keeperwissel midden in een deel telt pas mee vanaf het VOLGENDE deel
-      // (het venster hierboven), want bij de start van zijn eigen deel stond de oude keeper er nog.
-      if (pos[e.pA].line === 'Doel' || pos[e.pB].line === 'Doel') {
+      // Twee soorten positiewissels volgt het diagram wél:
+      //   - atBreak: doorgevoerd bij de START van een deel, dus onderdeel van de opstelling waarmee
+      //     dat deel begint. Zo staat een vooraf geplande opstelling correct in het verslag.
+      //   - een die de doellijn raakt: anders stond de oorspronkelijke doelman oranje op de
+      //     doellijn voor een deel dat hij niet gekeept heeft. Gebeurt die midden in een deel, dan
+      //     telt hij pas vanaf het VOLGENDE deel (zie het venster hierboven), want bij de aftrap
+      //     van zijn eigen deel stond de oude keeper er nog.
+      // Positiewissels tijdens het spel blijven verder genegeerd: het diagram toont de opstelling
+      // bij de start. Overlappende bollen kan dit niet geven — een positiewissel verwisselt twee
+      // plaatsen binnen dezelfde formatie, dus de posities blijven een permutatie van de
+      // startplaatsen.
+      if (e.atBreak || pos[e.pA].line === 'Doel' || pos[e.pB].line === 'Doel') {
         const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
       }
     }
@@ -908,6 +912,7 @@ function renderPrep() {
     </div>
     ${/* Wissels op voorhand klaarzetten. Ze gaan niet vanzelf af bij de aftrap: tijdens de
          wedstrijd druk je in ditzelfde menu op "Nu doorvoeren". */ ''}
+    ${(m.players && m.players.length && plannedPartsCount(m) > 1) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(2)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)}${plannedLineupCount(m) ? ` (${plannedLineupCount(m)})` : ''}</button>` : ''}
     ${(m.players && m.players.length) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalQuickResult()">${icI(IC.timer)} Snel resultaat invoeren</button>`}
     <div class="sec">Info</div>
@@ -961,6 +966,150 @@ async function finishStep1Only() {
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   wiz = null; await dbSave(m); match = m;
   await go('prep', m.id);
+}
+// ===================== OPSTELLING PER DEEL (VOORAF PLANNEN) =====================
+// match.plannedLineups = { 2: [{id,x,y,line,posNum}], 3: [...] }: hoe het veld eruit zou moeten
+// zien bij de start van dat deel. Deel 1 staat er niet in — dat IS de startopstelling.
+// Een plan doet uit zichzelf niets. Pas als je in de pauze op "Geplande opstelling gebruiken"
+// drukt, wordt het verschil met het veld omgerekend naar gewone wissels en positiewissels in
+// pendingSubs/pendingPosSwaps, die startQuarter() doorvoert zoals altijd. Zo blijft er één
+// waarheid: speelminuten, keeperminuten en het verslag lopen door dezelfde machinerie.
+// Nieuw, optioneel veld — bestaande wedstrijden merken hier niets van.
+function plannedPartsCount(m) {
+  return Math.max(1, (m && (m.numQuarters || (m.quarters || []).length)) || 1);
+}
+function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {}).length; }
+// Waar begin je aan als je deel q opent: het plan voor dat deel, anders dat van het vorige deel,
+// en uiteindelijk de startopstelling. Zo pas je per deel enkel aan wat er verandert.
+function plannedLineupBase(m, q) {
+  for (let k = q; k >= 2; k--) {
+    const pl = ((m.plannedLineups || {})[k] || []);
+    if (pl.length) return pl.map(p => ({ ...p }));
+  }
+  return (m.players || []).filter(p => p.starting && !p.absent)
+    .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+}
+// De plan-entries dragen enkel id + plaats; voor het tekenen hebben we ook naam en rugnummer nodig.
+function plannedLineupPlayers(m, lijst) {
+  return lijst.map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || { id: e.id, name: '?' }, e));
+}
+// Vertaalt "zo moet het veld eruitzien" naar de wissels en positiewissels die daarvoor nodig zijn.
+// Het minimum aantal: elke speler die weg moet wordt gekoppeld aan een invaller — bij voorkeur die
+// zijn plaats overneemt — en wie blijft maar verschuift vormt een permutatie van de plaatsen, die
+// in cycli wordt opgesplitst (een cyclus van k plaatsen kost k-1 positiewissels).
+function lineupToPending(m, huidig, gepland) {
+  const sleutel = p => (typeof p.x === 'number' ? `${p.x},${p.y}` : `L:${p.line || ''}`);
+  const problemen = [];
+  const inSelectie = new Map((m.players || []).map(p => [p.id, p]));
+  const doelLijst = gepland.filter(e => {
+    const sp = inSelectie.get(e.id);
+    if (!sp) { problemen.push('Een speler uit het plan zit niet meer in de selectie.'); return false; }
+    if (sp.absent) { problemen.push(`${pName(m, e.id)} is afwezig gemarkeerd en blijft van het veld.`); return false; }
+    return true;
+  });
+  const nuIds = new Set(huidig.map(p => p.id));
+  const doelIds = new Set(doelLijst.map(p => p.id));
+  const restEraf = huidig.filter(p => !doelIds.has(p.id));
+  const erin = doelLijst.filter(e => !nuIds.has(e.id));
+  const subs = [];
+  for (const i of erin) {
+    if (!restEraf.length) { problemen.push(`Geen plaats vrij voor ${pName(m, i.id)}.`); continue; }
+    // liefst de speler die nu net op de plaats staat waar de invaller naartoe moet: dan is er
+    // achteraf geen positiewissel meer nodig.
+    let idx = restEraf.findIndex(o => sleutel(o) === sleutel(i));
+    if (idx < 0) idx = 0;
+    const o = restEraf.splice(idx, 1)[0];
+    subs.push({ outId: o.id, inId: i.id, slot: sleutel(o) });
+  }
+  if (restEraf.length) problemen.push(`${restEraf.length} speler(s) uit het plan minder op het veld dan er nu staan.`);
+  // Stand ná de wissels: plaats -> speler. Daarna de plaatsen rechtzetten met positiewissels.
+  const nu = new Map();
+  const gewisseldWeg = new Set(subs.map(s => s.outId));
+  huidig.forEach(p => { if (!gewisseldWeg.has(p.id)) nu.set(sleutel(p), p.id); });
+  subs.forEach(s => nu.set(s.slot, s.inId));
+  const swaps = [];
+  for (const e of doelLijst) {
+    const slot = sleutel(e);
+    const staatEr = nu.get(slot);
+    if (staatEr === undefined || staatEr === e.id) continue;
+    let anderSlot = null;
+    for (const [s2, id2] of nu) if (id2 === e.id) { anderSlot = s2; break; }
+    if (anderSlot === null) continue;   // staat niet op het veld — al gemeld hierboven
+    swaps.push({ pA: staatEr, pB: e.id });
+    nu.set(slot, e.id); nu.set(anderSlot, staatEr);
+  }
+  return { subs: subs.map(s => ({ outId: s.outId, inId: s.inId })), swaps, problemen: [...new Set(problemen)] };
+}
+
+let _planLineupQ = 2;        // welk deel staat open in de planner
+let _planLineupSel = null;   // { kind: 'field' | 'bench', id }
+function modalPlannedLineups(q) {
+  const m = match; if (!m) return;
+  const totaal = plannedPartsCount(m);
+  if (totaal < 2) { showToast(`Deze wedstrijd heeft maar één ${pSingLow(m)}.`, 'err'); return; }
+  if (!(m.players || []).length) { showToast('Geef eerst de selectie en de startopstelling in.', 'err'); return; }
+  if (q) { _planLineupQ = Math.min(Math.max(2, q), totaal); _planLineupSel = null; }
+  const deel = _planLineupQ;
+  const ro = !canManage();
+  const plan = plannedLineupBase(m, deel);
+  const veld = plannedLineupPlayers(m, plan);
+  const opVeld = new Set(plan.map(p => p.id));
+  const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+  const eigen = !!((m.plannedLineups || {})[deel] || []).length;
+  const chips = Array.from({ length: totaal - 1 }, (_, i) => i + 2).map(k => {
+    const heeft = !!((m.plannedLineups || {})[k] || []).length;
+    return `<button class="tgl-btn${k === deel ? ' act' : ''}" onclick="modalPlannedLineups(${k})">${pSing(m)} ${k}${heeft ? ' ●' : ''}</button>`;
+  }).join('');
+  const selId = _planLineupSel ? _planLineupSel.id : null;
+  openModal(`<h3>${icI(IC.shirt)} Opstelling per ${pSingLow(m)}</h3>
+    <div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${ro
+      ? `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`
+      : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${eigen ? '' : ` Dit ${pSingLow(m)} volgt nu nog de opstelling van het vorige.`}`}</p>
+    ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
+    <div class="sec">Bank (${bank.length})</div>
+    <div class="place-chips">${bank.length
+      ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}"${ro ? '' : ` onclick="planLineupTap('bench','${p.id}')"`}>${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    ${(!ro && eigen) ? `<button class="btn btn-pale btn-sm" style="margin-top:12px" onclick="clearPlannedLineup(${deel})">${icI(IC.undo)} Plan voor ${pSingLow(m)} ${deel} wissen</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+async function _savePlannedLineup(deel, lijst) {
+  match.plannedLineups = match.plannedLineups || {};
+  match.plannedLineups[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  await dbSave(match);
+  render();
+  modalPlannedLineups();
+}
+function planLineupTap(kind, id) {
+  const sel = _planLineupSel;
+  if (sel && sel.id === id) { _planLineupSel = null; modalPlannedLineups(); return; }   // deselecteren
+  if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }
+  _planLineupSel = null;
+  const deel = _planLineupQ;
+  const plan = plannedLineupBase(match, deel);
+  if (sel.kind === 'field' && kind === 'field') {
+    const a = plan.find(p => p.id === sel.id), b = plan.find(p => p.id === id);
+    if (!a || !b) { modalPlannedLineups(); return; }
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
+  } else {
+    // bank + veld: de bankspeler neemt de plaats van de veldspeler over
+    const veldId = kind === 'field' ? id : sel.id;
+    const bankId = kind === 'bench' ? id : sel.id;
+    const plek = plan.find(p => p.id === veldId);
+    if (!plek) { modalPlannedLineups(); return; }
+    plek.id = bankId;
+  }
+  _savePlannedLineup(deel, plan);
+}
+async function clearPlannedLineup(deel) {
+  if (!canManage() || !match.plannedLineups) return;
+  delete match.plannedLineups[deel];
+  await dbSave(match);
+  render();
+  modalPlannedLineups();
 }
 function saveTournamentWizStep1Only() {
   captureTrnStep1();
