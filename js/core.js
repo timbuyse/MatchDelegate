@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.19.8'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.19.9'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -412,6 +412,9 @@ function deleteTournament(id) {
   cloudOnLocalTournamentDelete(id);
 }
 function tournamentById(id) { return getTournaments().find(t => t.id === id) || null; }
+// Een tornooi is afgesloten zodra het expliciet afgesloten werd. Zonder dat veld (alle bestaande
+// tornooien) valt het terug op de oude regel: de datum bepaalt of het bij de gespeelde hoort.
+function tournamentClosed(t) { return !!(t && t.status === 'done'); }
 // Tornooiselectie uitlezen. Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat:
 // squad.base/bench/absent. Beide worden hier naar één lijst met een sel-veld genormaliseerd, zodat
 // elke aanroeper dezelfde spelers ziet (vroeger stond die normalisatie 5x apart, met verschillen).
