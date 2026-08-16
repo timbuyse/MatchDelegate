@@ -392,25 +392,20 @@
        lange familienamen tegen elkaar aanschuiven toch leesbaar blijven (i.p.v. wit-op-gras
        dat in elkaar overloopt). z-index tilt het label boven de buurbol. */
     .pdot-lbl{position:absolute;top:36px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:92px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
-    /* Regeltjes onder de naam: wie deze speler tijdens het deel kwam vervangen. Bij twee wissels op
-       dezelfde plek komt elke vervanger op zijn eigen regel, chronologisch van boven naar onder —
-       samengevoegd op één regel liep de tekst tegen de max-width en werd ze afgekapt met puntjes. */
-    .pdot-subs{position:absolute;top:51px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:2}
-    /* Onderaan het veld (doelman) is er onder de bol geen plaats meer: het veld knipt af, wat daar
-       al met één regeltje gebeurde. Bóven de bol kan ook niet — daar staat de naam van de
-       verdediger ervóór. Dan komen ze naast de bol, richting het midden van het veld, waar ze
-       tegen de bol aan sluiten en dus duidelijk bij die speler horen. */
-    .pdot-subs.side-r{top:50%;bottom:auto;left:calc(100% + 3px);transform:translateY(-50%);align-items:flex-start}
-    .pdot-subs.side-l{top:50%;bottom:auto;left:auto;right:calc(100% + 3px);transform:translateY(-50%);align-items:flex-end}
-    /* Vanaf drie regeltjes niet meer centreren maar onderaan de bol verankeren: gecentreerd schoof
-       de onderste regel over het naamplaatje. Groeit dan naar boven, waar plaats genoeg is. */
-    .pdot-subs.hoog{top:auto;bottom:0;transform:none}
-    .pdot-sub{font-size:9px;font-weight:700;color:#fdd6a0;white-space:nowrap;background:rgba(0,0,0,.5);border-radius:5px;padding:1px 4px;max-width:86px;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:2px}
-    .pdot-sub .ic-i{width:9px;height:9px;flex-shrink:0}
-    /* Kaartjes achter de naam onder de bol */
-    .pdot-card{width:6px;height:9px;border-radius:1.5px;border:1px solid rgba(0,0,0,.5);display:inline-block;vertical-align:-.05em;margin-left:3px;flex-shrink:0}
-    .pdot-cy{background:#f2c200}
-    .pdot-cr{background:#e53935}
+    /* Wisselkader onder het veld. Stond vroeger als regeltjes bij de bollen, maar het diagram toont
+       de opstelling bij de START van het deel en negeert positiewisselingen — een naam onder een bol
+       beweerde dan een positie die de invaller misschien nooit speelde. Hier staat enkel wie en
+       wanneer. Kaarten staan niet meer op het veld: die staan in de tijdlijn. */
+    .pitch-subs{max-width:340px;margin:8px auto 0;border:1px solid var(--bdr);border-radius:10px;padding:6px 9px}
+    .pitch-subs-h{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--txt2);margin-bottom:3px}
+    .psr{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:2px 0;min-width:0}
+    .psr-min{min-width:32px;color:var(--txt2);font-variant-numeric:tabular-nums;flex-shrink:0}
+    /* Enkel de pijltjes gekleurd; de namen in de gewone tekstkleur, zodat de regel rustig leest.
+       Twee gelijke kolommen die mogen afbreken: bij een dubbele wissel staan er meerdere namen. */
+    .psr-uit,.psr-in{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
+    .psr-uit .ic-i{color:var(--rd)}
+    .psr-in .ic-i{color:var(--grn)}
+    .psr .ic-i{width:11px;height:11px;flex-shrink:0;margin-top:2px}
     .pitch-bench{max-width:340px;margin:8px auto 0;font-size:12px;color:var(--txt2);line-height:1.5;text-align:center}
     .pdot-org{background:#f5821f}
     .field-legend{text-align:center;font-size:11px;color:var(--txt2);margin-top:8px}

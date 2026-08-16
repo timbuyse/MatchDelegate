@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.7
+- **Het velddiagram toont voortaan enkel de opstelling bij de start van dat deel.** Geen namen van
+  vervangers meer onder de bollen, en geen kaartjes. De bollen tonen wat altijd klopt: positienummer,
+  naam, de kapitein en de oranje doelman.
+- **De wissels staan nu in een kader onder het veld**, met de minuut erbij: wie eraf ging (rood
+  pijltje omlaag) en wie erin kwam (groen pijltje omhoog).
+- **Wissels in dezelfde minuut staan samen op één regel** — de spelers die eraf gaan bij elkaar, de
+  invallers bij elkaar. Een dubbele wissel is één beslissing en leest zo ook zo. Zijn het er veel,
+  dan breken de namen netjes af binnen hun kolom.
+- Reden: het diagram houdt sinds v0.19.2 bewust geen rekening met positiewisselingen. Een vervanger
+  onder een bol hangen suggereerde dan een positie die hij misschien nooit gespeeld heeft. In het
+  kader gaat het enkel over wie en wanneer, en dat klopt altijd.
+- **Kaarten staan niet meer op het veld** — die vind je in de tijdlijn van de events, waar ook de
+  minuut en de rest van het verloop staat. Hetzelfde geldt voor een positiewissel naar doel: die
+  staat in de tijdlijn, niet meer bij het veld.
+- De **PDF** krijgt exact hetzelfde kader als het scherm: dun kadertje, kopje **WISSELS**, en per
+  regel de minuut met dezelfde rode en groene pijltjes (met lijnen getekend, want de PDF-lettertypes
+  hebben geen pijlteken). Enkel de pijltjes zijn gekleurd; de namen staan in de gewone tekstkleur.
+- **Spelersknoppen tonen nu dezelfde naam als op het veld:** voornaam met de beginletter van de
+  familienaam. Vroeger stond daar enkel de familienaam, zodat je op het veld *Sam D.* las en in de
+  wisselmodal *De Wit*. Geldt voor alle knoppen waar je een speler kiest — wissel, positiewissel,
+  goal, assist, eigen doel, kaart, penalty, blessure, kapitein en de geplande wissels. Hebben twee
+  spelers dezelfde voornaam, dan komen er letters bij (*Lars Mer.* naast *Lars Mee.*), net als op het
+  velddiagram.
+
+---
+
 ## v0.19.6
 - **Nieuw: geplande wissels.** Je kan nu **wissels en positiewissels op voorhand klaarzetten** —
   al bij een geplande wedstrijd, en tijdens een lopend deel of in de pauze. Ze blijven staan tot jij
