@@ -590,9 +590,24 @@ function positionsAtMatchStart(m) {
 function pitchPlayersAtPeriodStart(m, qNum) {
   const pos = positionsAtMatchStart(m);
   for (const e of _posEventsChrono(m)) {
-    if (e.type !== 'substitution' || !e.playerInId || e.quarterNum == null) continue;
+    if (e.quarterNum == null) continue;
+    // Zelfde tijdvenster als de veldbezetting in playersAtPeriodStart(): alles van een vorig deel,
+    // plus wat bij de start van dit deel is doorgevoerd.
     if (!(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))) continue;
-    if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+    if (e.type === 'substitution') {
+      if (e.playerInId && e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+    } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
+      // De ENIGE positiewissel die het diagram wel volgt: een die de doellijn raakt. Zonder dit
+      // stond de oorspronkelijke doelman oranje op de doellijn voor een deel dat hij niet gekeept
+      // heeft — het diagram beweerde dan iets dat niet klopt. Alle andere positiewisselingen
+      // blijven genegeerd. Overlappende bollen kan dit niet geven: een positiewissel verwisselt
+      // twee plaatsen binnen dezelfde formatie, dus de posities blijven een permutatie van de
+      // startplaatsen. Een keeperwissel midden in een deel telt pas mee vanaf het VOLGENDE deel
+      // (het venster hierboven), want bij de start van zijn eigen deel stond de oude keeper er nog.
+      if (pos[e.pA].line === 'Doel' || pos[e.pB].line === 'Doel') {
+        const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
+      }
+    }
   }
   return playersAtPeriodStart(m, qNum).map(p => ({ ...p, ...(pos[p.id] || {}) }));
 }
