@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.26.0
+- **Klaargezette positiewissels lezen nu als bewegingen**, met de plek waar elke speler belandt:
+  *"Bram B. naar 7 RM"*. Voordien stond er *"Emiel wisselt met Bram"*, en bij een keten van drie
+  spelers stond er dan iemand twee keer in — dat las alsof er iets fout ging terwijl de uitkomst
+  klopte. Nu krijgt elke speler die verhuist zijn eigen regel.
+- Ze staan **samen in één blok** onder de kop *Positiewissels*, in plaats van elk in een eigen rij.
+  Het kruisje wist ze allemaal tegelijk: bij een keten hoort dat zo — er één uithalen zou de rest op
+  een onbedoelde plek achterlaten. De gewone wissels blijven wel elk hun eigen regel en kruisje
+  houden.
+
 ## v0.25.2
 - **Fout rechtgezet in het velddiagram van het verslag.** Gebeurde er een positiewissel tijdens een
   deel, dan verwisselde het diagram van een later deel twee spelers. Op het veld stond alles goed —

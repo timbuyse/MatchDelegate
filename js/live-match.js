@@ -60,7 +60,7 @@ function renderLive() {
         <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
         <div class="sec" style="margin-top:0">${icI(IC.swap)} Klaar voor ${pSingLow(match)} ${qNum+1}</div>
         ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
-        ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
+        ${pendingPosSwapHtml(match, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}
         ${(!(match.pendingSubs||[]).length && !(match.pendingPosSwaps||[]).length) ? `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Regel ze in het tabblad <b>Opstelling</b>: tik daar een bankspeler en dan een speler op het veld.</p>` : ''}
         ${((match.plannedLineups || {})[qNum + 1] || []).length
           ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.shirt)} Geplande opstelling ${((match.pendingSubs||[]).length + (match.pendingPosSwaps||[]).length) ? 'opnieuw toepassen' : 'gebruiken'}</button>` : ''}
@@ -1650,6 +1650,13 @@ async function confirmSub() {
   } finally { _eventBusy = false; }
 }
 async function removePendingSub(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
+// Alle klaargezette positiewissels in één keer. Ze staan samen in één blok omdat ze samen één
+// beweging vormen: er één uit een keten halen laat de rest op een onbedoelde plek staan.
+async function removeAllPendingPosSwaps(heropenMenu) {
+  if (_eventBusy) return; _eventBusy = true;
+  try { match.pendingPosSwaps = []; await dbSave(match); render(); if (heropenMenu) modalPlannedSubs(); }
+  finally { _eventBusy = false; }
+}
 
 // ===================== PAUZE-OPSTELLING (tikken op het veld) =====================
 // In de pauze plan je wissels en positiewissels door op het veld te tikken i.p.v. via modals.
@@ -1676,6 +1683,36 @@ function previewNextLineup(m) {
     b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
   }
   return players;
+}
+// Klaargezette positiewissels als BEWEGINGEN i.p.v. als ruilingen: "Bram naar 11 LA". Een ruil van
+// drie spelers kan alleen als twee opeenvolgende ruilingen ("A wisselt met B", dan "B wisselt met
+// C"), en dan staat B er twee keer in terwijl hij ondertussen al verplaatst is — dat leest als een
+// fout terwijl de uitkomst klopt. Eén regel per speler die verhuist, met de plek waar hij belandt,
+// zegt precies wat je plande.
+// De eindplek komt uit previewNextLineup(): dat past dezelfde wissels toe in dezelfde volgorde als
+// startQuarter, dus dit is per definitie waar iedereen terechtkomt.
+function pendingPosSwapBewegingen(m) {
+  const swaps = m.pendingPosSwaps || [];
+  if (!swaps.length) return [];
+  const nu = new Map((m.players || []).map(p => [p.id, p]));
+  const straks = new Map(previewNextLineup(m).map(p => [p.id, p]));
+  const betrokken = [];
+  swaps.forEach(s => { [s.pA, s.pB].forEach(id => { if (id && !betrokken.includes(id)) betrokken.push(id); }); });
+  return betrokken.map(id => {
+    const was = nu.get(id), wordt = straks.get(id);
+    if (!was || !wordt || String(was.posNum) === String(wordt.posNum)) return null;   // verplaatst niet
+    const code = posCode(wordt.posNum, m.matchType);
+    return { id, naam: fieldName(m, id), plek: code ? `${wordt.posNum} ${code}` : String(wordt.posNum || '?') };
+  }).filter(Boolean);
+}
+// Eén blok voor alle positiewissels samen, i.p.v. een rij per ruiling.
+function pendingPosSwapHtml(m, verwijderKnop) {
+  const bew = pendingPosSwapBewegingen(m);
+  if (!bew.length) return '';
+  return `<div class="prow" style="padding:7px 0;align-items:flex-start">
+    <div style="flex:1;font-size:14px">${icI(IC.compass)} <b>Positiewissels</b>
+      ${bew.map(b => `<div style="margin-top:2px">${esc(b.naam)} <span style="color:var(--txt2)">naar</span> <b>${esc(b.plek)}</b></div>`).join('')}</div>
+    ${verwijderKnop || ''}</div>`;
 }
 function lineupTap(kind, id) {
   const sel = _lineupSel;
@@ -1740,7 +1777,9 @@ function pauseLineupHtml(m) {
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
       ${(nSubs || nSwaps) ? `<div class="sec">Ingepland (${nSubs + nSwaps})</div>
         ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
-        ${(m.pendingPosSwaps || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('')}`
+        ${/* Alle positiewissels in één blok, als bewegingen — zie pendingPosSwapHtml. Het kruisje
+             wist ze allemaal: ze horen bij elkaar (een keten van drie is niets zonder zijn delen). */ ''}
+        ${pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}`
         : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Nog niets ingepland — de opstelling blijft zoals ze nu staat.</p>'}
     </div>`;
 }
@@ -2034,7 +2073,7 @@ function modalPlannedSubs(tab) {
   // verwarrend als je hier "geplande wissels" ziet die niet alles tonen wat er klaarstaat.
   const auto = [
     ...pendS.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
-    ...pendP.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
+    pendP.length ? pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps(true)" title="Alle positiewissels verwijderen">×</button>`) : '',
   ].join('');
   const aantal = subs.length + swaps.length;
   openModal(`<h3>${icI(IC.clipboard)} Wissels plannen</h3>
