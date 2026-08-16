@@ -1149,7 +1149,7 @@ function plannedSubsVoorDeelHtml(m, q) {
       .map(s => `${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`),
   ];
   if (!regels.length) return '';
-  return `<div class="sec" style="margin-bottom:6px">Wissels tijdens ${pSingLow(m) === 'helft' ? 'deze' : 'dit'} ${pSingLow(m)}</div>
+  return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${pSingLow(m) === 'helft' ? 'deze' : 'dit'} ${pSingLow(m)}</div>
     ${regels.map(r => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${r}</div></div>`).join('')}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig

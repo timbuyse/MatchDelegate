@@ -1320,6 +1320,11 @@ async function doUnmarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
   p.absent = false;
+  // Zolang er nog geen deel gestart is, is een basisspeler die je herstelt gewoon weer basisspeler:
+  // doMarkAbsent zette onField op false, en zonder dit bleef hij achter met starting=true en
+  // onField=false. De planning telde hem dan mee en de veldbezetting niet. Loopt de wedstrijd al,
+  // dan blijft hij bewust van het veld — daar hoort een echte wissel bij.
+  if (!(match.quarters || []).length && p.starting) p.onField = true;
   await dbSave(match); render();
 }
 function modalSetCaptain() {
@@ -1818,10 +1823,26 @@ function plannedCountNu(m) {
   const telt = s => !s.quarterNum || s.quarterNum === deel;
   return ((m && m.plannedSubs) || []).filter(telt).length + ((m && m.plannedPosSwaps) || []).filter(telt).length;
 }
+// Wie staat er op het veld bij de START van deel q, voor zover we dat nu kunnen weten? Een wissel
+// die je voor kwart 3 klaarzet, gaat over de spelers die kwart 3 beginnen — niet over wie er bij de
+// aftrap van de wedstrijd stond. Voor een deel dat al loopt of voorbij is, is er geen giswerk: dan
+// telt de echte veldbezetting.
+function veldBijStartVanDeel(m, q) {
+  if (!q || q <= (m.currentQuarter || 0)) return effectiveOnField(m);
+  // Toekomstig deel: het dichtstbijzijnde plan op of vóór dat deel (delen erven van elkaar, zie
+  // plannedLineupBase). Zonder plan verandert er niets, dus blijft staan wie er nu staat.
+  for (let k = q; k >= 2; k--) {
+    const pl = (m.plannedLineups || {})[k];
+    if (pl && pl.length) return plannedLineupPlayers(m, pl).filter(p => !p.absent);
+  }
+  return effectiveOnField(m);
+}
 // Waarom een klaargezette wissel nu niet kan (of null als hij wel kan). De situatie kan veranderd
 // zijn sinds het klaarzetten: speler intussen gewisseld, afwezig gemarkeerd of uit de selectie.
+// Bij een wissel die aan een later deel hangt, wordt dat deel als ijkpunt genomen — anders stond er
+// "staat niet op het veld" bij iemand die pas vanaf dat deel meedoet.
 function plannedSubProbleem(m, s) {
-  const veld = new Set(effectiveOnField(m).map(p => p.id));
+  const veld = new Set(veldBijStartVanDeel(m, s.quarterNum).map(p => p.id));
   const uit = m.players.find(p => p.id === s.outId), inn = m.players.find(p => p.id === s.inId);
   if (!uit || !inn) return 'Een van beide spelers zit niet meer in de selectie.';
   if (inn.absent) return `${pName(m, s.inId)} is afwezig gemarkeerd.`;
@@ -1830,7 +1851,7 @@ function plannedSubProbleem(m, s) {
   return null;
 }
 function plannedSwapProbleem(m, s) {
-  const veld = new Set(effectiveOnField(m).map(p => p.id));
+  const veld = new Set(veldBijStartVanDeel(m, s.quarterNum).map(p => p.id));
   if (!m.players.find(p => p.id === s.pA) || !m.players.find(p => p.id === s.pB)) return 'Een van beide spelers zit niet meer in de selectie.';
   if (!veld.has(s.pA)) return `${pName(m, s.pA)} staat niet op het veld.`;
   if (!veld.has(s.pB)) return `${pName(m, s.pB)} staat niet op het veld.`;
@@ -1902,11 +1923,12 @@ function selPlan(vak, id, el, containerId) { _planSel[vak] = id; gpSelIn(contain
 // zonder deel blijft hij overal bruikbaar, precies zoals elke wissel die vóór v0.20.2 klaargezet
 // werd. Mét deel duikt hij enkel in dát deel op als snelle knop — zo staat het menu tijdens kwart 1
 // niet vol met wissels die pas voor kwart 3 bedoeld zijn.
-function planDeelSelHtml(m, gekozen) {
+function planDeelSelHtml(m, gekozen, soort) {
   const totaal = plannedPartsCount(m);
   if (totaal < 2) return '';
+  // onchange hertekent de modal: de spelerslijsten hieronder horen bij het gekozen deel.
   return `<div class="fg" style="margin-bottom:12px"><label>Voor welk ${pSingLow(m)}?</label>
-    <select id="pl-deel">
+    <select id="pl-deel" onchange="planDeelChange('${soort}')">
       <option value="">Geen voorkeur — altijd beschikbaar</option>
       ${Array.from({ length: totaal }, (_, i) => i + 1).map(k =>
         `<option value="${k}" ${gekozen === k ? 'selected' : ''}>${pSing(m)} ${k}</option>`).join('')}
@@ -1917,16 +1939,34 @@ function planDeelGekozen() {
   const v = el ? parseInt(el.value, 10) : NaN;
   return isNaN(v) ? null : v;
 }
-function modalPlanSub(editId) {
+function planDeelChange(soort) {
+  _planSel.deel = planDeelGekozen();
+  if (soort === 'swap') modalPlanPosSwap(_planSel.editId, true);
+  else modalPlanSub(_planSel.editId, true);
+}
+// Zinnetje onder de titel: bij een later deel is het niet vanzelfsprekend dat de lijst hieronder
+// een andere veldbezetting toont dan wat er nu op het veld staat.
+function planDeelUitleg(m, deel) {
+  if (!deel) return 'Blijft staan tot jij hem doorvoert.';
+  const later = deel > (m.currentQuarter || 0);
+  return `Blijft staan tot jij hem doorvoert.${later
+    ? ` De spelers hieronder zijn wie er volgens de planning <b>${pSingLow(m)} ${deel}</b> begint.` : ''}`;
+}
+// `behoud` = de modal wordt opnieuw opgebouwd na een wijziging van het deel; dan mag de al gemaakte
+// spelerskeuze niet gewist worden — behalve wie in het nieuwe deel niet meer kan.
+function modalPlanSub(editId, behoud) {
   const m = match; if (!m) return;
   const best = editId ? (m.plannedSubs || []).find(s => s.id === editId) : null;
-  _planSel = { a: best ? best.outId : null, b: best ? best.inId : null, editId: editId || null };
-  const veld = sortedByName(effectiveOnField(m));
+  if (!behoud) _planSel = { a: best ? best.outId : null, b: best ? best.inId : null, editId: editId || null, deel: best ? (best.quarterNum || null) : null };
+  const deel = _planSel.deel || null;
+  const veld = sortedByName(veldBijStartVanDeel(m, deel));
   const veldIds = new Set(veld.map(p => p.id));
   const bank = sortedByName((m.players || []).filter(p => !p.absent && !veldIds.has(p.id)));
+  if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
+  if (_planSel.b && veldIds.has(_planSel.b)) _planSel.b = null;
   openModal(`<h3>${icI(IC.swap)} Wissel klaarzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
-    ${planDeelSelHtml(m, best ? best.quarterNum : null)}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${planDeelUitleg(m, deel)}</p>
+    ${planDeelSelHtml(m, deel, 'sub')}
     <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
     <div id="pl-a">${veld.length ? pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Niemand op het veld.</p>'}</div>
     <div class="sec">Wie komt ERIN?</div>
@@ -1935,14 +1975,18 @@ function modalPlanSub(editId) {
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
 }
-function modalPlanPosSwap(editId) {
+function modalPlanPosSwap(editId, behoud) {
   const m = match; if (!m) return;
   const best = editId ? (m.plannedPosSwaps || []).find(s => s.id === editId) : null;
-  _planSel = { a: best ? best.pA : null, b: best ? best.pB : null, editId: editId || null };
-  const veld = sortedByName(effectiveOnField(m));
+  if (!behoud) _planSel = { a: best ? best.pA : null, b: best ? best.pB : null, editId: editId || null, deel: best ? (best.quarterNum || null) : null };
+  const deel = _planSel.deel || null;
+  const veld = sortedByName(veldBijStartVanDeel(m, deel));
+  const veldIds = new Set(veld.map(p => p.id));
+  if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
+  if (_planSel.b && !veldIds.has(_planSel.b)) _planSel.b = null;
   openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
-    ${planDeelSelHtml(m, best ? best.quarterNum : null)}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${planDeelUitleg(m, deel)}</p>
+    ${planDeelSelHtml(m, deel, 'swap')}
     <div class="sec" style="margin-top:0">Eerste speler</div>
     <div id="pl-a">${pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join(''))}</div>
     <div class="sec">Tweede speler</div>
@@ -1956,7 +2000,7 @@ async function savePlanSub() {
   if (_eventBusy) return; _eventBusy = true;
   try {
     match.plannedSubs = match.plannedSubs || [];
-    const deel = planDeelGekozen();
+    const deel = _planSel.deel || null;
     const best = _planSel.editId ? match.plannedSubs.find(s => s.id === _planSel.editId) : null;
     // Zonder deel het veld niet wegschrijven i.p.v. er null in te zetten: zo blijft een wissel
     // zonder voorkeur exact hetzelfde object als vroeger.
@@ -1971,7 +2015,7 @@ async function savePlanPosSwap() {
   if (_eventBusy) return; _eventBusy = true;
   try {
     match.plannedPosSwaps = match.plannedPosSwaps || [];
-    const deel = planDeelGekozen();
+    const deel = _planSel.deel || null;
     const best = _planSel.editId ? match.plannedPosSwaps.find(s => s.id === _planSel.editId) : null;
     if (best) { best.pA = _planSel.a; best.pB = _planSel.b; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
     else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, pB: _planSel.b }, deel ? { quarterNum: deel } : {}));

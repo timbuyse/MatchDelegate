@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.20.4
+- **Een wissel voor een later deel kijkt nu naar dát deel.** Zette je een wissel klaar voor kwart 3,
+  dan toonde het scherm nog altijd wie er bij de aftrap van de wedstrijd op het veld stond. Nu
+  toont het wie er volgens de planning aan kwart 3 begint — kies je een ander kwart, dan schuiven de
+  lijsten mee. Dezelfde correctie geldt voor de melding *"X staat niet op het veld"*: die keek naar
+  de huidige stand en verscheen dus bij spelers die pas vanaf dat kwart meedoen.
+- Geldt voor gewone wissels én positiewissels. Zonder gekozen deel blijft alles zoals het was: dan
+  is de huidige veldbezetting het uitgangspunt.
+- Het kopje onder het veld heet nu **'Geplande wissels tijdens dit kwart'** (of deze helft, of dit
+  deel), zodat duidelijk is dat het om klaargezette wissels gaat.
+- **'Herstel' bij een niet-aanwezige speler zet hem weer in de basis** zolang de wedstrijd nog niet
+  begonnen is. Voordien bleef hij achter als basisspeler die tegelijk niet op het veld stond: de
+  planning telde hem mee, de veldbezetting niet. Bij een wedstrijd die al loopt blijft hij bewust
+  van het veld — daar hoort een echte wissel bij.
+
 ## v0.20.3
 - **De wissels die je aan een deel koppelde, staan nu onder het veld van dát deel** — in de
   planningskaart van een geplande wedstrijd én in het blok *Planning* tijdens de wedstrijd. Blader
