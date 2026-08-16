@@ -497,11 +497,31 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     const mk = marks.get(p.id);
     const nameChip = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255], 0, cardsWidth(mk, nameSize));
     if (cardCount(mk)) drawCards(mk, nameChip.tailX, nameChip.midY, nameSize);
-    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder met het wisselicoon.
+    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder met het wisselicoon. Bij twee
+    // wissels op dezelfde plek elk op zijn eigen plaatje, van boven naar onder in chronologische
+    // volgorde — samengevoegd op één regel werd het plaatje breder dan het veld. Zelfde opbouw als
+    // .pdot-subs op het scherm.
     if (mk && mk.subs.length) {
       const s = nameSize * 0.92, icoW = s * 1.5;
-      const c = chip(mk.subs.join(' · '), cx, nameChip.bottom + nameSize * 0.15, s, [253, 214, 160], icoW);
-      swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
+      const chipH = s * 1.35, gap = nameSize * 0.15;
+      const nodig = mk.subs.length * chipH + (mk.subs.length - 1) * gap;
+      // Onderaan het veld (de doelman) is er onder de naam geen plaats meer: de plaatjes belandden
+      // buiten het veld, op het wit van de pagina — in de PDF clipt niets. Bóven de bol kan ook
+      // niet, daar staat de naam van de verdediger ervóór. Dan komen ze naast de bol, richting het
+      // midden van het veld. Zelfde regel als .pdot-subs.side-* op het scherm.
+      const naast = nameChip.bottom + gap + nodig > uy(H);
+      let cxSub = cx, top = nameChip.bottom + gap;
+      if (naast) {
+        doc.setFontSize(s);
+        const breed = Math.max(...mk.subs.map(n => doc.getTextWidth(n))) + icoW + s * 0.6;
+        cxSub = (x > 60 ? -1 : 1) * (L(R) + breed / 2 + L(2)) + cx;
+        top = cy - nodig / 2;
+      }
+      for (const naam of mk.subs) {
+        const c = chip(naam, cxSub, top, s, [253, 214, 160], icoW);
+        swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
+        top = c.bottom + gap;
+      }
     }
   }
   doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);

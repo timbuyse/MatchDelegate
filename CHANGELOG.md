@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.4
+- **Opgelost:** werd een speler tijdens hetzelfde deel **twee keer vervangen**, dan stonden beide
+  vervangers achter elkaar op één regeltje onder zijn naam. Dat paste niet en werd afgekapt met
+  puntjes. Ze staan nu **onder elkaar**, elk op hun eigen regeltje, in de volgorde waarin ze
+  invielen. Zowel op het scherm als in de PDF.
+- **Opgelost:** bij een speler helemaal onderaan het veld — in de praktijk de **doelman** — viel het
+  wisselregeltje buiten het veld. Op het scherm werd het afgeknipt, in de PDF werd het zelfs op het
+  wit naast het veld getekend. Dat gebeurde ook al bij één enkele wissel. Die regeltjes staan nu
+  **naast de bol**, richting het midden van het veld, waar ze tegen de speler aan sluiten.
+- Nagekeken op alle formaties van alle wedstrijdtypes (3v3 tot 11v11), met elke speler twee keer
+  gewisseld: geen enkel naam- of wisselplaatje valt nog buiten het veld of wordt afgekapt.
+
+---
+
 ## v0.19.3
 - **Nieuw:** een **positiewissel achteraf toevoegen** bij een afgewerkte wedstrijd. Bij
   **'Event toevoegen'** staat nu een knop **Positiewissel**, naast Wissel. Je kiest eerst het deel
