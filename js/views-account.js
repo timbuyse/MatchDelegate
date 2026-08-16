@@ -1633,6 +1633,20 @@ function oppName(m) { return (m && m.opponent) || 'tegenstander'; }
 // evtLabel() bouwt HTML op (gebruikt in innerHTML voor het gebeurtenissenlog, o.a. bij
 // kijkers) — spelersnamen en vrije tekst (reason/cornerType) komen van gebruikersinvoer
 // en moeten hier ge-esc't worden. pName() zelf blijft ongefilterd: die wordt ook gebruikt
+// Een positiewissel als BEWEGINGEN: "Bram naar 7 RM · Emiel naar 11 LA". Dat zegt waar elke speler
+// terechtkomt; "A ↔ B" laat je dat zelf uitzoeken, en bij een keten van drie staat dezelfde speler
+// er dan twee keer in alsof er iets fout ging. posA/posB zijn de posities van vóór de wissel, dus
+// pA belandt op posB en omgekeerd. Oudere events zonder die snapshots vallen terug op de ruilvorm.
+function posSwapBeweging(m, e, pijl) {
+  const naar = (spelerId, pos) => {
+    const nr = pos && pos.posNum ? String(pos.posNum) : '';
+    const code = nr ? posCode(nr, m.matchType) : '';
+    return nr ? `${pName(m, spelerId)} ${pijl} ${nr}${code ? ' ' + code : ''}` : '';
+  };
+  const a = naar(e.pA, e.posB), b = naar(e.pB, e.posA);
+  if (!a || !b) return `${pName(m, e.pA)} ${pijl === '→' ? '↔' : '<->'} ${pName(m, e.pB)}`;
+  return `${a} · ${b}`;
+}
 // voor platte tekst (WhatsApp-deelbericht, CSV), waar HTML-entities fout zouden staan.
 function evtLabel(e, m) {
   const pn = id => esc(pName(m, id));
@@ -1644,7 +1658,7 @@ function evtLabel(e, m) {
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
-    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pn(e.pA)} ↔ ${pn(e.pB)}`;
+    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -1675,9 +1689,9 @@ function evtLabelPlain(e, m) {
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     case 'substitution': return `${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
-    // <-> i.p.v. ↔: jsPDF's standaardfonts (WinAnsiEncoding) missen dit Unicode-teken,
-    // waardoor deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
-    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${pName(m,e.pA)} <-> ${pName(m,e.pB)}`;
+    // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
+    // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
+    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, '->')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;

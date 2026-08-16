@@ -934,7 +934,8 @@ function exportMatchCSV() {
       player = pName(m, e.playerInId);
       extraInfo = 'Uit: ' + pName(m, e.playerOutId) + (e.atBreak ? ' (pauzewissel)' : '');
     } else if (e.type === 'posSwap') {
-      player = pName(m, e.pA) + ' ↔ ' + pName(m, e.pB);
+      // CSV-export: ook hier de bewegingen, niet de ruil — zie posSwapBeweging.
+      player = posSwapBeweging(m, e, '->');
       extraInfo = e.atBreak ? 'Pauze-positiewissel' : '';
     } else if (e.playerId) {
       player = pName(m, e.playerId);
@@ -1864,7 +1865,21 @@ function modalUsePlannedLineup(deel) {
       ? `Om die opstelling te krijgen zijn <b>${telling}</b> nodig. Ze komen klaar te staan voor de start van ${pSingLow(m)} ${deel}; daar kan je ze nog aanpassen.`
       : 'Het veld staat al precies zoals gepland — er is niets te wijzigen.'}</p>
     ${diff.subs.map(s => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(fieldName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(fieldName(m, s.outId))}</div></div>`).join('')}
-    ${diff.swaps.map(s => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(fieldName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(fieldName(m, s.pB))}</div></div>`).join('')}
+    ${/* Ook hier de bewegingen i.p.v. de ruilingen: het veld ná de wissels kennen we al (het plan
+         zelf), dus we kunnen per speler zeggen waar hij belandt. */ ''}
+    ${(() => {
+      if (!diff.swaps.length) return '';
+      const plek = new Map(plan.map(e => [e.id, e.posNum]));
+      const betrokken = [];
+      diff.swaps.forEach(s => [s.pA, s.pB].forEach(id => { if (!betrokken.includes(id)) betrokken.push(id); }));
+      const regels = betrokken.map(id => {
+        const nr = plek.get(id); if (!nr) return '';
+        const code = posCode(nr, m.matchType);
+        return `${esc(fieldName(m, id))} <span style="color:var(--txt2)">naar</span> <b>${esc(String(nr) + (code ? ' ' + code : ''))}</b>`;
+      }).filter(Boolean);
+      return `<div class="prow" style="padding:6px 0;align-items:flex-start"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>Positiewissels</b>
+        ${regels.map(r => `<div style="margin-top:2px">${r}</div>`).join('')}</div></div>`;
+    })()}
     ${diff.problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:10px">${icI(IC.warn)} ${diff.problemen.map(esc).join('<br>')}</div>` : ''}
     ${nu ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Er ${nu === 1 ? 'staat' : 'staan'} al ${nu} wijziging${nu === 1 ? '' : 'en'} klaar; die word${nu === 1 ? 't' : 'en'} vervangen.</p>` : ''}
     ${telling ? `<button class="btn btn-green" style="margin-top:12px" onclick="doUsePlannedLineup(${deel})">${icI(IC.check)} Klaarzetten</button>` : ''}
@@ -2019,7 +2034,15 @@ function plannedCount(m) { return ((m && m.plannedSubs) || []).length + ((m && m
 // erachter — wie daar staat wordt pas bij het doorvoeren bepaald, dus die naam was een momentopname
 // die bovendien wegviel zodra de plek (nog) niet bezet was. Dat las als een grillig detail.
 function plannedSwapTekst(m, s) {
-  if (!s.naarPos) return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`;
+  if (!s.naarPos) {
+    // Oudere vorm met een vaste tegenpartij: toon waar allebei belanden i.p.v. "A wisselt met B".
+    const b = m.players.find(p => p.id === s.pB), a = m.players.find(p => p.id === s.pA);
+    if (a && b && a.posNum && b.posNum) {
+      const cA = posCode(b.posNum, m.matchType), cB = posCode(a.posNum, m.matchType);
+      return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar</span> <b>${esc(String(b.posNum) + (cA ? ' ' + cA : ''))}</b> <span style="color:var(--txt2)">·</span> <b>${esc(pName(m, s.pB))}</b> <span style="color:var(--txt2)">naar</span> <b>${esc(String(a.posNum) + (cB ? ' ' + cB : ''))}</b>`;
+    }
+    return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`;
+  }
   const code = posCode(s.naarPos, m.matchType);
   return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar positie</span> <b>${esc(String(s.naarPos))}</b>${code ? ` <span style="color:var(--txt2)">(${esc(code)})</span>` : ''}`;
 }

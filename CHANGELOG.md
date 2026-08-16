@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.26.1
+- **Overal waar een positiewissel getoond wordt, staat nu waar elke speler terechtkomt**:
+  *"Bram Bal → 7 RM · Gust Geens → 5 LV"* in plaats van *"Bram Bal ↔ Gust Geens"*. Dat geldt voor
+  het verloop op het scherm, de tijdlijn in de PDF, de CSV-export en de klaargezette wissels — en
+  ook voor een gewone ruil van twee, niet alleen voor een keten. Bij oudere wedstrijden waarin de
+  posities niet meegeschreven werden, blijft de oude vorm staan.
+- **'Niet geselecteerd' staat niet meer in de PDF** van het wedstrijdverslag. Dat document gaat naar
+  buiten en gaat over de wedstrijd die gespeeld is, niet over wie er die dag thuisbleef. Op het
+  scherm blijft de groep gewoon staan, en *'Niet beschikbaar'* en *'Geselecteerd maar niet
+  aanwezig'* blijven ook in de PDF — die zeggen iets over de wedstrijd zelf.
+
 ## v0.26.0
 - **Klaargezette positiewissels lezen nu als bewegingen**, met de plek waar elke speler belandt:
   *"Bram B. naar 7 RM"*. Voordien stond er *"Emiel wisselt met Bram"*, en bij een keten van drie

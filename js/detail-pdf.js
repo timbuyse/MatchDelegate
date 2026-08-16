@@ -559,9 +559,9 @@ function nameWithNum(p) {
   if (p.reason) bits.push(absentReasonLabel(p.reason).toLowerCase());
   return (p.number ? p.number + ' ' : '') + p.name + (bits.length ? ` (${bits.join(', ')})` : '');
 }
-// De vier selectiegroepen als [label, namen]-blokken, in vaste volgorde. Eén bron voor het
-// verslag op het scherm en de PDF-sectie.
-function selectionBlocks(m) {
+// De selectiegroepen als [label, namen]-blokken, in vaste volgorde. Eén bron voor het verslag op
+// het scherm en de PDF-sectie. Met `voorPdf` valt "Niet geselecteerd" weg — zie onderaan.
+function selectionBlocks(m, voorPdf) {
   const g = matchSelectionGroups(m);
   // Derde element = "hoofdlijst": bepaalt in de PDF de tekstkleur (zwart voor de selectie, grijs voor
   // de nevengroepen). Vroeger hing die kleur af van "heeft dit blok een label", maar sinds de
@@ -585,7 +585,9 @@ function selectionBlocks(m) {
   if (g.selected.length) blocks.push(['Geselecteerd:', g.selected, true]);
   if (nevengroepen && g.notAvailable.length) blocks.push(['Niet beschikbaar:', g.notAvailable]);
   if (nevengroepen && g.notPresent.length) blocks.push(['Geselecteerd maar niet aanwezig:', g.notPresent]);
-  if (nevengroepen && g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
+  // "Niet geselecteerd" blijft op het scherm maar staat NIET in de PDF: dat document gaat naar
+  // buiten en gaat over de wedstrijd die gespeeld is, niet over wie er die dag thuisbleef.
+  if (nevengroepen && !voorPdf && g.notSelected.length) blocks.push(['Niet geselecteerd:', g.notSelected]);
   return { groups: g, blocks };
 }
 // Selectiekaart voor het verslag op het scherm — zelfde inhoud als de PDF-sectie 'Selectie'.
@@ -716,7 +718,7 @@ async function pdfMatchBody(doc, L, m) {
   // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
   // Bij een tornooiwedstrijd bevat dit enkel de afwijking op de tornooiselectie (zie selectionBlocks),
   // dus krijgt de sectie daar een passende kop; zonder afwijking valt ze helemaal weg.
-  const selGroups = selectionBlocks(m);
+  const selGroups = selectionBlocks(m, true);
   const selBlocks = selGroups.blocks;
   if (selBlocks.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(11.5);
