@@ -870,7 +870,10 @@ function editMatchWizard(m) {
     // guest/fromName overnemen uit de wedstrijd: hier stond `guest: false` voor élke speler, dus een
     // gastspeler verloor bij herbewerken zijn label en belandde bij de eigen spelers — precies wat
     // finishWizard met het meeschrijven van `guest` juist wilde voorkomen.
-    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: p.guest ? (p.fromName || '') : m.teamName, guest: !!p.guest, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
+    // Naam uit het ROOSTER als we de speler daar vinden: is hij intussen hernoemd, dan neemt het
+    // opnieuw opslaan van de selectie die correctie mee. Een gast of iemand die de ploeg verliet
+    // heeft geen rp en houdt de naam die in de wedstrijd staat.
+    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: (rp && rp.name) || p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: p.guest ? (p.fromName || '') : m.teamName, guest: !!p.guest, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
   });
   const trn = m.tournamentId ? tournamentById(m.tournamentId) : null;
   // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.
@@ -1008,7 +1011,9 @@ function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
-  const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
+  // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
+  // wijzigen (het linkje onder het veld van deel 1 in de planner).
+  const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
@@ -1037,7 +1042,8 @@ function renderPrep() {
          de kaart hierboven doet hetzelfde als die tweede knop, maar is makkelijk over het hoofd te
          zien; deze knop noemt met zoveel woorden wat er te doen valt. */ ''}
     ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Wissels plannen${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>
-    ${plannedPartsCount(m) > 1 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(1)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)} wijzigen</button>` : ''}`}` : ''}
+    ${plannedPartsCount(m) > 1 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(1)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)} wijzigen</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}` : ''}
     ${ro ? '' : `${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }

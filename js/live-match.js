@@ -1755,7 +1755,8 @@ function planningTijdensMatchHtml(m) {
         <button class="lc-btn" id="pl-next" onclick="_planLiveNav(1)" ${_planLiveQ === totaal ? 'disabled' : ''}>›</button>
       </div>` : `<div class="lc-nav"><span class="lc-nav-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ}</span></div>`}
       ${delen.map(slide).join('')}
-    </div></div>`;
+    </div></div>
+    ${canManage() ? `<button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>` : ''}`;
 }
 let _planLiveQ = 1;
 let _planLiveVanaf = 0;
@@ -1946,13 +1947,13 @@ function plannedSwapProbleem(m, s) {
   return null;
 }
 function plannedCount(m) { return ((m && m.plannedSubs) || []).length + ((m && m.plannedPosSwaps) || []).length; }
-// Hoe een geplande positiewissel leest. Bij de nieuwe vorm (naarPos) noemt hij de PLEK, met wie daar
-// nu staat er los achter — dat is een momentopname, geen afspraak.
+// Hoe een geplande positiewissel leest: de PLEK waar hij naartoe gaat. Bewust ZONDER "nu speler X"
+// erachter — wie daar staat wordt pas bij het doorvoeren bepaald, dus die naam was een momentopname
+// die bovendien wegviel zodra de plek (nog) niet bezet was. Dat las als een grillig detail.
 function plannedSwapTekst(m, s) {
   if (!s.naarPos) return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`;
   const code = posCode(s.naarPos, m.matchType);
-  const doelId = plannedSwapDoelId(m, s);
-  return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar positie</span> <b>${esc(String(s.naarPos))}</b>${code ? ` <span style="color:var(--txt2)">(${esc(code)})</span>` : ''}${doelId && doelId !== s.pA ? ` <span style="color:var(--txt2)">· nu ${esc(fieldName(m, doelId))}</span>` : ''}`;
+  return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar positie</span> <b>${esc(String(s.naarPos))}</b>${code ? ` <span style="color:var(--txt2)">(${esc(code)})</span>` : ''}`;
 }
 // Welk tabblad staat open in "Wissels plannen": een deelnummer, of 0 voor "Altijd" (wissels zonder
 // vast deel). Wordt bij het openen gezet op het deel dat nu aan de beurt is.

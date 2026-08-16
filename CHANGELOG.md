@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.23.0
+- **Nieuw: het wedstrijdplan als PDF.** Eén knop bij een geplande wedstrijd én tijdens de wedstrijd
+  (onderaan het tabblad *Opstelling*). Per deel zie je **twee velddiagrammen** naast elkaar —
+  *bij de start* en *na de geplande wissels* — met de wissels ertussen in twee kolommen (**out** met
+  een rood pijltje omlaag, **in** met een groen omhoog), en de positiewissels daaronder. Onder elk
+  veld staat de bank **van dat moment**. Voor een deel zonder geplande wissels staat er één veld.
+- Er passen **twee delen op een pagina**, ook op de eerste met de kop erboven.
+- **Een speler hernoemen in het rooster werkt nu door in bestaande wedstrijden.** Een wedstrijd
+  bewaart zijn eigen kopie van de naam — dat blijft zo voor gasten en voor wie de ploeg intussen
+  verliet — maar bij een naamcorrectie wordt die kopie overal meegetrokken: in de wedstrijden, bij
+  de niet-beschikbare spelers en in de tornooiselecties. Je krijgt te zien in hoeveel wedstrijden
+  het is aangepast. Rugnummers en posities blijven per wedstrijd staan, die mogen afwijken.
+- Ook het scherm **Selectie** haalt de naam voortaan uit het rooster, zodat het opnieuw opslaan van
+  een selectie een achtergebleven naam alsnog rechtzet.
+- De **formatie** staat niet meer in het infokaartje van een geplande wedstrijd: ze hoort bij de
+  opstelling, en daar staat ze ook (met het linkje om ze te wijzigen).
+- Het plan rekent **door over de delen heen**: een wissel in kwart 1 werkt door in de opstelling van
+  kwart 2, tenzij je voor dat kwart zelf een opstelling plande — die beschrijft een eindtoestand en
+  gaat dus voor. Delen die al gespeeld zijn, tonen wat er écht stond.
+
 ## v0.22.0
 - **Een geplande positiewissel wijst nu naar een plek, niet naar een speler.** Je zet klaar dat
   iemand *"naar positie 5"* gaat; wie daar op dát moment staat, neemt zijn plaats over. Voordien

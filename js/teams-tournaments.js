@@ -246,7 +246,49 @@ function teamPasteApply() {
   closeModal();
   if (added) render(); else showToast('Geen spelers gevonden in de lijst.', 'err');
 }
-function saveTeamEdit() {
+// Een speler hernoemen in het rooster moet doorwerken in wat er al bestaat. Een wedstrijd bewaart
+// namelijk zijn eigen kopie van de naam (m.players[].name) — dat is bewust, want een gastspeler of
+// iemand die de ploeg intussen verliet heeft geen rooster meer om op terug te vallen. Bij een
+// naamCORRECTIE is die kopie echter gewoon fout, en dan hoort ze overal mee te veranderen.
+// Enkel de naam: rugnummers en posities mogen per wedstrijd afwijken en blijven dus staan.
+async function hernoemSpelerInGegevens(hernoemd) {
+  if (!hernoemd.length) return 0;
+  const opId = new Map(hernoemd.map(h => [h.id, h.naam]));
+  const opGlobal = new Map(hernoemd.filter(h => h.globalId).map(h => [h.globalId, h.naam]));
+  const nieuweNaam = (rosterId, globalId) => (rosterId && opId.get(rosterId)) || (globalId && opGlobal.get(globalId)) || null;
+  let aantal = 0;
+  const alle = await dbAll();
+  for (const m of alle) {
+    let raak = false;
+    (m.players || []).forEach(p => {
+      const n = nieuweNaam(p.rosterId, p.globalId);
+      if (n && p.name !== n) { p.name = n; raak = true; }
+    });
+    // Wie als niet-beschikbaar genoteerd staat, staat er enkel met zijn naam in.
+    (m.absentPlayers || []).forEach(a => {
+      if (typeof a === 'string') return;   // heel oude vorm zonder rosterId: niets om op te matchen
+      const n = nieuweNaam(a.rosterId, a.globalId);
+      if (n && a.name !== n) { a.name = n; raak = true; }
+    });
+    if (raak) { await dbSave(m); aantal++; }
+  }
+  // Ook de tornooiselecties dragen namen mee (zie tournamentSquadList). Per tornooi opslaan met
+  // saveTournament: saveTournaments() schrijft bewust enkel lokaal en zou de correctie dus niet
+  // naar de andere toestellen brengen.
+  getTournaments().forEach(t => {
+    const sq = t && t.squad; if (!sq) return;
+    let raak = false;
+    [sq.players, sq.base, sq.bench, sq.absent].forEach(lijst => {
+      (lijst || []).forEach(s => {
+        const n = nieuweNaam(s.srcId, s.globalId);
+        if (n && s.name !== n) { s.name = n; raak = true; }
+      });
+    });
+    if (raak) saveTournament(t);
+  });
+  return aantal;
+}
+async function saveTeamEdit() {
   if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
   const eDmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
   const eDforms = FORMATIONS[eDmt] || [];
@@ -278,8 +320,19 @@ function saveTeamEdit() {
   };
   if (editingTeam.fromCloud) clean.fromCloud = true;
   const arr = getTeamsV2(); const idx = arr.findIndex(t => t.id === clean.id);
+  // Wie is er hernoemd? Vergelijken vóór het opslaan, want daarna is de oude naam weg.
+  const vorige = idx >= 0 ? (arr[idx].players || []) : [];
+  const hernoemd = clean.players.map(np => {
+    const op = vorige.find(x => x.id === np.id);
+    return (op && (op.name || '').trim() !== (np.name || '').trim())
+      ? { id: np.id, globalId: np.globalId, naam: np.name } : null;
+  }).filter(Boolean);
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; go(cloudReady ? 'home' : 'teams');
+  if (hernoemd.length) {
+    const n = await hernoemSpelerInGegevens(hernoemd);
+    if (n) showToast(`Naam aangepast in ${n} wedstrijd${n === 1 ? '' : 'en'}.`, 'ok');
+  }
 }
 function deleteTeamConfirm() {
   openModal(`<h3>Ploeg verwijderen?</h3><p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(editingTeam.name)}" en alle spelers worden verwijderd. Bestaande wedstrijden blijven behouden.</p>
