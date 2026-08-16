@@ -988,6 +988,7 @@ function prepPlanningHtml(m, ro) {
       <div class="place-chips">${bank.length
         ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      ${plannedSubsVoorDeelHtml(m, q)}
     </div>`;
   };
   if (total < 2) {
@@ -1136,6 +1137,21 @@ function plannedLineupPlayers(m, lijst) {
   return lijst.map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || { id: e.id, name: '?' }, e));
 }
 function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {}).length; }
+// De losse wissels die je aan dít deel koppelde (zie planDeelSelHtml in live-match.js), als blokje
+// onder het veld. Ze horen visueel bij de opstelling van dat deel: het veld toont hoe je begint, dit
+// toont wat er tijdens dat deel nog gepland staat. Gebruikt door de planningskaart in het
+// voorbereidingsscherm én door dezelfde kaart tijdens de wedstrijd.
+function plannedSubsVoorDeelHtml(m, q) {
+  const regels = [
+    ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
+      .map(s => `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`),
+    ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q)
+      .map(s => `${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`),
+  ];
+  if (!regels.length) return '';
+  return `<div class="sec" style="margin-bottom:6px">Wissels tijdens ${pSingLow(m) === 'helft' ? 'deze' : 'dit'} ${pSingLow(m)}</div>
+    ${regels.map(r => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${r}</div></div>`).join('')}`;
+}
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
 // gemarkeerd (het kruisje in het tabblad Opstelling — dat kan ook nog tijdens de wedstrijd). Het
 // plan zelf blijft ongemoeid; wie het opruimt beslist de gebruiker. Dit levert enkel de namen op,

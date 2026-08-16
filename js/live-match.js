@@ -1704,18 +1704,13 @@ function planningTijdensMatchHtml(m) {
     const lijst = plannedLineupBase(m, q);
     const opVeld = new Set(lijst.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
-    const wissels = [
-      ...(m.plannedSubs || []).filter(s => s.quarterNum === q).map(s => `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> voor ${esc(pName(m, s.outId))}`),
-      ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q).map(s => `${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> wisselt met ${esc(pName(m, s.pB))}`),
-    ];
     return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
       ${renderPitch(m, plannedLineupPlayers(m, lijst), captainAtStartOfQuarter(m, q))}
       <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
       <div class="place-chips">${bank.length
         ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-      ${wissels.length ? `<div class="sec" style="margin-bottom:6px">Wissels tijdens dit ${pSingLow(m)}</div>
-        ${wissels.map(w => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${w}</div></div>`).join('')}` : ''}
+      ${plannedSubsVoorDeelHtml(m, q)}
     </div>`;
   };
   return `<div class="sec">Planning${delen.length > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(nog te spelen)</span>` : ''}</div>

@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.20.3
+- **De wissels die je aan een deel koppelde, staan nu onder het veld van dát deel** — in de
+  planningskaart van een geplande wedstrijd én in het blok *Planning* tijdens de wedstrijd. Blader
+  je naar kwart 3, dan zie je de opstelling waarmee dat kwart begint, de bank, en daaronder de
+  wissels die je voor kwart 3 klaarzette. Een wissel zonder gekozen deel staat er niet bij: die
+  hoort nergens specifiek thuis en blijft in *Wissels plannen* staan.
+
 ## v0.20.2
 - **Een geplande wissel hoort nu bij een deel.** Bij het klaarzetten kies je "voor kwart 3", en dan
   duikt die wissel ook pas in kwart 3 op met zijn knop **'Nu doorvoeren'**. In de andere delen blijft
