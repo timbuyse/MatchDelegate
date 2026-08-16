@@ -1112,6 +1112,17 @@ function modalEditEvent(id) {
   else if (t === 'penalty_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Gescoord</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'penalty_them') fields = `<div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Tegendoel</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'substitution') fields = `<div class="fg"><label>Speler eraf</label><select id="ee-out">${opts(e.playerOutId)}</select></div><div class="fg"><label>Speler erin</label><select id="ee-in">${opts(e.playerInId)}</select></div>`;
+  // Positiewissel: enkel spelers die in dat deel op het veld stonden — met iemand van de bank van
+  // positie wisselen betekent niets (hij komt er niet door op het veld) en zou de reconstructie
+  // een positie laten toekennen aan wie niet speelt. De twee spelers die er nú in staan blijven
+  // altijd kiesbaar, ook als een latere aanpassing hen buiten die lijst zou duwen.
+  else if (t === 'posSwap') {
+    const onIds = new Set(playersAtPeriodStart(match, e.quarterNum).map(p => p.id));
+    [e.pA, e.pB].forEach(id => { if (id) onIds.add(id); });
+    const swapOpts = sel => sortedByName(match.players.filter(p => onIds.has(p.id)))
+      .map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('');
+    fields = `<div class="fg"><label>Eerste speler</label><select id="ee-swap-a">${swapOpts(e.pA)}</select></div><div class="fg"><label>Tweede speler</label><select id="ee-swap-b">${swapOpts(e.pB)}</select></div>`;
+  }
   else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div>`;
   else if (t === 'disallowed_us' || t === 'disallowed_them') fields = `<div class="fg"><label>Reden</label><input id="ee-reason" type="text" value="${esc(e.reason || '')}" placeholder="bv. buitenspel"></div>`;
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
@@ -1130,6 +1141,13 @@ async function saveEditEvent(id) {
   const baseline = posAffecting ? playersAtPeriodStart(match, 1) : null;
   const has = i => document.getElementById(i);
   const val = i => { const el = has(i); return el ? el.value : undefined; };
+  // Twee keer dezelfde speler is geen positiewissel: rebuildPositions zou zijn positie met zichzelf
+  // verwisselen en er staat een zinledig event in het verloop. Vóór élke mutatie controleren —
+  // anders was de minuut hieronder al aangepast op het moment dat we de bewerking afbreken. De
+  // modal blijft open, zodat de keuze meteen rechtgezet kan worden.
+  if (has('ee-swap-a') && has('ee-swap-b') && val('ee-swap-a') === val('ee-swap-b')) {
+    showToast('Kies twee verschillende spelers.', 'err'); return;
+  }
   const min = parseInt(val('ee-min'));
   if (!isNaN(min) && min > 0) {
     const qStart = e.quarterNum ? gameTimeMsAtStartOfQuarter(match, e.quarterNum) : 0;
@@ -1149,6 +1167,8 @@ async function saveEditEvent(id) {
   if (has('ee-scored')) e.scored = val('ee-scored') === '1';
   if (has('ee-out')) e.playerOutId = val('ee-out');
   if (has('ee-in')) e.playerInId = val('ee-in');
+  if (has('ee-swap-a')) e.pA = val('ee-swap-a');
+  if (has('ee-swap-b')) e.pB = val('ee-swap-b');
   if (has('ee-itype')) e.injuryType = val('ee-itype');
   if (has('ee-leaves')) e.leavesField = has('ee-leaves').checked;
   if (has('ee-reason')) e.reason = val('ee-reason');
@@ -1635,12 +1655,22 @@ function pauseLineupHtml(m) {
 // ===================== MODAL: POSITIEWISSEL =====================
 let posSwapA = null, posSwapB = null;
 function modalPosSwap() {
+  // Retro (via "Event toevoegen" op een afgewerkte wedstrijd): een positiewissel hoort op een
+  // tijdstip, net als een wissel — zonder deel kan hij nergens in de reconstructie belanden.
+  if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een positiewissel heeft een tijdstip nodig.', 'err'); return; }
   posSwapA = null; posSwapB = null;
-  const isBetween = match.quarterStatus === 'between';
-  const on = playersOnField(match);
-  const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}` : `${icI(IC.compass)} Positiewissel`;
+  const retro = _postEventQuarter != null;
+  // Pauze-positiewissel enkel als je écht in de pauze staat: in retro-modus hoort het event in het
+  // gekozen (afgelopen) deel, niet in de wachtrij voor het volgende. Zelfde conditie als confirmSub().
+  const isBetween = match.quarterStatus === 'between' && !retro;
+  const on = playersOnFieldForEvent(match);
+  const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
+    : retro ? `${icI(IC.compass)} Positiewissel · ${pSing(match)} ${_postEventQuarter}`
+    : `${icI(IC.compass)} Positiewissel`;
   const hint = isBetween
     ? '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wordt automatisch doorgevoerd bij de start van het volgende deel.</p>'
+    : retro
+    ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselden. Komt in het verloop en telt mee voor de keeperminuten; het velddiagram toont enkel de startopstelling en de wissels.</p>`
     : '<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies twee spelers die van positie wisselen.</p>';
   openModal(`<h3>${title}</h3>${hint}
     <div class="sec" style="margin-top:0">Eerste speler</div>
@@ -1653,7 +1683,7 @@ function modalPosSwap() {
 function selectPosSwapA(id, el) {
   posSwapA = id; posSwapB = null;
   gpSelIn('psw-a', el);
-  const on = playersOnField(match).filter(p => p.id !== id);
+  const on = playersOnFieldForEvent(match).filter(p => p.id !== id);
   const bDiv = document.getElementById('psw-b');
   const bLbl = document.getElementById('psw-b-lbl');
   const btn = document.getElementById('psw-confirm');
@@ -1668,12 +1698,28 @@ function selectPosSwapB(id, el) {
 }
 async function confirmPosSwap() {
   if (!posSwapA || !posSwapB) return;
+  if (posSwapA === posSwapB) { showToast('Kies twee verschillende spelers.', 'err'); return; }
   if (_eventBusy) return; // dubbeltik-guard: tweede tik zou de net-gewisselde posities terugdraaien
   _eventBusy = true;
   try {
-    if (match.quarterStatus === 'between') {
+    // Echte pauze-positiewissel: enkel tussen de delen ÉN niet in retro-modus. Zelfde conditie als
+    // modalPosSwap() hierboven en als de pauzewissel-variant in confirmSub().
+    if (match.quarterStatus === 'between' && _postEventQuarter === null) {
       match.pendingPosSwaps = match.pendingPosSwaps || [];
       match.pendingPosSwaps.push({ pA: posSwapA, pB: posSwapB });
+      await dbSave(match); closeModal(); render();
+      return;
+    }
+    if (_postEventQuarter != null) {
+      // Retro-positiewissel in een afgelopen deel: NIET de live-veldstaat muteren en geen snapshot
+      // van de HUIDIGE posities nemen — die horen bij het laatste deel, niet bij het gekozen deel.
+      // Zelfde machinerie als de retro-wissel in confirmSub(): baseline vastleggen terwijl de staat
+      // nog consistent is, het event toevoegen, en posities + keeperminuten herbouwen via
+      // voorwaartse replay. rebuildPositions() vult daarbij meteen posA/posB van het nieuwe event in.
+      const baseline = playersAtPeriodStart(match, 1);
+      addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA: null, posB: null });
+      rebuildPositions(match, baseline);
+      if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
       await dbSave(match); closeModal(); render();
       return;
     }
@@ -1876,7 +1922,10 @@ function modalAddPostEvent() {
       <button class="btn btn-pale" onclick="postEvt(modalPenalty)">${icI(IC.penalty)} Penalty</button>
       <button class="btn btn-pale" onclick="postEvt(modalFreekick)">${icI(IC.bolt)} Vrije trap</button>
       <button class="btn btn-pale" onclick="postEvt(modalSub)">${icI(IC.swap)} Wissel</button>
-      <button class="btn btn-pale" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
+      <button class="btn btn-pale" onclick="postEvt(modalPosSwap)">${icI(IC.compass)} Positiewissel</button>
+      ${/* "Meer…" over de volle breedte: met het oneven aantal knoppen hierboven zou hij anders als
+           losse halve knop naast een gat staan. */ ''}
+      <button class="btn btn-pale" style="grid-column:1/-1" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }

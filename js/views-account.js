@@ -1722,7 +1722,9 @@ function eventsByQuarter(m) {
 // gebruikt evtLabelPlain rechtstreeks en toont altijd alles, ongeacht deze filter).
 const ELOG_FILTER_GROUPS = {
   goal: { label: 'Goals', icon: 'goal', types: ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'] },
-  sub: { label: 'Wissels', icon: 'swap', types: ['substitution'] },
+  // Positiewisselingen horen bij deze filter: wie op 'Wissels' klikt om een pas toegevoegde of
+  // aangepaste positiewissel terug te vinden, zag ze anders net wegvallen.
+  sub: { label: 'Wissels', icon: 'swap', types: ['substitution', 'posSwap'] },
   card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card'] },
 };
 // null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
