@@ -1713,8 +1713,11 @@ function renderTrnMatchStep1() {
     </div>
     ${trnStandaardHint(tournamentPeriodsLabel, 'Je kan er voor deze wedstrijd van afwijken.')}
   </div>
-  <button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
-  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${wiz.editId ? icI(IC.check) + ' Opslaan' : icI(IC.calendar) + ' Plannen zonder opstelling'}</button>`;
+  ${/* Zelfde keuze als in de gewone wizard (wizStep1): herbewerken is enkel dit scherm. */ ''}
+  ${wiz.editId
+    ? `<button class="btn btn-green" onclick="finishStep1Only()">${icI(IC.check)} Opslaan</button>`
+    : `<button class="btn btn-green" onclick="trnMatchNext()">Volgende → Selectie</button>
+  <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder opstelling</button>`}`;
 }
 function trnWizTypeChange() {
   wiz.matchType = document.getElementById('n-type').value;

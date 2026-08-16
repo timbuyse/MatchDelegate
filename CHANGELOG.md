@@ -9,6 +9,44 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.20.0
+- **De planning staat nu in het scherm zelf.** Bij een geplande wedstrijd vervangt één blok
+  **Planning** de losse knop 'Opstelling per kwart' én de aparte blokken 'Opstelling' en 'Bank': je
+  bladert met **‹ ›** door de delen, ziet per deel het veld met de bank die eronder meeschuift, en
+  past dat deel aan met het **potlood** rechtsboven.
+- **Ook kwart 1 pas je zo aan.** Het potlood werkt op élk deel, ook op de startopstelling — bank en
+  veld tikken doet daar meteen ook wie start en wie op de bank begint. Bij een wedstrijd die al
+  loopt is deel 1 alleen-lezen: er hangen dan al speelminuten en events aan die opstelling. De knop
+  bovenaan heet daarom voortaan gewoon **'Selectie'** (namen, nummers, kapitein).
+- **De wizard eindigt altijd op een ingeplande wedstrijd.** Na de opstelling kies je **'Plannen'**
+  of **'Opstelling volgende kwarten'** — die laatste plant de wedstrijd in en opent meteen de
+  planner voor deel 2. Diezelfde knop staat ook onder de planningskaart van een geplande wedstrijd.
+  De knop 'Nu starten' is weg: je **start** een wedstrijd voortaan bewust vanuit het
+  wedstrijdscherm, met dezelfde waarschuwing als vroeger.
+- **Alles wat je aan een geplande wedstrijd kan doen zit onder één knop 'Bewerken'.** Die opent een
+  menu met zes keuzes, elk met een regel uitleg: *Info bewerken* (tegenstander, datum, uur,
+  formaat), *Selectie* (basis / wissel / NB), *Opstelling & formatie*, *Namen, nummers & notities*,
+  *Geplande wissels* en *Snel resultaat invoeren*. Elk scherm doet nog één ding en eindigt op
+  **Opslaan** — geen doorloop meer door de hele wizard om één veld te wijzigen. Wat spelers nodig
+  heeft, staat uit zolang er nog geen selectie is.
+- Het voorbereidingsscherm zelf houdt daardoor nog drie knoppen over: **starten**, **bewerken** en
+  **verwijderen**, met de planning ertussen. Bij een wedstrijd zonder selectie staat *Selectie
+  ingeven* er nog naast — dat is dan de volgende stap.
+- Het selectiescherm opent voortaan **met je bestaande selectie al ingevuld**. Vroeger belandde je
+  bij een wedstrijd die al een selectie had in 'Spelers bewerken' (namen en nummers), en begon het
+  selectiescherm zelf met een leeg blad.
+- Zet je iemand in de basis zonder plaats, dan krijgt hij er automatisch een — verzetten doe je
+  daarna met het potlood. De **formatie** staat onderaan bij de opstelling van deel 1.
+- **'Geplande wissels'** legt nu uit waarvoor het dient: een wissel **tijdens** een deel, op een
+  moment dat jij kiest. Wie er bij de **start** van een deel staat, regel je met de planning.
+- Herbewerk je een wedstrijd die al **loopt**, dan kom je na 'Opslaan' weer in het livescherm
+  terecht in plaats van in het voorbereidingsscherm.
+- **'Deel score'** staat niet meer in de weg tijdens de wedstrijd; die knop verschijnt zodra ze
+  afgelopen is.
+- **'Snel resultaat invoeren'** staat onderaan bij de andere zeldzame acties, en **'Gebruik als
+  template'** is uit het voorbereidingsscherm verdwenen (bij een tornooiwedstrijd blijft 'Kloon als
+  nieuwe tornooiwedstrijd' staan).
+
 ## v0.19.10
 - **Nieuw: opstelling per deel vooraf plannen.** In het voorbereidingsscherm van een geplande
   wedstrijd staat nu **'Opstelling per kwart'** (of helft/deel). Per deel tik je een **bankspeler en

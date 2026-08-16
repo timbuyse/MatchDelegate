@@ -141,8 +141,14 @@ function wizStep1() {
         ${staffPickerHtml('n', 'resp', teamResponsibleNames(selectedTeam), wiz.responsible)}
       </details>
     </div>
-    <button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
-    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${wiz.editId ? icI(IC.check) + ' Opslaan' : icI(IC.calendar) + ' Plannen zonder selectie'}</button>`;
+    ${/* Bij "Bewerken" op een bestaande wedstrijd is dit scherm precies één ding: de wedstrijdinfo.
+         De hele wizard opnieuw doorlopen hoeft dan niet — de selectie zit achter de knop
+         'Selectie' en de opstelling achter het potlood in de planning. Enkel een NIEUWE wedstrijd
+         loopt hier door naar de volgende stap. */ ''}
+    ${wiz.editId
+      ? `<button class="btn btn-green" onclick="finishStep1Only()">${icI(IC.check)} Opslaan</button>`
+      : `<button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
+    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder selectie</button>`}`;
 }
 function captureStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -275,10 +281,45 @@ function wizStep2() {
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
     </div>`}
-    <div class="wiz-nav">
+    ${/* Bij "Selectie" op een bestaande wedstrijd stopt het hier: wie speelt duid je aan, wáár ze
+         staan regel je met het potlood in de planning. Nieuwe basisspelers krijgen bij het opslaan
+         automatisch een vrije plaats, zodat er nooit iemand zonder plek achterblijft. */ ''}
+    ${wiz.editId
+      ? `<button class="btn btn-green" onclick="saveSelectionOnly()">${icI(IC.check)} Opslaan</button>`
+      : `<div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
       <button class="btn btn-green" onclick="wizNext()">Volgende →</button>
-    </div>`;
+    </div>`}`;
+}
+// Enkel de nog lege plaatsen invullen, bij voorkeur in de eigen lijn. Bewust NIET autoPlace(): die
+// wist alle slots en herschikt het hele veld, waardoor je opstelling verdween zodra je één speler
+// aan de selectie toevoegde. Wie al op het veld stond (editMatchWizard herstelt die slots uit x/y)
+// blijft hier staan waar hij stond.
+function placeUnplaced() {
+  const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
+  const basis = wiz.pool.filter(p => p.sel === 'basis');
+  const bezet = new Set(basis.map(p => p.slot).filter(s => s != null));
+  const vrij = form.slots.map((s, i) => i).filter(i => !bezet.has(i));
+  basis.filter(p => p.slot == null).forEach(p => {
+    if (!vrij.length) return;
+    let k = vrij.findIndex(i => form.slots[i].line === posLine(p.pos));
+    if (k < 0) k = 0;
+    p.slot = vrij.splice(k, 1)[0];
+  });
+}
+// "Opslaan" op de selectiestap: dezelfde controles als wizNext, maar zonder de omweg langs de
+// opstelling — die regel je met het potlood in de planning.
+function saveSelectionOnly() {
+  const need = fieldSizeW(), bc = basisCount();
+  if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
+  if (bc === 0) { showToast('Duid minstens één basisspeler aan.', 'err'); return; }
+  const bewaar = () => { placeUnplaced(); finishWizard(false); };
+  if (bc < need) {
+    showConfirm(`Je hebt <b>${bc} van de ${need}</b> basisspelers aangeduid. Opslaan met ${bc}? Er blijft dan een positie leeg op het veld.`,
+      bewaar, 'Opslaan', 'btn-green');
+    return;
+  }
+  bewaar();
 }
 // ----- Gastspelers -----
 // Deze picker dient twee wizards: de wedstrijdwizard (wiz — een gast belandt op de bank) en de
@@ -471,11 +512,27 @@ function wizStep3() {
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
     </div>
+    ${/* Geen "Nu starten" meer op deze stap: een wedstrijd wordt eerst ingepland en pas later
+         gestart, vanuit het wedstrijdscherm. Dat scheelt niet alleen een onomkeerbare misklik, het
+         maakt ook plaats voor de opstelling van de volgende delen — die je hier net wél nog wil
+         ingeven. Bij het herbewerken van een LOPENDE wedstrijd houdt finishWizard(false) de status
+         gewoon op 'live'; opslaan zet ze dus nooit terug naar gepland. */ ''}
     <div class="wiz-nav">
       <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="confirmStartNow()">${icI(IC.ball)} ${wiz.editId?'Opslaan & starten':'Nu starten'}</button>
+      <button class="btn btn-green" onclick="finishWizard(false)">${icI(IC.calendar)} ${wiz.editId ? (wiz.editStatus === 'live' ? 'Opslaan' : 'Opslaan (gepland)') : 'Plannen'}</button>
     </div>
-    <button class="btn btn-orgpale" onclick="finishWizard(false)" style="margin-top:8px">${icI(IC.calendar)} ${wiz.editId?'Opslaan (gepland)':'Plannen voor later'}</button>`;
+    ${/* Ook bij herbewerken: je komt hier net van de startopstelling, dus dit is dé plek om door te
+         gaan naar de volgende delen. Niet bij een wedstrijd die al loopt — daar regel je de
+         volgende delen in de pauze. */ ''}
+    ${(wiz.editStatus !== 'live' && (wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count) > 1)
+      ? `<button class="btn btn-orgpale" onclick="finishWizardThenPlan()" style="margin-top:8px">${icI(IC.shirt)} Opstelling volgende ${(PERIOD_TYPES[wiz.periodKey] || {}).plural || 'delen'}</button>` : ''}`;
+}
+// "Opstelling volgende delen": eerst de wedstrijd inplannen (de planner werkt op een bewaarde
+// wedstrijd, niet op de wizard-pool), dan meteen de planner openen op deel 2. Sluiten doe je daar
+// met "Klaar" — de wedstrijd staat op dat moment al ingepland, ook als je niets meer invult.
+async function finishWizardThenPlan() {
+  await finishWizard(false);
+  if (match && plannedPartsCount(match) > 1) modalPlannedLineups(2, true);
 }
 function ensurePosNums(m) {
   if (!m || !m.matchType) return false;
@@ -695,20 +752,9 @@ function computePosNum(matchType, slotIdx, slots) {
   }
   return pos + 1;
 }
-function confirmStartNow() {
-  if (wiz.editId) { finishWizard(true); return; }
-  openModal(`
-    <h3>${icI(IC.live)} Wedstrijd nu starten?</h3>
-    <p style="margin:0 0 16px;color:var(--txt2)">
-      Als je de wedstrijd <strong>nu start</strong>, wordt ze onmiddellijk <strong>live</strong> zichtbaar voor alle kijkers.<br><br>
-      Doe dit enkel als de wedstrijd <strong>binnenkort echt afgefloten wordt</strong>. Je kan dit achteraf <strong>niet ongedaan maken</strong>.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-green" onclick="closeModal();finishWizard(true)">${icI(IC.live)} Ja, wedstrijd starten</button>
-      <button class="btn btn-gray" onclick="closeModal()">Annuleren</button>
-    </div>
-  `);
-}
+// confirmStartNow() is weg sinds v0.20.0: de wizard eindigt altijd op een INGEPLANDE wedstrijd.
+// Starten gebeurt daarna bewust vanuit het wedstrijdscherm (startPlanned), waar dezelfde
+// waarschuwing staat. finishWizard houdt de startNow-parameter voor dat pad.
 async function finishWizard(startNow) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
@@ -767,7 +813,10 @@ async function finishWizard(startNow) {
   syncTournamentStaff(m);
   wiz = null; await dbSave(m); match = m;
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
-  await go(startNow ? 'live' : 'prep', m.id);
+  // Een wedstrijd die al liep blijft live (zie m.status hierboven) en hoort dus terug in het
+  // livescherm, niet in het voorbereidingsscherm — dat toont "Wedstrijd starten" voor iets wat al
+  // bezig is. Sinds v0.20.0 is dit het enige pad terug uit de wizard, dus het viel op.
+  await go((startNow || m.status === 'live') ? 'live' : 'prep', m.id);
 }
 // Een geplande wedstrijd opnieuw in de wizard openen om te bewerken.
 function editMatchWizard(m) {
@@ -849,55 +898,81 @@ function editMatchWizard(m) {
   go('new');
 }
 
+// "Selectie" op een geplande wedstrijd: hetzelfde selectiescherm als in de wizard, maar met de
+// bestaande selectie al ingevuld. Dat is precies de pool die editMatchWizard opbouwt (basis/bank uit
+// m.players, NB uit absentPlayers, de rest van het rooster als 'none', en de slots hersteld uit
+// x/y) — dus die hergebruiken we, en we springen meteen naar stap 2. Deze functie bouwde vroeger
+// een eigen pool met iedereen op 'none': dat klopte toen ze enkel diende om een nog lege selectie
+// in te vullen, maar zou nu een bestaande selectie hebben leeggemaakt.
 function startSelectieWizard() {
-  const m = match;
-  const team = m.teamId ? teamById(m.teamId) : getTeamsV2().find(t => t.name === m.teamName);
-  const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
-  wiz = {
-    step: 2, editId: m.id, editStatus: m.status, teamNameFallback: m.teamName,
-    // Zie de toelichting bij noGuests in editMatchWizard: enkel een tornooiwedstrijd schermt de
-    // gastknoppen af. Dit pad (selectie pas achteraf invullen na "Plannen zonder selectie") zette
-    // ze vroeger altijd uit, waardoor je hier géén losse speler of speler van een andere ploeg meer
-    // kon toevoegen terwijl dat via "+ Nieuwe wedstrijd" en "Bewerken" wel kon.
-    teamId: team ? team.id : '', noGuests: !!m.tournamentId,
-    opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
-    matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
-    numQuarters: m.numQuarters,
-    competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '',
-    jersey: m.jersey || '', venue: m.venue || '',
-    trainer: m.trainer || '', responsible: m.responsible || '',
-    formationIndex: fi, selPlace: null, pool: [],
-  };
-  if (m.tournamentId) {
-    wiz.trnMode = true;
-    wiz.tournamentId = m.tournamentId;
-    const t = tournamentById(m.tournamentId);
-    const tTeam = t ? teamById(t.teamId) : null;
-    // Enkel wie meegaat naar het tornooi komt in de pool: NB-spelers gaven we al bij de
-    // tornooiselectie op en zijn per wedstrijd niet meer te kiezen. Allen starten op 'none'
-    // (de coach kiest basis/bank per wedstrijd).
-    wiz.pool = tournamentSquadMee(t).map(s => ({
-      pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
-      name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '',
-      // Gasten zitten sinds v0.9.4 in de dagselectie zelf; hun herkomst en gastvlag overnemen
-      // i.p.v. iedereen als eigen speler te behandelen.
-      fromName: s.guest ? (s.fromName || '') : (tTeam ? tTeam.name : ''), guest: !!s.guest,
-      sel: 'none', slot: null,
-    }));
-    wiz.poolTeamId = t ? t.teamId : wiz.teamId;
-  } else {
-    wiz.poolTeamId = wiz.teamId;
-    buildPool();
-  }
-  go('new');
+  if (!match) return;
+  editMatchWizard(match);
+  if (!wiz) return;
+  wiz.step = 2;
+  render();
+}
+// De FORMATIE (3-3-1, 2-3-2 …) kiezen kan enkel op stap 3 van de wizard: daar hangen de vaste
+// plaatsen aan vast. Het potlood in de planning verplaatst spelers binnen de huidige formatie, dus
+// zonder deze ingang was de formatie van een geplande wedstrijd niet meer te wijzigen.
+function startOpstellingWizard() {
+  if (!match) return;
+  editMatchWizard(match);
+  if (!wiz) return;
+  wiz.step = 3;
+  render();
 }
 
 // ===================== GEPLANDE WEDSTRIJD (PREP) =====================
+// De planning: één kaart met per deel het veld en de bank die eronder meeschuift. Deel 1 is de
+// startopstelling, de volgende delen komen uit plannedLineups (of erven van het vorige deel — zie
+// plannedLineupBase). Het potlood opent voor elk deel dezelfde planner.
+let _prepPlanQ = 1;
+function _prepPlanNav(dir) {
+  const total = plannedPartsCount(match);
+  const wrap = document.getElementById('pp-wrap');
+  if (!wrap) return;
+  const slides = wrap.querySelectorAll('.lc-slide');
+  _prepPlanQ = Math.min(Math.max(1, _prepPlanQ + dir), total);
+  slides.forEach((s, i) => s.style.display = (i === _prepPlanQ - 1) ? '' : 'none');
+  document.getElementById('pp-lbl').textContent = `${pSing(match)} ${_prepPlanQ} / ${total}`;
+  document.getElementById('pp-prev').disabled = _prepPlanQ === 1;
+  document.getElementById('pp-next').disabled = _prepPlanQ === total;
+}
+function prepPlanningHtml(m, ro) {
+  const total = plannedPartsCount(m);
+  // Na een bewerking hertekent het scherm; dan moet de kaart op hetzelfde deel blijven staan i.p.v.
+  // terug te springen naar deel 1.
+  _prepPlanQ = Math.min(Math.max(1, _prepPlanQ), total);
+  const potlood = ro ? '' : `<button class="lc-btn" style="margin-left:8px" onclick="modalPlannedLineups(_prepPlanQ)" title="Opstelling aanpassen">${icI(IC.edit)}</button>`;
+  const slide = q => {
+    const lijst = plannedLineupBase(m, q);
+    const opVeld = new Set(lijst.map(p => p.id));
+    const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+    return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
+      ${renderPitch(m, plannedLineupPlayers(m, lijst), m.captainId)}
+      <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
+      <div class="place-chips">${bank.length
+        ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    </div>`;
+  };
+  if (total < 2) {
+    return `<div class="card">${potlood ? `<div class="lc-nav"><span class="lc-nav-lbl">Opstelling</span>${potlood}</div>` : ''}${slide(1)}</div>`;
+  }
+  return `<div class="card"><div class="lc-wrap" id="pp-wrap">
+    <div class="lc-nav">
+      <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${_prepPlanQ === 1 ? 'disabled' : ''}>‹</button>
+      <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center">${pSing(m)} ${_prepPlanQ} / ${total}</span>
+      <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${_prepPlanQ === total ? 'disabled' : ''}>›</button>
+      ${potlood}
+    </div>
+    ${Array.from({ length: total }, (_, i) => slide(i + 1)).join('')}
+  </div></div>`;
+}
 function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
-  const starters = m.players.filter(p => p.starting), bench = m.players.filter(p => !p.starting);
   const info = [['Ploeg-label', m.subteam], ['Formatie', m.formation], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
@@ -906,23 +981,54 @@ function renderPrep() {
   </div>
   <div class="content">
     ${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${(!m.players || !m.players.length) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>` : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
-    <div class="wiz-nav" style="margin-top:8px">
-      <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
-      <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">${icI(IC.players)} Selectie &amp; opstelling</button>
-    </div>
-    ${/* Wissels op voorhand klaarzetten. Ze gaan niet vanzelf af bij de aftrap: tijdens de
-         wedstrijd druk je in ditzelfde menu op "Nu doorvoeren". */ ''}
-    ${(m.players && m.players.length && plannedPartsCount(m) > 1) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(2)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)}${plannedLineupCount(m) ? ` (${plannedLineupCount(m)})` : ''}</button>` : ''}
-    ${(m.players && m.players.length) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>` : ''}
-    <button class="btn btn-gray" style="margin-top:8px" onclick="modalQuickResult()">${icI(IC.timer)} Snel resultaat invoeren</button>`}
+    ${/* Eén ingang voor alles wat je aan een geplande wedstrijd kan wijzigen (zie
+         modalEditMatchMenu). Zonder dat menu stonden er een half dozijn knoppen naast elkaar in dit
+         scherm, elk voor een stukje van dezelfde wedstrijd. Enkel bij een wedstrijd zonder selectie
+         staat er een tweede knop naast: dát is dan de volgende stap, niet iets om op te zoeken. */ ''}
+    ${(m.players && m.players.length)
+      ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`
+      : `<div class="wiz-nav" style="margin-top:8px">
+      <button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
+      <button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>
+    </div>`}
+    `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
-    <div class="sec">Opstelling (${starters.length})</div>
-    <div class="card">${renderPitch(m, starters)}</div>
-    <div class="sec">Bank (${bench.length})</div>
-    <div class="card">${bench.length ? sortedByName(bench).map(p => `<div class="prow">${numDot(p, 'pnum pnum-off')}<div style="flex:1"><div class="pname">${esc(p.name)}</div><div class="ppos">${p.line}</div></div></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen bankspelers.</p>'}</div>
-    ${ro ? '' : `${cloneMatchBtnHtml(m)}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
+    ${(m.players && m.players.length) ? `<div class="sec">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
+    ${prepPlanningHtml(m, ro)}
+    ${/* Het potlood in de kaart hierboven doet hetzelfde, maar is makkelijk over het hoofd te zien.
+         Deze knop noemt met zoveel woorden wat er te doen valt. */ ''}
+    ${(!ro && plannedPartsCount(m) > 1) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(2)">${icI(IC.shirt)} Opstelling volgende ${pPlural(m).toLowerCase()}</button>` : ''}` : ''}
+    ${ro ? '' : `${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
+}
+// Alles wat je aan een geplande wedstrijd kan wijzigen, achter één knop. Elk item leidt naar het
+// scherm dat er al voor bestond; dit menu is enkel de wegwijzer. De volgorde volgt hoe je een
+// wedstrijd opbouwt: eerst de gegevens, dan wie meespeelt, dan waar ze staan, dan de details.
+function modalEditMatchMenu() {
+  const m = match; if (!m || !canManage()) return;
+  const heeftSelectie = !!(m.players && m.players.length);
+  const item = (ico, titel, uitleg, actie, uit) => `
+    <button class="btn ${uit ? 'btn-gray' : 'btn-pale'}" style="margin-top:8px;text-align:left;display:block;width:100%${uit ? ';opacity:.5' : ''}"
+      ${uit ? 'disabled' : `onclick="closeModal();${actie}"`}>
+      <div style="font-weight:700">${icI(ico)} ${titel}</div>
+      <div style="font-size:12px;font-weight:400;color:var(--txt2);margin-top:2px">${uitleg}</div>
+    </button>`;
+  openModal(`<h3>${icI(IC.edit)} Bewerken</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
+    ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
+    ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
+    ${item(IC.shirt, 'Opstelling &amp; formatie', heeftSelectie
+      ? `De startopstelling en de opstelling per ${pSingLow(m)} — met de formatie eronder.`
+      : 'Geef eerst de selectie in.', 'modalPlannedLineups(1)', !heeftSelectie)}
+    ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSelectie
+      ? 'Enkel voor deze wedstrijd: rugnummers, kapitein en een notitie per speler.'
+      : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSelectie)}
+    ${item(IC.clipboard, `Geplande wissels${plannedCount(m) ? ` (${plannedCount(m)})` : ''}`, heeftSelectie
+      ? `Losse wissels voor <b>tijdens</b> een ${pSingLow(m)}, die jij zelf doorvoert.`
+      : 'Geef eerst de selectie in.', 'modalPlannedSubs()', !heeftSelectie)}
+    ${item(IC.timer, 'Snel resultaat invoeren', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 async function finishStep1Only() {
   if (wiz.trnMode) {
@@ -978,7 +1084,6 @@ async function finishStep1Only() {
 function plannedPartsCount(m) {
   return Math.max(1, (m && (m.numQuarters || (m.quarters || []).length)) || 1);
 }
-function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {}).length; }
 // Waar begin je aan als je deel q opent: het plan voor dat deel, anders dat van het vorige deel,
 // en uiteindelijk de startopstelling. Zo pas je per deel enkel aan wat er verandert.
 function plannedLineupBase(m, q) {
@@ -1041,52 +1146,94 @@ function lineupToPending(m, huidig, gepland) {
   return { subs: subs.map(s => ({ outId: s.outId, inId: s.inId })), swaps, problemen: [...new Set(problemen)] };
 }
 
-let _planLineupQ = 2;        // welk deel staat open in de planner
+let _planLineupQ = 1;        // welk deel staat open in de planner
 let _planLineupSel = null;   // { kind: 'field' | 'bench', id }
-function modalPlannedLineups(q) {
+let _planLineupDone = false; // planner geopend meteen na de wizard: dan sluit hij af met "Klaar"
+// Deel 1 is de startopstelling zelf en woont dus in m.players, niet in plannedLineups. Bewerken mag
+// enkel zolang de wedstrijd gepland is: eens ze loopt zijn er speelminuten en events die van die
+// startopstelling vertrekken, en die achteraf verzetten zou het verslag laten liegen. Voor deel 1
+// van een lopende wedstrijd bestaat het pauzescherm ("Wissels & posities op het veld").
+function planLineupEditable(m, deel) {
+  if (!canManage()) return false;
+  return deel > 1 || (m.status || 'planned') === 'planned';
+}
+function modalPlannedLineups(q, klaarKnop) {
   const m = match; if (!m) return;
   const totaal = plannedPartsCount(m);
-  if (totaal < 2) { showToast(`Deze wedstrijd heeft maar één ${pSingLow(m)}.`, 'err'); return; }
   if (!(m.players || []).length) { showToast('Geef eerst de selectie en de startopstelling in.', 'err'); return; }
-  if (q) { _planLineupQ = Math.min(Math.max(2, q), totaal); _planLineupSel = null; }
-  const deel = _planLineupQ;
-  const ro = !canManage();
+  if (klaarKnop !== undefined) _planLineupDone = !!klaarKnop;
+  if (q) { _planLineupQ = Math.min(Math.max(1, q), totaal); _planLineupSel = null; }
+  const deel = Math.min(_planLineupQ, totaal);
+  // De planningskaart eronder volgt het deel dat hier openstaat: sluit je de planner op kwart 3,
+  // dan kijk je ook in het scherm naar kwart 3 i.p.v. terug naar waar je vandaan kwam.
+  _prepPlanQ = deel;
+  const ro = !planLineupEditable(m, deel);
   const plan = plannedLineupBase(m, deel);
   const veld = plannedLineupPlayers(m, plan);
   const opVeld = new Set(plan.map(p => p.id));
   const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
-  const eigen = !!((m.plannedLineups || {})[deel] || []).length;
-  const chips = Array.from({ length: totaal - 1 }, (_, i) => i + 2).map(k => {
-    const heeft = !!((m.plannedLineups || {})[k] || []).length;
+  const eigen = deel > 1 && !!((m.plannedLineups || {})[deel] || []).length;
+  const chips = Array.from({ length: totaal }, (_, i) => i + 1).map(k => {
+    // Een stipje betekent "dit deel heeft een eigen opstelling". Deel 1 heeft er per definitie een
+    // (de startopstelling), dus daar zou het stipje niets onderscheiden.
+    const heeft = k > 1 && !!((m.plannedLineups || {})[k] || []).length;
     return `<button class="tgl-btn${k === deel ? ' act' : ''}" onclick="modalPlannedLineups(${k})">${pSing(m)} ${k}${heeft ? ' ●' : ''}</button>`;
   }).join('');
   const selId = _planLineupSel ? _planLineupSel.id : null;
+  const uitleg = ro
+    ? (deel === 1
+      ? `De startopstelling van deze wedstrijd.`
+      : `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`)
+    : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
+      ? ` Dit is de <b>startopstelling</b>.`
+      : (eigen ? '' : ` Dit ${pSingLow(m)} volgt nu nog de opstelling van het vorige.`)}`;
   openModal(`<h3>${icI(IC.shirt)} Opstelling per ${pSingLow(m)}</h3>
-    <div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${ro
-      ? `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`
-      : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${eigen ? '' : ` Dit ${pSingLow(m)} volgt nu nog de opstelling van het vorige.`}`}</p>
+    ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>` : ''}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
     ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
     <div class="sec">Bank (${bank.length})</div>
     <div class="place-chips">${bank.length
       ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}"${ro ? '' : ` onclick="planLineupTap('bench','${p.id}')"`}>${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
       : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    ${(!ro && deel === 1 && (FORMATIONS[m.matchType] || []).length > 1)
+      ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Formatie: <b>${esc(m.formation || '')}</b> · <a onclick="closeModal();startOpstellingWizard()" style="color:var(--grn);font-weight:700;cursor:pointer">wijzigen</a></p>` : ''}
     ${(!ro && eigen) ? `<button class="btn btn-pale btn-sm" style="margin-top:12px" onclick="clearPlannedLineup(${deel})">${icI(IC.undo)} Plan voor ${pSingLow(m)} ${deel} wissen</button>` : ''}
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+    ${/* Ook hertekenen: de planningskaart eronder volgt het deel dat hier openstond (_prepPlanQ),
+         en zonder render bleef ze op het deel staan waar je vandaan kwam. */ ''}
+    <button class="btn ${_planLineupDone ? 'btn-green' : 'btn-gray'}" style="margin-top:8px" onclick="closeModal();render()">${_planLineupDone ? `${icI(IC.check)} Klaar` : 'Sluiten'}</button>`);
 }
+// Deel 1 schrijft naar de startopstelling zelf (m.players), elk volgend deel naar plannedLineups.
+// De vorm van een basisspeler en van een bankspeler blijft exact zoals finishWizard ze aanmaakt,
+// anders leest de rest van de app (renderPitch, PDF, statistieken) er andere velden dan verwacht.
 async function _savePlannedLineup(deel, lijst) {
-  match.plannedLineups = match.plannedLineups || {};
-  match.plannedLineups[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
-  await dbSave(match);
+  const m = match;
+  if (deel === 1) {
+    const plek = new Map(lijst.map(p => [p.id, p]));
+    m.players.forEach(p => {
+      const s = plek.get(p.id);
+      if (s) {
+        p.starting = true; p.onField = true;
+        p.x = s.x; p.y = s.y; p.line = s.line; p.posNum = s.posNum;
+      } else if (p.starting || p.onField) {
+        p.starting = false; p.onField = false;
+        delete p.x; delete p.y; p.posNum = '';
+      }
+    });
+  } else {
+    m.plannedLineups = m.plannedLineups || {};
+    m.plannedLineups[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  }
+  await dbSave(m);
   render();
   modalPlannedLineups();
 }
 function planLineupTap(kind, id) {
+  const deel = _planLineupQ;
+  if (!planLineupEditable(match, deel)) return;
   const sel = _planLineupSel;
   if (sel && sel.id === id) { _planLineupSel = null; modalPlannedLineups(); return; }   // deselecteren
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }
   _planLineupSel = null;
-  const deel = _planLineupQ;
   const plan = plannedLineupBase(match, deel);
   if (sel.kind === 'field' && kind === 'field') {
     const a = plan.find(p => p.id === sel.id), b = plan.find(p => p.id === id);
@@ -1105,7 +1252,7 @@ function planLineupTap(kind, id) {
   _savePlannedLineup(deel, plan);
 }
 async function clearPlannedLineup(deel) {
-  if (!canManage() || !match.plannedLineups) return;
+  if (deel < 2 || !planLineupEditable(match, deel) || !match.plannedLineups) return;
   delete match.plannedLineups[deel];
   await dbSave(match);
   render();

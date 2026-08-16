@@ -627,7 +627,24 @@ const HANDLEIDING_PAGINAS = [
       <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>
       <div class="sec">Stap 3 — Opstelling</div>
       <p>Kies bovenaan een <b>formatie</b>. Tik een speler aan, dan een positie op het veld. Gebruik <b>'Auto-plaats'</b> om automatisch in te vullen.</p>
-      <p>Tik op <b>'Nu starten'</b> om meteen te starten, of <b>'Plannen voor later'</b> om op te slaan.</p>
+      <p>Tik op <b>'Plannen'</b> om de wedstrijd op te slaan, of op <b>'Opstelling volgende delen'</b> om
+        meteen door te gaan naar de opstelling van de volgende kwarten of helften. De wedstrijd is dan
+        al ingepland; <b>starten</b> doe je later in het wedstrijdscherm.</p>
+      <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
+        blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1.</p>
+      <div class="sec">Nadien nog iets wijzigen?</div>
+      <p>Bij een geplande wedstrijd zit alles achter de knop <b>'Bewerken'</b>. Daar kies je wat je
+        wil aanpassen:</p>
+      <ul class="hdl-list">
+        <li><b>Info bewerken</b> — tegenstander, datum, uur, formaat en de rest van de gegevens.</li>
+        <li><b>Selectie</b> — wie speelt, wie op de bank zit, wie niet beschikbaar is. Zet je iemand
+          in de basis zonder plaats, dan krijgt hij er automatisch een; verzetten doe je met het
+          potlood.</li>
+        <li><b>Opstelling &amp; formatie</b> — het veld per deel, met de formatie onderaan.</li>
+        <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
+        <li><b>Geplande wissels</b> — losse wissels voor <b>tijdens</b> een deel.</li>
+        <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
+      </ul>
     `
   },
   {
@@ -648,8 +665,7 @@ const HANDLEIDING_PAGINAS = [
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
         <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het kruisje naast zijn naam en kies <b>'Niet aanwezig'</b>. Hij krijgt dan geen speelminuten en telt als gemiste wedstrijd; via <b>'Herstel'</b> draai je het terug.</li>
-        <li>Tik op <b>'Deel score'</b> om de stand te delen.</li>
-        <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen.</li>
+        <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
       <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>

@@ -81,8 +81,10 @@ function renderLive() {
            wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). */ ''}
       <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(match) ? ` (${plannedCount(match)})` : ''}</button>`; })()}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
-      ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>` : ''}
-      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score</button>`;
+      ${/* "Deel score" enkel ná de wedstrijd: tijdens het spel stond die knop in de weg van de
+           knoppen die je dan echt nodig hebt, en de stand delen doe je toch achteraf. */ ''}
+      ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score</button>` : ''}`;
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), absent = match.players.filter(p => p.absent), mins = calcMinutes(match);
     const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
@@ -1760,9 +1762,14 @@ function modalPlannedSubs() {
   const mode = plannedRunMode(m);
   const subs = m.plannedSubs || [], swaps = m.plannedPosSwaps || [];
   const pendS = m.pendingSubs || [], pendP = m.pendingPosSwaps || [];
+  // Sinds v0.20.0 geef je een volledige opstelling per deel in met de planning. Dit scherm blijft
+  // voor de losse wissel die je MIDDEN in een deel wil doen ("na een kwartier gaat X eruit") — dat
+  // is precies wat een opstelling per deel niet kan uitdrukken. Vandaar de verwijzing hieronder:
+  // zonder dat leek dit een tweede, concurrerende manier om hetzelfde te doen.
   const uitleg = mode === 'live' ? 'Doorvoeren wordt meteen een wissel in het verloop.'
     : mode === 'break' ? `Doorvoeren zet ze klaar bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}.`
     : 'Doorvoeren kan zodra een deel bezig is. Tot dan kan je ze hier klaarzetten en aanpassen.';
+  const waarvoor = `Voor een wissel <b>tijdens</b> een ${pSingLow(m)}: jij kiest zelf wanneer je ze doorvoert. Wie er <b>bij de start</b> van een ${pSingLow(m)} op het veld staat, geef je in bij <b>Planning</b>.`;
   const rij = (ico, tekst, probleem, runFn, editFn, delFn) => `
     <div class="prow" style="padding:8px 0;align-items:flex-start">
       <div style="flex:1;font-size:14px">${icI(ico)} ${tekst}
@@ -1786,6 +1793,7 @@ function modalPlannedSubs() {
     ...pendP.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
   ].join('');
   openModal(`<h3>${icI(IC.clipboard)} Geplande wissels</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:8px">${waarvoor}</p>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${uitleg}</p>
     <div class="sec" style="margin-top:0">Klaargezet <span style="color:var(--txt2);font-weight:400;text-transform:none">(jij kiest wanneer)</span></div>
     <div id="gw-lijst">${lijst || '<p style="color:var(--txt2);font-size:13px;padding:4px 0">Nog niets klaargezet.</p>'}</div>
