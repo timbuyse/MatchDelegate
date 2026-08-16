@@ -761,9 +761,13 @@ async function pdfMatchBody(doc, L, m) {
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   if (m.players.some(p => p.starting)) {
     const numQ = m.quarters.length || 1;
+    // pitchPlayersAtPeriodStart i.p.v. de rauwe m.players: startopstelling + wissels, zonder
+    // positiewisselingen (zie de toelichting bij die functie). Ook het één-blok-geval loopt via de
+    // reconstructie, anders staan de basisspelers er op hun finale positie — met overlappende
+    // bollen bij een wedstrijd met wissels én positiewissels.
     const items = numQ <= 1
-      ? [{ q: null, ps: m.players.filter(p => p.starting), capId: m.captainId }]
-      : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: playersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
+      ? [{ q: null, ps: pitchPlayersAtPeriodStart(m, m.quarters.length ? 1 : undefined), capId: m.captainId }]
+      : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: pitchPlayersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
     // De diagrammen lopen gewoon mee in de tekst en mogen over twee pagina's vloeien (bv. twee
     // velden op pagina 1 en twee op pagina 2). De breedte volgt uit de PAGINABREEDTE, niet uit de
     // resterende hoogte: een eigen pagina liet pagina 1 halfleeg en maakte de velden kleiner dan

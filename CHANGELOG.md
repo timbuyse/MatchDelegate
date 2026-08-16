@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.2
+- **Opgelost:** op het **velddiagram in het wedstrijdverslag** konden spelers boven elkaar belanden
+  of naast hun positie zweven, vooral bij een wedstrijd met veel wissels én positiewisselingen.
+- Het diagram toont voortaan de **startopstelling met enkel de wissels erop toegepast**: een
+  invaller neemt de plaats in van wie eraf ging. **Positiewisselingen tellen niet meer mee** in de
+  tekening — die blijven gewoon in het wedstrijdverloop staan en tellen ook nog altijd mee voor de
+  keeperminuten. Let wel: verandert een speler tijdens het deel van doel via een positiewissel, dan
+  blijft op het diagram de oorspronkelijke doelman op de doellijn staan; de juiste keeper vind je in
+  het verloop en bij 'Keeper(s)'.
+- **Opgelost:** bij een wedstrijd van **één deel** (zoals vrijwel alle tornooiwedstrijden) werd het
+  diagram helemaal niet gereconstrueerd — het toonde de basisspelers op hun *eindpositie*, inclusief
+  een speler die al lang gewisseld was. Daar kwamen de dubbele bollen het duidelijkst naar boven.
+  Nu loopt ook dat geval via dezelfde reconstructie, op het scherm én in de PDF.
+- **Opgelost:** alles wat bij de start van een deel tegelijk werd doorgevoerd (pauzewissels en
+  pauze-positiewissels) kreeg hetzelfde tijdstip, waardoor de reconstructie van een vroeger deel die
+  gebeurtenissen in de verkeerde volgorde terugdraaide. Dat is nu sluitend, wat ook de
+  keeperminuten na zo'n pauze correcter maakt.
+
+---
+
 ## v0.19.1
 - **Nieuw:** in **'Ploeg bewerken'** geef je nu **zoveel trainers en ploegverantwoordelijken in als
   je wil**. De limiet van drie trainers is weg, en de ploegverantwoordelijke — tot nu één enkel
