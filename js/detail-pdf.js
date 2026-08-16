@@ -870,6 +870,8 @@ async function pdfMatchBody(doc, L, m) {
           }
           oy += kaderH + 4;
         }
+        // Positiewisselingen staan hier bewust NIET onder het veld: ze staan al in de tijdlijn
+        // ("Events") verderop in dit document, en tweemaal hetzelfde maakt de pagina enkel voller.
         if (onder.bank) {
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
           doc.splitTextToSize(onder.bank, imgW).slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, oy + benchSize + li * benchLineH, { align: 'center' }));

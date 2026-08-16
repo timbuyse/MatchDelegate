@@ -9,6 +9,46 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.25.2
+- **Fout rechtgezet in het velddiagram van het verslag.** Gebeurde er een positiewissel tijdens een
+  deel, dan verwisselde het diagram van een later deel twee spelers. Op het veld stond alles goed —
+  het was de reconstructie die de opstelling opbouwt voor het verslag en de PDF. Ze sloeg
+  positiewissels uit **vorige** delen over, terwijl die wel degelijk gebeurd waren; elke pauzewissel
+  daarna bouwde dan verder op een verkeerde stand. Gevonden bij het nagaan van een simulatie, en
+  nagerekend over 150 wedstrijden met wissels en positiewissels in elk deel: nu geen enkele
+  afwijking meer tussen het diagram en de werkelijke veldbezetting.
+- Positiewissels **binnen** het deel dat je bekijkt blijven buiten het diagram — dat toont de
+  opstelling waarmee het deel begint. Een keeperwissel halverwege telt dus pas mee vanaf het
+  volgende deel, precies zoals voordien.
+
+## v0.25.1
+- **De PDF van het wedstrijdverslag toont nu ook de positiewisselingen**, in een eigen kadertje
+  onder de wissels van dat deel: *"11' Bram B. → 7 RM"*, met het positienummer en de code van de
+  plek waar de speler naartoe ging. Elke positiewissel levert twee regels — beide spelers
+  verhuizen. Het velddiagram toont enkel de opstelling waarmee een deel begint, dus zonder dit
+  kadertje was nergens te zien dat iemand halverwege verschoof. Delen zonder positiewisselingen
+  krijgen geen kader.
+
+## v0.25.0
+- **De opstelling die je voor een kwart tekende, staat vanaf de pauze vanzelf klaar.** Zodra je een
+  kwart beëindigt, rekent de app uit welke wissels er nodig zijn om het volgende kwart met jouw
+  opstelling te beginnen, en zet die klaar — je krijgt te zien wat het zijn. Voordien moest je daar
+  in de pauze een knop voor indrukken; vergat je dat, dan begon het volgende kwart stil met wie het
+  vorige eindigde, en leek je opstelling genegeerd.
+- Je houdt de controle: de wissels staan gewoon in het pauzescherm, met een kruisje per regel om er
+  één weg te halen, en je kan er op het veld nog bij tikken. Pas bij *Start kwart 2* worden ze
+  doorgevoerd.
+- **Wat je zelf al klaarzette, blijft met rust.** Stond er al iets klaar, dan raakt de app het niet
+  aan — dat zou je handwerk wissen. De knop heet dan *'Geplande opstelling opnieuw toepassen'* en
+  vervangt op jouw vraag alsnog alles door het plan.
+
+## v0.24.0
+- **Wisselen tijdens de wedstrijd doe je nu gewoon op het veld.** In het tabblad *Opstelling* staat
+  onder het veld de **bank**, met de minst gespeelde speler eerst. Tik een bankspeler en dan een
+  speler op het veld om te wisselen, of twee veldspelers om ze van plaats te ruilen — precies zoals
+  je dat in de pauze al deed. Het verschil: tijdens het spel wordt het meteen een event, dus komt er
+  eerst een bevestiging. De knoppen *Wissel* en *Positiewissel* blijven gewoon bestaan.
+
 ## v0.23.0
 - **Nieuw: het wedstrijdplan als PDF.** Eén knop bij een geplande wedstrijd én tijdens de wedstrijd
   (onderaan het tabblad *Opstelling*). Per deel zie je **twee velddiagrammen** naast elkaar —

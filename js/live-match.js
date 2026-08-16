@@ -63,7 +63,7 @@ function renderLive() {
         ${(match.pendingPosSwaps&&match.pendingPosSwaps.length) ? match.pendingPosSwaps.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>${esc(pName(match,s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(match,s.pB))}</div><button class="evt-del" onclick="removePendingPosSwap(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
         ${(!(match.pendingSubs||[]).length && !(match.pendingPosSwaps||[]).length) ? `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Regel ze in het tabblad <b>Opstelling</b>: tik daar een bankspeler en dan een speler op het veld.</p>` : ''}
         ${((match.plannedLineups || {})[qNum + 1] || []).length
-          ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.shirt)} Geplande opstelling gebruiken</button>` : ''}
+          ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.shirt)} Geplande opstelling ${((match.pendingSubs||[]).length + (match.pendingPosSwaps||[]).length) ? 'opnieuw toepassen' : 'gebruiken'}</button>` : ''}
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Wissels & posities op het veld</button>
       </div>` : ''}
       ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
@@ -91,10 +91,10 @@ function renderLive() {
     const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
     tabContent = `
       ${miniScore}
-      ${canStartNext ? pauseLineupHtml(match) : `<div class="card">
-        ${renderPitch(match, on, match.captainId, null, (ro || isDone || match.quarterStatus !== 'running') ? null : { fn: 'liveFieldTap', selId: _liveTapSel })}
-        ${(ro || isDone || match.quarterStatus !== 'running') ? '' : `<p style="font-size:12px;color:var(--txt2);text-align:center;margin-top:8px">Tik <b>twee spelers</b> op het veld om ze van positie te wisselen.</p>`}
-      </div>`}
+      ${canStartNext ? pauseLineupHtml(match)
+        : ((!ro && !isDone && match.quarterStatus === 'running')
+          ? liveLineupHtml(match)
+          : `<div class="card">${renderPitch(match, on)}</div>`)}
       <div class="card">
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
@@ -312,7 +312,33 @@ async function doEndPeriod() {
   q.endTime = (!isNaN(corrMin) && corrMin > 0) ? q.startTime + (q.totalPaused || 0) + corrMin * 60000 : Date.now();
   addEvent('quarter_end');
   match.quarterStatus = 'between';
+  const gezet = zetGeplandeOpstellingKlaar(match);
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
+  if (gezet) showToast(gezet, 'ok');
+}
+// Zodra de pauze begint: de opstelling die je voor het volgende deel tekende meteen klaarzetten als
+// gewone wissels. Voordien moest je daar in de pauze zelf een knop voor indrukken, en vergat je dat,
+// dan begon het volgende deel stil met wie het vorige eindigde — je getekende opstelling leek
+// genegeerd. Nu staat alles klaar in het pauzescherm, waar je het nog kan aanpassen of weghalen; bij
+// de start wordt het doorgevoerd zoals elke andere klaargezette wissel.
+// Staat er al iets klaar (zelf gepland of van een vorige keer), dan blijft dat met rust: dat
+// overschrijven zou handwerk wissen. De knop "Geplande opstelling gebruiken" blijft bestaan om
+// alsnog te vervangen.
+function zetGeplandeOpstellingKlaar(m) {
+  const deel = (m.currentQuarter || 0) + 1;
+  const plan = ((m.plannedLineups || {})[deel] || []);
+  if (!plan.length) return '';
+  if (((m.pendingSubs || []).length + (m.pendingPosSwaps || []).length) > 0) return '';
+  const huidig = playersOnField(m).map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  const diff = lineupToPending(m, huidig, plan);
+  if (!diff.subs.length && !diff.swaps.length) return '';
+  m.pendingSubs = diff.subs;
+  m.pendingPosSwaps = diff.swaps;
+  const telling = [
+    diff.subs.length ? `${diff.subs.length} wissel${diff.subs.length === 1 ? '' : 's'}` : '',
+    diff.swaps.length ? `${diff.swaps.length} positiewissel${diff.swaps.length === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' en ');
+  return `Opstelling voor ${pSingLow(m)} ${deel} klaargezet: ${telling}.${diff.problemen.length ? ' ' + diff.problemen[0] : ''}`;
 }
 // Afgesloten wedstrijd heropenen. Dat gebeurt om twee heel verschillende redenen, en die moeten
 // uit elkaar: een foutieve afsluiting hervat het LAATSTE deel, een verlenging voegt er een toe.
@@ -1703,8 +1729,11 @@ function pauseLineupHtml(m) {
       <div class="sec" style="margin-top:0">${icI(IC.swap)} Wissels voor ${pSingLow(m)} ${m.currentQuarter + 1}</div>
       <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Het veld toont meteen de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1}; alles wordt doorgevoerd bij de start.</p>
       ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId })}
+      ${/* De opstelling van het volgende deel staat sinds v0.25.0 al klaar zodra de pauze begint
+           (zie zetGeplandeOpstellingKlaar). Deze knop blijft voor wie ze weghaalde en toch wil, of
+           om wat er nu klaarstaat te vervangen door het plan. */ ''}
       ${((m.plannedLineups || {})[m.currentQuarter + 1] || []).length
-        ? `<button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="modalUsePlannedLineup(${m.currentQuarter + 1})">${icI(IC.shirt)} Geplande opstelling gebruiken</button>` : ''}
+        ? `<button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="modalUsePlannedLineup(${m.currentQuarter + 1})">${icI(IC.shirt)} Geplande opstelling ${nSubs + nSwaps ? 'opnieuw toepassen' : 'gebruiken'}</button>` : ''}
       <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
       <div class="place-chips">${bench.length
         ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
@@ -2261,26 +2290,59 @@ async function runPlannedPosSwap(id) {
 }
 
 // ===================== MODAL: POSITIEWISSEL =====================
-// Positiewissel door twee spelers op het veld aan te tikken, terwijl het deel loopt. Zelfde
-// bediening als de pauze-opstelling, maar met één verschil dat telt: hier wordt het meteen een
-// event met een tijdstip. Daarom altijd eerst een bevestiging — in de pauze is een misklik
-// onschuldig (die staat enkel klaar), tijdens het spel niet.
-let _liveTapSel = null;
+// Wisselen en van positie ruilen door op het veld te tikken, terwijl het deel loopt. Exact dezelfde
+// bediening als de pauze-opstelling — bank aantikken en dan een veldspeler wisselt, twee
+// veldspelers ruilen van plaats — maar met één verschil dat telt: hier wordt het meteen een event
+// met een tijdstip. Daarom altijd eerst een bevestiging; in de pauze is een misklik onschuldig
+// (die staat enkel klaar), tijdens het spel niet.
+let _liveTapSel = null;   // { kind: 'field' | 'bench', id }
 function liveFieldTap(kind, id) {
-  if (kind !== 'field' || !canManage() || match.quarterStatus !== 'running') return;
-  if (_liveTapSel === id) { _liveTapSel = null; render(); return; }   // zelfde speler = deselecteren
-  if (!_liveTapSel) { _liveTapSel = id; render(); return; }
-  const a = _liveTapSel, b = id;
+  if (!canManage() || match.quarterStatus !== 'running') return;
+  const sel = _liveTapSel;
+  if (sel && sel.id === id) { _liveTapSel = null; render(); return; }              // deselecteren
+  if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _liveTapSel = { kind, id }; render(); return; }
   _liveTapSel = null; render();
   // Dit is altijd een wissel in het LOPENDE deel, nooit een retro-event: die context expliciet
   // leegmaken, anders zou een blijven hangen _postEventQuarter het event in een afgelopen deel
   // laten belanden.
   _postEventQuarter = null;
+  if (sel.kind === 'field' && kind === 'field') return bevestigLivePosSwap(sel.id, id);
+  const veldId = kind === 'field' ? id : sel.id;
+  const bankId = kind === 'bench' ? id : sel.id;
+  bevestigLiveWissel(veldId, bankId);
+}
+function bevestigLivePosSwap(a, b) {
   posSwapA = a; posSwapB = b;
   openModal(`<h3>${icI(IC.compass)} Positiewissel</h3>
     <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(pName(match, a))}</b> en <b>${esc(pName(match, b))}</b> wisselen van positie.</p>
     <button class="btn btn-green" onclick="confirmPosSwap()">${icI(IC.check)} Doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// subOut/subIn zetten en confirmSub() laten lopen: zo volgt een wissel via het veld exact dezelfde
+// weg als een wissel via de knop — met posBefore, de keeper die de doellijn volgt en één
+// substitution-event. Geen tweede implementatie die uit elkaar kan groeien.
+function bevestigLiveWissel(veldId, bankId) {
+  subOut = veldId; subIn = bankId;
+  openModal(`<h3>${icI(IC.swap)} Wissel</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(pName(match, bankId))}</b> komt op het veld voor <b>${esc(pName(match, veldId))}</b>.</p>
+    <button class="btn btn-green" onclick="confirmSub()">${icI(IC.check)} Doorvoeren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Het veld tijdens een lopend deel, met de bank eronder. Tegenhanger van pauseLineupHtml.
+function liveLineupHtml(m) {
+  const on = playersOnField(m);
+  const mins = calcMinutes(m);
+  const bench = playersOnBench(m).filter(p => !p.absent)
+    .sort((a, b) => (mins[a.id] ? mins[a.id].ms : 0) - (mins[b.id] ? mins[b.id].ms : 0));
+  const selId = _liveTapSel ? _liveTapSel.id : null;
+  return `<div class="card">
+    ${renderPitch(m, on, m.captainId, null, { fn: 'liveFieldTap', selId })}
+    <div class="field-legend">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Je krijgt telkens eerst een bevestiging.</div>
+    <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+    <div class="place-chips">${bench.length
+      ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="liveFieldTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${playedMin(mins[p.id] ? mins[p.id].ms : 0)}'</small></span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+  </div>`;
 }
 let posSwapA = null, posSwapB = null;
 function modalPosSwap() {

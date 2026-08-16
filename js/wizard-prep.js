@@ -677,20 +677,18 @@ function pitchPlayersAtPeriodStart(m, qNum) {
     if (e.type === 'substitution') {
       if (e.playerInId && e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
     } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
-      // Twee soorten positiewissels volgt het diagram wél:
-      //   - atBreak: doorgevoerd bij de START van een deel, dus onderdeel van de opstelling waarmee
-      //     dat deel begint. Zo staat een vooraf geplande opstelling correct in het verslag.
-      //   - een die de doellijn raakt: anders stond de oorspronkelijke doelman oranje op de
-      //     doellijn voor een deel dat hij niet gekeept heeft. Gebeurt die midden in een deel, dan
-      //     telt hij pas vanaf het VOLGENDE deel (zie het venster hierboven), want bij de aftrap
-      //     van zijn eigen deel stond de oude keeper er nog.
-      // Positiewissels tijdens het spel blijven verder genegeerd: het diagram toont de opstelling
-      // bij de start. Overlappende bollen kan dit niet geven — een positiewissel verwisselt twee
-      // plaatsen binnen dezelfde formatie, dus de posities blijven een permutatie van de
-      // startplaatsen.
-      if (e.atBreak || pos[e.pA].line === 'Doel' || pos[e.pB].line === 'Doel') {
-        const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
-      }
+      // ALLE positiewissels binnen het venster tellen mee. Het venster hierboven doet het echte
+      // werk: het laat enkel door wat vóór de aftrap van dit deel gebeurd is (een vorig deel, of
+      // een pauzewissel bij de start van dit deel). Zo'n wissel is écht gebeurd, dus de opstelling
+      // waarmee dit deel begint bevat hem.
+      // Tot v0.25.2 stond hier een extra voorwaarde (enkel atBreak of de doellijn). Daardoor
+      // negeerde de reconstructie een positiewissel uit een VORIG deel, en dat liep mis zodra er
+      // daarna nog een pauzewissel volgde: het diagram wisselde dan twee spelers om terwijl het
+      // veld zelf correct stond. Positiewissels tijdens het deel zelf blijven genegeerd — die
+      // vallen buiten het venster, want het diagram toont de opstelling bij de START.
+      // Overlappende bollen kan dit niet geven: een positiewissel verwisselt twee plaatsen binnen
+      // dezelfde formatie, dus de posities blijven een permutatie van de startplaatsen.
+      const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
     }
   }
   return playersAtPeriodStart(m, qNum).map(p => ({ ...p, ...(pos[p.id] || {}) }));
