@@ -644,9 +644,12 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
         <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
       </ul>
-      <p>Onder het veld staan daarnaast <b>'Wissels plannen'</b> — losse wissels voor <b>tijdens</b>
-        een deel, waarbij je kan kiezen in welk kwart of welke helft ze mogen opduiken — en
-        <b>'Opstelling per kwart wijzigen'</b>.</p>
+      <p>Onder het veld staan daarnaast <b>'Wissels plannen'</b> en <b>'Opstelling per kwart
+        wijzigen'</b>. Bij <b>'Wissels plannen'</b> kies je bovenaan het kwart en zet je daaronder de
+        wissels voor dát kwart klaar. Een <b>positiewissel</b> geef je in als "speler X naar positie
+        9": wie daar op dat moment staat, neemt zijn plaats over — ook als dat door een eerdere
+        wissel intussen iemand anders is. Tijdens de match voer je ze één voor één door, of allemaal
+        samen met <b>'Alle N doorvoeren'</b>.</p>
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>

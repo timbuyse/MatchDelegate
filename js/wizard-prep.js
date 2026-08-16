@@ -1146,7 +1146,7 @@ function plannedSubsVoorDeelHtml(m, q) {
     ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
       .map(s => `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`),
     ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q)
-      .map(s => `${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`),
+      .map(s => `${icI(IC.compass)} ${plannedSwapTekst(m, s)}`),
   ];
   if (!regels.length) return '';
   return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${pSingLow(m) === 'helft' ? 'deze' : 'dit'} ${pSingLow(m)}</div>

@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.22.0
+- **Een geplande positiewissel wijst nu naar een plek, niet naar een speler.** Je zet klaar dat
+  iemand *"naar positie 5"* gaat; wie daar op dát moment staat, neemt zijn plaats over. Voordien
+  werd de tegenpartij al bij het plannen vastgelegd, en dat liep mis zodra een eerdere wissel uit
+  hetzelfde kwart die plek aan iemand anders gaf — dan kreeg je een foutmelding over een speler die
+  al van het veld was. Positiewissels die je vóór deze versie klaarzette, blijven werken zoals ze
+  waren.
+- **Wissels plan je per kwart.** 'Wissels plannen' heeft tabjes per deel (plus *Altijd* voor wat
+  aan geen enkel deel hangt): je kiest het kwart bovenaan, ziet wat daar al klaarstaat, en alles wat
+  je toevoegt hoort er meteen bij. De keuzelijst in het invoerscherm staat dan al **voorgevuld** op
+  dat kwart — je hoeft niets te kiezen, maar je kan het nog bijstellen. Doe je dat, dan springt de
+  lijst mee naar het kwart waar je wissel beland is.
+- **De spelerslijst houdt rekening met wat je al plande.** Zet je voor kwart 2 eerst "A eruit, B
+  erin" klaar, dan staat B daarna gewoon tussen de veldspelers wanneer je een volgende wissel of
+  positiewissel voor dat kwart plant — en A niet meer. Voordien vertrok die lijst nog van de
+  opstelling bij de *start* van het kwart, waardoor je je eigen invaller niet kon kiezen.
+- **'Alle N doorvoeren'** werkt de hele lijst van een kwart in één keer af: eerst de wissels, dan de
+  positiewissels. Die volgorde is precies wat het bovenstaande mogelijk maakt — een positiewissel
+  naar "plaats 5" vindt zo de invaller die daar door een wissel uit diezelfde reeks net beland is.
+  Elke regel houdt daarnaast zijn eigen knop, voor wanneer je ze één voor één wil nemen.
+
 ## v0.21.0
 - **Een positiewissel kies je nu op de plek, niet op de tweede speler.** Je duidt aan wie
   verplaatst en daarna de **positie** waar hij naartoe gaat; wie daar staat, neemt zijn plaats over.
