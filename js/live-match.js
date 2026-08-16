@@ -78,8 +78,9 @@ function renderLive() {
       </div>
       <button class="btn btn-pale btn-sm" style="margin-top:2px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>
       ${/* Klaargezette wissels: altijd bereikbaar, met een telletje zodat je ziet dat er iets
-           wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). */ ''}
-      <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(match) ? ` (${plannedCount(match)})` : ''}</button>`; })()}
+           wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). Het telletje toont enkel wat je
+           in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
+      <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}</button>`; })()}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${/* "Deel score" enkel ná de wedstrijd: tijdens het spel stond die knop in de weg van de
            knoppen die je dan echt nodig hebt, en de stand delen doe je toch achteraf. */ ''}
@@ -96,7 +97,8 @@ function renderLive() {
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
         ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div></div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
-      </div>`;
+      </div>
+      ${planningTijdensMatchHtml(match)}`;
   } else {
     tabContent = miniScore + (match.events.length
       ? `<div class="card">${renderEventLog(match)}</div>`
@@ -1305,7 +1307,14 @@ async function doMarkAbsent(pid) {
   // speler die er niet meer is.
   if (match.plannedSubs) match.plannedSubs = match.plannedSubs.filter(s => s.inId !== pid && s.outId !== pid);
   if (match.plannedPosSwaps) match.plannedPosSwaps = match.plannedPosSwaps.filter(s => s.pA !== pid && s.pB !== pid);
+  // Een geplande OPSTELLING wordt niet stil bijgeknipt: daar hoort iemand anders zijn plaats in te
+  // nemen, en die keuze is aan de coach. Wel meteen zeggen welke delen daardoor niet meer kloppen —
+  // anders merk je het pas in de pauze, wanneer je moet beslissen.
+  const raakt = plannedLineupIssues(match).filter(i => i.deel > match.currentQuarter);
   await dbSave(match); closeModal(); render();
+  if (raakt.length) {
+    showToast(`Kijk je opstelling na voor ${pSingLow(match)} ${raakt.map(i => i.deel).join(' en ')}: ${p.name} stond daarin.`, 'err');
+  }
 }
 async function doUnmarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
@@ -1673,6 +1682,68 @@ function pauseLineupHtml(m) {
     </div>`;
 }
 
+// ===================== PLANNING TIJDENS DE WEDSTRIJD =====================
+// Tijdens het spel wil de trainer kunnen nakijken wat er voor het volgende deel gepland staat,
+// zonder daarvoor iets te moeten wijzigen. Dit is dezelfde carrousel als in het
+// voorbereidingsscherm, maar alleen-lezen, en enkel voor de delen die nog moeten komen — wat al
+// gespeeld is, staat in het verslag. De geplande wissels voor dat deel staan eronder.
+function planningTijdensMatchHtml(m) {
+  if (!m || m.status === 'done') return '';
+  const totaal = plannedPartsCount(m);
+  const vanaf = plannedHuidigDeel(m) + (m.quarterStatus === 'between' ? 0 : 1);
+  if (vanaf > totaal) return '';
+  const heeftPlan = plannedLineupCount(m) > 0;
+  const losseWissels = [...(m.plannedSubs || []), ...(m.plannedPosSwaps || [])].some(s => s.quarterNum >= vanaf);
+  if (!heeftPlan && !losseWissels) return '';
+  const delen = Array.from({ length: totaal - vanaf + 1 }, (_, i) => vanaf + i);
+  // Binnen hetzelfde deel blijft staan waar je naartoe bladerde; zodra het spel een deel opschuift
+  // springt de kaart terug naar wat er nú aankomt — dat is waar je in de pauze naar wil kijken.
+  if (_planLiveVanaf !== vanaf) { _planLiveVanaf = vanaf; _planLiveQ = vanaf; }
+  _planLiveQ = Math.min(Math.max(_planLiveQ, vanaf), totaal);
+  const slide = q => {
+    const lijst = plannedLineupBase(m, q);
+    const opVeld = new Set(lijst.map(p => p.id));
+    const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+    const wissels = [
+      ...(m.plannedSubs || []).filter(s => s.quarterNum === q).map(s => `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> voor ${esc(pName(m, s.outId))}`),
+      ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q).map(s => `${icI(IC.compass)} <b>${esc(pName(m, s.pA))}</b> wisselt met ${esc(pName(m, s.pB))}`),
+    ];
+    return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
+      ${renderPitch(m, plannedLineupPlayers(m, lijst), captainAtStartOfQuarter(m, q))}
+      <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
+      <div class="place-chips">${bank.length
+        ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      ${wissels.length ? `<div class="sec" style="margin-bottom:6px">Wissels tijdens dit ${pSingLow(m)}</div>
+        ${wissels.map(w => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${w}</div></div>`).join('')}` : ''}
+    </div>`;
+  };
+  return `<div class="sec">Planning${delen.length > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(nog te spelen)</span>` : ''}</div>
+    <div class="card"><div class="lc-wrap" id="pl-wrap">
+      ${delen.length > 1 ? `<div class="lc-nav">
+        <button class="lc-btn" id="pl-prev" onclick="_planLiveNav(-1)" ${_planLiveQ === vanaf ? 'disabled' : ''}>‹</button>
+        <span class="lc-nav-lbl" id="pl-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ} van ${totaal}</span>
+        <button class="lc-btn" id="pl-next" onclick="_planLiveNav(1)" ${_planLiveQ === totaal ? 'disabled' : ''}>›</button>
+      </div>` : `<div class="lc-nav"><span class="lc-nav-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ}</span></div>`}
+      ${delen.map(slide).join('')}
+    </div></div>`;
+}
+let _planLiveQ = 1;
+let _planLiveVanaf = 0;
+function _planLiveNav(dir) {
+  const m = match;
+  const totaal = plannedPartsCount(m);
+  const vanaf = plannedHuidigDeel(m) + (m.quarterStatus === 'between' ? 0 : 1);
+  const wrap = document.getElementById('pl-wrap');
+  if (!wrap) return;
+  const slides = wrap.querySelectorAll('.lc-slide');
+  _planLiveQ = Math.min(Math.max(vanaf, _planLiveQ + dir), totaal);
+  slides.forEach((s, i) => s.style.display = (vanaf + i === _planLiveQ) ? '' : 'none');
+  document.getElementById('pl-lbl').textContent = `${pSing(m)} ${_planLiveQ} van ${totaal}`;
+  document.getElementById('pl-prev').disabled = _planLiveQ === vanaf;
+  document.getElementById('pl-next').disabled = _planLiveQ === totaal;
+}
+
 // ===================== GEPLANDE OPSTELLING GEBRUIKEN =====================
 // De opstelling die je vooraf per deel plande (zie modalPlannedLineups) omrekenen naar gewone
 // wissels en positiewissels voor het volgende deel. Het plan zelf gaat nooit vanzelf af: dit
@@ -1738,6 +1809,20 @@ function plannedRunMode(m) {
   if (m.quarterStatus === 'between') return 'break';
   return null;
 }
+// Welk deel is nu aan de beurt voor een klaargezette wissel? Tijdens het spel het lopende deel; in
+// de pauze het deel dat zo begint (daar komt een doorgevoerde wissel immers in terecht).
+function plannedHuidigDeel(m) {
+  if (!m) return 0;
+  if (m.quarterStatus === 'between') return (m.currentQuarter || 0) + 1;
+  return m.currentQuarter || 0;
+}
+// Wat er in dít deel klaarstaat: de teller op de knop telt enkel mee wat je nu ook echt kan
+// doorvoeren, anders zie je tijdens kwart 1 een (5) staan voor wissels die pas later aan bod komen.
+function plannedCountNu(m) {
+  const deel = plannedHuidigDeel(m);
+  const telt = s => !s.quarterNum || s.quarterNum === deel;
+  return ((m && m.plannedSubs) || []).filter(telt).length + ((m && m.plannedPosSwaps) || []).filter(telt).length;
+}
 // Waarom een klaargezette wissel nu niet kan (of null als hij wel kan). De situatie kan veranderd
 // zijn sinds het klaarzetten: speler intussen gewisseld, afwezig gemarkeerd of uit de selectie.
 function plannedSubProbleem(m, s) {
@@ -1769,22 +1854,28 @@ function modalPlannedSubs() {
   const uitleg = mode === 'live' ? 'Doorvoeren wordt meteen een wissel in het verloop.'
     : mode === 'break' ? `Doorvoeren zet ze klaar bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}.`
     : 'Doorvoeren kan zodra een deel bezig is. Tot dan kan je ze hier klaarzetten en aanpassen.';
-  const waarvoor = `Voor een wissel <b>tijdens</b> een ${pSingLow(m)}: jij kiest zelf wanneer je ze doorvoert. Wie er <b>bij de start</b> van een ${pSingLow(m)} op het veld staat, geef je in bij <b>Planning</b>.`;
-  const rij = (ico, tekst, probleem, runFn, editFn, delFn) => `
+  const waarvoor = `Voor een wissel <b>tijdens</b> een ${pSingLow(m)}: jij kiest zelf wanneer je ze doorvoert, en je kan er een ${pSingLow(m)} bij kiezen zodat ze pas dán opduikt. Wie er <b>bij de start</b> van een ${pSingLow(m)} op het veld staat, geef je in bij <b>Planning</b>.`;
+  const rij = (ico, tekst, probleem, runFn, editFn, delFn, deel) => {
+    // Een wissel die voor een ánder deel bedoeld is, blijft zichtbaar (je wil je hele plan zien)
+    // maar krijgt geen doorvoerknop: die hoort bij het deel dat je zelf koos.
+    const nuAanDeBeurt = !deel || deel === plannedHuidigDeel(m);
+    return `
     <div class="prow" style="padding:8px 0;align-items:flex-start">
       <div style="flex:1;font-size:14px">${icI(ico)} ${tekst}
+        ${deel ? `<div style="font-size:11px;color:var(--txt2);margin-top:2px">${nuAanDeBeurt ? '' : 'Gepland voor '}${pSing(m)} ${deel}</div>` : ''}
         ${probleem ? `<div style="font-size:11px;color:var(--rd);margin-top:2px">${esc(probleem)}</div>` : ''}</div>
-      ${(mode && !probleem) ? `<button class="btn btn-green btn-sm" style="width:auto;padding:4px 10px;font-size:12px;margin:0 6px 0 0;flex-shrink:0" onclick="${runFn}">Nu doorvoeren</button>` : ''}
+      ${(mode && !probleem && nuAanDeBeurt) ? `<button class="btn btn-green btn-sm" style="width:auto;padding:4px 10px;font-size:12px;margin:0 6px 0 0;flex-shrink:0" onclick="${runFn}">Nu doorvoeren</button>` : ''}
       <button class="evt-edit" onclick="${editFn}" title="Aanpassen">${icI(IC.edit)}</button>
       <button class="evt-del" onclick="${delFn}" title="Verwijderen">×</button>
     </div>`;
+  };
   const lijst = [
     ...subs.map(s => rij(IC.swap,
       `<b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`,
-      plannedSubProbleem(m, s), `runPlannedSub('${s.id}')`, `modalPlanSub('${s.id}')`, `removePlannedSub('${s.id}')`)),
+      plannedSubProbleem(m, s), `runPlannedSub('${s.id}')`, `modalPlanSub('${s.id}')`, `removePlannedSub('${s.id}')`, s.quarterNum)),
     ...swaps.map(s => rij(IC.compass,
       `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">wisselt met</span> ${esc(pName(m, s.pB))}`,
-      plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`)),
+      plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`, s.quarterNum)),
   ].join('');
   // De pauze-opstelling staat er enkel ter info bij: die gaat wél automatisch af, en het is
   // verwarrend als je hier "geplande wissels" ziet die niet alles tonen wat er klaarstaat.
@@ -1812,6 +1903,25 @@ function _preselect(containerId, id) {
   if (el) gpSel(el);
 }
 function selPlan(vak, id, el, containerId) { _planSel[vak] = id; gpSelIn(containerId, el); }
+// Voor welk deel is deze wissel bedoeld? Optioneel veld `quarterNum` op de klaargezette wissel:
+// zonder deel blijft hij overal bruikbaar, precies zoals elke wissel die vóór v0.20.2 klaargezet
+// werd. Mét deel duikt hij enkel in dát deel op als snelle knop — zo staat het menu tijdens kwart 1
+// niet vol met wissels die pas voor kwart 3 bedoeld zijn.
+function planDeelSelHtml(m, gekozen) {
+  const totaal = plannedPartsCount(m);
+  if (totaal < 2) return '';
+  return `<div class="fg" style="margin-bottom:12px"><label>Voor welk ${pSingLow(m)}?</label>
+    <select id="pl-deel">
+      <option value="">Geen voorkeur — altijd beschikbaar</option>
+      ${Array.from({ length: totaal }, (_, i) => i + 1).map(k =>
+        `<option value="${k}" ${gekozen === k ? 'selected' : ''}>${pSing(m)} ${k}</option>`).join('')}
+    </select></div>`;
+}
+function planDeelGekozen() {
+  const el = document.getElementById('pl-deel');
+  const v = el ? parseInt(el.value, 10) : NaN;
+  return isNaN(v) ? null : v;
+}
 function modalPlanSub(editId) {
   const m = match; if (!m) return;
   const best = editId ? (m.plannedSubs || []).find(s => s.id === editId) : null;
@@ -1821,6 +1931,7 @@ function modalPlanSub(editId) {
   const bank = sortedByName((m.players || []).filter(p => !p.absent && !veldIds.has(p.id)));
   openModal(`<h3>${icI(IC.swap)} Wissel klaarzetten</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
+    ${planDeelSelHtml(m, best ? best.quarterNum : null)}
     <div class="sec" style="margin-top:0">Wie gaat ERAF?</div>
     <div id="pl-a">${veld.length ? pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Niemand op het veld.</p>'}</div>
     <div class="sec">Wie komt ERIN?</div>
@@ -1836,6 +1947,7 @@ function modalPlanPosSwap(editId) {
   const veld = sortedByName(effectiveOnField(m));
   openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Blijft staan tot jij hem doorvoert.</p>
+    ${planDeelSelHtml(m, best ? best.quarterNum : null)}
     <div class="sec" style="margin-top:0">Eerste speler</div>
     <div id="pl-a">${pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join(''))}</div>
     <div class="sec">Tweede speler</div>
@@ -1849,9 +1961,12 @@ async function savePlanSub() {
   if (_eventBusy) return; _eventBusy = true;
   try {
     match.plannedSubs = match.plannedSubs || [];
+    const deel = planDeelGekozen();
     const best = _planSel.editId ? match.plannedSubs.find(s => s.id === _planSel.editId) : null;
-    if (best) { best.outId = _planSel.a; best.inId = _planSel.b; }
-    else match.plannedSubs.push({ id: uid(), outId: _planSel.a, inId: _planSel.b });
+    // Zonder deel het veld niet wegschrijven i.p.v. er null in te zetten: zo blijft een wissel
+    // zonder voorkeur exact hetzelfde object als vroeger.
+    if (best) { best.outId = _planSel.a; best.inId = _planSel.b; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
+    else match.plannedSubs.push(Object.assign({ id: uid(), outId: _planSel.a, inId: _planSel.b }, deel ? { quarterNum: deel } : {}));
     await dbSave(match); render(); modalPlannedSubs();
   } finally { _eventBusy = false; }
 }
@@ -1861,9 +1976,10 @@ async function savePlanPosSwap() {
   if (_eventBusy) return; _eventBusy = true;
   try {
     match.plannedPosSwaps = match.plannedPosSwaps || [];
+    const deel = planDeelGekozen();
     const best = _planSel.editId ? match.plannedPosSwaps.find(s => s.id === _planSel.editId) : null;
-    if (best) { best.pA = _planSel.a; best.pB = _planSel.b; }
-    else match.plannedPosSwaps.push({ id: uid(), pA: _planSel.a, pB: _planSel.b });
+    if (best) { best.pA = _planSel.a; best.pB = _planSel.b; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
+    else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, pB: _planSel.b }, deel ? { quarterNum: deel } : {}));
     await dbSave(match); render(); modalPlannedSubs();
   } finally { _eventBusy = false; }
 }

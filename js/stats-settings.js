@@ -642,9 +642,14 @@ const HANDLEIDING_PAGINAS = [
           potlood.</li>
         <li><b>Opstelling &amp; formatie</b> — het veld per deel, met de formatie onderaan.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
-        <li><b>Geplande wissels</b> — losse wissels voor <b>tijdens</b> een deel.</li>
         <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
       </ul>
+      <p>Onder het veld staan daarnaast <b>'Wissels plannen'</b> — losse wissels voor <b>tijdens</b>
+        een deel, waarbij je kan kiezen in welk kwart of welke helft ze mogen opduiken — en
+        <b>'Opstelling per kwart wijzigen'</b>.</p>
+      <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
+        <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
+        deel klaarzette.</p>
     `
   },
   {

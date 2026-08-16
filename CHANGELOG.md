@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.20.2
+- **Een geplande wissel hoort nu bij een deel.** Bij het klaarzetten kies je "voor kwart 3", en dan
+  duikt die wissel ook pas in kwart 3 op met zijn knop **'Nu doorvoeren'**. In de andere delen blijft
+  hij wel zichtbaar — je wil je hele plan kunnen zien — maar met het label *Gepland voor kwart 3*.
+  Het telletje op de knop toont alleen nog wat je in dít deel kan doorvoeren. Kies je geen deel, dan
+  is de wissel overal bruikbaar, net als vroeger; bestaande geplande wissels blijven dus werken.
+- **Tijdens de wedstrijd zie je de planning voor wat nog komt.** Onderaan het tabblad **Opstelling**
+  staat een blok *Planning* waarin je per nog te spelen deel het veld, de bank en de geplande
+  wissels van dat deel bekijkt. Alleen-lezen — wijzigen doe je waar je dat al deed. Het blok
+  verdwijnt zodra er niets meer te tonen valt.
+- Bij een geplande wedstrijd staan **'Wissels plannen'** en **'Opstelling per kwart wijzigen'** als
+  twee knoppen onder het veld, in die volgorde. Ze zijn daarmee uit het bewerkmenu gehaald: je zoekt
+  ze terwijl je naar de opstelling kijkt, niet in een menu.
+- **Een andere formatie wist je opstelling per deel.** Die stond immers op de plaatsen van de oude
+  formatie, en leverde bij 'Geplande opstelling gebruiken' positiewissels op die niemand bedoeld
+  had. Je krijgt de vraag zodra je een andere formatie kiest — annuleren laat alles staan — en de
+  bevestiging volgt pas bij het opslaan.
+- **De planning waarschuwt zelf als de selectie wijzigt.** Staat er iemand in je opstelling voor een
+  volgend deel die intussen uit de selectie is of op *niet aanwezig* staat, dan zegt een kadertje
+  onder de planning welk deel je moet nakijken en om wie het gaat. Markeer je iemand tijdens de
+  wedstrijd als niet aanwezig, dan meld de app dat meteen. Het plan zelf blijft staan: wie zijn
+  plaats inneemt, beslis jij.
+- De melding *"N speler(s) uit het plan minder op het veld dan er nu staan"* is vervangen door
+  *"Er komt niemand in de plaats voor X — hij blijft op het veld."*
+
 ## v0.20.0
 - **De planning staat nu in het scherm zelf.** Bij een geplande wedstrijd vervangt één blok
   **Planning** de losse knop 'Opstelling per kwart' én de aparte blokken 'Opstelling' en 'Bank': je

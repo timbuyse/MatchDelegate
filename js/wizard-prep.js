@@ -399,7 +399,30 @@ function confirmLoosePlayer() {
   closeModal(); render();
 }
 // ----- Stap 3: opstelling -----
-function setFormation(idx) { wiz.formationIndex = parseInt(idx); wiz.pool.forEach(p => p.slot = null); wiz.selPlace = null; render(); }
+// Een andere formatie betekent andere plaatsen op het veld, dus iedereen opnieuw plaatsen (dat deed
+// deze functie al). De opstellingen die je voor de VOLGENDE delen plande, staan op diezelfde oude
+// plaatsen en kloppen daarna dus ook niet meer: die vervallen mee, maar niet zonder het te vragen.
+// Wissen gebeurt pas bij het opslaan (finishWizard), want tot dan kan je nog terug.
+function setFormation(idx) {
+  const nieuw = parseInt(idx);
+  if (nieuw === wiz.formationIndex) return;
+  const plannen = (wiz.editId && match && match.id === wiz.editId) ? plannedLineupCount(match) : 0;
+  if (plannen) {
+    openModal(`<h3>${icI(IC.warn)} Andere formatie</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">De plaatsen op het veld veranderen, dus je stelt iedereen opnieuw op.<br><br>
+        Ook je <b>opstelling voor ${plannen === 1 ? 'het volgende deel' : 'de volgende delen'}</b> vervalt: die staat op de oude plaatsen. Daarna geef je ze opnieuw in.</p>
+      <button class="btn btn-green" onclick="closeModal();_doSetFormation(${nieuw})">Doorgaan</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>`);
+    return;
+  }
+  _doSetFormation(nieuw);
+}
+function _doSetFormation(idx) {
+  wiz.formationIndex = idx;
+  wiz.pool.forEach(p => p.slot = null);
+  wiz.selPlace = null;
+  render();
+}
 function selectPlace(pid) { wiz.selPlace = (wiz.selPlace === pid) ? null : pid; render(); }
 function placeSlot(i) {
   const occupied = wiz.pool.find(p => p.sel === 'basis' && p.slot === i);
@@ -761,6 +784,9 @@ async function finishWizard(startNow) {
   if (unplaced.length) { showToast(`Plaats nog ${unplaced.length} speler(s) op het veld.`, 'err'); return; }
   const team = teamById(wiz.teamId);
   const existing = wiz.editId ? await dbGet(wiz.editId) : null;
+  // Nú vastleggen: verderop wordt `existing` met Object.assign overschreven met de nieuwe waarden,
+  // dus daarna is de oude formatie niet meer te zien.
+  const oudeFormatie = existing ? existing.formation : null;
   // Hergebruik het bestaande speler-id bij het herbewerken van een wedstrijd, zodat reeds
   // gelogde events (playerId/assistId) geldig blijven i.p.v. te verwijzen naar niemand meer.
   const prevPlayers = (existing && Array.isArray(existing.players)) ? existing.players : [];
@@ -810,8 +836,16 @@ async function finishWizard(startNow) {
     m.status = startNow ? 'live' : 'planned';
   }
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
+  // Formatie gewijzigd? Dan vervallen de opstellingen voor de volgende delen: die staan op de
+  // plaatsen van de oude formatie en zouden bij "Geplande opstelling gebruiken" positiewissels
+  // opleveren die niemand bedoeld heeft. setFormation vroeg dit al; hier gebeurt het pas echt,
+  // omdat je tot het opslaan nog kon terugkeren.
+  const formatieGewijzigd = !!(oudeFormatie && oudeFormatie !== form.name);
+  const planVerviel = formatieGewijzigd && plannedLineupCount(m) > 0;
+  if (planVerviel) delete m.plannedLineups;
   syncTournamentStaff(m);
   wiz = null; await dbSave(m); match = m;
+  if (planVerviel) showToast(`Andere formatie — de opstelling per ${pSingLow(m)} is gewist.`, 'err');
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   // Een wedstrijd die al liep blijft live (zie m.status hierboven) en hoort dus terug in het
   // livescherm, niet in het voorbereidingsscherm — dat toont "Wedstrijd starten" voor iets wat al
@@ -996,9 +1030,13 @@ function renderPrep() {
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
     ${(m.players && m.players.length) ? `<div class="sec">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
     ${prepPlanningHtml(m, ro)}
-    ${/* Het potlood in de kaart hierboven doet hetzelfde, maar is makkelijk over het hoofd te zien.
-         Deze knop noemt met zoveel woorden wat er te doen valt. */ ''}
-    ${(!ro && plannedPartsCount(m) > 1) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(2)">${icI(IC.shirt)} Opstelling volgende ${pPlural(m).toLowerCase()}</button>` : ''}` : ''}
+    ${plannedLineupWarnHtml(m)}
+    ${/* Twee knoppen onder het veld, in de volgorde waarin je ze gebruikt: eerst de losse wissels
+         die je tijdens een deel wil doen, dan de opstelling waarmee elk deel begint. Het potlood in
+         de kaart hierboven doet hetzelfde als die tweede knop, maar is makkelijk over het hoofd te
+         zien; deze knop noemt met zoveel woorden wat er te doen valt. */ ''}
+    ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Wissels plannen${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>
+    ${plannedPartsCount(m) > 1 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedLineups(1)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)} wijzigen</button>` : ''}`}` : ''}
     ${ro ? '' : `${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
@@ -1024,9 +1062,8 @@ function modalEditMatchMenu() {
     ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSelectie
       ? 'Enkel voor deze wedstrijd: rugnummers, kapitein en een notitie per speler.'
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSelectie)}
-    ${item(IC.clipboard, `Geplande wissels${plannedCount(m) ? ` (${plannedCount(m)})` : ''}`, heeftSelectie
-      ? `Losse wissels voor <b>tijdens</b> een ${pSingLow(m)}, die jij zelf doorvoert.`
-      : 'Geef eerst de selectie in.', 'modalPlannedSubs()', !heeftSelectie)}
+    ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
+         vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
     ${item(IC.timer, 'Snel resultaat invoeren', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -1098,6 +1135,38 @@ function plannedLineupBase(m, q) {
 function plannedLineupPlayers(m, lijst) {
   return lijst.map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || { id: e.id, name: '?' }, e));
 }
+function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {}).length; }
+// Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
+// gemarkeerd (het kruisje in het tabblad Opstelling — dat kan ook nog tijdens de wedstrijd). Het
+// plan zelf blijft ongemoeid; wie het opruimt beslist de gebruiker. Dit levert enkel de namen op,
+// zodat het scherm kan zeggen wát er nagekeken moet worden in plaats van dat pas te melden op het
+// moment dat je het plan wil gebruiken.
+function plannedLineupIssues(m) {
+  if (!m || !m.plannedLineups) return [];
+  const spelers = new Map((m.players || []).map(p => [p.id, p]));
+  return Object.keys(m.plannedLineups)
+    .map(k => parseInt(k, 10))
+    .filter(k => k > 0)
+    .sort((a, b) => a - b)
+    .map(deel => {
+      const namen = [];
+      (m.plannedLineups[deel] || []).forEach(e => {
+        const sp = spelers.get(e.id);
+        if (!sp) namen.push('een speler die niet meer in de selectie zit');
+        else if (sp.absent) namen.push(`${fieldName(m, e.id)} staat niet aanwezig`);
+      });
+      return { deel, namen: [...new Set(namen)] };
+    })
+    .filter(x => x.namen.length);
+}
+// Eén kadertje dat zegt welk deel nagekeken moet worden. Leeg als er niets aan de hand is.
+function plannedLineupWarnHtml(m, deelFilter) {
+  const issues = plannedLineupIssues(m).filter(i => !deelFilter || i.deel === deelFilter);
+  if (!issues.length) return '';
+  const regels = issues.map(i => `<b>${pSing(m)} ${i.deel}</b>: ${i.namen.map(esc).join(', ')}`).join('<br>');
+  return `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:8px">
+    ${icI(IC.warn)} Kijk je opstelling na — de selectie is gewijzigd.<br>${regels}</div>`;
+}
 // Vertaalt "zo moet het veld eruitzien" naar de wissels en positiewissels die daarvoor nodig zijn.
 // Het minimum aantal: elke speler die weg moet wordt gekoppeld aan een invaller — bij voorkeur die
 // zijn plaats overneemt — en wie blijft maar verschuift vormt een permutatie van de plaatsen, die
@@ -1126,7 +1195,12 @@ function lineupToPending(m, huidig, gepland) {
     const o = restEraf.splice(idx, 1)[0];
     subs.push({ outId: o.id, inId: i.id, slot: sleutel(o) });
   }
-  if (restEraf.length) problemen.push(`${restEraf.length} speler(s) uit het plan minder op het veld dan er nu staan.`);
+  // Het plan telt minder spelers dan er nu op het veld staan — meestal omdat er hierboven iemand
+  // uitviel (afwezig of uit de selectie). Zeg wie er dan blijft staan i.p.v. een telling: de vorige
+  // formulering ("N speler(s) uit het plan minder op het veld dan er nu staan") was niet te volgen.
+  if (restEraf.length) {
+    problemen.push(`Er komt niemand in de plaats voor ${restEraf.map(p => pName(m, p.id)).join(', ')} — ${restEraf.length === 1 ? 'hij blijft' : 'zij blijven'} op het veld.`);
+  }
   // Stand ná de wissels: plaats -> speler. Daarna de plaatsen rechtzetten met positiewissels.
   const nu = new Map();
   const gewisseldWeg = new Set(subs.map(s => s.outId));
@@ -1190,6 +1264,7 @@ function modalPlannedLineups(q, klaarKnop) {
   openModal(`<h3>${icI(IC.shirt)} Opstelling per ${pSingLow(m)}</h3>
     ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>` : ''}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
+    ${plannedLineupWarnHtml(m, deel)}
     ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
     <div class="sec">Bank (${bank.length})</div>
     <div class="place-chips">${bank.length
