@@ -493,6 +493,18 @@ function ensurePosNums(m) {
   });
   return changed;
 }
+// Alle positie-bepalende events (wissels en positiewisselingen) chronologisch, met de plaats in
+// m.events als tiebreaker. Dat laatste is essentieel: alles wat bij de start van een deel wordt
+// doorgevoerd (pauzewissels én pauze-positiewissels, zie startQuarter) krijgt exact dezelfde
+// gameTimeMs. Een sort op gameTimeMs alleen is dan stabiel en houdt de invoegvolgorde aan — wat
+// bij het TERUGspoelen (omgekeerde volgorde) net de verkeerde volgorde is, waardoor twee spelers
+// op dezelfde plek konden belanden.
+function _posEventsChrono(m) {
+  return (m.events || []).map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.type === 'substitution' || e.type === 'posSwap')
+    .sort((a, b) => (a.e.gameTimeMs - b.e.gameTimeMs) || (a.i - b.i))
+    .map(({ e }) => e);
+}
 function playersAtPeriodStart(m, qNum) {
   const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
   const fallback = {};
@@ -522,10 +534,9 @@ function playersAtPeriodStart(m, qNum) {
   // doorschemeren in vroegere kwarten (zichtbaar als bolletjes die boven elkaar staan).
   const posMap = {};
   m.players.forEach(p => { posMap[p.id] = { x: p.x, y: p.y, line: p.line, posNum: p.posNum }; });
-  const toUndo = m.events.filter(e =>
-    (e.type === 'substitution' || e.type === 'posSwap') && e.quarterNum != null &&
-    !(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))
-  ).sort((a, b) => b.gameTimeMs - a.gameTimeMs);
+  const toUndo = _posEventsChrono(m).filter(e =>
+    e.quarterNum != null && !(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))
+  ).reverse();
   for (const e of toUndo) {
     if (e.type === 'substitution' && e.playerInId) {
       // posBefore herstellen i.p.v. blind naar "geen positie": een speler die al eerder op
@@ -547,6 +558,44 @@ function playersAtPeriodStart(m, qNum) {
     return { ...p, ...pos };
   });
 }
+// Positie van elke speler bij de AANVANG van de wedstrijd (de startopstelling), gereconstrueerd
+// door vanaf de huidige (finale) m.players-staat alle wissels en positiewisselingen terug te
+// draaien — nieuwste eerst. De startopstelling wordt nergens apart bewaard: m.players.x/y worden
+// live mee gemuteerd, dus terugspoelen is de enige bron.
+// Een positiewissel wordt teruggedraaid door de twee HUIDIGE posities om te wisselen (een swap is
+// zijn eigen omgekeerde) i.p.v. via de posA/posB-snapshots. Dat is exact hetzelfde resultaat, maar
+// werkt ook voor oudere wedstrijden waarin die snapshots nog niet gelogd werden.
+function positionsAtMatchStart(m) {
+  const pos = {};
+  (m.players || []).forEach(p => { pos[p.id] = { x: p.x, y: p.y, line: p.line, posNum: p.posNum }; });
+  const evs = _posEventsChrono(m);
+  for (let i = evs.length - 1; i >= 0; i--) {
+    const e = evs[i];
+    if (e.type === 'substitution' && e.playerInId) {
+      pos[e.playerInId] = e.posBefore ? { ...e.posBefore } : { x: undefined, y: undefined, line: undefined, posNum: undefined };
+    } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
+      const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
+    }
+  }
+  return pos;
+}
+// De opstelling voor een VELDDIAGRAM (verslag op het scherm + PDF): wie er bij de start van het
+// deel op het veld stond, geplaatst volgens de startopstelling + de wissels — positiewisselingen
+// tellen hier bewust NIET mee. Een positiewissel verschuift spelers binnen dezelfde formatie; op
+// het diagram leverde dat vooral verwarring op, en bij een reeks positiewissels bollen die elkaar
+// overlappen. Ze blijven wel gewoon in het verloop staan en tellen mee voor de keeperminuten
+// (rebuildKeeperByQ) — enkel de tekening negeert ze.
+// WIE er op het veld staat komt onveranderd van playersAtPeriodStart(); enkel de posities worden
+// overschreven.
+function pitchPlayersAtPeriodStart(m, qNum) {
+  const pos = positionsAtMatchStart(m);
+  for (const e of _posEventsChrono(m)) {
+    if (e.type !== 'substitution' || !e.playerInId || e.quarterNum == null) continue;
+    if (!(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))) continue;
+    if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+  }
+  return playersAtPeriodStart(m, qNum).map(p => ({ ...p, ...(pos[p.id] || {}) }));
+}
 let _lcIdx = 0;
 function _lcNav(dir) {
   const total = Math.max(1, match.quarters.length);
@@ -562,9 +611,16 @@ function _lcNav(dir) {
 function renderLineupCarousel(m) {
   const total = Math.max(1, m.quarters.length);
   _lcIdx = 0;
-  if (total === 1) return renderPitch(m, m.players.filter(p => p.starting), captainAtStartOfQuarter(m, 1), m.quarters.length ? 1 : undefined);
+  // Ook bij één deel via de reconstructie: m.players draagt de FINALE posities, dus een
+  // uitgewisselde basisspeler stond daar nog op zijn oude plek terwijl een positiewissel iemand
+  // anders naar diezelfde plek verschoof — twee bollen op elkaar. Speelt vooral bij
+  // tornooiwedstrijden, die bijna altijd uit één blok bestaan.
+  if (total === 1) {
+    const q1 = m.quarters.length ? 1 : undefined;
+    return renderPitch(m, pitchPlayersAtPeriodStart(m, q1), captainAtStartOfQuarter(m, 1), q1);
+  }
   const slides = Array.from({length: total}, (_, i) => {
-    const ps = playersAtPeriodStart(m, i + 1);
+    const ps = pitchPlayersAtPeriodStart(m, i + 1);
     const capId = captainAtStartOfQuarter(m, i + 1);
     return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId, i + 1)}</div>`;
   }).join('');
