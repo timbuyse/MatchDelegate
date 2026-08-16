@@ -906,6 +906,9 @@ function renderPrep() {
       <button class="btn btn-pale" onclick="editMatchWizard(match)">${icI(IC.edit)} Bewerken</button>
       <button class="btn btn-orgpale" onclick="${(!m.players || !m.players.length) ? 'startSelectieWizard()' : 'modalEditPlayers()'}">${icI(IC.players)} Selectie &amp; opstelling</button>
     </div>
+    ${/* Wissels op voorhand klaarzetten. Ze gaan niet vanzelf af bij de aftrap: tijdens de
+         wedstrijd druk je in ditzelfde menu op "Nu doorvoeren". */ ''}
+    ${(m.players && m.players.length) ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalQuickResult()">${icI(IC.timer)} Snel resultaat invoeren</button>`}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
