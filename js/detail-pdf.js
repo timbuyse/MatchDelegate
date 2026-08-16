@@ -501,10 +501,14 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     // wissels op dezelfde plek elk op zijn eigen plaatje, van boven naar onder in chronologische
     // volgorde — samengevoegd op één regel werd het plaatje breder dan het veld. Zelfde opbouw als
     // .pdot-subs op het scherm.
-    if (mk && mk.subs.length) {
+    // Keeperregeltjes krijgen hier "doel: " voor de naam i.p.v. het handschoenicoon van het scherm:
+    // de PDF-fonts hebben geen handschoenglief, en zo'n icoon met lijnen natekenen wordt op deze
+    // grootte een vlek. Het wisselicoon ervoor blijft, de tekst maakt het verschil duidelijk.
+    const regels = mk ? [...mk.subs, ...(mk.keepers || []).map(n => 'doel: ' + n)] : [];
+    if (regels.length) {
       const s = nameSize * 0.92, icoW = s * 1.5;
       const chipH = s * 1.35, gap = nameSize * 0.15;
-      const nodig = mk.subs.length * chipH + (mk.subs.length - 1) * gap;
+      const nodig = regels.length * chipH + (regels.length - 1) * gap;
       // Onderaan het veld (de doelman) is er onder de naam geen plaats meer: de plaatjes belandden
       // buiten het veld, op het wit van de pagina — in de PDF clipt niets. Bóven de bol kan ook
       // niet, daar staat de naam van de verdediger ervóór. Dan komen ze naast de bol, richting het
@@ -513,11 +517,13 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
       let cxSub = cx, top = nameChip.bottom + gap;
       if (naast) {
         doc.setFontSize(s);
-        const breed = Math.max(...mk.subs.map(n => doc.getTextWidth(n))) + icoW + s * 0.6;
+        const breed = Math.max(...regels.map(n => doc.getTextWidth(n))) + icoW + s * 0.6;
         cxSub = (x > 60 ? -1 : 1) * (L(R) + breed / 2 + L(2)) + cx;
-        top = cy - nodig / 2;
+        // Gecentreerd op de bol, maar nooit lager dan de onderkant van de bol: bij drie regeltjes
+        // schoof de onderste anders over het naamplaatje. Groeit dan gewoon naar boven.
+        top = Math.min(cy - nodig / 2, cy + L(R) - nodig);
       }
-      for (const naam of mk.subs) {
+      for (const naam of regels) {
         const c = chip(naam, cxSub, top, s, [253, 214, 160], icoW);
         swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
         top = c.bottom + gap;

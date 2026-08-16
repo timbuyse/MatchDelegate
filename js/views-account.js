@@ -1999,10 +1999,16 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   // af, wat daar al met één regel gebeurde), dan komen ze naast de bol — richting het midden van
   // het veld, zodat ze niet over de zijlijn hangen. De drempel volgt uit de hoogte die de stapel
   // nodig heeft: ~7% voor de halve bol plus de naam, ~3,2% per regel.
-  const nSub = (mk && mk.subs) ? mk.subs.length : 0;
-  const naast = nSub && y > 100 - (7 + nSub * 3.2) ? (x > 60 ? ' side-l' : ' side-r') : '';
+  // Na de vervangers de keeperregeltjes (handschoen): wie er tijdens het deel via een positiewissel
+  // in doel kwam staan. Ze delen dezelfde kolom, dus de plaatsing hieronder geldt voor allebei.
+  const regels = [
+    ...((mk && mk.subs) || []).map(n => ({ ico: IC.swap, txt: n })),
+    ...((mk && mk.keepers) || []).map(n => ({ ico: IC.keeper, txt: n })),
+  ];
+  const nSub = regels.length;
+  const naast = nSub && y > 100 - (7 + nSub * 3.2) ? (x > 60 ? ' side-l' : ' side-r') + (nSub > 2 ? ' hoog' : '') : '';
   const sub = nSub
-    ? `<span class="pdot-subs${naast}">${mk.subs.map(n => `<span class="pdot-sub"><span class="ic-i">${IC.swap}</span> ${esc(n)}</span>`).join('')}</span>` : '';
+    ? `<span class="pdot-subs${naast}">${regels.map(r => `<span class="pdot-sub"><span class="ic-i">${r.ico}</span> ${esc(r.txt)}</span>`).join('')}</span>` : '';
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
     ${p.posNum||''}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
 }
@@ -2027,9 +2033,10 @@ function renderPitch(m, players, captainId, qNum, tap) {
   }
   const bench = (m && !tap) ? periodBenchNames(m, qNum) : [];
   const hasSub = [...marks.values()].some(v => v.subs.length);
+  const hasKeeper = [...marks.values()].some(v => (v.keepers || []).length);
   return `<div class="pitch">${pitchLines()}${dots}</div>
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
-  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}</div>`}`;
+  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}${hasKeeper ? ` · <span class="ic-i">${IC.keeper}</span> = nam over in doel` : ''}</div>`}`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
@@ -2061,7 +2068,7 @@ function subsDuringPeriod(m, qNum) {
 function periodPlayerMarks(m, qNum) {
   const out = new Map();
   if (!qNum) return out;
-  const get = id => { let v = out.get(id); if (!v) { v = { subs: [], yellow: 0, red: false }; out.set(id, v); } return v; };
+  const get = id => { let v = out.get(id); if (!v) { v = { subs: [], keepers: [], yellow: 0, red: false }; out.set(id, v); } return v; };
   const evs = (m.events || []).filter(e => e.quarterNum === qNum).sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
   const lastOf = new Map(); // startspeler-id -> wie er nu op die plek staat
   // Herleidt een speler-id naar de plek (= startspeler) waar hij hoort.
@@ -2069,11 +2076,21 @@ function periodPlayerMarks(m, qNum) {
     for (const [root, last] of lastOf) if (last === id) return root;
     return id;   // stond er zelf al bij de start van de periode
   };
+  // Keeperwissel TIJDENS het deel: het diagram toont de opstelling bij de start, dus een
+  // positiewissel met de doellijn is daar niet aan te zien. Die noteren we als regeltje onder de
+  // doelman-bol. Een keeper die gewoon gewisseld wordt (bank in doel) staat er al als gewone
+  // wisselregel — die dubbelen we hier niet.
+  const doelBol = (pitchPlayersAtPeriodStart(m, qNum).find(p => p.line === 'Doel') || {}).id || null;
+  let keeperNu = doelBol;
   for (const e of evs) {
     if (e.type === 'substitution' && !e.atBreak && e.playerOutId && e.playerInId) {
       const root = rootOf(e.playerOutId);
       get(root).subs.push(fieldName(m, e.playerInId));
       lastOf.set(root, e.playerInId);
+      if (keeperNu && e.playerOutId === keeperNu) keeperNu = e.playerInId;
+    } else if (e.type === 'posSwap' && !e.atBreak && e.pA && e.pB && keeperNu && (e.pA === keeperNu || e.pB === keeperNu)) {
+      keeperNu = (e.pA === keeperNu) ? e.pB : e.pA;
+      if (doelBol) get(doelBol).keepers.push(fieldName(m, keeperNu));
     } else if (e.type === 'yellow_card' && e.playerId) {
       get(rootOf(e.playerId)).yellow++;
     } else if (e.type === 'red_card' && e.playerId) {

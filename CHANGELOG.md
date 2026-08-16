@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.19.5
+- **Nieuw:** een **keeperwissel is nu zichtbaar op het velddiagram**. Dat was de enige positiewissel
+  die de tekening feitelijk onjuist maakte: de oranje bol op de doellijn beweerde dat die speler dat
+  deel gekeept had, ook als hij al lang niet meer in doel stond.
+- Gebeurde de keeperwissel **in de pauze**, dan staat de nieuwe doelman meteen oranje op de doellijn
+  van dat deel, en de oude op de veldpositie die hij overnam. Gebeurde ze **tijdens** een deel, dan
+  blijft dat deel tonen wie er bij de aftrap in doel stond — dat klopte immers — met een regeltje
+  bij die bol: het handschoenicoon en de naam van wie overnam. Vanaf het volgende deel staat de
+  nieuwe keeper gewoon op de doellijn.
+- Alle **andere** positiewisselingen blijven zoals sinds v0.19.2: die verplaatsen niets op het
+  diagram. Er kunnen ook geen bollen door overlappen — een positiewissel verwisselt twee plaatsen
+  binnen dezelfde formatie.
+- In de PDF staat zo'n regeltje als **'doel: naam'** in plaats van met het handschoenicoon: de
+  PDF-lettertypes hebben dat teken niet.
+
+---
+
 ## v0.19.4
 - **Opgelost:** werd een speler tijdens hetzelfde deel **twee keer vervangen**, dan stonden beide
   vervangers achter elkaar op één regeltje onder zijn naam. Dat paste niet en werd afgekapt met
