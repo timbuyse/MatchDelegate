@@ -117,8 +117,16 @@ function renderLive() {
 // Binnenkant van een spelerkeuzeknop (wie scoorde / assist / kaart / wissel): groot rugnummer met de
 // familienaam eronder. Heeft de speler geen nummer — rugnummers zijn optioneel — dan staat de naam
 // zelf groot, want anders is de knop een lege doos met een klein woordje eronder.
+// Naam op een spelersknop: dezelfde weergave als op het velddiagram — voornaam met de beginletter
+// van de familienaam, en meer letters zodra twee spelers dezelfde voornaam hebben. Vroeger stond
+// hier enkel de familienaam, waardoor je op het veld "Sam D." las en in de wisselmodal "De Wit".
+// Ontdubbelen gebeurt over de hele wedstrijdselectie, zodat een knop dezelfde naam toont als de bol.
+function pickerNaam(p) {
+  const lijst = (match && match.players && match.players.some(x => x.id === p.id)) ? match.players : [p];
+  return fieldDisplayNames(lijst).get(p.id) || _firstName(p.name || '');
+}
 function playerBtnInner(p, kleur) {
-  const naam = esc(_lastName(p.name));
+  const naam = esc(pickerNaam(p));
   const klein = `<span style="font-size:10px;color:var(--txt2);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${naam}</span>`;
   const n = pNum(p);
   if (!n) return `<span style="font-size:13px;font-weight:900;color:${kleur};line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${naam}</span>`;

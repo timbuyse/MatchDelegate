@@ -1977,7 +1977,7 @@ function pitchLines() {
     <path d="M 320 472 A 8 8 0 0 1 312 480" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
   </svg>`;
 }
-function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
+function pitchDot(m, p, x, y, dn, captainId, tap) {
   const capId = captainId !== undefined ? captainId : (m ? m.captainId : null);
   const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _firstName(p.name))}${cap}`;
@@ -1987,56 +1987,43 @@ function pitchDot(m, p, x, y, dn, captainId, mk, tap) {
   // In de bol staat ENKEL het positienummer (vast per plaats in de formatie), nooit het rugnummer —
   // die zijn optioneel en horen buiten het veld (chips, lijsten). De terugval op het rugnummer is
   // bewust geschrapt: bij een oude wedstrijd zonder positienummer blijft de bol leeg met de naam.
-  // Kaartjes achter de NAAM (niet bij de bol: daar leken ze bij het positienummer te horen), de
-  // vervanger met wisselicoon op een regeltje onder de naam.
-  const cards = !mk ? '' : [
-    ...Array.from({ length: mk.yellow || 0 }, () => '<i class="pdot-card pdot-cy"></i>'),
-    mk.red ? '<i class="pdot-card pdot-cr"></i>' : '',
-  ].filter(Boolean).join('');
-  // Eén regeltje per vervanger, onder elkaar in chronologische volgorde. Twee namen op één regel
-  // (vroeger met ' · ' aan elkaar) liepen tegen de max-width van het plaatje en werden afgekapt.
-  // Staat de bol te laag om naam + regeltjes eronder kwijt te kunnen (de doelman: het veld knipt
-  // af, wat daar al met één regel gebeurde), dan komen ze naast de bol — richting het midden van
-  // het veld, zodat ze niet over de zijlijn hangen. De drempel volgt uit de hoogte die de stapel
-  // nodig heeft: ~7% voor de halve bol plus de naam, ~3,2% per regel.
-  // Na de vervangers de keeperregeltjes (handschoen): wie er tijdens het deel via een positiewissel
-  // in doel kwam staan. Ze delen dezelfde kolom, dus de plaatsing hieronder geldt voor allebei.
-  const regels = [
-    ...((mk && mk.subs) || []).map(n => ({ ico: IC.swap, txt: n })),
-    ...((mk && mk.keepers) || []).map(n => ({ ico: IC.keeper, txt: n })),
-  ];
-  const nSub = regels.length;
-  const naast = nSub && y > 100 - (7 + nSub * 3.2) ? (x > 60 ? ' side-l' : ' side-r') + (nSub > 2 ? ' hoog' : '') : '';
-  const sub = nSub
-    ? `<span class="pdot-subs${naast}">${regels.map(r => `<span class="pdot-sub"><span class="ic-i">${r.ico}</span> ${esc(r.txt)}</span>`).join('')}</span>` : '';
+  // Bewust NIETS meer bij de bol dan het positienummer, de naam en ©. Wissels, keeperovernames en
+  // kaartjes stonden hier vroeger als regeltjes/blokjes, maar het diagram toont de opstelling bij de
+  // START van het deel en houdt geen rekening met positiewisselingen — een vervanger onder een bol
+  // hangen suggereerde dan een positie die hij misschien nooit gespeeld heeft. De wissels staan nu
+  // in een kader onder het veld (zie periodSubList / renderPitch), de kaarten in de tijdlijn.
   return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
-    ${p.posNum||''}<span class="pdot-lbl">${lbl}${cards}</span>${sub}</div>`;
+    ${p.posNum||''}<span class="pdot-lbl">${lbl}</span></div>`;
 }
-// qNum (optioneel): toont per speler de wissel/kaart/blessure van dat deel, en de bank eronder.
+// qNum (optioneel): toont onder het veld de wissels van dat deel en de bank.
 // tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.
 function renderPitch(m, players, captainId, qNum, tap) {
   // Dedupliceren over de hele wedstrijdselectie, niet enkel over wie nu op het veld staat: een
-  // invaller met dezelfde voornaam verschijnt op hetzelfde diagram (in het wisselplaatje) en moet
-  // dus dezelfde letter krijgen.
+  // invaller met dezelfde voornaam staat in het wisselkader eronder en moet dezelfde letter krijgen.
   const dns = fieldDisplayNames((m && m.players && m.players.length) ? m.players : players);
-  const marks = m ? periodPlayerMarks(m, qNum) : new Map();
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, marks.get(p.id), tap);
+  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, tap);
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
     const y = LINE_Y[line] != null ? LINE_Y[line] : 50;
     const n = ps.length;
-    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, marks.get(p.id), tap); });
+    ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, tap); });
   }
   const bench = (m && !tap) ? periodBenchNames(m, qNum) : [];
-  const hasSub = [...marks.values()].some(v => v.subs.length);
-  const hasKeeper = [...marks.values()].some(v => (v.keepers || []).length);
+  // Wissels in een eigen kader ONDER het veld i.p.v. bij de bollen: het diagram toont de opstelling
+  // bij de start van het deel en negeert positiewisselingen, dus een naam onder een bol beweerde
+  // een positie die de invaller misschien nooit gespeeld heeft. Hier staat enkel wie, wanneer.
+  const wissels = (m && !tap) ? periodSubList(m, qNum) : [];
   return `<div class="pitch">${pitchLines()}${dots}</div>
+  ${wissels.length ? `<div class="pitch-subs">
+    <div class="pitch-subs-h">Wissels</div>
+    ${wissels.map(w => `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`).join('')}
+  </div>` : ''}
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
-  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer${hasSub ? ` · <span class="ic-i">${IC.swap}</span> = gewisseld voor` : ''}${hasKeeper ? ` · <span class="ic-i">${IC.keeper}</span> = nam over in doel` : ''}</div>`}`;
+  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer</div>`}`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);
@@ -2049,55 +2036,33 @@ function captainAtStartOfQuarter(m, qNum) {
   return before[before.length - 1].playerId;
 }
 
-// Wie tijdens een periode vervangen werd, gekoppeld aan de speler die er bij de START van die
-// periode stond: Map(startspeler-id -> "Deprez" of "Deprez » Segers" bij twee wissels op dezelfde
-// plek). Pauzewissels (atBreak) zitten al in playersAtPeriodStart en horen hier dus niet bij.
-// Gebruikt in de velddiagrammen (scherm + PDF) om de wissel bij de speler te tonen.
-function subsDuringPeriod(m, qNum) {
-  const out = new Map();
-  for (const [id, mk] of periodPlayerMarks(m, qNum)) if (mk.subs.length) out.set(id, mk.subs.join(' » '));
-  return out;
-}
-// Alles wat er tijdens een periode met een speler gebeurde, gekoppeld aan wie er bij de START van
-// die periode op die plek stond (dat is wat de velddiagrammen tonen):
-//   Map(startspeler-id -> { subs: ['Vervanger', ...], yellow: n, red: bool })
-// Een kaart van een speler die pas tijdens de periode inviel, hangt aan de plek waar hij inviel —
-// anders zou de markering nergens te zien zijn. Blessures worden hier bewust NIET gemarkeerd: een
-// blessure betekent niet noodzakelijk dat de speler het veld verliet (zie e.leavesField), dus op de
-// opstelling zegt dat teken niets — het event staat in de tijdlijn.
-function periodPlayerMarks(m, qNum) {
-  const out = new Map();
-  if (!qNum) return out;
-  const get = id => { let v = out.get(id); if (!v) { v = { subs: [], keepers: [], yellow: 0, red: false }; out.set(id, v); } return v; };
-  const evs = (m.events || []).filter(e => e.quarterNum === qNum).sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
-  const lastOf = new Map(); // startspeler-id -> wie er nu op die plek staat
-  // Herleidt een speler-id naar de plek (= startspeler) waar hij hoort.
-  const rootOf = id => {
-    for (const [root, last] of lastOf) if (last === id) return root;
-    return id;   // stond er zelf al bij de start van de periode
-  };
-  // Keeperwissel TIJDENS het deel: het diagram toont de opstelling bij de start, dus een
-  // positiewissel met de doellijn is daar niet aan te zien. Die noteren we als regeltje onder de
-  // doelman-bol. Een keeper die gewoon gewisseld wordt (bank in doel) staat er al als gewone
-  // wisselregel — die dubbelen we hier niet.
-  const doelBol = (pitchPlayersAtPeriodStart(m, qNum).find(p => p.line === 'Doel') || {}).id || null;
-  let keeperNu = doelBol;
-  for (const e of evs) {
-    if (e.type === 'substitution' && !e.atBreak && e.playerOutId && e.playerInId) {
-      const root = rootOf(e.playerOutId);
-      get(root).subs.push(fieldName(m, e.playerInId));
-      lastOf.set(root, e.playerInId);
-      if (keeperNu && e.playerOutId === keeperNu) keeperNu = e.playerInId;
-    } else if (e.type === 'posSwap' && !e.atBreak && e.pA && e.pB && keeperNu && (e.pA === keeperNu || e.pB === keeperNu)) {
-      keeperNu = (e.pA === keeperNu) ? e.pB : e.pA;
-      if (doelBol) get(doelBol).keepers.push(fieldName(m, keeperNu));
-    } else if (e.type === 'yellow_card' && e.playerId) {
-      get(rootOf(e.playerId)).yellow++;
-    } else if (e.type === 'red_card' && e.playerId) {
-      get(rootOf(e.playerId)).red = true;
-    }
-  }
-  return out;
+// De wissels van één periode, chronologisch, voor het kader onder het velddiagram (scherm + PDF).
+// Enkel wat er TIJDENS het deel gebeurde: een pauzewissel (atBreak) zit al in de startopstelling
+// die het veld toont. Bewust niet gekoppeld aan een bol: het diagram houdt geen rekening met
+// positiewisselingen, dus een invaller onder een bol hangen beweert een positie die hij misschien
+// nooit gespeeld heeft. Kaarten, blessures en positiewisselingen (ook die naar doel) staan hier
+// niet in — die staan in de tijdlijn van de events.
+// Wissels op dezelfde minuut komen op één regel samen — de spelers die eraf gaan bij elkaar, de
+// invallers bij elkaar. Een dubbele wissel is in de praktijk één beslissing en leest zo ook zo.
+//   [{ min: "12'", out: ['Sam D.', 'Lars M.'], in: ['Tuur S.', 'Vic G.'] }, ...]
+function periodSubList(m, qNum) {
+  if (!qNum) return [];
+  const rijen = [];
+  (m.events || [])
+    .filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && e.playerOutId && e.playerInId)
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
+    .forEach(e => {
+      const min = eventMinLocal(e, m);
+      // Gesorteerd op tijd, dus wissels met dezelfde minuut staan naast elkaar in de lijst.
+      const laatste = rijen[rijen.length - 1];
+      if (laatste && laatste.min === min) {
+        laatste.out.push(fieldName(m, e.playerOutId));
+        laatste.in.push(fieldName(m, e.playerInId));
+      } else {
+        rijen.push({ min, out: [fieldName(m, e.playerOutId)], in: [fieldName(m, e.playerInId)] });
+      }
+    });
+  return rijen;
 }
 // Wie in de selectie zat maar tijdens die periode geen minuut op het veld stond (dus ook niet
 // inviel). Wordt onder het velddiagram getoond, zodat de bank per deel zichtbaar is.

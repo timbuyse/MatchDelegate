@@ -382,6 +382,18 @@ const PITCH_PDF_RATIO = 504 / 326;
 // Geometrie is 1-op-1 dezelfde als de veldweergave op het scherm (pitchLines()/.pitch in
 // views-account.js resp. index.html) zodat scherm en PDF hetzelfde veld tonen; wijzig je daar de
 // afmetingen, pas dan ook deze constanten aan.
+// Pijltje omlaag (speler eraf) of omhoog (speler erin) voor het wisselkader in de PDF. Met lijnen
+// getekend omdat de PDF-fonts (WinAnsi) geen pijlglief hebben.
+function pijlPdf(doc, x, midY, s, kleur, omlaag) {
+  doc.setDrawColor(...kleur); doc.setLineWidth(Math.max(0.3, s * 0.1));
+  // Zelfde vorm als de icoontjes op het scherm (IC.download / IC.upload): een pijl met een bakje
+  // eronder. Punt van de pijl omlaag = speler eraf, omhoog = speler erin.
+  const bak = midY + s * 0.4, punt = bak - s * 0.16, top = midY - s * 0.42, head = s * 0.22;
+  doc.line(x - s * 0.28, bak, x + s * 0.28, bak);
+  doc.line(x, top, x, punt);
+  if (omlaag) { doc.line(x - head, punt - head, x, punt); doc.line(x + head, punt - head, x, punt); }
+  else { doc.line(x - head, top + head, x, top); doc.line(x + head, top + head, x, top); }
+}
 function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   const W = 320, H = 480, R = 15;
   const PAW = 189, PAD = 75, GAW = 86, GAD = 25, CCR = 43, PENY = 50, CR = 8, RX = 8;
@@ -431,15 +443,12 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   // Zie renderPitch: ontdubbelen over de hele wedstrijdselectie, zodat een invaller met dezelfde
   // voornaam in het wisselplaatje eronder ook zijn letter krijgt.
   const dns = fieldDisplayNames((m && m.players && m.players.length) ? m.players : pts.map(({ p }) => p));
-  const marks = periodPlayerMarks(m, qNum);
   // 12 eenheden (i.p.v. 10) voor de namen: op papier las 10 te klein. Het nummer in de bol blijft
   // op 13 — groter past niet binnen de bol (radius 15).
   const numSize = Math.max(5, L(13)), nameSize = Math.max(4.5, L(12));
-  // Naamplaatje (en eventueel het wisselplaatje eronder) tekenen, horizontaal binnen het veld
-  // geklemd: bij een speler op de flank zou een lange naam anders buiten het diagram uitsteken en
-  // (in de 2x2-weergave) over het veld ernaast lopen. Op het scherm valt dat weg door de overflow
-  // van .pitch, in de PDF clipt niets.
-  //  icoW = ruimte vóór de tekst (wisselpijltjes), tailW = ruimte erachter (kaartjes).
+  // Naamplaatje tekenen, horizontaal binnen het veld geklemd: bij een speler op de flank zou een
+  // lange naam anders buiten het diagram uitsteken en (in de 2x2-weergave) over het veld ernaast
+  // lopen. Op het scherm valt dat weg door de overflow van .pitch, in de PDF clipt niets.
   const chip = (txt, cx, top, size, color, icoW = 0, tailW = 0) => {
     doc.setFontSize(size);
     const tw = doc.getTextWidth(txt) + icoW + tailW, pad = size * 0.3, half = tw / 2 + pad;
@@ -453,30 +462,6 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     doc.text(txt, lx - half + pad + icoW, top + size);
     return { bottom: top + size * 1.35, icoX: lx - half + pad, midY: top + size * 0.68,
              tailX: lx - half + pad + icoW + doc.getTextWidth(txt) };
-  };
-  // Wisselicoon: twee tegengestelde pijltjes (zoals het wisselicoon in de app), getekend met
-  // lijnen omdat de PDF-fonts geen pijlglyphs hebben (een echt pijlteken werd '?').
-  const swapIcon = (x, midY, s, color) => {
-    doc.setDrawColor(...color); doc.setLineWidth(Math.max(0.25, s * 0.1));
-    const w = s * 1.15, dy = s * 0.3, head = s * 0.32;
-    doc.line(x, midY - dy, x + w, midY - dy);                      // bovenste pijl naar rechts
-    doc.line(x + w - head, midY - dy - head * 0.7, x + w, midY - dy);
-    doc.line(x + w - head, midY - dy + head * 0.7, x + w, midY - dy);
-    doc.line(x, midY + dy, x + w, midY + dy);                      // onderste pijl naar links
-    doc.line(x + head, midY + dy - head * 0.7, x, midY + dy);
-    doc.line(x + head, midY + dy + head * 0.7, x, midY + dy);
-    return w;
-  };
-  // Kaartjes achter de naam (niet bij de bol: daar leken ze bij het positienummer te horen).
-  // Hoeveel breedte ze in het naamplaatje innemen, en hoe ze getekend worden.
-  const cardCount = mk => mk ? ((mk.yellow || 0) + (mk.red ? 1 : 0)) : 0;
-  const cardsWidth = (mk, size) => cardCount(mk) * size * 0.85;
-  const drawCards = (mk, x, midY, size) => {
-    const cw = size * 0.62, ch = size * 0.92;
-    let bx = x + size * 0.2;
-    const card = rgb => { doc.setFillColor(...rgb); doc.setDrawColor(30, 30, 30); doc.setLineWidth(Math.max(0.15, cw * 0.09)); doc.rect(bx, midY - ch / 2, cw, ch, 'FD'); bx += cw + size * 0.22; };
-    for (let i = 0; i < (mk.yellow || 0); i++) card([242, 194, 0]);
-    if (mk.red) card([229, 57, 53]);
   };
   for (const { p, x, y } of pts) {
     const cx = ux(x / 100 * W), cy = uy(y / 100 * H);
@@ -493,42 +478,10 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     if (bolTekst) doc.text(bolTekst, cx, cy + numSize * 0.35, { align: 'center' });
     // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
     // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).
+    // Enkel de naam onder de bol: wissels staan in het kader onder het veld (zie pdfMatchBody),
+    // kaarten in de tijdlijn. Zelfde keuze als pitchDot() op het scherm.
     const label = (dns.get(p.id) || _firstName(p.name || '')) + (capId === p.id ? ' ©' : '');
-    const mk = marks.get(p.id);
-    const nameChip = chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255], 0, cardsWidth(mk, nameSize));
-    if (cardCount(mk)) drawCards(mk, nameChip.tailX, nameChip.midY, nameSize);
-    // Tijdens dit deel gewisseld: wie er in zijn plaats kwam, eronder met het wisselicoon. Bij twee
-    // wissels op dezelfde plek elk op zijn eigen plaatje, van boven naar onder in chronologische
-    // volgorde — samengevoegd op één regel werd het plaatje breder dan het veld. Zelfde opbouw als
-    // .pdot-subs op het scherm.
-    // Keeperregeltjes krijgen hier "doel: " voor de naam i.p.v. het handschoenicoon van het scherm:
-    // de PDF-fonts hebben geen handschoenglief, en zo'n icoon met lijnen natekenen wordt op deze
-    // grootte een vlek. Het wisselicoon ervoor blijft, de tekst maakt het verschil duidelijk.
-    const regels = mk ? [...mk.subs, ...(mk.keepers || []).map(n => 'doel: ' + n)] : [];
-    if (regels.length) {
-      const s = nameSize * 0.92, icoW = s * 1.5;
-      const chipH = s * 1.35, gap = nameSize * 0.15;
-      const nodig = regels.length * chipH + (regels.length - 1) * gap;
-      // Onderaan het veld (de doelman) is er onder de naam geen plaats meer: de plaatjes belandden
-      // buiten het veld, op het wit van de pagina — in de PDF clipt niets. Bóven de bol kan ook
-      // niet, daar staat de naam van de verdediger ervóór. Dan komen ze naast de bol, richting het
-      // midden van het veld. Zelfde regel als .pdot-subs.side-* op het scherm.
-      const naast = nameChip.bottom + gap + nodig > uy(H);
-      let cxSub = cx, top = nameChip.bottom + gap;
-      if (naast) {
-        doc.setFontSize(s);
-        const breed = Math.max(...regels.map(n => doc.getTextWidth(n))) + icoW + s * 0.6;
-        cxSub = (x > 60 ? -1 : 1) * (L(R) + breed / 2 + L(2)) + cx;
-        // Gecentreerd op de bol, maar nooit lager dan de onderkant van de bol: bij drie regeltjes
-        // schoof de onderste anders over het naamplaatje. Groeit dan gewoon naar boven.
-        top = Math.min(cy - nodig / 2, cy + L(R) - nodig);
-      }
-      for (const naam of regels) {
-        const c = chip(naam, cxSub, top, s, [253, 214, 160], icoW);
-        swapIcon(c.icoX, c.midY, s * 0.85, [253, 214, 160]);
-        top = c.bottom + gap;
-      }
-    }
+    chip(label, cx, cy + L(R) + nameSize * 0.25, nameSize, [255, 255, 255]);
   }
   doc.setTextColor(23, 23, 23); doc.setFont(undefined, 'normal'); doc.setLineWidth(0.75);
 }
@@ -800,20 +753,47 @@ async function pdfMatchBody(doc, L, m) {
     // nodig. Ze tonen sinds v0.6.3 ook de bank per deel en de kaarten, waardoor de aparte tabel
     // "Opstelling per <deel>" overbodig werd.
     const labelH = items[0].q != null ? 14 : 0;
-    const benchLines = items.map(it => {
-      // Bij één blok is it.q null (er is geen "Deel 1"-label nodig), maar de bank hoort er wél bij:
-      // op het scherm staat ze onder hetzelfde diagram, en in de PDF viel ze daardoor stil weg —
-      // net bij tornooiwedstrijden, die vrijwel altijd uit één blok bestaan.
+    // Onder elk veld: eerst de wissels van dat deel, dan de bank. De wissels stonden vroeger als
+    // plaatjes bij de bollen; ze staan nu apart omdat het diagram geen positiewisselingen volgt
+    // (zie periodSubList). Pijltjes zijn hier tekst: de PDF-fonts (WinAnsi) hebben geen pijlglief.
+    const onderLines = items.map(it => {
+      // Bij één blok is it.q null (er is geen "Deel 1"-label nodig), maar de wissels en de bank
+      // horen er wél bij: op het scherm staan ze onder hetzelfde diagram, en in de PDF vielen ze
+      // daardoor stil weg — net bij tornooiwedstrijden, die vrijwel altijd uit één blok bestaan.
       const q = it.q != null ? it.q : (m.quarters && m.quarters.length ? 1 : null);
       const names = q != null ? periodBenchNames(m, q) : [];
-      return names.length ? ('Bank: ' + names.join(', ')) : '';
+      return {
+        wissels: q != null ? periodSubList(m, q) : [],
+        bank: names.length ? ('Bank: ' + names.join(', ')) : '',
+      };
     });
+    const heeftBank = onderLines.some(o => o.bank);
     const gap = 12;
     const perRow = items.length === 1 ? 1 : (items.length <= 4 ? 2 : 3);
     // Bankregel in dezelfde lettergrootte als de namen op het veld (zie nameSize in drawPitchPdf:
     // 10 eenheden van de 326 brede viewBox), zodat de bank niet als bijzaak leest.
     const benchSize0 = Math.max(7, ((CW - (perRow - 1) * gap) / perRow) / 326 * 12);
-    const benchH = benchLines.some(Boolean) ? benchSize0 * 2.6 + 4 : 0;
+    // Hoogte onder het veld = de wisselregels (hoogste blok bepaalt de rijhoogte) + de bank, die
+    // over twee regels mag lopen.
+    // Hoeveel TEKSTregels neemt het kader in? Een dubbele wissel staat op één regel, maar een lange
+    // namenlijst breekt af. Font en kolombreedte schalen allebei mee met de veldbreedte, dus dit
+    // aantal is hetzelfde als bij het effectief tekenen verderop; +1 regel speling voor de
+    // ondergrens op de lettergrootte bij heel smalle velden.
+    const schatBreedte = (CW - (perRow - 1) * gap) / perRow;
+    const schatRegels = (wissels, size, breedte) => {
+      if (!wissels.length) return 0;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(size);
+      const pad = size * 0.5, pijlW = size * 0.95, sp = size * 0.35;
+      const minW = Math.max(...wissels.map(w => doc.getTextWidth(w.min))) + sp * 2;
+      const kol = Math.max(size * 3, (breedte - pad * 2.8 - minW) / 2 - pijlW - sp);
+      return wissels.reduce((n, w) => n + Math.max(
+        doc.splitTextToSize(w.out.join(', '), kol).length,
+        doc.splitTextToSize(w.in.join(', '), kol).length), 0);
+    };
+    const maxWissels = Math.max(0, ...onderLines.map(o => schatRegels(o.wissels, benchSize0, schatBreedte) + (o.wissels.length ? 1 : 0)));
+    // Kader: binnenmarge + kopregel + één regel per wissel; daaronder eventueel de bank (2 regels).
+    const kaderH0 = maxWissels ? (benchSize0 * 1.0 + benchSize0 * 1.35 + maxWissels * benchSize0 * 1.45) : 0;
+    const benchH = kaderH0 + (heeftBank ? benchSize0 * 2.6 : 0) + (maxWissels || heeftBank ? 6 : 0);
     const availH = (PH - MG * 2) - labelH - benchH - 14;
     // Eén enkel diagram (wedstrijd van één deel) mag de pagina niet opeisen. Zonder tweede kolom
     // volgde de hoogte uit de vólle paginahoogte: het veld vulde dan een hele pagina, de kop
@@ -850,15 +830,51 @@ async function pdfMatchBody(doc, L, m) {
           doc.text(`${pSing(m)} ${it.q}`.toUpperCase(), x + imgW / 2, L.y, { align: 'center' });
         }
         drawPitchPdf(doc, m, it.ps, x, L.y + labelH, imgW, it.capId, it.q != null ? it.q : (m.quarters.length ? 1 : undefined));
-        // Bank onder het veld: wie in de selectie zat maar dat deel niet op het veld kwam. Wie inviel
-        // staat al bij de speler die hij verving (wisselicoon), dus die hoort hier niet meer bij.
-        const bl = benchLines[items.indexOf(it)];
-        if (bl) {
-          doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
-          const lines = doc.splitTextToSize(bl, imgW);
-          lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, L.y + labelH + imgH + benchSize + 3 + li * benchLineH, { align: 'center' }));
-          doc.setTextColor(23, 23, 23);
+        // Onder het veld hetzelfde kader als op het scherm (.pitch-subs): dun kadertje, kopje
+        // WISSELS, en per regel de minuut, een rood pijltje omlaag met wie eraf ging en een groen
+        // pijltje omhoog met wie erin kwam. Enkel de pijltjes gekleurd; namen in gewone tekstkleur.
+        const onder = onderLines[items.indexOf(it)];
+        let oy = L.y + labelH + imgH + 6;
+        if (onder.wissels.length) {
+          const pad = benchSize * 0.5, kopH = benchSize * 1.35, rijH = benchSize * 1.45;
+          const pijlW = benchSize * 0.95, sp = benchSize * 0.35;
+          doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
+          const minW = Math.max(...onder.wissels.map(w => doc.getTextWidth(w.min))) + sp * 2;
+          // Twee even brede kolommen; te lange namenlijsten breken af i.p.v. het kader uit te
+          // duwen. Zelfde gedrag als de twee flex-kolommen op het scherm.
+          const kol = Math.max(benchSize * 3, (imgW - pad * 2.8 - minW) / 2 - pijlW - sp);
+          const rijen = onder.wissels.map(w => ({
+            min: w.min,
+            uit: doc.splitTextToSize(w.out.join(', '), kol),
+            in: doc.splitTextToSize(w.in.join(', '), kol),
+          })).map(r => ({ ...r, n: Math.max(r.uit.length, r.in.length) }));
+          const kaderH = pad + kopH + rijen.reduce((h, r) => h + r.n * rijH, 0);
+          doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.6);
+          doc.roundedRect(x, oy, imgW, kaderH, 3, 3, 'S');
+          doc.setFont(undefined, 'bold'); doc.setFontSize(benchSize * 0.85); doc.setTextColor(107, 114, 128);
+          doc.text('WISSELS', x + pad * 1.4, oy + pad + benchSize * 0.75);
+          doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
+          let ry = oy + pad + kopH;
+          for (const r of rijen) {
+            // Tekst staat op de basislijn (ry + benchSize*0.7); het optische midden van de letters
+            // ligt daar ongeveer 0,28 boven — daar hoort het pijltje.
+            const midY = ry + benchSize * 0.42;
+            const xMin = x + pad * 1.4, xUit = xMin + minW, xIn = xUit + pijlW + sp + kol + sp;
+            doc.setTextColor(107, 114, 128); doc.text(r.min, xMin, ry + benchSize * 0.7);
+            doc.setTextColor(23, 23, 23);
+            pijlPdf(doc, xUit + pijlW * 0.4, midY, benchSize, [220, 38, 38], true);
+            pijlPdf(doc, xIn + pijlW * 0.4, midY, benchSize, [47, 158, 87], false);
+            r.uit.forEach((ln, li) => doc.text(ln, xUit + pijlW, ry + benchSize * 0.7 + li * rijH));
+            r.in.forEach((ln, li) => doc.text(ln, xIn + pijlW, ry + benchSize * 0.7 + li * rijH));
+            ry += r.n * rijH;
+          }
+          oy += kaderH + 4;
         }
+        if (onder.bank) {
+          doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
+          doc.splitTextToSize(onder.bank, imgW).slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, oy + benchSize + li * benchLineH, { align: 'center' }));
+        }
+        doc.setTextColor(23, 23, 23);
         x += imgW + gap;
       }
       L.y += rowH;
