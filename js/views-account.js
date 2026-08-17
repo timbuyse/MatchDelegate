@@ -2365,7 +2365,9 @@ async function loadHome() {
   let upcoming = all.filter(m => m.status === 'live' || (m.status === 'planned' && !m.tournamentId));
   if (homeFilter !== 'all') upcoming = upcoming.filter(m => m.teamName === homeFilter);
   upcoming.sort((a, b) => { const r = (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1); if (r) return r; return (a.date || '').localeCompare(b.date || ''); });
-  upcoming = upcoming.slice(0, 1); // enkel de eerstvolgende
+  // De twee eerstvolgende: met één wedstrijd zie je wel wat er nu aankomt, maar niet of er dit
+  // weekend nog iets volgt. Meer dan twee maakt van het startscherm een tweede wedstrijdenlijst.
+  upcoming = upcoming.slice(0, 2);
   const upcomingHtml = upcoming.length ? upcoming.map(matchItemHtml).join('') : '';
   // Eerstvolgende tornooi
   // Een afgesloten tornooi hoort hier niet meer bij, ook al ligt de datum nog in de toekomst: het
@@ -2405,8 +2407,8 @@ async function loadHome() {
     return;
   }
   // Vergeten-open-wedstrijd-melding: een live wedstrijd die niet afgesloten werd laat zijn klok op
-  // wandkloktijd doorlopen, en op het homescherm zie je door slice(0,1) hoogstens één live
-  // wedstrijd — een vergeten wedstrijd 1 van een tornooidag bleef dus volledig onzichtbaar.
+  // wandkloktijd doorlopen, en de lijst hierboven is afgekapt — een vergeten wedstrijd 1 van een
+  // tornooidag bleef dus volledig onzichtbaar.
   // looksForgotten() wacht een half uur na het voorziene einde, zodat een normale rust of een blok
   // dat wat uitloopt geen melding geeft.
   let forgotten = canManage() ? all.filter(looksForgotten) : [];
@@ -2416,7 +2418,7 @@ async function loadHome() {
         ${forgotten.map(m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''} afsluiten</button>`).join('')}
       </div>`
     : '';
-  const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd</div>${upcomingHtml}` : '';
+  const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd${upcoming.length > 1 ? 'en' : ''}</div>${upcomingHtml}` : '';
   const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
   const noneSection = (!upcoming.length && !upcomingTrn.length)
     ? `<div class="empty" style="padding:16px"><div class="ei">${icI(IC.calendar)}</div><p style="margin:0;color:var(--txt2)">Geen geplande wedstrijden of tornooien${homeFilter!=='all'?' voor deze ploeg':''}.</p></div>`

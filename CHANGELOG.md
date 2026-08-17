@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.29.1
+- **Het startscherm toont nu de twee eerstvolgende wedstrijden** in plaats van één. Met één
+  wedstrijd zag je wel wat er aankomt, maar niet of er datzelfde weekend nog iets volgde. De kop
+  heet dan *'Eerstvolgende wedstrijden'*; staat er maar één klaar, dan blijft alles zoals het was.
+  Een lopende wedstrijd komt nog altijd bovenaan.
+
 ## v0.29.0
 - **De geplande wissels bewerk je nu rechtstreeks in de planningskaart.** Naast de opstelling stond
   al een potlood; de wissels eronder waren enkel te lezen. Nu heeft elke geplande wissel en
