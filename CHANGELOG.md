@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.28.0
+- **De opstelling per kwart wijzig je nu met 'Opslaan' of 'Sluiten'.** Elke tik werd meteen bewaard,
+  ook als je enkel aan het proberen was — en onderaan stond alleen 'Sluiten', wat het omgekeerde
+  liet vermoeden. Nu blijven je wijzigingen in het scherm staan tot je op **Opslaan** drukt; met
+  **Sluiten** gooi je ze weg. Heb je iets gewijzigd en sluit je toch, dan wordt eerst gevraagd wat
+  er moet gebeuren. Ook 'Plan voor kwart N wissen' telt als een wijziging die je nog kan annuleren.
+- **De knoppen onder het velddiagram staan in de volgorde waarin je plant:** eerst *'Opstelling per
+  kwart wijzigen'*, dan *'Wissels plannen'*.
+- **Een selectie kan je nu ook helemaal wissen.** Onder *Bewerken* staat bij een geplande wedstrijd
+  **'Selectie wissen'**: dat haalt de selectie, de opstellingen per kwart en de geplande wissels
+  weg. De wedstrijd zelf (tegenstander, datum, formaat) blijft staan en komt weer op *'selectie nog
+  niet ingegeven'*, zodat je van nul kan herbeginnen zonder de wedstrijd te verwijderen en opnieuw
+  aan te maken. Enkel zolang de wedstrijd nog niet gestart is.
+
 ## v0.27.1
 - **Positiewissels op hetzelfde moment staan nu als één regel in het verloop, de PDF en de CSV.**
   Pauzepositiewissels (en positiewissels in dezelfde speelminuut) horen samen: *"A ruilt met B"*

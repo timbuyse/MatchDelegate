@@ -643,9 +643,13 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Opstelling &amp; formatie</b> — het veld per deel, met de formatie onderaan.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
         <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
+        <li><b>Selectie wissen</b> — helemaal opnieuw beginnen: de selectie, de opstellingen per
+          kwart en de geplande wissels gaan weg, de wedstrijd zelf blijft staan.</li>
       </ul>
-      <p>Onder het veld staan daarnaast <b>'Wissels plannen'</b> en <b>'Opstelling per kwart
-        wijzigen'</b>. Bij <b>'Wissels plannen'</b> kies je bovenaan het kwart en zet je daaronder de
+      <p>Onder het veld staan daarnaast <b>'Opstelling per kwart wijzigen'</b> en <b>'Wissels
+        plannen'</b>. In de opstelling blijven je wijzigingen pas bewaard als je onderaan op
+        <b>'Opslaan'</b> tikt; met <b>'Sluiten'</b> laat je ze vallen. Bij <b>'Wissels plannen'</b>
+        kies je bovenaan het kwart en zet je daaronder de
         wissels voor dát kwart klaar. Een <b>positiewissel</b> geef je in als "speler X naar positie
         9": wie daar op dat moment staat, neemt zijn plaats over — ook als dat door een eerdere
         wissel intussen iemand anders is. Tijdens de match voer je ze één voor één door, of allemaal
