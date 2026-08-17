@@ -80,15 +80,17 @@ function renderNew() {
     const trnTitles = { 1: 'Tegenstander', 2: 'Selectie', 3: 'Opstelling' };
     const pills = [1, 2, 3].map(n => `<div class="step-pill ${wiz.step===n?'on':wiz.step>n?'done':''}"></div>`).join('');
     const body = wiz.step === 1 ? renderTrnMatchStep1() : wiz.step === 2 ? wizStep2() : wizStep3();
-    const backAction = wiz.step === 1 ? `wizLeave()` : `wizBack()`;
-    return `<div class="hdr"><button class="back" onclick="${backAction}">‹</button><h1>Tornooimatch${t?' · '+esc(t.name):''} · ${trnTitles[wiz.step]}</h1></div>
+    return `<div class="hdr"><button class="back" onclick="wizBack()">‹</button><h1>Tornooimatch${t?' · '+esc(t.name):''} · ${trnTitles[wiz.step]}</h1></div>
       <div class="steps">${pills}</div>
       <div class="content">${body}</div>`;
   }
   const titles = { 1: 'Wedstrijd', 2: 'Selectie', 3: 'Opstelling' };
   const pills = [1, 2, 3].map(n => `<div class="step-pill ${wiz.step===n?'on':wiz.step>n?'done':''}"></div>`).join('');
   const body = wiz.step === 1 ? wizStep1() : wiz.step === 2 ? wizStep2() : wizStep3();
-  return `<div class="hdr"><button class="back" onclick="${wiz.step===1 ? 'wizLeave()' : 'wizBack()'}">‹</button><h1>Nieuwe wedstrijd · ${titles[wiz.step]}</h1></div>
+  // "Nieuwe wedstrijd" klopte niet wanneer je een bestaande aan het bewerken bent — en dat is net
+  // het geval waarin je je afvraagt waar dit scherm je naartoe brengt.
+  const kop = wiz.editId ? 'Wedstrijd bewerken' : 'Nieuwe wedstrijd';
+  return `<div class="hdr"><button class="back" onclick="wizBack()">‹</button><h1>${kop} · ${titles[wiz.step]}</h1></div>
     <div class="steps">${pills}</div>
     <div class="content">${body}</div>`;
 }
@@ -178,7 +180,40 @@ function buildPool() {
   const guests = wiz.pool.filter(p => p.guest && !ownIds.has(p.srcId));
   wiz.pool = own.concat(guests);
 }
-function wizBack() { if (wiz.step > 1) { wiz.step--; render(); } }
+// Eén stap terug — maar niet vóórbij de stap waarop deze wizard begon. Kom je via "Selectie" op een
+// bestaande wedstrijd binnen, dan start je op stap 2; terug hoort dan naar de wedstrijd te gaan, niet
+// naar een stap 1 (de wedstrijdgegevens) die je nooit geopend hebt en die daarna ook nog vroeg of je
+// de wedstrijd wel wou bewaren.
+function wizBack() {
+  if (!wiz) { go('home'); return; }   // scherm nog zichtbaar terwijl de wizard al afgesloten is
+  const van = wiz.vanStap || 1;
+  if (wiz.step > van) { wiz.step--; render(); return; }
+  wizVerlaat();
+}
+// Een momentopname van alles wat je in de wizard kan wijzigen. Zo weten we bij het verlaten of er
+// écht iets te verliezen valt: bij een bestaande wedstrijd is "er staat een selectie" geen bewijs
+// van een wijziging, dus zonder deze vergelijking kreeg je de vraag altijd.
+function wizSnapshot(w) {
+  if (!w) return '';
+  return JSON.stringify([
+    (w.pool || []).map(p => [p.pid, p.sel || '', p.slot === null || p.slot === undefined ? -1 : p.slot, (p.number || '').toString(), p.absentReason || '']),
+    w.captainPid || '', w.formationIndex, w.matchType || '', w.opponent || '',
+  ]);
+}
+function wizDirty() { return wiz && wiz.snap !== undefined && wizSnapshot(wiz) !== wiz.snap; }
+// Terug naar waar je vandaan kwam. Bij een bestaande wedstrijd is dat het scherm van die wedstrijd
+// (prep of live); een nieuwe wedstrijd valt terug op wizLeave, dat naar het startscherm of de
+// tornooipagina gaat en daar zijn eigen vraag stelt.
+function wizVerlaat() {
+  if (!wiz || !wiz.editId) { wizLeave(); return; }
+  const naar = wiz.vanView === 'live' ? 'live' : 'prep';
+  const id = wiz.editId;
+  if (!wizDirty()) { wiz = null; go(naar, id); return; }
+  openModal(`<h3>${icI(IC.warn)} Wijzigingen niet bewaren?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Je paste iets aan zonder op te slaan. Teruggaan laat die wijzigingen vallen; de wedstrijd zelf blijft zoals ze was.</p>
+    <button class="btn btn-red" onclick="closeModal();wiz=null;go('${naar}','${id}')">${icI(IC.trash)} Terug zonder bewaren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Blijven</button>`);
+}
 // Dient beide wedstrijdwizards: de gewone (terug naar het startscherm) en die van een tornooimatch
 // (terug naar de tornooipagina). Die laatste gooide de wizard weg zonder iets te vragen, terwijl
 // hier al een dirty-guard stond. De tegenstander wordt uit het veld zelf gelezen: op stap 1 zit hij
@@ -210,12 +245,9 @@ function wizNext() {
     // aangeduide basisspeler een plaats heeft, niet dat de formatie vol is.
     const need = fieldSizeW(), bc = basisCount();
     if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
-    if (bc === 0) { showToast('Duid minstens één basisspeler aan, of gebruik "Plannen zonder opstelling".', 'err'); return; }
-    if (bc < need) {
-      showConfirm(`Je hebt <b>${bc} van de ${need}</b> basisspelers aangeduid. Verder met ${bc}? Er blijft dan een positie leeg op het veld.`,
-        () => { wiz.step = 3; render(); }, 'Verder', 'btn-green');
-      return;
-    }
+    if (bc === 0) { showToast('Duid minstens één basisspeler aan, of gebruik "Opslaan zonder opstelling".', 'err'); return; }
+    // Minder basisspelers dan plaatsen is hier geen probleem meer: op de opstellingsstap staat de
+    // bank erbij, dus je vult daar aan. Vol krijgen we het veld sowieso, want het opslaan eist het.
     wiz.step = 3; render();
   }
 }
@@ -281,15 +313,20 @@ function wizStep2() {
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
     </div>`}
-    ${/* Bij "Selectie" op een bestaande wedstrijd stopt het hier: wie speelt duid je aan, wáár ze
-         staan regel je met het potlood in de planning. Nieuwe basisspelers krijgen bij het opslaan
-         automatisch een vrije plaats, zodat er nooit iemand zonder plek achterblijft. */ ''}
-    ${wiz.editId
-      ? `<button class="btn btn-green" onclick="saveSelectionOnly()">${icI(IC.check)} Opslaan</button>`
-      : `<div class="wiz-nav">
-      <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="wizNext()">Volgende →</button>
-    </div>`}`;
+    ${/* Twee uitwegen, en welke er past hangt af van wat er al ligt. Heeft de wedstrijd nog GEEN
+         opstelling, dan kan je de selectie hier gewoon opslaan en de opstelling later maken — dat
+         is de normale gang van zaken wanneer je de ploeg 's avonds al kent maar nog niet weet wie
+         waar begint. Ligt er wél al een opstelling, dan blijft "Selectie opslaan" doen wat het
+         altijd deed: bestaande plaatsen blijven staan en nieuwe basisspelers krijgen er
+         automatisch een, zodat er nooit iemand zonder plek achterblijft. */ ''}
+    ${(() => {
+      const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
+      const opslaan = `<button class="btn btn-pale" style="margin-top:8px" onclick="saveSelectionOnly()">${icI(IC.check)} ${alOpstelling ? 'Selectie opslaan' : 'Opslaan zonder opstelling'}</button>`;
+      const verder = `<button class="btn btn-green" onclick="wizNext()">${icI(IC.shirt)} ${wiz.editId ? 'Opstelling ingeven →' : 'Volgende → Opstelling'}</button>`;
+      return wiz.editId
+        ? `${verder}${opslaan}`
+        : `<div class="wiz-nav"><button class="btn btn-gray" onclick="wizBack()">← Vorige</button>${verder}</div>${opslaan}`;
+    })()}`;
 }
 // Enkel de nog lege plaatsen invullen, bij voorkeur in de eigen lijn. Bewust NIET autoPlace(): die
 // wist alle slots en herschikt het hele veld, waardoor je opstelling verdween zodra je één speler
@@ -308,18 +345,28 @@ function placeUnplaced() {
   });
 }
 // "Opslaan" op de selectiestap: dezelfde controles als wizNext, maar zonder de omweg langs de
-// opstelling — die regel je met het potlood in de planning.
+// opstelling. Lag er al een opstelling, dan vullen we enkel de lege plaatsen aan (placeUnplaced) en
+// blijft de rest staan. Lag er nog geen, dan slaan we bewust ZONDER opstelling op: de basisspelers
+// krijgen geen plaats en de wedstrijd draagt `lineupPending` tot je de opstelling maakt.
 function saveSelectionOnly() {
   const need = fieldSizeW(), bc = basisCount();
   if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
   if (bc === 0) { showToast('Duid minstens één basisspeler aan.', 'err'); return; }
-  const bewaar = () => { placeUnplaced(); finishWizard(false); };
-  if (bc < need) {
-    showConfirm(`Je hebt <b>${bc} van de ${need}</b> basisspelers aangeduid. Opslaan met ${bc}? Er blijft dan een positie leeg op het veld.`,
-      bewaar, 'Opslaan', 'btn-green');
+  const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
+  if (!alOpstelling) { finishWizard(false, true); return; }
+  // Nieuwe basisspelers krijgen hier hun plaats; blijft het veld daarna half leeg, dan is dat niet
+  // in dit scherm op te lossen (je ziet er geen veld). Dan sturen we door naar de opstelling in
+  // plaats van te weigeren met een melding die nergens naartoe leidt.
+  placeUnplaced();
+  const plaatsen = (FORMATIONS[wiz.matchType][wiz.formationIndex] || {}).slots.length;
+  const nodig = Math.min(plaatsen, wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length);
+  const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
+  if (geplaatst < nodig) {
+    showConfirm(`Er ${geplaatst === 1 ? 'staat' : 'staan'} maar <b>${geplaatst} van de ${nodig}</b> spelers op het veld. Vul de opstelling aan — daar haal je er spelers bij van de bank.`,
+      () => { wiz.step = 3; render(); }, 'Naar de opstelling', 'btn-green');
     return;
   }
-  bewaar();
+  finishWizard(false);
 }
 // ----- Gastspelers -----
 // Deze picker dient twee wizards: de wedstrijdwizard (wiz — een gast belandt op de bank) en de
@@ -433,11 +480,19 @@ function placeSlot(i) {
         // Zelfde positie opnieuw aangetikt → speler van het veld halen
         sp.slot = null;
       } else {
-        // Bezette positie: wissel van plek als de geselecteerde speler op het veld stond,
-        // anders gaat de verdrongen speler terug naar "Nog te plaatsen".
+        // Bezette positie. Twee gevallen:
+        //  - de geselecteerde speler stond al op het veld → de twee ruilen van plek;
+        //  - hij kwam van de bank → dan RUILEN ze van rol: hij gaat het veld op, de speler die daar
+        //    stond gaat naar de bank. Zo blijft het veld altijd even vol en hoeft er niemand als
+        //    basisspeler zonder plaats achter te blijven.
+        const vanBank = sp.sel === 'bank';
         const prevSlot = sp.slot;
-        if (occupied) occupied.slot = (prevSlot != null) ? prevSlot : null;
+        if (occupied) {
+          if (vanBank) { occupied.sel = 'bank'; occupied.slot = null; }
+          else occupied.slot = (prevSlot != null) ? prevSlot : null;
+        }
         sp.slot = i;
+        if (vanBank) sp.sel = 'basis';
       }
       wiz.selPlace = null;
     }
@@ -523,14 +578,36 @@ function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];
   const form = forms[wiz.formationIndex] || forms[0];
   const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
+  const bank = sortedByName(wiz.pool.filter(p => p.sel === 'bank'));
+  // Hoeveel spelers er op het veld horen, en hoeveel er staan. Het opslaan eist dat dit gelijk is
+  // (zie finishWizard), dus dat hoor je hier te zien en niet pas bij een foutmelding.
+  const plaatsen = (form || {}).slots ? form.slots.length : 0;
+  const nodig = Math.min(plaatsen, wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length);
+  const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
+  const compleet = geplaatst >= nodig;
   return `
+    <div class="card" style="text-align:center;padding:10px">
+      <div style="font-size:22px;font-weight:900;color:${compleet ? 'var(--grn)' : 'var(--org)'}">${geplaatst}/${nodig}</div>
+      <div style="font-size:11px;color:var(--txt2)">OP HET VELD${nodig < plaatsen ? ` · ${plaatsen} plaatsen, maar ${nodig} spelers beschikbaar` : ''}</div>
+    </div>
     <div class="fg"><label>Formatie</label>
       <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
     <div class="card">${wizPitch(form)}
       <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
     <div class="sec">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${unplaced.length ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('') : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
+    <div class="place-chips">${unplaced.length
+      ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
+      : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
+    ${/* De bank hoort hier ook te staan: zag je pas nu dat je iemand per ongeluk op 'Wissel' zette,
+         dan zet je hem hier alsnog op het veld zonder terug te moeten naar de selectie. Een
+         bankspeler op een bezette plek RUILT met wie daar staat — die gaat naar de bank — zodat het
+         veld altijd even vol blijft. */ ''}
+    <div class="sec">Op de bank (${bank.length})</div>
+    <div class="place-chips">${bank.length
+      ? bank.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    <p style="color:var(--txt2);font-size:12px;margin-top:6px">Tik een <b>bankspeler</b> aan en dan een <b>speler op het veld</b>: ze ruilen van plaats. Zo zet je iemand die per ongeluk op <b>Wissel</b> stond alsnog in de basis.</p>
     <div class="wiz-nav" style="margin-top:14px">
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
       <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
@@ -540,22 +617,31 @@ function wizStep3() {
          maakt ook plaats voor de opstelling van de volgende delen — die je hier net wél nog wil
          ingeven. Bij het herbewerken van een LOPENDE wedstrijd houdt finishWizard(false) de status
          gewoon op 'live'; opslaan zet ze dus nooit terug naar gepland. */ ''}
-    <div class="wiz-nav">
-      <button class="btn btn-gray" onclick="wizBack()">← Vorige</button>
-      <button class="btn btn-green" onclick="finishWizard(false)">${icI(IC.calendar)} ${wiz.editId ? (wiz.editStatus === 'live' ? 'Opslaan' : 'Opslaan (gepland)') : 'Plannen'}</button>
-    </div>
     ${/* Ook bij herbewerken: je komt hier net van de startopstelling, dus dit is dé plek om door te
-         gaan naar de volgende delen. Niet bij een wedstrijd die al loopt — daar regel je de
-         volgende delen in de pauze. */ ''}
-    ${(wiz.editStatus !== 'live' && (wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count) > 1)
-      ? `<button class="btn btn-orgpale" onclick="finishWizardThenPlan()" style="margin-top:8px">${icI(IC.shirt)} Opstelling volgende ${(PERIOD_TYPES[wiz.periodKey] || {}).plural || 'delen'}</button>` : ''}`;
+         gaan — eerst naar de wissels tijdens dit deel, dan naar de volgende delen. Niet bij een
+         wedstrijd die al loopt: daar regel je de volgende delen in de pauze. */ ''}
+    ${(() => {
+      const delen = wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count;
+      const opslaan = `<button class="btn ${wiz.editStatus === 'live' ? 'btn-green' : 'btn-pale'}" onclick="finishWizard(false)">${icI(IC.calendar)} ${wiz.editId ? (wiz.editStatus === 'live' ? 'Opslaan' : 'Opslaan (gepland)') : 'Plannen'}</button>`;
+      if (wiz.editStatus === 'live') {
+        return `<div class="wiz-nav"><button class="btn btn-gray" onclick="wizBack()">← Vorige (selectie aanpassen)</button>${opslaan}</div>`;
+      }
+      return `<div class="wiz-nav"><button class="btn btn-gray" onclick="wizBack()">← Vorige (selectie aanpassen)</button>
+      <button class="btn btn-green" onclick="finishWizardThenPlan()">${icI(IC.shirt)} ${delen > 1 ? `Verder → wissels en volgende ${pPlural(wiz)}` : 'Verder → wissels plannen'}</button></div>
+    <div style="margin-top:8px">${opslaan}</div>
+    ${/* Zeggen wat opslaan hier betekent: de volgende delen erven deze opstelling (zie
+         plannedLineupBase), dus je hoeft ze enkel in te geven waar er iets verandert. Zonder dat
+         zinnetje leek doorgaan verplicht werk. */ ''}
+    ${delen > 1 ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:8px">Sla je nu op, dan beginnen alle ${pPlural(wiz)} met deze opstelling. Je kan ze later nog per ${pSingLow(wiz)} aanpassen.</p>` : ''}`;
+    })()}`;
 }
-// "Opstelling volgende delen": eerst de wedstrijd inplannen (de planner werkt op een bewaarde
-// wedstrijd, niet op de wizard-pool), dan meteen de planner openen op deel 2. Sluiten doe je daar
-// met "Klaar" — de wedstrijd staat op dat moment al ingepland, ook als je niets meer invult.
+// "Verder": eerst de wedstrijd inplannen (de planner werkt op een bewaarde wedstrijd, niet op de
+// wizard-pool), dan de reeks openen op deel 1. Daar staan de wissels tijdens dat deel, en van daaruit
+// wandel je deel per deel verder. Stoppen kan overal — de wedstrijd staat op dat moment al
+// ingepland, ook als je niets meer invult, en de resterende delen erven de laatste opstelling.
 async function finishWizardThenPlan() {
   await finishWizard(false);
-  if (match && plannedPartsCount(match) > 1) openPlannedLineups(2, true);
+  if (match) openPlannedLineupsSeq(1);
 }
 function ensurePosNums(m) {
   if (!m || !m.matchType) return false;
@@ -776,10 +862,27 @@ function computePosNum(matchType, slotIdx, slots) {
 // confirmStartNow() is weg sinds v0.20.0: de wizard eindigt altijd op een INGEPLANDE wedstrijd.
 // Starten gebeurt daarna bewust vanuit het wedstrijdscherm (startPlanned), waar dezelfde
 // waarschuwing staat. finishWizard houdt de startNow-parameter voor dat pad.
-async function finishWizard(startNow) {
+// `zonderOpstelling`: de selectie wordt bewaard, maar niemand krijgt een plaats op het veld. De
+// basisspelers blijven `starting` (zo staan ze later in "Nog te plaatsen" van de opstellingsstap),
+// enkel x/y en het positienummer ontbreken. Zie heeftOpstelling() in core.js.
+async function finishWizard(startNow, zonderOpstelling) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
-  const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
-  if (unplaced.length) { showToast(`Plaats nog ${unplaced.length} speler(s) op het veld.`, 'err'); return; }
+  if (!zonderOpstelling) {
+    // Het veld moet vol. Enige uitzondering: er zijn gewoon niet genoeg spelers geselecteerd om
+    // alle plaatsen te vullen — met zeven beschikbare spelers voor 8v8 speel je met zeven, en dat
+    // moet mogelijk blijven (zie ook wizNext). Vandaar de ondergrens op het kleinste van de twee.
+    const plaatsen = form.slots.length;
+    const beschikbaar = wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length;
+    const nodig = Math.min(plaatsen, beschikbaar);
+    const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
+    if (geplaatst < nodig) {
+      showToast(`Zet ${nodig} spelers op het veld — er ${geplaatst === 1 ? 'staat er' : 'staan er'} nu ${geplaatst}.`, 'err');
+      return;
+    }
+    // Wie na het vullen van het veld overblijft, hoort bij de bank. Zonder dit bleef iemand als
+    // basisspeler zonder plaats achter, en die zou nergens meer opduiken.
+    wiz.pool.forEach(p => { if (p.sel === 'basis' && p.slot == null) p.sel = 'bank'; });
+  }
   const team = teamById(wiz.teamId);
   const existing = wiz.editId ? await dbGet(wiz.editId) : null;
   // Nú vastleggen: verderop wordt `existing` met Object.assign overschreven met de nieuwe waarden,
@@ -807,7 +910,12 @@ async function finishWizard(startNow) {
   // fromName enkel bij een gast: dan blijft "Gast · KVE Aalter" ook na herbewerken of klonen staan
   // i.p.v. terug te vallen op het algemene "andere ploeg".
   const gastVeld = p => p.guest ? { guest: true, fromName: p.fromName || '' } : { guest: false };
-  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => { const s = form.slots[p.slot]; return Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s.line, posNum: computePosNum(wiz.matchType, p.slot, form.slots), starting: true, onField: true, x: s.x, y: s.y }, gastVeld(p)); });
+  const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => {
+    // Zonder opstelling is er geen slot: dan valt de speler terug op de lijn van zijn
+    // voorkeurspositie, precies zoals een bankspeler, en blijven x/y/posNum leeg.
+    const s = zonderOpstelling ? null : form.slots[p.slot];
+    return Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s ? s.line : (posLine(p.pos) || 'Middenveld'), posNum: s ? computePosNum(wiz.matchType, p.slot, form.slots) : '', starting: true, onField: true }, s ? { x: s.x, y: s.y } : {}, gastVeld(p));
+  });
   const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: posLine(p.pos) || 'Middenveld', posNum: '', starting: false, onField: false }, gastVeld(p)));
   const allP = starters.concat(bench);
   let capId = null;
@@ -834,6 +942,9 @@ async function finishWizard(startNow) {
     m.status = startNow ? 'live' : 'planned';
   }
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
+  // Het vlaggetje enkel zetten zolang er geen opstelling is; zodra je de opstelling ingeeft (of ze
+  // er al lag) hoort het weg, anders blijft het prep-scherm de planning verbergen.
+  if (zonderOpstelling) m.lineupPending = true; else delete m.lineupPending;
   // Formatie gewijzigd? Dan vervallen de opstellingen voor de volgende delen: die staan op de
   // plaatsen van de oude formatie en zouden bij "Geplande opstelling gebruiken" positiewissels
   // opleveren die niemand bedoeld heeft. setFormation vroeg dit al; hier gebeurt het pas echt,
@@ -930,6 +1041,12 @@ function editMatchWizard(m) {
   wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
   const form = FORMATIONS[m.matchType][fi];
   wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
+  // Onthouden waar we vandaan komen en op welke stap we begonnen: het terugpijltje hoort daar weer
+  // uit te komen (zie wizBack/wizVerlaat). startSelectieWizard en startOpstellingWizard zetten
+  // vanStap hierna op hun eigen beginstap.
+  wiz.vanView = (view === 'live' || view === 'prep') ? view : 'prep';
+  wiz.vanStap = 1;
+  wiz.snap = wizSnapshot(wiz);
   go('new');
 }
 
@@ -943,7 +1060,7 @@ function startSelectieWizard() {
   if (!match) return;
   editMatchWizard(match);
   if (!wiz) return;
-  wiz.step = 2;
+  wiz.step = 2; wiz.vanStap = 2;
   render();
 }
 // De FORMATIE (3-3-1, 2-3-2 …) kiezen kan enkel op stap 3 van de wizard: daar hangen de vaste
@@ -953,7 +1070,9 @@ function startOpstellingWizard() {
   if (!match) return;
   editMatchWizard(match);
   if (!wiz) return;
-  wiz.step = 3;
+  // vanStap blijft 2: vanaf de opstelling is "← Vorige (selectie aanpassen)" een zinvolle stap
+  // terug, en pas dáár brengt het pijltje je weer naar de wedstrijd.
+  wiz.step = 3; wiz.vanStap = 2;
   render();
 }
 
@@ -1018,29 +1137,42 @@ function renderPrep() {
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${(!m.players || !m.players.length) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>` : ''}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
+    ${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${!heeftSelectie(m)
+      ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>`
+      : (!heeftOpstelling(m) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Opstelling nog niet ingegeven — zet de spelers op het veld voor je de wedstrijd start.</div>` : '')}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
     ${/* Eén ingang voor alles wat je aan een geplande wedstrijd kan wijzigen (zie
          modalEditMatchMenu). Zonder dat menu stonden er een half dozijn knoppen naast elkaar in dit
-         scherm, elk voor een stukje van dezelfde wedstrijd. Enkel bij een wedstrijd zonder selectie
-         staat er een tweede knop naast: dát is dan de volgende stap, niet iets om op te zoeken. */ ''}
-    ${(m.players && m.players.length)
+         scherm, elk voor een stukje van dezelfde wedstrijd. Er staat enkel een tweede knop naast
+         wanneer er nog een duidelijke volgende stap is — de selectie, of de opstelling — want dát
+         is dan wat je komt doen, niet iets om op te zoeken. */ ''}
+    ${heeftOpstelling(m)
       ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`
       : `<div class="wiz-nav" style="margin-top:8px">
       <button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
-      <button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>
+      ${heeftSelectie(m)
+        ? `<button class="btn btn-orgpale" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>`
+        : `<button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>`}
     </div>`}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
-    ${(m.players && m.players.length) ? `<div class="sec">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
+    ${/* Zonder opstelling valt het hele planningsblok weg: een velddiagram zou hier spelers tonen
+         die je nooit geplaatst hebt (renderPitch spreidt wie geen x/y heeft over zijn lijn), en dat
+         leest als een opstelling die er niet is. In de plaats staat hierboven "Opstelling
+         aanmaken"; zodra die er is, verschijnt alles — planning, wissels en de PDF. */ ''}
+    ${heeftOpstelling(m) ? `<div class="sec">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
     ${prepPlanningHtml(m, ro)}
     ${plannedLineupWarnHtml(m)}
-    ${/* Twee knoppen onder het veld, in de volgorde waarin je plant: eerst de opstelling waarmee
-         elk deel begint, dan de losse wissels die je tijdens een deel wil doen. Het potlood in de
-         kaart hierboven doet hetzelfde als die eerste knop, maar is makkelijk over het hoofd te
-         zien; deze knop noemt met zoveel woorden wat er te doen valt. */ ''}
-    ${ro ? '' : `${plannedPartsCount(m) > 1 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling per ${pSingLow(m)} wijzigen</button>` : ''}
-    <button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Wissels plannen${plannedCount(m) ? ` (${plannedCount(m)})` : ''}</button>
+    ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en worden in
+         dezelfde reeks ingegeven (zie openPlannedLineupsSeq). Hier stonden er twee — 'Opstelling
+         per kwart' en 'Wissels plannen' — die elk de helft deden en naar een eigen scherm leidden.
+         Het potlood in de kaart hierboven blijft voor wie gericht één deel wil bijstellen. */ ''}
+    ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineupsSeq(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
+    ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
+         Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
+         kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}
+    ${(() => { const los = ((m.plannedSubs || []).filter(s => !s.quarterNum).length + (m.plannedPosSwaps || []).filter(s => !s.quarterNum).length);
+      return los ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs(0)">${icI(IC.clipboard)} Wissels zonder vast ${pSingLow(m)} (${los})</button>` : ''; })()}
     <button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}` : ''}
     ${ro ? '' : `${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
@@ -1050,7 +1182,8 @@ function renderPrep() {
 // wedstrijd opbouwt: eerst de gegevens, dan wie meespeelt, dan waar ze staan, dan de details.
 function modalEditMatchMenu() {
   const m = match; if (!m || !canManage()) return;
-  const heeftSelectie = !!(m.players && m.players.length);
+  const heeftSel = heeftSelectie(m);
+  const heeftOpst = heeftOpstelling(m);
   const item = (ico, titel, uitleg, actie, uit) => `
     <button class="btn ${uit ? 'btn-gray' : 'btn-pale'}" style="margin-top:8px;text-align:left;display:block;width:100%${uit ? ';opacity:.5' : ''}"
       ${uit ? 'disabled' : `onclick="closeModal();${actie}"`}>
@@ -1061,18 +1194,22 @@ function modalEditMatchMenu() {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
     ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
-    ${item(IC.shirt, 'Opstelling &amp; formatie', heeftSelectie
-      ? `De startopstelling en de opstelling per ${pSingLow(m)} — met de formatie eronder.`
-      : 'Geef eerst de selectie in.', 'openPlannedLineups(1)', !heeftSelectie)}
-    ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSelectie
+    ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
+         planner: die laatste toont een veld en veronderstelt dus dat er al iemand op staat. */ ''}
+    ${item(IC.shirt, heeftOpst ? 'Opstelling &amp; wissels' : 'Opstelling aanmaken', !heeftSel
+      ? 'Geef eerst de selectie in.'
+      : (heeftOpst ? `Het hele plan, ${pSingLow(m)} per ${pSingLow(m)}: wie er begint en wat er tijdens dat ${pSingLow(m)} verandert.`
+        : 'Zet de spelers op het veld — dat moet nog gebeuren.'),
+      heeftOpst ? 'openPlannedLineupsSeq(1)' : 'startOpstellingWizard()', !heeftSel)}
+    ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSel
       ? 'Enkel voor deze wedstrijd: rugnummers, kapitein en een notitie per speler.'
-      : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSelectie)}
+      : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
     ${item(IC.timer, 'Snel resultaat invoeren', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
-    ${(heeftSelectie && (m.status || 'planned') === 'planned')
+    ${(heeftSel && (m.status || 'planned') === 'planned')
       ? item(IC.trash, 'Selectie wissen', `De volledige selectie, de opstelling per ${pSingLow(m)} en de geplande wissels wissen.`, 'confirmClearSelectie()')
       : ''}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
@@ -1098,6 +1235,7 @@ async function clearSelectie() {
   const m = match; if (!m || !canManage() || (m.status || 'planned') !== 'planned') return;
   m.players = [];
   m.absentPlayers = [];
+  delete m.lineupPending;   // zonder selectie zegt "opstelling nog te maken" niets meer
   delete m.plannedLineups;
   delete m.plannedSubs;
   delete m.plannedPosSwaps;
@@ -1185,7 +1323,9 @@ function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {
 // een bij te zetten voor dít deel — dezelfde ingangen als in het scherm 'Wissels plannen', maar
 // meteen bij het kwart waar je naar kijkt. Tijdens de wedstrijd blijft dit blok alleen-lezen (zie
 // planningTijdensMatchHtml): daar is de planning iets om na te kijken, niet om te herwerken.
-function plannedSubsVoorDeelHtml(m, q, bewerkbaar) {
+// `bron` bepaalt waar je na het aanpassen weer belandt: 'prep' (de planningskaart in het
+// wedstrijdscherm) of 'planner' (de opstellingsplanner, tijdens het doorlopen van de reeks).
+function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
   const regels = [
     ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
       .map(s => ({ id: s.id, soort: 'sub', tekst: `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}` })),
@@ -1194,17 +1334,18 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar) {
   ];
   if (!regels.length && !bewerkbaar) return '';
   const dit = pSingLow(m) === 'helft' ? 'deze' : 'dit';
+  const b = bron === 'planner' ? 'planner' : 'prep';
   const knoppen = r => bewerkbaar
-    ? `<button class="evt-edit" onclick="planSubBewerk('${r.id}','${r.soort}')" title="Aanpassen">${icI(IC.edit)}</button>
-       <button class="evt-del" onclick="planSubWis('${r.id}','${r.soort}')" title="Verwijderen">×</button>`
+    ? `<button class="evt-edit" onclick="planSubBewerk('${r.id}','${r.soort}','${b}')" title="Aanpassen">${icI(IC.edit)}</button>
+       <button class="evt-del" onclick="planSubWis('${r.id}','${r.soort}','${b}')" title="Verwijderen">×</button>`
     : '';
   return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${dit} ${pSingLow(m)}</div>
     ${regels.length
       ? regels.map(r => `<div class="prow" style="padding:6px 0;align-items:center"><div style="flex:1;font-size:14px">${r.tekst}</div>${knoppen(r)}</div>`).join('')
       : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${dit} ${pSingLow(m)}.</p>`}
     ${bewerkbaar ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'sub')">${icI(IC.swap)} + Wissel</button>
-      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'swap')">${icI(IC.compass)} + Positiewissel</button>
+      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
+      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'swap','${b}')">${icI(IC.compass)} + Positiewissel</button>
     </div>` : ''}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
@@ -1321,11 +1462,74 @@ function planLineupBaseNu(m, q) {
     .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
 }
 function planLineupDirty() { return !!(_planLineupDraft && Object.keys(_planLineupDraft).length); }
+// Sequentiële modus: je loopt de delen één voor één af, van de startopstelling tot het laatste deel,
+// telkens met de wissels van dát deel eronder. Zo bouw je het wedstrijdplan in de volgorde waarin
+// het gespeeld wordt. Buiten die modus is de planner wat hij was: één deel dat je gericht bewerkt.
+let _planLineupSeq = false;
 // De planner openen: altijd met een verse werkkopie. Elk pad naar de planner (knop, potlood, het
 // menu, en de wizard) loopt hierlangs; modalPlannedLineups zelf hertekent enkel wat al openstaat.
 function openPlannedLineups(q, klaarKnop) {
   _planLineupDraft = {};
+  _planLineupSeq = false;
   modalPlannedLineups(q, klaarKnop);
+}
+// Idem, maar dan de reeks doorlopen. Wordt gebruikt na de startopstelling in de wizard.
+function openPlannedLineupsSeq(q) {
+  _planLineupDraft = {};
+  _planLineupSeq = true;
+  _planLineupDone = false;
+  modalPlannedLineups(q || 1);
+}
+// Naar het volgende deel in de reeks. De opstelling van dit deel wordt eerst bewaard: de wissels die
+// je hieronder plant schrijven meteen weg, dus een nog openstaande werkkopie zou anders achterlopen.
+async function planSeqVolgende() {
+  const totaal = plannedPartsCount(match);
+  const volgend = Math.min(_planLineupQ + 1, totaal);
+  await _schrijfPlanDraft();
+  _planLineupDraft = {};
+  modalPlannedLineups(volgend);
+}
+// Stoppen vóór het laatste deel: zeggen wat er dan met de rest gebeurt. De delen die je niet
+// ingevuld hebt, erven de laatste opstelling (zie plannedLineupBase) — dat is precies wat je wil,
+// maar het is niet te zien, dus hier staat het met zoveel woorden.
+async function planSeqStop() {
+  const m = match;
+  const totaal = plannedPartsCount(m);
+  const deel = _planLineupQ;
+  await _schrijfPlanDraft();
+  _planLineupDraft = {};
+  const klaar = () => { _planLineupSeq = false; closeModal(); render(); showToast('Wedstrijdplan opgeslagen.'); };
+  if (deel >= totaal) { klaar(); return; }
+  // Enkel de delen die nog GEEN eigen opstelling hebben, erven er een. Bij een wedstrijd waar je
+  // later kwart al ingevuld is (je bewerkt een bestaand plan) zou "de rest volgt deze opstelling"
+  // gewoon niet waar zijn.
+  const eigen = m.plannedLineups || {};
+  const erft = [];
+  for (let k = deel + 1; k <= totaal; k++) if (!((eigen[k] || []).length)) erft.push(k);
+  if (!erft.length) { klaar(); return; }
+  const lijst = erft.length === 1 ? `${pSing(m)} ${erft[0]}`
+    : `${pSing(m)} ${erft.slice(0, -1).join(', ')} en ${erft[erft.length - 1]}`;
+  openModal(`<h3>${icI(IC.check)} Opgeslagen tot ${pSingLow(m)} ${deel}</h3>
+    ${/* Bewust "het ${deel} ervoor" en niet "die van ${deel} X": erft een deel van een later plan
+         dat je wél al ingaf, dan klopt dat laatste niet (zie plannedLineupBase, die terugzoekt naar
+         het dichtstbijzijnde voorgaande plan). */ ''}
+    <p style="text-align:center;color:var(--txt2);margin-bottom:14px">${lijst} ${erft.length === 1 ? 'heeft' : 'hebben'} geen eigen opstelling en ${erft.length === 1 ? 'begint' : 'beginnen'}
+      dus met die van ${pSingLow(m) === 'helft' ? 'de' : 'het'} ${pSingLow(m)} ervoor. Je kan dat later nog aanpassen in het wedstrijdscherm, bij <b>Planning</b>.</p>
+    <button class="btn btn-green" onclick="planSeqKlaar()">${icI(IC.check)} Prima</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="planSeqVerder(${erft[0]})">${icI(IC.shirt)} Toch verder met ${pSingLow(m)} ${erft[0]}</button>`);
+}
+// De reeks afsluiten. Ook hier de vlag uitzetten: bleef ze op true staan, dan gedroeg een volgende
+// planner zich als een reeks zodra hij langs een pad kwam dat de vlag niet zelf zet.
+function planSeqKlaar() {
+  _planLineupSeq = false;
+  _planLineupDraft = null;
+  closeModal(); render();
+}
+function planSeqVerder(deel) {
+  closeModal();
+  _planLineupDraft = {};
+  _planLineupSeq = true;
+  modalPlannedLineups(deel);
 }
 // Deel 1 is de startopstelling zelf en woont dus in m.players, niet in plannedLineups. Bewerken mag
 // enkel zolang de wedstrijd gepland is: eens ze loopt zijn er speelminuten en events die van die
@@ -1367,7 +1571,10 @@ function modalPlannedLineups(q, klaarKnop) {
     : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
       ? ` Dit is de <b>startopstelling</b>.`
       : (eigen ? '' : ` Dit ${pSingLow(m)} volgt nu nog de opstelling van het vorige.`)}`;
-  openModal(`<h3>${icI(IC.shirt)} Opstelling per ${pSingLow(m)}</h3>
+  const titel = _planLineupSeq && totaal > 1
+    ? `${pSing(m)} ${deel} van ${totaal}`
+    : `Opstelling per ${pSingLow(m)}`;
+  openModal(`<h3>${icI(IC.shirt)} ${titel}</h3>
     ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>` : ''}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
     ${plannedLineupWarnHtml(m, deel)}
@@ -1379,12 +1586,22 @@ function modalPlannedLineups(q, klaarKnop) {
     ${(!ro && deel === 1 && (FORMATIONS[m.matchType] || []).length > 1)
       ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Formatie: <b>${esc(m.formation || '')}</b> · <a onclick="planLineupNaarFormatie()" style="color:var(--grn);font-weight:700;cursor:pointer">wijzigen</a></p>` : ''}
     ${(!ro && eigen) ? `<button class="btn btn-pale btn-sm" style="margin-top:12px" onclick="clearPlannedLineup(${deel})">${icI(IC.undo)} Plan voor ${pSingLow(m)} ${deel} wissen</button>` : ''}
+    ${/* Het veld hierboven toont hoe dit deel BEGINT; hieronder staat wat er tijdens dat deel nog
+         verandert. Die twee horen bij elkaar, dus in de reeks plan je ze op dezelfde plek. Buiten
+         de reeks blijft de planner over de opstelling alleen gaan — daar zijn de knoppen onder het
+         veld in het wedstrijdscherm voor. */ ''}
+    ${(_planLineupSeq && !ro) ? plannedSubsVoorDeelHtml(m, deel, true, 'planner') : ''}
     ${/* Wijzigingen blijven in de werkkopie tot je hier op Opslaan drukt; Sluiten gooit ze weg.
          Sluiten hertekent ook het scherm eronder: de planningskaart volgt het deel dat hier
          openstond (_prepPlanQ) en bleef anders op het deel staan waar je vandaan kwam. */ ''}
     ${ro ? `<button class="btn btn-gray" style="margin-top:12px" onclick="closePlannedLineups()">Sluiten</button>`
-      : `<button class="btn btn-green" style="margin-top:12px" onclick="savePlannedLineups()">${icI(IC.check)} ${_planLineupDone ? 'Opslaan en klaar' : 'Opslaan'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">Sluiten</button>`}`);
+      : (_planLineupSeq
+        ? `${deel < totaal
+            ? `<button class="btn btn-green" style="margin-top:12px" onclick="planSeqVolgende()">${pSing(m)} ${deel + 1} →</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="planSeqStop()">${icI(IC.check)} Klaar — rest volgt deze opstelling</button>`
+            : `<button class="btn btn-green" style="margin-top:12px" onclick="planSeqStop()">${icI(IC.check)} Klaar</button>`}`
+        : `<button class="btn btn-green" style="margin-top:12px" onclick="savePlannedLineups()">${icI(IC.check)} ${_planLineupDone ? 'Opslaan en klaar' : 'Opslaan'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">Sluiten</button>`)}`);
 }
 // Eén gewijzigd deel in de werkkopie zetten. Er wordt hier bewust niets opgeslagen: dat gebeurt pas
 // in savePlannedLineups, zodat Sluiten de wijzigingen kan laten vallen.
@@ -1393,15 +1610,17 @@ function _savePlannedLineup(deel, lijst) {
   _planLineupDraft[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
   modalPlannedLineups();
 }
-// De werkkopie wegschrijven. Deel 1 schrijft naar de startopstelling zelf (m.players), elk volgend
-// deel naar plannedLineups. De vorm van een basisspeler en van een bankspeler blijft exact zoals
-// finishWizard ze aanmaakt, anders leest de rest van de app (renderPitch, PDF, statistieken) er
-// andere velden dan verwacht.
-async function savePlannedLineups() {
+// De werkkopie wegschrijven, zonder de modal te sluiten. Deel 1 schrijft naar de startopstelling
+// zelf (m.players), elk volgend deel naar plannedLineups. De vorm van een basisspeler en van een
+// bankspeler blijft exact zoals finishWizard ze aanmaakt, anders leest de rest van de app
+// (renderPitch, PDF, statistieken) er andere velden dan verwacht. Losgekoppeld van het sluiten omdat
+// de sequentiële modus tussentijds opslaat: bij elk volgend deel, en vóór het openen van een
+// wisselscherm dat zelf naar de databank schrijft.
+async function _schrijfPlanDraft() {
   const m = match;
   const draft = _planLineupDraft || {};
   const delen = Object.keys(draft).map(k => parseInt(k, 10)).filter(k => k > 0).sort((a, b) => a - b);
-  if (!delen.length) { closePlannedLineups(); return; }
+  if (!delen.length) return false;
   for (const deel of delen) {
     const lijst = draft[deel];
     if (deel === 1) {
@@ -1426,6 +1645,13 @@ async function savePlannedLineups() {
   }
   _planLineupDraft = null; _planLineupSel = null;
   await dbSave(m);
+  return true;
+}
+// De werkkopie wegschrijven én de planner sluiten — de gewone "Opslaan"-knop.
+async function savePlannedLineups() {
+  const iets = await _schrijfPlanDraft();
+  if (!iets) { closePlannedLineups(); return; }
+  _planLineupSeq = false;
   closeModal(); render();
   showToast('Opstelling opgeslagen.');
 }
@@ -1492,8 +1718,14 @@ function saveTournamentWizStep1Only() {
   saveTournamentWiz();
 }
 async function startPlanned() {
-  if (!match.players || !match.players.length) {
+  if (!heeftSelectie(match)) {
     showToast('Vul eerst de selectie en opstelling in voor je de wedstrijd start.', 'err');
+    return;
+  }
+  // Wel een selectie, nog geen opstelling: starten zou een veld opleveren waarop niemand een plaats
+  // heeft, en elke wissel of positiewissel vertrekt van die plaatsen.
+  if (!heeftOpstelling(match)) {
+    showToast('Maak eerst de opstelling voor je de wedstrijd start.', 'err');
     return;
   }
   // Een vergeten wedstrijd laat zijn klok op wandkloktijd doorlopen (getGameTimeMs stopt enkel bij

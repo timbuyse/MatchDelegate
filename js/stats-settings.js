@@ -625,11 +625,32 @@ const HANDLEIDING_PAGINAS = [
           voetbalde immers, alleen bij een andere ploeg.</li>
       </ul>
       <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>
+      <p>Onderaan kies je zelf hoe ver je gaat: <b>'Opslaan zonder opstelling'</b> bewaart enkel wie
+        er meespeelt — handig als je de ploeg al kent maar nog niet wie waar begint. De wedstrijd
+        staat dan ingepland en toont een knop <b>'Opstelling aanmaken'</b> voor later. Wil je meteen
+        verder, tik dan op <b>'Volgende → Opstelling'</b>.</p>
+      <p class="hdl-tip">Zolang er geen opstelling is, blijft het blok <b>Planning</b> weg en kan je
+        de wedstrijd niet starten — er is dan immers nog niemand op het veld gezet.</p>
       <div class="sec">Stap 3 — Opstelling</div>
-      <p>Kies bovenaan een <b>formatie</b>. Tik een speler aan, dan een positie op het veld. Gebruik <b>'Auto-plaats'</b> om automatisch in te vullen.</p>
-      <p>Tik op <b>'Plannen'</b> om de wedstrijd op te slaan, of op <b>'Opstelling volgende delen'</b> om
-        meteen door te gaan naar de opstelling van de volgende kwarten of helften. De wedstrijd is dan
-        al ingepland; <b>starten</b> doe je later in het wedstrijdscherm.</p>
+      <p>Kies bovenaan een <b>formatie</b>. Tik een speler aan, dan een positie op het veld. Gebruik <b>'Auto-plaats'</b> om automatisch in te vullen; dat plaatst enkel de basisspelers en laat de bank ongemoeid.</p>
+      <p>Onder het veld staan twee lijstjes: <b>'Nog te plaatsen'</b> en <b>'Op de bank'</b>. Zag je
+        hier pas dat je iemand per ongeluk op <b>Wissel</b> zette, tik hem dan in de banklijst aan en
+        daarna op de speler op het veld die hij vervangt: die twee <b>ruilen van plaats</b>. Je hoeft
+        daarvoor dus niet terug naar de selectie.</p>
+      <p>Bovenaan zie je <b>hoeveel spelers er op het veld staan</b> (bij 8v8 dus 8/8). Opslaan kan
+        pas als het veld vol is. Heb je minder spelers dan er plaatsen zijn — zeven voor 8v8 —
+        dan volstaat het die zeven op te stellen. Wie na het vullen overblijft, komt automatisch op
+        de bank.</p>
+      <p>Tik op <b>'Plannen'</b> om de wedstrijd op te slaan: <b>alle kwarten beginnen dan met deze
+        opstelling</b>, en je past ze later enkel aan waar er iets verandert.</p>
+      <p>Met <b>'Verder → wissels en volgende kwarten'</b> bouw je het plan kwart per kwart op. Je
+        krijgt telkens hetzelfde scherm: bovenaan de opstelling waarmee dat kwart begint, eronder de
+        <b>wissels tijdens dat kwart</b> (met <b>'+ Wissel'</b> en <b>'+ Positiewissel'</b>), en
+        onderaan de knop naar het volgende kwart. Stop je onderweg, dan zegt de app welke kwarten de
+        laatste opstelling overnemen — bijwerken kan altijd nog via <b>Planning</b> in het
+        wedstrijdscherm.</p>
+      <p>De wedstrijd is in beide gevallen al ingepland; <b>starten</b> doe je later in het
+        wedstrijdscherm.</p>
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
         blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
         onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
@@ -643,20 +664,24 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Selectie</b> — wie speelt, wie op de bank zit, wie niet beschikbaar is. Zet je iemand
           in de basis zonder plaats, dan krijgt hij er automatisch een; verzetten doe je met het
           potlood.</li>
-        <li><b>Opstelling &amp; formatie</b> — het veld per deel, met de formatie onderaan.</li>
+        <li><b>Opstelling &amp; wissels</b> — het hele plan, kwart per kwart.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
         <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
         <li><b>Selectie wissen</b> — helemaal opnieuw beginnen: de selectie, de opstellingen per
           kwart en de geplande wissels gaan weg, de wedstrijd zelf blijft staan.</li>
       </ul>
-      <p>Onder het veld staan daarnaast <b>'Opstelling per kwart wijzigen'</b> en <b>'Wissels
-        plannen'</b>. In de opstelling blijven je wijzigingen pas bewaard als je onderaan op
-        <b>'Opslaan'</b> tikt; met <b>'Sluiten'</b> laat je ze vallen. Bij <b>'Wissels plannen'</b>
-        kies je bovenaan het kwart en zet je daaronder de
-        wissels voor dát kwart klaar. Een <b>positiewissel</b> geef je in als "speler X naar positie
-        9": wie daar op dat moment staat, neemt zijn plaats over — ook als dat door een eerdere
-        wissel intussen iemand anders is. Tijdens de match voer je ze één voor één door, of allemaal
-        samen met <b>'Alle N doorvoeren'</b>.</p>
+      <p>Onder het veld staat <b>'Opstelling en wissels per kwart'</b>: dat is dezelfde reeks als bij
+        het aanmaken, waarin je kwart per kwart de opstelling en de wissels nakijkt. Wil je gericht
+        één kwart bijstellen, gebruik dan het <b>potlood</b> in het blok <b>Planning</b>; daar
+        blijven je wijzigingen pas bewaard als je op <b>'Opslaan'</b> tikt, en met <b>'Sluiten'</b>
+        laat je ze vallen.</p>
+      <p>Een <b>positiewissel</b> geef je in als "speler X naar positie 9": wie daar op dat moment
+        staat, neemt zijn plaats over — ook als dat door een eerdere wissel intussen iemand anders
+        is. Tijdens de match voer je ze één voor één door, of allemaal samen met <b>'Alle N
+        doorvoeren'</b>.</p>
+      <p class="hdl-tip">Kies je bij een wissel <b>'geen voorkeur — altijd beschikbaar'</b>, dan hoort
+        hij bij geen enkel kwart. Zulke wissels staan apart onder <b>'Wissels zonder vast kwart'</b>,
+        een knop die enkel verschijnt als je er hebt.</p>
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>

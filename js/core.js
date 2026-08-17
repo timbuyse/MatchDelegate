@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.29.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.31.3'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -607,6 +607,20 @@ function recomputeOnField(m) {
     if (e.type === 'injury' && e.leavesField && e.playerId) on[e.playerId] = false;
   }
   m.players.forEach(p => p.onField = !!on[p.id]);
+}
+// Een wedstrijd kent drie toestanden vóór de aftrap: nog geen selectie, wel een selectie maar nog
+// geen opstelling, en allebei. Die middelste bestaat sinds v0.30.0: je kan de selectie opslaan
+// zonder de spelers al op het veld te zetten. De basisspelers staan dan gewoon in m.players
+// (starting), maar zonder plaats (x/y), en de wedstrijd draagt het optionele vlaggetje
+// `lineupPending`. Oudere wedstrijden hebben dat veld niet en gelden dus altijd als "opstelling
+// ingegeven" — hun gedrag verandert nergens.
+function heeftSelectie(m) { return !!(m && m.players && m.players.length); }
+function heeftOpstelling(m) {
+  if (!heeftSelectie(m)) return false;
+  if (m.lineupPending) return false;
+  // Terugval voor het geval het vlaggetje ontbreekt: zonder één basisspeler mét plaats is er
+  // feitelijk geen opstelling om te tonen.
+  return m.players.some(p => p.starting && typeof p.x === 'number');
 }
 
 // ===================== DATABASE =====================

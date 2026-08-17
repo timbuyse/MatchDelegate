@@ -9,6 +9,88 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.31.3
+- **De bank staat nu ook op de opstellingsstap.** Onder het veld stond enkel *'Nog te plaatsen'*;
+  wie je op **Wissel** gezet had, was hier onzichtbaar. Merkte je pas op dit scherm dat je iemand
+  verkeerd aangeduid had, dan moest je terug naar de selectie. Nu tik je hem aan in de lijst **'Op
+  de bank'** en daarna de speler op het veld die hij vervangt: die twee **ruilen van plaats**. Het
+  veld blijft daardoor vanzelf even vol.
+- **Het veld moet vol zijn voor je kan opslaan.** Bovenaan staat een teller (*8/8*), en opslaan met
+  een half bezet veld wordt geweigerd. Heeft je ploeg minder spelers dan er plaatsen zijn — zeven
+  voor 8v8 — dan volstaan die zeven; dat blijft dus gewoon werken.
+- **Wie na het vullen van het veld overblijft, wordt automatisch bank.** Voorheen kon iemand als
+  basisspeler zonder plaats achterblijven en dan nergens meer opduiken.
+- **'Auto-plaats'** plaatst nog steeds enkel de basisspelers en laat de bank ongemoeid.
+- Op de selectiestap wordt niet langer gevraagd of je verder wil met minder basisspelers dan
+  plaatsen: dat vul je nu aan op de opstellingsstap, waar de bank bij staat.
+
+## v0.31.2
+- **Het terugpijltje brengt je weer waar je vandaan kwam.** Ging je bij een bestaande wedstrijd naar
+  *Bewerken → Selectie* en tikte je bovenaan op ‹, dan belandde je in de wedstrijdgegevens — een
+  scherm dat je nooit geopend had — en vroeg een tweede tik of je de wedstrijd wel wou bewaren. Nu
+  keer je in één tik terug naar de wedstrijd. Hetzelfde geldt voor *Info bewerken* en voor het
+  bewerken van een lopende wedstrijd, dat netjes naar het wedstrijdscherm terugkeert.
+- Vanaf de opstellingsstap gaat ‹ eerst nog naar de selectie (dezelfde stap als '← Vorige (selectie
+  aanpassen)') en dan pas terug naar de wedstrijd.
+- **Er wordt enkel nog gevraagd of je wijzigingen mag laten vallen als je er ook echt maakte.** De
+  app vergelijkt met hoe de selectie erbij lag toen je binnenkwam; deed je niets, dan ga je gewoon
+  terug. De wedstrijd zelf blijft in beide gevallen zoals ze was — teruggaan slaat nooit iets op.
+- **Verbeterd:** boven een bestaande wedstrijd stond *'Nieuwe wedstrijd · Selectie'*. Dat is nu
+  *'Wedstrijd bewerken · Selectie'*.
+- Bij een nieuwe wedstrijd verandert er niets: ‹ op de eerste stap vraagt nog steeds of je wil
+  verlaten zonder bewaren.
+
+## v0.31.1
+- **Eén knop voor het wedstrijdplan.** Onder het veld stonden *'Opstelling per kwart wijzigen'* en
+  *'Wissels plannen'* naast elkaar, elk met hun eigen scherm voor de helft van hetzelfde plan. Nu
+  staat er **'Opstelling en wissels per kwart'**, die dezelfde reeks opent als bij het aanmaken.
+  Hetzelfde geldt voor het item in het menu *Bewerken*. Gericht één kwart bijstellen doe je nog
+  altijd met het **potlood** in de planningskaart.
+- Wissels die je bewust op *'geen voorkeur — altijd beschikbaar'* zette, horen bij geen enkel kwart
+  en komen dus in die reeks niet voor. Daarvoor verschijnt nu een aparte knop **'Wissels zonder vast
+  kwart'** — enkel wanneer je er hebt.
+- Het **potlood** naast het velddiagram doet onveranderd wat het deed: dat ene kwart openen om
+  gericht bij te stellen, met 'Opslaan' en 'Sluiten' en de vraag bij niet-opgeslagen wijzigingen.
+- **Verbeterd:** de melding bij het onderbreken van de reeks klopte niet wanneer een later kwart al
+  een eigen opstelling had. Ze zei dan dat álle resterende kwarten deze opstelling overnemen. Nu
+  worden enkel de kwarten zonder eigen opstelling genoemd, en staat er correct dat ze die van het
+  kwart ervoor volgen. Hebben alle resterende kwarten al een eigen opstelling, dan verschijnt de
+  melding niet meer.
+
+## v0.31.0
+- **Het wedstrijdplan bouw je nu kwart per kwart op, in de volgorde waarin het gespeeld wordt.** Na
+  de startopstelling tik je op **'Verder → wissels en volgende kwarten'** en krijg je telkens
+  hetzelfde scherm: bovenaan de opstelling waarmee dat kwart begint, eronder de **wissels tijdens
+  dat kwart** met '+ Wissel' en '+ Positiewissel', en onderaan de knop naar het volgende kwart. De
+  titel zegt waar je bent (*'Kwart 2 van 4'*).
+- **Stop je onderweg, dan zegt de app wat er met de rest gebeurt:** *'Kwart 3 en 4 beginnen met
+  dezelfde opstelling als kwart 2'*, met de keuze om toch verder te gaan. Dat gedrag bestond al —
+  een kwart zonder eigen opstelling volgt het vorige — maar je moest het maar weten.
+- Ook bij een wedstrijd van één blok kan je nu meteen de wissels voor dat blok klaarzetten; vroeger
+  verscheen die stap enkel bij meer dan één deel.
+- De knop **'← Vorige'** op de opstellingsstap heet nu **'← Vorige (selectie aanpassen)'**, zodat op
+  voorhand duidelijk is waar hij naartoe gaat.
+- Los een kwart bewerken vanuit het wedstrijdscherm blijft precies zoals het was, met 'Opslaan' en
+  'Sluiten'. De opstelling wordt tussentijds bewaard zodra je in de reeks een wissel plant, zodat er
+  niets tussenuit valt.
+
+## v0.30.0
+- **Je kan een selectie opslaan zonder al een opstelling te maken.** Onderaan de selectiestap staan
+  nu twee uitwegen: **'Volgende → Opstelling'** om meteen door te gaan, of **'Opslaan zonder
+  opstelling'** om enkel te bewaren wie er meespeelt. Dat laatste is wat je 's avonds wil wanneer de
+  ploeg al rond is maar je nog niet weet wie waar begint. Geldt zowel bij een nieuwe wedstrijd als
+  bij een wedstrijd die je eerder zonder selectie inplande.
+- **Zolang er geen opstelling is, blijft het blok Planning weg** — een velddiagram zou daar spelers
+  tonen die je nooit geplaatst hebt. In de plaats staat er **'Opstelling aanmaken'**, en zodra die
+  er is verschijnt alles: de opstelling per kwart, de geplande wissels en het wedstrijdplan als PDF.
+  De wedstrijd starten kan pas als er een opstelling is.
+- **Bij het opslaan van de opstelling staat er nu bij wat dat betekent:** alle kwarten beginnen met
+  die opstelling, en je past ze later enkel aan waar er iets verandert. Dat was al zo, maar het
+  stond nergens — de knop 'Opstelling volgende delen' leek daardoor verplicht werk.
+- Heeft een wedstrijd al een opstelling, dan verandert er niets: 'Selectie opslaan' laat bestaande
+  plaatsen staan en geeft nieuwe basisspelers automatisch een vrije plek, zoals voorheen. Bestaande
+  wedstrijden op je toestel merken niets van deze wijziging.
+
 ## v0.29.1
 - **Het startscherm toont nu de twee eerstvolgende wedstrijden** in plaats van één. Met één
   wedstrijd zag je wel wat er aankomt, maar niet of er datzelfde weekend nog iets volgde. De kop

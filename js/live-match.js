@@ -2168,13 +2168,23 @@ function modalPlannedSubs(tab) {
 }
 // Kiezers voor het klaarzetten/aanpassen. Zonder id = nieuw, met id = bestaande aanpassen.
 let _planSel = { a: null, b: null, editId: null };
-// Kwam je hier via het potlood of de plusknop in de planningskaart (voorbereidingsscherm) i.p.v. via
-// 'Wissels plannen'? Dan hoor je na opslaan of annuleren terug in dát scherm te belanden, niet in
-// een menu dat je nooit geopend hebt. Zelfde idee als _settingsFrom bij de instellingen.
-let _planSubInline = false;
+// Waar je vandaan kwam, bepaalt waar je na opslaan of annuleren weer belandt: null = het menu
+// 'Wissels plannen', 'prep' = de planningskaart in het wedstrijdscherm, 'planner' = de
+// opstellingsplanner terwijl je de delen één voor één doorloopt. Zonder dit belandde je telkens in
+// een menu dat je nooit geopend had. Zelfde idee als _settingsFrom bij de instellingen.
+let _planSubBron = null;
 function planSubTerug(deel) {
-  if (_planSubInline) {
-    _planSubInline = false;
+  const bron = _planSubBron;
+  _planSubBron = null;
+  if (bron === 'planner') {
+    // Terug in de reeks, op het deel waar je mee bezig was. De opstelling zelf staat al opgeslagen
+    // (planSubOpen schrijft de werkkopie weg vóór dit scherm opent), dus een verse werkkopie is juist.
+    _planLineupDraft = {};
+    _planLineupSeq = true;
+    modalPlannedLineups(deel || _planLineupQ);
+    return;
+  }
+  if (bron === 'prep') {
     // Koos je in de modal alsnog een ander deel, dan volgt de kaart mee: anders sla je iets op dat
     // je daarna nergens ziet staan.
     if (deel) _prepPlanQ = deel;
@@ -2183,24 +2193,33 @@ function planSubTerug(deel) {
   }
   modalPlannedSubs(deel);
 }
-// De drie ingangen vanuit de planningskaart: aanpassen, verwijderen, en toevoegen aan dít deel.
-function planSubBewerk(id, soort) {
+// De drie ingangen vanuit de planningskaart en uit de planner: aanpassen, verwijderen, toevoegen.
+// Vanuit de planner staat er mogelijk nog een onopgeslagen opstelling open; die gaat eerst naar de
+// databank, want de schermen hieronder slaan zelf op en zouden ze anders overschrijven.
+async function planSubOpen(bron) {
+  _planSubBron = bron === 'planner' ? 'planner' : (bron === 'prep' ? 'prep' : null);
+  if (bron === 'planner') { await _schrijfPlanDraft(); _planLineupDraft = {}; }
+}
+async function planSubBewerk(id, soort, bron) {
   if (!canManage()) return;
-  _planSubInline = true;
+  await planSubOpen(bron);
   if (soort === 'swap') modalPlanPosSwap(id); else modalPlanSub(id);
 }
-function planSubNieuw(deel, soort) {
+async function planSubNieuw(deel, soort, bron) {
   if (!canManage()) return;
-  _planSubInline = true;
+  await planSubOpen(bron);
   if (soort === 'swap') modalPlanPosSwap(null, false, deel); else modalPlanSub(null, false, deel);
 }
-async function planSubWis(id, soort) {
+async function planSubWis(id, soort, bron) {
   if (!canManage()) return;
   if (_eventBusy) return; _eventBusy = true;
   try {
+    if (bron === 'planner') { await _schrijfPlanDraft(); _planLineupDraft = {}; }
     if (soort === 'swap') match.plannedPosSwaps = (match.plannedPosSwaps || []).filter(s => s.id !== id);
     else match.plannedSubs = (match.plannedSubs || []).filter(s => s.id !== id);
     await dbSave(match); render();
+    // In de planner blijft de modal openstaan: enkel de lijst eronder verandert.
+    if (bron === 'planner') modalPlannedLineups();
   } finally { _eventBusy = false; }
 }
 function _preselect(containerId, id) {
