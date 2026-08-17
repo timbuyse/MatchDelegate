@@ -2168,6 +2168,41 @@ function modalPlannedSubs(tab) {
 }
 // Kiezers voor het klaarzetten/aanpassen. Zonder id = nieuw, met id = bestaande aanpassen.
 let _planSel = { a: null, b: null, editId: null };
+// Kwam je hier via het potlood of de plusknop in de planningskaart (voorbereidingsscherm) i.p.v. via
+// 'Wissels plannen'? Dan hoor je na opslaan of annuleren terug in dát scherm te belanden, niet in
+// een menu dat je nooit geopend hebt. Zelfde idee als _settingsFrom bij de instellingen.
+let _planSubInline = false;
+function planSubTerug(deel) {
+  if (_planSubInline) {
+    _planSubInline = false;
+    // Koos je in de modal alsnog een ander deel, dan volgt de kaart mee: anders sla je iets op dat
+    // je daarna nergens ziet staan.
+    if (deel) _prepPlanQ = deel;
+    closeModal(); render();
+    return;
+  }
+  modalPlannedSubs(deel);
+}
+// De drie ingangen vanuit de planningskaart: aanpassen, verwijderen, en toevoegen aan dít deel.
+function planSubBewerk(id, soort) {
+  if (!canManage()) return;
+  _planSubInline = true;
+  if (soort === 'swap') modalPlanPosSwap(id); else modalPlanSub(id);
+}
+function planSubNieuw(deel, soort) {
+  if (!canManage()) return;
+  _planSubInline = true;
+  if (soort === 'swap') modalPlanPosSwap(null, false, deel); else modalPlanSub(null, false, deel);
+}
+async function planSubWis(id, soort) {
+  if (!canManage()) return;
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    if (soort === 'swap') match.plannedPosSwaps = (match.plannedPosSwaps || []).filter(s => s.id !== id);
+    else match.plannedSubs = (match.plannedSubs || []).filter(s => s.id !== id);
+    await dbSave(match); render();
+  } finally { _eventBusy = false; }
+}
 function _preselect(containerId, id) {
   if (!id) return;
   const el = document.querySelector(`#${containerId} button[data-id="${id}"]`);
@@ -2238,7 +2273,7 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
     <div class="sec">Wie komt ERIN?</div>
     <div id="pl-b">${bank.length ? pgGrid(bank.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanSub()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
+    <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
 }
 function modalPlanPosSwap(editId, behoud, deelVoorNieuw) {
@@ -2264,7 +2299,7 @@ function modalPlanPosSwap(editId, behoud, deelVoorNieuw) {
     <div class="sec">Naar welke positie? <span style="font-weight:400;text-transform:none;color:var(--txt2)">· positienummer en wie er nu staat</span></div>
     <div id="pl-b">${posDoelGrid(m, veld, 'pl-bb', '_selPlanDoel', true)}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanPosSwap()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedSubs()">Annuleren</button>`);
+    <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.pos);
 }
 async function savePlanSub() {
@@ -2279,7 +2314,7 @@ async function savePlanSub() {
     if (best) { best.outId = _planSel.a; best.inId = _planSel.b; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
     else match.plannedSubs.push(Object.assign({ id: uid(), outId: _planSel.a, inId: _planSel.b }, deel ? { quarterNum: deel } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg — zie savePlanPosSwap.
-    await dbSave(match); render(); modalPlannedSubs(deel || 0);
+    await dbSave(match); render(); planSubTerug(deel || 0);
   } finally { _eventBusy = false; }
 }
 async function savePlanPosSwap() {
@@ -2297,7 +2332,7 @@ async function savePlanPosSwap() {
     else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, naarPos: pos }, deel ? { quarterNum: deel } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg: wijzigde je het kwart in de
     // keuzelijst, dan stond je anders naar een lijst te kijken waar hij niet in staat.
-    await dbSave(match); render(); modalPlannedSubs(deel || 0);
+    await dbSave(match); render(); planSubTerug(deel || 0);
   } finally { _eventBusy = false; }
 }
 async function removePlannedSub(id) {

@@ -631,7 +631,10 @@ const HANDLEIDING_PAGINAS = [
         meteen door te gaan naar de opstelling van de volgende kwarten of helften. De wedstrijd is dan
         al ingepland; <b>starten</b> doe je later in het wedstrijdscherm.</p>
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
-        blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1.</p>
+        blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
+        onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
+        een aan, met het <b>kruisje</b> haal je hem weg, en met <b>'+ Wissel'</b> of
+        <b>'+ Positiewissel'</b> zet je er een bij voor precies dat kwart.</p>
       <div class="sec">Nadien nog iets wijzigen?</div>
       <p>Bij een geplande wedstrijd zit alles achter de knop <b>'Bewerken'</b>. Daar kies je wat je
         wil aanpassen:</p>

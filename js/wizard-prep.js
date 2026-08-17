@@ -989,7 +989,7 @@ function prepPlanningHtml(m, ro) {
       <div class="place-chips">${bank.length
         ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-      ${plannedSubsVoorDeelHtml(m, q)}
+      ${plannedSubsVoorDeelHtml(m, q, !ro && canManage())}
     </div>`;
   };
   if (total < 2) {
@@ -1181,16 +1181,31 @@ function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {
 // onder het veld. Ze horen visueel bij de opstelling van dat deel: het veld toont hoe je begint, dit
 // toont wat er tijdens dat deel nog gepland staat. Gebruikt door de planningskaart in het
 // voorbereidingsscherm én door dezelfde kaart tijdens de wedstrijd.
-function plannedSubsVoorDeelHtml(m, q) {
+// `bewerkbaar`: dan krijgt elke regel een potlood en een kruisje, en staat er onderaan een knop om er
+// een bij te zetten voor dít deel — dezelfde ingangen als in het scherm 'Wissels plannen', maar
+// meteen bij het kwart waar je naar kijkt. Tijdens de wedstrijd blijft dit blok alleen-lezen (zie
+// planningTijdensMatchHtml): daar is de planning iets om na te kijken, niet om te herwerken.
+function plannedSubsVoorDeelHtml(m, q, bewerkbaar) {
   const regels = [
     ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
-      .map(s => `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`),
+      .map(s => ({ id: s.id, soort: 'sub', tekst: `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}` })),
     ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q)
-      .map(s => `${icI(IC.compass)} ${plannedSwapTekst(m, s)}`),
+      .map(s => ({ id: s.id, soort: 'swap', tekst: `${icI(IC.compass)} ${plannedSwapTekst(m, s)}` })),
   ];
-  if (!regels.length) return '';
-  return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${pSingLow(m) === 'helft' ? 'deze' : 'dit'} ${pSingLow(m)}</div>
-    ${regels.map(r => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${r}</div></div>`).join('')}`;
+  if (!regels.length && !bewerkbaar) return '';
+  const dit = pSingLow(m) === 'helft' ? 'deze' : 'dit';
+  const knoppen = r => bewerkbaar
+    ? `<button class="evt-edit" onclick="planSubBewerk('${r.id}','${r.soort}')" title="Aanpassen">${icI(IC.edit)}</button>
+       <button class="evt-del" onclick="planSubWis('${r.id}','${r.soort}')" title="Verwijderen">×</button>`
+    : '';
+  return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${dit} ${pSingLow(m)}</div>
+    ${regels.length
+      ? regels.map(r => `<div class="prow" style="padding:6px 0;align-items:center"><div style="flex:1;font-size:14px">${r.tekst}</div>${knoppen(r)}</div>`).join('')
+      : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${dit} ${pSingLow(m)}.</p>`}
+    ${bewerkbaar ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'sub')">${icI(IC.swap)} + Wissel</button>
+      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'swap')">${icI(IC.compass)} + Positiewissel</button>
+    </div>` : ''}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
 // gemarkeerd (het kruisje in het tabblad Opstelling — dat kan ook nog tijdens de wedstrijd). Het

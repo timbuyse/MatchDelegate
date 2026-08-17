@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.29.0
+- **De geplande wissels bewerk je nu rechtstreeks in de planningskaart.** Naast de opstelling stond
+  al een potlood; de wissels eronder waren enkel te lezen. Nu heeft elke geplande wissel en
+  positiewissel er een **potlood** en een **kruisje** naast, en onder het lijstje staan **'+ Wissel'**
+  en **'+ Positiewissel'** die er meteen een klaarzetten voor het kwart waar je naar kijkt. Het
+  scherm *'Wissels plannen'* blijft bestaan en werkt onveranderd — dit is dezelfde planning, maar
+  bij het kwart zelf.
+- Na het aanpassen of toevoegen kom je terug in het planningsscherm waar je vandaan kwam, niet in
+  het wisselmenu. Wijzig je in de keuzelijst alsnog het kwart, dan springt de kaart mee naar dat
+  kwart, zodat je ziet waar je wissel terechtgekomen is.
+- Tijdens de wedstrijd blijft de planning zoals ze was: daar is ze om na te kijken, niet om te
+  herwerken.
+
 ## v0.28.0
 - **De opstelling per kwart wijzig je nu met 'Opslaan' of 'Sluiten'.** Elke tik werd meteen bewaard,
   ook als je enkel aan het proberen was — en onderaan stond alleen 'Sluiten', wat het omgekeerde
