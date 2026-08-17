@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.31.4
+- **Kijkers zien de planning niet meer.** Onder *Planning* stonden de velddiagrammen per kwart, de
+  bank en de geplande wissels — ook voor wie enkel meekijkt. Daar staat nu: *'De opstelling en
+  geplande wissels zijn enkel zichtbaar voor ploegbeheerders.'* Dat het plan bestaat blijft dus
+  zichtbaar; wat erin staat niet.
+- Dat geldt **ook tijdens de wedstrijd**, in het tabblad *Opstelling*. Daar toonde hetzelfde blok de
+  nog te spelen kwarten — net de gevoeligste informatie, want dat is wat er nog gaat gebeuren.
+- Is er helemaal geen plan, dan blijft het blok weg zoals voorheen; er verschijnt geen melding over
+  iets dat niet bestaat.
+- Voor ploegbeheerders verandert er niets.
+
 ## v0.31.3
 - **De bank staat nu ook op de opstellingsstap.** Onder het veld stond enkel *'Nog te plaatsen'*;
   wie je op **Wissel** gezet had, was hier onzichtbaar. Merkte je pas op dit scherm dat je iemand

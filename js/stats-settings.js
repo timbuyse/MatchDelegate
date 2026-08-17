@@ -548,6 +548,7 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Spelers</b>, <b>Tornooien</b> en <b>Statistieken</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
       <p>Bij <b>Statistieken</b> zie je de secties die de beheerder heeft vrijgegeven; de overige statistieken en het individuele spelersdetail blijven voorbehouden aan ploegbeheerders.</p>
+      <p>Bij een wedstrijd zie je onder <b>Planning</b> de melding dat de opstelling en de geplande wissels enkel voor ploegbeheerders zijn. Dat geldt vóór én tijdens de wedstrijd: wie waar begint en welke wissels klaarstaan, blijft bij de trainer. Wat er <b>gebeurd</b> is — de score, de events en het verslag achteraf — kan je gewoon volgen.</p>
       <div class="sec">Een ploeg volgen</div>
       <p>De beheerder deelt een uitnodiging als <b>link</b>, <b>QR-code</b> of <b>code van 6 tekens</b> (letters en cijfers).</p>
       <ul class="hdl-list">

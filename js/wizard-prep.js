@@ -1160,9 +1160,14 @@ function renderPrep() {
          die je nooit geplaatst hebt (renderPitch spreidt wie geen x/y heeft over zijn lijn), en dat
          leest als een opstelling die er niet is. In de plaats staat hierboven "Opstelling
          aanmaken"; zodra die er is, verschijnt alles — planning, wissels en de PDF. */ ''}
-    ${heeftOpstelling(m) ? `<div class="sec">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
-    ${prepPlanningHtml(m, ro)}
-    ${plannedLineupWarnHtml(m)}
+    ${heeftOpstelling(m) ? `<div class="sec">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
+    ${/* Voor een kijker blijft het plan dicht: wie waar begint en welke wissels klaarstaan is iets
+         tussen de trainer en zijn ploeg, niet iets om vooraf op de tribune te lezen. Er staat wél
+         dat het bestaat, anders lijkt de wedstrijd onvoorbereid. */ ''}
+    ${ro
+      ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`
+      : `${prepPlanningHtml(m, ro)}
+    ${plannedLineupWarnHtml(m)}`}
     ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en worden in
          dezelfde reeks ingegeven (zie openPlannedLineupsSeq). Hier stonden er twee — 'Opstelling
          per kwart' en 'Wissels plannen' — die elk de helft deden en naar een eigen scherm leidden.

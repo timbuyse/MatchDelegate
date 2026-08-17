@@ -1849,6 +1849,13 @@ function planningTijdensMatchHtml(m) {
   const heeftPlan = plannedLineupCount(m) > 0;
   const losseWissels = [...(m.plannedSubs || []), ...(m.plannedPosSwaps || [])].some(s => s.quarterNum >= vanaf);
   if (!heeftPlan && !losseWissels) return '';
+  // Zelfde regel als in het voorbereidingsscherm: het plan voor de komende delen is enkel voor
+  // beheerders. Hier weegt dat nog zwaarder — dit toont net wat er nog gaat gebeuren. Pas ná de
+  // controles hierboven, anders krijgt een kijker de melding ook bij een wedstrijd zonder plan.
+  if (!canManage()) {
+    return `<div class="sec">Planning</div>
+      <div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`;
+  }
   const delen = Array.from({ length: totaal - vanaf + 1 }, (_, i) => vanaf + i);
   // Binnen hetzelfde deel blijft staan waar je naartoe bladerde; zodra het spel een deel opschuift
   // springt de kaart terug naar wat er nú aankomt — dat is waar je in de pauze naar wil kijken.
