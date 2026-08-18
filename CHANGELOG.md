@@ -9,6 +9,11 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.31.15
+- **Verder gaan staat nu rechts.** Op het eerste kwart is er geen terugknop, en dan schoof
+  *'Kwart 2 →'* naar de linkerkolom — onder *'+ Wissel'*, waar je een terugknop verwacht. Terug staat
+  nu altijd links (onder *'+ Wissel'*), verder altijd rechts (onder *'+ Positiewissel'*).
+
 ## v0.31.14
 - **Eén planner in plaats van twee.** Er waren twee varianten: één waarin je de kwarten na de wizard
   één voor één doorliep (met de geplande wissels eronder, afgesloten met *'Klaar'*), en één waarin je

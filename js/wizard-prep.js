@@ -1617,8 +1617,11 @@ function modalPlannedLineups(q) {
          openstond). */ ''}
     ${ro ? `<button class="btn btn-gray" style="margin-top:12px" onclick="closePlannedLineups()">Sluiten</button>`
       : `${totaal > 1 ? `<div class="wiz-nav" style="margin-top:12px">
-      ${deel > 1 ? `<button class="btn btn-gray" onclick="planNaarDeel(${deel - 1})">← ${pSing(m)} ${deel - 1}</button>` : ''}
-      ${deel < totaal ? `<button class="btn btn-gray" onclick="planNaarDeel(${deel + 1})">${pSing(m)} ${deel + 1} →</button>` : ''}
+      ${/* Vaste kolommen: terug altijd links, verder altijd rechts. .wiz-nav is een grid van twee
+           kolommen, dus zonder grid-column schoof "Kwart 2 →" op het eerste deel naar links — waar
+           je een terugknop verwacht. */ ''}
+      ${deel > 1 ? `<button class="btn btn-gray" style="grid-column:1" onclick="planNaarDeel(${deel - 1})">← ${pSing(m)} ${deel - 1}</button>` : ''}
+      ${deel < totaal ? `<button class="btn btn-gray" style="grid-column:2" onclick="planNaarDeel(${deel + 1})">${pSing(m)} ${deel + 1} →</button>` : ''}
     </div>` : ''}
     <button class="btn btn-green" style="margin-top:8px" onclick="savePlannedLineups()">${icI(IC.check)} Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">Sluiten</button>`}`);
