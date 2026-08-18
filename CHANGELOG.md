@@ -9,6 +9,77 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.31.10
+- **Stap 3 van een nieuwe wedstrijd heet nu "Startopstelling"** (bij meer dan één deel), met eronder
+  één regel: *'Dit is de opstelling waarmee je begint. De opstelling van de volgende kwarten en de
+  wissels geef je in de volgende stap in.'* Voordien stond dat alleen onderaan, en dan nog
+  geformuleerd rond opslaan.
+- **In het planningsvenster staat een uitklapper "Hoe werkt dit?"** die uitlegt wat de app zelf doet:
+  sluit je een kwart af, dan vergelijkt ze het veld met je plan voor het volgende en zet ze de nodige
+  wissels klaar in het pauzescherm; bij de start worden die automatisch doorgevoerd. Wissels die je
+  voor *tijdens* een kwart plant, gaan niet vanzelf af — die voer je zelf door. En een kwart dat je
+  niet invult, begint met de opstelling van het kwart ervoor.
+- Bewust een uitklapper en geen pop-up: geen extra klik bij elke wedstrijd, en de uitleg blijft
+  bereikbaar in plaats van na één keer *'niet meer weergeven'* voorgoed te verdwijnen.
+
+## v0.31.9
+- **Je ziet nu dat je op een speler kan tikken.** In de statistieken waren de spelersnamen al
+  aanklikbaar (naar zijn persoonlijke statistieken), maar het enige signaal was de muisaanwijzer — op
+  een telefoon dus niets. Bovenaan staat nu één regel *'Tik op een speler voor zijn persoonlijke
+  statistieken'*, en elke aanklikbare rij krijgt een chevron (›) achteraan.
+- Alleen voor ploegbeheerders: kijkers hebben geen spelerdetail en zien dus ook geen uitleg of
+  chevrons. Rijen zonder detail (bv. *'Ploeg (geen tegendoel)'* bij de clean sheets) blijven zonder
+  chevron.
+
+## v0.31.8
+- **Een nieuwe ploeg neemt het clublogo nu over.** Bij het aanmaken werd alleen de clubnáám op de
+  ploeg gezet, niet het logo. Het logo belandde enkel op een ploeg wanneer je het in Clubbeheer
+  opsloeg — en dan alleen op de ploegen die op dat moment bestonden. Een ploeg die je daarna aanmaakte
+  bleef dus zonder logo, in de app én op elke PDF.
+- **Bestaande ploegen herstellen zichzelf.** Merkt de app bij het openen van een ploeg dat het logo
+  ontbreekt terwijl de club er een heeft, dan vult een clubbeheerder het bij. Eén keer, op de
+  achtergrond — daarna zien ook de kijkers van die ploeg het logo. Je hoeft het logo dus niet opnieuw
+  op te laden.
+- **Terugval binnen dezelfde club:** kent je toestel het logo van een andere ploeg van dezelfde club,
+  dan gebruikt het dat meteen — ook offline en ook als je geen beheerder bent. Een ploeg van een
+  ándere club leent nooit een logo.
+
+## v0.31.7
+- **Het clublogo staat nu ook op het wedstrijdplan (PDF).** Het stond er in de code al sinds v0.23.0,
+  op exact dezelfde plek als bij het verslag — maar het logo zelf komt uit een ophaalactie die aan het
+  veld (traag of geen netwerk) kan mislukken. Net het wedstrijdplan maak je daar, terwijl je het
+  verslag thuis op wifi maakt: zelfde code, ander moment, en dus enkel op het plan een lege plek.
+- Het clublogo wordt daarom **per ploeg op het toestel bewaard** en dient als terugval. Elk document
+  — wedstrijdplan, wedstrijdverslag en tornooiverslag — draagt het logo nu ook zonder bereik, en
+  altijd dat van de juiste ploeg.
+
+## v0.31.6
+- **Een tornooi in de agenda ziet er niet langer uit als een geplande wedstrijd.** Het kaartje onder
+  de kalender droeg de oranje rand en badge van een geplande wedstrijd — ook wanneer het tornooi al
+  afgesloten was. Het heeft nu de **eigen tornooikleur** (groen), dezelfde als de stip in de kalender
+  en de legende die er net boven staat.
+- Een **afgesloten** tornooi krijgt er een badge *Afgesloten* bij en de vermelding *'· afgesloten'*
+  in de onderregel — dezelfde woordkeuze als op het Tornooien-scherm. De kleur zegt dus wát het is,
+  de badge in welke staat het is.
+
+## v0.31.5
+- **Van ploeg wisselen laadt de spelers meteen.** Het rooster stond in één lokale sleutel die enkel
+  de actieve ploeg bevatte, en die werd pas overschreven zodra de cloud antwoordde. In dat gaatje —
+  op traag 4G makkelijk enkele seconden — zag je de spelers van de *vorige* ploeg, of niemand. Elke
+  ploeg heeft nu zijn eigen bewaarde spelerslijst op het toestel: bij een tweede bezoek staat ze er
+  onmiddellijk, ook zonder bereik.
+- **"Nog geen spelers" wordt niet meer gezegd als ze enkel nog moeten laden.** Zolang de lijst
+  onderweg is staat er *'Spelers laden…'* — op het spelersscherm, in de selectiestap van een
+  wedstrijd en bij de tornooiselectie. Enkel als de ploeg écht leeg is, zegt de app dat ook.
+- Een **nieuwe wedstrijd of een nieuw tornooi** beginnen kan pas als de spelerslijst binnen is; je
+  krijgt anders de vraag om het een paar seconden later opnieuw te proberen. Voordien kon zo'n
+  wizard een lege of verkeerde selectie vastzetten die zich daarna niet meer herstelde.
+- De **spelerslijst vult zich nu zelf aan** wanneer het rooster pas na het openen binnenkomt. Tijdens
+  het bewerken gebeurt dat niet, zodat ingetypte wijzigingen nooit verloren gaan.
+- **Vangnet tegen een verkeerde ploeg overschrijven:** een wijziging aan de spelers wordt niet meer
+  gesynchroniseerd zolang de lijst van de actieve ploeg niet binnen is. Voordien kon de lijst van de
+  vorige ploeg zo bij de nieuwe ploeg terechtkomen.
+
 ## v0.31.4
 - **Kijkers zien de planning niet meer.** Onder *Planning* stonden de velddiagrammen per kwart, de
   bank en de geplande wissels — ook voor wie enkel meekijkt. Daar staat nu: *'De opstelling en

@@ -73,6 +73,12 @@ function bankCount() { return wiz.pool.filter(p => p.sel === 'bank').length; }
 function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; wiz.pool.forEach(p => p.slot = null); }
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
+// Aantal delen van de wedstrijd in de wizard: een tornooimatch draagt zijn eigen aantal (numQuarters),
+// anders volgt het uit de gekozen periodevorm.
+function wizDelen() {
+  if (!wiz) return 1;
+  return wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count;
+}
 function renderNew() {
   if (!wiz) startWizard();
   if (wiz.trnMode) {
@@ -84,7 +90,9 @@ function renderNew() {
       <div class="steps">${pills}</div>
       <div class="content">${body}</div>`;
   }
-  const titles = { 1: 'Wedstrijd', 2: 'Selectie', 3: 'Opstelling' };
+  // Bij meer dan één deel heet stap 3 "Startopstelling": ze gaat enkel over de aftrap, de volgende
+  // delen komen daarna. Dat stond nergens, en de titel is de goedkoopste plek om het te zeggen.
+  const titles = { 1: 'Wedstrijd', 2: 'Selectie', 3: wizDelen() > 1 ? 'Startopstelling' : 'Opstelling' };
   const pills = [1, 2, 3].map(n => `<div class="step-pill ${wiz.step===n?'on':wiz.step>n?'done':''}"></div>`).join('');
   const body = wiz.step === 1 ? wizStep1() : wiz.step === 2 ? wizStep2() : wizStep3();
   // "Nieuwe wedstrijd" klopte niet wanneer je een bestaande aan het bewerken bent — en dat is net
@@ -98,7 +106,9 @@ function wizStep1() {
   const teams = getTeamsV2();
   const teamSel = teams.length
     ? `<select id="n-team-sel" onchange="wizTeamChange()">${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
-    : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
+    : !rosterReady()
+      ? `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Spelers laden…</div>`
+      : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
   const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
   return `
@@ -307,7 +317,7 @@ function wizStep2() {
       ? `<b>Niets aanduiden = niet geselecteerd voor deze wedstrijd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start) of <b>Wissel</b>; nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Enkel wie meegaat naar het tornooi staat in deze lijst — <b>niet beschikbaar (NB)</b> geef je in bij de selectie van het tornooi zelf.`
       : `<b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.`} Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
-    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie', true) + own.map(selRow).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.</p>'}</div>
+    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie', true) + own.map(selRow).join('') : `<p style="color:var(--txt2);font-size:14px">${rosterEmptyText('Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.')}</p>`}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg', true)}${guests.map(selRow).join('')}</div>` : ''}
     ${wiz.noGuests ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
@@ -590,6 +600,9 @@ function wizStep3() {
       <div style="font-size:22px;font-weight:900;color:${compleet ? 'var(--grn)' : 'var(--org)'}">${geplaatst}/${nodig}</div>
       <div style="font-size:11px;color:var(--txt2)">OP HET VELD${nodig < plaatsen ? ` · ${plaatsen} plaatsen, maar ${nodig} spelers beschikbaar` : ''}</div>
     </div>
+    ${/* Deze stap gaat enkel over de aftrap. Dat de volgende delen en de wissels daarna komen, stond
+         alleen onderaan en dan nog geformuleerd rond opslaan — hier leest het als een wegwijzer. */ ''}
+    ${wizDelen() > 1 ? `<p class="stat-hint">${icI(IC.shirt)} Dit is de opstelling waarmee je <b>begint</b>. De opstelling van de volgende ${pPlural(wiz)} en de wissels geef je in de volgende stap in.</p>` : ''}
     <div class="fg"><label>Formatie</label>
       <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
     <div class="card">${wizPitch(form)}
@@ -621,7 +634,7 @@ function wizStep3() {
          gaan — eerst naar de wissels tijdens dit deel, dan naar de volgende delen. Niet bij een
          wedstrijd die al loopt: daar regel je de volgende delen in de pauze. */ ''}
     ${(() => {
-      const delen = wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count;
+      const delen = wizDelen();
       const opslaan = `<button class="btn ${wiz.editStatus === 'live' ? 'btn-green' : 'btn-pale'}" onclick="finishWizard(false)">${icI(IC.calendar)} ${wiz.editId ? (wiz.editStatus === 'live' ? 'Opslaan' : 'Opslaan (gepland)') : 'Plannen'}</button>`;
       if (wiz.editStatus === 'live') {
         return `<div class="wiz-nav"><button class="btn btn-gray" onclick="wizBack()">← Vorige (selectie aanpassen)</button>${opslaan}</div>`;
@@ -1582,6 +1595,19 @@ function modalPlannedLineups(q, klaarKnop) {
   openModal(`<h3>${icI(IC.shirt)} ${titel}</h3>
     ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>` : ''}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
+    ${/* Uitklapper i.p.v. een pop-up: wie het mechanisme kent, ziet één regeltje; wie het niet kent,
+         leest het hier. De tekst volgt precies wat de code doet — zetGeplandeOpstellingKlaar() bij
+         het einde van een deel, startQuarter() bij de start, en plannedSubs die NOOIT vanzelf afgaan
+         (zie de commentaar bij "GEPLANDE (KLAARGEZETTE) WISSELS" in live-match.js). Enkel in de
+         reeks: daar bouw je het plan op. */ ''}
+    ${(_planLineupSeq && !ro && totaal > 1) ? `<details class="more-details" style="margin-bottom:12px">
+      <summary>Hoe werkt dit?</summary>
+      <div style="font-size:13px;color:var(--txt2);margin-top:10px;line-height:1.45">
+        <p style="margin-bottom:8px">Geef per ${pSingLow(m)} de opstelling in waarmee dat ${pSingLow(m)} <b>begint</b>, en daaronder de wissels en positiewissels die je <b>tijdens</b> dat ${pSingLow(m)} wil doen.</p>
+        <p style="margin-bottom:8px">Je hoeft zelf niet uit te rekenen wie er tussen twee ${pPlural(m)} moet wisselen. Sluit je een ${pSingLow(m)} af, dan vergelijkt de app het veld met jouw plan voor het volgende en zet ze de nodige wissels klaar in het pauzescherm. Bij de start worden die <b>automatisch doorgevoerd</b>. Had je in de pauze zelf al wissels klaargezet, dan blijft dat staan — de app overschrijft je handwerk niet.</p>
+        <p style="margin-bottom:8px">De wissels die je hieronder plant voor <b>tijdens</b> een ${pSingLow(m)} gaan niet vanzelf af: die voer je zelf door op het moment dat je ze wil.</p>
+        <p style="margin:0">Een ${pSingLow(m)} dat je niet invult, begint met de opstelling van ${pSingLow(m) === 'helft' ? 'de helft' : 'het ' + pSingLow(m)} ervoor.</p>
+      </div></details>` : ''}
     ${plannedLineupWarnHtml(m, deel)}
     ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
     <div class="sec">Bank (${bank.length})</div>

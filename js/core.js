@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.31.4'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.31.10'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -300,8 +300,22 @@ const PDF_LOGO_DICHTHEID = 8;
 // zelfs een twintigste. Geef hem mee bij élke addImage, anders groeit een verslag met foto's en
 // logo's snel naar een halve megabyte.
 const PDF_BEELD_COMPRESSIE = 'SLOW';   // 'SLOW' = beste compressie; deze beelden zijn klein genoeg
-// Clublogo van de actieve ploeg (data-URI), of leeg als de club er geen heeft.
-function getActiveClubLogo() { return activeClubLogo || ''; }
+// Clublogo van de actieve ploeg (data-URI), of leeg als de club er geen heeft. Valt terug op het
+// laatst gekende logo van DEZE ploeg (per ploeg gecacht, zie rememberTeamClubLogo): activeClubLogo
+// hangt aan de info-fetch, die aan het veld kan mislukken — en dan hoort een PDF niet plots zonder
+// logo te verschijnen. Per ploeg, dus nooit het logo van een andere club.
+function getActiveClubLogo() {
+  if (activeClubLogo) return activeClubLogo;
+  if (activeTeamId && teamClubLogos[activeTeamId]) return teamClubLogos[activeTeamId];
+  // Laatste terugval: het logo van een ándere ploeg van DEZELFDE club. Eén club heeft één logo, dus
+  // dit is nooit het verkeerde beeld — en het redt een ploeg waarvan het logo niet (of nog niet)
+  // gedenormaliseerd is, zoals elke ploeg aangemaakt vóór v0.31.8. Enkel bij een gekende clubId.
+  const cid = activeClubId || (activeTeamId && teamClubIds[activeTeamId]);
+  if (cid) {
+    for (const tid in teamClubLogos) if (teamClubIds[tid] === cid && teamClubLogos[tid]) return teamClubLogos[tid];
+  }
+  return '';
+}
 // Lees een afbeeldingsbestand in, verklein tot max `size` px en comprimeer tot een
 // kleine data-URI (geschikt om in RTDB te bewaren). Behoudt transparantie (PNG) bij
 // bestanden mét alpha, anders JPEG voor een kleinere payload. Geeft een data-URI terug.
@@ -383,6 +397,39 @@ function setDarkPref(v) { localStorage.setItem('voetbal_dark', v); applyDark(); 
 function getTeamsV2() { try { return JSON.parse(localStorage.getItem('voetbal_teams_v2') || '[]'); } catch (e) { return []; } }
 function saveTeamsV2(arr) { localStorage.setItem('voetbal_teams_v2', JSON.stringify(arr)); cloudOnLocalTeamsSave(arr); }
 function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
+// ----- Rooster per ploeg: cache + "al geladen?"-vlag -----
+// In cloudmodus bevat 'voetbal_teams_v2' enkel het rooster van de ACTIEVE ploeg: applyCloudTeams
+// schrijft de hele sleutel over met wat de roster-listener binnenbrengt. Tussen het wisselen van
+// ploeg en die eerste snapshot stond hier dus nog het rooster van de VORIGE ploeg (spelers van de
+// verkeerde ploeg) of niets ("nog geen spelers" op een ploeg die er wél heeft). Twee dingen lossen
+// dat op: een cache per ploeg zodat een tweede bezoek meteen klopt (ook offline), en een vlag die
+// "leeg" van "nog niet geladen" onderscheidt — hetzelfde patroon als _trnSquadLoaded.
+let rosterTeamId = null;   // voor welke ploeg staat het rooster in voetbal_teams_v2?
+let rosterLoaded = false;  // is dat rooster bruikbaar? (cachetreffer of snapshot van de cloud)
+function rosterCacheKey(teamId) { return 'voetbal_roster_' + teamId; }
+function cacheRoster(teamId, arr) {
+  if (!teamId) return;
+  try { localStorage.setItem(rosterCacheKey(teamId), JSON.stringify(arr || [])); } catch (e) {}
+}
+function forgetRosterCache(teamId) {
+  if (!teamId) return;
+  try { localStorage.removeItem(rosterCacheKey(teamId)); } catch (e) {}
+}
+// Zet het laatst gekende rooster van deze ploeg klaar vóór het scherm rendert. Is er geen cache,
+// dan liever leeg dan de lijst van een andere ploeg laten staan — rosterReady() zorgt ervoor dat
+// die leegte als "laden…" gelezen wordt en niet als "geen spelers".
+function hydrateRosterFromCache(teamId) {
+  let arr = [];
+  try { arr = JSON.parse(localStorage.getItem(rosterCacheKey(teamId)) || '[]'); } catch (e) { arr = []; }
+  if (!Array.isArray(arr)) arr = [];
+  localStorage.setItem('voetbal_teams_v2', JSON.stringify(arr));
+  return arr.length > 0;
+}
+// Mag je op getTeamsV2() vertrouwen voor de actieve ploeg? Lokaal (zonder cloud) altijd.
+function rosterReady() { return !cloudReady || (rosterLoaded && rosterTeamId === activeTeamId); }
+// Tekst bij een lege spelerslijst: "laden…" zolang de cloud niet geantwoord heeft, en pas daarna
+// het eerlijke "geen spelers". Zonder dit las een nog niet gesynct rooster als een leeg rooster.
+function rosterEmptyText(txt) { return rosterReady() ? txt : 'Spelers laden…'; }
 // Horen twee wedstrijden bij dezelfde ploeg? Bij voorkeur via het stabiele teamId (sinds v0.5.34),
 // met de teamName-fallback voor oudere wedstrijden. De matches-store is niet per ploeg gescheiden.
 function sameTeamAsMatch(a, b) {
@@ -696,10 +743,15 @@ async function clearLocalDeviceData(uid) {
     });
   } catch (e) {}
   ['voetbal_teams_v2', 'voetbal_tournaments', 'voetbal_club_name', 'voetbal_club_logo',
-   'voetbal_theme', 'voetbal_teamNames', 'voetbal_teamClubIds', 'voetbal_setup_done',
+   'voetbal_theme', 'voetbal_teamNames', 'voetbal_teamClubIds', 'voetbal_teamClubLogos', 'voetbal_setup_done',
    'voetbal_last_backup', 'voetbal_adminRequested', 'voetbal_adminApprovedSeen', 'voetbal_activeTeamId']
     .forEach(k => localStorage.removeItem(k));
-  teamClubIds = {};
+  // Ook de per-ploeg roostercaches: die horen bij de vorige gebruiker.
+  try {
+    Object.keys(localStorage).filter(k => k.indexOf('voetbal_roster_') === 0).forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+  rosterTeamId = null; rosterLoaded = false;
+  teamClubIds = {}; teamClubLogos = {};
   if (uid) localStorage.removeItem('voetbal_userTeams_' + uid);
   if (uid) localStorage.removeItem('voetbal_teamOrder_' + uid); // ploeg-id's van de vorige gebruiker
 }
@@ -760,7 +812,27 @@ function rememberTeamClubId(teamId, clubId) {
   if (clubId) teamClubIds[teamId] = clubId; else delete teamClubIds[teamId];
   try { localStorage.setItem('voetbal_teamClubIds', JSON.stringify(teamClubIds)); } catch (e) {}
 }
-let teamClubLogos = {};    // { teamId: clubLogo } — cache clublogo per ploeg (ploegkeuzescherm)
+// { teamId: clubLogo } — cache clublogo per ploeg (ploegkeuzescherm én de PDF's). Bewaard in
+// localStorage, zelfde patroon als voetbal_teamClubIds en om dezelfde reden: activeClubLogo komt
+// uit de info-fetch van fetchTeamInfo, en die kan op traag 4G in zijn timeout lopen of offline
+// helemaal mislukken. Zonder deze cache droeg een PDF die je aan het veld maakte (typisch het
+// wedstrijdplan, vlak na het openen van de app) géén clublogo, terwijl hetzelfde document thuis
+// op wifi het wél had. Logo's zijn data-URI's van ±88 KB; bij een volle opslag valt deze cache
+// terug op enkel de actieve ploeg (zie rememberTeamClubLogo).
+let teamClubLogos = {};
+function loadTeamClubLogos() {
+  try { const c = JSON.parse(localStorage.getItem('voetbal_teamClubLogos') || '{}'); for (const k in c) if (!teamClubLogos[k]) teamClubLogos[k] = c[k]; } catch (e) {}
+}
+function rememberTeamClubLogo(teamId, logo) {
+  if (!teamId) return;
+  if (logo) teamClubLogos[teamId] = logo; else delete teamClubLogos[teamId];
+  try { localStorage.setItem('voetbal_teamClubLogos', JSON.stringify(teamClubLogos)); }
+  catch (e) {
+    // Opslag vol (meerdere ploegen × ±88 KB): dan liever enkel het logo van deze ploeg bewaren
+    // dan de hele cache verliezen. Het geheugen houdt de andere deze sessie nog wel.
+    try { localStorage.setItem('voetbal_teamClubLogos', JSON.stringify(logo ? { [teamId]: logo } : {})); } catch (e2) {}
+  }
+}
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
@@ -1227,6 +1299,8 @@ function pruneDeadTeam(id) {
   delete userTeams[id];
   if (currentUser) fbdb.ref('users/' + currentUser.uid + '/teams/' + id).remove().catch(() => {});
   if (activeTeamId === id) { activeTeamId = null; localStorage.removeItem('voetbal_activeTeamId'); }
+  forgetRosterCache(id); // geen rooster van een ploeg waar je niet meer bij hoort op dit toestel
+  rememberTeamClubLogo(id, '');
   if (view === 'teamselect') render();
 }
 
@@ -1311,6 +1385,14 @@ async function selectTeam(teamId) {
   // even zichtbaar zijn. Zelfde synchrone cache-hydratie als preloadTeamNames().
   try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   activeTeamId = teamId;
+  // Rooster: meteen het laatst gekende van DEZE ploeg neerzetten en als "nog niet geladen" markeren
+  // tot de roster-listener antwoordt. Zonder dit rendert go('home') hieronder nog met het rooster
+  // van de vorige ploeg (of met niets, wat als "geen spelers" gelezen werd).
+  // Een cachetreffer voor DEZE ploeg is meteen bruikbaar (en op het veld zonder bereik het enige
+  // wat er is): de listener verrijkt hem straks. Enkel als er niets gecacht is blijft het rooster
+  // "niet geladen" — dan is er ook echt geen spelersdata voor deze ploeg op dit toestel.
+  rosterTeamId = teamId;
+  rosterLoaded = hydrateRosterFromCache(teamId);
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal.
   activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
@@ -1322,6 +1404,7 @@ async function selectTeam(teamId) {
   // clubbeheerdersrol kan hier nooit blijven hangen. Klopt de onthouden club niet meer, dan
   // corrigeert de fetch hieronder het alsnog (en de rules weigeren intussen elke schrijfactie).
   loadTeamClubIds();
+  loadTeamClubLogos(); // laatst gekende clublogo's van dit toestel — vangnet voor getActiveClubLogo()
   const cachedClubId = teamClubIds[teamId];
   if (!isClubAdmin && cachedClubId && myClubs[cachedClubId]) {
     activeClubId = cachedClubId;
@@ -1382,9 +1465,14 @@ async function fetchTeamInfo(teamId, poging = 0) {
     activeStatsPublic = info.statsPublic || {};
     rememberTeamClubId(teamId, activeClubId); // ook wissen als de ploeg géén club (meer) heeft
     if (activeClubName) teamClubNames[teamId] = activeClubName;
-    if (activeClubLogo) teamClubLogos[teamId] = activeClubLogo; else delete teamClubLogos[teamId];
+    rememberTeamClubLogo(teamId, activeClubLogo); // ook op het toestel, voor de PDF's zonder bereik
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
+    // Ontbreekt het clublogo op deze ploeg terwijl de club er een heeft? Dan is ze aangemaakt vóór
+    // v0.31.8 (createTeam nam het logo toen niet mee) of dateert ze van na de laatste keer dat het
+    // logo opgeslagen werd. Een clubbeheerder vult het hier bij — één schrijfactie, en daarna zien
+    // ook de kijkers van die ploeg het logo. Op de achtergrond: dit mag de ploegflow niet ophouden.
+    if (!activeClubLogo && activeClubId && isClubAdmin) vulClubLogoAan(teamId, activeClubId);
     // Gearchiveerde ploeg: gewone leden er niet gewoon in laten doorwerken (ze is uit alle
     // lijsten verborgen, maar werd bv. bij herstart via voetbal_activeTeamId weer actief).
     // Eigenaar/clubbeheerder mag er wél in (beheren/herstellen via Clubbeheer).
@@ -1412,6 +1500,21 @@ async function fetchTeamInfo(teamId, poging = 0) {
     if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
     if (isAdmin !== wasAdmin || ((changed || activeClubName) && (view === 'home' || view === 'matches'))) render();
   }
+}
+
+// Een ploeg zonder gedenormaliseerd clublogo bijwerken vanuit de clubnode. Enkel voor een
+// clubbeheerder: die mag de clubs-node lezen en teams/{id}/info schrijven (zelfde pad als
+// writeClubLogo). Stil bij een fout — dit is opkuiswerk, geen actie van de gebruiker.
+async function vulClubLogoAan(teamId, clubId) {
+  try {
+    const logo = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/logo'))).val();
+    if (!logo || activeTeamId !== teamId) return;   // geen clublogo, of intussen van ploeg gewisseld
+    await fbdb.ref('teams/' + teamId + '/info/clubLogo').set(logo);
+    if (activeTeamId !== teamId) return;
+    activeClubLogo = logo;
+    rememberTeamClubLogo(teamId, logo);
+    if (view === 'home') render();                  // clubvoettekst onderaan het startscherm
+  } catch (e) {}
 }
 
 // Naam + e-mail van een lid bewaren zodat de beheerder de kijkers kan zien.
@@ -1460,6 +1563,14 @@ function cloudOnLocalMatchDelete(id) {
 }
 function cloudOnLocalTeamsSave(arr) {
   const r = teamRef('roster'); if (!r || !isAdmin) return;
+  // Nooit pushen zolang het rooster van de ACTIEVE ploeg nog niet binnen is: in dat gaatje staat in
+  // voetbal_teams_v2 nog de (gecachte) lijst van een vorige ploeg, en één set() zou daarmee het
+  // rooster van deze ploeg overschrijven. Zelfde soort cross-team-vangnet als bij tornooien,
+  // zie cloudOnLocalTournamentSave.
+  if (!rosterReady()) {
+    showToast('Spelers zijn nog niet geladen — deze wijziging is niet bewaard. Probeer opnieuw.', 'err');
+    return;
+  }
   try { r.set(jclone(arr || [])).catch(_syncFail); } catch (e) {}
 }
 // Per tornooi schrijven i.p.v. de hele array (zelfde reden als bij matches, zie B14/A3): met één
@@ -1590,6 +1701,8 @@ function onSelfRoleChanged(role) {
     cacheUserTeams(currentUser.uid, userTeams);
     activeTeamId = null; isAdmin = false;
     localStorage.removeItem('voetbal_activeTeamId');
+    forgetRosterCache(tid); rosterLoaded = false; rosterTeamId = null;
+    rememberTeamClubLogo(tid, '');
     showToast('Je bent uit deze ploeg verwijderd.', 'err');
     go('teamselect', undefined, true);
     return;
@@ -1853,6 +1966,11 @@ function applyCloudTeams(val) {
   }));
   const merged = cloud; // in cloud-modus enkel cloud-ploegen bewaren
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
+  // Rooster van de actieve ploeg is nu écht binnen: vlag zetten (leeg betekent van hier af ook
+  // echt "geen spelers") en apart cachen zodat een volgende wissel naar deze ploeg meteen klopt.
+  rosterTeamId = activeTeamId;
+  rosterLoaded = true;
+  cacheRoster(activeTeamId, merged);
   cloudRefreshUI();
 }
 // Tornooien stonden vroeger als één array in de cloud en werden hier onvoorwaardelijk over de
@@ -1969,6 +2087,15 @@ function cloudRefreshUI() {
   else if (view === 'matches') loadMatches();
   else if (view === 'stats' && typeof loadStats === 'function') loadStats();
   else if (view === 'teams') render();
+  // De spelerslijst is een momentopname (openTeam kloont naar editingTeam), dus een rooster dat pas
+  // ná het openen binnenkwam bleef hier onzichtbaar tot je het scherm verliet. Enkel in de
+  // overzichtsmodus verversen — in bewerkmodus zou een herrender ingetypte wijzigingen weggooien.
+  else if (view === 'teamEdit' && editingTeam && !teamEditMode) {
+    const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2();
+    // Na een ploegwissel bestaat het oude id niet meer; in de cloud is er precies één rooster.
+    const vers = arr.find(t => t.id === editingTeam.id) || (cloudReady && arr.length === 1 ? arr[0] : null);
+    if (vers) { editingTeam = jclone(vers); render(); }
+  }
   else if (view === 'tournaments') render();
   // currentTournament is een momentopname: zonder verversen bleven de tornooipagina én het verslag
   // op de oude versie hangen wanneer een ander toestel het tornooi aanpaste. En het verslag had

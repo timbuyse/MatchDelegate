@@ -1438,5 +1438,12 @@ views.tournamentReport = renderTournamentReport;
 views.tournamentNew = renderTournamentNew;
 views.prep = renderPrep;
 views.new = renderNew;
-function newMatch() { if (!canManage()) return; startWizard(); go('new'); }
+// Niet aan de wizard beginnen zolang het rooster van de actieve ploeg niet binnen is: stap 1 kiest
+// de ploeg uit getTeamsV2() en stap 2 bouwt de pool daaruit één keer op (poolTeamId-guard), dus een
+// nog niet gesynct rooster zou een lege of zelfs een verkeerde selectie vastzetten.
+function newMatch() {
+  if (!canManage()) return;
+  if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
+  startWizard(); go('new');
+}
 init();

@@ -336,7 +336,7 @@ async function writeClubLogo(cid, dataUri) {
   for (const tid of teamIds) { try { await fbdb.ref('teams/' + tid + '/info/clubLogo').set(dataUri || null); } catch (e) {} }
   // Actieve-ploeg-cache meteen bijwerken zodat lopende schermen kloppen.
   if (activeClubId === cid) activeClubLogo = dataUri || '';
-  for (const tid of teamIds) { if (dataUri) teamClubLogos[tid] = dataUri; else delete teamClubLogos[tid]; }
+  for (const tid of teamIds) rememberTeamClubLogo(tid, dataUri || '');
 }
 // Kies een afbeelding, verklein/comprimeer ze en bewaar ze als clublogo. onDone() na afloop.
 function pickClubLogo(cid, onDone) {
@@ -768,6 +768,11 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // Clubnaam gedenormaliseerd op de ploeg zetten (fase 2f) zodat ook kijkers — die de clubs-node
     // niet mogen lezen — de clubnaam zien in de header en de groepering op het ploegkeuzescherm.
     try { const cn = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val(); if (cn) info.clubName = cn; } catch (e) {}
+    // Het clublogo hoort hier om exact dezelfde reden bij. Voordien stond enkel de naam hier en kwam
+    // het logo alleen op een ploeg terecht via writeClubLogo(), die over de ploegen loopt die op dat
+    // moment bestaan — een ploeg die je daarna aanmaakte, bleef dus zonder logo (in de app én op elke
+    // PDF) tot iemand het logo opnieuw opsloeg.
+    try { const cl = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/logo'))).val(); if (cl) info.clubLogo = cl; } catch (e) {}
   }
   await fbdb.ref('teams/' + teamId).set({
     info,
@@ -1287,7 +1292,7 @@ function renderTeamSelect() {
           // clubId onthouden zodat selectTeam() de clubbeheerder-rechten synchroon kan zetten en
           // niet meer afhangt van een info-fetch die in een timeout kan lopen (zie fetchTeamInfo).
           rememberTeamClubId(id, info.clubId || null);
-          const nl = info.clubLogo || ''; if ((teamClubLogos[id] || '') !== nl) { if (nl) teamClubLogos[id] = nl; else delete teamClubLogos[id]; needsRerender = true; }
+          const nl = info.clubLogo || ''; if ((teamClubLogos[id] || '') !== nl) { rememberTeamClubLogo(id, nl); needsRerender = true; }
           // Ploeg die intussen gearchiveerd raakte → uit de lijst halen (herrenderen).
           if (info.archived && !archivedTeams[id]) { archivedTeams[id] = true; needsRerender = true; }
         })
@@ -2302,7 +2307,7 @@ async function loadHome() {
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   const teamTile = cloudReady
-    ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${playerCount} ${playerCount===1?'speler':'spelers'}</span></button>`
+    ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${rosterReady() ? `${playerCount} ${playerCount===1?'speler':'spelers'}` : 'laden…'}</span></button>`
     : `<button class="tile" onclick="go('teams')"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   // In de cloud kan de lokale cache (tijdelijk, of na een teamwissel) wedstrijden van een
@@ -2507,10 +2512,18 @@ function renderKalender(matches, tornooien = []) {
     : `${CAL_MAANDEN[maand - 1]} ${jaar}`;
   // Een tornooi staat als één dagitem in de agenda; zijn eigen wedstrijden zitten in het tornooi
   // zelf en zouden die dag anders vol stippen zetten.
-  const trnItems = trnGekozen.map(t => `<div class="match-item plan-border" onclick="goTournament('${t.id}')">
+  // Een tornooi is geen geplande wedstrijd: het kaartje droeg de oranje rand en badge daarvan, ook
+  // als het tornooi al afgesloten was. Nu de eigen tornooikleur (dezelfde als de stip hierboven en
+  // de legende), met de status in een tweede badge — zelfde woordkeuze als het Tornooien-scherm.
+  const trnItems = trnGekozen.map(t => {
+    // Enkel écht afgesloten, niet "de datum is voorbij": een tornooi dat nog niet afgesloten is
+    // hoort ook niet zo te heten (zie tournamentClosed).
+    const af = tournamentClosed(t);
+    return `<div class="match-item trn-border" onclick="goTournament('${t.id}')">
       <div class="mi-info"><div class="mi-opp">${esc(t.name || 'Tornooi')}</div>
-      <div class="mi-date">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}</div>
-      <span class="badge badge-plan">${icI(IC.medal)} Tornooi</span></div></div>`).join('');
+      <div class="mi-date">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${af ? ' · afgesloten' : ''}</div>
+      <span class="badge badge-trn">${icI(IC.medal)} Tornooi</span>${af ? `<span class="badge badge-done" style="margin-left:5px">${icI(IC.done)} Afgesloten</span>` : ''}</div></div>`;
+  }).join('');
   const lijst = (trnItems + gekozen.map(matchItemHtml).join(''))
     || `<p style="color:var(--txt2);font-size:14px;text-align:center;padding:8px 0">Niets ${calDag ? 'op deze dag' : 'deze maand'}.</p>`;
 

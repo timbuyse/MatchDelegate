@@ -106,6 +106,9 @@
     .evt-del{margin-left:auto;background:var(--rdp);border:none;color:var(--rd);width:36px;height:36px;border-radius:8px;font-size:17px;cursor:pointer;flex-shrink:0}
     .stat-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr);font-size:14px}
     .stat-row:last-child{border-bottom:none}
+    /* Klikbare rij (→ spelerdetail). Het chevron maakt zichtbaar dát er een detail achter zit:
+       cursor:pointer alleen is op een telefoon onzichtbaar. */
+    .stat-row[data-link]::after{content:'›';color:var(--txt2);font-size:18px;line-height:1;margin-left:2px;opacity:.55;flex-shrink:0}
     .stat-rank{width:24px;font-weight:800;color:var(--txt2)}
     .stat-big{display:flex;gap:10px;flex-wrap:wrap}
     .stat-box{flex:1;min-width:90px;background:var(--bg);border-radius:10px;padding:12px;text-align:center}
@@ -123,6 +126,8 @@
     .stat-eye{margin-left:auto;display:inline-flex;align-items:center;padding:2px 5px;border-radius:6px;color:var(--txt2)}
     .stat-eye.off{opacity:.4}
     .stat-acc>summary:has(.stat-eye)::after{margin-left:6px}
+    /* Uitleglijn boven de statistieksecties — zelfde rustige toon als .stat-locked, maar bovenaan. */
+    .stat-hint{margin:0 0 12px;padding:10px 14px;font-size:13px;color:var(--txt2);background:var(--bg2,rgba(0,0,0,.04));border-radius:10px;display:flex;align-items:center;gap:8px}
     .stat-locked{margin-top:14px;padding:12px 14px;text-align:center;font-size:13px;color:var(--txt2);background:var(--bg2,rgba(0,0,0,.04));border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px}
     /* Match list */
     .match-item{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--tel)}
@@ -137,6 +142,9 @@
     .timer-progress-wrap{height:4px;background:var(--bdr);border-radius:2px;margin-top:8px;overflow:hidden}
     .timer-progress-bar{height:4px;background:var(--grn);border-radius:2px;transition:width .9s linear}
     .match-item.plan-border{border-left-color:var(--orn)}
+    /* Tornooi heeft zijn eigen kleur, gelijk aan de stip (.cal-dot.trn) en de legende in de agenda —
+       de status (afgesloten of niet) zit in de badge, niet in de kleur. */
+    .match-item.trn-border{border-left-color:var(--grn)}
     .mi-info{flex:1}
     .mi-opp{font-size:16px;font-weight:700}
     .mi-date{font-size:12px;color:var(--txt2);margin-top:2px}
@@ -145,6 +153,7 @@
     .badge-live{background:var(--rdp);color:var(--rd)}
     .badge-done{background:var(--telp);color:var(--tel2)}
     .badge-plan{background:var(--ornp);color:var(--orn2)}
+    .badge-trn{background:var(--grnp);color:var(--grn2)}
     .badge-type{background:var(--blk2);color:#fff;margin-left:5px}
     /* Scoreboard */
     .scoreboard{background:var(--blk);color:#fff;border-radius:16px;padding:18px;text-align:center;margin-bottom:12px;border-bottom:3px solid var(--org)}

@@ -6,7 +6,7 @@ function renderTeamsList() {
   const title = cloudReady ? `${icI(IC.players)} Spelers` : `${icI(IC.players)} Ploegen`;
   return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${title}</h1></div>
   <div class="content">
-    ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : `<div class="empty"><div class="ei">${IC.players}</div><p>Nog geen spelers.</p></div>`}
+    ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : `<div class="empty"><div class="ei">${IC.players}</div><p>${rosterEmptyText('Nog geen spelers.')}</p></div>`}
     ${!cloudReady && canManage()
       ? '<button class="btn btn-green" style="margin-top:8px" onclick="newTeam()">+ Nieuwe ploeg</button>'
       : (cloudReady && isAdmin)
@@ -1239,6 +1239,8 @@ function trnTeamCandidates() {
 }
 function newTournament() {
   if (!canManage()) return;
+  // Zelfde reden als bij newMatch(): de dagselectie komt uit het rooster van de actieve ploeg.
+  if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
   const now = new Date();
   const team = trnTeamCandidates()[0] || null;
   trnWiz = {
@@ -1600,7 +1602,7 @@ function renderTrnStep2() {
     </div>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div style="font-size:12px;color:var(--txt2);padding:0 2px 6px"><b>Niets aanduiden = niet geselecteerd</b> (telt nergens mee). <b>Mee</b> = in de tornooiselectie, <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.</div>
-    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie') + own.map(selRow2).join('') : '<p style="color:var(--txt2);font-size:14px">Deze ploeg heeft geen spelers.</p>'}</div>
+    <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie') + own.map(selRow2).join('') : `<p style="color:var(--txt2);font-size:14px">${rosterEmptyText('Deze ploeg heeft geen spelers.')}</p>`}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg')}${guests.map(selRow2).join('')}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>

@@ -179,7 +179,9 @@ async function loadStats() {
   const _openSecs = new Set([...el.querySelectorAll('details.stat-acc[data-sk][open]')].map(d => d.dataset.sk));
   const sect = (k, summaryInner, bodyHtml) => { const pub = isPub(k); if (!isMgr && !pub) { hiddenCount++; return ''; } return `<details class="stat-acc" data-sk="${k}"${_openSecs.has(k) ? ' open' : ''}><summary>${summaryInner}${eyeCtrl(k)}</summary><div class="card">${bodyHtml}</div></details>`; };
   // Spelernamen enkel klikbaar (→ individueel spelerdetail) voor beheerders; kijkers krijgen geen detail.
-  const prow = p => isMgr ? `style="cursor:pointer" onclick="openPlayerDetail('${jsq(p.name)}','${jsq(pDetTeam)}','${jsq(p.rosterId || '')}')"` : '';
+  // data-link zet het chevron achter de rij (zie .stat-row[data-link] in index.html): zonder dat
+  // teken was er nergens te zien dat achter een spelersnaam een persoonlijk detail zit.
+  const prow = p => isMgr ? `data-link="1" style="cursor:pointer" onclick="openPlayerDetail('${jsq(p.name)}','${jsq(pDetTeam)}','${jsq(p.rosterId || '')}')"` : '';
   const topList = (arr, val, unit) => arr.length ? arr.map((p, i) => `<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${val(p)}${unit}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>';
   const scorers = players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 10);
   const assisters = players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 10);
@@ -208,6 +210,10 @@ async function loadStats() {
         <div class="stat-box"><div class="v">${gf-ga>=0?'+':''}${gf-ga}</div><div class="l">Saldo</div></div>
       </div>
     </div>`
+    // Eén keer zeggen wat de chevrons hieronder betekenen. Enkel voor beheerders (kijkers hebben geen
+    // spelerdetail) en enkel als er ook effectief spelersrijen zijn — een wedstrijd die via "Snel
+    // resultaat" ingevoerd is, heeft er geen.
+    + ((isMgr && players.length) ? `<p class="stat-hint">${icI(IC.shirt)} Tik op een speler voor zijn persoonlijke statistieken.</p>` : '')
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
@@ -1321,6 +1327,8 @@ async function doDeleteCloudTeam() {
     stopTeamListeners();
     activeTeamId = null; isAdmin = false;
     localStorage.removeItem('voetbal_activeTeamId');
+    forgetRosterCache(tid); rosterLoaded = false; rosterTeamId = null;
+    rememberTeamClubLogo(tid, '');
     closeModal();
     go('teamselect', undefined, true);
   } catch (e) {
