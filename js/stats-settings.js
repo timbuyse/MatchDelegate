@@ -213,7 +213,7 @@ async function loadStats() {
     // Eén keer zeggen wat de chevrons hieronder betekenen. Enkel voor beheerders (kijkers hebben geen
     // spelerdetail) en enkel als er ook effectief spelersrijen zijn — een wedstrijd die via "Snel
     // resultaat" ingevoerd is, heeft er geen.
-    + ((isMgr && players.length) ? `<p class="stat-hint">${icI(IC.shirt)} Tik op een speler voor zijn persoonlijke statistieken.</p>` : '')
+    + ((isMgr && players.length) ? `<p class="stat-hint">${icI(IC.shirt)}<span>Tik op een speler voor zijn persoonlijke statistieken.</span></p>` : '')
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')

@@ -1072,7 +1072,9 @@ async function pdfMatchBody(doc, L, m) {
 function planStartVanDeel(m, q) {
   if ((m.quarters || []).length >= q) return pitchPlayersAtPeriodStart(m, q);
   const eigen = (m.plannedLineups || {})[q];
-  if (eigen && eigen.length) return plannedLineupPlayers(m, eigen);
+  // Uitgesloten spelers eruit: een opstelling die vóór de rode kaart ingegeven werd, mag hem niet
+  // alsnog op papier op het veld zetten — zijn plaats blijft leeg (zie magOpHetVeld in core.js).
+  if (eigen && eigen.length) return plannedLineupPlayers(m, eigen).filter(p => magOpHetVeld(m, p));
   if (q <= 1) return plannedLineupPlayers(m, plannedLineupBase(m, 1));
   return _pasGeplandToe(m, planStartVanDeel(m, q - 1).map(p => ({ ...p })), q - 1, null);
 }
@@ -1136,7 +1138,7 @@ async function exportWedstrijdplanPDF() {
   // wissels van plaats ruilden.
   const bankTekst = veld => {
     const opVeld = new Set(veld.map(p => p.id));
-    const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+    const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return bank.length ? 'Bank: ' + bank.map(p => fieldName(m, p.id)).join(', ') : 'Geen bankspelers.';
   };
   const bankW = veldW;

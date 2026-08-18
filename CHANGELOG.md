@@ -9,6 +9,61 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.31.14
+- **Eén planner in plaats van twee.** Er waren twee varianten: één waarin je de kwarten na de wizard
+  één voor één doorliep (met de geplande wissels eronder, afgesloten met *'Klaar'*), en één waarin je
+  via het potloodje op de planningskaart één kwart bijstelde — daar zag je de opstelling wél maar de
+  wissels van dat kwart niet. Nu is het overal hetzelfde scherm.
+- **Vooruit én achteruit bladeren.** Onderaan staan nu `← Kwart 2` en `Kwart 4 →` (met nummer, zodat
+  je ziet waar je naartoe gaat), en daaronder gewoon **Opslaan**. *'Klaar — rest volgt deze
+  opstelling'* is weg.
+- **De melding bij opslaan klopt nu.** *'Opgeslagen tot kwart 3'* somde alleen de kwarten ná je
+  stoppunt op, dus kwart 2 bleef onvermeld terwijl dat evengoed geen eigen opstelling had. Nu één
+  regel die altijd waar is: *'Wedstrijdplan opgeslagen. Kwarten zonder eigen opstelling beginnen zoals
+  het vorige eindigt — later aanpasbaar via Planning.'*
+- **Je ziet welk kwart losgekoppeld is.** Het bolletje op de kwart-knop heeft een legende (*'● = eigen
+  opstelling'*) en een tooltip, en bij zo'n kwart staat er nu: *'Dit kwart heeft een eigen opstelling
+  en volgt kwart 2 dus niet meer.'* Met *'Plan voor kwart X wissen'* maak je dat ongedaan.
+- In de uitklapper *'Hoe werkt dit?'* staat de bijhorende tip: doorloop de kwarten van voor naar
+  achter, want een kwart dat je zelf invult volgt de eerdere kwarten daarna niet meer.
+
+## v0.31.13
+- **De uitleglijn bovenaan de startopstelling stond verkeerd.** Het blokje is een flexbox, en door het
+  vette woord in de tekst werd elk stukje tekst een apart item op één rij. De tekst zit nu in één
+  geheel, het icoon staat netjes op de eerste regel en krimpt niet meer mee. Geldt ook voor dezelfde
+  uitleglijn in de statistieken.
+
+## v0.31.12
+- **Een uitgesloten speler mag niet vervangen worden — de app houdt zich daar nu aan.** Dat een rode
+  kaart (ook de automatische na twee gele) de speler van het veld haalt, klopte al. Maar het plan wist
+  niets van rood: hij stond nog in de geplande opstellingen, hij stond nog op de bank om aangetikt te
+  worden, en in sommige gevallen zette de app hem bij de start van een volgend kwart zelfs terug op
+  het veld. Nu blijft zijn plaats leeg en speelt de ploeg met een man minder — zoals de spelregels
+  vragen.
+- Concreet: hij verdwijnt uit de bank (in de wisselmodal, het pauzescherm, de planner en de
+  planningskaart), uit de geplande opstellingen van de volgende kwarten en uit het wedstrijdplan-PDF.
+  Een wissel die hem zou inbrengen wordt geweigerd met een duidelijke melding, en een opstelling die
+  je vóór de kaart ingaf krijgt een waarschuwing: *'is uitgesloten (rode kaart) — zijn plaats blijft
+  leeg'*.
+- Ook een wissel die per ongeluk ná de kaart in de gebeurtenissen staat, zet hem niet meer terug op
+  het veld. Verwijder je de kaart (verkeerd ingegeven), dan komt alles gewoon terug zoals het was.
+
+## v0.31.11
+- **Een kwart zonder eigen opstelling begint nu zichtbaar zoals het vorige *eindigt*.** De drie
+  planningsschermen toonden de opstelling waarmee het vorige kwart *begon*, zonder de wissels die je
+  daarin plande — terwijl het PDF van dezelfde wedstrijd, en de wedstrijd zelf, wél van het einde
+  vertrokken. Planner, planningskaart, PDF en de wedstrijd geven nu alle vier hetzelfde antwoord.
+- Daardoor loopt de keten door: pas je kwart 1 aan, dan volgen kwart 2, 3 en 4 automatisch, zolang je
+  ze niet zelf invulde. Wandel je enkel door de reeks zonder iets te verslepen, dan wordt er niets
+  vastgelegd en blijft die keten in stand.
+- **De meldingen zeggen nu wat er echt gebeurt.** "begint met die van het kwart ervoor" was
+  dubbelzinnig — begin of einde van dat kwart? Op drie plekken staat nu *'begint zoals het vorige
+  eindigt, met de wissels die je daar doorvoert erin'*.
+- De uitklapper *'Hoe werkt dit?'* maakt het onderscheid dat er echt is: **vul je een kwart in**, dan
+  vergelijkt de app bij het einde van het vorige kwart het *werkelijke* veld met jouw plan en zet ze de
+  nodige wissels klaar — ook als er iets heel anders gebeurde dan gepland. **Vul je het niet in**, dan
+  zet ze niets klaar en loopt het gewoon door.
+
 ## v0.31.10
 - **Stap 3 van een nieuwe wedstrijd heet nu "Startopstelling"** (bij meer dan één deel), met eronder
   één regel: *'Dit is de opstelling waarmee je begint. De opstelling van de volgende kwarten en de

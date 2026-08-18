@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.31.10'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.31.14'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -641,15 +641,29 @@ function scoreUpToQuarter(m, qNum) {
   }
   return { us, them };
 }
+// Uitgesloten spelers: wie een rode kaart kreeg (ook de automatische na twee gele, zie
+// autoSecondYellow) mag niet meer op het veld komen en mag ook NIET vervangen worden — zijn plaats
+// blijft leeg en de ploeg speelt met een man minder. Dat is een spelregel, geen voorkeur: overal
+// waar een opstelling, een bank of een wissel iemand het veld op stuurt, hoort dit gecheckt te
+// worden. Wordt de kaart weer verwijderd (verkeerd ingegeven), dan valt dit automatisch weg.
+function uitgeslotenIds(m) {
+  return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));
+}
+function isUitgesloten(m, pid) { return !!pid && uitgeslotenIds(m).has(pid); }
+// Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
+function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
 function recomputeOnField(m) {
   // Wie als "niet aanwezig" gemarkeerd is, staat nooit op het veld — wat de events ook zeggen.
   // De beginstand hield daar al rekening mee, maar de replay hieronder zette een speler die
   // eerder via een wissel inkwam er stil weer op. Zo stond iemand die al naar huis was na een
   // undoLast (of het verwijderen van een event) opnieuw op het veld én in de wisselmodal.
   const absent = new Set(m.players.filter(p => p.absent).map(p => p.id));
-  const on = {}; m.players.forEach(p => on[p.id] = !!p.starting && !p.absent);
+  // Uitgesloten spelers idem: zonder deze set zette een wissel die ná de rode kaart in de events
+  // staat hem er stil weer op, en dan speelde de ploeg weer voltallig.
+  const uit = uitgeslotenIds(m);
+  const on = {}; m.players.forEach(p => on[p.id] = !!p.starting && !p.absent && !uit.has(p.id));
   for (const e of [...m.events].sort((a, b) => a.gameTimeMs - b.gameTimeMs)) {
-    if (e.type === 'substitution') { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId && !absent.has(e.playerInId)) on[e.playerInId] = true; }
+    if (e.type === 'substitution') { if (e.playerOutId) on[e.playerOutId] = false; if (e.playerInId && !absent.has(e.playerInId) && !uit.has(e.playerInId)) on[e.playerInId] = true; }
     if (e.type === 'red_card' && e.playerId) on[e.playerId] = false;
     if (e.type === 'injury' && e.leavesField && e.playerId) on[e.playerId] = false;
   }

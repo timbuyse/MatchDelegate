@@ -602,7 +602,7 @@ function wizStep3() {
     </div>
     ${/* Deze stap gaat enkel over de aftrap. Dat de volgende delen en de wissels daarna komen, stond
          alleen onderaan en dan nog geformuleerd rond opslaan — hier leest het als een wegwijzer. */ ''}
-    ${wizDelen() > 1 ? `<p class="stat-hint">${icI(IC.shirt)} Dit is de opstelling waarmee je <b>begint</b>. De opstelling van de volgende ${pPlural(wiz)} en de wissels geef je in de volgende stap in.</p>` : ''}
+    ${wizDelen() > 1 ? `<p class="stat-hint">${icI(IC.shirt)}<span>Dit is de opstelling waarmee je <b>begint</b>. De opstelling van de volgende ${pPlural(wiz)} en de wissels geef je in de volgende stap in.</span></p>` : ''}
     <div class="fg"><label>Formatie</label>
       <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
     <div class="card">${wizPitch(form)}
@@ -649,12 +649,12 @@ function wizStep3() {
     })()}`;
 }
 // "Verder": eerst de wedstrijd inplannen (de planner werkt op een bewaarde wedstrijd, niet op de
-// wizard-pool), dan de reeks openen op deel 1. Daar staan de wissels tijdens dat deel, en van daaruit
-// wandel je deel per deel verder. Stoppen kan overal — de wedstrijd staat op dat moment al
-// ingepland, ook als je niets meer invult, en de resterende delen erven de laatste opstelling.
+// wizard-pool), dan de planner openen op deel 1. Daar staan ook de wissels tijdens dat deel, en met
+// de pijlen wandel je verder. Stoppen kan overal — de wedstrijd staat op dat moment al ingepland,
+// ook als je niets meer invult, en de delen die je niet ingaf volgen het deel ervoor.
 async function finishWizardThenPlan() {
   await finishWizard(false);
-  if (match) openPlannedLineupsSeq(1);
+  if (match) openPlannedLineups(1);
 }
 function ensurePosNums(m) {
   if (!m || !m.matchType) return false;
@@ -1114,7 +1114,7 @@ function prepPlanningHtml(m, ro) {
   const slide = q => {
     const lijst = plannedLineupBase(m, q);
     const opVeld = new Set(lijst.map(p => p.id));
-    const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+    const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
       ${renderPitch(m, plannedLineupPlayers(m, lijst), m.captainId)}
       <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
@@ -1181,11 +1181,11 @@ function renderPrep() {
       ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`
       : `${prepPlanningHtml(m, ro)}
     ${plannedLineupWarnHtml(m)}`}
-    ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en worden in
-         dezelfde reeks ingegeven (zie openPlannedLineupsSeq). Hier stonden er twee — 'Opstelling
-         per kwart' en 'Wissels plannen' — die elk de helft deden en naar een eigen scherm leidden.
-         Het potlood in de kaart hierboven blijft voor wie gericht één deel wil bijstellen. */ ''}
-    ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineupsSeq(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
+    ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en staan in dezelfde
+         planner (zie openPlannedLineups). Hier stonden er twee — 'Opstelling per kwart' en 'Wissels
+         plannen' — die elk de helft deden en naar een eigen scherm leidden. Het potlood in de kaart
+         hierboven brengt je in diezelfde planner, maar meteen op het deel waar je naar kijkt. */ ''}
+    ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}
@@ -1218,7 +1218,7 @@ function modalEditMatchMenu() {
       ? 'Geef eerst de selectie in.'
       : (heeftOpst ? `Het hele plan, ${pSingLow(m)} per ${pSingLow(m)}: wie er begint en wat er tijdens dat ${pSingLow(m)} verandert.`
         : 'Zet de spelers op het veld — dat moet nog gebeuren.'),
-      heeftOpst ? 'openPlannedLineupsSeq(1)' : 'startOpstellingWizard()', !heeftSel)}
+      heeftOpst ? 'openPlannedLineups(1)' : 'startOpstellingWizard()', !heeftSel)}
     ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSel
       ? 'Enkel voor deze wedstrijd: rugnummers, kapitein en een notitie per speler.'
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
@@ -1320,13 +1320,37 @@ function plannedPartsCount(m) {
 }
 // Waar begin je aan als je deel q opent: het plan voor dat deel, anders dat van het vorige deel,
 // en uiteindelijk de startopstelling. Zo pas je per deel enkel aan wat er verandert.
-function plannedLineupBase(m, q) {
-  for (let k = q; k >= 2; k--) {
-    const pl = ((m.plannedLineups || {})[k] || []);
-    if (pl.length) return pl.map(p => ({ ...p }));
+function _planEntry(p) { return { id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }; }
+// De startopstelling als plan-entries (deel 1 woont in m.players, niet in plannedLineups).
+function _planStartEntries(m) {
+  return (m.players || []).filter(p => p.starting && magOpHetVeld(m, p)).map(_planEntry);
+}
+// Waarmee begint deel q volgens het plan? Het dichtstbijzijnde deel met een EIGEN opstelling (of de
+// startopstelling), plus de geplande wissels van elk deel daartussen. Een deel zonder eigen opstelling
+// begint dus zoals het vorige EINDIGT — hetzelfde antwoord als planStartVanDeel (de PDF) en als de
+// wedstrijd zelf, die bij de overgang van het werkelijke veld vertrekt. Voordien gaven de drie
+// planningsschermen hier de opstelling waarmee het vorige deel BEGON, zonder de wissels ervan: dat
+// week af van het PDF van dezelfde wedstrijd.
+function _planBasis(m, q, eff, startEntries) {
+  let k = q, basis = null;
+  for (; k >= 2; k--) {
+    const pl = eff[k] || [];
+    if (pl.length) { basis = pl.map(p => ({ ...p })); break; }
   }
-  return (m.players || []).filter(p => p.starting && !p.absent)
-    .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  if (!basis) { k = 1; basis = startEntries.map(p => ({ ...p })); }
+  // plannedLineupPlayers() maakt verse objecten, dus _pasGeplandToe (die muteert) raakt de echte
+  // spelers nooit aan. De wissels ZONDER deelnummer blijven buiten beschouwing, net als in
+  // planStartVanDeel: die horen bij het lopende deel, niet bij een overgang.
+  for (let j = k; j < q; j++) {
+    basis = _pasGeplandToe(m, plannedLineupPlayers(m, basis), j, null).map(_planEntry);
+  }
+  // Een uitgesloten speler (rode kaart) kan nog in een eerder ingegeven opstelling staan — die is
+  // dan gemaakt vóór de kaart. Hij mag niet vervangen worden, dus zijn plaats blijft gewoon leeg.
+  const uit = uitgeslotenIds(m);
+  return uit.size ? basis.filter(e => !uit.has(e.id)) : basis;
+}
+function plannedLineupBase(m, q) {
+  return _planBasis(m, q, (m && m.plannedLineups) || {}, _planStartEntries(m));
 }
 // De plan-entries dragen enkel id + plaats; voor het tekenen hebben we ook naam en rugnummer nodig.
 function plannedLineupPlayers(m, lijst) {
@@ -1384,6 +1408,7 @@ function plannedLineupIssues(m) {
         const sp = spelers.get(e.id);
         if (!sp) namen.push('een speler die niet meer in de selectie zit');
         else if (sp.absent) namen.push(`${fieldName(m, e.id)} staat niet aanwezig`);
+        else if (isUitgesloten(m, e.id)) namen.push(`${fieldName(m, e.id)} is uitgesloten (rode kaart) — zijn plaats blijft leeg`);
       });
       return { deel, namen: [...new Set(namen)] };
     })
@@ -1409,6 +1434,9 @@ function lineupToPending(m, huidig, gepland) {
     const sp = inSelectie.get(e.id);
     if (!sp) { problemen.push('Een speler uit het plan zit niet meer in de selectie.'); return false; }
     if (sp.absent) { problemen.push(`${pName(m, e.id)} is afwezig gemarkeerd en blijft van het veld.`); return false; }
+    // Uitgesloten: hij mag niet meer meedoen én niet vervangen worden. Door hem hier uit het doel te
+    // laten, wordt er geen wissel voor hem berekend en blijft zijn plaats leeg — één man minder.
+    if (isUitgesloten(m, e.id)) { problemen.push(`${pName(m, e.id)} is uitgesloten (rode kaart): zijn plaats blijft leeg, je speelt met een man minder.`); return false; }
     return true;
   });
   const nuIds = new Set(huidig.map(p => p.id));
@@ -1452,7 +1480,6 @@ function lineupToPending(m, huidig, gepland) {
 
 let _planLineupQ = 1;        // welk deel staat open in de planner
 let _planLineupSel = null;   // { kind: 'field' | 'bench', id }
-let _planLineupDone = false; // planner geopend meteen na de wizard: dan sluit hij af met "Klaar"
 // Onopgeslagen wijzigingen in de planner. Sleutel = deelnummer, waarde = de opstelling voor dat deel
 // (of null: "plan gewist, volg weer het vorige deel"). Elke tik schreef vroeger meteen naar de
 // databank; nu blijft alles hier staan tot je op Opslaan drukt, zodat Sluiten écht annuleert.
@@ -1469,85 +1496,41 @@ function _planLineupsNu(m) {
 }
 // Zelfde rol als plannedLineupBase, maar met de werkkopie meegerekend.
 function planLineupBaseNu(m, q) {
-  const eff = _planLineupsNu(m);
-  for (let k = q; k >= 2; k--) {
-    const pl = eff[k] || [];
-    if (pl.length) return pl.map(p => ({ ...p }));
-  }
-  const start = _planLineupDraft && _planLineupDraft[1];
-  if (start) return start.map(p => ({ ...p }));
-  return (m.players || []).filter(p => p.starting && !p.absent)
-    .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  const draft1 = _planLineupDraft && _planLineupDraft[1];
+  const start = draft1 ? draft1.map(p => ({ ...p })) : _planStartEntries(m);
+  return _planBasis(m, q, _planLineupsNu(m), start);
 }
 function planLineupDirty() { return !!(_planLineupDraft && Object.keys(_planLineupDraft).length); }
-// Sequentiële modus: je loopt de delen één voor één af, van de startopstelling tot het laatste deel,
-// telkens met de wissels van dát deel eronder. Zo bouw je het wedstrijdplan in de volgorde waarin
-// het gespeeld wordt. Buiten die modus is de planner wat hij was: één deel dat je gericht bewerkt.
-let _planLineupSeq = false;
 // De planner openen: altijd met een verse werkkopie. Elk pad naar de planner (knop, potlood, het
 // menu, en de wizard) loopt hierlangs; modalPlannedLineups zelf hertekent enkel wat al openstaat.
-function openPlannedLineups(q, klaarKnop) {
+// Er is één planner: van waar je ook binnenkomt, je kan met de pijlen door alle delen bladeren en
+// zie je bij elk deel ook de wissels die erin gepland staan. Vroeger was er een aparte
+// "reeks"-variant (na de wizard) die als enige die wissels toonde en met "Klaar" afsloot.
+function openPlannedLineups(q) {
   _planLineupDraft = {};
-  _planLineupSeq = false;
-  modalPlannedLineups(q, klaarKnop);
+  modalPlannedLineups(q);
 }
-// Idem, maar dan de reeks doorlopen. Wordt gebruikt na de startopstelling in de wizard.
-function openPlannedLineupsSeq(q) {
-  _planLineupDraft = {};
-  _planLineupSeq = true;
-  _planLineupDone = false;
-  modalPlannedLineups(q || 1);
-}
-// Naar het volgende deel in de reeks. De opstelling van dit deel wordt eerst bewaard: de wissels die
-// je hieronder plant schrijven meteen weg, dus een nog openstaande werkkopie zou anders achterlopen.
-async function planSeqVolgende() {
+// Naar een ander deel. De werkkopie wordt eerst weggeschreven: de wissels die je eronder plant
+// schrijven meteen weg (dus een openstaande werkkopie zou achterlopen), en het volgende deel erft
+// van dit deel — dat moet dus vastliggen vóór we het tekenen.
+async function planNaarDeel(deel) {
   const totaal = plannedPartsCount(match);
-  const volgend = Math.min(_planLineupQ + 1, totaal);
+  const doel = Math.min(Math.max(1, deel || 1), totaal);
   await _schrijfPlanDraft();
   _planLineupDraft = {};
-  modalPlannedLineups(volgend);
+  modalPlannedLineups(doel);
 }
-// Stoppen vóór het laatste deel: zeggen wat er dan met de rest gebeurt. De delen die je niet
-// ingevuld hebt, erven de laatste opstelling (zie plannedLineupBase) — dat is precies wat je wil,
-// maar het is niet te zien, dus hier staat het met zoveel woorden.
-async function planSeqStop() {
-  const m = match;
+// De melding bij het opslaan. Voordien stond hier een modal ("Opgeslagen tot kwart 3") die enkel de
+// delen ná je stoppunt opsomde: kwart 2 bleef onvermeld terwijl dat evengoed geen eigen opstelling
+// had, en de kop suggereerde dat de rest niet bewaard was. Nu één regel die altijd klopt, ongeacht
+// waar je stopte, plus de weg terug.
+function planOpgeslagenTekst(m) {
   const totaal = plannedPartsCount(m);
-  const deel = _planLineupQ;
-  await _schrijfPlanDraft();
-  _planLineupDraft = {};
-  const klaar = () => { _planLineupSeq = false; closeModal(); render(); showToast('Wedstrijdplan opgeslagen.'); };
-  if (deel >= totaal) { klaar(); return; }
-  // Enkel de delen die nog GEEN eigen opstelling hebben, erven er een. Bij een wedstrijd waar je
-  // later kwart al ingevuld is (je bewerkt een bestaand plan) zou "de rest volgt deze opstelling"
-  // gewoon niet waar zijn.
   const eigen = m.plannedLineups || {};
-  const erft = [];
-  for (let k = deel + 1; k <= totaal; k++) if (!((eigen[k] || []).length)) erft.push(k);
-  if (!erft.length) { klaar(); return; }
-  const lijst = erft.length === 1 ? `${pSing(m)} ${erft[0]}`
-    : `${pSing(m)} ${erft.slice(0, -1).join(', ')} en ${erft[erft.length - 1]}`;
-  openModal(`<h3>${icI(IC.check)} Opgeslagen tot ${pSingLow(m)} ${deel}</h3>
-    ${/* Bewust "het ${deel} ervoor" en niet "die van ${deel} X": erft een deel van een later plan
-         dat je wél al ingaf, dan klopt dat laatste niet (zie plannedLineupBase, die terugzoekt naar
-         het dichtstbijzijnde voorgaande plan). */ ''}
-    <p style="text-align:center;color:var(--txt2);margin-bottom:14px">${lijst} ${erft.length === 1 ? 'heeft' : 'hebben'} geen eigen opstelling en ${erft.length === 1 ? 'begint' : 'beginnen'}
-      dus met die van ${pSingLow(m) === 'helft' ? 'de' : 'het'} ${pSingLow(m)} ervoor. Je kan dat later nog aanpassen in het wedstrijdscherm, bij <b>Planning</b>.</p>
-    <button class="btn btn-green" onclick="planSeqKlaar()">${icI(IC.check)} Prima</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="planSeqVerder(${erft[0]})">${icI(IC.shirt)} Toch verder met ${pSingLow(m)} ${erft[0]}</button>`);
-}
-// De reeks afsluiten. Ook hier de vlag uitzetten: bleef ze op true staan, dan gedroeg een volgende
-// planner zich als een reeks zodra hij langs een pad kwam dat de vlag niet zelf zet.
-function planSeqKlaar() {
-  _planLineupSeq = false;
-  _planLineupDraft = null;
-  closeModal(); render();
-}
-function planSeqVerder(deel) {
-  closeModal();
-  _planLineupDraft = {};
-  _planLineupSeq = true;
-  modalPlannedLineups(deel);
+  let zonder = 0;
+  for (let k = 2; k <= totaal; k++) if (!((eigen[k] || []).length)) zonder++;
+  if (!zonder) return 'Wedstrijdplan opgeslagen.';
+  return `Wedstrijdplan opgeslagen. ${pPlural(m).charAt(0).toUpperCase() + pPlural(m).slice(1)} zonder eigen opstelling beginnen zoals het vorige eindigt — later aanpasbaar via Planning.`;
 }
 // Deel 1 is de startopstelling zelf en woont dus in m.players, niet in plannedLineups. Bewerken mag
 // enkel zolang de wedstrijd gepland is: eens ze loopt zijn er speelminuten en events die van die
@@ -1557,12 +1540,11 @@ function planLineupEditable(m, deel) {
   if (!canManage()) return false;
   return deel > 1 || (m.status || 'planned') === 'planned';
 }
-function modalPlannedLineups(q, klaarKnop) {
+function modalPlannedLineups(q) {
   const m = match; if (!m) return;
   const totaal = plannedPartsCount(m);
   if (!(m.players || []).length) { showToast('Geef eerst de selectie en de startopstelling in.', 'err'); return; }
   if (!_planLineupDraft) _planLineupDraft = {};
-  if (klaarKnop !== undefined) _planLineupDone = !!klaarKnop;
   if (q) { _planLineupQ = Math.min(Math.max(1, q), totaal); _planLineupSel = null; }
   const deel = Math.min(_planLineupQ, totaal);
   // De planningskaart eronder volgt het deel dat hier openstaat: sluit je de planner op kwart 3,
@@ -1573,14 +1555,19 @@ function modalPlannedLineups(q, klaarKnop) {
   const plan = planLineupBaseNu(m, deel);
   const veld = plannedLineupPlayers(m, plan);
   const opVeld = new Set(plan.map(p => p.id));
-  const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+  const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
   const eigen = deel > 1 && !!(eff[deel] || []).length;
   const chips = Array.from({ length: totaal }, (_, i) => i + 1).map(k => {
     // Een stipje betekent "dit deel heeft een eigen opstelling". Deel 1 heeft er per definitie een
     // (de startopstelling), dus daar zou het stipje niets onderscheiden.
     const heeft = k > 1 && !!(eff[k] || []).length;
-    return `<button class="tgl-btn${k === deel ? ' act' : ''}" onclick="modalPlannedLineups(${k})">${pSing(m)} ${k}${heeft ? ' ●' : ''}</button>`;
+    const titel = heeft ? ` title="Eigen opstelling — volgt ${pSingLow(m)} ${k - 1} niet meer"` : '';
+    return `<button class="tgl-btn${k === deel ? ' act' : ''}"${titel} onclick="planNaarDeel(${k})">${pSing(m)} ${k}${heeft ? ' ●' : ''}</button>`;
   }).join('');
+  // Wat het bolletje betekent, staat er nu bij: het onderscheidt een deel dat je zelf invulde van een
+  // deel dat gewoon het vorige volgt, en dat verschil bepaalt of een latere wijziging nog doorwerkt.
+  const bolUitleg = Array.from({ length: totaal }, (_, i) => i + 1).some(k => k > 1 && (eff[k] || []).length)
+    ? `<p style="text-align:center;color:var(--txt2);font-size:11px;margin:-4px 0 10px">● = eigen opstelling</p>` : '';
   const selId = _planLineupSel ? _planLineupSel.id : null;
   const uitleg = ro
     ? (deel === 1
@@ -1588,25 +1575,25 @@ function modalPlannedLineups(q, klaarKnop) {
       : `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`)
     : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
       ? ` Dit is de <b>startopstelling</b>.`
-      : (eigen ? '' : ` Dit ${pSingLow(m)} volgt nu nog de opstelling van het vorige.`)}`;
-  const titel = _planLineupSeq && totaal > 1
-    ? `${pSing(m)} ${deel} van ${totaal}`
-    : `Opstelling per ${pSingLow(m)}`;
+      : (eigen
+        ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
+        : ` Dit ${pSingLow(m)} heeft nog geen eigen opstelling: het begint zoals het vorige <b>eindigt</b>.`)}`;
+  const titel = totaal > 1 ? `${pSing(m)} ${deel} van ${totaal}` : `Opstelling`;
   openModal(`<h3>${icI(IC.shirt)} ${titel}</h3>
-    ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>` : ''}
+    ${totaal > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>${bolUitleg}` : ''}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
     ${/* Uitklapper i.p.v. een pop-up: wie het mechanisme kent, ziet één regeltje; wie het niet kent,
          leest het hier. De tekst volgt precies wat de code doet — zetGeplandeOpstellingKlaar() bij
          het einde van een deel, startQuarter() bij de start, en plannedSubs die NOOIT vanzelf afgaan
-         (zie de commentaar bij "GEPLANDE (KLAARGEZETTE) WISSELS" in live-match.js). Enkel in de
-         reeks: daar bouw je het plan op. */ ''}
-    ${(_planLineupSeq && !ro && totaal > 1) ? `<details class="more-details" style="margin-bottom:12px">
+         (zie de commentaar bij "GEPLANDE (KLAARGEZETTE) WISSELS" in live-match.js). */ ''}
+    ${(!ro && totaal > 1) ? `<details class="more-details" style="margin-bottom:12px">
       <summary>Hoe werkt dit?</summary>
       <div style="font-size:13px;color:var(--txt2);margin-top:10px;line-height:1.45">
         <p style="margin-bottom:8px">Geef per ${pSingLow(m)} de opstelling in waarmee dat ${pSingLow(m)} <b>begint</b>, en daaronder de wissels en positiewissels die je <b>tijdens</b> dat ${pSingLow(m)} wil doen.</p>
-        <p style="margin-bottom:8px">Je hoeft zelf niet uit te rekenen wie er tussen twee ${pPlural(m)} moet wisselen. Sluit je een ${pSingLow(m)} af, dan vergelijkt de app het veld met jouw plan voor het volgende en zet ze de nodige wissels klaar in het pauzescherm. Bij de start worden die <b>automatisch doorgevoerd</b>. Had je in de pauze zelf al wissels klaargezet, dan blijft dat staan — de app overschrijft je handwerk niet.</p>
+        <p style="margin-bottom:8px"><b>Vul je een ${pSingLow(m)} in</b>, dan zorgt de app dat die opstelling er ook echt komt. Bij het einde van het vorige ${pSingLow(m)} vergelijkt ze het <b>werkelijke</b> veld met jouw plan en zet ze de nodige wissels klaar in het pauzescherm; bij de start worden die automatisch doorgevoerd. Ook als er onderweg heel andere dingen gebeurden dan gepland. Had je in de pauze zelf al wissels klaargezet, dan blijft dat staan — je handwerk wordt niet overschreven.</p>
+        <p style="margin-bottom:8px"><b>Vul je een ${pSingLow(m)} niet in</b>, dan begint het zoals het vorige <b>eindigt</b>, met de wissels die je daar doorvoerde erin, en zet de app niets klaar.</p>
         <p style="margin-bottom:8px">De wissels die je hieronder plant voor <b>tijdens</b> een ${pSingLow(m)} gaan niet vanzelf af: die voer je zelf door op het moment dat je ze wil.</p>
-        <p style="margin:0">Een ${pSingLow(m)} dat je niet invult, begint met de opstelling van ${pSingLow(m) === 'helft' ? 'de helft' : 'het ' + pSingLow(m)} ervoor.</p>
+        <p style="margin:0"><b>Tip:</b> doorloop de ${pPlural(m)} van voor naar achter. Een ${pSingLow(m)} dat je zelf invult (●) krijgt een eigen opstelling en volgt de eerdere ${pPlural(m)} daarna niet meer — wijzig je later nog iets aan ${pSingLow(m)} 2, dan past ${pSingLow(m)} 3 zich dus niet meer aan. Met <b>Plan voor ${pSingLow(m)} X wissen</b> maak je dat weer ongedaan.</p>
       </div></details>` : ''}
     ${plannedLineupWarnHtml(m, deel)}
     ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
@@ -1618,21 +1605,23 @@ function modalPlannedLineups(q, klaarKnop) {
       ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Formatie: <b>${esc(m.formation || '')}</b> · <a onclick="planLineupNaarFormatie()" style="color:var(--grn);font-weight:700;cursor:pointer">wijzigen</a></p>` : ''}
     ${(!ro && eigen) ? `<button class="btn btn-pale btn-sm" style="margin-top:12px" onclick="clearPlannedLineup(${deel})">${icI(IC.undo)} Plan voor ${pSingLow(m)} ${deel} wissen</button>` : ''}
     ${/* Het veld hierboven toont hoe dit deel BEGINT; hieronder staat wat er tijdens dat deel nog
-         verandert. Die twee horen bij elkaar, dus in de reeks plan je ze op dezelfde plek. Buiten
-         de reeks blijft de planner over de opstelling alleen gaan — daar zijn de knoppen onder het
-         veld in het wedstrijdscherm voor. */ ''}
-    ${(_planLineupSeq && !ro) ? plannedSubsVoorDeelHtml(m, deel, true, 'planner') : ''}
-    ${/* Wijzigingen blijven in de werkkopie tot je hier op Opslaan drukt; Sluiten gooit ze weg.
-         Sluiten hertekent ook het scherm eronder: de planningskaart volgt het deel dat hier
-         openstond (_prepPlanQ) en bleef anders op het deel staan waar je vandaan kwam. */ ''}
+         verandert. Die twee horen bij elkaar, dus ze staan altijd samen — ook wanneer je via het
+         potloodje op de planningskaart binnenkomt. Voordien stond dit blok enkel bij het doorlopen
+         van de reeks, waardoor je in dat ene geval de opstelling van een deel zag zonder de wissels
+         die erin gepland waren. */ ''}
+    ${!ro ? plannedSubsVoorDeelHtml(m, deel, true, 'planner') : ''}
+    ${/* Eén planner met een pijl vooruit én achteruit i.p.v. twee varianten (reeks vs. één deel).
+         Bladeren schrijft de werkkopie weg — het volgende deel erft van dit deel, dus dat moet
+         vastliggen vóór we het tekenen. Onderaan gewoon Opslaan; Sluiten gooit weg wat je op dit
+         deel nog niet bewaarde en hertekent het scherm eronder (_prepPlanQ volgt het deel dat hier
+         openstond). */ ''}
     ${ro ? `<button class="btn btn-gray" style="margin-top:12px" onclick="closePlannedLineups()">Sluiten</button>`
-      : (_planLineupSeq
-        ? `${deel < totaal
-            ? `<button class="btn btn-green" style="margin-top:12px" onclick="planSeqVolgende()">${pSing(m)} ${deel + 1} →</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="planSeqStop()">${icI(IC.check)} Klaar — rest volgt deze opstelling</button>`
-            : `<button class="btn btn-green" style="margin-top:12px" onclick="planSeqStop()">${icI(IC.check)} Klaar</button>`}`
-        : `<button class="btn btn-green" style="margin-top:12px" onclick="savePlannedLineups()">${icI(IC.check)} ${_planLineupDone ? 'Opslaan en klaar' : 'Opslaan'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">Sluiten</button>`)}`);
+      : `${totaal > 1 ? `<div class="wiz-nav" style="margin-top:12px">
+      ${deel > 1 ? `<button class="btn btn-gray" onclick="planNaarDeel(${deel - 1})">← ${pSing(m)} ${deel - 1}</button>` : ''}
+      ${deel < totaal ? `<button class="btn btn-gray" onclick="planNaarDeel(${deel + 1})">${pSing(m)} ${deel + 1} →</button>` : ''}
+    </div>` : ''}
+    <button class="btn btn-green" style="margin-top:8px" onclick="savePlannedLineups()">${icI(IC.check)} Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">Sluiten</button>`}`);
 }
 // Eén gewijzigd deel in de werkkopie zetten. Er wordt hier bewust niets opgeslagen: dat gebeurt pas
 // in savePlannedLineups, zodat Sluiten de wijzigingen kan laten vallen.
@@ -1678,13 +1667,14 @@ async function _schrijfPlanDraft() {
   await dbSave(m);
   return true;
 }
-// De werkkopie wegschrijven én de planner sluiten — de gewone "Opslaan"-knop.
+// De werkkopie wegschrijven én de planner sluiten — de gewone "Opslaan"-knop. Ook wanneer er op dit
+// deel niets veranderde: bladeren schrijft onderweg al weg, dus "niets in de werkkopie" betekent niet
+// "niets opgeslagen", en dan hoort er gewoon een bevestiging te komen.
 async function savePlannedLineups() {
-  const iets = await _schrijfPlanDraft();
-  if (!iets) { closePlannedLineups(); return; }
-  _planLineupSeq = false;
+  await _schrijfPlanDraft();
+  _planLineupDraft = null; _planLineupSel = null;
   closeModal(); render();
-  showToast('Opstelling opgeslagen.');
+  showToast(planOpgeslagenTekst(match));
 }
 // Sluiten zonder op te slaan. Enkel vragen als er ook echt iets te verliezen valt.
 function closePlannedLineups() {
@@ -1709,6 +1699,11 @@ function planLineupNaarFormatie() {
 function planLineupTap(kind, id) {
   const deel = _planLineupQ;
   if (!planLineupEditable(match, deel)) return;
+  // Uitgesloten speler kan je niet in een opstelling zetten: zijn plaats hoort leeg te blijven.
+  if (isUitgesloten(match, id)) {
+    showToast(`${pName(match, id)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
+    return;
+  }
   const sel = _planLineupSel;
   if (sel && sel.id === id) { _planLineupSel = null; modalPlannedLineups(); return; }   // deselecteren
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }

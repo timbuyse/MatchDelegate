@@ -225,6 +225,9 @@ async function startQuarter() {
     // Speler intussen afwezig gemarkeerd (bv. vertrokken tijdens de rust): wissel niet doorvoeren —
     // een afwezige speler het veld op sturen geeft een onzichtbaar gat op zijn positie.
     if (pIn.absent) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} is afwezig gemarkeerd.`, 'err'); continue; }
+    // Uitgesloten speler (rode kaart) mag niet vervangen worden en dus ook zelf niet het veld op:
+    // de plaats van wie eruit ging blijft dan gewoon leeg — de ploeg speelt met een man minder.
+    if (isUitgesloten(match, pIn.id)) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} is uitgesloten (rode kaart).`, 'err'); continue; }
     // posBefore = positie van pIn vóór deze wissel (meestal geen, tenzij hij al eerder op het
     // veld stond en nadien terugkeert) — nodig zodat playersAtPeriodStart() een speler die
     // meermaals in-en-uit gewisseld wordt correct kan terugspoelen i.p.v. hem simpelweg naar
@@ -1632,7 +1635,7 @@ function modalSub(behoud) {
   const mins = calcMinutes(match);
   const onIds = new Set(on.map(p => p.id));
   // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
-  const off = match.players.filter(p => !onIds.has(p.id) && !p.absent).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
+  const off = match.players.filter(p => !onIds.has(p.id) && magOpHetVeld(match, p)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
   if (!behoud) { subOut = null; subIn = null; }
@@ -1666,6 +1669,13 @@ function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
   if (!subOut || !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
+  // Een uitgesloten speler staat niet meer in de banklijst, maar een selectie die nog van vóór de
+  // rode kaart dateert zou hier alsnog door kunnen. Hij mag niet meer op het veld — en niemand mag
+  // in zijn plaats komen, dus de ploeg speelt met een man minder.
+  if (isUitgesloten(match, subIn)) {
+    showToast(`${pName(match, subIn)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
+    subIn = null; modalSub(true); return;
+  }
   if (_eventBusy) return;
   _eventBusy = true;
   try {
@@ -1723,7 +1733,7 @@ function previewNextLineup(m) {
   const byId = id => players.find(p => p.id === id);
   for (const s of (m.pendingSubs || [])) {
     const o = byId(s.outId), i = byId(s.inId);
-    if (!o || !i || i.absent) continue;
+    if (!o || !i || !magOpHetVeld(m, i)) continue;   // zelfde regels als startQuarter, incl. rood
     i.x = o.x; i.y = o.y; i.line = o.line; i.posNum = o.posNum;
     o.onField = false; i.onField = true;
   }
@@ -1777,6 +1787,12 @@ function lineupTap(kind, id) {
 }
 async function planPauseSub(outId, inId) {
   if (_eventBusy) return;
+  // Uitgesloten speler kan niet inkomen (hij staat ook niet meer in de banklijst) — vangnet voor een
+  // scherm dat nog van vóór de rode kaart dateert.
+  if (isUitgesloten(match, inId)) {
+    showToast(`${pName(match, inId)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
+    return;
+  }
   _eventBusy = true;
   try {
     match.pendingSubs = match.pendingSubs || [];
@@ -1808,7 +1824,7 @@ function pauseLineupHtml(m) {
   const preview = previewNextLineup(m);
   const mins = calcMinutes(m);
   const on = preview.filter(p => p.onField && !p.absent);
-  const bench = preview.filter(p => !p.onField && !p.absent)
+  const bench = preview.filter(p => !p.onField && magOpHetVeld(m, p))
     .sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const mm = id => playedMin(mins[id]?.ms);
   const selId = _lineupSel ? _lineupSel.id : null;
@@ -1864,7 +1880,7 @@ function planningTijdensMatchHtml(m) {
   const slide = q => {
     const lijst = plannedLineupBase(m, q);
     const opVeld = new Set(lijst.map(p => p.id));
-    const bank = sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id)));
+    const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
       ${renderPitch(m, plannedLineupPlayers(m, lijst), captainAtStartOfQuarter(m, q))}
       <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
@@ -2004,7 +2020,7 @@ function veldBijStartVanDeel(m, q) {
   // plannedLineupBase). Zonder plan verandert er niets, dus blijft staan wie er nu staat.
   for (let k = q; k >= 2; k--) {
     const pl = (m.plannedLineups || {})[k];
-    if (pl && pl.length) return plannedLineupPlayers(m, pl).filter(p => !p.absent);
+    if (pl && pl.length) return plannedLineupPlayers(m, pl).filter(p => magOpHetVeld(m, p));
   }
   return effectiveOnField(m);
 }
@@ -2017,6 +2033,7 @@ function plannedSubProbleem(m, s) {
   const uit = m.players.find(p => p.id === s.outId), inn = m.players.find(p => p.id === s.inId);
   if (!uit || !inn) return 'Een van beide spelers zit niet meer in de selectie.';
   if (inn.absent) return `${pName(m, s.inId)} is afwezig gemarkeerd.`;
+  if (isUitgesloten(m, s.inId)) return `${pName(m, s.inId)} is uitgesloten (rode kaart) en mag niet meer op het veld.`;
   if (!veld.has(s.outId)) return `${pName(m, s.outId)} staat niet op het veld.`;
   if (veld.has(s.inId)) return `${pName(m, s.inId)} staat al op het veld.`;
   return null;
@@ -2048,7 +2065,8 @@ function _pasGeplandToe(m, veld, deel, tot) {
     const s = subs[i];
     const idx = veld.findIndex(p => p.id === s.outId);
     const inn = (m.players || []).find(p => p.id === s.inId);
-    if (idx < 0 || !inn || inn.absent || veld.some(p => p.id === s.inId)) continue;
+    // magOpHetVeld dekt ook een uitgesloten invaller: die blijft eraf, dus de plaats blijft leeg.
+    if (idx < 0 || !inn || !magOpHetVeld(m, inn) || veld.some(p => p.id === s.inId)) continue;
     veld[idx] = Object.assign({}, inn, { x: veld[idx].x, y: veld[idx].y, line: veld[idx].line, posNum: veld[idx].posNum });
   }
   if (tot && tot.soort === 'sub') return veld;
@@ -2177,17 +2195,16 @@ function modalPlannedSubs(tab) {
 let _planSel = { a: null, b: null, editId: null };
 // Waar je vandaan kwam, bepaalt waar je na opslaan of annuleren weer belandt: null = het menu
 // 'Wissels plannen', 'prep' = de planningskaart in het wedstrijdscherm, 'planner' = de
-// opstellingsplanner terwijl je de delen één voor één doorloopt. Zonder dit belandde je telkens in
-// een menu dat je nooit geopend had. Zelfde idee als _settingsFrom bij de instellingen.
+// opstellingsplanner. Zonder dit belandde je telkens in een menu dat je nooit geopend had. Zelfde
+// idee als _settingsFrom bij de instellingen.
 let _planSubBron = null;
 function planSubTerug(deel) {
   const bron = _planSubBron;
   _planSubBron = null;
   if (bron === 'planner') {
-    // Terug in de reeks, op het deel waar je mee bezig was. De opstelling zelf staat al opgeslagen
+    // Terug in de planner, op het deel waar je mee bezig was. De opstelling zelf staat al opgeslagen
     // (planSubOpen schrijft de werkkopie weg vóór dit scherm opent), dus een verse werkkopie is juist.
     _planLineupDraft = {};
-    _planLineupSeq = true;
     modalPlannedLineups(deel || _planLineupQ);
     return;
   }
@@ -2288,7 +2305,7 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
   // bewerken tot net vóór de wissel zelf.
   const veld = sortedByName(veldMetGeplandeWissels(m, deel, best ? { soort: 'sub', index: _plannedIndex(m, best, 'sub') } : { soort: 'swap', index: 0 }));
   const veldIds = new Set(veld.map(p => p.id));
-  const bank = sortedByName((m.players || []).filter(p => !p.absent && !veldIds.has(p.id)));
+  const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !veldIds.has(p.id)));
   if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
   if (_planSel.b && veldIds.has(_planSel.b)) _planSel.b = null;
   openModal(`<h3>${icI(IC.swap)} Wissel klaarzetten</h3>
