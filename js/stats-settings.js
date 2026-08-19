@@ -692,6 +692,15 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>
+      <div class="sec">Wedstrijd gaat niet door</div>
+      <p>Onderaan de geplande wedstrijd staat <b>'Wedstrijd annuleren'</b> — voor een match die
+        afgelast wordt zonder ooit gespeeld te zijn. Je mag er een korte reden bij zetten (bv.
+        "onbespeelbaar terrein"), maar dat hoeft niet. De wedstrijd blijft in de agenda en in de
+        wedstrijdenlijst staan met de vermelding <b>Geannuleerd</b>: ze staat dus niet bij de komende
+        wedstrijden, niet bij de uitslagen, en telt nergens mee in de statistieken.</p>
+      <p class="hdl-tip">Annuleren is omkeerbaar: je selectie en je hele plan blijven bewaard, en met
+        <b>'Annulering ongedaan maken'</b> staat de wedstrijd weer op gepland zoals ze was. Gaat ze
+        echt nooit door, dan is <b>'Wedstrijd verwijderen'</b> nog altijd de definitieve weg.</p>
     `
   },
   {

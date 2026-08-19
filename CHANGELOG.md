@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.32.0
+- **Een wedstrijd annuleren.** Onderaan een geplande wedstrijd staat nu *'Wedstrijd annuleren'*, voor
+  een match die afgelast wordt zonder ooit gestart te zijn. Er is een optioneel redenveld (bv.
+  *"onbespeelbaar terrein"*). Voordien was verwijderen de enige uitweg, en dan verdween ze helemaal —
+  of ze bleef als geplande wedstrijd staan die nooit kwam.
+- **Geannuleerd is een eigen toestand.** Niet gepland, niet gespeeld: in de wedstrijdenlijst staat ze
+  in een eigen groep *'Geannuleerde wedstrijden'*, met een grijze rand en de badge *Geannuleerd*. In de
+  agenda krijgt ze een hol bolletje (met een eigen regel in de legende), zodat ze niet te verwarren is
+  met de volle stip van een gespeelde wedstrijd. Ze verdwijnt uit de uitslagen en uit alle statistieken,
+  en telt in een tornooi niet mee in de balans — ze houdt het afsluiten van dat tornooi ook niet meer
+  tegen.
+- **Bij *'Eerstvolgende wedstrijden'* blijft ze staan tot en met haar eigen dag.** *"Die van zaterdag
+  gaat niet door"* is nieuws zolang die zaterdag niet voorbij is; daarna verdwijnt ze daar (maar ze
+  blijft in de agenda en in de wedstrijdenlijst staan). Daarin verschilt ze van een geplande wedstrijd,
+  die bewust blijft staan zodat je ziet dat je vergat ze te starten.
+- **Omkeerbaar.** De selectie, de opstelling en het hele wedstrijdplan blijven bewaard; met
+  *'Annulering ongedaan maken'* staat de wedstrijd weer op gepland zoals ze was. Starten kan niet
+  zolang ze geannuleerd is — de knop is weg en de handler weigert het ook zelf.
+
 ## v0.31.15
 - **Verder gaan staat nu rechts.** Op het eerste kwart is er geen terugknop, en dan schoof
   *'Kwart 2 →'* naar de linkerkolom — onder *'+ Wissel'*, waar je een terugknop verwacht. Terug staat

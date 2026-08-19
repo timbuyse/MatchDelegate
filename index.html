@@ -149,6 +149,9 @@
     /* Tornooi heeft zijn eigen kleur, gelijk aan de stip (.cal-dot.trn) en de legende in de agenda —
        de status (afgesloten of niet) zit in de badge, niet in de kleur. */
     .match-item.trn-border{border-left-color:var(--grn)}
+    /* Geannuleerd: grijs, want er valt niets te doen en niets te zien. Doelbewust niet rood — rood
+       is in dit scherm de kleur van "live". */
+    .match-item.cancel-border{border-left-color:var(--txt2)}
     .mi-info{flex:1}
     .mi-opp{font-size:16px;font-weight:700}
     .mi-date{font-size:12px;color:var(--txt2);margin-top:2px}
@@ -158,6 +161,7 @@
     .badge-done{background:var(--telp);color:var(--tel2)}
     .badge-plan{background:var(--ornp);color:var(--orn2)}
     .badge-trn{background:var(--grnp);color:var(--grn2)}
+    .badge-cancel{background:var(--bdr);color:var(--txt2)}
     .badge-type{background:var(--blk2);color:#fff;margin-left:5px}
     /* Scoreboard */
     .scoreboard{background:var(--blk);color:#fff;border-radius:16px;padding:18px;text-align:center;margin-bottom:12px;border-bottom:3px solid var(--org)}
@@ -193,6 +197,9 @@
     .cal-dot.done{background:var(--txt2)}
     .cal-dot.live{background:var(--rd)}
     .cal-dot.trn{background:var(--grn)}
+    /* Hol bolletje: op één stip grootte is een kleurverschil met de volle grijze "gespeeld"-stip niet
+       te zien, een lege ring wél — en die leest ook meteen als "hier is niet gespeeld". */
+    .cal-dot.cancel{background:transparent;border:1.5px solid var(--txt2);box-sizing:border-box}
     .cal-legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:10px 0 4px;font-size:11px;color:var(--txt2)}
     .cal-legend span{display:flex;align-items:center;gap:4px}
     /* Timer */

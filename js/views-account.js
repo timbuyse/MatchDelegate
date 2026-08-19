@@ -2267,10 +2267,14 @@ let homeFilter = 'all';
 function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }
 // Eén wedstrijd-kaartje (gebruikt op het dashboard én in de volledige lijst).
 function matchItemHtml(m) {
-  const st = m.status, target = st === 'live' ? 'live' : st === 'planned' ? 'prep' : 'detail';
-  const border = st === 'live' ? 'live-border' : st === 'planned' ? 'plan-border' : '';
-  const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
-  const right = st === 'planned' ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>` : `<div class="mi-score">${scoreTxt(m)}</div>`;
+  const st = m.status, af = matchCancelled(m);
+  // Een geannuleerde wedstrijd heeft geen uitslag en dus geen verslag: ze opent in het
+  // wedstrijdscherm, net als een geplande — daar staat ook de knop om het weer ongedaan te maken.
+  const zonderScore = st === 'planned' || af;
+  const target = st === 'live' ? 'live' : zonderScore ? 'prep' : 'detail';
+  const border = st === 'live' ? 'live-border' : af ? 'cancel-border' : st === 'planned' ? 'plan-border' : '';
+  const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : af ? `<span class="badge badge-cancel">${icI(IC.close)} Geannuleerd</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
+  const right = zonderScore ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>` : `<div class="mi-score">${scoreTxt(m)}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {
@@ -2293,7 +2297,7 @@ function matchItemHtml(m) {
   return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
-      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+(m.subteam?' ('+esc(m.subteam)+')':'')+'</b> · ':''}${matchWhen(m)}${st!=='planned'&&m.location?' · '+esc(m.location):''}</div>
+      <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+(m.subteam?' ('+esc(m.subteam)+')':'')+'</b> · ':''}${matchWhen(m)}${!zonderScore&&m.location?' · '+esc(m.location):''}${af&&m.cancelReason?' · '+esc(m.cancelReason):''}</div>
       ${badge}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
     </div>${right}</div>`;
 }
@@ -2369,7 +2373,17 @@ async function loadHome() {
       ${teams.map(t => `<option value="${esc(t)}" ${homeFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
     </select></div>` : '';
   // Komende wedstrijden (live of gepland), gefilterd per ploeg, vroegste eerst.
-  let upcoming = all.filter(m => m.status === 'live' || (m.status === 'planned' && !m.tournamentId));
+  // Een geannuleerde wedstrijd hoort hier tot en met haar eigen dag bij: "die van zaterdag gaat niet
+  // door" is nieuws zolang die zaterdag niet voorbij is, en anders zoek je op het startscherm naar
+  // een wedstrijd die er plots niet meer staat. Ze verdwijnt wél zodra de dag om is — daarin
+  // verschilt ze van een geplande wedstrijd, die bewust blijft staan (zo zie je dat je vergat ze te
+  // starten). Ze sorteert gewoon op datum mee, dus ze staat waar ze hoort.
+  // isoDagVan en niet toISOString: die laatste geeft de UTC-dag, dus tussen middernacht en 2 uur
+  // 's nachts (zomertijd) zou een wedstrijd van gisteren nog als "vandaag" gelden.
+  const vandaagISO = isoDagVan(new Date());
+  let upcoming = all.filter(m => m.status === 'live'
+    || (m.status === 'planned' && !m.tournamentId)
+    || (matchCancelled(m) && !m.tournamentId && (m.date || '') >= vandaagISO));
   if (homeFilter !== 'all') upcoming = upcoming.filter(m => m.teamName === homeFilter);
   upcoming.sort((a, b) => { const r = (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1); if (r) return r; return (a.date || '').localeCompare(b.date || ''); });
   // De twee eerstvolgende: met één wedstrijd zie je wel wat er nu aankomt, maar niet of er dit
@@ -2481,7 +2495,7 @@ function renderKalender(matches, tornooien = []) {
     if (!datum) return;
     (perDag[datum] = perDag[datum] || []).push(soort);
   };
-  matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : m.status === 'planned' ? 'plan' : 'done'));
+  matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : matchCancelled(m) ? 'cancel' : m.status === 'planned' ? 'plan' : 'done'));
   tornooien.forEach(t => voegToe(t.date, 'trn'));
 
   // Maandag als eerste kolom (getDay() geeft zondag = 0).
@@ -2539,6 +2553,9 @@ function renderKalender(matches, tornooien = []) {
       <span><i class="cal-dot plan"></i> gepland</span>
       <span><i class="cal-dot live"></i> live</span>
       <span><i class="cal-dot done"></i> gespeeld</span>
+      ${/* Enkel wanneer er ook écht iets geannuleerd is — anders staat er een uitleg bij een stip die
+           je nooit ziet. Zelfde regel als bij de tornooistip hiernaast. */ ''}
+      ${matches.some(matchCancelled) ? '<span><i class="cal-dot cancel"></i> geannuleerd</span>' : ''}
       ${tornooien.length ? '<span><i class="cal-dot trn"></i> tornooi</span>' : ''}
     </div>
     <div class="sec">${esc(kop)}</div>
@@ -2594,9 +2611,12 @@ async function loadMatches() {
   const live = list.filter(m => m.status === 'live');
   const planned = list.filter(m => m.status === 'planned').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const done = list.filter(m => m.status === 'done').sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  // Geannuleerd staat onderaan, apart: het zijn geen geplande wedstrijden meer (er valt niets voor
+  // te bereiden) en ook geen uitslagen. Recentste eerst, zoals bij de gespeelde.
+  const afgelast = list.filter(matchCancelled).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
   const sec = (title, arr) => arr.length ? `<div class="sec">${title}</div>${arr.map(matchItemHtml).join('')}` : '';
   const items = list.length
-    ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done)
+    ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done) + sec(`${icI(IC.close)} Geannuleerde wedstrijden`, afgelast)
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';

@@ -1141,16 +1141,23 @@ function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
+  const af = matchCancelled(m);   // afgelast: alles blijft bewaard, maar er valt niets meer te doen
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
   const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
-    <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${icI(IC.calendar)} Gepland · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
+    <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
-    ${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${!heeftSelectie(m)
+    ${/* Geannuleerd: geen startknop en geen volgende stap meer — enkel de vaststelling en de weg
+         terug. De wedstrijd zelf blijft volledig bewaard (selectie, opstelling, plan), dus ongedaan
+         maken zet ze weer op gepland zoals ze was. */ ''}
+    ${af
+      ? `<div class="viewer-banner" style="background:var(--bdr);color:var(--txt2);border-color:var(--txt2)">${icI(IC.close)} Geannuleerd${m.cancelledAt ? ' op ' + fmtDate(m.cancelledAt) : ''}${m.cancelReason ? ' — ' + esc(m.cancelReason) : ''}</div>
+      ${ro ? '' : `<button class="btn btn-pale" onclick="confirmUncancelMatch()">${icI(IC.undo)} Annulering ongedaan maken</button>`}`
+      : ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${!heeftSelectie(m)
       ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>`
       : (!heeftOpstelling(m) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Opstelling nog niet ingegeven — zet de spelers op het veld voor je de wedstrijd start.</div>` : '')}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
     ${/* Eén ingang voor alles wat je aan een geplande wedstrijd kan wijzigen (zie
@@ -1179,20 +1186,23 @@ function renderPrep() {
          dat het bestaat, anders lijkt de wedstrijd onvoorbereid. */ ''}
     ${ro
       ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`
-      : `${prepPlanningHtml(m, ro)}
+      : `${prepPlanningHtml(m, ro || af)}
     ${plannedLineupWarnHtml(m)}`}
     ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en staan in dezelfde
          planner (zie openPlannedLineups). Hier stonden er twee — 'Opstelling per kwart' en 'Wissels
          plannen' — die elk de helft deden en naar een eigen scherm leidden. Het potlood in de kaart
          hierboven brengt je in diezelfde planner, maar meteen op het deel waar je naar kijkt. */ ''}
-    ${ro ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
+    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}
     ${(() => { const los = ((m.plannedSubs || []).filter(s => !s.quarterNum).length + (m.plannedPosSwaps || []).filter(s => !s.quarterNum).length);
       return los ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs(0)">${icI(IC.clipboard)} Wissels zonder vast ${pSingLow(m)} (${los})</button>` : ''; })()}
     <button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}` : ''}
-    ${ro ? '' : `${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
+    ${/* Annuleren staat bewust boven de rode zone: het is de omkeerbare uitweg voor een wedstrijd die
+         niet doorgaat, en juist de knop die je hier zoekt in de plaats van verwijderen. */ ''}
+    ${ro ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
+    ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
 // Alles wat je aan een geplande wedstrijd kan wijzigen, achter één knop. Elk item leidt naar het
@@ -1263,6 +1273,48 @@ async function clearSelectie() {
   await dbSave(m);
   closeModal(); render();
   showToast('Selectie gewist.');
+}
+// ----- Een wedstrijd die niet doorgaat -----
+// Annuleren i.p.v. verwijderen: de wedstrijd blijft in de agenda en het overzicht staan, maar als
+// 'geannuleerd' — niet als gepland, en dus ook niet als 0-0 gespeeld. Selectie, opstelling en plan
+// blijven gewoon bewaard, zodat een afgelaste wedstrijd die later toch doorgaat één tik terug is.
+// Enkel vanaf 'gepland': een wedstrijd die al liep of afgesloten is hoort in het live-scherm thuis
+// (daar staat "Verkeerd afgesloten" en "Terug naar gepland").
+function confirmCancelMatch() {
+  const m = match; if (!m || !canManage()) return;
+  if ((m.status || 'planned') !== 'planned') { showToast('Enkel een geplande wedstrijd kan je annuleren.', 'err'); return; }
+  openModal(`<h3>${icI(IC.close)} Wedstrijd annuleren</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Ze verdwijnt uit de komende wedstrijden en telt nergens mee in de statistieken, maar blijft als <b>geannuleerd</b> in de agenda en het overzicht staan. De selectie en het plan blijven bewaard — je kan dit altijd ongedaan maken.</p>
+    <div class="fg"><label>Reden <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
+      <input id="cancel-reason" type="text" maxlength="60" placeholder="bv. onbespeelbaar terrein" value="${esc(m.cancelReason || '')}"></div>
+    <button class="btn btn-red" style="margin-top:12px" onclick="doCancelMatch()">${icI(IC.close)} Ja, wedstrijd annuleren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Terug</button>`);
+}
+async function doCancelMatch() {
+  const m = match; if (!m || !canManage() || (m.status || 'planned') !== 'planned') return;
+  const reden = (document.getElementById('cancel-reason')?.value || '').trim();
+  m.status = 'cancelled';
+  m.cancelledAt = Date.now();
+  if (reden) m.cancelReason = reden; else delete m.cancelReason;
+  await dbSave(m);
+  closeModal(); render();
+  showToast('Wedstrijd geannuleerd.');
+}
+function confirmUncancelMatch() {
+  const m = match; if (!m || !canManage() || !matchCancelled(m)) return;
+  openModal(`<h3>${icI(IC.undo)} Annulering ongedaan maken</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">De wedstrijd komt weer op <b>gepland</b> te staan, met dezelfde selectie en hetzelfde plan als voordien.</p>
+    <button class="btn btn-green" onclick="doUncancelMatch()">${icI(IC.check)} Ja, terug op gepland</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Terug</button>`);
+}
+async function doUncancelMatch() {
+  const m = match; if (!m || !canManage() || !matchCancelled(m)) return;
+  m.status = 'planned';
+  delete m.cancelledAt;
+  delete m.cancelReason;
+  await dbSave(m);
+  closeModal(); render();
+  showToast('Wedstrijd staat weer op gepland.');
 }
 async function finishStep1Only() {
   if (wiz.trnMode) {
@@ -1747,6 +1799,12 @@ function saveTournamentWizStep1Only() {
   saveTournamentWiz();
 }
 async function startPlanned() {
+  // De knop staat er niet bij een geannuleerde wedstrijd, maar de handler weigert het zelf ook —
+  // zelfde vangnet als bij een afgesloten tornooi (zie addTournamentMatch).
+  if (matchCancelled(match)) {
+    showToast('Deze wedstrijd is geannuleerd. Maak de annulering eerst ongedaan.', 'err');
+    return;
+  }
   if (!heeftSelectie(match)) {
     showToast('Vul eerst de selectie en opstelling in voor je de wedstrijd start.', 'err');
     return;
