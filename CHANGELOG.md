@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.33.1
+- **Een wedstrijd met een onbekende wedstrijdvorm blokkeert het bewerkscherm niet meer.** Stond er in
+  een wedstrijd een vorm die niet (meer) in de app bestaat, dan klapte zowel *Selectie* als
+  *Opstelling* dicht zonder enige melding — en net daar, op stap 1, zit de enige plek waar je de vorm
+  kan rechtzetten. Nu valt de app terug op de standaardvorm van de ploeg (of 8v8) en zegt een melding
+  wélke vorm niet herkend werd, met de vraag ze na te kijken. Bij het opslaan krijgt de wedstrijd de
+  geldige vorm mee. Hetzelfde voor *'Spelers bewerken'*, dat op zo'n wedstrijd ook vastliep.
+- Dit is preventief: elke wedstrijd die de app zelf aanmaakt heeft een geldige vorm, want die kies je
+  uit een lijstje. Het wordt pas echt wanneer een wedstrijdvorm ooit hernoemd of geschrapt wordt —
+  wedstrijden die dan al op de toestellen staan houden de oude naam.
+
 ## v0.33.0
 - **De selectie zegt enkel nog wie meegaat.** De knoppen *Basis · Wissel · NB* worden **Mee · NB**.
   Wie start bepaal je bij de opstelling, en **wie je niet op het veld zet, staat automatisch op de

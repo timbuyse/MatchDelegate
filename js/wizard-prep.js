@@ -938,7 +938,16 @@ function editMatchWizard(m) {
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34) — zoeken op naam breekt na een
   // ploeg-hernoeming (pool zonder roster + teamId-koppeling die verloren gaat bij opslaan).
   const team = (m.teamId && teamById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName);
-  const fi = Math.max(0, (FORMATIONS[m.matchType] || []).findIndex(f => f.name === m.formation));
+  // Onbekende wedstrijdvorm → terugvallen op de standaardvorm van de ploeg (die valt zelf terug op
+  // 8v8). Data die de app aanmaakt heeft altijd een geldige vorm — de wizard kiest uit een lijstje —
+  // maar dat verandert zodra een vorm in MATCH_TYPES hernoemd of geschrapt wordt: de wedstrijden die
+  // al op de toestellen staan houden dan de oude tekst. Zonder deze terugval crasht dit scherm op
+  // FORMATIONS[...][...] en MATCH_TYPES[...].field verderop, en dan is de dropdown op stap 1 — de
+  // enige plek waar je de vorm kan rechtzetten — onbereikbaar. Alles wat volgt werkt op wiz.matchType,
+  // dus deze ene correctie dekt de hele wizard; bij het opslaan krijgt de wedstrijd de geldige vorm.
+  const matchType = MATCH_TYPES[m.matchType] ? m.matchType : teamMatchDefaults(team).matchType;
+  if (matchType !== m.matchType) showToast(`Wedstrijdvorm "${m.matchType || '(leeg)'}" is niet bekend — ${matchType} wordt gebruikt. Kijk de wedstrijdvorm na op stap 1.`, 'err');
+  const fi = Math.max(0, (FORMATIONS[matchType] || []).findIndex(f => f.name === m.formation));
   const roster = team ? (team.players || []) : [];
   const rosterUsed = new Set();
   const findRoster = (rosterId, name) => roster.find(r => (rosterId && r.id === rosterId) || (!rosterId && (r.name || '').trim() === (name || '').trim()));
@@ -997,7 +1006,7 @@ function editMatchWizard(m) {
     // enkel nog in startSelectieWizard, of nergens als je het daar ook aanpast).
     noGuests: !!m.tournamentId,
     teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
-    matchType: m.matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
+    matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '',
     pool,
@@ -1011,7 +1020,7 @@ function editMatchWizard(m) {
   if (m.tournamentId) { wiz.trnMode = true; wiz.tournamentId = m.tournamentId; wiz.numQuarters = m.numQuarters; }
   // Bewaar de bestaande kapitein (de eerste pool-entries volgen de volgorde van m.players)
   wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
-  const form = FORMATIONS[m.matchType][fi];
+  const form = FORMATIONS[matchType][fi];
   wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
   // Onthouden waar we vandaan komen en op welke stap we begonnen: het terugpijltje hoort daar weer
   // uit te komen (zie wizBack/wizVerlaat). startSelectieWizard en startOpstellingWizard zetten
@@ -1874,7 +1883,9 @@ async function saveMatchNumbers() {
   showToast('Rugnummers van deze wedstrijd bijgewerkt.', 'ok');
 }
 function modalEditPlayers() {
-  const lines = MATCH_TYPES[match.matchType].lines;
+  // Terugval op 8v8 bij een onbekende wedstrijdvorm (zie editMatchWizard): dit zijn enkel de lijnen
+  // voor het keuzelijstje, en zonder die terugval crasht "Spelers bewerken" op zo'n wedstrijd.
+  const lines = matchLines(match);
   const rows = match.players.map((p,i) => `
     <div class="pirow">
       <input type="number" value="${esc(p.number)}" placeholder="#" onchange="match.players[${i}].number=this.value" inputmode="numeric">
@@ -1895,7 +1906,7 @@ function modalEditPlayers() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function addPlayerToMatch() {
-  const lines = MATCH_TYPES[match.matchType].lines;
+  const lines = matchLines(match);
   match.players.push({ id:uid(), name:'', number:'', line:lines[Math.min(1,lines.length-1)], posNum:'', starting:false, onField:false });
   modalEditPlayers();
 }

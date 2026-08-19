@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.33.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.33.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -7,6 +7,10 @@ const MATCH_TYPES = {
   '8v8':  { field: 8,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '11v11':{ field: 11, lines: ['Doel','Verdediging','Middenveld','Aanval'] },
 };
+// De lijnen van een wedstrijd, met terugval op 8v8 als de wedstrijdvorm niet (meer) in MATCH_TYPES
+// staat — bv. na het hernoemen of schrappen van een vorm, terwijl oude wedstrijden op de toestellen
+// de oude tekst houden. Enkel voor keuzelijstjes: een lijnenlijst hoort geen scherm te doen crashen.
+function matchLines(m) { return (MATCH_TYPES[m && m.matchType] || MATCH_TYPES['8v8']).lines; }
 const LINE_Y = { 'Doel': 90, 'Verdediging': 68, 'Middenveld': 45, 'Aanval': 22 };
 // De codes bij de positienummers die computePosNum toekent (1 = doel, 2-5 verdediging, 6/8/10/11/7
 // middenveld, 9 aanval). Het nummer zegt wélke plek, de code hoe die plek heet.
