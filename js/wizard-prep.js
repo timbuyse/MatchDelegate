@@ -68,8 +68,12 @@ function onPeriodChange() {
   if (wiz) { wiz.periodKey = pt; wiz.quarterDuration = def; }
 }
 function fieldSizeW() { return MATCH_TYPES[wiz.matchType].field; }
-function basisCount() { return wiz.pool.filter(p => p.sel === 'basis').length; }
-function bankCount() { return wiz.pool.filter(p => p.sel === 'bank').length; }
+// Sinds v0.33.0 kiest de selectiestap enkel nog WIE meegaat. Of iemand start volgt uit de
+// opstelling: daar betekent sel 'basis' letterlijk "staat op een plaats op het veld" en 'bank'
+// "hoort bij de selectie maar staat er niet" (zie placeSlot en finishWizard). De twee waarden
+// blijven dus bestaan — ze zijn nu een gevolg in plaats van een keuze.
+function isSel(p) { return p.sel === 'basis' || p.sel === 'bank'; }
+function selectedCount() { return wiz.pool.filter(isSel).length; }
 function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; wiz.pool.forEach(p => p.slot = null); }
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
@@ -248,16 +252,11 @@ function wizNext() {
     if (wiz.poolTeamId !== wiz.teamId) { buildPool(); wiz.poolTeamId = wiz.teamId; }
     wiz.step = 2; render();
   } else if (wiz.step === 2) {
-    // Méér dan het veldaantal kan niet, maar MINDER moet wel kunnen: met 7 beschikbare spelers
-    // voor 8v8 speel je gewoon met 7. Voordien blokkeerde een exact-aantal-eis dit scherm volledig,
-    // en bij een tornooiwedstrijd was er geen uitweg (de pool is dan de dagselectie en de knoppen
-    // om iemand bij te halen staan verborgen). Stap 3 en finishWizard eisen enkel dat elke
-    // aangeduide basisspeler een plaats heeft, niet dat de formatie vol is.
-    const need = fieldSizeW(), bc = basisCount();
-    if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
-    if (bc === 0) { showToast('Duid minstens één basisspeler aan, of gebruik "Opslaan zonder opstelling".', 'err'); return; }
-    // Minder basisspelers dan plaatsen is hier geen probleem meer: op de opstellingsstap staat de
-    // bank erbij, dus je vult daar aan. Vol krijgen we het veld sowieso, want het opslaan eist het.
+    // Deze stap zegt enkel WIE meegaat, dus er is maar één harde eis: er moet iemand meegaan. Een
+    // bovengrens bestaat niet meer (je mag een ruime kern meenemen), en minder spelers dan het veld
+    // groot is wordt gewaarschuwd in wizStep2, niet geblokkeerd — met zeven voor 8v8 speel je met
+    // zeven. Hoeveel er op het veld horen, eist de opstellingsstap zelf (zie finishWizard).
+    if (selectedCount() === 0) { showToast('Duid minstens één speler aan die meegaat.', 'err'); return; }
     wiz.step = 3; render();
   }
 }
@@ -268,7 +267,11 @@ function setSel(pid, val) {
   const p = wiz.pool.find(x => x.pid === pid); if (!p) return;
   // Geen aparte NG-knop (die maakte de rij te breed op een smartphone): niet-geselecteerd is de
   // standaard, en een tweede tik op de actieve knop zet de speler daar weer op terug.
-  p.sel = (p.sel === val) ? 'none' : val;
+  // 'mee' = in de selectie. Wie meegaat begint op de bank; op het veld komen gebeurt in de
+  // opstellingsstap. Daarom mag een tweede tik op 'Mee' ook iemand die al op het veld staat
+  // ('basis') uit de selectie halen — vandaar isSel() en niet een test op één waarde.
+  if (val === 'mee') p.sel = isSel(p) ? 'none' : 'bank';
+  else p.sel = (p.sel === val) ? 'none' : val;
   if (p.sel !== 'basis') p.slot = null;
   if (p.sel !== 'absent') p.absentReason = '';
   render();
@@ -285,8 +288,8 @@ function absentReasonSelect(pid, cur, onchange) {
 }
 function selRow(p) {
   const isCap = wiz.captainPid === p.pid;
-  const isSelected = p.sel === 'basis' || p.sel === 'bank';
-  // Tornooiwedstrijd: enkel Basis · Wissel. Beschikbaarheid (NB) hoort bij de tornooiselectie —
+  const isSelected = isSel(p);
+  // Tornooiwedstrijd: enkel 'Mee'. Beschikbaarheid (NB) hoort bij de tornooiselectie —
   // wie NB is, gaat niet mee en staat hier dus ook niet in de lijst.
   const trn = !!wiz.trnMode;
   return `<div class="selrow">
@@ -295,8 +298,7 @@ function selRow(p) {
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small>
       ${(!trn && p.sel === 'absent') ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
     <div class="seg">
-      <button class="${p.sel==='basis'?'basis':''}" onclick="setSel('${p.pid}','basis')">Basis</button>
-      <button class="${p.sel==='bank'?'bank':''}" onclick="setSel('${p.pid}','bank')">Wissel</button>
+      <button class="${isSelected?'basis':''}" onclick="setSel('${p.pid}','mee')" title="Neemt deel aan deze wedstrijd — wie start bepaal je bij de opstelling">Mee</button>
       ${trn ? '' : `<button class="${p.sel==='absent'?'absent':''}" onclick="setSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>`}
     </div></div>`;
 }
@@ -304,18 +306,36 @@ function setWizCaptain(pid) { wiz.captainPid = (wiz.captainPid === pid) ? null :
 function wizStep2() {
   const own = wiz.pool.filter(p => !p.guest), guests = wiz.pool.filter(p => p.guest);
   const team = teamById(wiz.teamId);
-  const need = fieldSizeW(), bc = basisCount();
+  const need = fieldSizeW(), sc = selectedCount();
   const absentCount = wiz.pool.filter(p => p.sel === 'absent').length;
   return `
     <div class="card" style="display:flex;gap:10px;text-align:center">
-      <div style="flex:1"><div style="font-size:22px;font-weight:900;color:${bc===need?'var(--grn)':'var(--org)'}">${bc}/${need}</div><div style="font-size:11px;color:var(--txt2)">BASIS</div></div>
-      <div style="flex:1"><div style="font-size:22px;font-weight:900">${bankCount()}</div><div style="font-size:11px;color:var(--txt2)">WISSEL</div></div>
+      ${/* Enkel het aantal, geen "10/8". Die noemer deed alleen iets op de grens en las erboven als
+           een fout ("10 van de 8"?), terwijl de veldgrootte hier geen bovengrens is: je mag een ruime
+           kern meenemen. Te weinig spelers zegt de waarschuwing hieronder, en de kleur volgt mee. */ ''}
+      <div style="flex:1"><div style="font-size:22px;font-weight:900;color:${sc>=need?'var(--grn)':'var(--org)'}">${sc}</div><div style="font-size:11px;color:var(--txt2)">GESELECTEERD</div></div>
       ${absentCount ? `<div style="flex:1"><div style="font-size:22px;font-weight:900;color:var(--rd)">${absentCount}</div><div style="font-size:11px;color:var(--txt2)">NIET BESCH.</div></div>` : ''}
     </div>
+    ${/* Minder spelers dan het veld groot is mag: met zeven voor 8v8 speel je met zeven, en dat is
+         een echte situatie (zie ook finishWizard, dat de ondergrens op min(plaatsen, selectie) legt).
+         Daarom een waarschuwing en geen blokkade — ze staat hier, waar je er nog iets aan kan doen. */ ''}
+    ${(sc > 0 && sc < need) ? `<div class="backup-banner" style="background:var(--ornp);color:var(--orn2);border-color:var(--orn)">${icI(IC.warn)} Je hebt ${sc} ${sc === 1 ? 'speler' : 'spelers'} geselecteerd voor ${esc(wiz.matchType)} — dan begin je met ${need - sc} ${need - sc === 1 ? 'speler' : 'spelers'} minder op het veld.</div>` : ''}
     ${(() => { const nums = wiz.pool.filter(p => (p.sel === 'basis' || p.sel === 'bank') && (p.number || '').toString().trim()).map(p => p.number.toString().trim()); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer bij geselecteerde spelers: ${dup.map(esc).join(', ')}</div>` : ''; })()}
-    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 2px">${wiz.trnMode
-      ? `<b>Niets aanduiden = niet geselecteerd voor deze wedstrijd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start) of <b>Wissel</b>; nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Enkel wie meegaat naar het tornooi staat in deze lijst — <b>niet beschikbaar (NB)</b> geef je in bij de selectie van het tornooi zelf.`
-      : `<b>Niets aanduiden = niet geselecteerd</b> (telt nergens in mee). Kies anders per speler <b>Basis</b> (start), <b>Wissel</b> of <b style="color:var(--rd)">NB</b> = niet beschikbaar (telt mee in het aanwezigheids-%); nog eens op dezelfde knop tikken maakt de keuze weer ongedaan. Bij <b>NB</b> kan je een reden kiezen; <b>speelt elders</b> laat die wedstrijd niet als gemist tellen.`} Bij geselecteerde spelers verschijnt een kapiteinsicoontje — klik erop om de kapitein aan te duiden.</div>
+    ${/* Eén regel die zegt wat je hier moet doen; de rest onder een uitklapper. Dat blok stond
+         voordien volledig open en besloeg een halve telefoonhoogte vóór je de eerste speler zag.
+         Zelfde patroon (.more-details + "Hoe werkt dit?") als in de planner, zie modalPlannedLineups. */ ''}
+    <div style="font-size:12px;color:var(--txt2);padding:6px 2px 0"><b>Duid aan wie je meeneemt.</b> Niets aanduiden = niet geselecteerd.</div>
+    <details class="more-details" style="margin:0 2px 4px">
+      <summary>Hoe werkt dit?</summary>
+      <div style="font-size:12px;color:var(--txt2);margin-top:8px;line-height:1.5">
+        <p style="margin-bottom:8px">Deze stap gaat enkel over <b>wie meegaat</b>. Wie start en wie op de bank begint, bepaal je bij de <b>opstelling</b>: alle geselecteerde spelers die je niet op het veld zet, staan automatisch op de bank.</p>
+        <p style="margin-bottom:8px">Een speler die je <b>niet</b> aanduidt, is niet geselecteerd en telt nergens mee. Nog eens op dezelfde knop tikken maakt je keuze ongedaan.</p>
+        <p style="margin-bottom:8px">${wiz.trnMode
+          ? `Enkel wie meegaat naar het tornooi staat in deze lijst — <b>niet beschikbaar (NB)</b> geef je in bij de selectie van het tornooi zelf.`
+          : `<b style="color:var(--rd)">NB</b> = niet beschikbaar, en dat telt mee in het aanwezigheidspercentage. Je kan er een reden bij kiezen; bij <b>speelt elders</b> telt die wedstrijd niet als gemist.`}</p>
+        <p style="margin:0">Bij geselecteerde spelers verschijnt een <b>kapiteinsicoontje</b> — tik erop om de kapitein aan te duiden.</p>
+      </div>
+    </details>
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie', true) + own.map(selRow).join('') : `<p style="color:var(--txt2);font-size:14px">${rosterEmptyText('Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.')}</p>`}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg', true)}${guests.map(selRow).join('')}</div>` : ''}
@@ -326,9 +346,8 @@ function wizStep2() {
     ${/* Twee uitwegen, en welke er past hangt af van wat er al ligt. Heeft de wedstrijd nog GEEN
          opstelling, dan kan je de selectie hier gewoon opslaan en de opstelling later maken — dat
          is de normale gang van zaken wanneer je de ploeg 's avonds al kent maar nog niet weet wie
-         waar begint. Ligt er wél al een opstelling, dan blijft "Selectie opslaan" doen wat het
-         altijd deed: bestaande plaatsen blijven staan en nieuwe basisspelers krijgen er
-         automatisch een, zodat er nooit iemand zonder plek achterblijft. */ ''}
+         waar begint. Ligt er wél al een opstelling, dan blijven de bestaande plaatsen staan en komt
+         wie je nu toevoegt gewoon op de bank — plaatsen doe je bij de opstelling. */ ''}
     ${(() => {
       const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
       const opslaan = `<button class="btn btn-pale" style="margin-top:8px" onclick="saveSelectionOnly()">${icI(IC.check)} ${alOpstelling ? 'Selectie opslaan' : 'Opslaan zonder opstelling'}</button>`;
@@ -338,38 +357,23 @@ function wizStep2() {
         : `<div class="wiz-nav"><button class="btn btn-gray" onclick="wizBack()">← Vorige</button>${verder}</div>${opslaan}`;
     })()}`;
 }
-// Enkel de nog lege plaatsen invullen, bij voorkeur in de eigen lijn. Bewust NIET autoPlace(): die
-// wist alle slots en herschikt het hele veld, waardoor je opstelling verdween zodra je één speler
-// aan de selectie toevoegde. Wie al op het veld stond (editMatchWizard herstelt die slots uit x/y)
-// blijft hier staan waar hij stond.
-function placeUnplaced() {
-  const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
-  const basis = wiz.pool.filter(p => p.sel === 'basis');
-  const bezet = new Set(basis.map(p => p.slot).filter(s => s != null));
-  const vrij = form.slots.map((s, i) => i).filter(i => !bezet.has(i));
-  basis.filter(p => p.slot == null).forEach(p => {
-    if (!vrij.length) return;
-    let k = vrij.findIndex(i => form.slots[i].line === posLine(p.pos));
-    if (k < 0) k = 0;
-    p.slot = vrij.splice(k, 1)[0];
-  });
-}
-// "Opslaan" op de selectiestap: dezelfde controles als wizNext, maar zonder de omweg langs de
-// opstelling. Lag er al een opstelling, dan vullen we enkel de lege plaatsen aan (placeUnplaced) en
-// blijft de rest staan. Lag er nog geen, dan slaan we bewust ZONDER opstelling op: de basisspelers
-// krijgen geen plaats en de wedstrijd draagt `lineupPending` tot je de opstelling maakt.
+// "Opslaan" op de selectiestap: dezelfde controle als wizNext, maar zonder de omweg langs de
+// opstelling. Lag er al een opstelling, dan blijft die staan en komt wie je toevoegde op de bank —
+// een speler bijzetten hoeft dus niemand van zijn plaats te halen. Lag er nog geen opstelling, dan
+// slaan we bewust ZONDER op: niemand krijgt een plaats en de wedstrijd draagt `lineupPending` tot je
+// de opstelling maakt. Hier stond ook placeUnplaced(), dat een basisspeler zonder plaats automatisch
+// een plek gaf; die toestand kan sinds v0.33.0 niet meer bestaan (op het veld staan ÍS een plaats
+// hebben), dus die functie is weg.
 function saveSelectionOnly() {
-  const need = fieldSizeW(), bc = basisCount();
-  if (bc > need) { showToast(`Je kan maar ${need} basisspelers opstellen in ${wiz.matchType} (nu ${bc}).`, 'err'); return; }
-  if (bc === 0) { showToast('Duid minstens één basisspeler aan.', 'err'); return; }
+  if (selectedCount() === 0) { showToast('Duid minstens één speler aan die meegaat.', 'err'); return; }
   const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
   if (!alOpstelling) { finishWizard(false, true); return; }
-  // Nieuwe basisspelers krijgen hier hun plaats; blijft het veld daarna half leeg, dan is dat niet
-  // in dit scherm op te lossen (je ziet er geen veld). Dan sturen we door naar de opstelling in
-  // plaats van te weigeren met een melding die nergens naartoe leidt.
-  placeUnplaced();
+  // Blijft het veld half leeg — omdat je iemand uit de selectie haalde die op het veld stond, of
+  // omdat er nu een speler bij is voor een plaats die nog vrij was — dan is dat niet in dit scherm
+  // op te lossen (je ziet er geen veld). Dan sturen we door naar de opstelling in plaats van te
+  // weigeren met een melding die nergens naartoe leidt.
   const plaatsen = (FORMATIONS[wiz.matchType][wiz.formationIndex] || {}).slots.length;
-  const nodig = Math.min(plaatsen, wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length);
+  const nodig = Math.min(plaatsen, selectedCount());
   const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
   if (geplaatst < nodig) {
     showConfirm(`Er ${geplaatst === 1 ? 'staat' : 'staan'} maar <b>${geplaatst} van de ${nodig}</b> spelers op het veld. Vul de opstelling aan — daar haal je er spelers bij van de bank.`,
@@ -512,62 +516,17 @@ function placeSlot(i) {
   }
   render();
 }
-function autoPlace() {
-  const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
-  const basis = wiz.pool.filter(p => p.sel === 'basis');
-  basis.forEach(p => p.slot = null);
-  const used = {}, slotUsed = {};
-  // Spelers met een verfijnde voorkeur eerst op de best passende slot van hun lijn zetten, vóór de
-  // gewone lijn-match hieronder (die geen onderscheid maakt binnen een lijn). Waarop de verfijning
-  // slaat, staat in POSITIONS: bij een verdediger of vleugelspeler is het de breedte (x-as, links/
-  // rechts), bij een middenvelder de diepte (y-as; y=90 ligt aan eigen doel, dus "verdedigend" is
-  // de hoogste y). Een spits zonder verdere keuze krijgt de meest centrale aanvalsslot.
-  const kies = (kandidaten, axis, keuze) => {
-    if (axis === 'y') {
-      if (keuze === 'verdedigend') return kandidaten.reduce((a, b) => b.s.y > a.s.y ? b : a);
-      if (keuze === 'aanvallend') return kandidaten.reduce((a, b) => b.s.y < a.s.y ? b : a);
-      const ys = kandidaten.map(c => c.s.y), mid = (Math.min(...ys) + Math.max(...ys)) / 2;
-      return kandidaten.reduce((a, b) => Math.abs(b.s.y - mid) < Math.abs(a.s.y - mid) ? b : a);
-    }
-    if (keuze === 'links')  return kandidaten.reduce((a, b) => b.s.x < a.s.x ? b : a);
-    if (keuze === 'rechts') return kandidaten.reduce((a, b) => b.s.x > a.s.x ? b : a);
-    return kandidaten.reduce((a, b) => Math.abs(b.s.x - 50) < Math.abs(a.s.x - 50) ? b : a);
-  };
-  const vrije = line => form.slots.map((s, i) => ({ s, i })).filter(({ s, i }) => s.line === line && !slotUsed[i]);
-  const plaats = (p, kandidaten, axis, keuze) => {
-    const best = kies(kandidaten, axis, keuze);
-    p.slot = best.i; used[p.pid] = 1; slotUsed[best.i] = 1;
-  };
-  // Een uitgesproken keuze (links/rechts, verdedigend/aanvallend) gaat vóór "centraal": wie een
-  // hoek van het veld wil, is het meest beperkt, en wat overblijft is per definitie het midden.
-  // Zonder die volgorde bepaalde de volgorde in de spelerslijst de uitkomst.
-  const extreem = s => s === 'links' || s === 'rechts' || s === 'verdedigend' || s === 'aanvallend';
-  const uitgesprokenEerst = (a, b) => (extreem(b.side) ? 1 : 0) - (extreem(a.side) ? 1 : 0);
-  ['Verdediger', 'Middenvelder'].forEach(pos => {
-    const m = POSITIONS[pos];
-    basis.filter(p => normPos(p.pos) === pos && posSideValid(p.pos, p.side)).sort(uitgesprokenEerst)
-      .forEach(p => { const k = vrije(m.line); if (k.length) plaats(p, k, m.axis, p.side); });
-  });
-  // Aanvalslijn apart, want daar zitten twee posities in één lijn: een vleugelspeler kan uitwijken
-  // naar het middenveld, een spits niet. Zijn er meer kandidaten dan aanvalsslots (bv. de dubbele
-  // ruit in 8v8 heeft er maar één), dan schuift de vleugelspeler op naar de breedst gelegen vrije
-  // middenveldslot — anders pikte hij de enige aanvalsslot en belandde de spits ergens op de rest.
-  const vleugels = basis.filter(p => normPos(p.pos) === 'Vleugelspeler');
-  const spitsen = basis.filter(p => normPos(p.pos) === 'Spits');
-  let overschot = Math.max(0, vleugels.length + spitsen.length - vrije('Aanval').length);
-  while (overschot > 0 && vleugels.length) {
-    const p = vleugels.pop();
-    const k = vrije('Middenveld');
-    if (k.length) plaats(p, k, 'x', p.side);
-    overschot--;
-  }
-  vleugels.sort(uitgesprokenEerst).forEach(p => { const k = vrije('Aanval'); if (k.length) plaats(p, k, 'x', p.side); });
-  spitsen.forEach(p => { const k = vrije('Aanval'); if (k.length) plaats(p, k, 'x', 'centraal'); });
-  form.slots.forEach((s, i) => { if (slotUsed[i]) return; const c = basis.find(p => p.slot == null && !used[p.pid] && posLine(p.pos) === s.line); if (c) { c.slot = i; used[c.pid] = 1; slotUsed[i] = 1; } });
-  form.slots.forEach((s, i) => { if (basis.some(p => p.slot === i)) return; const c = basis.find(p => p.slot == null && !used[p.pid]); if (c) { c.slot = i; used[c.pid] = 1; } });
+// Auto-plaats stond hier: die vulde het veld op met de spelers die je in de selectie als "Basis"
+// had aangeduid. Sinds v0.33.0 zegt de selectie enkel nog wie meegaat, dus die knop zou uit een
+// ruimere kern zelf een basiself moeten kiezen — de app zou dan met één tik beslissen wie start.
+// Bewust weggelaten (Tims keuze): het veld begint leeg en je tikt de spelers er zelf op.
+// Het veld leegmaken: iedereen terug naar de bank. Ook `sel` mee terugzetten, anders blijft er een
+// 'basis'-speler zonder plaats achter — precies de toestand die sinds v0.33.0 niet meer hoort te
+// bestaan, en die de speler in geen van beide lijsten van stap 3 zou doen opduiken.
+function clearPlacement() {
+  wiz.pool.forEach(p => { if (p.sel === 'basis') p.sel = 'bank'; p.slot = null; });
   wiz.selPlace = null; render();
 }
-function clearPlacement() { wiz.pool.forEach(p => p.slot = null); wiz.selPlace = null; render(); }
 function wizPitch(form) {
   // Zelfde veldnaam als op het live-veld en in het wedstrijddetail: enkel de achternaam, met een
   // initiaal erbij als twee spelers in de basis dezelfde achternaam hebben. De volledige naam paste
@@ -587,12 +546,16 @@ function wizPitch(form) {
 function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];
   const form = forms[wiz.formationIndex] || forms[0];
-  const unplaced = wiz.pool.filter(p => p.sel === 'basis' && p.slot == null);
-  const bank = sortedByName(wiz.pool.filter(p => p.sel === 'bank'));
+  // Eén lijst met wie geselecteerd is en (nog) niet op het veld staat. Dat was er vroeger twee —
+  // "Nog te plaatsen" (de basisspelers uit de selectie) en "Op de bank" (de wisselspelers) — maar
+  // sinds v0.33.0 duidt de selectie dat onderscheid niet meer aan: wie meegaat en niet op het veld
+  // staat, ís de bank. De filter kijkt daarom naar de plaatsing en niet naar `sel`, zodat er nooit
+  // iemand uit beide lijsten valt.
+  const bank = sortedByName(wiz.pool.filter(p => isSel(p) && p.slot == null));
   // Hoeveel spelers er op het veld horen, en hoeveel er staan. Het opslaan eist dat dit gelijk is
   // (zie finishWizard), dus dat hoor je hier te zien en niet pas bij een foutmelding.
   const plaatsen = (form || {}).slots ? form.slots.length : 0;
-  const nodig = Math.min(plaatsen, wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length);
+  const nodig = Math.min(plaatsen, selectedCount());
   const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
   const compleet = geplaatst >= nodig;
   return `
@@ -608,22 +571,17 @@ function wizStep3() {
     <div class="card">${wizPitch(form)}
       <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
-    <div class="sec">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${unplaced.length
-      ? unplaced.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
-      : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`}</div>
-    ${/* De bank hoort hier ook te staan: zag je pas nu dat je iemand per ongeluk op 'Wissel' zette,
-         dan zet je hem hier alsnog op het veld zonder terug te moeten naar de selectie. Een
-         bankspeler op een bezette plek RUILT met wie daar staat — die gaat naar de bank — zodat het
-         veld altijd even vol blijft. */ ''}
-    <div class="sec">Op de bank (${bank.length})</div>
+    ${/* Zolang het veld niet vol is, is dit de lijst waaruit je kiest; zodra het vol is, is exact
+         diezelfde lijst je bank. Vandaar één titel die meebeweegt met wat er nog moet gebeuren. */ ''}
+    <div class="sec">${compleet ? `Op de bank (${bank.length})` : `Nog op het veld te zetten (${bank.length})`}</div>
     <div class="place-chips">${bank.length
       ? bank.map(p => `<span class="place-chip ${wiz.selPlace===p.pid?'sel':''}" onclick="selectPlace('${p.pid}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
       : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-    <p style="color:var(--txt2);font-size:12px;margin-top:6px">Tik een <b>bankspeler</b> aan en dan een <b>speler op het veld</b>: ze ruilen van plaats. Zo zet je iemand die per ongeluk op <b>Wissel</b> stond alsnog in de basis.</p>
+    <p style="color:var(--txt2);font-size:12px;margin-top:6px">${compleet
+      ? 'Het veld is vol — wie hier staat, begint op de bank. Tik een <b>bankspeler</b> aan en dan een <b>speler op het veld</b> om ze te laten ruilen.'
+      : 'Tik een speler hierboven aan en dan een <b>vrije plaats</b> op het veld. Wie na het vullen van het veld overblijft, begint op de bank.'}</p>
     <div class="wiz-nav" style="margin-top:14px">
-      <button class="btn btn-gray btn-sm" style="width:auto" onclick="autoPlace()">${icI(IC.auto)} Auto-plaats</button>
-      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Wissen</button>
+      <button class="btn btn-gray btn-sm" style="width:auto" onclick="clearPlacement()">${icI(IC.undo)} Veld leegmaken</button>
     </div>
     ${/* Geen "Nu starten" meer op deze stap: een wedstrijd wordt eerst ingepland en pas later
          gestart, vanuit het wedstrijdscherm. Dat scheelt niet alleen een onomkeerbare misklik, het
@@ -875,9 +833,10 @@ function computePosNum(matchType, slotIdx, slots) {
 // confirmStartNow() is weg sinds v0.20.0: de wizard eindigt altijd op een INGEPLANDE wedstrijd.
 // Starten gebeurt daarna bewust vanuit het wedstrijdscherm (startPlanned), waar dezelfde
 // waarschuwing staat. finishWizard houdt de startNow-parameter voor dat pad.
-// `zonderOpstelling`: de selectie wordt bewaard, maar niemand krijgt een plaats op het veld. De
-// basisspelers blijven `starting` (zo staan ze later in "Nog te plaatsen" van de opstellingsstap),
-// enkel x/y en het positienummer ontbreken. Zie heeftOpstelling() in core.js.
+// `zonderOpstelling`: de selectie wordt bewaard, maar niemand krijgt een plaats op het veld. Sinds
+// v0.33.0 heeft zo'n wedstrijd dus ook geen `starting`-spelers meer: de selectie duidt er geen aan,
+// en iemand `starting` maken zonder plaats zou een basisspeler zijn die nergens staat. Ze draagt
+// `lineupPending` tot je de opstelling maakt — zie heeftOpstelling() in core.js.
 async function finishWizard(startNow, zonderOpstelling) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   if (!zonderOpstelling) {

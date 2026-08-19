@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.32.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.33.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -81,7 +81,7 @@ function lineLabel(l) { return LINE_LABEL[l] || l; }
 // 'Aanval', en bij een middenvelder is de tweede keuze diepte (verdedigend/aanvallend) i.p.v. een
 // kant. De LIJNEN zelf blijven bewust de vier bekende waarden — daaraan hangen de formaties, LINE_Y,
 // het veldtekenen, beide PDF's en de statistiek "posities per linie". Elke positie hoort dus bij
-// precies één lijn (posLine), en 'axis' zegt waarop de tweede keuze slaat bij het auto-plaatsen:
+// precies één lijn (posLine), en 'axis' zegt waarop de tweede keuze slaat op het veld:
 // 'x' = breedte (links/rechts), 'y' = diepte (verdedigend/aanvallend).
 const POSITIONS = {
   Keeper:        { line: 'Doel',        sideLabel: '',     axis: 'x', sides: {} },

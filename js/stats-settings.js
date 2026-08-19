@@ -593,7 +593,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Ploegnaam</b>.</li>
         <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
         <li><b>Spelers</b> — rugnummer, voornaam, familienaam en voorkeurspositie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
-        <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. 'Auto-plaats' in de wizard gebruikt dat om hem op de juiste flank te zetten.</li>
+        <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. Dat staat bij zijn naam in de selectie, zodat je hem bij de opstelling op de juiste flank zet.</li>
         <li><b>Standaard wedstrijdvorm en opstelling</b> — stel per ploeg in met welke vorm (bv. 8v8) en welke formatie je meestal speelt. Een nieuwe wedstrijd start dan met die instelling; per wedstrijd kan je ze nog wijzigen.</li>
       </ul>
     `
@@ -621,11 +621,12 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/08_opstelling.png',
     inhoud: `
       <div class="sec">Stap 2 — Selectie</div>
-      <p>Duid je een speler niet aan, dan is hij <b>niet geselecteerd</b>: hij telt nergens mee in de
-        statistieken. Verder kan je per speler kiezen (nog eens tikken maakt de keuze ongedaan):</p>
+      <p>Deze stap gaat enkel over <b>wie je meeneemt</b>. Duid je een speler niet aan, dan is hij
+        <b>niet geselecteerd</b>: hij telt nergens mee in de statistieken. Verder kan je per speler
+        kiezen (nog eens tikken maakt de keuze ongedaan):</p>
       <ul class="hdl-list">
-        <li><b style="color:#4caf50">Basis</b> — start de wedstrijd.</li>
-        <li><b style="color:#2196f3">Wissel</b> — zit in de selectie, start op de bank.</li>
+        <li><b style="color:#4caf50">Mee</b> — doet mee aan deze wedstrijd. Of hij start of op de bank
+          begint, bepaal je bij de opstelling.</li>
         <li><b style="color:#f44336">NB</b> — niet beschikbaar (ziek, geblesseerd, afgemeld …). Telt
           mee als gemiste wedstrijd in het aanwezigheidspercentage. Je kan er een <b>reden</b> bij
           kiezen; koos je <b>'speelt elders'</b>, dan telt die wedstrijd niet als gemist — de speler
@@ -639,11 +640,13 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Zolang er geen opstelling is, blijft het blok <b>Planning</b> weg en kan je
         de wedstrijd niet starten — er is dan immers nog niemand op het veld gezet.</p>
       <div class="sec">Stap 3 — Opstelling</div>
-      <p>Kies bovenaan een <b>formatie</b>. Tik een speler aan, dan een positie op het veld. Gebruik <b>'Auto-plaats'</b> om automatisch in te vullen; dat plaatst enkel de basisspelers en laat de bank ongemoeid.</p>
-      <p>Onder het veld staan twee lijstjes: <b>'Nog te plaatsen'</b> en <b>'Op de bank'</b>. Zag je
-        hier pas dat je iemand per ongeluk op <b>Wissel</b> zette, tik hem dan in de banklijst aan en
-        daarna op de speler op het veld die hij vervangt: die twee <b>ruilen van plaats</b>. Je hoeft
-        daarvoor dus niet terug naar de selectie.</p>
+      <p>Kies bovenaan een <b>formatie</b>. Het veld begint leeg: tik een speler aan uit de lijst
+        eronder, dan een vrije positie op het veld.</p>
+      <p>Die lijst onder het veld bevat je hele selectie behalve wie al op het veld staat. Zolang het
+        veld niet vol is, heet ze <b>'Nog op het veld te zetten'</b>; zodra het vol is, is exact
+        diezelfde lijst je <b>bank</b> — <b>wie je niet op het veld zet, staat automatisch op de
+        bank</b>. Wil je nadien nog ruilen: tik een <b>bankspeler</b> aan en dan de speler op het veld
+        die hij vervangt. Met <b>'Veld leegmaken'</b> zet je iedereen terug in de lijst.</p>
       <p>Bovenaan zie je <b>hoeveel spelers er op het veld staan</b> (bij 8v8 dus 8/8). Opslaan kan
         pas als het veld vol is. Heb je minder spelers dan er plaatsen zijn — zeven voor 8v8 —
         dan volstaat het die zeven op te stellen. Wie na het vullen overblijft, komt automatisch op
@@ -668,9 +671,9 @@ const HANDLEIDING_PAGINAS = [
         wil aanpassen:</p>
       <ul class="hdl-list">
         <li><b>Info bewerken</b> — tegenstander, datum, uur, formaat en de rest van de gegevens.</li>
-        <li><b>Selectie</b> — wie speelt, wie op de bank zit, wie niet beschikbaar is. Zet je iemand
-          in de basis zonder plaats, dan krijgt hij er automatisch een; verzetten doe je met het
-          potlood.</li>
+        <li><b>Selectie</b> — wie meegaat en wie niet beschikbaar is. Een speler die je toevoegt komt
+          op de bank; wil je hem in de basis, zet hem dan bij de opstelling op het veld. Haal je
+          iemand weg die op het veld stond, dan vraagt de app om de opstelling aan te vullen.</li>
         <li><b>Opstelling &amp; wissels</b> — het hele plan, kwart per kwart.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
         <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
@@ -799,7 +802,7 @@ const HANDLEIDING_PAGINAS = [
       <ol class="hdl-list">
         <li>Open het tornooi en tik op <b>'+ Wedstrijd toevoegen'</b>.</li>
         <li>Vul de <b>tegenstander</b> en het <b>uur</b> in. Het aantal blokken en de duur staan al ingevuld volgens de standaard van het tornooi; wijkt deze wedstrijd af, dan pas je ze hier aan.</li>
-        <li>Kies uit je tornooiselectie wie <b>Basis</b> of <b>Wissel</b> is en zet de opstelling. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
+        <li>Kies uit je tornooiselectie wie <b>mee</b> doet aan deze wedstrijd en zet de opstelling; wie je niet op het veld zet, begint op de bank. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
       </ol>
       <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
       <div class="sec">Overzicht</div>

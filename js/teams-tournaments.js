@@ -1636,13 +1636,15 @@ function addTournamentMatch(trnId) {
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
-  // Bepaal het aantal basisspelers op basis van matchType (bv. 8v8 → 8 basis)
+  // Iedereen die meegaat naar het tornooi staat in de selectie van deze wedstrijd; wie start volgt uit
+  // de opstelling. Hier werden voordien de eerste N van de dagselectie als basisspeler aangeduid
+  // (N uit het matchType) — dat is een gok op alfabetische volgorde, en sinds v0.33.0 beslist de app
+  // niet meer wie begint. Allemaal 'bank' = geselecteerd, nog geen plaats op het veld.
   const matchType = t.matchType || '8v8';
-  const numStarters = parseInt(matchType) || 8;
-  const pool = allSquadPlayers.map((s, i) => ({
+  const pool = allSquadPlayers.map(s => ({
     pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
     fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest,
-    sel: i < numStarters ? 'basis' : 'bank', slot: null,
+    sel: 'bank', slot: null,
   }));
   const now = new Date();
   wiz = {

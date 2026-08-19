@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.33.0
+- **De selectie zegt enkel nog wie meegaat.** De knoppen *Basis · Wissel · NB* worden **Mee · NB**.
+  Wie start bepaal je bij de opstelling, en **wie je niet op het veld zet, staat automatisch op de
+  bank**. De reden: basis/wissel was al lang geen keuze meer maar een gevolg — een basisspeler die je
+  nooit plaatste werd bij het opslaan stil wisselspeler, en sinds v0.31.x overschrijft de planner de
+  hele veldbezetting van deel 1. Twee plaatsen bepaalden dus hetzelfde feit. Meteen ook dezelfde
+  woordkeuze als de tornooiselectie, die al met *Mee · NB* werkte.
+- **De teller bovenaan de selectie** toont nu gewoon **hoeveel spelers je geselecteerd hebt**, met het
+  aantal niet-beschikbare ernaast. Er stond eerst *geselecteerd / veldgrootte* (bv. `10/8`), maar die
+  noemer doet alleen iets op de grens en leest erboven als een fout — de veldgrootte is hier geen
+  bovengrens: je mag een ruime kern meenemen. Het getal is groen zodra je genoeg spelers hebt, oranje
+  als het er te weinig zijn, en dan legt de waarschuwing eronder uit hoeveel je er tekort komt.
+- **De uitleg bij de selectie zit onder *'Hoe werkt dit?'*.** Dat blok stond volledig open en besloeg
+  een halve telefoonhoogte vóór je de eerste speler zag; nu staat er één regel en klap je de rest open
+  als je ze nodig hebt — hetzelfde patroon als in de planner.
+- **Minder spelers dan het veld groot is: een waarschuwing, geen blokkade.** Heb je 7 spelers voor
+  8v8, dan staat er *"dan begin je met 1 speler minder op het veld"* en kan je gewoon door. Voordien
+  blokkeerde de selectiestap op het aantal basisspelers.
+- **'Auto-plaats' is weg.** Die vulde het veld met de spelers die je als *Basis* had aangeduid; nu de
+  selectie dat niet meer zegt, zou hij uit je kern zelf een basiself moeten kiezen. Het veld begint
+  leeg en je zet de spelers er zelf op. *'Wissen'* heet nu *'Veld leegmaken'*.
+- **Eén lijst onder het veld** in plaats van *'Nog te plaatsen'* + *'Op de bank'* — het waren altijd
+  dezelfde spelers. Zolang het veld niet vol is heet ze *'Nog op het veld te zetten'*, daarna *'Op de
+  bank'*.
+- Het datamodel is onveranderd: `starting` betekent nog exact hetzelfde en wordt nog door dezelfde
+  code gezet. Bestaande wedstrijden openen en bewaren zoals voordien.
+
 ## v0.32.0
 - **Een wedstrijd annuleren.** Onderaan een geplande wedstrijd staat nu *'Wedstrijd annuleren'*, voor
   een match die afgelast wordt zonder ooit gestart te zijn. Er is een optioneel redenveld (bv.
