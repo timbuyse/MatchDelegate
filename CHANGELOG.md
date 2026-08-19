@@ -35,6 +35,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   bank'*.
 - Het datamodel is onveranderd: `starting` betekent nog exact hetzelfde en wordt nog door dezelfde
   code gezet. Bestaande wedstrijden openen en bewaren zoals voordien.
+- **Alle 16 screenshots in de handleiding zijn opnieuw genomen.** De vorige waren van 29 juli en
+  toonden nog het oude positiemodel, de knoppen *Basis · Wissel* en de formatie *1-3-3-1*, die niet
+  meer bestaat. De ingebedde versie voor de PDF (`handleiding-screenshots.js`) is meegegenereerd.
+- **Op het homescherm staat bij een live wedstrijd het deel op een eigen regeltje** onder *LIVE*.
+  *"LIVE · KWART 1"* stond ernaast en botste op een telefoon tegen de eerste ploegnaam — op één regel
+  is er geen plaats voor een status, twee ploegnamen én de score.
 
 ## v0.32.0
 - **Een wedstrijd annuleren.** Onderaan een geplande wedstrijd staat nu *'Wedstrijd annuleren'*, voor

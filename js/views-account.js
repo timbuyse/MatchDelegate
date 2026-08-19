@@ -2279,14 +2279,20 @@ function matchItemHtml(m) {
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {
     const qNum = m.quarters ? m.quarters.length : 0;
-    const periodLabel = qNum > 0 ? `${pSingLow(m)} ${qNum}` : 'gestart';
+    // Welk deel er loopt staat op een eigen regeltje onder "LIVE". Stond het ernaast, dan botste
+    // "LIVE · KWART 1" op een telefoon tegen de eerste ploegnaam — er is op één regel geen plaats voor
+    // een status, twee ploegnamen én de score. Zo blijft de linkerkolom kort en houdt de score zijn
+    // plaats rechts. Weglaten was geen optie: op een tornooidag wil je net zien welk blok loopt.
     return `<div class="match-item live-border" data-s="${esc(sdata)}" onclick="go('live','${m.id}')" style="padding:14px 16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
-        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
-          <span class="live-pulse-dot"></span>
-          <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live · ${periodLabel}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%">
+        <div style="flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+            <span class="live-pulse-dot"></span>
+            <span style="font-size:12px;font-weight:700;color:var(--rd);text-transform:uppercase;letter-spacing:.5px">Live</span>
+          </div>
+          ${qNum > 0 ? `<div style="font-size:11px;color:var(--txt2);font-weight:600;margin-top:2px;white-space:nowrap">${esc(pSing(m))} ${qNum}</div>` : ''}
         </div>
-        <div style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:7px;min-width:0">
           <span style="font-size:15px;font-weight:700">${isAway(m)?esc(m.opponent):ownLabel}</span>
           <span style="font-size:24px;font-weight:800;letter-spacing:3px">${scoreHtml(m,'')}</span>
           <span style="font-size:15px;font-weight:700">${isAway(m)?ownLabel:esc(m.opponent)}</span>
