@@ -395,6 +395,20 @@ function pijlPdf(doc, x, midY, s, kleur, omlaag) {
   if (omlaag) { doc.line(x - head, punt - head, x, punt); doc.line(x + head, punt - head, x, punt); }
   else { doc.line(x - head, top + head, x, top); doc.line(x + head, top + head, x, top); }
 }
+// Het shirt van shirtSvg() (core.js) als jsPDF-pad, zodat de PDF dezelfde markering tekent als het
+// scherm. jsPDF kent geen SVG-paden, dus het silhouet staat hier als reeks relatieve segmenten,
+// vertrekkend van het startpunt (15,4) in een vak van 24x24 — dezelfde coördinaten als het SVG-pad.
+// Twee bewuste vereenvoudigingen: de afrondingen van 1 eenheid onderaan zijn rechte hoekjes (op deze
+// schaal onzichtbaar) en de halsboog is met vier korte lijntjes benaderd. De som van alle dx en dy is
+// nul, dus de vorm sluit exact.
+const SHIRT_PAD_PDF = [[6, 2], [0, 5], [-3, 0], [0, 9], [-12, 0], [0, -9], [-3, 0], [0, -5], [6, -2],
+  [1.5, 2.5], [1.5, 0.7], [1.5, -0.7], [1.5, -2.5]];
+function drawShirtPdf(doc, cx, cy, hoogte, style) {
+  // Het silhouet loopt van x 3..21 en y 4..20, dus het middelpunt van het vak ligt op (12,12) en het
+  // startpunt (15,4) op (+3,-8) daarvan. Hoogte 16 eenheden -> schaal = hoogte / 16.
+  const s = hoogte / 16;
+  doc.lines(SHIRT_PAD_PDF, cx + 3 * s, cy - 8 * s, [s, s], style, true);
+}
 function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   const W = 320, H = 480, R = 15;
   const PAW = 189, PAD = 75, GAW = 86, GAD = 25, CCR = 43, PENY = 50, CR = 8, RX = 8;
@@ -468,14 +482,15 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     const cx = ux(x / 100 * W), cy = uy(y / 100 * H);
     doc.setFillColor(...(p.line === 'Doel' ? [245, 130, 31] : [16, 16, 16]));
     doc.setDrawColor(255, 255, 255); doc.setLineWidth(L(2));
-    doc.circle(cx, cy, L(R), 'FD');
+    drawShirtPdf(doc, cx, cy, L(2 * R), 'FD');
     doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold');
     doc.setFontSize(numSize);
-    // In de bol staat ENKEL het positienummer (vast per plaats in de formatie), nooit het rugnummer:
-    // die zijn optioneel en horen buiten het veld (chips, lijsten). Zelfde regel als op het scherm,
-    // zie pitchDot(). Geen positienummer (oude wedstrijd waarvan de x/y niet meer op een slot valt)
-    // → lege bol met enkel de naam eronder, i.p.v. het vroegere "?".
-    const bolTekst = String(p.posNum || '');
+    // Het RUGNUMMER, net als op het scherm (zie pitchDot en shirtSvg): sinds v0.34.0 staat het
+    // positienummer niet meer op een veld, want met 26 roosterplekken en 11 klassieke nummers kan
+    // een nummer een plek niet meer aanduiden. Rugnummers zijn optioneel per ploeg — dan blijft de
+    // bol leeg met enkel de naam eronder. De VORM is hier nog een bol en op het scherm een shirt;
+    // dat is bewust nog niet gelijkgetrokken (een shirt tekenen in jsPDF is eigen werk).
+    const bolTekst = pNum(p);
     if (bolTekst) doc.text(bolTekst, cx, cy + numSize * 0.35, { align: 'center' });
     // Naam op een donker plaatje: wit-op-gras liep in elkaar over waar twee bollen dicht bij
     // elkaar staan (zelfde reden als de .pdot-lbl-achtergrond op het scherm).

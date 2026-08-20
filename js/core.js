@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.33.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.34.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -15,19 +15,114 @@ const LINE_Y = { 'Doel': 90, 'Verdediging': 68, 'Middenveld': 45, 'Aanval': 22 }
 // De codes bij de positienummers die computePosNum toekent (1 = doel, 2-5 verdediging, 6/8/10/11/7
 // middenveld, 9 aanval). Het nummer zegt wélke plek, de code hoe die plek heet.
 const POS_CODES_11 = {
-  1: 'DM', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
+  1: 'K', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
   7: 'RA', 8: 'CM', 9: 'SP/CA', 10: 'CAM', 11: 'LA',
 };
 // Op een klein veld heten dezelfde nummers anders: de "spits" is er een aanvallende middenvelder en
 // de flanken zijn middenvelders i.p.v. aanvallers. 3, 4, 6 en 8 staan niet in de lijst die Tim
 // opgaf omdat 8v8 ze zelden of nooit toekent (zie computePosNum); ze volgen daarom de grote tabel.
 const POS_CODES_KLEIN = {
-  1: 'DM', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
+  1: 'K', 2: 'RV', 3: 'CV', 4: 'CV', 5: 'LV', 6: 'CVM',
   7: 'RM', 8: 'CM', 9: 'CAM', 10: 'CVM', 11: 'LM',
 };
 function posCode(n, matchType) {
   const tabel = matchType === '11v11' ? POS_CODES_11 : POS_CODES_KLEIN;
   return tabel[parseInt(n, 10)] || '';
+}
+// ===================== POSITIEROOSTER =====================
+// 26 plekken op het veld: 5 kolommen x 5 rijen, plus de doelman. Hetzelfde rooster voor ELKE
+// wedstrijdvorm — enkel het aantal spelers dat je moet plaatsen verschilt (8 bij 8v8, 11 bij 11v11).
+// Dit vervangt op termijn de vaste slots per formatie (FORMATIONS): de formatie blijft bestaan als
+// vertrekpunt en als naam in het verslag, maar je mag elke speler op elke plek zetten.
+//
+//  - `code` is de IDENTITEIT van een plek: uniek over de 26, en dat is wat een wedstrijd bewaart en
+//    waarop een geplande positiewissel werkt. Zo kan er geen dubbelzinnigheid bestaan, wat met een
+//    positieNUMMER niet lukt: er zijn 26 plekken en maar 11 klassieke nummers.
+//  - `line` is een van de vier lijnen van de app. Die volgt uit de CODE en niet uit de rij: LW is een
+//    flankaanvaller en LAM een middenvelder, ook al staan ze even hoog. De vier lijnen blijven de
+//    vier lijnen, want daaraan hangen de statistiek "posities per linie", de PDF en LINE_Y.
+//  - x/y liggen bewust binnen het bereik van de oude formatiecoördinaten (x 14..86, y 22..93), zodat
+//    een bestaande opstelling op het rooster terug te vinden is (zie gridPlekVoor).
+const POS_GRID = (() => {
+  const KOL = [14, 32, 50, 68, 86];                       // links → rechts
+  const RIJ = { aanval: 24, aanvMid: 38, midden: 52, verdMid: 66, verdediging: 78 };
+  const D = 'Doel', V = 'Verdediging', M = 'Middenveld', A = 'Aanval';
+  const rij = (y, codes, lijnen) => codes.map((code, i) => ({ code, line: lijnen[i], x: KOL[i], y }));
+  return [
+    ...rij(RIJ.aanval,      ['LFA', 'LCA', 'CA',  'RCA', 'RFA'], [A, A, A, A, A]),
+    ...rij(RIJ.aanvMid,     ['LW',  'LAM', 'CAM', 'RAM', 'RW'],  [A, M, M, M, A]),
+    ...rij(RIJ.midden,      ['LM',  'LCM', 'CM',  'RCM', 'RM'],  [M, M, M, M, M]),
+    ...rij(RIJ.verdMid,     ['LVW', 'LVM', 'CVM', 'RVM', 'RVW'], [M, M, M, M, M]),
+    ...rij(RIJ.verdediging, ['LV',  'LCV', 'CV',  'RCV', 'RV'],  [V, V, V, V, V]),
+    { code: 'K', line: D, x: 50, y: 92 },
+  ];
+})();
+// Welke plek welk positienummer draagt, per wedstrijdvorm. Het nummer is enkel een LABEL: bij jeugd
+// is de voorste écht "de 9" en de middenpositie "de 10", dus dat woord moet blijven bestaan. Er hangt
+// geen bewaarde data aan — een wedstrijd bewaart de code — dus deze tabel is later veilig te wijzigen
+// zonder migratie: geen opstelling verschuift, geen geplande wissel wordt ongeldig, geen verslag
+// verandert. Plekken die hier niet in staan hebben geen nummer, en dat is de eerlijke uitkomst: voor
+// LFA of RCM bestaat er geen nummer dat een trainer zou herkennen.
+// Aantal genummerde plekken = aantal spelers op het veld: 8 bij 8v8, 11 bij 11v11.
+const POS_NUMMERS = {
+  klein:   { K: 1, LV: 5, CV: 3, RV: 2, CVM: 10, LM: 11, RM: 7, CAM: 9 },
+  '11v11': { K: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, CAM: 10, LW: 11, CA: 9, RW: 7 },
+};
+function gridPlek(code) { return POS_GRID.find(p => p.code === code) || null; }
+function gridNummer(code, matchType) {
+  const tabel = matchType === '11v11' ? POS_NUMMERS['11v11'] : POS_NUMMERS.klein;
+  return tabel[code] || null;
+}
+// Label voor een plek: de code, met het nummer erbij waar er een bestaat — voor keuzelijsten, de
+// tijdlijn en het verslag, waar plaats is. In de bol op het veld staat enkel de code.
+function gridLabel(code, matchType) {
+  const n = gridNummer(code, matchType);
+  return n ? `${code} (${n})` : code;
+}
+// Een bestaande opstelling op het rooster terugvinden. Bewust BINNEN de eigen lijn zoeken: in de
+// dubbele ruit staat een verdediger op (24,65), en de dichtstbijzijnde roosterplek daar is LVM — een
+// middenvelder. Zonder deze beperking zou zo'n speler stil van linie veranderen en daarmee de
+// statistiek "posities per linie" en het verslag vervalsen. De speler bewaart zijn `line` al, dus die
+// is de baas en x/y beslissen enkel welke plek binnen die lijn.
+function gridPlekVoor(line, x, y) {
+  const kandidaten = POS_GRID.filter(p => p.line === line);
+  const lijst = kandidaten.length ? kandidaten : POS_GRID;
+  if (typeof x !== 'number' || typeof y !== 'number') return lijst[Math.floor(lijst.length / 2)];
+  let best = lijst[0], bestD = Infinity;
+  for (const p of lijst) {
+    const d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+// De code van een speler zoals hij nu op het veld staat. Nieuwe wedstrijden bewaren `posCodeVeld`;
+// voor alles wat al bestaat leiden we ze af uit lijn + x/y. Nooit stil terugschrijven naar het
+// wedstrijdobject — zie het datamodel-voorschrift in CLAUDE.md.
+// ---------- De markering op een velddiagram ----------
+// Een SHIRT en niet langer een bol. Eén functie voor alle drie de velden (de wizard, "posities
+// herplaatsen" in het livescherm, en renderPitch voor de planner/het pauzescherm/het verslag), zodat
+// ze niet uit elkaar kunnen groeien — dat was met .pslot en .pdot al gebeurd.
+// Zelfde pad als IC.shirt, dus dezelfde vorm als het shirt-icoon in de knoppen en de tegels.
+const SHIRT_PATH = 'M15 4l6 2v5h-3v8a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-8h-3v-5l6-2a3 3 0 0 0 6 0';
+// `binnen` is het RUGNUMMER van de speler die er staat, niet het positienummer: een shirt vraagt om
+// een rugnummer, en dat is het enige nummer dat de trainer én de spelers zelf gebruiken. Waar de
+// speler staat, ís zijn positie. Gebruikt een ploeg geen rugnummers, dan blijft het shirt leeg en
+// doet de naam eronder het werk. De positiecode staat onder een LEGE plek (zie `label`) en verdwijnt
+// zodra er iemand op staat.
+function shirtSvg(gevuld, keeper, binnen) {
+  const fill = gevuld ? (keeper ? '#f5821f' : 'var(--blk)') : 'rgba(0,0,0,.18)';
+  const dash = gevuld ? '' : ' stroke-dasharray="2 1.6"';
+  const txt = (binnen != null && String(binnen) !== '')
+    ? `<text x="12" y="16.6" text-anchor="middle" class="pmark-txt">${esc(String(binnen))}</text>` : '';
+  return `<svg class="pmark-svg" viewBox="0 0 24 24" aria-hidden="true">`
+    + `<path d="${SHIRT_PATH}" fill="${fill}" stroke="rgba(255,255,255,.88)" stroke-width="${gevuld ? 1.2 : 1.4}"${dash}/>`
+    + `${txt}</svg>`;
+}
+function spelerGridCode(p) {
+  if (!p) return null;
+  if (p.posCodeVeld && gridPlek(p.posCodeVeld)) return p.posCodeVeld;
+  const plek = gridPlekVoor(p.line, p.x, p.y);
+  return plek ? plek.code : null;
 }
 const PERIOD_TYPES = {
   'helften': { count: 2, sing: 'Helft', plural: 'helften', abbr: 'H' },

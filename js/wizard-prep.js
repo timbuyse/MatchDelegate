@@ -536,10 +536,18 @@ function wizPitch(form) {
   // basisspelers: een wisselspeler met dezelfde voornaam komt in de wedstrijd op hetzelfde veld.
   const dns = fieldDisplayNames(wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').map(p => ({ id: p.pid, name: p.name })));
   const slots = form.slots.map((s, i) => {
-    const posNum = computePosNum(wiz.matchType, i, form.slots);
+    const gk = s.line === 'Doel';
     const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    if (p) return `<div class="pslot filled ${s.line==='Doel'?'gk':''}" style="left:${s.x}%;top:${s.y}%${wiz.selPlace===p.pid?';box-shadow:0 0 0 3px var(--org)':''}" onclick="placeSlot(${i})">${posNum}<span class="pslot-lbl">${esc(dns.get(p.pid) || _firstName(p.name))}</span></div>`;
-    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">${posNum}</div>`;
+    const ring = (p && wiz.selPlace === p.pid) ? ';box-shadow:0 0 0 3px var(--org);border-radius:8px' : '';
+    // Bezet: het shirt met het RUGNUMMER erin en de naam eronder. Leeg: een open shirt met de
+    // positiecode eronder — die verdwijnt zodra er iemand op staat (dan komt de naam daar).
+    // Het positienummer staat niet meer op het veld: met 26 roosterplekken en 11 klassieke nummers
+    // kan een nummer een plek niet meer aanduiden. Het leeft voort in de lijsten als "CAM (9)".
+    if (p) return `<div class="pslot" style="left:${s.x}%;top:${s.y}%${ring}" onclick="placeSlot(${i})">`
+      + `${shirtSvg(true, gk, pNum(p))}<span class="pslot-lbl">${esc(dns.get(p.pid) || _firstName(p.name))}</span></div>`;
+    const plek = gridPlekVoor(s.line, s.x, s.y);
+    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">`
+      + `${shirtSvg(false, gk, '')}${plek ? `<span class="pmark-code">${plek.code}</span>` : ''}</div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;
 }

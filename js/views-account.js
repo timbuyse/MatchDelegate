@@ -2070,17 +2070,22 @@ function pitchDot(m, p, x, y, dn, captainId, tap) {
   const lbl = `${esc(dn || _firstName(p.name))}${cap}`;
   // tap = { fn, selId }: maakt de bol aantikbaar (pauze-opstelling in het livescherm).
   const tapAttr = tap ? ` onclick="${tap.fn}('field','${p.id}')" style="cursor:pointer;` : ' style="';
-  const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);' : '';
-  // In de bol staat ENKEL het positienummer (vast per plaats in de formatie), nooit het rugnummer —
-  // die zijn optioneel en horen buiten het veld (chips, lijsten). De terugval op het rugnummer is
-  // bewust geschrapt: bij een oude wedstrijd zonder positienummer blijft de bol leeg met de naam.
+  // Het shirt is doorschijnend, dus een box-shadow zou een vierkante rand om het vakje zetten.
+  // Met een ronde hoek leest het als een selectie rond de speler.
+  const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);border-radius:8px;' : '';
+  // In het shirt staat het RUGNUMMER (sinds v0.34.0; voordien het positienummer in een bol). Een
+  // shirt vraagt om een rugnummer, en dat is het enige nummer dat de trainer én de spelers zelf
+  // gebruiken; waar de speler staat, ís zijn positie. Rugnummers zijn optioneel per ploeg — dan
+  // blijft het shirt leeg en doet de naam eronder het werk. Het positienummer is van het veld
+  // verdwenen: met 26 roosterplekken en 11 klassieke nummers kan een nummer een plek niet meer
+  // aanduiden. Het staat nog wel in de lijsten en de tijdlijn, als "CAM (9)".
   // Bewust NIETS meer bij de bol dan het positienummer, de naam en ©. Wissels, keeperovernames en
   // kaartjes stonden hier vroeger als regeltjes/blokjes, maar het diagram toont de opstelling bij de
   // START van het deel en houdt geen rekening met positiewisselingen — een vervanger onder een bol
   // hangen suggereerde dan een positie die hij misschien nooit gespeeld heeft. De wissels staan nu
   // in een kader onder het veld (zie periodSubList / renderPitch), de kaarten in de tijdlijn.
-  return `<div class="pdot ${p.line==='Doel'?'pdot-org':''}"${tapAttr}${selRing}left:${x}%;top:${y}%">
-    ${p.posNum||''}<span class="pdot-lbl">${lbl}</span></div>`;
+  return `<div class="pdot"${tapAttr}${selRing}left:${x}%;top:${y}%">
+    ${shirtSvg(true, p.line === 'Doel', pNum(p))}<span class="pdot-lbl">${lbl}</span></div>`;
 }
 // qNum (optioneel): toont onder het veld de wissels van dat deel en de bank.
 // tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.
@@ -2110,7 +2115,7 @@ function renderPitch(m, players, captainId, qNum, tap) {
     ${wissels.map(w => `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`).join('')}
   </div>` : ''}
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
-  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in bol = positienummer</div>`}`;
+  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in shirt = rugnummer</div>`}`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);

@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.34.0
+- **Shirts in plaats van bollen op elk velddiagram.** In het shirt staat het **rugnummer** — een shirt
+  vraagt daar om, en dat is het enige nummer dat de trainer én de spelers zelf gebruiken; waar iemand
+  staat, ís zijn positie. De naam staat eronder, de doelman is oranje. Gebruikt een ploeg geen
+  rugnummers, dan blijft het shirt leeg. Ook de PDF tekent nu shirts, zodat het verslag hetzelfde
+  toont als het scherm.
+- **Het positienummer staat niet meer op het veld.** Het leeft voort in de lijsten, de tijdlijn, het
+  pauzescherm en de PDF, als bijvoorbeeld *CAM (9)*.
+- **Een lege plek toont zijn positiecode** (bv. `CA`) onder het open shirt; die verdwijnt zodra er
+  iemand op staat.
+- **Onderhuids: het positierooster.** 26 plekken — 5 kolommen × 5 rijen plus de doelman — met een
+  code als identiteit, een lijn per plek en een positienummer per wedstrijdvorm. Dat wordt de basis
+  voor het vrij plaatsen van spelers (nu nog liggen de plekken vast per formatie). Bestaande
+  opstellingen worden binnen hun eigen lijn op het rooster teruggevonden, zodat niemand stil van linie
+  verandert. De doelmanscode heet `K` in plaats van `DM`.
+- Eén markering voor alle drie de velddiagrammen (wizard, pauzescherm/planner/verslag, en "posities
+  herplaatsen"). Die waren uit elkaar gegroeid als bol mét en zónder rand.
+
 ## v0.33.1
 - **Een wedstrijd met een onbekende wedstrijdvorm blokkeert het bewerkscherm niet meer.** Stond er in
   een wedstrijd een vorm die niet (meer) in de app bestaat, dan klapte zowel *Selectie* als

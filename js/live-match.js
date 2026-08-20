@@ -682,12 +682,15 @@ function _renderEpModal() {
   const unplaced = starters.filter(p => !placedIds.has(p.id));
   // Veld
   const slotsHtml = _ep.slots.map((s, i) => {
-    const posNum = computePosNum(match.matchType, i, _ep.slots);
     const pid = _ep.assign.get(i);
     const p = pid ? match.players.find(x => x.id === pid) : null;
     const gk = s.line === 'Doel';
-    if (p) return `<div class="pslot filled ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%${_ep.sel===p.id?';box-shadow:0 0 0 3px var(--org)':''}" onclick="_epClickSlot(${i})">${posNum}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
-    return `<div class="pslot ${gk?'gk':''}" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">${posNum}</div>`;
+    // Shirt met het rugnummer erin; een lege plek toont de positiecode eronder. Zie shirtSvg.
+    const plek = gridPlekVoor(s.line, s.x, s.y);
+    if (p) return `<div class="pslot" style="left:${s.x}%;top:${s.y}%${_ep.sel===p.id?';box-shadow:0 0 0 3px var(--org);border-radius:8px':''}" onclick="_epClickSlot(${i})">`
+      + `${shirtSvg(true, gk, pNum(p))}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
+    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">`
+      + `${shirtSvg(false, gk, '')}${plek ? `<span class="pmark-code">${plek.code}</span>` : ''}</div>`;
   }).join('');
   const chipsHtml = unplaced.length
     ? unplaced.map(p => `<span class="place-chip ${_ep.sel===p.id?'sel':''}" onclick="_epSelectPlayer('${p.id}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
