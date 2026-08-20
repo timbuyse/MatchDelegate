@@ -171,11 +171,13 @@ const SHIRT_PATH = 'M15 4l6 2v5h-3v8a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-8h-3v-5l6-
 // zodra er iemand op staat.
 function shirtSvg(gevuld, keeper, binnen) {
   const fill = gevuld ? (keeper ? '#f5821f' : 'var(--blk)') : 'rgba(0,0,0,.18)';
-  const dash = gevuld ? '' : ' stroke-dasharray="2 1.6"';
+  // Een lege plek krijgt een dunne VOLLE lijn. Een streepjeslijn stond er eerst, maar op 33 px (het
+  // shirt van een niet-voorgestelde plek) is één streepje van 2 eenheden nog geen 3 px: dat wordt een
+  // rafelige, ongelijke rand. Een dunne volle contour blijft rustig op elke grootte.
   const txt = (binnen != null && String(binnen) !== '')
     ? `<text x="12" y="16.6" text-anchor="middle" class="pmark-txt">${esc(String(binnen))}</text>` : '';
   return `<svg class="pmark-svg" viewBox="0 0 24 24" aria-hidden="true">`
-    + `<path d="${SHIRT_PATH}" fill="${fill}" stroke="rgba(255,255,255,.88)" stroke-width="${gevuld ? 1.2 : 1.4}"${dash}/>`
+    + `<path d="${SHIRT_PATH}" fill="${fill}" stroke="rgba(255,255,255,.88)" stroke-width="${gevuld ? 1.2 : 1}"/>`
     + `${txt}</svg>`;
 }
 function spelerGridCode(p) {
@@ -816,6 +818,13 @@ function uitgeslotenIds(m) {
   return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));
 }
 function isUitgesloten(m, pid) { return !!pid && uitgeslotenIds(m).has(pid); }
+// Hoeveel spelers er nog op het veld MOGEN staan: de wedstrijdvorm min de uitsluitingen. Een rode
+// kaart betekent een man minder — die plaats mag niet opgevuld worden, ook niet van de bank. Overal
+// waar iemand het veld op gezet wordt, hoort dit de bovengrens te zijn en niet de wedstrijdvorm zelf.
+function veldPlaatsenNu(m) {
+  const vorm = (MATCH_TYPES[m && m.matchType] || MATCH_TYPES['8v8']).field;
+  return Math.max(0, vorm - uitgeslotenIds(m).size);
+}
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
 function recomputeOnField(m) {

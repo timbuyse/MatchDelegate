@@ -448,7 +448,16 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   arc(0, 0, 0); arc(W, 0, Math.PI / 2); arc(0, H, -Math.PI / 2); arc(W, H, Math.PI);
   // Spelers: zelfde plaatsingsregels als renderPitch (x/y indien gekend, anders verdeeld over de lijn).
   const pts = [];
-  players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => pts.push({ p, x: p.x, y: p.y }));
+  // Op de roosterplek tekenen, net als renderPitch: de 26 plekken liggen altijd op dezelfde hoogte, en
+  // een wedstrijd van vóór v0.34.0 draagt nog de coördinaten van een formatieslot die daar net naast
+  // vallen. De bewaarde x/y blijft ongemoeid — dit is enkel weergave.
+  const bezetteP = new Set();
+  players.filter(p => typeof p.x === 'number' && typeof p.y === 'number').forEach(p => {
+    const plek = (typeof gridPlek === 'function') ? gridPlek(spelerGridCode(p)) : null;
+    const opRooster = plek && !bezetteP.has(plek.code);
+    if (opRooster) bezetteP.add(plek.code);
+    pts.push({ p, x: opRooster ? plek.x : p.x, y: opRooster ? plek.y : p.y });
+  });
   const byLine = {};
   players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number')).forEach(p => { (byLine[p.line] = byLine[p.line] || []).push(p); });
   Object.entries(byLine).forEach(([line, ps]) => {

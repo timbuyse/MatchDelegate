@@ -38,6 +38,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   wordt de plek afgeleid uit lijn en veldpositie, dus je seizoen blijft leesbaar.
 - **Grotere shirts en meer lucht tussen de linies**, zodat aantikken op een telefoon makkelijker gaat.
   Onder het veld staat niet meer dat het gekleurde shirt de doelman is — dat leest je van het veld af.
+- **In de planner kan je een speler op een vrije plek zetten**, per deel. Tik hem aan en tik een lege
+  plek: hij verhuist en zijn oude plaats blijft leeg. Tot nu kon je daar enkel *ruilen* — twee spelers
+  van plaats laten wisselen — en was er na het opslaan geen weg terug naar het scherm met alle plekken.
+  De vrije plekken zijn alleen daar te zien: in het wedstrijdscherm, het verslag, de PDF en bij een
+  kijker blijft het veld enkel de opstelling tonen.
+- **Na een rode kaart blijft het een man minder.** Van de bank iemand op een vrijgekomen plek zetten
+  wordt geweigerd; een speler die al op het veld staat mag er wél naartoe verhuizen. Dat laatste is
+  precies waarvoor dit bestaat: na een uitsluiting je ploeg herschikken.
+- **Spelers staan netjes op hun roosterplek.** Een wedstrijd van vóór deze versie draagt nog de
+  coördinaten van een formatieslot, en die vallen net tussen de rijen — drie spelers van dezelfde lijn
+  stonden dan op drie hoogtes. Ze worden nu op hun plek getekend, op het scherm en in de PDF. De
+  bewaarde gegevens blijven ongewijzigd; dit is enkel weergave.
 - Bestaande opstellingen worden binnen hun eigen lijn op het rooster teruggevonden, zodat niemand stil
   van linie verandert. De doelmanscode heet **`GK`**.
 - Eén markering voor alle drie de velddiagrammen (wizard, pauzescherm/planner/verslag, en "posities

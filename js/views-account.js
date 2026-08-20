@@ -2089,6 +2089,19 @@ function pitchDot(m, p, x, y, dn, captainId, tap) {
 }
 // qNum (optioneel): toont onder het veld de wissels van dat deel en de bank.
 // tap (optioneel): maakt de bollen aantikbaar — gebruikt door de pauze-opstelling in het livescherm.
+// De onbezette plekken van het rooster, als open shirts met hun code eronder. Enkel wanneer de
+// oproeper ze aankan (tap.plek): dan is elke vrije plek aantikbaar met fn('plek','CODE'), en kan je
+// een speler naar een lege plaats zetten i.p.v. enkel met iemand te ruilen.
+function pitchOpenPlekken(m, players, tap) {
+  if (!tap || !tap.plek || typeof POS_GRID === 'undefined') return '';
+  const bezet = new Set();
+  for (const p of players) { const c = spelerGridCode(p); if (c) bezet.add(c); }
+  return POS_GRID.filter(plek => !bezet.has(plek.code)).map(plek => {
+    const gk = plek.line === 'Doel';
+    return `<div class="pslot pslot-open" style="left:${plek.x}%;top:${plek.y}%" onclick="${tap.fn}('plek','${plek.code}')">`
+      + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
+  }).join('');
+}
 function renderPitch(m, players, captainId, qNum, tap) {
   // Dedupliceren over de hele wedstrijdselectie, niet enkel over wie nu op het veld staat: een
   // invaller met dezelfde voornaam staat in het wisselkader eronder en moet dezelfde letter krijgen.
@@ -2096,7 +2109,19 @@ function renderPitch(m, players, captainId, qNum, tap) {
   let dots = '';
   const xy = players.filter(p => typeof p.x === 'number' && typeof p.y === 'number');
   const rest = players.filter(p => !(typeof p.x === 'number' && typeof p.y === 'number'));
-  for (const p of xy) dots += pitchDot(m, p, p.x, p.y, dns.get(p.id), captainId, tap);
+  // Een speler wordt getekend OP zijn roosterplek, niet op zijn ruwe x/y. De 26 plekken liggen altijd
+  // op dezelfde hoogte, bij elke formatie; een wedstrijd van vóór v0.34.0 draagt nog de coördinaten van
+  // een formatieslot (bv. de middenvelders van een dubbele ruit op y 38 en 50) en die vielen dan net
+  // naast de rij — drie spelers die op dezelfde lijn horen, stonden zo op drie hoogtes. De bewaarde
+  // x/y blijft ongemoeid; dit is enkel weergave. Botsen twee spelers op dezelfde plek (rare oude
+  // data), dan houdt de eerste ze en valt de tweede terug op zijn eigen coördinaten.
+  const bezetteP = new Set();
+  for (const p of xy) {
+    const plek = gridPlek(spelerGridCode(p));
+    const opRooster = plek && !bezetteP.has(plek.code);
+    if (opRooster) bezetteP.add(plek.code);
+    dots += pitchDot(m, p, opRooster ? plek.x : p.x, opRooster ? plek.y : p.y, dns.get(p.id), captainId, tap);
+  }
   const byLine = {};
   for (const p of rest) { (byLine[p.line] = byLine[p.line] || []).push(p); }
   for (const [line, ps] of Object.entries(byLine)) {
@@ -2109,7 +2134,7 @@ function renderPitch(m, players, captainId, qNum, tap) {
   // bij de start van het deel en negeert positiewisselingen, dus een naam onder een bol beweerde
   // een positie die de invaller misschien nooit gespeeld heeft. Hier staat enkel wie, wanneer.
   const wissels = (m && !tap) ? periodSubList(m, qNum) : [];
-  return `<div class="pitch">${pitchLines()}${dots}</div>
+  return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
   ${wissels.length ? `<div class="pitch-subs">
     <div class="pitch-subs-h">Wissels</div>
     ${wissels.map(w => `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`).join('')}

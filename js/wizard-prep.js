@@ -1429,7 +1429,9 @@ function plannedPartsCount(m) {
 }
 // Waar begin je aan als je deel q opent: het plan voor dat deel, anders dat van het vorige deel,
 // en uiteindelijk de startopstelling. Zo pas je per deel enkel aan wat er verandert.
-function _planEntry(p) { return { id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }; }
+// posCodeVeld mee: de plek van het rooster is sinds v0.34.0 de identiteit van een plaats, en zonder
+// dit veld zou een geplande opstelling ze bij elk lezen opnieuw uit x/y moeten benaderen.
+function _planEntry(p) { return { id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: p.posCodeVeld || spelerGridCode(p) || undefined }; }
 // De startopstelling als plan-entries (deel 1 woont in m.players, niet in plannedLineups).
 function _planStartEntries(m) {
   return (m.players || []).filter(p => p.starting && magOpHetVeld(m, p)).map(_planEntry);
@@ -1682,7 +1684,7 @@ function modalPlannedLineups(q) {
     ? (deel === 1
       ? `De startopstelling van deze wedstrijd.`
       : `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`)
-    : `Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
+    : `Tik een speler en dan een <b>vrije plek</b> om hem daar te zetten. Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
       ? ` Dit is de <b>startopstelling</b>.`
       : (eigen
         ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
@@ -1705,7 +1707,10 @@ function modalPlannedLineups(q) {
         <p style="margin:0"><b>Tip:</b> doorloop de ${pPlural(m)} van voor naar achter. Een ${pSingLow(m)} dat je zelf invult (●) krijgt een eigen opstelling en volgt de eerdere ${pPlural(m)} daarna niet meer — wijzig je later nog iets aan ${pSingLow(m)} 2, dan past ${pSingLow(m)} 3 zich dus niet meer aan. Met <b>Plan voor ${pSingLow(m)} X wissen</b> maak je dat weer ongedaan.</p>
       </div></details>` : ''}
     ${plannedLineupWarnHtml(m, deel)}
-    ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId })}
+    ${/* plek: true → de onbezette roosterplekken worden getekend en zijn aantikbaar, zodat je hier een
+         speler naar een LEGE plaats kan zetten en niet enkel met iemand kan ruilen. Daarmee is dit
+         scherm ook de weg terug naar de startopstelling: per deel kan je alles opnieuw plaatsen. */ ''}
+    ${renderPitch(m, veld, m.captainId, null, ro ? null : { fn: 'planLineupTap', selId, plek: true })}
     <div class="sec">Bank (${bank.length})</div>
     <div class="place-chips">${bank.length
       ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}"${ro ? '' : ` onclick="planLineupTap('bench','${p.id}')"`}>${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
@@ -1739,7 +1744,7 @@ function modalPlannedLineups(q) {
 // in savePlannedLineups, zodat Sluiten de wijzigingen kan laten vallen.
 function _savePlannedLineup(deel, lijst) {
   _planLineupDraft = _planLineupDraft || {};
-  _planLineupDraft[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+  _planLineupDraft[deel] = lijst.map(p => _planEntry(p));
   modalPlannedLineups();
 }
 // De werkkopie wegschrijven, zonder de modal te sluiten. Deel 1 schrijft naar de startopstelling
@@ -1772,7 +1777,7 @@ async function _schrijfPlanDraft() {
       if (m.plannedLineups) delete m.plannedLineups[deel];
     } else {
       m.plannedLineups = m.plannedLineups || {};
-      m.plannedLineups[deel] = lijst.map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
+      m.plannedLineups[deel] = lijst.map(p => _planEntry(p));
     }
   }
   _planLineupDraft = null; _planLineupSel = null;
@@ -1818,15 +1823,45 @@ function planLineupTap(kind, id) {
   }
   const sel = _planLineupSel;
   if (sel && sel.id === id) { _planLineupSel = null; modalPlannedLineups(); return; }   // deselecteren
+  // Een LEGE plek aantikken zonder speler in de hand doet niets: er is niemand om te verhuizen.
+  if (kind === 'plek' && !sel) return;
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }
   _planLineupSel = null;
   const plan = planLineupBaseNu(match, deel);
+  // Naar een lege plek: de speler verhuist en zijn oude plaats blijft leeg. Dat is het punt waarvoor
+  // dit bestaat — na een uitsluiting kan je iemand naar de vrijgekomen plek zetten zonder te ruilen.
+  if (kind === 'plek') {
+    const plek = gridPlek(id);
+    if (!plek) { modalPlannedLineups(); return; }
+    const nieuw = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code };
+    if (sel.kind === 'field') {
+      const e = plan.find(p => p.id === sel.id);
+      if (!e) { modalPlannedLineups(); return; }
+      Object.assign(e, nieuw);
+    } else {
+      // Van de bank naar een lege plek: er komt iemand bij op het veld. De bovengrens is de
+      // wedstrijdvorm MIN de uitsluitingen (veldPlaatsenNu): na een rode kaart speel je met een man
+      // minder, en die plaats mag niet opgevuld worden — ook niet van de bank.
+      const max = veldPlaatsenNu(match);
+      if (plan.length >= max) {
+        const uit = ((MATCH_TYPES[match.matchType] || MATCH_TYPES['8v8']).field) - max;
+        showToast(uit
+          ? `Je speelt met ${max} spelers op het veld: ${uit === 1 ? 'één speler is' : uit + ' spelers zijn'} uitgesloten en die plaats blijft leeg.`
+          : `Er staan al ${plan.length} spelers op het veld bij ${match.matchType}. Haal er eerst iemand af.`, 'err');
+        modalPlannedLineups(); return;
+      }
+      plan.push(Object.assign({ id: sel.id }, nieuw));
+    }
+    _savePlannedLineup(deel, plan);
+    return;
+  }
   if (sel.kind === 'field' && kind === 'field') {
     const a = plan.find(p => p.id === sel.id), b = plan.find(p => p.id === id);
     if (!a || !b) { modalPlannedLineups(); return; }
-    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
-    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
-    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
+    // posCodeVeld hoort bij de plaats en moet dus mee omwisselen, net als x/y en het positienummer.
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
   } else {
     // bank + veld: de bankspeler neemt de plaats van de veldspeler over
     const veldId = kind === 'field' ? id : sel.id;
