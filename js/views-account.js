@@ -2115,7 +2115,10 @@ function renderPitch(m, players, captainId, qNum, tap) {
     ${wissels.map(w => `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`).join('')}
   </div>` : ''}
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
-  ${tap ? '' : `<div class="field-legend"><span class="ic-i" style="color:#f5821f;font-size:.9em;vertical-align:-.05em">${IC.dot}</span> = doelman · cijfer in shirt = rugnummer</div>`}`;
+  ${/* Dat het oranje shirt de doelman is, stond hier ook nog eens uitgelegd. Weg: dat leest je van het
+       veld zelf af (hij staat in het doelgebied). Wat een lezer níet kan weten, is welk cijfer er in
+       het shirt staat — daar stond tot v0.34.0 het positienummer. */ ''}
+  ${tap ? '' : `<div class="field-legend">Cijfer in het shirt = rugnummer</div>`}`;
 }
 function captainAtStartOfQuarter(m, qNum) {
   const startMs = gameTimeMsAtStartOfQuarter(m, qNum);

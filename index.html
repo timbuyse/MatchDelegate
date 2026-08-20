@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
@@ -402,22 +402,32 @@
        core.js, dat het pad van IC.shirt gebruikt). .pslot en .pdot doen nu enkel nog de plaatsing en
        de grootte; de vorm, de vulling en het cijfer zitten in de SVG. Daardoor blijven ze allebei
        automatisch hetzelfde tonen — ze waren uit elkaar gegroeid als bol met en zonder rand. */
-    .pslot,.pdot{position:absolute;transform:translate(-50%,-50%);width:40px;height:40px;cursor:pointer}
+    /* 50px: er is ruimte tussen de 26 roosterplekken (kolommen liggen 18% van 340px = 61px van elkaar)
+       en een groter shirt is makkelijker aan te tikken — ruim boven de 44px die een vingertop nodig
+       heeft. De labels eronder schuiven mee (top-waarden hieronder). */
+    .pslot,.pdot{position:absolute;transform:translate(-50%,-50%);width:50px;height:50px;cursor:pointer}
     .pmark-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
     .pmark-txt{font-size:7.5px;font-weight:700;fill:#fff}
     /* Code onder een LEGE plek: lichter dan een spelersnaam, want het is een plaatsnaam en geen
        persoon. Verdwijnt zodra er iemand staat (dan komt de naam hier). */
-    .pmark-code{position:absolute;top:39px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.3px;color:rgba(255,255,255,.92);background:rgba(0,0,0,.3);border-radius:5px;padding:0 3px;white-space:nowrap}
+    .pmark-code{position:absolute;top:47px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.3px;color:rgba(255,255,255,.92);background:rgba(0,0,0,.3);border-radius:5px;padding:0 3px;white-space:nowrap}
+    /* Een open plek van het rooster staat kleiner en lichter dan een bezet shirt, anders wordt een veld
+       met 26 plekken één grijze massa. De plekken van de gekozen formatie (.pslot-tip) lichten sterker
+       op én staan groter: dat is het voorstel, geen verplichting. */
+    .pslot-open .pmark-svg{opacity:.5;transform:scale(.66)}
+    .pslot-open .pmark-code{opacity:.6;font-size:8px;top:42px}
+    .pslot-open.pslot-tip .pmark-svg{opacity:.92;transform:scale(.9)}
+    .pslot-open.pslot-tip .pmark-code{opacity:1;font-size:9px;top:46px}
     /* Zelfde opmaak als .pdot-lbl op het live-veld: even breed en met een donker plaatje eronder,
        zodat labels die bij lange namen tegen elkaar aanschuiven leesbaar blijven. */
-    .pslot-lbl{position:absolute;top:38px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:92px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
+    .pslot-lbl{position:absolute;top:47px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:92px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
     /* Pitch (visual field) */
     .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:repeating-linear-gradient(to bottom,#1b8040 0px,#1b8040 30px,#1e9449 30px,#1e9449 60px);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
     .pitch-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
     /* Naamlabel onder het shirt: donker doorschijnend plaatje eronder, zodat twee labels die bij
        lange familienamen tegen elkaar aanschuiven toch leesbaar blijven (i.p.v. wit-op-gras
        dat in elkaar overloopt). z-index tilt het label boven de buurbol. */
-    .pdot-lbl{position:absolute;top:36px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:92px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
+    .pdot-lbl{position:absolute;top:47px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.7);max-width:92px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.42);border-radius:5px;padding:1px 4px;z-index:2}
     /* Wisselkader onder het veld. Stond vroeger als regeltjes bij de bollen, maar het diagram toont
        de opstelling bij de START van het deel en negeert positiewisselingen — een naam onder een bol
        beweerde dan een positie die de invaller misschien nooit speelde. Hier staat enkel wie en

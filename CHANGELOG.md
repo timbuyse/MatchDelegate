@@ -19,11 +19,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   pauzescherm en de PDF, als bijvoorbeeld *CAM (9)*.
 - **Een lege plek toont zijn positiecode** (bv. `CA`) onder het open shirt; die verdwijnt zodra er
   iemand op staat.
-- **Onderhuids: het positierooster.** 26 plekken — 5 kolommen × 5 rijen plus de doelman — met een
-  code als identiteit, een lijn per plek en een positienummer per wedstrijdvorm. Dat wordt de basis
-  voor het vrij plaatsen van spelers (nu nog liggen de plekken vast per formatie). Bestaande
-  opstellingen worden binnen hun eigen lijn op het rooster teruggevonden, zodat niemand stil van linie
-  verandert. De doelmanscode heet `K` in plaats van `DM`.
+- **Je zet je spelers vrij op het veld.** Er staan **26 plekken** op het veld — 5 kolommen × 5 rijen
+  plus de doelman — en je zet elke speler waar je wil. De plekken lagen tot nu vast per formatie: acht
+  vakjes in een dubbele ruit, en verder niets. Wil je één speler wat meer naar voren of naar de flank,
+  dan kan dat nu gewoon.
+- **De formatie is een voorstel geworden, geen dwangbuis.** Kies je *Dubbele ruit*, dan lichten die
+  acht plekken sterker op; de rest van het rooster staat er lichter bij en is even goed aan te tikken.
+  Daardoor vervalt ook de oude waarschuwing *"de plaatsen veranderen, je stelt iedereen opnieuw op"* —
+  een andere formatie (of een andere wedstrijdvorm) verzet niemand meer, en je opstellingen voor de
+  volgende delen blijven staan.
+- **Elke plek heeft een positienummer, en binnen een opstelling komt elk nummer één keer voor.** De
+  nummers volgen de Nederlands-Belgische traditie (1 keeper, 2 rechtsback, 3-4 centraal, 5 linksback,
+  6 en 8 middenveld, 10 aanvallende middenvelder, 7 rechts, 9 spits, 11 links) en staan per **formatie**
+  vast, niet per wedstrijdvorm: in een 4-3-3 is de linksbuiten de 11, in een 4-4-2 is de 11 een spits.
+  Met één nummer per plek liep dat vast — bij 8v8 2-3-2 kwamen 11 en 7 twee keer op het veld.
+- **De statistiek *Posities* gaat per plek** in plaats van per linie: *CAM×5 · CM×3 · RM×1* zegt meer
+  dan *Middenveld×9*. De linie staat er als samenvatting onder. Voor wedstrijden van vóór deze versie
+  wordt de plek afgeleid uit lijn en veldpositie, dus je seizoen blijft leesbaar.
+- **Grotere shirts en meer lucht tussen de linies**, zodat aantikken op een telefoon makkelijker gaat.
+  Onder het veld staat niet meer dat het gekleurde shirt de doelman is — dat leest je van het veld af.
+- Bestaande opstellingen worden binnen hun eigen lijn op het rooster teruggevonden, zodat niemand stil
+  van linie verandert. De doelmanscode heet **`GK`**.
 - Eén markering voor alle drie de velddiagrammen (wizard, pauzescherm/planner/verslag, en "posities
   herplaatsen"). Die waren uit elkaar gegroeid als bol mét en zónder rand.
 

@@ -45,7 +45,13 @@ function posCode(n, matchType) {
 //    een bestaande opstelling op het rooster terug te vinden is (zie gridPlekVoor).
 const POS_GRID = (() => {
   const KOL = [14, 32, 50, 68, 86];                       // links → rechts
-  const RIJ = { aanval: 24, aanvMid: 38, midden: 52, verdMid: 66, verdediging: 78 };
+  // De rijen liggen minstens 14% van elkaar. Op een veld van 510px hoog is dat 71px, en een shirt van
+  // 50px plus het label eronder heeft ongeveer 72px nodig — daaronder gaat een naam over het shirt van
+  // de rij eronder. De aanval schuift zo hoog als kan (het strafschopgebied van de tegenstander loopt
+  // tot y≈15,6) en de doelman blijft diep genoeg om in zijn doelgebied te staan.
+  // Dit verschuift NIET welke plek een bestaande opstelling krijgt: binnen één lijn hebben alle plekken
+  // dezelfde y, dus gridPlekVoor kiest daar op x.
+  const RIJ = { aanval: 18, aanvMid: 32, midden: 46, verdMid: 60, verdediging: 76 };
   const D = 'Doel', V = 'Verdediging', M = 'Middenveld', A = 'Aanval';
   const rij = (y, codes, lijnen) => codes.map((code, i) => ({ code, line: lijnen[i], x: KOL[i], y }));
   return [
@@ -54,7 +60,7 @@ const POS_GRID = (() => {
     ...rij(RIJ.midden,      ['LM',  'LCM', 'CM',  'RCM', 'RM'],  [M, M, M, M, M]),
     ...rij(RIJ.verdMid,     ['LVW', 'LVM', 'CVM', 'RVM', 'RVW'], [M, M, M, M, M]),
     ...rij(RIJ.verdediging, ['LV',  'LCV', 'CV',  'RCV', 'RV'],  [V, V, V, V, V]),
-    { code: 'K', line: D, x: 50, y: 92 },
+    { code: 'GK', line: D, x: 50, y: 91 },
   ];
 })();
 // Welke plek welk positienummer draagt, per wedstrijdvorm. Het nummer is enkel een LABEL: bij jeugd
@@ -65,20 +71,74 @@ const POS_GRID = (() => {
 // LFA of RCM bestaat er geen nummer dat een trainer zou herkennen.
 // Aantal genummerde plekken = aantal spelers op het veld: 8 bij 8v8, 11 bij 11v11.
 const POS_NUMMERS = {
-  klein:   { K: 1, LV: 5, CV: 3, RV: 2, CVM: 10, LM: 11, RM: 7, CAM: 9 },
-  '11v11': { K: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, CAM: 10, LW: 11, CA: 9, RW: 7 },
+  klein:   { GK: 1, LV: 5, CV: 3, RV: 2, CVM: 10, LM: 11, RM: 7, CAM: 9 },
+  '11v11': { GK: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, CAM: 10, LW: 11, CA: 9, RW: 7 },
 };
+// De plekken van een formatie MET hun nummer. Dit is de tabel die telt: per opstelling, elk nummer
+// één keer, en elke plek van die opstelling heeft er een.
+//
+// Waarom per formatie en niet per wedstrijdvorm: een nummer hoort bij je ROL in die opstelling, niet
+// bij een vast plekje op het gras. In een 4-3-3 is de linksbuiten de 11; in een 4-4-2 is de 11 een
+// spits en de linkshalf de 8. Met één nummer per plek per wedstrijdvorm loopt dat onvermijdelijk vast
+// — bij 2-3-2 kwamen 11 en 7 twee keer op het veld (LM/LW en RM/RW).
+//
+// De 11v11-cijfers volgen de Nederlands-Belgische traditie (1 keeper, 2 rechtsback, 3-4 centraal,
+// 5 linksback, 6 en 8 middenveld, 10 aanvallende middenvelder, 7 rechts, 9 spits, 11 links). Voor 8v8
+// bestaat er geen conventie: 'Dubbele ruit' is door Tim vastgelegd, de rest volgt daar consistent uit.
+// Deze tabel is puur een LABEL: er hangt geen bewaarde data aan (een wedstrijd bewaart de code, en het
+// nummer wordt bij het opslaan mee ingestempeld), dus later wijzigen kan zonder migratie.
+const FORMATIE_NUMMERS = {
+  '3v3': {
+    // Deze formaties hebben geen doelman.
+    'Driehoek 1-2': { CV: 3, LCA: 10, RCA: 9 },
+    'Driehoek 2-1': { LCV: 5, RCV: 2, CA: 9 },
+  },
+  '5v5': {
+    'Ruit (1-2-1)':   { GK: 1, CV: 3, LM: 11, RM: 7, CA: 9 },
+    'Vierkant (2-2)': { GK: 1, LCV: 5, RCV: 2, LCA: 10, RCA: 9 },
+  },
+  '8v8': {
+    'Dubbele ruit': { GK: 1, LV: 5, CV: 3, RV: 2, LM: 11, CVM: 10, RM: 7, CAM: 9 },
+    '3-3-1':        { GK: 1, LV: 5, CV: 3, RV: 2, LM: 11, CVM: 10, RM: 7, CAM: 9 },
+    // LM en RM houden 11 en 7 zoals in de ruit — zelfde plek, zelfde nummer, dat is rustiger voor de
+    // spelers. De twee voorsten worden het klassieke spitsenduo 9 en 10, en CVM schuift van 10 naar 6:
+    // in de ruit is hij de spelmaker, hier met twee spitsen de controleur.
+    '2-3-2':        { GK: 1, LV: 5, RV: 2, LM: 11, CVM: 6, RM: 7, LW: 10, RW: 9 },
+  },
+  '11v11': {
+    '1-4-3-3':   { GK: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, CAM: 10, LW: 11, CA: 9, RW: 7 },
+    '1-4-2-3-1': { GK: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, LW: 11, CAM: 10, RW: 7, CA: 9 },
+    '1-4-4-2':   { GK: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, LM: 11, LCM: 6, RCM: 8, RM: 7, LCA: 9, RCA: 10 },
+    // De brede spelers van de vier zijn hier vleugelverdedigers: de rechtse krijgt daarom 2, het
+    // traditionele nummer van de rechtsback. Zo houden de vleugelaanvallers 11 en 7.
+    '1-3-4-3':   { GK: 1, LCV: 5, CV: 4, RCV: 3, LM: 11, LCM: 6, RCM: 8, RM: 2, LCA: 10, CA: 9, RCA: 7 },
+  },
+};
+function formatieNummers(matchType, formatie) {
+  const perVorm = FORMATIE_NUMMERS[matchType];
+  return (perVorm && formatie && perVorm[formatie]) || null;
+}
 function gridPlek(code) { return POS_GRID.find(p => p.code === code) || null; }
-function gridNummer(code, matchType) {
+// Het nummer van een plek. Eerst de tabel van de gekozen FORMATIE (daar is elk nummer uniek en heeft
+// elke plek er een); zet je iemand op een plek buiten die formatie, dan valt het terug op de algemene
+// tabel per wedstrijdvorm, en heeft die plek daar ook geen nummer, dan is er geen — en dat is de
+// eerlijke uitkomst.
+function gridNummer(code, matchType, formatie) {
+  const perFormatie = formatieNummers(matchType, formatie);
+  if (perFormatie && perFormatie[code]) return perFormatie[code];
   const tabel = matchType === '11v11' ? POS_NUMMERS['11v11'] : POS_NUMMERS.klein;
   return tabel[code] || null;
 }
 // Label voor een plek: de code, met het nummer erbij waar er een bestaat — voor keuzelijsten, de
-// tijdlijn en het verslag, waar plaats is. In de bol op het veld staat enkel de code.
-function gridLabel(code, matchType) {
-  const n = gridNummer(code, matchType);
+// tijdlijn en het verslag, waar plaats is. In het shirt op het veld staat enkel het rugnummer.
+function gridLabel(code, matchType, formatie) {
+  const n = gridNummer(code, matchType, formatie);
   return n ? `${code} (${n})` : code;
 }
+// Zelfde, maar met de wedstrijd als context — zo hoeft een oproeper de wedstrijdvorm en de formatie
+// niet zelf uit elkaar te plukken.
+function matchGridNummer(m, code) { return gridNummer(code, m && m.matchType, m && m.formation); }
+function matchGridLabel(m, code) { return gridLabel(code, m && m.matchType, m && m.formation); }
 // Een bestaande opstelling op het rooster terugvinden. Bewust BINNEN de eigen lijn zoeken: in de
 // dubbele ruit staat een verdediger op (24,65), en de dichtstbijzijnde roosterplek daar is LVM — een
 // middenvelder. Zonder deze beperking zou zo'n speler stil van linie veranderen en daarmee de
@@ -171,7 +231,9 @@ const FORMATIONS = {
     { name: '1-3-4-3', slots: [{line:D,x:50,y:93},{line:V,x:26,y:77},{line:V,x:50,y:78},{line:V,x:74,y:77},{line:M,x:14,y:52},{line:M,x:38,y:54},{line:M,x:62,y:54},{line:M,x:86,y:52},{line:A,x:24,y:26},{line:A,x:50,y:24},{line:A,x:76,y:26}] },
   ],
 };
-const LINE_SHORT = { 'Doel': 'K', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'A' };
+// Enkel voor de samenvatting per linie in de statistiek "Posities". 'Doel' is hier GK, zoals de
+// roosterplek van de doelman heet — anders stond er "K×2 · GK×2" naast elkaar in dezelfde regel.
+const LINE_SHORT = { 'Doel': 'GK', 'Verdediging': 'V', 'Middenveld': 'M', 'Aanval': 'A' };
 // Weergavelabel voor een lijn/positie — 'Doel' wordt getoond als 'Doelman', de opgeslagen waarde blijft 'Doel'.
 const LINE_LABEL = { 'Doel': 'Doelman', 'Verdediging': 'Verdediging', 'Middenveld': 'Middenveld', 'Aanval': 'Aanval' };
 function lineLabel(l) { return LINE_LABEL[l] || l; }

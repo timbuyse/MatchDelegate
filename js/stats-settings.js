@@ -105,7 +105,7 @@ async function loadStats() {
   const getp = (rosterId, name, num) => {
     const nm = (name || 'Speler').trim();
     const k = rosterId || nm;
-    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, lines: {} });
+    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, lines: {}, plekken: {} });
     if (name) r.name = nm;
     if (num) r.number = num;
     return r;
@@ -140,7 +140,16 @@ async function loadStats() {
       if (p.absent) { r.absent++; continue; }
       r.squad++;
       if (gemeten) r.timed++;
-      if (ms > 0) { r.mp++; r.lines[p.line] = (r.lines[p.line] || 0) + 1; }
+      // Per PLEK bijhouden (CAM, RM, LCV …) en de linie erbij als samenvatting. "Middenveld 9×" zegt een
+    // trainer niets; "CAM 5× · CM 3× · RM 1×" wel. Voor wedstrijden van vóór v0.34.0 bestaat de code
+    // nog niet — spelerGridCode leidt ze dan af uit lijn + x/y, wat een benadering is op een rooster
+    // van 26 plekken maar het seizoen wél leesbaar houdt.
+    if (ms > 0) {
+      r.mp++;
+      r.lines[p.line] = (r.lines[p.line] || 0) + 1;
+      const code = spelerGridCode(p);
+      if (code) r.plekken[code] = (r.plekken[code] || 0) + 1;
+    }
       r.ms += ms;
       // keeperByQ (per-kwart bijgehouden, zie syncKeeper()) i.p.v. de eind-positie: anders krijgt
       // bij een keeperwissel tijdens de wedstrijd de verkeerde speler het clean-sheet-krediet.
@@ -220,7 +229,16 @@ async function loadStats() {
     + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
-    + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per linie)</span>`, posList.map(p=>{const parts=Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${parts}</span></div>`;}).join('')) : '')
+    + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
+      // Per PLEK, aflopend: "CAM×5 · CM×3 · RM×1". De linie staat eronder als samenvatting, want dat is
+      // waar je in één oogopslag ziet of iemand vooral verdedigt of aanvalt. Heeft een speler nog geen
+      // plekken (enkel oude wedstrijden waarvan de plaats niet te herleiden was), dan valt de rij terug
+      // op de linies alleen — beter een grovere indeling dan een lege rij.
+      const plekken = Object.entries(p.plekken || {}).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c}×${n}`).join(' · ');
+      const linies = Object.entries(p.lines).sort((a,b)=>b[1]-a[1]).map(([l,c])=>`${LINE_SHORT[l]||l}×${c}`).join(' · ');
+      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${plekken && linies ? `<small style="color:var(--txt2);display:block">${linies}</small>` : ''}</span>`
+        + `<span style="color:var(--txt2);font-size:13px">${plekken || linies}</span></div>`;
+    }).join('')) : '')
     + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span>`, attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
     + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '');
 }

@@ -74,7 +74,11 @@ function fieldSizeW() { return MATCH_TYPES[wiz.matchType].field; }
 // blijven dus bestaan — ze zijn nu een gevolg in plaats van een keuze.
 function isSel(p) { return p.sel === 'basis' || p.sel === 'bank'; }
 function selectedCount() { return wiz.pool.filter(isSel).length; }
-function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; wiz.pool.forEach(p => p.slot = null); }
+// Een andere wedstrijdvorm verzet niemand meer: het positierooster is voor élke vorm hetzelfde, dus
+// een speler op CAM blijft op CAM staan. Enkel hoeveel spelers er op het veld horen en welke plekken
+// een positienummer dragen, verandert mee. De formatiekeuze valt wel terug op de eerste, want de
+// formatielijst hoort bij de wedstrijdvorm. Voordien werd hier de hele opstelling gewist.
+function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; }
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
 // Aantal delen van de wedstrijd in de wizard: een tornooimatch draagt zijn eigen aantal (numQuarters),
@@ -460,32 +464,28 @@ function confirmLoosePlayer() {
   closeModal(); render();
 }
 // ----- Stap 3: opstelling -----
-// Een andere formatie betekent andere plaatsen op het veld, dus iedereen opnieuw plaatsen (dat deed
-// deze functie al). De opstellingen die je voor de VOLGENDE delen plande, staan op diezelfde oude
-// plaatsen en kloppen daarna dus ook niet meer: die vervallen mee, maar niet zonder het te vragen.
-// Wissen gebeurt pas bij het opslaan (finishWizard), want tot dan kan je nog terug.
+// Sinds v0.34.0 staan spelers op een PLEK VAN HET ROOSTER (een code als 'CAM'), niet meer op een slot
+// van de gekozen formatie. Een andere formatie verzet dus niemand meer: ze licht alleen andere plekken
+// op als voorstel. Daarmee vervalt ook de waarschuwing die hier stond ("de plaatsen veranderen, je
+// stelt iedereen opnieuw op") en het wissen van de opstellingen voor de volgende delen — die staan op
+// roosterplekken en blijven gewoon kloppen.
 function setFormation(idx) {
   const nieuw = parseInt(idx);
   if (nieuw === wiz.formationIndex) return;
-  const plannen = (wiz.editId && match && match.id === wiz.editId) ? plannedLineupCount(match) : 0;
-  if (plannen) {
-    openModal(`<h3>${icI(IC.warn)} Andere formatie</h3>
-      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">De plaatsen op het veld veranderen, dus je stelt iedereen opnieuw op.<br><br>
-        Ook je <b>opstelling voor ${plannen === 1 ? 'het volgende deel' : 'de volgende delen'}</b> vervalt: die staat op de oude plaatsen. Daarna geef je ze opnieuw in.</p>
-      <button class="btn btn-green" onclick="closeModal();_doSetFormation(${nieuw})">Doorgaan</button>
-      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>`);
-    return;
-  }
-  _doSetFormation(nieuw);
-}
-function _doSetFormation(idx) {
-  wiz.formationIndex = idx;
-  wiz.pool.forEach(p => p.slot = null);
+  wiz.formationIndex = nieuw;
   wiz.selPlace = null;
   render();
 }
 function selectPlace(pid) { wiz.selPlace = (wiz.selPlace === pid) ? null : pid; render(); }
-function placeSlot(i) {
+// `code` is een plek van het positierooster ('CAM', 'LCV', 'K' …) en niet langer de index van een
+// formatieslot. De logica eronder is ongewijzigd: dezelfde plek nog eens aantikken haalt de speler van
+// het veld, en een bankspeler op een bezette plek RUILT met wie daar staat.
+function placeSlot(code) {
+  // Enkel een echte roosterplek. Zonder deze controle kon `slot` een waarde krijgen die nergens op
+  // het veld bestaat (bv. nog een oude slot-index): de speler gold dan als geplaatst — de teller
+  // ging omhoog — maar werd nergens getekend.
+  if (!gridPlek(code)) return;
+  const i = code;
   const occupied = wiz.pool.find(p => p.sel === 'basis' && p.slot === i);
   if (wiz.selPlace) {
     const sp = wiz.pool.find(p => p.pid === wiz.selPlace);
@@ -527,6 +527,51 @@ function clearPlacement() {
   wiz.pool.forEach(p => { if (p.sel === 'basis') p.sel = 'bank'; p.slot = null; });
   wiz.selPlace = null; render();
 }
+// Welke roosterplekken de gekozen formatie voorstelt. Twee regels, in deze volgorde:
+//  1. binnen de eigen lijn, en met VOORRANG voor de plekken die een positienummer dragen — dat zijn
+//     net de plaatsen die een trainer bedoelt ("de 5, de 3, de 2");
+//  2. van die kandidaten de plek die geometrisch het dichtst bij het formatieslot ligt.
+// Enkel op x sorteren werkte niet: CAM en CVM liggen beide op x=50 (rij 2 en rij 4), waardoor de
+// rechtse middenvelder van een dubbele ruit op CVM belandde in plaats van op RM. En enkel op afstand
+// kijken werkte ook niet: de verdedigers van die ruit staan op y 65-77 en vielen dan op LCV/RCV,
+// plekken zonder nummer.
+// De plekken die een formatie voorstelt = de plekken uit haar nummertabel (FORMATIE_NUMMERS in
+// core.js). Die tabel is de enige bron: welke plekken bij welke opstelling horen én welk nummer ze
+// daar dragen. Staat een formatie er niet in, dan valt het terug op de afleiding hieronder — een
+// vangnet voor een formatie die ooit bijkomt zonder dat de tabel meegroeit.
+function formatieVoorstel(form, matchType) {
+  const vast = formatieNummers(matchType, form && form.name);
+  if (vast) return new Set(Object.keys(vast).filter(c => gridPlek(c)));
+  const uit = new Set();
+  const perLijn = {};
+  ((form && form.slots) || []).forEach(s => { (perLijn[s.line] = perLijn[s.line] || []).push(s); });
+  for (const lijn of Object.keys(perLijn)) {
+    const plekken = POS_GRID.filter(p => p.line === lijn);
+    const genummerd = plekken.filter(p => gridNummer(p.code, matchType, form && form.name));
+    const rest = plekken.filter(p => !gridNummer(p.code, matchType, form && form.name));
+    const gebruikt = new Set();
+    const dichtste = (s, lijst) => {
+      let best = null, bestD = Infinity;
+      for (const p of lijst) {
+        if (gebruikt.has(p.code)) continue;
+        const d = (p.x - s.x) * (p.x - s.x) + (p.y - s.y) * (p.y - s.y);
+        if (d < bestD) { bestD = d; best = p; }
+      }
+      return best ? { plek: best, d: Math.sqrt(bestD) } : null;
+    };
+    for (const s of perLijn[lijn]) {
+      // Een genummerde plek krijgt voorrang, maar geen absolute: enkel als ze niet veel verder ligt
+      // (tot 1,4× de kortste afstand). Met absolute voorrang belandde een centrale spits van 5v5 op
+      // LW — een genummerde plek aan de zijlijn — terwijl CA er pal op lag.
+      const g = dichtste(s, genummerd), r = dichtste(s, rest);
+      let keuze = null;
+      if (g && (!r || g.d <= r.d * 1.4)) keuze = g.plek;
+      else if (r) keuze = r.plek;
+      if (keuze) { gebruikt.add(keuze.code); uit.add(keuze.code); }
+    }
+  }
+  return uit;
+}
 function wizPitch(form) {
   // Zelfde veldnaam als op het live-veld en in het wedstrijddetail: enkel de achternaam, met een
   // initiaal erbij als twee spelers in de basis dezelfde achternaam hebben. De volledige naam paste
@@ -535,19 +580,27 @@ function wizPitch(form) {
   // Ontdubbelen over iedereen die in de selectie zit (basis én bank), niet enkel over de
   // basisspelers: een wisselspeler met dezelfde voornaam komt in de wedstrijd op hetzelfde veld.
   const dns = fieldDisplayNames(wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').map(p => ({ id: p.pid, name: p.name })));
-  const slots = form.slots.map((s, i) => {
-    const gk = s.line === 'Doel';
-    const p = wiz.pool.find(pp => pp.sel === 'basis' && pp.slot === i);
-    const ring = (p && wiz.selPlace === p.pid) ? ';box-shadow:0 0 0 3px var(--org);border-radius:8px' : '';
+  // Het hele rooster staat op het veld, niet enkel de plekken van de formatie: je zet je spelers waar
+  // je wil. De formatie is een VOORSTEL — haar plekken lichten sterker op, de rest staat er lichter
+  // bij. Welke roosterplekken dat zijn, volgt uit dezelfde snap-per-lijn als elders (gridPlekVoor).
+  const bezet = new Map();
+  wiz.pool.forEach(p => { if (p.sel === 'basis' && p.slot) bezet.set(p.slot, p); });
+  const voorstel = formatieVoorstel(form, wiz.matchType);
+  const slots = POS_GRID.map(plek => {
+    const gk = plek.line === 'Doel';
+    const p = bezet.get(plek.code);
+    const pos = `left:${plek.x}%;top:${plek.y}%`;
     // Bezet: het shirt met het RUGNUMMER erin en de naam eronder. Leeg: een open shirt met de
     // positiecode eronder — die verdwijnt zodra er iemand op staat (dan komt de naam daar).
     // Het positienummer staat niet meer op het veld: met 26 roosterplekken en 11 klassieke nummers
     // kan een nummer een plek niet meer aanduiden. Het leeft voort in de lijsten als "CAM (9)".
-    if (p) return `<div class="pslot" style="left:${s.x}%;top:${s.y}%${ring}" onclick="placeSlot(${i})">`
-      + `${shirtSvg(true, gk, pNum(p))}<span class="pslot-lbl">${esc(dns.get(p.pid) || _firstName(p.name))}</span></div>`;
-    const plek = gridPlekVoor(s.line, s.x, s.y);
-    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="placeSlot(${i})">`
-      + `${shirtSvg(false, gk, '')}${plek ? `<span class="pmark-code">${plek.code}</span>` : ''}</div>`;
+    if (p) {
+      const ring = (wiz.selPlace === p.pid) ? ';box-shadow:0 0 0 3px var(--org);border-radius:8px' : '';
+      return `<div class="pslot" style="${pos}${ring}" onclick="placeSlot('${plek.code}')" title="${plek.code}">`
+        + `${shirtSvg(true, gk, pNum(p))}<span class="pslot-lbl">${esc(dns.get(p.pid) || _firstName(p.name))}</span></div>`;
+    }
+    return `<div class="pslot pslot-open${voorstel.has(plek.code) ? ' pslot-tip' : ''}" style="${pos}" onclick="placeSlot('${plek.code}')">`
+      + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
   }).join('');
   return `<div class="pitch">${pitchLines()}${slots}</div>`;
 }
@@ -562,7 +615,10 @@ function wizStep3() {
   const bank = sortedByName(wiz.pool.filter(p => isSel(p) && p.slot == null));
   // Hoeveel spelers er op het veld horen, en hoeveel er staan. Het opslaan eist dat dit gelijk is
   // (zie finishWizard), dus dat hoor je hier te zien en niet pas bij een foutmelding.
-  const plaatsen = (form || {}).slots ? form.slots.length : 0;
+  // Hoeveel spelers er op het veld horen, komt sinds v0.34.0 uit de WEDSTRIJDVORM (8 bij 8v8) en niet
+  // meer uit het aantal slots van de formatie: het rooster heeft er 26 en de formatie is enkel een
+  // voorstel geworden.
+  const plaatsen = fieldSizeW();
   const nodig = Math.min(plaatsen, selectedCount());
   const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
   const compleet = geplaatst >= nodig;
@@ -851,7 +907,7 @@ async function finishWizard(startNow, zonderOpstelling) {
     // Het veld moet vol. Enige uitzondering: er zijn gewoon niet genoeg spelers geselecteerd om
     // alle plaatsen te vullen — met zeven beschikbare spelers voor 8v8 speel je met zeven, en dat
     // moet mogelijk blijven (zie ook wizNext). Vandaar de ondergrens op het kleinste van de twee.
-    const plaatsen = form.slots.length;
+    const plaatsen = fieldSizeW();   // uit de wedstrijdvorm; het rooster heeft 26 plekken
     const beschikbaar = wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length;
     const nodig = Math.min(plaatsen, beschikbaar);
     const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
@@ -891,10 +947,17 @@ async function finishWizard(startNow, zonderOpstelling) {
   // i.p.v. terug te vallen op het algemene "andere ploeg".
   const gastVeld = p => p.guest ? { guest: true, fromName: p.fromName || '' } : { guest: false };
   const starters = wiz.pool.filter(p => p.sel === 'basis').map(p => {
-    // Zonder opstelling is er geen slot: dan valt de speler terug op de lijn van zijn
+    // Zonder opstelling is er geen plek: dan valt de speler terug op de lijn van zijn
     // voorkeurspositie, precies zoals een bankspeler, en blijven x/y/posNum leeg.
-    const s = zonderOpstelling ? null : form.slots[p.slot];
-    return Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s ? s.line : (posLine(p.pos) || 'Middenveld'), posNum: s ? computePosNum(wiz.matchType, p.slot, form.slots) : '', starting: true, onField: true }, s ? { x: s.x, y: s.y } : {}, gastVeld(p));
+    // Mét opstelling komt alles van de ROOSTERPLEK: x/y en de lijn uit het rooster, het positienummer
+    // uit de tabel per wedstrijdvorm (leeg voor een plek die er geen heeft), en de code zelf in
+    // `posCodeVeld` — dat laatste is vanaf nu de identiteit van de plaats. x/y/line/posNum blijven
+    // meeschrijven zoals altijd, zodat elk bestaand scherm, verslag en PDF ongewijzigd blijft werken.
+    const s = zonderOpstelling ? null : gridPlek(p.slot);
+    // Het nummer hoort bij de plek BINNEN de gekozen formatie (zie FORMATIE_NUMMERS): daar is elk
+    // nummer uniek. Zet je iemand buiten die formatie, dan valt gridNummer terug op de algemene tabel.
+    const formNaam = (FORMATIONS[wiz.matchType] && FORMATIONS[wiz.matchType][wiz.formationIndex] || {}).name;
+    return Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: s ? s.line : (posLine(p.pos) || 'Middenveld'), posNum: s ? (gridNummer(s.code, wiz.matchType, formNaam) || '') : '', starting: true, onField: true }, s ? { x: s.x, y: s.y, posCodeVeld: s.code } : {}, gastVeld(p));
   });
   const bench = wiz.pool.filter(p => p.sel === 'bank').map(p => Object.assign({ _pid: p.pid, id: resolvePlayerId(p), rosterId: p.srcId || null, globalId: p.srcGlobalId || null, name: p.name || 'Speler', number: p.number || '', line: posLine(p.pos) || 'Middenveld', posNum: '', starting: false, onField: false }, gastVeld(p)));
   const allP = starters.concat(bench);
@@ -971,7 +1034,7 @@ function editMatchWizard(m) {
     // Naam uit het ROOSTER als we de speler daar vinden: is hij intussen hernoemd, dan neemt het
     // opnieuw opslaan van de selectie die correctie mee. Een gast of iemand die de ploeg verliet
     // heeft geen rp en houdt de naam die in de wedstrijd staat.
-    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: (rp && rp.name) || p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: p.guest ? (p.fromName || '') : m.teamName, guest: !!p.guest, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y };
+    return { pid: uid(), srcId: p.rosterId || null, srcGlobalId: p.globalId || null, name: (rp && rp.name) || p.name, number: p.number || '', pos: (rp && rp.pos) || p.line || '', side: rp ? (rp.side || '') : '', fromName: p.guest ? (p.fromName || '') : m.teamName, guest: !!p.guest, sel: p.starting ? 'basis' : 'bank', slot: null, _x: p.x, _y: p.y, _line: p.line, _posCodeVeld: p.posCodeVeld || null };
   });
   const trn = m.tournamentId ? tournamentById(m.tournamentId) : null;
   // 2. Niet-beschikbare spelers (NB) mee in de pool — anders wist finishWizard ze bij het opslaan.
@@ -1028,8 +1091,26 @@ function editMatchWizard(m) {
   if (m.tournamentId) { wiz.trnMode = true; wiz.tournamentId = m.tournamentId; wiz.numQuarters = m.numQuarters; }
   // Bewaar de bestaande kapitein (de eerste pool-entries volgen de volgorde van m.players)
   wiz.pool.forEach((pp, i) => { if (m.players[i] && m.players[i].id === m.captainId) wiz.captainPid = pp.pid; });
-  const form = FORMATIONS[matchType][fi];
-  wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
+  // De bestaande opstelling terugzetten op het rooster. Wie na v0.34.0 bewaard werd, draagt zijn code
+  // (`posCodeVeld`) al; al de rest wordt teruggevonden uit lijn + x/y, en wel BINNEN de eigen lijn —
+  // zie gridPlekVoor: zonder die beperking zou een verdediger van de dubbele ruit op (24,65) bij een
+  // middenvelder belanden en stil van linie veranderen. Voordien werd hier een exacte match op x/y
+  // gezocht in de formatie; viel die naast een slot, dan verloor de speler zijn plaats helemaal.
+  wiz.pool.filter(p => p.sel === 'basis').forEach(p => {
+    // De lijn waarin hij in DEZE wedstrijd stond (_line) is de baas, niet zijn voorkeurspositie uit
+    // het rooster: een vleugelspeler die als middenvelder speelde, hoort op een middenveldplek terug.
+    const plek = (p._posCodeVeld && gridPlek(p._posCodeVeld)) ? gridPlek(p._posCodeVeld)
+      : gridPlekVoor(p._line || posLine(p.pos) || 'Middenveld', p._x, p._y);
+    p.slot = plek ? plek.code : null;
+  });
+  // Twee spelers op dezelfde plek kan niet: valt er iemand samen (oude data, of een lijn met meer
+  // spelers dan het rooster daar plekken heeft), dan houdt de eerste de plek en gaat de rest naar de
+  // bank — daar kan je hem gewoon opnieuw plaatsen.
+  const gezien = new Set();
+  wiz.pool.filter(p => p.sel === 'basis').forEach(p => {
+    if (!p.slot) return;
+    if (gezien.has(p.slot)) { p.slot = null; p.sel = 'bank'; } else gezien.add(p.slot);
+  });
   // Onthouden waar we vandaan komen en op welke stap we begonnen: het terugpijltje hoort daar weer
   // uit te komen (zie wizBack/wizVerlaat). startSelectieWizard en startOpstellingWizard zetten
   // vanStap hierna op hun eigen beginstap.
