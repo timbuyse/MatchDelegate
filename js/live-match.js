@@ -1574,9 +1574,9 @@ function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:r
 // ("jij gaat naar de 9"), en je hoeft niet meer op te zoeken wie daar ook alweer stond. Wat er
 // opgeslagen wordt blijft een gewone posSwap met pA en pB — enkel de manier van kiezen verandert.
 // De knop draagt het positienummer en de code (zie POS_CODES), met de huidige speler eronder.
-// `sleutel` is wat de knop teruggeeft: het speler-id bij een wissel die je meteen doorvoert, of het
-// POSITIENUMMER bij een wissel die je klaarzet — dan blijft het plan geldig ook als er later iemand
-// anders op die plek belandt (zie plannedSwapDoelId).
+// `sleutel` is het speler-id: dit raster kiest WIE er ruilt bij een positiewissel die je meteen
+// doorvoert. Een positiewissel die je KLAARZET kiest geen speler maar een plek op het veld: zo blijft
+// het plan geldig ook als er later iemand anders op die plek belandt (zie modalPlanPosSwap).
 function posDoelBtn(m, p, cls, onclick, sleutel) {
   const nr = p.posNum || '';
   const code = posCode(nr, m.matchType);
@@ -1588,11 +1588,10 @@ function posDoelBtn(m, p, cls, onclick, sleutel) {
 }
 // Op positienummer sorteren: zo staan de knoppen in de volgorde die een trainer in het hoofd heeft
 // (1 achteraan, 9 vooraan) i.p.v. alfabetisch op de naam van wie er nu staat.
-function posDoelGrid(m, spelers, clsPrefix, fnNaam, opPositie) {
+function posDoelGrid(m, spelers, clsPrefix, fnNaam) {
   const gesorteerd = [...spelers].sort((a, b) => (parseInt(a.posNum, 10) || 99) - (parseInt(b.posNum, 10) || 99));
   return pgGrid(gesorteerd.map(p => {
-    const sleutel = opPositie ? p.posNum : p.id;
-    return posDoelBtn(m, p, clsPrefix, `${fnNaam}('${sleutel}',this)`, sleutel);
+    return posDoelBtn(m, p, clsPrefix, `${fnNaam}('${p.id}',this)`, p.id);
   }).join(''));
 }
 function gpSel(el) {
@@ -2107,17 +2106,31 @@ function plannedSubProbleem(m, s) {
   if (veld.has(s.inId)) return `${pName(m, s.inId)} staat al op het veld.`;
   return null;
 }
-// Een geplande positiewissel bewaart sinds v0.22.0 een PLEK (naarPos = het positienummer), niet de
-// speler die daar toevallig stond toen je het plande. Wie de tegenpartij is, blijkt pas op het
-// moment van doorvoeren: staat er intussen iemand anders op die plek — bijvoorbeeld omdat een
-// eerdere wissel uit hetzelfde kwart al doorgevoerd is — dan is dát de speler die ruilt. Oudere
-// positiewissels dragen nog een vaste pB; die blijven werken zoals ze waren.
+// Een geplande positiewissel bewaart een PLEK, niet de speler die daar toevallig stond toen je het
+// plande. Wie de tegenpartij is, blijkt pas op het moment van doorvoeren: staat er intussen iemand
+// anders op die plek — bijvoorbeeld omdat een eerdere wissel uit hetzelfde kwart al doorgevoerd is —
+// dan is dát de speler die ruilt, en staat er niemand, dan verhuist hij gewoon.
+// Drie vormen, alle drie in gebruik: naarPlek (v0.34.0, een roostercode, de enige die ook een LEGE
+// plek kan aanduiden), naarPos (v0.22.0, een positienummer) en een vaste pB (het oudste).
 function plannedSwapDoelId(m, s, veldLijst) {
   if (s.pB) return s.pB;
-  if (!s.naarPos) return null;
   const veld = veldLijst || effectiveOnField(m);
+  if (s.naarPlek) {
+    const t = veld.find(p => spelerGridCode(p) === s.naarPlek);
+    return t ? t.id : null;
+  }
+  if (!s.naarPos) return null;
   const t = veld.find(p => String(p.posNum) === String(s.naarPos));
   return t ? t.id : null;
+}
+// Welke roosterplek draagt dit positienummer? Enkel nodig om een plan van vóór v0.34.0 bij het
+// bewerken naar een plek om te zetten. Eerst de plek waar iemand met dat nummer staat, anders de
+// tabel van de gekozen formatie.
+function _plekVanNummer(m, num) {
+  const staand = effectiveOnField(m).find(p => String(p.posNum) === String(num));
+  if (staand) { const c = spelerGridCode(staand); if (c) return c; }
+  const tabel = formatieNummers(m.matchType, m.formation) || {};
+  return Object.keys(tabel).find(code => String(tabel[code]) === String(num)) || null;
 }
 // Waar een geplande wissel in terechtkomt, is niet de opstelling bij de start van het deel maar die
 // opstelling PLUS de wissels die je voor datzelfde deel al plande: zet je eerst "A eruit, B erin",
@@ -2145,7 +2158,11 @@ function _pasGeplandToe(m, veld, deel, tot) {
     const a = veld.find(p => p.id === s.pA);
     const bId = plannedSwapDoelId(m, s, veld);
     const b = bId ? veld.find(p => p.id === bId) : null;
-    if (!a || !b || a === b) continue;
+    if (!a) continue;
+    // Bestemming leeg: geen ruil maar een verhuizing. Enkel mogelijk bij een plan dat een roosterplek
+    // bewaart — een plan met een positienummer weet niet wélke plek het bedoelde als er niemand staat.
+    if (!b && s.naarPlek) { const plek = gridPlek(s.naarPlek); if (plek) zetOpGridPlek(a, plek, m); continue; }
+    if (!b || a === b) continue;
     const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
     a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
     b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
@@ -2168,7 +2185,11 @@ function plannedSwapProbleem(m, s) {
   if (!m.players.find(p => p.id === s.pA)) return 'Die speler zit niet meer in de selectie.';
   if (!veld.has(s.pA)) return `${pName(m, s.pA)} staat niet op het veld.`;
   const doelId = plannedSwapDoelId(m, s, veldLijst);
-  if (!doelId) return s.naarPos ? `Er staat niemand op positie ${s.naarPos}.` : 'De tegenpartij zit niet meer in de selectie.';
+  if (!doelId) {
+    // Een lege bestemming is bij een roosterplek geen probleem: dan verhuist hij er zonder ruil naartoe.
+    if (s.naarPlek) return gridPlek(s.naarPlek) ? null : 'Die plek bestaat niet meer.';
+    return s.naarPos ? `Er staat niemand op positie ${s.naarPos}.` : 'De tegenpartij zit niet meer in de selectie.';
+  }
   if (!m.players.find(p => p.id === doelId)) return 'De tegenpartij zit niet meer in de selectie.';
   if (doelId === s.pA) return `${pName(m, s.pA)} staat daar al.`;
   if (!veld.has(doelId)) return `${pName(m, doelId)} staat niet op het veld.`;
@@ -2179,6 +2200,7 @@ function plannedCount(m) { return ((m && m.plannedSubs) || []).length + ((m && m
 // erachter — wie daar staat wordt pas bij het doorvoeren bepaald, dus die naam was een momentopname
 // die bovendien wegviel zodra de plek (nog) niet bezet was. Dat las als een grillig detail.
 function plannedSwapTekst(m, s) {
+  if (s.naarPlek) return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar</span> <b>${esc(matchGridLabel(m, s.naarPlek))}</b>`;
   if (!s.naarPos) {
     // Oudere vorm met een vaste tegenpartij: toon waar allebei belanden i.p.v. "A wisselt met B".
     const b = m.players.find(p => p.id === s.pB), a = m.players.find(p => p.id === s.pA);
@@ -2322,7 +2344,6 @@ function _preselect(containerId, id) {
 }
 function selPlan(vak, id, el, containerId) { _planSel[vak] = id; gpSelIn(containerId, el); }
 // Bij het klaarzetten dragen de doelknoppen het POSITIENUMMER, niet het speler-id.
-function _selPlanDoel(pos, el) { _planSel.pos = pos; gpSelIn('pl-b', el); }
 // Voor welk deel is deze wissel bedoeld? Optioneel veld `quarterNum` op de klaargezette wissel:
 // zonder deel blijft hij overal bruikbaar, precies zoals elke wissel die vóór v0.20.2 klaargezet
 // werd. Mét deel duikt hij enkel in dát deel op als snelle knop — zo staat het menu tijdens kwart 1
@@ -2392,27 +2413,62 @@ function modalPlanPosSwap(editId, behoud, deelVoorNieuw) {
   const m = match; if (!m) return;
   const best = editId ? (m.plannedPosSwaps || []).find(s => s.id === editId) : null;
   if (!behoud) {
-    // Een oudere positiewissel droeg een vaste tegenpartij (pB); die tonen we als de positie waar
-    // die speler stond, zodat bewerken hem meteen naar de nieuwe vorm omzet.
-    const oudePos = (best && !best.naarPos && best.pB) ? (m.players.find(p => p.id === best.pB) || {}).posNum : null;
-    _planSel = { a: best ? best.pA : null, pos: best ? (best.naarPos || oudePos || null) : null, editId: editId || null, deel: best ? (best.quarterNum || null) : (deelVoorNieuw || null) };
+    // Een oudere positiewissel droeg een vaste tegenpartij (pB); die tonen we als de plek waar die
+    // speler stond, zodat bewerken hem meteen naar de nieuwe vorm omzet. Idem voor een plan met een
+    // positienummer: we zoeken de plek die dat nummer nu draagt.
+    const oudeP = (best && !best.naarPlek && best.pB) ? m.players.find(p => p.id === best.pB) : null;
+    const oudePlek = oudeP ? spelerGridCode(oudeP) : (best && !best.naarPlek && best.naarPos ? _plekVanNummer(m, best.naarPos) : null);
+    _planSel = { a: best ? best.pA : null, plek: best ? (best.naarPlek || oudePlek || null) : null, editId: editId || null, deel: best ? (best.quarterNum || null) : (deelVoorNieuw || null) };
   }
   const deel = _planSel.deel || null;
   // Een nieuwe positiewissel komt achteraan: alles wat je voor dit deel plande is dan al gebeurd.
-  const veld = sortedByName(veldMetGeplandeWissels(m, deel, best ? { soort: 'swap', index: _plannedIndex(m, best, 'swap') } : null));
+  const veld = _planVeld(m);
   const veldIds = new Set(veld.map(p => p.id));
   if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
-  if (_planSel.pos && !veld.some(p => String(p.posNum) === String(_planSel.pos))) _planSel.pos = null;
+  if (_planSel.plek && !gridPlek(_planSel.plek)) _planSel.plek = null;
   openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies een speler en daarna de <b>positie</b> waar hij naartoe gaat. Wie op dat moment op die plek staat, neemt zijn plaats over — ook als dat door een eerdere wissel iemand anders geworden is. ${planDeelUitleg(m, deel)}</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies een speler en tik daarna op het veld de <b>plek</b> aan waar hij naartoe gaat. Staat daar op dat moment iemand, dan neemt die zijn plaats over — ook als dat door een eerdere wissel iemand anders geworden is. Is de plek dan leeg, dan verhuist hij er gewoon naartoe. ${planDeelUitleg(m, deel)}</p>
     ${planDeelSelHtml(m, deel, 'swap')}
     <div class="sec" style="margin-top:0">Welke speler verplaatst?</div>
-    <div id="pl-a">${pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join(''))}</div>
-    <div class="sec">Naar welke positie? <span style="font-weight:400;text-transform:none;color:var(--txt2)">· positienummer en wie er nu staat</span></div>
-    <div id="pl-b">${posDoelGrid(m, veld, 'pl-bb', '_selPlanDoel', true)}</div>
+    <div id="pl-a">${pgGrid(sortedByName(veld).map(p => pgBtn(p, 'pl-ab', `_planSpelerTap('${p.id}')`)).join(''))}</div>
+    <div class="sec">Naar welke plek?</div>
+    <div id="pl-plek">${renderPitch(m, veld, captainAtStartOfQuarter(m, deel || (m.currentQuarter + 1)), null, { fn: '_planDoelTap', selId: _planSel.a, plek: true, plekSel: _planSel.plek })}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanPosSwap()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
-  _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.pos);
+  _preselect('pl-a', _planSel.a);
+}
+// De opstelling zoals het veld in dit scherm ze toont: die van de start van het deel plus alles wat
+// je voor datzelfde deel al plande. Niet de posities van nu.
+function _planVeld(m) {
+  const best = _planSel.editId ? (m.plannedPosSwaps || []).find(s => s.id === _planSel.editId) : null;
+  return veldMetGeplandeWissels(m, _planSel.deel || null, best ? { soort: 'swap', index: _plannedIndex(m, best, 'swap') } : null);
+}
+// Een andere speler kiezen hertekent het veld: anders bleef het oranje kader om de vorige speler
+// staan, en dan wees het veld iemand anders aan dan de knop eronder.
+function _planSpelerTap(id) {
+  _planSel.a = (_planSel.a === id) ? null : id;
+  if (_planSel.plek && _planSel.a) {
+    // Zijn eigen plek als bestemming zegt niets: dan blijft de bestemming leeg.
+    const p = _planVeld(match).find(x => x.id === _planSel.a);
+    if (p && spelerGridCode(p) === _planSel.plek) _planSel.plek = null;
+  }
+  modalPlanPosSwap(_planSel.editId, true);
+}
+// De bestemming aantikken op het veld. Een BEZETTE plek geeft de plek van die speler, niet zijn id:
+// wie er straks staat, wordt pas bij het doorvoeren bepaald. Tik je de gekozen speler zelf aan, dan
+// zou de bestemming zijn eigen plek zijn — dat negeren we.
+function _planDoelTap(kind, id) {
+  const m = match; if (!m) return;
+  let plek = null;
+  if (kind === 'plek') plek = id;
+  else {
+    if (id === _planSel.a) return;
+    const p = _planVeld(m).find(x => x.id === id);
+    plek = p ? spelerGridCode(p) : null;
+  }
+  if (!plek) return;
+  _planSel.plek = (_planSel.plek === plek) ? null : plek;
+  modalPlanPosSwap(_planSel.editId, true);
 }
 async function savePlanSub() {
   if (!_planSel.a || !_planSel.b) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
@@ -2431,17 +2487,18 @@ async function savePlanSub() {
 }
 async function savePlanPosSwap() {
   if (!_planSel.a) { showToast('Kies wie er verplaatst.', 'err'); return; }
-  if (!_planSel.pos) { showToast('Kies de positie waar hij naartoe gaat.', 'err'); return; }
+  if (!_planSel.plek) { showToast('Tik op het veld de plek aan waar hij naartoe gaat.', 'err'); return; }
   if (_eventBusy) return; _eventBusy = true;
   try {
     match.plannedPosSwaps = match.plannedPosSwaps || [];
     const deel = _planSel.deel || null;
-    const pos = _planSel.pos;
+    const plek = _planSel.plek;
     const best = _planSel.editId ? match.plannedPosSwaps.find(s => s.id === _planSel.editId) : null;
-    // naarPos i.p.v. pB: wie er op die plek staat, blijkt pas bij het doorvoeren. pB van een
-    // oudere positiewissel wordt bij het bewerken opgeruimd, anders zou die voorrang houden.
-    if (best) { best.pA = _planSel.a; best.naarPos = pos; delete best.pB; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
-    else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, naarPos: pos }, deel ? { quarterNum: deel } : {}));
+    // Een roostercode i.p.v. een positienummer of een vaste tegenspeler: wie er op die plek staat,
+    // blijkt pas bij het doorvoeren, en een code duidt óók een lege plek eenduidig aan. De oudere
+    // vormen worden bij het bewerken opgeruimd, anders zouden die voorrang houden.
+    if (best) { best.pA = _planSel.a; best.naarPlek = plek; delete best.pB; delete best.naarPos; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
+    else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, naarPlek: plek }, deel ? { quarterNum: deel } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg: wijzigde je het kwart in de
     // keuzelijst, dan stond je anders naar een lijst te kijken waar hij niet in staat.
     await dbSave(match); render(); planSubTerug(deel || 0);
@@ -2485,7 +2542,22 @@ function _voerPlannedPosSwapUit(s, mode) {
   // Pas hier bepalen wie er op de doelplek staat — zie plannedSwapDoelId. Dat gebeurt dus ná de
   // wissels die in dezelfde reeks al doorgevoerd zijn, precies zoals het hoort.
   const doelId = plannedSwapDoelId(match, s);
-  if (!doelId) return 'Er staat niemand op die positie.';
+  // Lege bestemming: verhuizen zonder ruil. Dezelfde weg als een verhuizing die je ter plekke doet.
+  if (!doelId) {
+    if (!s.naarPlek || !gridPlek(s.naarPlek)) return 'Er staat niemand op die positie.';
+    if (mode === 'break') {
+      match.pendingPosSwaps = match.pendingPosSwaps || [];
+      match.pendingPosSwaps.push({ pA: s.pA, pB: null, naarPlek: s.naarPlek });
+    } else {
+      const pA = match.players.find(p => p.id === s.pA);
+      if (!pA) return 'Die speler zit niet meer in de selectie.';
+      addEvent('posSwap', { pA: s.pA, pB: null, naarPlek: s.naarPlek, posA: { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum } });
+      zetOpGridPlek(pA, gridPlek(s.naarPlek), match);
+      syncKeeper();
+    }
+    match.plannedPosSwaps = (match.plannedPosSwaps || []).filter(x => x.id !== s.id);
+    return null;
+  }
   if (mode === 'break') {
     match.pendingPosSwaps = match.pendingPosSwaps || [];
     match.pendingPosSwaps.push({ pA: s.pA, pB: doelId });

@@ -1111,6 +1111,7 @@ function planWisselsVanDeel(m, q) {
 }
 function planPosWisselsVanDeel(m, q) {
   return (m.plannedPosSwaps || []).filter(s => s.quarterNum === q).map(s => {
+    if (s.naarPlek) return `${fieldName(m, s.pA)} naar ${matchGridLabel(m, s.naarPlek)}`;
     if (s.naarPos) {
       const code = posCode(s.naarPos, m.matchType);
       return `${fieldName(m, s.pA)} naar ${s.naarPos}${code ? ' ' + code : ''}`;

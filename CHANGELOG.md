@@ -52,6 +52,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   Tot nu kon een positiewissel enkel een **ruil** zijn — er moest iemand op die plek staan — en na een
   rode kaart was je ploeg dus niet meer te herschikken. In het verloop staat het als één beweging:
   *"Wout Maes → CAM (9)"*.
+- **Een positiewissel die je klaarzet, wijst nu naar een plek op het veld.** Je kiest de speler en
+  tikt daarna op het veld aan waar hij naartoe gaat — lege plekken inbegrepen. Tot nu koos je uit een
+  lijstje spelers die op dat moment op het veld stonden, en werd het positienummer bewaard. Dat gaf
+  drie problemen: je kon geen lege plek plannen (net het geval dat je na een rode kaart nodig hebt),
+  de meeste van de 26 plekken dragen geen nummer en waren dus onkiesbaar, en een nummer betekent iets
+  anders per formatie — wijzigde je die na het plannen, dan wees je plan naar een andere plek. Bij het
+  doorvoeren geldt nog altijd: staat er iemand, dan ruilen ze; staat er niemand, dan verhuist hij.
+  Wissels die je eerder al klaarzette blijven werken, en zodra je er een bewerkt schrijft de app ze
+  naar de nieuwe vorm om.
 - **Spelers staan netjes op hun roosterplek.** Een wedstrijd van vóór deze versie draagt nog de
   coördinaten van een formatieslot, en die vallen net tussen de rijen — drie spelers van dezelfde lijn
   stonden dan op drie hoogtes. Ze worden nu op hun plek getekend, op het scherm en in de PDF. De

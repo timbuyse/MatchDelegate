@@ -703,10 +703,12 @@ const HANDLEIDING_PAGINAS = [
         één kwart bijstellen, gebruik dan het <b>potlood</b> in het blok <b>Planning</b>; daar
         blijven je wijzigingen pas bewaard als je op <b>'Opslaan'</b> tikt, en met <b>'Sluiten'</b>
         laat je ze vallen.</p>
-      <p>Een <b>positiewissel</b> geef je in als "speler X naar positie 9": wie daar op dat moment
-        staat, neemt zijn plaats over — ook als dat door een eerdere wissel intussen iemand anders
-        is. Tijdens de match voer je ze één voor één door, of allemaal samen met <b>'Alle N
-        doorvoeren'</b>.</p>
+      <p>Een <b>positiewissel</b> geef je in door een speler te kiezen en daarna op het veld de
+        <b>plek</b> aan te tikken waar hij naartoe gaat. Staat daar op dat moment iemand, dan neemt
+        die zijn plaats over — ook als dat door een eerdere wissel intussen iemand anders is. Kies je
+        een <b>lege plek</b>, dan verhuist hij er gewoon naartoe; handig als je met een man minder
+        speelt na een rode kaart. Tijdens de match voer je ze één voor één door, of allemaal samen
+        met <b>'Alle N doorvoeren'</b>.</p>
       <p class="hdl-tip">Kies je bij een wissel <b>'geen voorkeur — altijd beschikbaar'</b>, dan hoort
         hij bij geen enkel kwart. Zulke wissels staan apart onder <b>'Wissels zonder vast kwart'</b>,
         een knop die enkel verschijnt als je er hebt.</p>
@@ -737,7 +739,8 @@ const HANDLEIDING_PAGINAS = [
         <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
           staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
           veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te
-          wisselen. Het veld toont meteen de opstelling van het volgende deel, en alles wordt
+          wisselen. Tik je een speler op het veld en dan een <b>lege plek</b>, dan verhuist hij
+          daarnaartoe zonder ruil. Het veld toont meteen de opstelling van het volgende deel, en alles wordt
           doorgevoerd zodra je dat deel start.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
@@ -746,8 +749,8 @@ const HANDLEIDING_PAGINAS = [
           <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee
           veldspelers</b> om ze van plaats te wisselen. Je krijgt telkens een bevestiging en het
           wordt meteen doorgevoerd. Het kan ook via de knoppen <b>'Wissel'</b> en <b>'Meer'</b> →
-          <b>'Positiewissel'</b>; daar kies je bij een positiewissel het <b>positienummer</b> waar de
-          speler naartoe gaat.</li>
+          <b>'Positiewissel'</b>; daar tik je op het veld de <b>plek</b> aan waar de speler naartoe
+          gaat, ook als die leeg is.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
