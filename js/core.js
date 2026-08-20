@@ -180,11 +180,29 @@ function shirtSvg(gevuld, keeper, binnen) {
     + `<path d="${SHIRT_PATH}" fill="${fill}" stroke="rgba(255,255,255,.88)" stroke-width="${gevuld ? 1.2 : 1}"/>`
     + `${txt}</svg>`;
 }
+// Een speler op een roosterplek zetten: x/y, de lijn, het positienummer (uit de tabel van de formatie
+// van deze wedstrijd) en de code. Eén plek waar dat gebeurt, zodat een verhuizing overal — live, in de
+// pauze, bij een terugspoeling — exact hetzelfde oplevert.
+function zetOpGridPlek(p, plek, m) {
+  if (!p || !plek) return p;
+  p.x = plek.x; p.y = plek.y; p.line = plek.line;
+  p.posNum = matchGridNummer(m, plek.code) || '';
+  p.posCodeVeld = plek.code;
+  return p;
+}
 function spelerGridCode(p) {
   if (!p) return null;
+  // x/y is de BRON, niet posCodeVeld. Elke roosterplek heeft unieke coördinaten, en x/y wordt overal
+  // correct meegekopieerd: bij een wissel, een terugspoeling, een reconstructie. posCodeVeld had eerst
+  // voorrang, en dan las een reconstructie die enkel x/y terugzette (positionsAtMatchStart) nog de
+  // OUDE code — de plek van vóór de verhuizing. Het veld blijft wel meeschrijven: het documenteert de
+  // bedoeling en dient als terugval voor een speler zonder coördinaten.
+  if (typeof p.x === 'number' && typeof p.y === 'number') {
+    const plek = gridPlekVoor(p.line, p.x, p.y);
+    if (plek) return plek.code;
+  }
   if (p.posCodeVeld && gridPlek(p.posCodeVeld)) return p.posCodeVeld;
-  const plek = gridPlekVoor(p.line, p.x, p.y);
-  return plek ? plek.code : null;
+  return null;
 }
 const PERIOD_TYPES = {
   'helften': { count: 2, sing: 'Helft', plural: 'helften', abbr: 'H' },

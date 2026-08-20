@@ -239,6 +239,16 @@ async function startQuarter() {
   }
   match.pendingSubs = [];
   for (const s of (match.pendingPosSwaps || [])) {
+    // Verhuizing naar een lege plek: geen tegenspeler, dus enkel pA verplaatst en zijn oude plaats
+    // blijft leeg. Zelfde eventvorm als live (pB null + naarPlek), met atBreak erbij.
+    if (!s.pB && s.naarPlek) {
+      const p = match.players.find(x => x.id === s.pA), plek = gridPlek(s.naarPlek);
+      if (!p || !plek) continue;
+      const pos = { x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: p.posCodeVeld };
+      addEvent('posSwap', { pA: s.pA, pB: null, naarPlek: s.naarPlek, atBreak: true, posA: pos, posB: null });
+      zetOpGridPlek(p, plek, match);
+      continue;
+    }
     const pA = match.players.find(p => p.id === s.pA), pB = match.players.find(p => p.id === s.pB);
     if (!pA || !pB) continue;
     const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
@@ -1076,7 +1086,15 @@ function revertSubstitutionPositions(m, e) {
 // Bij een posSwap wisselen beide spelers van positie. Bij het ongedaan maken/verwijderen
 // van dat event moet dit teruggedraaid worden — analoog aan revertSubstitutionPositions.
 function revertPosSwapPositions(m, e) {
-  if (!e || e.type !== 'posSwap' || !e.pA || !e.pB || !e.posA || !e.posB) return;
+  if (!e || e.type !== 'posSwap' || !e.pA) return;
+  // Verhuizing naar een lege plek (geen pB): enkel die ene speler terugzetten op waar hij stond.
+  if (!e.pB) {
+    if (!e.posA) return;
+    const p = m.players.find(x => x.id === e.pA);
+    if (p) { p.x = e.posA.x; p.y = e.posA.y; p.line = e.posA.line; p.posNum = e.posA.posNum; p.posCodeVeld = e.posA.posCodeVeld; }
+    return;
+  }
+  if (!e.posA || !e.posB) return;
   const pA = m.players.find(p => p.id === e.pA), pB = m.players.find(p => p.id === e.pB);
   if (pA) { pA.x = e.posA.x; pA.y = e.posA.y; pA.line = e.posA.line; pA.posNum = e.posA.posNum; }
   if (pB) { pB.x = e.posB.x; pB.y = e.posB.y; pB.line = e.posB.line; pB.posNum = e.posB.posNum; }
@@ -1102,6 +1120,12 @@ function rebuildPositions(m, baseline) {
       if (e.playerInId) e.posBefore = pos[e.playerInId] ? { ...pos[e.playerInId] } : null; // snapshot repareren
       if (e.playerOutId) onF[e.playerOutId] = false;
       if (e.playerInId && !absent.has(e.playerInId)) { onF[e.playerInId] = true; if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] }; }
+    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek) {
+      // Verhuizing naar een lege plek: enkel pA verandert, de plek waar hij wegging blijft leeg.
+      const a = pos[e.pA];
+      e.posA = a ? { ...a } : e.posA;   // snapshot repareren
+      const plek = gridPlek(e.naarPlek);
+      if (plek) pos[e.pA] = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code };
     } else if (e.type === 'posSwap' && e.pA && e.pB) {
       const a = pos[e.pA], b = pos[e.pB];
       e.posA = a ? { ...a } : e.posA; e.posB = b ? { ...b } : e.posB; // snapshots repareren
@@ -1138,6 +1162,11 @@ function rebuildKeeperByQ(m) {
       if (e.type === 'substitution') {
         if (e.playerOutId) onF[e.playerOutId] = false;
         if (e.playerInId) { onF[e.playerInId] = true; if (e.playerOutId) line[e.playerInId] = line[e.playerOutId]; }
+      } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek) {
+        // Verhuizing: enkel de lijn van die ene speler verandert (dit stukje volgt de keeperminuten,
+        // dus de lijn is wat telt — zie keeperNow hieronder).
+        const plek = gridPlek(e.naarPlek);
+        if (plek) line[e.pA] = plek.line;
       } else if (e.type === 'posSwap' && e.pA && e.pB) {
         const la = line[e.pA], lb = line[e.pB]; line[e.pA] = lb; line[e.pB] = la;
       } else if ((e.type === 'red_card' || (e.type === 'injury' && e.leavesField)) && e.playerId) {
@@ -1741,11 +1770,17 @@ function previewNextLineup(m) {
     o.onField = false; i.onField = true;
   }
   for (const s of (m.pendingPosSwaps || [])) {
+    // Verhuizing naar een lege plek: enkel pA verplaatst — zelfde regel als startQuarter().
+    if (!s.pB && s.naarPlek) {
+      const a = byId(s.pA), plek = gridPlek(s.naarPlek);
+      if (a && plek) zetOpGridPlek(a, plek, m);
+      continue;
+    }
     const a = byId(s.pA), b = byId(s.pB);
     if (!a || !b) continue;
-    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
-    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
-    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
   }
   return players;
 }
@@ -1765,9 +1800,12 @@ function pendingPosSwapBewegingen(m) {
   swaps.forEach(s => { [s.pA, s.pB].forEach(id => { if (id && !betrokken.includes(id)) betrokken.push(id); }); });
   return betrokken.map(id => {
     const was = nu.get(id), wordt = straks.get(id);
-    if (!was || !wordt || String(was.posNum) === String(wordt.posNum)) return null;   // verplaatst niet
-    const code = posCode(wordt.posNum, m.matchType);
-    return { id, naam: fieldName(m, id), plek: code ? `${wordt.posNum} ${code}` : String(wordt.posNum || '?') };
+    if (!was || !wordt) return null;
+    // Vergelijken op de ROOSTERPLEK en niet op het positienummer: een verhuizing naar een plek zonder
+    // nummer zou anders als "verplaatst niet" gelden, want twee keer een leeg nummer leest als gelijk.
+    const wasCode = spelerGridCode(was), wordtCode = spelerGridCode(wordt);
+    if (wasCode && wordtCode ? wasCode === wordtCode : String(was.posNum) === String(wordt.posNum)) return null;
+    return { id, naam: fieldName(m, id), plek: wordtCode ? matchGridLabel(m, wordtCode) : String(wordt.posNum || '?') };
   }).filter(Boolean);
 }
 // Eén blok voor alle positiewissels samen, i.p.v. een rij per ruiling.
@@ -1782,11 +1820,36 @@ function pendingPosSwapHtml(m, verwijderKnop) {
 function lineupTap(kind, id) {
   const sel = _lineupSel;
   if (sel && sel.id === id) { _lineupSel = null; render(); return; }   // zelfde speler = deselecteren
+  // Een LEGE plek: enkel zinvol voor een speler die al op het veld staat. Van de bank iemand op een
+  // vrijgekomen plek zetten mag niet — na een rode kaart speel je met een man minder, en dat is een
+  // spelregel (zie veldPlaatsenNu). Wie van de bank moet komen, doe je met een wissel.
+  if (kind === 'plek') {
+    if (!sel) { showToast('Tik eerst de speler die verplaatst.', 'err'); return; }
+    if (sel.kind !== 'field') { showToast('Van de bank kan je enkel wisselen met een speler op het veld.', 'err'); _lineupSel = null; render(); return; }
+    const vast = sel.id; _lineupSel = null;
+    planPauseVerhuis(vast, id);
+    return;
+  }
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _lineupSel = { kind, id }; render(); return; }
   _lineupSel = null;
   if (sel.kind === 'bench' && kind === 'field') planPauseSub(id, sel.id);
   else if (sel.kind === 'field' && kind === 'bench') planPauseSub(sel.id, id);
   else planPausePosSwap(sel.id, id);
+}
+// Een verhuizing klaarzetten voor de start van het volgende deel: zelfde wachtrij als een
+// pauze-positiewissel (pendingPosSwaps), maar zonder tegenspeler. Nog eens dezelfde plek kiezen voor
+// dezelfde speler haalt ze weer weg.
+async function planPauseVerhuis(spelerId, code) {
+  if (_eventBusy) return;
+  if (!gridPlek(code)) return;
+  _eventBusy = true;
+  try {
+    match.pendingPosSwaps = match.pendingPosSwaps || [];
+    const i = match.pendingPosSwaps.findIndex(s => s.pA === spelerId && !s.pB && s.naarPlek === code);
+    if (i >= 0) match.pendingPosSwaps.splice(i, 1);
+    else match.pendingPosSwaps.push({ pA: spelerId, pB: null, naarPlek: code });
+    await dbSave(match); render();
+  } finally { _eventBusy = false; }
 }
 async function planPauseSub(outId, inId) {
   if (_eventBusy) return;
@@ -1836,7 +1899,10 @@ function pauseLineupHtml(m) {
     <div class="card" style="border-left:4px solid var(--org)">
       <div class="sec" style="margin-top:0">${icI(IC.swap)} Wissels voor ${pSingLow(m)} ${m.currentQuarter + 1}</div>
       <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Het veld toont meteen de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1}; alles wordt doorgevoerd bij de start.</p>
-      ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId })}
+      ${/* plek: true → de vrije roosterplekken zijn hier aantikbaar, zodat je een speler naar een lege
+         plaats kan zetten voor het volgende deel. Enkel in dit bewerkscherm; het plaatje van het plan
+         eronder en het veld van een kijker tonen alleen de opstelling. */ ''}
+    ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId, plek: true })}
       ${/* De opstelling van het volgende deel staat sinds v0.25.0 al klaar zodra de pauze begint
            (zie zetGeplandeOpstellingKlaar). Deze knop blijft voor wie ze weghaalde en toch wil, of
            om wat er nu klaarstaat te vervangen door het plan. */ ''}
@@ -2494,6 +2560,16 @@ function liveFieldTap(kind, id) {
   if (!canManage() || match.quarterStatus !== 'running') return;
   const sel = _liveTapSel;
   if (sel && sel.id === id) { _liveTapSel = null; render(); return; }              // deselecteren
+  // Een LEGE plek tijdens het spel: een speler die al op het veld staat verhuist ernaartoe. Van de
+  // bank kan dat niet — dan is het een wissel, en na een rode kaart mag die plaats niet opgevuld
+  // worden (zie veldPlaatsenNu).
+  if (kind === 'plek') {
+    if (!sel) { showToast('Tik eerst de speler die verplaatst.', 'err'); return; }
+    if (sel.kind !== 'field') { showToast('Van de bank kan je enkel wisselen met een speler op het veld.', 'err'); _liveTapSel = null; render(); return; }
+    const vast = sel.id; _liveTapSel = null; render();
+    _postEventQuarter = null;
+    return bevestigLiveVerhuis(vast, id);
+  }
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _liveTapSel = { kind, id }; render(); return; }
   _liveTapSel = null; render();
   // Dit is altijd een wissel in het LOPENDE deel, nooit een retro-event: die context expliciet
@@ -2509,6 +2585,17 @@ function bevestigLivePosSwap(a, b) {
   posSwapA = a; posSwapB = b;
   openModal(`<h3>${icI(IC.compass)} Positiewissel</h3>
     <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(pName(match, a))}</b> en <b>${esc(pName(match, b))}</b> wisselen van positie.</p>
+    <button class="btn btn-green" onclick="confirmPosSwap()">${icI(IC.check)} Doorvoeren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Zelfde weg als bevestigLivePosSwap, maar met een lege plek als bestemming: posSwapDoel zetten en
+// confirmPosSwap() laten lopen, die dan naar confirmPosVerhuis() doorschakelt. Geen tweede
+// implementatie die uit elkaar kan groeien.
+function bevestigLiveVerhuis(spelerId, code) {
+  const plek = gridPlek(code); if (!plek) return;
+  posSwapA = spelerId; posSwapB = null; posSwapDoel = code;
+  openModal(`<h3>${icI(IC.compass)} Naar een vrije plek</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(pName(match, spelerId))}</b> gaat naar <b>${esc(matchGridLabel(match, code))}</b>.<br>Zijn oude plaats blijft leeg.</p>
     <button class="btn btn-green" onclick="confirmPosSwap()">${icI(IC.check)} Doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -2530,7 +2617,8 @@ function liveLineupHtml(m) {
     .sort((a, b) => (mins[a.id] ? mins[a.id].ms : 0) - (mins[b.id] ? mins[b.id].ms : 0));
   const selId = _liveTapSel ? _liveTapSel.id : null;
   return `<div class="card">
-    ${renderPitch(m, on, m.captainId, null, { fn: 'liveFieldTap', selId })}
+    ${/* plek: true → tijdens het spel een speler naar een vrije plek kunnen zetten (zie liveFieldTap). */ ''}
+    ${renderPitch(m, on, m.captainId, null, { fn: 'liveFieldTap', selId, plek: true })}
     <div class="field-legend">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Je krijgt telkens eerst een bevestiging.</div>
     <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
     <div class="place-chips">${bench.length
@@ -2538,7 +2626,10 @@ function liveLineupHtml(m) {
       : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
   </div>`;
 }
-let posSwapA = null, posSwapB = null;
+// posSwapDoel: een LEGE roosterplek als bestemming, i.p.v. een tweede speler. Dan is het geen ruil
+// maar een verhuizing — de speler gaat naar die plek en zijn oude plaats blijft leeg. Dat is wat je
+// na een rode kaart nodig hebt: de ploeg speelt met een man minder en je herschikt wie er nog staat.
+let posSwapA = null, posSwapB = null, posSwapDoel = null;
 // Positiewissel via het veld: tik de speler die verplaatst en dan de plek waar hij naartoe gaat.
 // Op het veld tikken IS de positie kiezen — je ziet meteen waar iedereen staat, in plaats van een
 // nummer te moeten opzoeken. Zelfde bediening als het tabblad Opstelling en de pauze-opstelling.
@@ -2546,7 +2637,7 @@ function modalPosSwap(behoud) {
   // Retro (via "Event toevoegen" op een afgewerkte wedstrijd): een positiewissel hoort op een
   // tijdstip, net als een wissel — zonder deel kan hij nergens in de reconstructie belanden.
   if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een positiewissel heeft een tijdstip nodig.', 'err'); return; }
-  if (!behoud) { posSwapA = null; posSwapB = null; }
+  if (!behoud) { posSwapA = null; posSwapB = null; posSwapDoel = null; }
   const retro = _postEventQuarter != null;
   // Pauze-positiewissel enkel als je écht in de pauze staat: in retro-modus hoort het event in het
   // gekozen (afgelopen) deel, niet in de wachtrij voor het volgende. Zelfde conditie als confirmSub().
@@ -2563,21 +2654,34 @@ function modalPosSwap(behoud) {
     : retro ? ' Komt in het verloop en telt mee voor de keeperminuten.' : '';
   // Waar ze belanden: A neemt de plek van B en omgekeerd.
   const pA = on.find(p => p.id === posSwapA), pB = on.find(p => p.id === posSwapB);
-  const plek = p => { const c = posCode(p.posNum, match.matchType); return `${p.posNum}${c ? ' ' + c : ''}`; };
-  const klaar = pA && pB && pA.id !== pB.id;
+  const plek = p => { const c = spelerGridCode(p); return c ? matchGridLabel(match, c) : String(p.posNum || ''); };
+  // Klaar zodra er een bestemming is: een ploegmaat (dan ruilen ze) of een vrije plek (verhuizing).
+  const klaarRuil = !!(pA && pB && pA.id !== pB.id);
+  const klaarVerhuis = !!(pA && posSwapDoel);
+  const klaar = klaarRuil || klaarVerhuis;
   openModal(`<h3>${title}</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler die <b>verplaatst</b> en dan de <b>plek</b> waar hij naartoe gaat. Wie daar staat, neemt zijn plaats over.${staart}</p>
-    ${renderPitch(match, on, captainAtStartOfQuarter(match, qNum), null, { fn: 'posSwapVeldTap', selId: posSwapA || posSwapB })}
-    <p style="text-align:center;font-size:13px;margin-top:10px;color:${klaar ? 'var(--txt)' : 'var(--txt2)'}">${klaar
-      ? `<b>${esc(fieldName(match, pA.id))}</b> naar <b>${esc(plek(pB))}</b> · <b>${esc(fieldName(match, pB.id))}</b> naar <b>${esc(plek(pA))}</b>`
-      : (posSwapA ? 'Tik nu de plek waar hij naartoe gaat.' : 'Nog niemand gekozen.')}</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler die <b>verplaatst</b> en dan de <b>plek</b> waar hij naartoe gaat: de plek van een ploegmaat (dan neemt die zijn plaats over) of een <b>vrije plek</b> (dan blijft zijn oude plaats leeg).${staart}</p>
+    ${renderPitch(match, on, captainAtStartOfQuarter(match, qNum), null, { fn: 'posSwapVeldTap', selId: posSwapA || posSwapB, plek: true, plekSel: posSwapDoel })}
+    <p style="text-align:center;font-size:13px;margin-top:10px;color:${klaar ? 'var(--txt)' : 'var(--txt2)'}">${klaarVerhuis
+      ? `<b>${esc(fieldName(match, pA.id))}</b> naar <b>${esc(matchGridLabel(match, posSwapDoel))}</b> — zijn oude plaats blijft leeg`
+      : (klaarRuil
+        ? `<b>${esc(fieldName(match, pA.id))}</b> naar <b>${esc(plek(pB))}</b> · <b>${esc(fieldName(match, pB.id))}</b> naar <b>${esc(plek(pA))}</b>`
+        : (posSwapA ? 'Tik nu de plek waar hij naartoe gaat.' : 'Nog niemand gekozen.'))}</p>
     <button class="btn btn-green" style="margin-top:8px${klaar ? '' : ';opacity:.5'}" onclick="confirmPosSwap()">${icI(IC.check)} Positiewissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function posSwapVeldTap(kind, id) {
+  // Een lege plek aantikken: bestemming zonder tegenspeler. Enkel zinvol als er al iemand gekozen is —
+  // anders weet de app niet wie er naartoe moet.
+  if (kind === 'plek') {
+    if (!posSwapA) { showToast('Tik eerst de speler die verplaatst.', 'err'); return; }
+    posSwapDoel = (posSwapDoel === id) ? null : id;
+    posSwapB = null;
+    modalPosSwap(true); return;
+  }
   if (kind !== 'field') return;
-  if (posSwapA === id) { posSwapA = null; posSwapB = null; modalPosSwap(true); return; }   // deselecteren
-  if (!posSwapA) posSwapA = id; else posSwapB = id;
+  if (posSwapA === id) { posSwapA = null; posSwapB = null; posSwapDoel = null; modalPosSwap(true); return; }   // deselecteren
+  if (!posSwapA) posSwapA = id; else { posSwapB = id; posSwapDoel = null; }
   modalPosSwap(true);
 }
 function selectPosSwapA(id, el) {
@@ -2597,6 +2701,7 @@ function selectPosSwapB(id, el) {
   const btn = document.getElementById('psw-confirm'); if (btn) btn.style.display = '';
 }
 async function confirmPosSwap() {
+  if (posSwapDoel) return confirmPosVerhuis();
   if (!posSwapA || !posSwapB) return;
   if (posSwapA === posSwapB) { showToast('Kies twee verschillende spelers.', 'err'); return; }
   if (_eventBusy) return; // dubbeltik-guard: tweede tik zou de net-gewisselde posities terugdraaien
@@ -2634,6 +2739,45 @@ async function confirmPosSwap() {
     pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
     pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
     syncKeeper(); // een positiewissel mét de doellijn is een keeperwissel — registreer voor de keeperminuten
+    await dbSave(match); closeModal(); render();
+  } finally { _eventBusy = false; }
+}
+// Een speler naar een LEGE plek: geen ruil, dus geen tweede speler. Het event blijft een `posSwap`
+// (zelfde soort gebeurtenis in het verloop, de filters, het verslag en de CSV) maar met `pB: null` en
+// `naarPlek` = de roostercode van de bestemming. Elke lezer van een posSwap kent dat geval; zie
+// revertPosSwapPositions, rebuildPositions en posSwapBeweging.
+// Zelfde drie paden als confirmPosSwap: pauze (in de wachtrij), retro (in een afgelopen deel via
+// voorwaartse replay) en live (nu doorvoeren, met een snapshot vóór de mutatie).
+async function confirmPosVerhuis() {
+  if (!posSwapA || !posSwapDoel) return;
+  const doel = gridPlek(posSwapDoel);
+  if (!doel) { showToast('Onbekende plek.', 'err'); return; }
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    if (match.quarterStatus === 'between' && _postEventQuarter === null) {
+      match.pendingPosSwaps = match.pendingPosSwaps || [];
+      // Zelfde plek nog eens kiezen voor dezelfde speler = de geplande verhuizing weer weghalen.
+      const i = match.pendingPosSwaps.findIndex(s => s.pA === posSwapA && !s.pB && s.naarPlek === posSwapDoel);
+      if (i >= 0) match.pendingPosSwaps.splice(i, 1);
+      else match.pendingPosSwaps.push({ pA: posSwapA, pB: null, naarPlek: posSwapDoel });
+      await dbSave(match); closeModal(); render();
+      return;
+    }
+    if (_postEventQuarter != null) {
+      const baseline = playersAtPeriodStart(match, 1);
+      addEvent('posSwap', { pA: posSwapA, pB: null, naarPlek: posSwapDoel, posA: null, posB: null });
+      rebuildPositions(match, baseline);
+      if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+      await dbSave(match); closeModal(); render();
+      return;
+    }
+    const pA = match.players.find(p => p.id === posSwapA);
+    if (!pA) { closeModal(); return; }
+    const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum, posCodeVeld: pA.posCodeVeld };
+    addEvent('posSwap', { pA: posSwapA, pB: null, naarPlek: posSwapDoel, posA, posB: null });
+    zetOpGridPlek(pA, doel, match);
+    syncKeeper();   // naar (of weg van) het doel is een keeperwissel — zelfde regel als bij een ruil
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }

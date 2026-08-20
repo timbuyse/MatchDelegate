@@ -1645,6 +1645,11 @@ function oppName(m) { return (m && m.opponent) || 'tegenstander'; }
 // er dan twee keer in alsof er iets fout ging. posA/posB zijn de posities van vóór de wissel, dus
 // pA belandt op posB en omgekeerd. Oudere events zonder die snapshots vallen terug op de ruilvorm.
 function posSwapBeweging(m, e, pijl) {
+  // Verhuizing naar een lege plek (geen tegenspeler): één beweging, met de code van de bestemming —
+  // die zegt hier meer dan een nummer, want een vrije plek heeft er niet altijd een.
+  if (e.pA && !e.pB && e.naarPlek) {
+    return `${pName(m, e.pA)} ${pijl} ${matchGridLabel(m, e.naarPlek)}`;
+  }
   const naar = (spelerId, pos) => {
     const nr = pos && pos.posNum ? String(pos.posNum) : '';
     const code = nr ? posCode(nr, m.matchType) : '';
@@ -1700,8 +1705,12 @@ function groepeerPosSwaps(list) {
       && !!vorige.atBreak === !!e.atBreak
       && vorige.quarterNum === e.quarterNum
       && (vorige.atBreak || minuut(vorige.gameTimeMs) === minuut(e.gameTimeMs));
-    if (e.type === 'posSwap' && zelfdeMoment) { vorige.events.push(e); continue; }
-    if (e.type === 'posSwap') {
+    // Een verhuizing naar een lege plek (geen pB) hoort niet in een reeks: die reeks rekent ruilen door
+    // om per speler het eindpunt te vinden, en een verhuizing is geen ruil. Ze blijft dus een eigen
+    // regel, die posSwapBeweging als één beweging toont.
+    const isVerhuis = e.type === 'posSwap' && !e.pB;
+    if (e.type === 'posSwap' && !isVerhuis && zelfdeMoment) { vorige.events.push(e); continue; }
+    if (e.type === 'posSwap' && !isVerhuis) {
       uit.push({ type: 'posSwapReeks', events: [e], atBreak: e.atBreak, quarterNum: e.quarterNum, gameTimeMs: e.gameTimeMs, id: e.id });
       continue;
     }
@@ -2098,7 +2107,10 @@ function pitchOpenPlekken(m, players, tap) {
   for (const p of players) { const c = spelerGridCode(p); if (c) bezet.add(c); }
   return POS_GRID.filter(plek => !bezet.has(plek.code)).map(plek => {
     const gk = plek.line === 'Doel';
-    return `<div class="pslot pslot-open" style="left:${plek.x}%;top:${plek.y}%" onclick="${tap.fn}('plek','${plek.code}')">`
+    // tap.plekSel: de plek die als bestemming gekozen is, met hetzelfde oranje kader als een
+    // geselecteerde speler — anders zie je niet waar je zonet op tikte.
+    const ring = (tap.plekSel && tap.plekSel === plek.code) ? ';box-shadow:0 0 0 3px var(--org);border-radius:8px' : '';
+    return `<div class="pslot pslot-open${ring ? ' pslot-tip' : ''}" style="left:${plek.x}%;top:${plek.y}%${ring}" onclick="${tap.fn}('plek','${plek.code}')">`
       + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
   }).join('');
 }

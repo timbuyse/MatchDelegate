@@ -46,6 +46,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 - **Na een rode kaart blijft het een man minder.** Van de bank iemand op een vrijgekomen plek zetten
   wordt geweigerd; een speler die al op het veld staat mag er wél naartoe verhuizen. Dat laatste is
   precies waarvoor dit bestaat: na een uitsluiting je ploeg herschikken.
+- **Ook tijdens de wedstrijd en in de pauze kan je een speler naar een vrije plek zetten.** Tik hem
+  aan, tik de lege plek: hij verhuist en zijn oude plaats blijft leeg. In de pauze komt het in de
+  wachtrij voor het volgende deel (*"Wout M. naar CAM (9)"*), tijdens het spel gaat het meteen door.
+  Tot nu kon een positiewissel enkel een **ruil** zijn — er moest iemand op die plek staan — en na een
+  rode kaart was je ploeg dus niet meer te herschikken. In het verloop staat het als één beweging:
+  *"Wout Maes → CAM (9)"*.
 - **Spelers staan netjes op hun roosterplek.** Een wedstrijd van vóór deze versie draagt nog de
   coördinaten van een formatieslot, en die vallen net tussen de rijen — drie spelers van dezelfde lijn
   stonden dan op drie hoogtes. Ze worden nu op hun plek getekend, op het scherm en in de PDF. De

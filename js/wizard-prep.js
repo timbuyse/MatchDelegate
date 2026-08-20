@@ -745,6 +745,9 @@ function playersAtPeriodStart(m, qNum) {
       // stint-positie niet verliezen — anders belandt hij in de generieke "geen x/y"-fallback
       // (evenredig verspreid over de lijn), zichtbaar als een bolletje tussen twee posities in.
       posMap[e.playerInId] = e.posBefore ? { ...e.posBefore } : { x: undefined, y: undefined, line: undefined, posNum: undefined };
+    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.posA) {
+      // Verhuizing naar een lege plek terugdraaien: enkel die ene speler terug op zijn oude plaats.
+      posMap[e.pA] = { ...e.posA };
     } else if (e.type === 'posSwap' && e.pA && e.pB && e.posA && e.posB) {
       posMap[e.pA] = { ...e.posA };
       posMap[e.pB] = { ...e.posB };
@@ -774,6 +777,9 @@ function positionsAtMatchStart(m) {
     const e = evs[i];
     if (e.type === 'substitution' && e.playerInId) {
       pos[e.playerInId] = e.posBefore ? { ...e.posBefore } : { x: undefined, y: undefined, line: undefined, posNum: undefined };
+    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.posA) {
+      // Achterwaarts: een verhuizing terugdraaien = die speler terug op zijn oude plaats.
+      pos[e.pA] = { ...e.posA };
     } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
       const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
     }
@@ -797,6 +803,11 @@ function pitchPlayersAtPeriodStart(m, qNum) {
     if (!(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))) continue;
     if (e.type === 'substitution') {
       if (e.playerInId && e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek && pos[e.pA]) {
+      // Verhuizing naar een lege plek: enkel deze speler verschuift. Anders dan bij een ruil blijft de
+      // som van de plaatsen hier NIET gelijk — zijn oude plaats blijft leeg, en dat is de bedoeling.
+      const plek = gridPlek(e.naarPlek);
+      if (plek) pos[e.pA] = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code };
     } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
       // ALLE positiewissels binnen het venster tellen mee. Het venster hierboven doet het echte
       // werk: het laat enkel door wat vóór de aftrap van dit deel gebeurd is (een vorig deel, of
