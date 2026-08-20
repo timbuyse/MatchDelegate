@@ -1738,7 +1738,10 @@ function evtLabel(e, m) {
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}`;
     case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen`;
-    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
+    // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
+    // dat staat al in het woord zelf.
+    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.injury)} Vertrokken · ${pn(e.playerId)}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ${esc(tName(m))}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
@@ -1772,7 +1775,7 @@ function evtLabelPlain(e, m) {
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
-    case 'injury': { const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `Vertrokken · ${pName(m,e.playerId)}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return 'Redding (onze keeper)';

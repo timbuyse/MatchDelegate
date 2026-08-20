@@ -132,6 +132,11 @@ async function loadStats() {
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
     const gemeten = getGameTimeMs(m) > 0;
     for (const p of (m.players || [])) {
+      // Reden "speelt elders" (weggeroepen naar de tweede wedstrijd van dezelfde ploeg, die op
+      // hetzelfde uur loopt): hij voetbalde wel degelijk, alleen niet hier. Dus geen gemiste
+      // wedstrijd én geen selectie met 0 minuten. Zelfde regel als bij een NB'er met die reden, en
+      // net als daar vóór getp(), zodat deze wedstrijd hem ook geen lege regel bezorgt.
+      if (p.absent && p.absentReason === 'elders') continue;
       const r = getp(p.rosterId, p.name, p.number); const ms = mins[p.id] ? mins[p.id].ms : 0;
       // No-show ("Niet aanwezig" tijdens de wedstrijd): telt als afwezig, niet als geselecteerd —
       // anders staat hij bovenaan Fair-play met 0' alsof de trainer hem geen kansen gaf, terwijl

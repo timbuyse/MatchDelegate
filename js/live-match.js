@@ -99,7 +99,10 @@ function renderLive() {
         <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
-        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div></div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
+        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
+        ${/* Zie modalAddPlayerLive: de selectie lag vast vanaf de aftrap, en dat botst met de
+             laatkomer en met de speler die van het tweede veld komt bijspringen. */ ''}
+        ${(ro || isDone) ? '' : `<hr><button class="btn btn-pale btn-sm" style="width:100%" onclick="modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>`}
       </div>
       ${planningTijdensMatchHtml(match)}`;
   } else {
@@ -160,7 +163,7 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
   const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
   return `<div class="prow">
     ${numDot(p, 'pnum ' + (isOff?'pnum-off':''))}
-    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}</div>${bar}</div>
+    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}${bijgekomenChip(p)}</div>${bar}</div>
     <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
     ${extraBtn}
   </div>`;
@@ -1227,7 +1230,7 @@ function modalEditEvent(id) {
       .map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('');
     fields = `<div class="fg"><label>Eerste speler</label><select id="ee-swap-a">${swapOpts(e.pA)}</select></div><div class="fg"><label>Tweede speler</label><select id="ee-swap-b">${swapOpts(e.pB)}</select></div>`;
   }
-  else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div>`;
+  else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option><option value="vertrokken" ${e.injuryType === 'vertrokken' ? 'selected' : ''}>Vertrokken</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div>`;
   else if (t === 'disallowed_us' || t === 'disallowed_them') fields = `<div class="fg"><label>Reden</label><input id="ee-reason" type="text" value="${esc(e.reason || '')}" placeholder="bv. buitenspel"></div>`;
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
@@ -1340,6 +1343,94 @@ function markTournamentUnavailable(pid) {
   return true;
 }
 function _trnAbsentAangevinkt() { return !!(document.getElementById('ma-trn') || {}).checked; }
+// ----- Een speler bijzetten terwijl de wedstrijd loopt -----
+// Tot hier lag de selectie vast vanaf de aftrap. Dat botst met twee alledaagse situaties: de
+// laatkomer die pas na het startsignaal toekomt, en — bij de jongste reeksen, waar dezelfde ploeg
+// twee wedstrijden tegelijk speelt — de speler die van het andere veld komt bijspringen. Zonder
+// deze knop bestond zo iemand niet voor de wedstrijd: geen minuten, geen doelpunten, geen plek in
+// het verslag, enkel een zin in de notitie.
+//
+// Hij komt binnen als BANKSPELER. Dat is bewust en het is ook wat het veilig maakt: de speeltijd
+// vertrekt van de basisopstelling en loopt daarna de wissels af (calcMinutes), en de veldbezetting
+// wordt op dezelfde manier herrekend (recomputeOnField). Wie in geen enkel event voorkomt, krijgt
+// dus nul minuten en staat niet op het veld, zonder dat er iets aan de anderen verandert. Vanaf nu
+// is het een gewone bankspeler: je brengt hem in met een gewone wissel.
+//
+// Kiezen gebeurt uit het PLOEGROOSTER en niet door een naam te typen. Zonder de koppeling naar het
+// rooster (rosterId) groepeert de seizoensstatistiek hem op naam, en dan staat hij daar met een
+// tweede regel naast zichzelf. Voor wie echt niet in het rooster staat is er "Losse speler",
+// dezelfde uitweg als in de selectiewizard.
+function _liveTeam() {
+  return teamById(match.teamId) || (getTeamsV2().find(t => t.name === match.teamName) || null);
+}
+function modalAddPlayerLive() {
+  const team = _liveTeam();
+  // Zowel op rosterId als op naam ontdubbelen: een speler die via een oudere wedstrijd of als gast
+  // in de selectie kwam, heeft niet noodzakelijk een rosterId.
+  const zit = new Set();
+  (match.players || []).forEach(p => { if (p.rosterId) zit.add(p.rosterId); zit.add((p.name || '').trim().toLowerCase()); });
+  const vrij = ((team && team.players) || []).filter(p => !zit.has(p.id) && !zit.has((p.name || '').trim().toLowerCase()));
+  const lijst = vrij.length
+    ? pgGrid(vrij.map(p => pgBtn(p, 'addp-pb', `addPlayerLive('${p.id}')`)).join(''))
+    : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin:4px 0 14px">${rosterEmptyText('Iedereen uit het rooster zit al in deze wedstrijd.')}</p>`;
+  openModal(`<h3>${icI(IC.plus)} Speler bijzetten</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>
+    ${lijst}
+    <button class="btn btn-pale" style="margin-top:12px" onclick="addLoosePlayerLiveModal()">Losse speler (niet in het rooster)</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Gemeenschappelijk stuk voor beide ingangen: de speler in de selectie zetten en opslaan.
+async function _voegSpelerToeAanWedstrijd(veld) {
+  match.players.push(Object.assign({
+    id: uid(), rosterId: null, globalId: null, name: 'Speler', number: '',
+    line: 'Middenveld', posNum: '', starting: false, onField: false, guest: false,
+    // Waaraan je later ziet dat hij niet vanaf de aftrap in de selectie zat — het verslag en de PDF
+    // tonen dat als "bijgekomen", zodat zijn lagere speeltijd verklaard staat. Wedstrijden van vóór
+    // deze versie hebben het veld niet en tonen dus niets.
+    addedDuringMatch: true, addedQuarter: match.currentQuarter || 0,
+  }, veld));
+  // Bij een tornooiwedstrijd komt de dagselectie uit het tornooi: zonder deze stap krijgt hij
+  // speelminuten zonder in enige groep te staan (zelfde reden als bij "Spelers bewerken").
+  const trn = syncMatchPlayersToTournamentSquad(match);
+  recomputeOnField(match);
+  await dbSave(match);
+  closeModal(); render();
+  const naam = veld.name || 'Speler';
+  showToast(trn.length
+    ? `${naam} staat op de bank en in de tornooiselectie van vandaag.`
+    : `${naam} staat op de bank. Breng hem in met een wissel.`, 'ok');
+}
+async function addPlayerLive(rosterId) {
+  const team = _liveTeam();
+  const r = ((team && team.players) || []).find(p => p.id === rosterId);
+  if (!r) { showToast('Die speler staat niet meer in het rooster.', 'err'); return; }
+  await _voegSpelerToeAanWedstrijd({
+    rosterId: r.id, globalId: r.globalId || null, name: r.name,
+    number: teamUsesNumbers(team) ? (r.number || '') : '',
+    line: posLine(r.pos) || 'Middenveld',
+  });
+}
+function addLoosePlayerLiveModal() {
+  openModal(`<h3>${icI(IC.plus)} Losse speler bijzetten</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Iemand die niet in het rooster van deze ploeg staat. Hij telt mee voor deze wedstrijd, niet voor de seizoensstatistieken van de ploeg.</p>
+    <div class="fg"><label>Voornaam</label><input id="alp-first" type="text" placeholder="Voornaam" autocomplete="off"></div>
+    <div class="fg"><label>Naam</label><input id="alp-last" type="text" placeholder="Naam" autocomplete="off"></div>
+    <button class="btn btn-green" style="margin-top:4px" onclick="confirmLoosePlayerLive()">${icI(IC.check)} Bijzetten</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalAddPlayerLive()">Terug</button>`);
+  setTimeout(() => document.getElementById('alp-first')?.focus(), 50);
+}
+async function confirmLoosePlayerLive() {
+  const first = (document.getElementById('alp-first')?.value || '').trim();
+  const last = (document.getElementById('alp-last')?.value || '').trim();
+  if (!first && !last) { showToast('Geef minstens een naam in.', 'err'); return; }
+  await _voegSpelerToeAanWedstrijd({ name: [first, last].filter(Boolean).join(' '), guest: true, fromName: 'Losse speler' });
+}
+// Het merkje bij een speler die niet vanaf de aftrap meedeed. Enkel in de schermen tijdens en na de
+// wedstrijd; het verslag en de PDF hebben hun eigen weergave (zie nameWithNum in detail-pdf.js).
+function bijgekomenChip(p) {
+  if (!p || !p.addedDuringMatch) return '';
+  return ` <span style="font-size:10px;font-weight:700;color:var(--txt2);border:1px solid var(--bdr);border-radius:6px;padding:1px 5px;white-space:nowrap">bijgekomen</span>`;
+}
 function modalMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
@@ -1353,13 +1444,18 @@ function modalMarkAbsent(pid) {
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(p.name)}</b> markeren als niet aanwezig?<br><span style="font-size:12px">Speeltijd wordt op 0 gezet. Dit is ongedaan te maken.</span></p>
       ${trnOptie}
       <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Niet aanwezig</button>
+      ${/* Hij was er wél, maar voetbalt elders — bij twee gelijktijdige wedstrijden van dezelfde
+           ploeg het gewone geval. Zelfde gevolg voor deze wedstrijd (0 minuten), maar het verslag
+           zegt dan waarom, en de aanwezigheidsstatistiek rekent het niet als een gemiste wedstrijd. */ ''}
+      <button class="btn btn-orgpale" style="margin-top:8px" onclick="doMarkAbsent('${pid}','elders')">Vertrokken — speelt elders</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
   openModal(`<h3>${icI(IC.injury)} ${esc(p.name)} van het veld</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Hij speelde al <b>${min} min</b>. Registreer je hem als <b>blessure</b>, dan stopt zijn teller nu en kan je meteen iemand inbrengen.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Hij speelde al <b>${min} min</b>. Registreer je hem als <b>blessure</b> of als <b>vertrokken</b>, dan stopt zijn teller nu, blijven die ${min} min staan en kan je meteen iemand inbrengen.</p>
     ${trnOptie}
     <button class="btn btn-green" onclick="markAbsentViaInjury('${pid}')">${icI(IC.injury)} Blessure / verlaat het veld</button>
+    <button class="btn btn-orgpale" style="margin-top:8px" onclick="markLeftField('${pid}')">Vertrokken — speelt elders of naar huis</button>
     <p style="text-align:center;color:var(--txt2);font-size:12px;margin:14px 0 6px">Stond hij per ongeluk in de selectie?</p>
     <button class="btn btn-red" onclick="doMarkAbsent('${pid}')">Toch niet aanwezig — wist zijn ${min} min</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -1375,9 +1471,34 @@ function markAbsentViaInjury(pid) {
   }
   modalInjury(pid);
 }
-async function doMarkAbsent(pid) {
+// Een speler die al gespeeld heeft en nu weggaat (naar het tweede veld van dezelfde ploeg, of naar
+// huis). Zelfde afhandeling als een blessure waarbij hij het veld verlaat — zijn teller stopt, zijn
+// gespeelde minuten blijven staan en je krijgt meteen de wisselmodal — maar dan zonder het
+// "blessure" te noemen. Bewust GEEN nieuw eventtype: dit is het bestaande "verlaat het veld" met
+// 'vertrokken' als soort, zodat elke bestaande berekening (speeltijd, veldbezetting, keeperminuten)
+// en elk bestaand verslag het ongewijzigd blijft lezen.
+async function markLeftField(pid) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const p = match.players.find(pl => pl.id === pid);
+    if (!p) return;
+    if (_trnAbsentAangevinkt() && !markTournamentUnavailable(pid)) {
+      showToast(`${p.name} staat niet in de tornooiselectie — enkel voor deze wedstrijd afgemeld.`, 'err');
+    }
+    addEvent('injury', { playerId: pid, injuryType: 'vertrokken', leavesField: true });
+    p.onField = false;
+    await dbSave(match);
+    modalSubAfterInjury(pid, 'vertrokken');
+  } finally { _eventBusy = false; }
+}
+// `reden` is een sleutel uit ABSENT_REASONS en blijft optioneel: zonder reden verandert er niets aan
+// het bestaande gedrag. Met 'elders' zegt het verslag waarom hij niet speelde, en telt de wedstrijd
+// niet als gemist in zijn aanwezigheids-% — hij voetbalde, alleen niet hier.
+async function doMarkAbsent(pid, reden) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
+  if (reden) p.absentReason = reden; else delete p.absentReason;
   // Vinkje aan maar de speler staat niet in de tornooiselectie (gastspeler, of iemand die de ploeg
   // intussen verliet)? Dan geldt de afmelding enkel voor deze wedstrijd — dat moet je weten,
   // anders denk je hem voor de hele dag afgemeld te hebben.
@@ -1407,6 +1528,7 @@ async function doUnmarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
   if (!p) return;
   p.absent = false;
+  delete p.absentReason;
   // Zolang er nog geen deel gestart is, is een basisspeler die je herstelt gewoon weer basisspeler:
   // doMarkAbsent zette onField op false, en zonder dit bleef hij achter met starting=true en
   // onField=false. De planning telde hem dan mee en de veldbezetting niet. Loopt de wedstrijd al,
@@ -2965,15 +3087,18 @@ async function confirmInjury() {
     if (leavesField) { modalSubAfterInjury(injPlayerId); } else { closeModal(); render(); }
   } finally { _eventBusy = false; }
 }
-function modalSubAfterInjury(outId) {
+// `reden` = 'vertrokken' wanneer de speler niet geblesseerd is maar weggaat (naar het tweede veld
+// van dezelfde ploeg, of naar huis) — zie markLeftField. Dezelfde wisselmodal, andere woorden.
+function modalSubAfterInjury(outId, reden) {
+  const weg = reden === 'vertrokken';
   subOut = outId; subIn = null;
   const outPlayer = match.players.find(p => p.id === outId);
   const mins = calcMinutes(match);
   const off = playersOnBench(match).slice().sort((a,b) => (mins[a.id]?.ms||0) - (mins[b.id]?.ms||0));
   const minMs = off.length ? (mins[off[0].id]?.ms||0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
-  openModal(`<h3>${icI(IC.swap)} Wissel na blessure</h3>
-    <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">🤕 ${esc(outPlayer?.name||'?')} verlaat het veld</div>
+  openModal(`<h3>${icI(IC.swap)} Wissel na ${weg ? 'vertrek' : 'blessure'}</h3>
+    <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">${weg ? icI(IC.close) : '🤕'} ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
     <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${icI(IC.check)}Wissel doorvoeren</button>

@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.35.0
+- **Je kan nu een speler bijzetten terwijl de wedstrijd loopt.** Tot nu lag de selectie vast vanaf het
+  startsignaal: een laatkomer, of iemand die vanaf een tweede veld komt bijspringen, was niet te
+  registreren. In het livescherm, onder de bank, staat daarvoor de knop "Speler bijzetten". Je kiest
+  hem uit het rooster (of als losse speler), hij komt op de bank, en je brengt hem in met een gewone
+  wissel. Zijn speeltijd start pas wanneer hij effectief het veld op gaat; aan de minuten van de
+  anderen verandert er niets. Bij een tornooiwedstrijd komt hij ook in de selectie van die dag.
+- **Bij zijn naam staat "bijgekomen"** — in de app, in het verslag en in de PDF. Zonder die vermelding
+  leest zijn lagere speeltijd als een keuze van de trainer.
+- **"Vertrokken" naast "Blessure" en "Niet aanwezig".** Voor wie al speelde: zijn teller stopt, zijn
+  gespeelde minuten blijven staan en je kan meteen iemand inbrengen — maar het heet geen blessure
+  meer. Voor wie nog niet speelde: hij komt onder "Niet aanwezig" te staan met de reden "speelt
+  elders", en die wedstrijd telt niet als gemist in zijn aanwezigheidscijfer.
+- **Twee wedstrijden van dezelfde ploeg tegelijk starten geeft geen waarschuwing meer.** Bij de
+  jongste reeksen is dat de normale gang van zaken: twee groepjes, twee locaties, hetzelfde uur. De
+  waarschuwing komt nu alleen nog wanneer er echt iets misloopt — de andere wedstrijd staat vergeten
+  open (haar klok tikt door), of er staan spelers in beide selecties, en dan met hun namen erbij.
+
 ## v0.34.1
 - **De aanval staat op de grote baklijn, en de shirts zijn groter.** De voorste rij (LFA t/m RFA)
   stond een eindje onder het strafschopgebied en staat nu op die lijn. De vijf rijen liggen daardoor

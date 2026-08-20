@@ -533,7 +533,10 @@ function matchSelectionGroups(m) {
   // zelf ("Rugnummers" op het verslag); de ploeginstelling regelt enkel het rooster en wat er in
   // een nieuwe wedstrijd voorgevuld wordt.
   const num = p => p.number || '';
-  const pick = p => ({ name: p.name || '', number: num(p), rosterId: p.rosterId || null, guest: !!p.guest });
+  // `added` en `reason` dragen de twee dingen mee die tijdens de wedstrijd aan de selectie kunnen
+  // veranderen: wie pas na de aftrap bijgekomen is, en waarom iemand niet (meer) meespeelde.
+  const pick = p => ({ name: p.name || '', number: num(p), rosterId: p.rosterId || null, guest: !!p.guest,
+    added: !!p.addedDuringMatch, reason: p.absentReason || '' });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34), met dezelfde naam-fallback als
@@ -584,6 +587,9 @@ function matchSelectionGroups(m) {
 function nameWithNum(p) {
   const bits = [];
   if (p.guest) bits.push('gast' + (p.fromName ? ' · ' + p.fromName : ''));
+  // Bijgekomen na de aftrap (laatkomer, of iemand die kwam bijspringen vanaf een tweede veld):
+  // vermelden, anders leest zijn lagere speeltijd als een keuze van de trainer.
+  if (p.added) bits.push('bijgekomen');
   if (p.reason) bits.push(absentReasonLabel(p.reason).toLowerCase());
   return (p.number ? p.number + ' ' : '') + p.name + (bits.length ? ` (${bits.join(', ')})` : '');
 }

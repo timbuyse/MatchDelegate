@@ -1918,13 +1918,18 @@ async function startPlanned() {
     showToast('Maak eerst de opstelling voor je de wedstrijd start.', 'err');
     return;
   }
-  // Een vergeten wedstrijd laat zijn klok op wandkloktijd doorlopen (getGameTimeMs stopt enkel bij
-  // een endTime), dus na twee uur staat elke basisspeler op absurde speelminuten en is de
-  // fair-play-tabel van de dag onbruikbaar. Op een tornooidag met vier wedstrijden op een rij is
-  // dat het makkelijkst te maken foutje, daarom hier expliciet waarschuwen i.p.v. stil te starten.
-  const others = (await dbAll()).filter(m => m.status === 'live' && m.id !== match.id && sameTeamAsMatch(m, match));
-  if (others.length) {
-    const o = others[0];
+  // Twee wedstrijden van dezelfde ploeg die tegelijk lopen is bij de jongste reeksen (U8 en co) net
+  // de normale gang van zaken: twee groepjes, twee locaties, hetzelfde uur, vaak vanaf hetzelfde
+  // account. Waarschuwen zodra er nog iets live staat, zou daar elke zaterdag een venster opleveren
+  // dat je moet wegklikken — en een waarschuwing die je gewoonte wordt om weg te klikken, mis je
+  // ook op de dag dat ze wél terecht is. Daarom enkel de twee gevallen waar het echt misloopt:
+  //  - de andere wedstrijd staat vergeten open (haar klok loopt op wandkloktijd door, zie
+  //    looksForgotten, dus na twee uur staat elke basisspeler op absurde speelminuten);
+  //  - er staan spelers in beide selecties, want die krijgen op twee klokken tegelijk speeltijd.
+  const live = (await dbAll()).filter(m => m.status === 'live' && m.id !== match.id && sameTeamAsMatch(m, match));
+  const vergeten = live.filter(looksForgotten);
+  if (vergeten.length) {
+    const o = vergeten[0];
     const q = (o.quarters || [])[(o.quarters || []).length - 1];
     const sinds = q && q.startTime ? ` (gestart om ${new Date(q.startTime).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })})` : '';
     openModal(`<h3>${icI(IC.warn)} Nog een wedstrijd loopt</h3>
@@ -1934,7 +1939,29 @@ async function startPlanned() {
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
   }
+  // Niet vergeten, maar wel gedeelde spelers: dan is het geen twee-groepjes-situatie maar een
+  // vergissing in de selectie (of iemand die van het ene veld naar het andere gaat).
+  const dubbel = live.map(m => ({ m, spelers: gedeeldeSpelers(m, match) })).find(x => x.spelers.length);
+  if (dubbel) {
+    const o = dubbel.m;
+    const namen = dubbel.spelers.slice(0, 6).map(esc).join(', ') + (dubbel.spelers.length > 6 ? ` en ${dubbel.spelers.length - 6} andere` : '');
+    openModal(`<h3>${icI(IC.warn)} Dezelfde spelers in twee wedstrijden</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:14px"><b>${esc(o.opponent || 'Wedstrijd')}</b> loopt nu ook, met ${dubbel.spelers.length === 1 ? 'dezelfde speler' : 'dezelfde spelers'} in de selectie: <b>${namen}</b>. Hun speeltijd loopt dan op twee klokken tegelijk.</p>
+      <button class="btn btn-green" onclick="closeModal();go('live','${o.id}')">${icI(IC.check)} Die wedstrijd bekijken</button>
+      <button class="btn btn-orgpale" style="margin-top:8px" onclick="closeModal();doStartPlanned()">Toch starten</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    return;
+  }
   await doStartPlanned();
+}
+// Welke spelers staan in de selectie van beide wedstrijden? Vergelijken op rosterId/globalId (het
+// stabiele id van de speler in het rooster) met de naam als vangnet: een gast heeft geen rosterId,
+// en het id per wedstrijd (resolvePlayerId) verschilt sowieso per wedstrijd. Geeft namen terug.
+function gedeeldeSpelers(a, b) {
+  const sleutels = p => [p.rosterId, p.globalId, (p.name || '').trim().toLowerCase()].filter(Boolean);
+  const inA = new Set();
+  (a.players || []).forEach(p => sleutels(p).forEach(k => inA.add(k)));
+  return (b.players || []).filter(p => sleutels(p).some(k => inA.has(k))).map(p => p.name || 'Speler');
 }
 async function doStartPlanned() {
   match.status = 'live'; await dbSave(match); await go('live', match.id);
