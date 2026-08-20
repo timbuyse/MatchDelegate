@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.34.1
+- **De aanval staat op de grote baklijn, en de shirts zijn groter.** De voorste rij (LFA t/m RFA)
+  stond een eindje onder het strafschopgebied en staat nu op die lijn. De vijf rijen liggen daardoor
+  ook alle even ver van elkaar — eerst was dat 14/14/14/16 procent, en die kleinste afstand begrensde
+  hoe groot een shirt kon zijn.
+- **Het shirt hangt nu aan de breedte van het veld** in plaats van aan een vast aantal pixels. Op een
+  telefoon van 390 punten breed groeit het van 50 naar 57 pixels, op een grotere naar 60. Vaste pixels
+  liepen mis op een smal toestel: daar krimpt het veld mee terwijl het shirt bleef staan, en dan liep
+  een naamplaatje over het shirt van de rij eronder. Nu schaalt alles samen.
+- **De screenshots in de handleiding tonen weer wat de app doet.** Die van de opstelling, de pauze en
+  het verslag stonden nog met de oude bollen van voor v0.34.0.
+- Een speler zonder bewaarde veldpositie (uit een oude of half ingevulde opstelling) wordt op de
+  hoogte van zijn lijn getekend, en die hoogtes volgen nu dezelfde rijen als het rooster.
+
 ## v0.34.0
 - **Shirts in plaats van bollen op elk velddiagram.** In het shirt staat het **rugnummer** — een shirt
   vraagt daar om, en dat is het enige nummer dat de trainer én de spelers zelf gebruiken; waar iemand

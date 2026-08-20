@@ -410,7 +410,10 @@ function drawShirtPdf(doc, cx, cy, hoogte, style) {
   doc.lines(SHIRT_PAD_PDF, cx + 3 * s, cy - 8 * s, [s, s], style, true);
 }
 function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
-  const W = 320, H = 480, R = 15;
+  // R = de halve hoogte van het shirt in veldeenheden. Meegegroeid met het scherm (v0.34.1, waar de
+  // markering 18% van de veldbreedte werd): op papier bleef het shirt anders merkbaar kleiner dan in
+  // de app, en het verslag hoort hetzelfde veld te tonen als het scherm.
+  const W = 320, H = 480, R = 19;
   const PAW = 189, PAD = 75, GAW = 86, GAD = 25, CCR = 43, PENY = 50, CR = 8, RX = 8;
   const S = w / 326;                       // eenheden -> punten
   const ux = u => x0 + (u + 3) * S;        // viewBox begint op x=-3

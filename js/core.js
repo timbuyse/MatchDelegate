@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.34.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.34.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -11,7 +11,10 @@ const MATCH_TYPES = {
 // staat — bv. na het hernoemen of schrappen van een vorm, terwijl oude wedstrijden op de toestellen
 // de oude tekst houden. Enkel voor keuzelijstjes: een lijnenlijst hoort geen scherm te doen crashen.
 function matchLines(m) { return (MATCH_TYPES[m && m.matchType] || MATCH_TYPES['8v8']).lines; }
-const LINE_Y = { 'Doel': 90, 'Verdediging': 68, 'Middenveld': 45, 'Aanval': 22 };
+// Waar een speler ZONDER coördinaten getekend wordt, per lijn. Enkel weergave, en enkel voor oude of
+// half ingevulde opstellingen: wie x/y heeft, staat op zijn roosterplek. Gelijk aan de rijen van
+// POS_GRID hieronder, zodat zo'n speler niet tussen twee rijen valt.
+const LINE_Y = { 'Doel': 91, 'Verdediging': 76, 'Middenveld': 46, 'Aanval': 16 };
 // De codes bij de positienummers die computePosNum toekent (1 = doel, 2-5 verdediging, 6/8/10/11/7
 // middenveld, 9 aanval). Het nummer zegt wélke plek, de code hoe die plek heet.
 const POS_CODES_11 = {
@@ -45,13 +48,15 @@ function posCode(n, matchType) {
 //    een bestaande opstelling op het rooster terug te vinden is (zie gridPlekVoor).
 const POS_GRID = (() => {
   const KOL = [14, 32, 50, 68, 86];                       // links → rechts
-  // De rijen liggen minstens 14% van elkaar. Op een veld van 510px hoog is dat 71px, en een shirt van
-  // 50px plus het label eronder heeft ongeveer 72px nodig — daaronder gaat een naam over het shirt van
-  // de rij eronder. De aanval schuift zo hoog als kan (het strafschopgebied van de tegenstander loopt
-  // tot y≈15,6) en de doelman blijft diep genoeg om in zijn doelgebied te staan.
+  // De rijen liggen 15% van elkaar, en de doelman ligt op dezelfde afstand onder de verdediging. Die
+  // 15% is precies wat een shirt plus het naamplaatje eronder nodig heeft (zie .pslot in index.html:
+  // 18% van de veldbreedte, plus een label van een vaste 15px) — bij minder gaat een naam over het
+  // shirt van de rij eronder. De aanval staat op de grote baklijn van de tegenstander (die loopt tot
+  // y=15,6) en de doelman blijft diep genoeg om in zijn doelgebied te staan. De rijen lagen eerst
+  // 14/14/14/16 van elkaar; die kleinste afstand van 14% was net wat de shirtgrootte begrensde.
   // Dit verschuift NIET welke plek een bestaande opstelling krijgt: binnen één lijn hebben alle plekken
   // dezelfde y, dus gridPlekVoor kiest daar op x.
-  const RIJ = { aanval: 18, aanvMid: 32, midden: 46, verdMid: 60, verdediging: 76 };
+  const RIJ = { aanval: 16, aanvMid: 31, midden: 46, verdMid: 61, verdediging: 76 };
   const D = 'Doel', V = 'Verdediging', M = 'Middenveld', A = 'Aanval';
   const rij = (y, codes, lijnen) => codes.map((code, i) => ({ code, line: lijnen[i], x: KOL[i], y }));
   return [
