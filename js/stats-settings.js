@@ -665,6 +665,9 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Stap 3 — Opstelling</div>
       <p>Kies bovenaan een <b>formatie</b>. Het veld begint leeg: tik een speler aan uit de lijst
         eronder, dan een vrije positie op het veld.</p>
+      <p>De formatie is een <b>voorstel, geen keurslijf</b>: de plekken die erbij horen worden groter
+        getekend, maar je mag iedereen op eender welke plek van het veld zetten. Kies je een andere
+        formatie, dan verhuist er niemand — er lichten enkel andere plekken op.</p>
       <p>Die lijst onder het veld bevat je hele selectie behalve wie al op het veld staat. Zolang het
         veld niet vol is, heet ze <b>'Nog op het veld te zetten'</b>; zodra het vol is, is exact
         diezelfde lijst je <b>bank</b> — <b>wie je niet op het veld zet, staat automatisch op de
@@ -749,7 +752,21 @@ const HANDLEIDING_PAGINAS = [
           doorgevoerd zodra je dat deel start.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
-        <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het kruisje naast zijn naam en kies <b>'Niet aanwezig'</b>. Hij krijgt dan geen speelminuten en telt als gemiste wedstrijd; via <b>'Herstel'</b> draai je het terug.</li>
+        <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het
+          kruisje naast zijn naam en kies <b>'Niet aanwezig'</b>. Hij krijgt dan geen speelminuten en
+          telt als gemiste wedstrijd; via <b>'Herstel'</b> draai je het terug.</li>
+        <li>Gaat een speler onderweg <b>weg</b> — naar huis, of naar het tweede veld waar je ploeg op
+          hetzelfde uur speelt? Kies dan bij datzelfde kruisje <b>'Vertrokken'</b>. Speelde hij al,
+          dan stopt zijn teller op dat moment, blijven zijn gespeelde minuten staan en kan je meteen
+          iemand inbrengen. Speelde hij nog niet, dan komt hij bij <b>'Niet aanwezig'</b> te staan met
+          de vermelding <b>speelt elders</b>, en telt die wedstrijd niet als gemist — hij voetbalde
+          immers wel, alleen niet hier.</li>
+        <li>Komt er iemand <b>bij</b> — een laatkomer, of iemand die van dat tweede veld komt
+          bijspringen? Onderaan het tabblad <b>Opstelling</b> staat <b>'Speler bijzetten'</b>. Kies
+          hem uit je ploeg (of voeg hem toe als losse speler); hij komt op de <b>bank</b> en je brengt
+          hem in met een gewone wissel. Zijn speeltijd start pas wanneer hij effectief het veld op
+          gaat, en bij zijn naam komt <b>bijgekomen</b> te staan — in de app, in het verslag en in de
+          PDF — zodat later duidelijk is waarom hij minder minuten heeft.</li>
         <li>In het tabblad <b>Opstelling</b> regel je wissels rechtstreeks op het veld: tik een
           <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee
           veldspelers</b> om ze van plaats te wisselen. Je krijgt telkens een bevestiging en het
@@ -760,6 +777,18 @@ const HANDLEIDING_PAGINAS = [
       </ol>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
       <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>
+      <div class="sec">Twee wedstrijden op hetzelfde uur</div>
+      <p>Bij de jongste reeksen speelt dezelfde ploeg vaak twee wedstrijden tegelijk, met twee groepjes
+        op twee terreinen. Dat kan gewoon: elke wedstrijd wordt apart bijgehouden, ook wanneer beide
+        toestellen met <b>hetzelfde account</b> aangemeld zijn. Op elk toestel zie je de stand van de
+        andere wedstrijd meelopen, en de speelminuten van beide tellen bij dezelfde spelers op.</p>
+      <p>Eén toestel per wedstrijd is wel de regel: laat twee mensen nooit dezelfde wedstrijd bedienen.
+        En sluit elke wedstrijd af zodra ze gedaan is — een wedstrijd die blijft openstaan, laat haar
+        klok doorlopen en geeft die spelers veel te veel minuten.</p>
+      <p class="hdl-tip">Start je de tweede wedstrijd terwijl de eerste loopt, dan zegt de app niets —
+        tenzij er iets fout dreigt te gaan: de andere wedstrijd staat al veel te lang open, of er
+        staan spelers in beide selecties. In dat laatste geval krijg je hun namen te zien, want die
+        zouden op twee klokken tegelijk speeltijd krijgen.</p>
     `
   },
   {
@@ -778,7 +807,7 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip"><b>'Posities herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
       <div class="sec">Wat staat er in het verslag?</div>
       <ul class="hdl-list">
-        <li><b>Selectie</b> in vier groepen: wie in de selectie zat, wie <b>niet beschikbaar</b> was (met de reden erbij), wie <b>geselecteerd was maar niet aanwezig</b>, en wie <b>niet geselecteerd</b> was.</li>
+        <li><b>Selectie</b> in vier groepen: wie in de selectie zat, wie <b>niet beschikbaar</b> was (met de reden erbij), wie <b>geselecteerd was maar niet aanwezig</b>, en wie <b>niet geselecteerd</b> was. Kwam iemand pas tijdens de wedstrijd bij de selectie, dan staat <b>bijgekomen</b> achter zijn naam; vertrok hij naar een ander veld, dan staat er <b>speelt elders</b>.</li>
         <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de start. Onder elk veld staat de bank van dat deel; bij een speler die gewisseld werd staat zijn vervanger met een wisselicoon, en gele of rode kaarten staan als kaartje achter zijn naam.</li>
         <li><b>Tussenstand per deel</b>, wedstrijdstatistieken, keeperminuten, een spelerstabel met speelminuten per deel, en de volledige tijdlijn.</li>
       </ul>

@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.35.1
+- **De handleiding kent de nieuwe mogelijkheden.** Bij "Live wedstrijd bijhouden" staat nu hoe je een
+  speler bijzet en wat "Vertrokken" doet, plus een stuk over twee wedstrijden van dezelfde ploeg op
+  hetzelfde uur — dat het gewoon kan, ook met hetzelfde account op twee toestellen, en wanneer de app
+  wél waarschuwt. Bij "Selectie & opstelling" staat er eindelijk bij dat een formatie een voorstel is:
+  de bijhorende plekken worden groter getekend, maar je mag iedereen overal zetten, en een andere
+  formatie verhuist niemand. En bij het wedstrijdverslag dat "bijgekomen" of "speelt elders" achter
+  een naam kan staan.
+- De screenshots in de handleiding tonen de knop "Speler bijzetten" nog niet.
+
 ## v0.35.0
 - **Je kan nu een speler bijzetten terwijl de wedstrijd loopt.** Tot nu lag de selectie vast vanaf het
   startsignaal: een laatkomer, of iemand die vanaf een tweede veld komt bijspringen, was niet te
