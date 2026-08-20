@@ -99,16 +99,25 @@ const FORMATIE_NUMMERS = {
     'Driehoek 2-1': { LCV: 5, RCV: 2, CA: 9 },
   },
   '5v5': {
-    'Ruit (1-2-1)':   { GK: 1, CV: 3, LM: 11, RM: 7, CA: 9 },
+    // De twee middenvelders staan op de HALVE kolommen en niet uiterst links/rechts: zo dicht bij de
+    // zijlijn stonden ze verder uit elkaar dan de formatie ze tekent, en op een 5v5-veld verlies je
+    // dan de verbinding tussen de vier veldspelers. De nummers 11 en 7 blijven bij die plekken horen.
+    'Ruit (1-2-1)':   { GK: 1, CV: 3, LCM: 11, RCM: 7, CA: 9 },
     'Vierkant (2-2)': { GK: 1, LCV: 5, RCV: 2, LCA: 10, RCA: 9 },
   },
   '8v8': {
     'Dubbele ruit': { GK: 1, LV: 5, CV: 3, RV: 2, LM: 11, CVM: 10, RM: 7, CAM: 9 },
-    '3-3-1':        { GK: 1, LV: 5, CV: 3, RV: 2, LM: 11, CVM: 10, RM: 7, CAM: 9 },
+    // Een ruit heeft geen vlakke lijnen: de centrale middenvelder zakt weg (CVM) en er staat een punt
+    // tussen middenveld en aanval (CAM). Precies dáárin verschilt hij van de 3-3-1 hieronder, die wél
+    // twee vlakke rijen van drie heeft. Tot v0.35.0 stonden beide op exact dezelfde acht plekken,
+    // waardoor ze op het veld niet uit elkaar te houden waren: dezelfde shirts lichtten op.
+    '3-3-1':        { GK: 1, LV: 5, CV: 3, RV: 2, LM: 11, CM: 10, RM: 7, CA: 9 },
     // LM en RM houden 11 en 7 zoals in de ruit — zelfde plek, zelfde nummer, dat is rustiger voor de
     // spelers. De twee voorsten worden het klassieke spitsenduo 9 en 10, en CVM schuift van 10 naar 6:
     // in de ruit is hij de spelmaker, hier met twee spitsen de controleur.
-    '2-3-2':        { GK: 1, LV: 5, RV: 2, LM: 11, CVM: 6, RM: 7, LW: 10, RW: 9 },
+    // Dat spitsenduo staat centraal vooraan (LCA/RCA) en niet op de vleugelplekken LW/RW: de formatie
+    // tekent ze op de aanvalslijn dicht bij elkaar, en LW/RW liggen een rij lager tegen de zijlijn.
+    '2-3-2':        { GK: 1, LV: 5, RV: 2, LM: 11, CVM: 6, RM: 7, LCA: 10, RCA: 9 },
   },
   '11v11': {
     '1-4-3-3':   { GK: 1, LV: 5, LCV: 3, RCV: 4, RV: 2, CVM: 6, CM: 8, CAM: 10, LW: 11, CA: 9, RW: 7 },

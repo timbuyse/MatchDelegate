@@ -22,6 +22,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   gespeelde minuten blijven staan en je kan meteen iemand inbrengen — maar het heet geen blessure
   meer. Voor wie nog niet speelde: hij komt onder "Niet aanwezig" te staan met de reden "speelt
   elders", en die wedstrijd telt niet als gemist in zijn aanwezigheidscijfer.
+- **De 8v8-formaties "Dubbele ruit" en "3-3-1" lichtten exact dezelfde shirts op**, zodat ze op het
+  veld niet uit elkaar te houden waren. De 3-3-1 heeft nu wat hij hoort te hebben: een vlakke rij van
+  drie op het middenveld en een echte spits, waar de ruit een diepe middenvelder en een punt houdt.
+  Bij de 2-3-2 staan de twee spitsen nu centraal vooraan in plaats van op de vleugels, zoals de
+  formatie ze ook tekent. En bij de 5v5-ruit staan de twee middenvelders niet langer pal tegen de
+  zijlijn maar wat naar binnen. Alle rugnummers blijven dezelfde, en geen enkele bewaarde opstelling
+  verschuift: dit bepaalt alleen welke plekken de app als voorstel aanduidt.
 - **Twee wedstrijden van dezelfde ploeg tegelijk starten geeft geen waarschuwing meer.** Bij de
   jongste reeksen is dat de normale gang van zaken: twee groepjes, twee locaties, hetzelfde uur. De
   waarschuwing komt nu alleen nog wanneer er echt iets misloopt — de andere wedstrijd staat vergeten
