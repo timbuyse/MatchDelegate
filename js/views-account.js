@@ -2310,6 +2310,9 @@ const views = {
   stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="go(_playerDetailFrom||'stats')">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playertransfer: renderPlayerTransfer,
+  // Wordt bij de aanroep opgelost, niet bij het laden: renderImportCal woont in import-cal.js, dat
+  // ná dit bestand geladen wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
+  importcal: () => renderImportCal(),
 };
 let homeFilter = 'all';
 function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }
@@ -2647,8 +2650,12 @@ async function loadMatches() {
   const all = (await dbAll()).filter(m => !m.tournamentId);
   const el = document.getElementById('matches-content');
   if (!el) return;
+  // Ook zonder één wedstrijd horen de twee aanmaakknoppen hier te staan: wie met een lege app
+  // begint, is net degene die zijn hele kalender in één keer wil inlezen.
+  const maakBtns = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>
+    <button class="btn btn-orgpale" onclick="impStart()" style="margin-bottom:12px">${icI(IC.upload)} Kalender importeren</button>` : '';
   if (!all.length) {
-    el.innerHTML = `<div class="empty"><div class="ei">${IC.ball}</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b>.</p></div>`;
+    el.innerHTML = maakBtns + `<div class="empty"><div class="ei">${IC.ball}</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b> — of lees de kalender van je reeks in.</p></div>`;
     return;
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
@@ -2673,7 +2680,7 @@ async function loadMatches() {
     ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done) + sec(`${icI(IC.close)} Geannuleerde wedstrijden`, afgelast)
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
-  const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:12px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  const newBtn = maakBtns;
   // Twee kijken op dezelfde wedstrijden. De zoekbalk hoort bij de lijst: in de kalender zoek je op
   // datum, niet op naam.
   const schakelaar = `<div class="cal-switch">

@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.36.0
+- **De kalender van je reeks komt er nu in één keer in.** Bij "Wedstrijden" staat een tweede knop,
+  *Kalender importeren*. Je geeft het agendabestand (`.ics`) dat Foot24 bij je reeks aanbiedt, of een
+  tabel (`.xlsx`/`.csv`), en je krijgt de hele lijst te zien met vinkjes: datum, uur, tegenstander,
+  thuis of uit en het adres van het terrein. Wat je aanvinkt, komt als geplande wedstrijd binnen.
+  Format, aantal blokken, blokduur en soort staan in geen enkele kalender, dus die kies je één keer
+  bovenaan voor alles wat je nu inleest.
+- **Wat er al staat, wordt niet stil overschreven.** Een wedstrijd die de app al kent, draagt
+  "Staat er al" en is niet aangevinkt. Vink je ze toch aan, dan worden enkel tegenstander, datum,
+  uur, thuis/uit en plaats bijgewerkt — selectie, opstelling, plan, gebeurtenissen en notities
+  blijven staan. Dat maakt een verschoven kalender een kwestie van opnieuw inlezen.
+- **Korte en officiële clubnamen worden aan elkaar geknoopt.** Foot24 schrijft "SPORTKRING
+  ROESELARE" waar jij "SK Roeselare" intikte; de app ziet dat het om dezelfde wedstrijd gaat en zegt
+  onder welke naam ze al bestaat. Staat er die dag een wedstrijd die er niet bij past, dan is het een
+  waarschuwing en geen dubbel — de regel blijft aangevinkt, jij beslist.
+- **Een A- en een B-ploeg blijven van elkaar gescheiden.** Speelt jouw ploeg in twee delen, dan staan
+  er op dezelfde dag twee wedstrijden, en het ploeg-label bepaalt welke van de twee bij de kalender
+  hoort die je inleest. Dat label stelt de app zelf voor uit de reeksnaam in het bestand ("U11 A" →
+  label A); voor de kalender van de andere ploeg wijzig je dat ene veld. Staat de wedstrijd van die
+  dag onder het ándere label, dan zegt de waarschuwing dat er ook al "Olsa Brakel (B)" staat — zo zie
+  je meteen of er iets verkeerd gelabeld is in plaats van een dubbel te krijgen.
+- Reclame die zo'n agenda meesleept, valt weg: van de 33 items in een echte Foot24-kalender zijn er
+  16 wedstrijden, de rest zijn aankondigingen. Alleen wat "eigen ploeg – tegenstander" is, komt in de
+  lijst.
+- Onder de motorkap: geen extra bibliotheek in de app. Een `.xlsx` is een zipbestand, en dat pakt de
+  browser zelf uit — inclusief het uitlezen van de opmaakcodes, zodat een Excel-datum geen kaal
+  getal wordt. Nieuw bestand `js/import-cal.js` (achtste script).
+- De schermafbeeldingen in de handleiding tonen dit scherm nog niet; de tekst wel.
+
 ## v0.35.1
 - **De handleiding kent de nieuwe mogelijkheden.** Bij "Live wedstrijd bijhouden" staat nu hoe je een
   speler bijzet en wat "Vertrokken" doet, plus een stuk over twee wedstrijden van dezelfde ploeg op

@@ -639,6 +639,26 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
+    titel: 'Kalender importeren',
+    inhoud: `
+      <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>.</p>
+      <div class="sec">Welk bestand?</div>
+      <ul class="hdl-list">
+        <li>Een <b>agenda</b> (<b>.ics</b>) — op Foot24 staat bij je reeks een knop om de kalender als agenda te downloaden. Dit is de gemakkelijkste weg: de app haalt er zelf datum, uur, tegenstander, thuis of uit en het adres van het terrein uit.</li>
+        <li>Een <b>tabel</b> (<b>.xlsx</b> of <b>.csv</b>) — bijvoorbeeld een kalender die je club zelf rondstuurt. Foot24 biedt enkel de agenda aan, dus hiervoor heb je een andere bron nodig. De app raadt zelf welke kolom de datum, het uur en de tegenstander bevat; onder <b>'Kolommen van het bestand'</b> zet je dat recht als ze het verkeerd voorstelt.</li>
+      </ul>
+      <div class="sec">Voor je importeert</div>
+      <ul class="hdl-list">
+        <li>Bovenaan kies je één keer de <b>ploeg</b>, het <b>format</b>, het <b>aantal blokken</b>, de <b>blokduur</b> en de <b>soort</b>. Die staan in geen enkele kalender, dus ze gelden voor alles wat je nu inleest — per wedstrijd blijven ze nadien aanpasbaar.</li>
+        <li>Speelt je ploeg in twee delen (A en B), dan hoort daar een <b>ploeg-label</b> bij. De app leest dat uit de reeksnaam in het bestand ('U11 A' wordt label <b>A</b>). Lees je daarna de kalender van de andere ploeg in, wijzig dan enkel dat veld — zo blijven de twee wedstrijden van dezelfde dag netjes gescheiden.</li>
+        <li>In de lijst vink je aan wat erbij mag. Tik op het bolletje <b>Thuis</b> of <b>Uit</b> om dat om te zetten als het bestand het verkeerd heeft.</li>
+        <li>Wedstrijden die al in de app staan, dragen <b>'Staat er al'</b> en zijn <b>niet</b> aangevinkt. Vink je er toch een aan, dan worden alleen de tegenstander, de datum, het uur, thuis/uit en de plaats bijgewerkt — je selectie, je opstelling en je plan blijven staan. Handig bij een verschoven kalender.</li>
+      </ul>
+      <p class="hdl-tip">Een bondssite schrijft clubnamen voluit ('SPORTKRING ROESELARE') waar jij ze kort intikte ('SK Roeselare'). De app herkent dat als dezelfde wedstrijd en zet dat erbij. Past er die dag geen enkele wedstrijd bij, maar staat er wel één, dan krijg je een waarschuwing ('Ook Olsa Brakel (B) op deze dag') en blijft de regel aangevinkt — jij beslist.</p>
+      <p>Er wordt niets bewaard tot je onderaan op de groene knop tikt. Reclame en aankondigingen die in zo'n agenda meekomen, laat de app zelf vallen.</p>
+    `
+  },
+  {
     titel: 'Selectie & opstelling',
     img: 'handleiding/screenshots/07_selectie.png',
     img2: 'handleiding/screenshots/08_opstelling.png',
