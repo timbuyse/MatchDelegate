@@ -387,6 +387,14 @@ function showAppointClubAdmin(cid) {
     <button class="btn btn-green" onclick="doAppointClubAdmin('${cid}')">Aanstellen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+// Een aanstelling op e-mailadres mag enkel naar iemand die dat adres bewezen heeft. Zonder deze
+// controle kon iemand zich registreren met het adres van de TVJO en de aanstelling opvangen die
+// voor de TVJO bedoeld was. De index wordt bij elke aanmelding herschreven, dus een oude entry
+// zonder `verified`-veld hoort hier ook bij "nog niet bevestigd" — vandaar de tweede zin.
+function emailBevestigd(entry) { return !!(entry && entry.verified); }
+const NIET_BEVESTIGD_MSG = 'Dit e-mailadres is nog niet bevestigd. Vraag de persoon om de link in de '
+  + 'bevestigingsmail aan te klikken en daarna de app opnieuw te openen. Staat die mail er niet meer, '
+  + 'dan kan hij een nieuwe versturen via Instellingen → Account.';
 async function doAppointClubAdmin(cid) {
   if (!isOwner || !fbdb) return;
   const email = ((document.getElementById('appoint-email') || {}).value || '').trim().toLowerCase();
@@ -398,6 +406,7 @@ async function doAppointClubAdmin(cid) {
     const idx = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
     const uid = Object.keys(idx).find(u => ((idx[u] && idx[u].email) || '').toLowerCase() === email);
     if (!uid) { if (err) err.textContent = 'Geen account met dat e-mailadres gevonden. Vraag de persoon eerst één keer in te loggen.'; return; }
+    if (!emailBevestigd(idx[uid])) { if (err) err.innerHTML = NIET_BEVESTIGD_MSG; return; }
     await fbdb.ref('clubs/' + cid + '/admins/' + uid).set(true);
     await fbdb.ref('users/' + uid + '/clubs/' + cid).set('admin');
     closeModal(); loadClubsAdminView();
@@ -459,6 +468,7 @@ async function doAppointTeamAdmin(tid) {
     const idx = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
     const uid = Object.keys(idx).find(u => ((idx[u] && idx[u].email) || '').toLowerCase() === email);
     if (!uid) { if (err) err.textContent = 'Geen account met dat e-mailadres gevonden. Vraag de persoon eerst één keer in te loggen.'; return; }
+    if (!emailBevestigd(idx[uid])) { if (err) err.innerHTML = NIET_BEVESTIGD_MSG; return; }
     await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
     await fbdb.ref('users/' + uid + '/teams/' + tid).set('admin');
     closeModal();
@@ -1164,7 +1174,15 @@ async function authDoRegister() {
     const cred = await fbauth.createUserWithEmailAndPassword(email, pwd);
     await cred.user.updateProfile({ displayName: name.trim() });
     await fbdb.ref('users/' + cred.user.uid).set({ email, displayName: name.trim(), createdAt: Date.now() });
-    if (err) err.textContent = '✓ Account aangemaakt!';
+    // Bevestigingsmail. Bewust géén blokkade: het account werkt meteen, ook vóór de link
+    // aangeklikt is. De bevestiging telt waar ze moet tellen — bij het aanstellen van een
+    // club- of ploegbeheerder op e-mailadres. Mislukt het versturen (bv. te veel pogingen),
+    // dan bestaat het account nog altijd; de herinnering in Instellingen vangt dat op.
+    let mailOk = true;
+    try { await cred.user.sendEmailVerification(); } catch (e) { mailOk = false; }
+    if (err) err.textContent = mailOk
+      ? '✓ Account aangemaakt! We stuurden een bevestigingsmail naar ' + email + ' — kijk ook in je spammap.'
+      : '✓ Account aangemaakt! De bevestigingsmail kon niet verstuurd worden; dat kan later via Instellingen.';
   } catch (e) { if (err) err.textContent = authErrMsg(e.code); }
 }
 
@@ -2302,8 +2320,8 @@ const views = {
     return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.calendar)} Agenda</h1></div>
       <div class="content" id="agenda-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
-  setup: () => renderSettings(true),
-  settings: () => renderSettings(false),
+  setup: () => { refreshEmailVerified(); return renderSettings(true); },
+  settings: () => { refreshEmailVerified(); return renderSettings(false); },
   handleiding: () => renderHandleiding(0),
   live: () => renderLive(),
   detail: () => renderDetail(),

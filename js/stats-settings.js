@@ -452,6 +452,11 @@ function renderSettings(isFirst) {
     <div class="card">
       <p style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(currentUser.displayName || (isGuest ? 'Gast' : currentUser.email))}</p>
       <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${isGuest ? 'Je kijkt mee als gast, zonder eigen account.' : esc(currentUser.email)}</p>
+      ${(!isGuest && currentUser.email && !currentUser.emailVerified) ? `
+      <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px;text-align:left">
+        ${icI(IC.warn)} <b>E-mailadres nog niet bevestigd.</b> Klik de link in de mail die we je stuurden.
+        Zonder bevestiging kan je niet als club- of ploegbeheerder aangesteld worden.</div>
+      <button class="btn btn-pale" style="margin-bottom:8px" onclick="resendVerification(this)">${icI(IC.mail)} Bevestigingsmail opnieuw sturen</button>` : ''}
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
       ${isGuest ? '' : `
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">${icI(IC.mail)} E-mailadres wijzigen</button>
@@ -476,6 +481,37 @@ function renderSettings(isFirst) {
   </div>`;
 }
 
+// Bevestigingsmail opnieuw versturen. Knop wordt meteen uitgeschakeld: Firebase knijpt herhaalde
+// aanvragen af, en twee tikken zou enkel een tweede mail-die-niet-komt opleveren.
+async function resendVerification(btn) {
+  if (!currentUser || currentUser.isAnonymous) return;
+  const zet = (tekst, uit) => { if (!btn) return; btn.disabled = uit; btn.style.opacity = uit ? '.6' : ''; btn.innerHTML = icI(IC.mail) + ' ' + tekst; };
+  zet('Bezig...', true);
+  try {
+    await currentUser.sendEmailVerification();
+    showToast('Bevestigingsmail verstuurd naar ' + currentUser.email + '. Kijk ook in je spammap.', 'ok');
+    zet('Mail verstuurd', true);
+  } catch (e) {
+    showToast(e && e.code === 'auth/too-many-requests'
+      ? 'Er is er net al één verstuurd. Wacht even en kijk in je spammap.'
+      : 'Versturen mislukt. Probeer het later opnieuw.', 'err');
+    zet('Bevestigingsmail opnieuw sturen', false);
+  }
+}
+// Of een adres bevestigd is, zit in het token dat de app bij het aanmelden kreeg — klikt iemand de
+// link aan in zijn mailprogramma, dan weet deze app dat pas na een verversing. Daarom bij het openen
+// van Instellingen één keer navragen: staat het nu wél bevestigd, dan verdwijnt de herinnering en
+// wordt de e-mailindex bijgewerkt, zodat een aanstelling meteen kan.
+async function refreshEmailVerified() {
+  if (!currentUser || currentUser.isAnonymous || currentUser.emailVerified) return;
+  try {
+    await currentUser.reload();
+    if (currentUser.emailVerified) {
+      writeUserEmailIndex(currentUser);
+      if (view === 'settings' || view === 'setup') render();
+    }
+  } catch (e) {}
+}
 function showPrivacyModal() {
   openModal(`<h3>${icI(IC.shieldLock)} Privacyverklaring</h3>
     <div style="font-size:13px;color:var(--txt2);line-height:1.7;text-align:left;max-height:60vh;overflow-y:auto;padding-right:4px">
@@ -543,6 +579,10 @@ const HANDLEIDING_PAGINAS = [
         <li>Vul je <b>e-mailadres</b> en een <b>wachtwoord</b> in.</li>
         <li>Tik op <b>'Registreren'</b>.</li>
         <li>Je bent meteen aangemeld.</li>
+        <li>Je krijgt een <b>bevestigingsmail</b>: klik die link één keer aan. De app werkt ook zonder,
+          maar zolang je adres niet bevestigd is, kan je niet als ploeg- of clubbeheerder aangesteld
+          worden. Mail niet gevonden? Kijk in je spammap, of stuur ze opnieuw via
+          <b>Instellingen → Account</b>.</li>
       </ol>
       <div class="sec">Aanmelden</div>
       <ol class="hdl-list">

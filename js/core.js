@@ -1,6 +1,6 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.36.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
-const FEEDBACK_EMAIL = 'buysesorgeloos@gmail.com';
+const APP_VERSION = '0.37.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
   '5v5':  { field: 5,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
@@ -1124,6 +1124,18 @@ async function initMaintenanceWatch() {
     });
   });
 }
+// E-mail->uid index van de ingelogde gebruiker bijwerken. `verified` mág niet liegen: de rules
+// dwingen af dat het exact overeenkomt met wat Firebase zelf over dit account weet. Dat is wat
+// een aanstelling beschermt — je stelt een club-/ploegbeheerder aan OP e-mailadres, en zonder die
+// controle kon iemand zich registreren met het adres van een ander en zo diens aanstelling opvangen.
+function writeUserEmailIndex(user) {
+  if (!fbdb || !user || !user.email) return;
+  try {
+    fbdb.ref('usersByEmail/' + user.uid).set({
+      email: user.email, name: user.displayName || '', verified: !!user.emailVerified
+    });
+  } catch (e) {}
+}
 async function onAuthChanged(user) {
   if (window._hideSplash) window._hideSplash();
   currentUser = user;
@@ -1164,7 +1176,7 @@ async function onAuthChanged(user) {
   // E-mail->uid index van zichzelf wegschrijven (fase 3) zodat de app-eigenaar deze persoon later
   // op e-mailadres als clubbeheerder kan aanstellen, ook als hij (nog) geen ploeg vervoegd heeft.
   // Fire-and-forget; de rules laten enkel je eigen entry met je eigen e-mailadres toe.
-  if (user.email) { try { fbdb.ref('usersByEmail/' + user.uid).set({ email: user.email, name: user.displayName || '' }); } catch (e) {} }
+  writeUserEmailIndex(user);
   // Ingelogd → laad eigenaar-status + ploegen van deze gebruiker
   await loadOwnerStatus(user);
   // Maintenance-listener pas hier registreren: gebruiker is nu authenticated,

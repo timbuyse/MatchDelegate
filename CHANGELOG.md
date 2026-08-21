@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.0
+- **Een nieuw account krijgt een bevestigingsmail.** Wie zich registreert, krijgt een mail met een link.
+  Aanmelden werkt meteen, ook vóór die link aangeklikt is — je staat nooit stil aan de zijlijn omdat een
+  mail nog in een spammap ligt.
+- **Bevestigen telt waar het moet tellen: bij het aanstellen van een beheerder.** Een clubbeheerder of
+  ploegbeheerder stel je aan door zijn e-mailadres in te tikken. Registreren met het adres van iemand
+  anders kon tot nu, en zo kon je andermans aanstelling opvangen. Nu lukt een aanstelling enkel naar een
+  bevestigd adres, en zegt de app ook dát — niet langer "geen account gevonden", maar "dit e-mailadres is
+  nog niet bevestigd". Die controle zit ook in de databankregels, niet enkel in het scherm.
+- **Nog niet bevestigd? Dat staat in Instellingen → Account**, met een knop om de mail opnieuw te sturen.
+  Klik je de link aan en open je de app opnieuw, dan verdwijnt de herinnering vanzelf.
+- De handleiding vermeldt de bevestigingsmail bij "Account aanmaken".
+- **Bestaande beheerders moeten niets doen.** Wie vandaag ploeg- of clubbeheerder is, blijft dat, en ook
+  een uitnodigingslink of code werkt onveranderd. De controle geldt enkel op het moment dat iemand nieuw
+  aangesteld wordt door zijn e-mailadres in te tikken.
+- **Contactadres is nu `info@matchdelegate.be`** in plaats van een privé-gmailadres — bij "Probleem
+  melden", in de privacyverklaring en in het foutmeldingsvenster.
+
 ## v0.36.1
 - **"Doelpunt" in plaats van "Goal".** In het verslag, de tijdlijn en het deelbericht stond bij een
   eigen doelpunt *"Goal Mats Keppens"* en bij de tegenpartij *"Doelpunt KVV Beukenhof"*. Nu staat er

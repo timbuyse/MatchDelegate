@@ -191,10 +191,17 @@
       // de volledige index. Elke gebruiker schrijft ENKEL zijn eigen entry, en enkel met zijn
       // eigen (door Firebase geverifieerde) e-mailadres — zo kan niemand andermans e-mail claimen.
       // Zelf verwijderen (bij accountverwijdering) mag ook.
+      //
+      // `verified` moet exact overeenkomen met email_verified in het token: registreren met een
+      // e-mailadres kan iedereen (Firebase controleert dat niet), maar de app stelt een club- of
+      // ploegbeheerder aan OP e-mailadres en gebruikt deze index om dat adres bij een account te
+      // brengen. Zonder deze clausule kon iemand zich met het adres van een ander registreren,
+      // zich hier als bevestigd voordoen en zo diens aanstelling opvangen. Het scherm controleert
+      // het ook, maar dat alleen is niets waard — dit is de laag die het echt dichthoudt.
       ".read": "auth != null && root.child('owner').val() === auth.uid",
       "$uid": {
         ".read":  "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.child('email').val() === auth.token.email)"
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (newData.child('email').val() === auth.token.email && newData.child('verified').val() === auth.token.email_verified))"
       }
     },
 
