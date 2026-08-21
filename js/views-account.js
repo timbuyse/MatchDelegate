@@ -1178,11 +1178,25 @@ async function authDoRegister() {
     // aangeklikt is. De bevestiging telt waar ze moet tellen — bij het aanstellen van een
     // club- of ploegbeheerder op e-mailadres. Mislukt het versturen (bv. te veel pogingen),
     // dan bestaat het account nog altijd; de herinnering in Instellingen vangt dat op.
-    let mailOk = true;
-    try { await cred.user.sendEmailVerification(); } catch (e) { mailOk = false; }
-    if (err) err.textContent = mailOk
-      ? '✓ Account aangemaakt! We stuurden een bevestigingsmail naar ' + email + ' — kijk ook in je spammap.'
-      : '✓ Account aangemaakt! De bevestigingsmail kon niet verstuurd worden; dat kan later via Instellingen.';
+    // In een venster en niet op het formulier: een nieuw account heeft nog geen ploegen, dus
+    // onAuthChanged springt meteen naar het ploegkeuzescherm en het formulier (met #reg-err) is
+    // dan al verdwenen. Een toast is er na drie tellen ook weer af. Een venster blijft staan tot
+    // de gebruiker het wegklikt, en go() ruimt modals niet op.
+    let mailFout = null;
+    try { await cred.user.sendEmailVerification(); } catch (e) { mailFout = (e && e.code) || 'onbekend'; }
+    if (err) err.textContent = '✓ Account aangemaakt!';
+    openModal(mailFout === null
+      ? `<h3>${icI(IC.mail)} Bevestig je e-mailadres</h3>
+         <p style="font-size:13px;color:var(--txt2);line-height:1.6;margin-bottom:14px">We stuurden een mail naar
+         <b style="color:var(--txt)">${esc(email)}</b>. Klik die link één keer aan — kijk ook in je spammap.<br><br>
+         Je kan de app meteen gebruiken. Zolang je adres niet bevestigd is, kan je alleen niet als ploeg- of
+         clubbeheerder aangesteld worden. Je kan de mail later opnieuw versturen via Instellingen → Account.</p>
+         <button class="btn btn-org" onclick="closeModal()">Begrepen</button>`
+      : `<h3>${icI(IC.warn)} Account aangemaakt, mail niet verstuurd</h3>
+         <p style="font-size:13px;color:var(--txt2);line-height:1.6;margin-bottom:14px">Je account bestaat en je bent
+         aangemeld, maar de bevestigingsmail kon niet verstuurd worden. Probeer het later opnieuw via
+         Instellingen → Account.</p>
+         <button class="btn btn-org" onclick="closeModal()">Sluiten</button>`);
   } catch (e) { if (err) err.textContent = authErrMsg(e.code); }
 }
 

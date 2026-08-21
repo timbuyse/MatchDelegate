@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.1
+- **Na het registreren zegt de app nu écht dat er een mail onderweg is.** In v0.37.0 stond die boodschap
+  op het aanmeldformulier, maar een nieuw account heeft nog geen ploeg, dus springt de app onmiddellijk
+  naar het ploegkeuzescherm — het formulier met die tekst was dan al weg en niemand zag ze ooit. Nu komt
+  er een venster dat blijft staan tot je het wegklikt, met het adres erin en de tip om in de spammap te
+  kijken. Lukt het versturen niet, dan zegt het venster dat ook, in plaats van te zwijgen.
+
 ## v0.37.0
 - **Een nieuw account krijgt een bevestigingsmail.** Wie zich registreert, krijgt een mail met een link.
   Aanmelden werkt meteen, ook vóór die link aangeklikt is — je staat nooit stil aan de zijlijn omdat een
