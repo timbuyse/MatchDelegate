@@ -1057,7 +1057,7 @@ function genInviteToken() {
   return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 // ---- Ploeg aanmaken ----
-async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation) {
+async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation, defaultPeriodKey, defaultQuarterDuration) {
   if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt ploegbeheerder (lid)
   if (!currentUser || !fbdb) return;
   name = (name || '').trim(); if (!name) return;
@@ -1065,6 +1065,10 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
   const dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
   const dForms = FORMATIONS[dMatchType] || [];
   const dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
+  // Aantal blokken + blokduur horen ook bij de ploeg (sinds v0.45.0). Ongeldig of niets meegegeven:
+  // 4 kwarten van 15, precies wat er vroeger vast in de wizard stond.
+  const dPeriodKey = PERIOD_TYPES[defaultPeriodKey] ? defaultPeriodKey : 'kwarten';
+  const dDur = Number(defaultQuarterDuration) > 0 ? Number(defaultQuarterDuration) : (DUR_DEFAULT[dPeriodKey] || 15);
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = genInviteToken();
@@ -1087,7 +1091,7 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // niet (puur via zijn clubrol). Bij niet-lid blijft members leeg tot een trainer aangesteld wordt.
     members: joinAsMember ? { [uid]: 'admin' } : {},
     club: { name, logo: '', theme: null },
-    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, fromCloud: true } }
+    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, defaultPeriodKey: dPeriodKey, defaultQuarterDuration: dDur, fromCloud: true } }
   });
   // Registreer de ploeg in de club-index. Faalt dit stil én is de maker geen lid (joinAsMember
   // uit), dan zou de ploeg nergens zichtbaar zijn — meld het dan minstens.
@@ -1716,7 +1720,11 @@ function showCreateTeamModal(clubId) {
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>
     <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS['8v8'].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
-    <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Staat klaar bij een nieuwe wedstrijd; je kan het per wedstrijd nog aanpassen en later wijzigen bij "Ploeg bewerken".</p>
+    <div class="fg"><label>Standaard aantal blokken</label><select id="ct-pk" onchange="ctPeriodChange()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k==='kwarten'?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard duur per blok</label>
+      <select id="ct-dur" onchange="onDurChange('ct-dur','ct-dur-custom')">${durOptsHtml('kwarten', DUR_DEFAULT['kwarten'])}</select>
+      <input id="ct-dur-custom" type="number" min="1" max="60" inputmode="numeric" placeholder="minuten per blok" style="display:none;margin-top:6px"></div>
+    <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen en later wijzigen bij "Ploeg bewerken".</p>
     ${joinRow}
     <div class="auth-err" id="ct-err"></div>
     <button class="btn btn-org" id="ct-btn" onclick="doCreateTeam()">Aanmaken</button>
@@ -1728,6 +1736,13 @@ function ctFormatChange() {
   const mt = (document.getElementById('ct-mt') || {}).value || '8v8';
   const sel = document.getElementById('ct-form'); if (!sel) return;
   sel.innerHTML = (FORMATIONS[mt] || []).map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');
+}
+// Idem voor de duurtijden: welke er te kiezen zijn, hangt af van het aantal blokken.
+function ctPeriodChange() {
+  const pk = (document.getElementById('ct-pk') || {}).value || 'kwarten';
+  const sel = document.getElementById('ct-dur'); if (!sel) return;
+  sel.innerHTML = durOptsHtml(pk, DUR_DEFAULT[pk]);
+  const inp = document.getElementById('ct-dur-custom'); if (inp) inp.style.display = 'none';
 }
 async function doCreateTeam() {
   const name = (document.getElementById('new-team-name') || {}).value || '';
@@ -1741,7 +1756,9 @@ async function doCreateTeam() {
   const dMatchType = (document.getElementById('ct-mt') || {}).value || '8v8';
   const dFormation = (document.getElementById('ct-form') || {}).value || '';
   try {
-    await createTeam(name, _pendingCreateClubId, joinAsMember, dMatchType, dFormation);
+    await createTeam(name, _pendingCreateClubId, joinAsMember, dMatchType, dFormation,
+      (document.getElementById('ct-pk') || {}).value || 'kwarten',
+      readDur('ct-dur', 'ct-dur-custom', 0));
     _pendingCreateClubId = null;
     closeModal();
   } catch (e) {
@@ -2714,8 +2731,11 @@ async function loadHome() {
   const playerCount = rosters.reduce((n, t) => n + ((t.players || []).length), 0);
   const trnCount = getTournaments().length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
+  // De tegel heet "Ploeg" en niet "Spelers": erachter zitten ook de trainers, de ploegverantwoordelijken
+  // en de standaardinstellingen voor een nieuwe wedstrijd. Het getal eronder blijft wél het aantal
+  // spelers — dat is de nuttigste teller om vanaf het startscherm te zien.
   const teamTile = cloudReady
-    ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Spelers</span><span class="tc">${rosterReady() ? `${playerCount} ${playerCount===1?'speler':'spelers'}` : 'laden…'}</span></button>`
+    ? `<button class="tile" onclick="openSquad()"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Ploeg</span><span class="tc">${rosterReady() ? `${playerCount} ${playerCount===1?'speler':'spelers'}` : 'laden…'}</span></button>`
     : `<button class="tile" onclick="go('teams')"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span><span class="tl">Ploegen</span><span class="tc">${teamCount} ${teamCount===1?'ploeg':'ploegen'}</span></button>`;
   const teams = [...new Set(looseMatches.map(m => m.teamName).filter(Boolean))].sort();
   // In de cloud kan de lokale cache (tijdelijk, of na een teamwissel) wedstrijden van een
@@ -3162,7 +3182,12 @@ async function bulkVoerUit(waardeTxt) {
   const alle = await dbAll();
   const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
     .filter(m => String(m[v.key] == null ? '' : m[v.key]) !== String(waarde));
-  const undo = { veld: v.key, label: v.label, when: Date.now(), entries: [] };
+  // De ploeg mee in de ongedaan-maken. Zonder dit verscheen het bannertje bij élke ploeg, en zette
+  // een tik erop de oude waarden terug terwijl een ándere ploeg actief was — waarna die wedstrijden
+  // naar de cloud van díe ploeg gingen. Precies het mechanisme van het incident van 21-08-2026,
+  // door mij zelf opnieuw ingebouwd. Nu hoort een ongedaan-maken bij één ploeg.
+  const undo = { veld: v.key, label: v.label, when: Date.now(), entries: [],
+    teamId: activeTeamId || '', ploeg: (cloudReady ? (teamNames[activeTeamId] || '') : homeFilter) || '' };
   let gelukt = 0, mislukt = 0;
   for (const m of raakt) {
     const vers = await dbGet(m.id);
@@ -3182,6 +3207,11 @@ function bulkUndoBeschikbaar() {
     const u = JSON.parse(localStorage.getItem(BULK_UNDO_KEY) || 'null');
     if (!u || !u.entries || !u.entries.length) return null;
     if (Date.now() - (u.when || 0) > BULK_UNDO_GELDIG_MS) return null;
+    // Enkel bij de ploeg waar de wijziging gebeurde. In de cloud is dat de actieve ploeg-id; lokaal
+    // (zonder cloud) bestaat die niet en vergelijken we op de ploegnaam waarop de lijst filtert.
+    // Een oudere ongedaan-maken zonder ploeg-informatie is niet toe te wijzen en bieden we niet aan.
+    if (cloudReady) { if (!u.teamId || u.teamId !== activeTeamId) return null; }
+    else if (u.ploeg && homeFilter !== 'all' && u.ploeg !== homeFilter) return null;
     return u;
   } catch (e) { return null; }
 }

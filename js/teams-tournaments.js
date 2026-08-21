@@ -168,6 +168,8 @@ function renderTeamEdit() {
   const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
   const dForms = FORMATIONS[dmt] || [];
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
+  const dpk = PERIOD_TYPES[editingTeam.defaultPeriodKey] ? editingTeam.defaultPeriodKey : 'kwarten';
+  const ddur = Number(editingTeam.defaultQuarterDuration) > 0 ? Number(editingTeam.defaultQuarterDuration) : (DUR_DEFAULT[dpk] || 15);
   return `<div class="hdr"><button class="back" onclick="${editingTeam.isNew ? 'closeTeamEdit()' : 'toggleTeamEditMode()'}">‹</button><h1>Ploeg bewerken</h1></div>
   <div class="content">
     <div class="card">
@@ -180,8 +182,20 @@ function renderTeamEdit() {
     <div class="sec">Standaard voor nieuwe wedstrijden</div>
     <div class="card">
       <div class="fg"><label>Standaard wedstrijdvorm</label><select onchange="teamFormatChange(this.value)">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k===dmt?'selected':''}>${k}</option>`).join('')}</select></div>
-      <div class="fg" style="margin-bottom:0"><label>Standaard opstelling</label><select onchange="editingTeam.defaultFormation=this.value">${dForms.map(f => `<option value="${esc(f.name)}" ${f.name===dfName?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>
-      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Staat klaar bij een nieuwe wedstrijd; je kan het per wedstrijd nog aanpassen.</p>
+      <div class="fg"><label>Standaard opstelling</label><select onchange="editingTeam.defaultFormation=this.value">${dForms.map(f => `<option value="${esc(f.name)}" ${f.name===dfName?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>
+      ${/* Aantal blokken en blokduur horen hier net zo goed thuis als de vorm: een U8 speelt geen
+           4x15. Stond tot v0.45.0 vast in de wizard, waardoor je het bij élke wedstrijd van elke
+           ploeg opnieuw moest bijstellen. */ ''}
+      <div class="fg"><label>Standaard aantal blokken</label><select onchange="teamPeriodChange(this.value)">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k===dpk?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+      ${/* Zelfde keuzelijst als in de wizard, mét "Vrij...": bij delen staan enkel 15 en 20 in de
+           vaste lijst, dus zonder vrije invoer kon je 3 x 10 niet als standaard zetten terwijl dat per
+           wedstrijd wél kon. durOptsHtml/readDur komen uit wizard-prep.js — dat bestand laadt later,
+           maar deze aanroep gebeurt pas bij het tekenen, dus dat is veilig (zie CLAUDE.md). */ ''}
+      <div class="fg" style="margin-bottom:0"><label>Standaard duur per blok</label>
+        <select id="t-dur" onchange="teamDurChange()">${durOptsHtml(dpk, ddur)}</select>
+        <input id="t-dur-custom" type="number" min="1" max="60" inputmode="numeric" placeholder="minuten per blok"
+          value="${ddur}" oninput="teamDurCustom(this.value)" style="margin-top:6px;${(DURATIONS[dpk] || []).includes(ddur) ? 'display:none' : ''}"></div>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen.</p>
     </div>
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
@@ -197,7 +211,7 @@ function renderTeamEdit() {
         <button class="btn btn-pale btn-sm" onclick="teamAddPlayer()">+ Speler</button>
         <button class="btn btn-pale btn-sm" onclick="teamPasteModal()">${icI(IC.clipboard)} Lijst plakken</button>
       </div></div>
-    <button class="btn btn-green" onclick="saveTeamEdit()">${icI(IC.check)}${cloudReady ? 'Spelers opslaan' : 'Ploeg opslaan'}</button>
+    <button class="btn btn-green" onclick="saveTeamEdit()">${icI(IC.check)}Ploeg opslaan</button>
     ${(editingTeam.isNew || cloudReady) ? '' : `<div class="danger"><button class="btn btn-red" onclick="deleteTeamConfirm()">${icI(IC.trash)} Ploeg verwijderen</button></div>`}
   </div>`;
 }
@@ -210,6 +224,25 @@ function teamFormatChange(val) {
   const forms = FORMATIONS[editingTeam.defaultMatchType] || [];
   editingTeam.defaultFormation = forms[0] ? forms[0].name : '';
   render();
+}
+// Het aantal blokken bepaalt welke duurtijden er te kiezen zijn (een helft van 10 minuten bestaat
+// niet), dus bij een wijziging valt de duur terug op de standaard van die soort.
+function teamPeriodChange(val) {
+  editingTeam.defaultPeriodKey = PERIOD_TYPES[val] ? val : 'kwarten';
+  editingTeam.defaultQuarterDuration = DUR_DEFAULT[editingTeam.defaultPeriodKey] || 15;
+  render();
+}
+// "Vrij..." (waarde 0) toont het invoervakje; een gewone keuze zet de duur meteen.
+function teamDurChange() {
+  const s = document.getElementById('t-dur'); if (!s) return;
+  const inp = document.getElementById('t-dur-custom');
+  if (s.value === '0') { if (inp) { inp.style.display = ''; inp.focus(); inp.select(); } return; }
+  if (inp) inp.style.display = 'none';
+  editingTeam.defaultQuarterDuration = parseInt(s.value) || 15;
+}
+function teamDurCustom(v) {
+  const n = parseInt(v);
+  if (n > 0 && n <= 60) editingTeam.defaultQuarterDuration = n;
 }
 function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
 // Een speler uit de lijst halen is één tik op een klein kruisje, tussen twee tekstvelden, op een
@@ -328,6 +361,10 @@ async function saveTeamEdit() {
     responsible: staffJoin(staffList(editingTeam.responsible)),
     defaultMatchType: eDmt,
     defaultFormation: eDform,
+    // Blokken en blokduur enkel wegschrijven als ze geldig zijn; een ploeg zonder deze velden valt
+    // in teamMatchDefaults terug op 4 kwarten van 15 minuten, zoals het vóór v0.45.0 vast stond.
+    ...(PERIOD_TYPES[editingTeam.defaultPeriodKey] ? { defaultPeriodKey: editingTeam.defaultPeriodKey } : {}),
+    ...(Number(editingTeam.defaultQuarterDuration) > 0 ? { defaultQuarterDuration: Number(editingTeam.defaultQuarterDuration) } : {}),
     // Enkel wegschrijven als het uitstaat: zo blijven bestaande ploegen (zonder dit veld) gewoon
     // rugnummers gebruiken, en blijft het object schoon voor wie ze wél gebruikt.
     ...(teamUsesNumbers(editingTeam) ? {} : { useNumbers: false }),

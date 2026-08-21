@@ -7,7 +7,13 @@ function teamMatchDefaults(team) {
   const forms = FORMATIONS[mt] || [];
   let fi = (team && team.defaultFormation) ? forms.findIndex(f => f.name === team.defaultFormation) : 0;
   if (fi < 0) fi = 0;
-  return { matchType: mt, formationIndex: fi };
+  // Aantal blokken en blokduur horen ook bij de ploeg: een U8 speelt geen 4x15. Ploegen van vóór
+  // v0.45.0 hebben deze velden niet, en vallen dan terug op wat er tot nu vast in de wizard stond
+  // (4 kwarten van 15 minuten) — dus voor bestaande ploegen verandert er niets tot je het instelt.
+  const pk = (team && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : 'kwarten';
+  const dur = (team && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
+    : (DUR_DEFAULT[pk] || 15);
+  return { matchType: mt, formationIndex: fi, periodKey: pk, quarterDuration: dur };
 }
 function startWizard() {
   const now = new Date();
@@ -17,7 +23,7 @@ function startWizard() {
     step: 1, teamId: (team || {}).id || '', opponent: '', subteam: '',
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-    location: 'Thuis', matchType: md.matchType, periodKey: 'kwarten', quarterDuration: 15,
+    location: 'Thuis', matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
     competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
     // Standaard staat de eerste trainer en de eerste ploegverantwoordelijke van de ploeg
     // aangevinkt; de rest vink je er per wedstrijd bij.
@@ -39,6 +45,10 @@ function wizTeamChange() {
       const md = teamMatchDefaults(team);
       wiz.matchType = md.matchType;
       wiz.formationIndex = md.formationIndex;
+      // Ook de blokken van die ploeg: wissel je van U13 naar U8, dan hoort daar niet enkel een
+      // andere wedstrijdvorm bij maar ook een ander aantal blokken en een andere blokduur.
+      wiz.periodKey = md.periodKey;
+      wiz.quarterDuration = md.quarterDuration;
     }
   }
   render();

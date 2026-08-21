@@ -35,7 +35,9 @@ function impStart() {
     tabellen: [], bladIndex: 0, kopIndex: -1, kolommen: [], map: null,
     // instellingen die in geen enkel kalenderbestand staan — één keer voor de hele import
     teamId: (team || {}).id || '', subteam: '',
-    matchType: md.matchType, periodKey: 'kwarten', quarterDuration: DUR_DEFAULT['kwarten'],
+    // Format, blokken en blokduur staan in geen enkel kalenderbestand, dus die komen uit de
+    // standaardinstelling van de ploeg — je kan ze bovenaan nog voor de hele import wijzigen.
+    matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
     competition: 'Competitie',
   };
   go('importcal');

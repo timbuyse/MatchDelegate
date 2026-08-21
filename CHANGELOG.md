@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.45.0
+- **"Ongedaan maken" na een bulkwijziging bleef bij élke ploeg staan.** Wissel je van ploeg en open je
+  daar de wedstrijdenlijst, dan stond die knop er nog — en een tik erop zette de oude waarden terug bij
+  de ploeg die op dat moment open stond. Dat is dezelfde soort verschuiving die eerder een wedstrijd
+  uit een lijst deed verdwijnen. De ongedaan-maken hoort nu bij één ploeg: je ziet ze enkel bij de ploeg
+  waar je de wijziging deed, en nergens anders.
+- **Aantal blokken en duur per blok staan nu bij de ploeg.** Tot nu stond 4 × 15 minuten vast in de app,
+  en moest je dat bij elke wedstrijd van elke ploeg opnieuw bijstellen — een U8 speelt geen kwartieren
+  van een kwartier. Je kiest het nu bij het aanmaken van een ploeg en je past het aan bij **Ploeg**,
+  naast de wedstrijdvorm en de standaardopstelling. Een nieuwe wedstrijd én een ingelezen kalender nemen
+  het over, en per wedstrijd kan je nog altijd afwijken.
+- Bestaande ploegen hebben die instelling nog niet, en werken dus precies zoals voordien (4 × 15) tot je
+  ze instelt. De keuze voor de duur volgt het aantal blokken: bij helften 30 of 45 minuten, bij kwarten
+  10, 15 of 20, bij delen 15 of 20 — **en overal "Vrij…"**, waarmee je elk aantal minuten kan intikken.
+  Zo kan je ook 3 × 10 als standaard zetten, wat in de vaste lijst niet bestond; per wedstrijd kon dat al.
+- **De tegel "Spelers" op het startscherm heet nu "Ploeg".** Erachter zitten immers ook de trainers, de
+  ploegverantwoordelijken en de standaardinstellingen. Het getal eronder blijft het aantal spelers, en de
+  knop onderaan dat scherm heet nu overal "Ploeg opslaan".
+
 ## v0.44.0
 - **De clubexport is één echt Excel-bestand geworden, met vier tabbladen.**
   - **Overzicht** — club, exportdatum, en per ploeg het aantal spelers en wedstrijden.
