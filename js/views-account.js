@@ -45,11 +45,22 @@ function renderBeheer() {
   // "Mijn club beheren" staat rechtstreeks op het ploegkeuzescherm (renderTeamSelect), dus hier
   // niet nog eens herhalen — dat gaf een dubbele ingang naar hetzelfde Clubbeheer-scherm.
 
+  // Teruggevonden: de back-ups van gewiste wedstrijden, tornooien en (voor de eigenaar) ploegen.
+  // Voor elke beheerder, want een trainer die zijn eigen wedstrijd wist, moet ze zelf terug kunnen
+  // halen zonder jou te moeten bellen. Enkel met verbinding: die back-ups staan in de cloud.
+  const teruggevondenBlock = (cloudReady && canManage() && !viewerMode) ? `
+    <div class="sec">${icI(IC.history)} Per ongeluk gewist?</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin:0 0 10px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier kan je ze terugzetten.</p>
+      <button class="btn btn-pale" onclick="go('teruggevonden')">${icI(IC.history)} Teruggevonden</button>
+    </div>` : '';
+
   return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'home')">‹</button><h1>${icI(IC.edit)} Beheer</h1></div>
   <div class="content">
     ${ownerBlock}
     ${teamBlock}
     ${requestAdminBlock}
+    ${teruggevondenBlock}
     ${ownerToolsBlock}
   </div>`;
 }
@@ -2349,6 +2360,7 @@ const views = {
   // renderHerstel woont in stats-settings.js, dat ná dit bestand geladen wordt — dus pas oplossen
   // bij de aanroep (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
   herstel: () => renderHerstel(),
+  teruggevonden: () => renderTeruggevonden(),
   setup: () => { refreshEmailVerified(); return renderSettings(true); },
   settings: () => { refreshEmailVerified(); return renderSettings(false); },
   handleiding: () => renderHandleiding(0),

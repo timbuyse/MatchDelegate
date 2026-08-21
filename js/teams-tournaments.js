@@ -14,8 +14,8 @@ function renderTeamsList() {
         : `<div class="viewer-banner" style="margin-top:8px">${icI(IC.eye)} Je kijkt mee — spelers worden door de beheerder beheerd</div>`}
   </div>`;
 }
-function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; go('teamEdit'); }
-function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); teamEditMode = false; go('teamEdit'); }
+function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; teamDelUndo = []; go('teamEdit'); }
+function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); teamEditMode = false; teamDelUndo = []; go('teamEdit'); }
 function toggleTeamEditMode() { teamEditMode = !teamEditMode; render(); }
 // Het tweede lijstje verschilt per positie: een kant (links/rechts) bij Verdediger en
 // Vleugelspeler, een rol (verdedigend/aanvallend) bij Middenvelder, en niets bij Keeper of Spits.
@@ -41,7 +41,7 @@ function teamPosChange(i, val) {
 }
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
 function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
-function closeTeamEdit() { editingTeam = null; go(cloudReady ? 'home' : 'teams'); }
+function closeTeamEdit() { editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams'); }
 // De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
 // die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
 // Standaard alfabetisch op familienaam — zoals elke andere spelerslijst in de app.
@@ -186,6 +186,7 @@ function renderTeamEdit() {
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
     <div class="sec">Spelers (${editingTeam.players.length})</div>
+    ${teamDelUndoHtml()}
     ${numToggle}
     ${useNums ? (() => { const nums = editingTeam.players.map(p => (p.number || '').trim()).filter(Boolean); const dup = [...new Set(nums.filter((n, i) => nums.indexOf(n) !== i))]; return dup.length ? `<div class="backup-banner" style="background:var(--rdp);color:var(--rd);border-color:#fca5a5">${icI(IC.warn)} Dubbel rugnummer: ${dup.map(esc).join(', ')}</div>` : ''; })() : ''}
     ${editingTeam.players.length > 1 ? (useNums
@@ -211,7 +212,33 @@ function teamFormatChange(val) {
   render();
 }
 function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
-function teamDelPlayer(i) { editingTeam.players.splice(i, 1); render(); }
+// Een speler uit de lijst halen is één tik op een klein kruisje, tussen twee tekstvelden, op een
+// telefoon. Dat gaat mis. De verwijderde regels blijven daarom op een stapeltje staan zolang je in
+// dit scherm bent, zodat je ze op hun oude plaats kan terugzetten — ook meerdere na elkaar.
+// Persoonsgegevens blijven hier bewust in het geheugen: niets van dit stapeltje wordt weggeschreven.
+let teamDelUndo = [];
+function teamDelPlayer(i) {
+  const p = editingTeam.players[i];
+  if (p) teamDelUndo.push({ i, p });
+  editingTeam.players.splice(i, 1);
+  render();
+}
+function teamDelUndoLaatste() {
+  const laatste = teamDelUndo.pop();
+  if (!laatste) return;
+  // Op de oorspronkelijke plaats terug, tenzij de lijst intussen korter is dan die plek.
+  const pos = Math.min(laatste.i, editingTeam.players.length);
+  editingTeam.players.splice(pos, 0, laatste.p);
+  render();
+}
+function teamDelUndoHtml() {
+  if (!teamDelUndo.length) return '';
+  const laatste = teamDelUndo[teamDelUndo.length - 1].p;
+  const naam = (pFirstName(laatste) + ' ' + pLastName(laatste)).trim() || laatste.name || 'Speler';
+  return `<div class="nudge" style="margin-bottom:12px">${icI(IC.history)} <b>${esc(naam)}</b> verwijderd${teamDelUndo.length > 1 ? ` (en ${teamDelUndo.length - 1} ${teamDelUndo.length === 2 ? 'andere' : 'andere'})` : ''}.
+    Nog niets opgeslagen — je kan dit terugzetten.
+    <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="teamDelUndoLaatste()">Ongedaan maken</button></div>`;
+}
 function teamSortPlayers(by) {
   editingTeam.players.sort((a, b) => {
     if (by === 'nr') { const na = parseInt(a.number) || 999, nb = parseInt(b.number) || 999; return na - nb; }
@@ -328,7 +355,7 @@ async function saveTeamEdit() {
       ? { id: np.id, globalId: np.globalId, naam: np.name } : null;
   }).filter(Boolean);
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
-  saveTeamsV2(arr); editingTeam = null; go(cloudReady ? 'home' : 'teams');
+  saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
   if (hernoemd.length) {
     const n = await hernoemSpelerInGegevens(hernoemd);
     if (n) showToast(`Naam aangepast in ${n} wedstrijd${n === 1 ? '' : 'en'}.`, 'ok');
@@ -1128,7 +1155,7 @@ async function deleteTournamentConfirm(id) {
   const n = mine.length;
   if (n === 0) {
     openModal(`<h3>Tornooi verwijderen?</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd. Dit kan niet ongedaan gemaakt worden.</p>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd.${(cloudReady && activeTeamId && isAdmin) ? ' Er wordt een back-up bewaard, dus je kan dit terugvinden via <b>Beheer → Teruggevonden</b>.' : ' Zonder internetverbinding kan er geen back-up bewaard worden.'}</p>
       <button class="btn btn-red" onclick="doDeleteTournament('${id}')">${icI(IC.trash)} Ja, verwijderen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
@@ -1218,8 +1245,23 @@ async function doDeleteTournamentAll(id) {
       ? 'Ongeldig wachtwoord.' : 'Verwijderen mislukt, probeer opnieuw.';
   } finally { _trnDeleteBusy = false; }
 }
-function doDeleteTournament(id) {
+async function doDeleteTournament(id) {
   if (!canManage()) return; // zelfde reden als bij saveTournamentWiz: dit wist data
+  // Een tornooi ZONDER wedstrijden had tot nu geen enkel vangnet — de bevestiging zei zelfs dat het
+  // niet ongedaan te maken was. Nu gaat er eerst een back-up naar dezelfde knoop als bij een
+  // verwijderde wedstrijd (deletedMatches), zodat het herstelscherm het terugvindt. Bewust die knoop
+  // en geen nieuwe: de rules staan daar al goed, dus er valt niets te publiceren.
+  const t = tournamentById(id);
+  if (t && cloudReady && fbdb && activeTeamId && isAdmin) {
+    try {
+      await fbdb.ref('deletedMatches/' + activeTeamId + '/' + id).set({
+        deletedAt: Date.now(),
+        deletedBy: currentUser ? currentUser.uid : null,
+        deletedByEmail: (currentUser && currentUser.email) || '',
+        tournament: jclone(t),
+      });
+    } catch (e) {}
+  }
   deleteTournament(id);
   currentTournament = null; closeModal(); go('tournaments');
 }

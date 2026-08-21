@@ -1207,6 +1207,124 @@ function importBackup(input) {
 }
 
 let pendingRestore = null;
+// ===================== TERUGGEVONDEN: wat er per ongeluk gewist is =====================
+// De back-ups van een verwijderde wedstrijd, ploeg of tornooi bestonden al in de databank, maar waren
+// enkel via de Firebase-console te bekijken — dus in de praktijk onbereikbaar. Hier staan ze.
+// Wat waar staat: `deletedMatches/{ploeg}/{id}` met `match` (+ `notes`) bij een wedstrijd, of met
+// `tournament` bij een tornooi; `deletedTeams/{ploeg}` met de volledige ploeg, en dat is enkel voor de
+// eigenaar leesbaar. Er is geen tombstone-lijst: een verwijdering ís "staat niet meer in de cloud",
+// dus terugzetten is gewoon terugschrijven.
+let tgvState = null;   // { wedstrijden:[], tornooien:[], ploegen:[], fouten:[] }
+function renderTeruggevonden() {
+  setTimeout(loadTeruggevonden, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.history)} Teruggevonden</h1></div>
+    <div class="content" id="tgv-content"><p style="text-align:center;color:var(--txt2)">Zoeken…</p></div>`;
+}
+async function loadTeruggevonden() {
+  const el = document.getElementById('tgv-content');
+  if (!el || !fbdb) { if (el) el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Hiervoor is een internetverbinding nodig.</p>'; return; }
+  const wedstrijden = [], tornooien = [], ploegen = [];
+  // Per ploeg waar je beheerder van bent. Een leesfout (bv. een ploeg waar je toch geen rechten op
+  // hebt) mag het scherm niet breken — dan tonen we die ploeg simpelweg niet.
+  for (const tid of Object.keys(userTeams || {})) {
+    let val = null;
+    try { val = (await fbOnce(fbdb.ref('deletedMatches/' + tid))).val(); } catch (e) { continue; }
+    Object.entries(val || {}).forEach(([id, e]) => {
+      const basis = { tid, id, ploeg: teamNames[tid] || tid, wanneer: e.deletedAt || 0, door: e.deletedByEmail || '' };
+      if (e && e.match) wedstrijden.push({ ...basis, match: e.match, notes: e.notes || null, tornooi: e.tournament || null });
+      else if (e && e.tournament) tornooien.push({ ...basis, tornooi: e.tournament });
+    });
+  }
+  if (isOwner) {
+    try {
+      const val = (await fbOnce(fbdb.ref('deletedTeams'))).val() || {};
+      Object.entries(val).forEach(([tid, e]) => {
+        if (e && e.team) ploegen.push({ tid, naam: ((e.team.info || {}).name) || tid, wanneer: e.deletedAt || 0,
+          door: e.deletedByEmail || '', aantalWedstrijden: Object.keys(e.team.matches || {}).length, entry: e });
+      });
+    } catch (e) {}
+  }
+  const opTijd = (a, b) => (b.wanneer || 0) - (a.wanneer || 0);
+  wedstrijden.sort(opTijd); tornooien.sort(opTijd); ploegen.sort(opTijd);
+  tgvState = { wedstrijden, tornooien, ploegen };
+  const wanneer = w => w ? fmtDate(w) : 'onbekend wanneer';
+  const regel = (titel, onder, knop) => `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+    <div><b>${titel}</b><br><small style="color:var(--txt2)">${onder}</small></div>
+    <div>${knop}</div></div>`;
+  const wHtml = wedstrijden.map((w, i) => regel(
+    `${esc(w.match.opponent || '(geen tegenstander)')}`,
+    `${esc(w.ploeg)} · ${esc(matchWhen(w.match))} · gewist ${esc(wanneer(w.wanneer))}${w.door ? ' door ' + esc(w.door) : ''}${w.tornooi ? ' · hoorde bij tornooi ' + esc(w.tornooi.name || '') : ''}`,
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelWedstrijd(${i})">Terugzetten</button>`)).join('');
+  const tHtml = tornooien.map((t, i) => regel(
+    `${esc(t.tornooi.name || '(naamloos tornooi)')}`,
+    `${esc(t.ploeg)}${t.tornooi.date ? ' · ' + esc(fmtDate(new Date(t.tornooi.date + 'T00:00:00').getTime())) : ''} · gewist ${esc(wanneer(t.wanneer))}${t.door ? ' door ' + esc(t.door) : ''}`,
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelTornooi(${i})">Terugzetten</button>`)).join('');
+  const pHtml = ploegen.map((p, i) => regel(
+    `${esc(p.naam)}`,
+    `${p.aantalWedstrijden} ${p.aantalWedstrijden === 1 ? 'wedstrijd' : 'wedstrijden'} · gewist ${esc(wanneer(p.wanneer))}${p.door ? ' door ' + esc(p.door) : ''}`,
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelPloeg(${i})">Ploeg terugzetten</button>`)).join('');
+  const leeg = !wedstrijden.length && !tornooien.length && !ploegen.length;
+  el.innerHTML = leeg
+    ? `<div class="empty" style="padding:24px 0"><div class="ei">${IC.done}</div><p>Niets gewist om terug te vinden.</p></div>`
+    : `<p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Wat hier staat, is verwijderd maar bewaard. Terugzetten brengt het volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
+      ${wedstrijden.length ? `<div class="sec">${icI(IC.ball)} Wedstrijden (${wedstrijden.length})</div><div class="card">${wHtml}</div>` : ''}
+      ${tornooien.length ? `<div class="sec">${icI(IC.medal)} Tornooien (${tornooien.length})</div><div class="card">${tHtml}</div>` : ''}
+      ${ploegen.length ? `<div class="sec">${icI(IC.players)} Ploegen (${ploegen.length})</div><div class="card">${pHtml}</div>
+        <p style="font-size:12px;color:var(--txt2);margin-top:6px">Een ploeg terugzetten brengt ook haar spelers, wedstrijden, leden en notities terug. De oude uitnodigingslink werkt niet meer — maak een nieuwe aan.</p>` : ''}`;
+}
+async function tgvHerstelWedstrijd(i) {
+  const w = (tgvState || {}).wedstrijden ? tgvState.wedstrijden[i] : null;
+  if (!w || !fbdb) return;
+  showConfirm(`"${jsq(w.match.opponent || 'Wedstrijd')}" terugzetten bij ${jsq(w.ploeg)}?`, async () => {
+    try {
+      const m = { ...w.match }; delete m.fromCloud;
+      // Eerst de back-up weg, dan terugschrijven: staat de wedstrijd er weer terwijl de back-up nog
+      // bestaat, dan zou een tweede tik ze een tweede keer "herstellen" over een intussen bewerkte
+      // versie heen.
+      await fbdb.ref('deletedMatches/' + w.tid + '/' + w.id).remove();
+      await fbdb.ref('teams/' + w.tid + '/matches/' + m.id).set(m);
+      if (w.notes) { try { await fbdb.ref('teamNotes/' + w.tid + '/' + m.id).set(w.notes); } catch (e) {} }
+      // Lokaal niets schrijven: hoort de wedstrijd bij de actieve ploeg, dan brengt de listener ze
+      // meteen binnen. Hoort ze bij een ándere ploeg, dan zou een lokale kopie bij de eerstvolgende
+      // synchronisatie juist opgeruimd worden — precies het mechanisme dat vandaag een wedstrijd van
+      // een toestel haalde.
+      showToast(w.tid === activeTeamId ? 'Wedstrijd teruggezet.' : `Teruggezet bij ${w.ploeg}. Open die ploeg om ze te zien.`, 'ok');
+      loadTeruggevonden();
+    } catch (e) { showToast('Terugzetten mislukt, probeer opnieuw.', 'err'); }
+  }, 'Terugzetten', 'btn-green');
+}
+async function tgvHerstelTornooi(i) {
+  const t = (tgvState || {}).tornooien ? tgvState.tornooien[i] : null;
+  if (!t || !fbdb) return;
+  showConfirm(`Tornooi "${jsq(t.tornooi.name || '')}" terugzetten?`, async () => {
+    try {
+      await fbdb.ref('deletedMatches/' + t.tid + '/' + t.id).remove();
+      saveTournament(t.tornooi);   // lokaal + het ene child in de cloud
+      showToast('Tornooi teruggezet.', 'ok');
+      loadTeruggevonden();
+    } catch (e) { showToast('Terugzetten mislukt, probeer opnieuw.', 'err'); }
+  }, 'Terugzetten', 'btn-green');
+}
+async function tgvHerstelPloeg(i) {
+  const p = (tgvState || {}).ploegen ? tgvState.ploegen[i] : null;
+  if (!p || !fbdb || !isOwner) return;
+  showConfirm(`Ploeg "${jsq(p.naam)}" volledig terugzetten, met haar spelers, wedstrijden en leden?`, async () => {
+    try {
+      const e = p.entry;
+      await fbdb.ref('teams/' + p.tid).set(e.team);
+      if (e.memberInfo) { try { await fbdb.ref('memberInfo/' + p.tid).set(e.memberInfo); } catch (x) {} }
+      if (e.teamNotes) { try { await fbdb.ref('teamNotes/' + p.tid).set(e.teamNotes); } catch (x) {} }
+      // De omgekeerde index: zonder deze regel staat de ploeg er wel, maar ziet niemand ze in
+      // "Jouw ploegen" — ook de leden niet.
+      for (const [uid2, rol] of Object.entries((e.team || {}).members || {})) {
+        try { await fbdb.ref('users/' + uid2 + '/teams/' + p.tid).set(rol); } catch (x) {}
+      }
+      await fbdb.ref('deletedTeams/' + p.tid).remove();
+      showToast('Ploeg teruggezet. Herlaad de app om ze te zien.', 'ok');
+      loadTeruggevonden();
+    } catch (err) { showToast('Terugzetten mislukt, probeer opnieuw.', 'err'); }
+  }, 'Terugzetten', 'btn-green');
+}
 // ===================== TERUGZETTEN, PER PLOEG =====================
 // Vroeger waren er twee knoppen: "samenvoegen" of "alles vervangen". Die tweede wiste ALLE
 // wedstrijden van ALLE ploegen op het toestel en overschreef bovendien de spelerslijst — en dat is

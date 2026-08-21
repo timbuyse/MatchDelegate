@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.41.0
+- **Nieuw scherm "Teruggevonden": wat je per ongeluk wiste, staat er nog.** Bij **Beheer** vind je nu de
+  verwijderde wedstrijden en tornooien terug, met wanneer ze gewist zijn en door wie, en je zet ze in één
+  klik terug — volledig, met gebeurtenissen, opstelling en notities. Die back-ups bestonden al, maar er
+  was geen enkel scherm om ze te zien: in de praktijk waren ze onbereikbaar.
+- Voor elke beheerder, niet enkel voor de eigenaar: wie zijn eigen wedstrijd wist, moet ze zelf kunnen
+  terughalen zonder iemand te moeten bellen.
+- **Een verwijderde ploeg** kan de eigenaar er ook volledig terugzetten: spelers, wedstrijden, leden en
+  notities. De oude uitnodigingslink werkt daarna niet meer — maak een nieuwe aan.
+- **Een tornooi zonder wedstrijden verdwijnt niet meer zonder vangnet.** Dat was het enige dat nergens
+  bewaard werd; de bevestiging zei zelfs dat het niet ongedaan te maken was. Nu wordt het bewaard en
+  vind je het terug bij Teruggevonden.
+- **En een speler per ongeluk uit je spelerslijst tikken, kan je nu ongedaan maken.** Dat kruisje staat
+  klein tussen twee tekstvelden, en op een telefoon gaat dat mis. Verwijderde spelers komen op een
+  stapeltje: één tik zet de laatste terug op zijn oude plaats, en dat kan meerdere keren. Er staat ook
+  bij dat er nog niets opgeslagen is — het scherm verlaten zonder opslaan liet je al terugkeren, maar
+  dat wist je niet.
+
 ## v0.40.0
 - **Een back-up neemt nu de spelers van al je ploegen mee.** Tot nu zaten er wél de wedstrijden van
   álle ploegen in, maar enkel de spelers van de ploeg die op dat moment open stond. Het tandwieltje
