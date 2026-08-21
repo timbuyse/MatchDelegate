@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.46.0
+- **Tornooien vervuilden de clubexport.** Een tornooidag is vijf wedstrijdjes van tien minuten. Die
+  meerekenen in "gemiddelde minuten per wedstrijd" maakt dat cijfer waardeloos — en de statistieken in de
+  app laten tornooien al buiten, dus de export was ook inconsistent. Tornooiwedstrijden staan nu in een
+  eigen tabblad **Tornooiwedstrijden** en tellen niet mee in Spelers, Wedstrijden of Speeltijd. In het
+  **Overzicht** staat per ploeg hoeveel **tornooien** en hoeveel **wedstrijden in tornooien** er waren.
+- **Je kiest nu een seizoen bij het exporteren.** Anders groeit het bestand elk jaar aan. Standaard het
+  huidige seizoen, met "alle seizoenen" als keuze; het gekozen seizoen staat in het Overzicht en in de
+  bestandsnaam. De app haalt de gegevens één keer op in plaats van bij elke knop opnieuw.
+- **Het tabblad Spelers telde alle seizoenen samen op één regel.** Dat waren dus verkeerde getallen: een
+  speler met drie seizoenen achter zich kreeg één opgeteld totaal, zonder dat je zag waarover het ging.
+  Nu staat er één regel per speler **per seizoen**, en elke tabel heeft een kolom **Seizoen**.
+- **Een speler die middenin het seizoen van ploeg verandert** — zoals bij de leeftijdsrotatie — staat nu
+  in twee tabellen, elk met een eigen vraag. **Spelers** telt zijn seizoen over al zijn ploegen samen:
+  *heeft dit kind genoeg gevoetbald?* **Spelers per ploeg** splitst hem per ploeg: *hoe is de speeltijd
+  in mijn ploeg verdeeld?* Enkel per ploeg tonen zou hem in beide ploegen te weinig laten spelen.
+- Die samenvoeging werkt op het blijvende spelersnummer. Een speler die met de hand in de nieuwe ploeg
+  ingetikt is in plaats van via "Spelers doorschuiven", blijft dus twee personen — net zoals zijn
+  carrière-overzicht dan leeg blijft.
+
 ## v0.45.0
 - **"Ongedaan maken" na een bulkwijziging bleef bij élke ploeg staan.** Wissel je van ploeg en open je
   daar de wedstrijdenlijst, dan stond die knop er nog — en een tik erop zette de oude waarden terug bij
