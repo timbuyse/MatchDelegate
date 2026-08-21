@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.43.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.44.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -658,6 +658,109 @@ async function zoekKernOp(kernId) {
     } catch (e) {}
   }
   return null;
+}
+// ===================== EEN .XLSX SCHRIJVEN, ZONDER BIBLIOTHEEK =====================
+// Spiegelbeeld van de lezer in import-cal.js: een .xlsx is een zip met XML erin. Voor het LEZEN pakt
+// de browser deflate zelf uit; voor het SCHRIJVEN hoeft er niets gecomprimeerd te worden — een zip
+// mag zijn bestanden ook onverpakt bevatten (methode 0), en Excel leest dat gewoon. Zo blijft er
+// geen halve megabyte SheetJS in de app nodig.
+// Waarden: getallen komen als getal in de cel, al de rest als tekst ("inline string", zodat er ook
+// geen sharedStrings-tabel bij moet). Datums schrijf ik als tekst in jjjj-mm-dd — dat sorteert in
+// Excel correct en spaart een hele opmaaktabel uit.
+let _crcTab = null;
+function _crc32(u8) {
+  if (!_crcTab) {
+    _crcTab = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); _crcTab[n] = c >>> 0; }
+  }
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = _crcTab[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+// Zip met onverpakte bestanden. Geen zip64: onze bestanden blijven ver onder 4 GB.
+function _zipOnverpakt(bestanden) {
+  const enc = new TextEncoder();
+  const delen = [], centraal = [];
+  let offset = 0;
+  bestanden.forEach(b => {
+    const naam = enc.encode(b.naam), data = b.data;
+    const crc = _crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0, true);
+    lh.setUint16(8, 0, true);                       // methode 0 = onverpakt
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+    lh.setUint16(26, naam.length, true); lh.setUint16(28, 0, true);
+    delen.push(new Uint8Array(lh.buffer), naam, data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0, true); cd.setUint16(10, 0, true);
+    cd.setUint16(12, 0, true); cd.setUint16(14, 0, true);
+    cd.setUint32(16, crc, true); cd.setUint32(20, data.length, true); cd.setUint32(24, data.length, true);
+    cd.setUint16(28, naam.length, true); cd.setUint16(30, 0, true); cd.setUint16(32, 0, true);
+    cd.setUint16(34, 0, true); cd.setUint16(36, 0, true); cd.setUint32(38, 0, true);
+    cd.setUint32(42, offset, true);
+    centraal.push(new Uint8Array(cd.buffer), naam);
+    offset += 30 + naam.length + data.length;
+  });
+  const cdStart = offset;
+  let cdLen = 0; centraal.forEach(d => cdLen += d.length);
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(8, bestanden.length, true); eocd.setUint16(10, bestanden.length, true);
+  eocd.setUint32(12, cdLen, true); eocd.setUint32(16, cdStart, true);
+  return new Blob([...delen, ...centraal, new Uint8Array(eocd.buffer)],
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function _xmlEsc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+    // Stuurtekens zijn niet toegelaten in XML en maken het bestand onleesbaar voor Excel.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+}
+function _kolomNaam(i) {   // 0 -> A, 25 -> Z, 26 -> AA
+  let s = '';
+  for (let n = i; ; n = Math.floor(n / 26) - 1) { s = String.fromCharCode(65 + (n % 26)) + s; if (n < 26) break; }
+  return s;
+}
+function _bladXml(rijen) {
+  const body = rijen.map((rij, r) => {
+    const cellen = rij.map((waarde, c) => {
+      if (waarde == null || waarde === '') return '';
+      const ref = _kolomNaam(c) + (r + 1);
+      const getal = typeof waarde === 'number' && isFinite(waarde);
+      return getal ? `<c r="${ref}"><v>${waarde}</v></c>`
+        : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${_xmlEsc(waarde)}</t></is></c>`;
+    }).join('');
+    return `<row r="${r + 1}">${cellen}</row>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+}
+// bladen = [{ naam, rijen: [[...]] }]
+function xlsxBlob(bladen) {
+  const enc = new TextEncoder();
+  const b = bladen.filter(x => x && x.rijen && x.rijen.length);
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${b.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  // Bladnamen: Excel staat geen : \ / ? * [ ] toe en kapt af op 31 tekens.
+  const veiligeNaam = n => String(n).replace(/[:\\/?*[\]]/g, '-').slice(0, 31);
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${b.map((x, i) => `<sheet name="${_xmlEsc(veiligeNaam(x.naam))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`;
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${b.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${b.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>`;
+  const bestanden = [
+    { naam: '[Content_Types].xml', data: enc.encode(contentTypes) },
+    { naam: '_rels/.rels', data: enc.encode(rels) },
+    { naam: 'xl/workbook.xml', data: enc.encode(workbook) },
+    { naam: 'xl/_rels/workbook.xml.rels', data: enc.encode(wbRels) },
+    { naam: 'xl/styles.xml', data: enc.encode(styles) },
+  ];
+  b.forEach((x, i) => bestanden.push({ naam: `xl/worksheets/sheet${i + 1}.xml`, data: enc.encode(_bladXml(x.rijen)) }));
+  return _zipOnverpakt(bestanden);
 }
 // Horen twee wedstrijden bij dezelfde ploeg? Bij voorkeur via het stabiele teamId (sinds v0.5.34),
 // met de teamName-fallback voor oudere wedstrijden. De matches-store is niet per ploeg gescheiden.

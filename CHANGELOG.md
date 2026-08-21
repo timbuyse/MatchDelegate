@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.44.0
+- **De clubexport is één echt Excel-bestand geworden, met vier tabbladen.**
+  - **Overzicht** — club, exportdatum, en per ploeg het aantal spelers en wedstrijden.
+  - **Spelers** — één regel per speler: bij welke ploeg(en) hij speelde, hoeveel keer hij geselecteerd
+    was, hoeveel wedstrijden hij effectief speelde, zijn totale minuten, zijn gemiddelde per gespeelde
+    wedstrijd én per selectie, doelpunten, assists, kaarten en keeperbeurten. Dit is het tabblad waar
+    een jeugdcoördinator naar kijkt zonder eerst zelf te moeten rekenen.
+  - **Wedstrijden** — per ploeg alle wedstrijden, ook de geplande.
+  - **Speeltijd** — de ruwe tabel: één regel per speler per wedstrijd.
+- **Een speler die is doorgeschoven, staat op één regel.** Speelde hij dit seizoen bij U11 en volgend
+  seizoen bij U12, dan zie je zijn totalen samen, met beide ploegen en beide rugnummers erbij. Wie
+  afwezig was, telt niet mee als selectie — anders lijkt hij minder te spelen dan hij deed.
+- De twee CSV-bestanden blijven bestaan voor wie de gegevens in een ander programma wil inlezen.
+- Onder de motorkap: **geen extra bibliotheek.** Een Excel-bestand is een zipbestand met XML erin, en de
+  app bouwt die zip nu zelf op — onverpakt, want dat mag en dan is er geen compressie nodig. Getest door
+  het eigen bestand weer door de Excel-lezer van de kalenderimport te halen: vier tabbladen, alle cellen
+  correct, getallen als getal, en namen met aanhalingstekens of een ampersand blijven heel.
+
 ## v0.43.0
 - **Clubexport: alle ploegen in één bestand, in Excel.** Bij Clubbeheer staat een knop *Clubexport*, voor
   de clubbeheerder en de eigenaar. Twee bestanden om uit te kiezen.

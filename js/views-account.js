@@ -669,14 +669,71 @@ function clubExportWedstrijdRijen(ploegen) {
   });
   return rijen;
 }
+// Het samenvattingstabblad: één regel per speler in plaats van per speler per wedstrijd. Dat is wat
+// een jeugdcoördinator wil zien zonder eerst zelf een draaitabel te bouwen.
+// Groeperen op het blijvende spelersnummer als dat er is, anders op ploeg+naam: zo blijft een speler
+// die doorgeschoven is één regel, en lopen twee gelijknamige spelers bij verschillende ploegen niet
+// door elkaar.
+function clubExportSpelerRijen(ploegen) {
+  const per = new Map();
+  ploegen.forEach(pl => {
+    pl.wedstrijden.filter(m => m && m.status === 'done').forEach(m => {
+      const mins = calcMinutes(m);
+      const evts = m.events || [];
+      (m.players || []).forEach(p => {
+        const sleutel = p.globalId || (pl.naam + '|' + (p.name || ''));
+        if (!per.has(sleutel)) per.set(sleutel, { naam: p.name || '', ploegen: new Set(), nummers: new Set(),
+          selecties: 0, gespeeld: 0, ms: 0, doelpunten: 0, assists: 0, geel: 0, rood: 0, keeper: 0, afwezig: 0 });
+        const r = per.get(sleutel);
+        r.ploegen.add(pl.naam);
+        if (p.number) r.nummers.add(String(p.number));
+        if (p.absent) { r.afwezig++; return; }
+        r.selecties++;
+        const ms = (mins[p.id] || {}).ms || 0;
+        if (ms > 0) { r.gespeeld++; r.ms += ms; }
+        r.doelpunten += evts.filter(e => e.type === 'goal_us' && e.playerId === p.id).length;
+        r.assists += evts.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
+        r.geel += evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+        r.rood += evts.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
+        if (wasKeeperAtAll(m, p.id)) r.keeper++;
+      });
+    });
+  });
+  const rijen = [['Speler', 'Ploeg(en)', 'Rugnummer(s)', 'Geselecteerd', 'Gespeeld', 'Niet beschikbaar',
+    'Totale minuten', 'Gem. per gespeelde wedstrijd', 'Gem. per selectie', 'Doelpunten', 'Assists', 'Geel', 'Rood', 'Keeperbeurten']];
+  [...per.values()]
+    .sort((a, b) => a.naam.localeCompare(b.naam, 'nl'))
+    .forEach(r => {
+      const min = Math.round(r.ms / 60000);
+      rijen.push([r.naam, [...r.ploegen].join(', '), [...r.nummers].join(', '),
+        r.selecties, r.gespeeld, r.afwezig, min,
+        r.gespeeld ? Math.round(min / r.gespeeld) : 0,
+        r.selecties ? Math.round(min / r.selecties) : 0,
+        r.doelpunten, r.assists, r.geel, r.rood, r.keeper]);
+    });
+  return rijen;
+}
+function clubExportOverzichtRijen(ploegen) {
+  const rijen = [['Clubexport', activeClubName || ''], ['Gemaakt op', new Date().toISOString().slice(0, 10)], [],
+    ['Ploeg', 'Spelers in de kern', 'Wedstrijden totaal', 'Gespeeld', 'Gepland']];
+  ploegen.forEach(pl => {
+    const w = pl.wedstrijden;
+    rijen.push([pl.naam, (pl.spelers || []).length, w.length,
+      w.filter(m => m && m.status === 'done').length, w.filter(m => m && m.status === 'planned').length]);
+  });
+  rijen.push([], ['Spelernotities en kwetsuurdetails zitten bewust niet in dit bestand.']);
+  return rijen;
+}
 function showClubExport(clubId) {
   openModal(`<h3>${icI(IC.download)} Clubexport</h3>
     <p style="font-size:13px;color:var(--txt2);text-align:left;margin-bottom:12px">Alle ploegen van deze club, rechtstreeks uit de databank — dus ook ploegen die je op dit toestel nooit opende. Beide bestanden openen in Excel.</p>
     <div id="ce-melding" style="font-size:13px;color:var(--org2);min-height:18px;margin-bottom:8px"></div>
-    <button class="btn btn-green" onclick="doClubExport('${clubId}','speeltijd')">${icI(IC.table)} Speeltijd per speler</button>
-    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 12px">Eén regel per speler per gespeelde wedstrijd: minuten, doelpunten, assists, kaarten, keeperbeurten en of hij beschikbaar was.</p>
-    <button class="btn btn-green" onclick="doClubExport('${clubId}','wedstrijden')">${icI(IC.table)} Wedstrijdenlijst</button>
-    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 12px">Eén regel per wedstrijd, ook de geplande: datum, tegenstander, format en de uitslag.</p>
+    <button class="btn btn-org" onclick="doClubExport('${clubId}','excel')">${icI(IC.table)} Excel — alles in één bestand</button>
+    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 14px">Vier tabbladen: <b>Overzicht</b>, <b>Spelers</b> (één regel per speler, met totalen en gemiddelden), <b>Wedstrijden</b> en <b>Speeltijd</b> (de ruwe tabel per speler per wedstrijd).</p>
+    <div class="sec" style="margin-top:0">Of los, als CSV</div>
+    <button class="btn btn-pale" onclick="doClubExport('${clubId}','speeltijd')">${icI(IC.table)} Speeltijd per speler</button>
+    <button class="btn btn-pale" style="margin-top:6px" onclick="doClubExport('${clubId}','wedstrijden')">${icI(IC.table)} Wedstrijdenlijst</button>
+    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 12px">Voor wie de gegevens in een ander programma wil inlezen — een schone tabel is daar handiger dan een Excel-bestand.</p>
     <p style="font-size:12px;color:var(--txt2);text-align:left">Spelernotities en kwetsuurdetails zitten er bewust niet in — die horen niet in een bestand dat rondgestuurd wordt.</p>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -690,7 +747,21 @@ async function doClubExport(clubId, soort) {
     if (!ploegen.length) { meld('Geen ploegen gevonden.'); return; }
     const dag = new Date().toISOString().slice(0, 10);
     const club = (activeClubName || 'club').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-    if (soort === 'speeltijd') {
+    if (soort === 'excel') {
+      const bladen = [
+        { naam: 'Overzicht', rijen: clubExportOverzichtRijen(ploegen) },
+        { naam: 'Spelers', rijen: clubExportSpelerRijen(ploegen) },
+        { naam: 'Wedstrijden', rijen: clubExportWedstrijdRijen(ploegen) },
+        { naam: 'Speeltijd', rijen: clubExportSpeeltijdRijen(ploegen) },
+      ];
+      const blob = xlsxBlob(bladen);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${club}-export-${dag}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      meld(`${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'} · ${bladen[1].rijen.length - 1} spelers · ${bladen[2].rijen.length - 1} wedstrijden.`);
+    } else if (soort === 'speeltijd') {
       const rijen = clubExportSpeeltijdRijen(ploegen);
       csvBestand(`${club}-speeltijd-${dag}.csv`, rijen);
       meld(`${rijen.length - 1} regels · ${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'}.`);
