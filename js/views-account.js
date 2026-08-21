@@ -1723,7 +1723,7 @@ function groepeerPosSwaps(list) {
 function evtLabel(e, m) {
   const pn = id => esc(pName(m, id));
   switch(e.type) {
-    case 'goal_us': { let s = `${icI(IC.goal)} Goal ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
+    case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}`;
     case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pn(e.playerId)})`;
     case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
@@ -1758,7 +1758,7 @@ function evtLabel(e, m) {
 // contexten die geen HTML renderen (PDF-tijdlijn via jsPDF-tekst i.p.v. innerHTML).
 function evtLabelPlain(e, m) {
   switch(e.type) {
-    case 'goal_us': { let s = `Goal ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
+    case 'goal_us': { let s = `Doelpunt ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
     case 'goal_them': return `Doelpunt ${oppName(m)}`;
     case 'own_goal': return `Eigen doel (${pName(m,e.playerId)})`;
     case 'own_goal_them': return 'Eigen doel tegenstander';

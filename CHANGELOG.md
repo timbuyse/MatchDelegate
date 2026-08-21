@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.36.1
+- **"Doelpunt" in plaats van "Goal".** In het verslag, de tijdlijn en het deelbericht stond bij een
+  eigen doelpunt *"Goal Mats Keppens"* en bij de tegenpartij *"Doelpunt KVV Beukenhof"*. Nu staat er
+  in beide gevallen **Doelpunt**. De knop tijdens de wedstrijd heet nog altijd *Goal* — dat is een
+  korte actietekst op een tegel, geen omschrijving van wat er gebeurd is.
+
 ## v0.36.0
 - **De kalender van je reeks komt er nu in één keer in.** Bij "Wedstrijden" staat een tweede knop,
   *Kalender importeren*. Je geeft het agendabestand (`.ics`) dat Foot24 bij je reeks aanbiedt, of een
