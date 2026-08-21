@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.3
+- **De herinnering over je e-mailadres dreigt niet langer.** Er stond "zonder bevestiging kan je niet als
+  club- of ploegbeheerder aangesteld worden" — maar wie dat leest, ís dat meestal al, en dan klinkt het
+  alsof je iets gaat verliezen. Nu staat er dat je behoudt wat je hebt, en waarvoor bevestigen dan wél
+  dient. Enkel tekst; er verandert niets aan wat de app doet.
+
 ## v0.37.2
 - **Bevestigd is nu ook meteen bevestigd.** Klikte je de link aan, dan bleef de herinnering staan tot je
   je afmeldde en opnieuw aanmeldde. Nu volstaat het om terug te keren naar de app: zodra ze weer op de
