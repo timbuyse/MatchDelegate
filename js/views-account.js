@@ -130,6 +130,7 @@ async function loadClubBeheerView() {
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
       ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Clubexport (Excel)</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>
       ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
@@ -573,6 +574,132 @@ function filterAllUsersView(q) {
     sec.style.display = isMatch ? '' : 'none';
     if (query && isMatch) sec.open = true;
   });
+}
+// ===================== CLUBEXPORT =====================
+// Twee vragen zitten hierachter: "kunnen we onze gegevens eruit krijgen als we stoppen" (een bestuur)
+// en "geef me de speeltijd van de hele club" (een TVJO). Eén tabel met één regel per speler per
+// wedstrijd beantwoordt beide: het is hun volledige uitvoer én de basis voor elke draaitabel.
+// Bewust uit de CLOUD en niet van dit toestel: lokaal staan enkel de ploegen die je ooit opende, en
+// dan zou de uitvoer afhangen van waar je toevallig geweest bent — dezelfde scheefheid die we bij de
+// back-up hebben weggehaald.
+// Bewust ZONDER notities: spelernotities en de gebeurtenis "kwetsuur" kunnen dingen over kinderen
+// bevatten. In de app zijn die beheerder-only; in een CSV die naar een bestuur gemaild wordt niet meer.
+function csvBestand(naam, rijen) {
+  const esc2 = v => (v == null ? '' : String(v).replace(/"/g, '""'));
+  const csv = '﻿' + rijen.map(r => r.map(c => `"${esc2(c)}"`).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = naam;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// Alle ploegen van de club met hun kern en hun wedstrijden. Per ploeg apart, met voortgang op het
+// scherm: bij vier ploegen van 36 wedstrijden duurt dit even, en een scherm dat stilstaat leest als
+// een app die vastloopt.
+async function clubExportOphalen(clubId, meld) {
+  const clubTeams = (await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {};
+  const ids = Object.keys(clubTeams);
+  const uit = [];
+  for (let i = 0; i < ids.length; i++) {
+    const tid = ids[i];
+    if (meld) meld(`Ploeg ${i + 1} van ${ids.length} ophalen…`);
+    try {
+      const t = (await fbOnce(fbdb.ref('teams/' + tid))).val() || {};
+      const kern = normalizeRosterArray(t.roster)[0] || null;
+      if (!kern || !kern.name) continue;   // ploeg zonder kern-node: naam onbekend, overslaan
+      uit.push({ id: tid, naam: kern.name, spelers: kern.players || [],
+        wedstrijden: Object.values(t.matches || {}).filter(Boolean) });
+    } catch (e) { /* geen leesrecht of leesfout: die ploeg valt weg, de rest niet */ }
+  }
+  return uit;
+}
+function clubExportSpeeltijdRijen(ploegen) {
+  const rijen = [['Ploeg', 'Ploeg-label', 'Seizoen', 'Datum', 'Uur', 'Tegenstander', 'Thuis/uit', 'Soort',
+    'Speler', 'Rugnummer', 'Minuten', 'Basis of bank', 'Beschikbaar', 'Doelpunten', 'Assists', 'Geel', 'Rood', 'Keeper']];
+  ploegen.forEach(pl => {
+    // Enkel gespeelde wedstrijden: een geplande wedstrijd heeft nul minuten en zou elk gemiddelde
+    // vertekenen. Wat er nog aankomt, staat in het wedstrijdenbestand.
+    pl.wedstrijden.filter(m => m && m.status === 'done').forEach(m => {
+      const mins = calcMinutes(m);
+      const evts = m.events || [];
+      const gemeen = [pl.naam, m.subteam || '', seasonOf(m), m.date || '', m.time || '',
+        m.opponent || '', m.location || '', m.competition || ''];
+      (m.players || []).forEach(p => {
+        const ms = (mins[p.id] || {}).ms || 0;
+        rijen.push(gemeen.concat([
+          p.name || '', p.number || '',
+          Math.round(ms / 60000),
+          p.starting ? 'Basis' : 'Bank',
+          p.absent ? 'Niet gespeeld (afwezig)' : 'Beschikbaar',
+          evts.filter(e => e.type === 'goal_us' && e.playerId === p.id).length,
+          evts.filter(e => e.type === 'goal_us' && e.assistId === p.id).length,
+          evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length,
+          evts.filter(e => e.type === 'red_card' && e.playerId === p.id).length,
+          wasKeeperAtAll(m, p.id) ? 'ja' : '',
+        ]));
+      });
+      // Wie niet beschikbaar was, hoort er ook in: dat is de noemer waarmee je ziet of iemand
+      // structureel te weinig speelt of gewoon vaak niet kon. Oude data bewaart die als tekst,
+      // nieuwere als een record — beide vormen aanvaarden.
+      (m.absentPlayers || []).forEach(a => {
+        const naam = typeof a === 'string' ? a : (a && a.name) || '';
+        if (!naam) return;
+        rijen.push(gemeen.concat([naam, '', 0, '', 'Niet beschikbaar', 0, 0, 0, 0, '']));
+      });
+    });
+  });
+  return rijen;
+}
+function clubExportWedstrijdRijen(ploegen) {
+  const rijen = [['Ploeg', 'Ploeg-label', 'Seizoen', 'Datum', 'Uur', 'Tegenstander', 'Thuis/uit', 'Terrein',
+    'Soort', 'Format', 'Blokken', 'Duur per blok', 'Status', 'Doelpunten voor', 'Doelpunten tegen']];
+  ploegen.forEach(pl => {
+    pl.wedstrijden.forEach(m => {
+      if (!m) return;
+      const status = m.status === 'done' ? 'Gespeeld' : m.status === 'live' ? 'Bezig'
+        : m.status === 'cancelled' ? 'Geannuleerd' : 'Gepland';
+      const gespeeld = m.status === 'done';
+      rijen.push([pl.naam, m.subteam || '', seasonOf(m), m.date || '', m.time || '', m.opponent || '',
+        m.location || '', m.venue || '', m.competition || '', m.matchType || '',
+        m.numQuarters || '', m.quarterDuration || '', status,
+        gespeeld ? (m.scoreUs != null ? m.scoreUs : '') : '',
+        gespeeld ? (m.scoreThem != null ? m.scoreThem : '') : '']);
+    });
+  });
+  return rijen;
+}
+function showClubExport(clubId) {
+  openModal(`<h3>${icI(IC.download)} Clubexport</h3>
+    <p style="font-size:13px;color:var(--txt2);text-align:left;margin-bottom:12px">Alle ploegen van deze club, rechtstreeks uit de databank — dus ook ploegen die je op dit toestel nooit opende. Beide bestanden openen in Excel.</p>
+    <div id="ce-melding" style="font-size:13px;color:var(--org2);min-height:18px;margin-bottom:8px"></div>
+    <button class="btn btn-green" onclick="doClubExport('${clubId}','speeltijd')">${icI(IC.table)} Speeltijd per speler</button>
+    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 12px">Eén regel per speler per gespeelde wedstrijd: minuten, doelpunten, assists, kaarten, keeperbeurten en of hij beschikbaar was.</p>
+    <button class="btn btn-green" onclick="doClubExport('${clubId}','wedstrijden')">${icI(IC.table)} Wedstrijdenlijst</button>
+    <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 12px">Eén regel per wedstrijd, ook de geplande: datum, tegenstander, format en de uitslag.</p>
+    <p style="font-size:12px;color:var(--txt2);text-align:left">Spelernotities en kwetsuurdetails zitten er bewust niet in — die horen niet in een bestand dat rondgestuurd wordt.</p>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
+}
+async function doClubExport(clubId, soort) {
+  if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
+  const meldEl = document.getElementById('ce-melding');
+  const meld = t => { if (meldEl) meldEl.textContent = t; };
+  meld('Ophalen…');
+  try {
+    const ploegen = await clubExportOphalen(clubId, meld);
+    if (!ploegen.length) { meld('Geen ploegen gevonden.'); return; }
+    const dag = new Date().toISOString().slice(0, 10);
+    const club = (activeClubName || 'club').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    if (soort === 'speeltijd') {
+      const rijen = clubExportSpeeltijdRijen(ploegen);
+      csvBestand(`${club}-speeltijd-${dag}.csv`, rijen);
+      meld(`${rijen.length - 1} regels · ${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'}.`);
+    } else {
+      const rijen = clubExportWedstrijdRijen(ploegen);
+      csvBestand(`${club}-wedstrijden-${dag}.csv`, rijen);
+      meld(`${rijen.length - 1} wedstrijden · ${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'}.`);
+    }
+  } catch (e) { meld('Ophalen mislukt. Probeer opnieuw.'); }
 }
 // ===================== SPELER OVERZETTEN (eigenaarstool) =====================
 // Verplaatst een speler permanent van de roster van de ene ploeg naar een andere (bv. een

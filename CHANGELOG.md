@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.43.0
+- **Clubexport: alle ploegen in één bestand, in Excel.** Bij Clubbeheer staat een knop *Clubexport*, voor
+  de clubbeheerder en de eigenaar. Twee bestanden om uit te kiezen.
+- **Speeltijd per speler.** Eén regel per speler per gespeelde wedstrijd: ploeg, seizoen, datum,
+  tegenstander, minuten, basis of bank, of hij beschikbaar was, doelpunten, assists, kaarten en
+  keeperbeurten. Dat is de tabel waaruit een jeugdcoördinator met een draaitabel alles haalt wat hij wil —
+  wie te weinig speelt, hoe de speeltijd over een ploeg verdeeld is, hoe iemand evolueert. Wie niet
+  beschikbaar was, staat er ook in: zonder die regels lijkt iemand die vaak niet kon even weinig te
+  spelen als iemand die wel kwam maar niet opgesteld werd.
+- **Wedstrijdenlijst.** Eén regel per wedstrijd, ook de geplande: datum, uur, tegenstander, thuis of uit,
+  terrein, format en de uitslag.
+- **Uit de databank, niet van je toestel.** Ook ploegen die je op dit toestel nooit opende zitten erin —
+  anders zou je uitvoer afhangen van waar je toevallig geweest bent.
+- **Spelernotities en kwetsuurdetails zitten er bewust niet in.** In de app zijn die enkel voor
+  beheerders; in een bestand dat naar een bestuur gemaild wordt, zijn ze dat niet meer.
+- Geplande wedstrijden staan niet in het speeltijdbestand: nul minuten zou elk gemiddelde vertekenen. Ze
+  staan wel in de wedstrijdenlijst.
+
 ## v0.42.0
 - **Een hele lichting doorschuiven in één keer.** "Speler overzetten" heet nu **Spelers doorschuiven** en
   werkt met vinkjes in plaats van met één speler per keer. Je kiest van-ploeg en naar-ploeg, vinkt aan wie
