@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.4
+- **"Klik de link in de mail die we je stuurden" — maar die was er nooit.** Accounts van vóór v0.37.0
+  hebben nooit een bevestigingsmail gekregen, en die stonden dus naar een mail te zoeken die niet bestaat.
+  De melding zegt nu dat je ze hieronder opnieuw kan sturen als je er geen gekregen hebt, en waarom dat
+  bij een ouder account zo is. Enkel tekst.
+
 ## v0.37.3
 - **De herinnering over je e-mailadres dreigt niet langer.** Er stond "zonder bevestiging kan je niet als
   club- of ploegbeheerder aangesteld worden" — maar wie dat leest, ís dat meestal al, en dan klinkt het

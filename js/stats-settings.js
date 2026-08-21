@@ -454,12 +454,17 @@ function renderSettings(isFirst) {
       <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">${isGuest ? 'Je kijkt mee als gast, zonder eigen account.' : esc(currentUser.email)}</p>
       ${(!isGuest && currentUser.email && !currentUser.emailVerified) ? `
       <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px;text-align:left">
-        ${/* Deze tekst leest ook iemand die al ploegbeheerder is — de meeste trainers zijn dat, want ze
-              komen binnen via een uitnodigingslink en worden daarna gepromoveerd. "Zonder bevestiging kan
-              je niet aangesteld worden" klonk voor hen als een dreiging dat ze iets gaan verliezen. */ ''}
-        ${icI(IC.warn)} <b>E-mailadres nog niet bevestigd.</b> Klik de link in de mail die we je stuurden.
-        Wat je nu al bent, blijf je. Bevestigen is nodig om later nieuw aangesteld te worden als ploeg- of
-        clubbeheerder, en het laat anderen zien dat dit adres echt van jou is.</div>
+        ${/* Twee dingen die deze tekst moet overleven. (1) Ze wordt ook gelezen door iemand die al
+              ploegbeheerder is — de meeste trainers zijn dat, want ze komen binnen via een uitnodigingslink
+              en worden daarna gepromoveerd; "zonder bevestiging kan je niet aangesteld worden" klonk voor
+              hen als een dreiging dat ze rechten verliezen. (2) Accounts van vóór v0.37.0 hebben nooit een
+              bevestigingsmail gekregen, dus "klik de link in de mail die we je stuurden" verwees hen naar
+              iets dat niet bestaat. Geen datumlogica om die twee groepen te scheiden: één tekst die voor
+              beide klopt is hier minder fragiel. */ ''}
+        ${icI(IC.warn)} <b>E-mailadres nog niet bevestigd.</b> Klik de link in de bevestigingsmail, of stuur
+        ze hieronder opnieuw als je er geen gekregen hebt — bestond je account al vóór deze stap, dan is er
+        nooit een verstuurd. Wat je nu al bent, blijf je; bevestigen is nodig om later nieuw aangesteld te
+        worden als ploeg- of clubbeheerder, en het laat anderen zien dat dit adres echt van jou is.</div>
       <button class="btn btn-pale" onclick="checkVerifiedNow(this)">${icI(IC.done)} Ik heb de link aangeklikt</button>
       <button class="btn btn-pale" style="margin-top:8px;margin-bottom:8px" onclick="resendVerification(this)">${icI(IC.mail)} Bevestigingsmail opnieuw sturen</button>` : ''}
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
