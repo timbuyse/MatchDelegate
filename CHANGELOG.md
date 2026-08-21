@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.47.0
+- **De handleiding is bij.** Er staan twee nieuwe stukken in en een nieuwe pagina:
+  - Nieuwe pagina **"Meerdere wedstrijden aanpassen"**, met wat je wel en niet in bulk kan wijzigen, het
+    nakijkscherm en de ongedaan-maken.
+  - Bij **"Ploeg & spelers beheren"** staat nu het aantal blokken en de duur per blok, inclusief
+    "Vrij…" voor een speelduur die niet in de lijst staat. De tegel heet daar ook "Ploeg" in plaats van
+    "Spelers".
+  - Bij **"Als ploegbeheerder"**: **Teruggevonden**, en het blok **"Niet afgesloten"** op het startscherm.
+  - Bij **"Als clubbeheerder"**: **Spelers doorschuiven** (met de waarschuwing dat met de hand
+    overtikken het carrière-overzicht breekt, en de tip om bij de oudste ploeg te beginnen) en de
+    **Clubexport** met wat er in elk tabblad staat.
+- **Nieuwe en bijgewerkte schermafbeeldingen.** De pagina "Kalender importeren" had er nog geen; die is er
+  nu. Verder nieuw: het scherm om meerdere wedstrijden aan te passen. Bijgewerkt: het startscherm (de
+  tegel heette daar nog "Spelers") en het ploegscherm (daar stonden de twee nieuwe instellingen nog niet
+  op).
+- **Opgelost onderweg:** bij het aantikken van een wedstrijd in dat bulk-scherm werd alleen het vakje
+  groen, zonder vinkje erin. Enkel rijen die al aangevinkt stonden bij het openen kregen er een. Gevonden
+  doordat het op de schermafbeelding een leeg groen blokje bleef.
+
 ## v0.46.0
 - **Tornooien vervuilden de clubexport.** Een tornooidag is vijf wedstrijdjes van tien minuten. Die
   meerekenen in "gemiddelde minuten per wedstrijd" maakt dat cijfer waardeloos — en de statistieken in de

@@ -677,14 +677,15 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Ploeg & spelers beheren',
     img: 'handleiding/screenshots/10_ploeg_bewerken.png',
     inhoud: `
-      <p>Via de tegel <b>'Spelers'</b> op het homescherm kom je in <b>'Ploeg bewerken'</b>:</p>
+      <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je in <b>'Ploeg bewerken'</b>:</p>
       <ul class="hdl-list">
         <li><b>Ploegnaam</b>.</li>
         <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
         <li><b>Spelers</b> — rugnummer, voornaam, familienaam en voorkeurspositie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
         <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. Dat staat bij zijn naam in de selectie, zodat je hem bij de opstelling op de juiste flank zet.</li>
-        <li><b>Standaard wedstrijdvorm en opstelling</b> — stel per ploeg in met welke vorm (bv. 8v8) en welke formatie je meestal speelt. Een nieuwe wedstrijd start dan met die instelling; per wedstrijd kan je ze nog wijzigen.</li>
+        <li><b>Standaard voor nieuwe wedstrijden</b> — stel per ploeg in met welke <b>vorm</b> (bv. 8v8) en welke <b>formatie</b> je meestal speelt, en ook het <b>aantal blokken</b> en de <b>duur per blok</b>. Een U8 speelt geen vier kwarten van een kwartier, en zo hoef je dat niet bij elke wedstrijd opnieuw bij te stellen. Staat jouw speelduur niet in de lijst, kies dan <b>'Vrij…'</b> en tik het aantal minuten in.</li>
       </ul>
+      <p class="hdl-tip">Een nieuwe wedstrijd én een ingelezen kalender nemen die instellingen over; per wedstrijd kan je ze nog altijd wijzigen. Bestaande ploegen zonder instelling houden vier kwarten van 15 minuten tot je het aanpast.</p>
     `
   },
   {
@@ -706,6 +707,7 @@ const HANDLEIDING_PAGINAS = [
   },
   {
     titel: 'Kalender importeren',
+    img: 'handleiding/screenshots/24_kalender_importeren.png',
     inhoud: `
       <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>.</p>
       <div class="sec">Welk bestand?</div>
@@ -722,6 +724,22 @@ const HANDLEIDING_PAGINAS = [
       </ul>
       <p class="hdl-tip">Een bondssite schrijft clubnamen voluit ('SPORTKRING ROESELARE') waar jij ze kort intikte ('SK Roeselare'). De app herkent dat als dezelfde wedstrijd en zet dat erbij. Past er die dag geen enkele wedstrijd bij, maar staat er wel één, dan krijg je een waarschuwing ('Ook Olsa Brakel (B) op deze dag') en blijft de regel aangevinkt — jij beslist.</p>
       <p>Er wordt niets bewaard tot je onderaan op de groene knop tikt. Reclame en aankondigingen die in zo'n agenda meekomen, laat de app zelf vallen.</p>
+    `
+  },
+  {
+    titel: 'Meerdere wedstrijden aanpassen',
+    img: 'handleiding/screenshots/25_meerdere_aanpassen.png',
+    inhoud: `
+      <p>Moet bij tien wedstrijden hetzelfde veranderen — bijvoorbeeld het ploeg-label van <b>'B'</b> naar <b>'Zwart'</b> — dan hoef je die niet één per één te openen. Ga naar <b>Wedstrijden</b> en tik op <b>'Meerdere aanpassen'</b>.</p>
+      <ol class="hdl-list">
+        <li><b>Zoek eerst</b> in de zoekbalk om je lijst korter te maken, bijvoorbeeld op de tegenstander of het label.</li>
+        <li><b>Vink aan</b> welke wedstrijden mee moeten. <b>'Alles in de lijst'</b> volgt je zoekterm, dus wat je weggefilterd hebt, wordt ook niet aangevinkt.</li>
+        <li>Tik op <b>'Aanpassen…'</b> en kies <b>één</b> ding: ploeg-label, soort wedstrijd, terrein, truikleur, trainer of ploegverantwoordelijke. Op <b>geplande</b> wedstrijden ook de wedstrijdvorm, het aantal blokken en de blokduur.</li>
+        <li>Je krijgt een <b>nakijkscherm</b>: bij hoeveel wedstrijden wat verandert, met de lijst erbij en per wedstrijd de waarde die er nu staat. Wat al goed stond, wordt overgeslagen.</li>
+      </ol>
+      <p class="hdl-tip">Fout gedaan? Bovenaan de wedstrijdenlijst staat daarna <b>'Ongedaan maken'</b>, dat de oude waarden terugzet. Eén stap terug, tot een dag na de wijziging, en enkel bij de ploeg waar je de wijziging deed.</p>
+      <p>De ploeg, de tegenstander, de datum, het uur en thuis/uit kan je hier <b>niet</b> wijzigen, en ook niets rond selectie, opstelling of gebeurtenissen. Dat blijft per wedstrijd — één misklik over tien wedstrijden is daar te riskant.</p>
+      <p style="margin-top:10px">Bij een gespeelde wedstrijd blijven de wedstrijdvorm en de blokken buiten bereik: die bepalen mee de speelminuten, en die van een gespeelde wedstrijd horen niet meer te bewegen. Zitten er zulke wedstrijden in je selectie, dan zegt de app vooraf hoeveel er dus niet meewijzigen.</p>
     `
   },
   {
@@ -960,8 +978,10 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; je kan hem daarna via <b>'Leden'</b> promoveren tot ploegbeheerder.</li>
         <li><b>'Leden'</b> — overzicht van alle kijkers en ploegbeheerders. Hier keur je ploegbeheeraanvragen goed of af, en promoveer of degradeer je leden.</li>
         <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
+        <li><b>'Teruggevonden'</b> — verwijderde wedstrijden en tornooien blijven bewaard. Hier zie je wat er gewist is, wanneer en door wie, en zet je het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</li>
       </ul>
       <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
+      <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden.</p>
       <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
     `
   },
@@ -982,9 +1002,26 @@ const HANDLEIDING_PAGINAS = [
         <li>Bezorg de trainer de <b>uitnodigingslink</b> (of QR-code / code). Hij vervoegt eerst als kijker.</li>
         <li>Ga naar <b>'Leden'</b> en <b>promoveer</b> hem tot ploegbeheerder.</li>
       </ol>
+      <div class="sec">Spelers doorschuiven</div>
+      <p>Elk seizoen schuiven de lichtingen door. Tik in 'Mijn club beheren' op <b>'Spelers doorschuiven'</b>, kies <b>van</b> welke ploeg <b>naar</b> welke, en vink aan wie meegaat — met <b>'Allemaal'</b> als snelkoppeling. Je krijgt eerst te zien wie meegaat en hoeveel spelers achterblijven.</p>
+      <ul class="hdl-list">
+        <li><b>Iedereen houdt zijn verleden.</b> Op de spelerspagina blijft onder <b>'Carrière — eerder bij'</b> staan wat hij bij zijn vorige ploeg deed. Zijn oude wedstrijden blijven bij die ploeg, met zijn naam erin.</li>
+        <li><b>Doe het niet met de hand.</b> Tik je een speler in de nieuwe ploeg opnieuw in, dan is dat voor de app een nieuwe persoon en blijft zijn carrière-overzicht leeg. Gebruik altijd dit scherm.</li>
+        <li><b>Begin bij de oudste ploeg</b> — eerst U12 naar U13, dan U11 naar U12, en zo verder. Omgekeerd staan er even twee lichtingen in één lijst en moet je bij het aanvinken opletten.</li>
+        <li>Wie <b>stopt</b>, gaat niet mee: die haal je daarna uit de spelerslijst bij <b>Ploeg</b> — en ook dat kan je daar ongedaan maken.</li>
+      </ul>
+      <p class="hdl-tip">Fout doorgeschoven? Meteen na de beurt staat er <b>'Ongedaan maken'</b>, dat beide spelerslijsten exact terugzet.</p>
+      <div class="sec">Clubexport (Excel)</div>
+      <p>Met <b>'Clubexport'</b> haal je de cijfers van <b>alle</b> ploegen van je club op — ook van ploegen die je op dit toestel nooit opende. Je kiest eerst het <b>seizoen</b>. Het bestand heeft zes tabbladen:</p>
+      <ul class="hdl-list">
+        <li><b>Spelers</b> — één regel per speler, met zijn speeltijd over al zijn ploegen samen. Dit is de tabel voor de vraag <i>"heeft dit kind genoeg gevoetbald?"</i>, ook als hij halfweg het seizoen van ploeg veranderde.</li>
+        <li><b>Spelers per ploeg</b> — dezelfde speler opgesplitst per ploeg, voor de vraag <i>"hoe is de speeltijd in mijn ploeg verdeeld?"</i>.</li>
+        <li><b>Overzicht</b>, <b>Wedstrijden</b>, <b>Speeltijd</b> (de ruwe tabel per speler per wedstrijd) en <b>Tornooiwedstrijden</b>.</li>
+      </ul>
+      <p><b>Tornooiwedstrijden staan apart</b> en tellen niet mee in de speeltijd: een tornooidag is vijf wedstrijdjes van tien minuten, en die zouden elk gemiddelde vertekenen. Je vindt het aantal tornooien terug in het Overzicht.</p>
+      <p class="hdl-tip">Spelernotities en kwetsuurdetails zitten er bewust <b>niet</b> in. In de app zijn die enkel voor beheerders; in een bestand dat rondgestuurd wordt, zijn ze dat niet meer.</p>
       <div class="sec">Extra</div>
       <ul class="hdl-list">
-        <li><b>'Speler overzetten'</b> — verplaats een speler tussen ploegen binnen je club.</li>
         <li><b>Clublogo</b> — stel bovenaan in 'Mijn club beheren' het clublogo in. Het verschijnt bij je club op het ploegkeuzescherm, onderaan de ploegpagina en in de wedstrijd-PDF.</li>
       </ul>
     `

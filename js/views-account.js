@@ -3144,7 +3144,13 @@ function bulkToggle(id) {
   // Enkel het aangetikte kaartje en de teller hertekenen: de hele lijst hertekenen zou de zoekterm
   // en de schuifpositie wegvegen, en dat is bij dertig wedstrijden bijzonder vervelend.
   const kaart = document.querySelector(`.match-item[data-bulk="${id}"]`);
-  if (kaart) kaart.classList.toggle('bulk-aan', bulkSel.has(id));
+  if (kaart) {
+    kaart.classList.toggle('bulk-aan', bulkSel.has(id));
+    // Ook het vinkje zelf, niet enkel de groene achtergrond: dat vinkje wordt bij het tekenen
+    // ingezet, dus zonder deze regel bleef een aangetikte rij een leeg groen blokje.
+    const vink = kaart.querySelector('.bulk-vink');
+    if (vink) vink.innerHTML = bulkSel.has(id) ? icI(IC.done) : '';
+  }
   bulkBarVerversen();
 }
 // "Alles" werkt op wat je NU ziet, dus binnen je zoekterm — niet op de hele lijst. Anders selecteert
@@ -3157,6 +3163,8 @@ function bulkAllesZichtbaar() {
     const id = el.getAttribute('data-bulk');
     if (allemaalAl) bulkSel.delete(id); else bulkSel.add(id);
     el.classList.toggle('bulk-aan', bulkSel.has(id));
+    const vink = el.querySelector('.bulk-vink');
+    if (vink) vink.innerHTML = bulkSel.has(id) ? icI(IC.done) : '';
   });
   bulkBarVerversen();
 }
