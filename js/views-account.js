@@ -2346,6 +2346,9 @@ const views = {
     return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.calendar)} Agenda</h1></div>
       <div class="content" id="agenda-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
+  // renderHerstel woont in stats-settings.js, dat ná dit bestand geladen wordt — dus pas oplossen
+  // bij de aanroep (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
+  herstel: () => renderHerstel(),
   setup: () => { refreshEmailVerified(); return renderSettings(true); },
   settings: () => { refreshEmailVerified(); return renderSettings(false); },
   handleiding: () => renderHandleiding(0),

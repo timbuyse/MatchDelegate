@@ -1141,13 +1141,39 @@ async function exportHandleidingPDF() {
   setTimeout(() => w.print(), 800);
 }
 
+// De spelerskern van ÁLLE ploegen van deze gebruiker, elk bij zijn eigen ploeg. Vóór versie 3 zat er
+// maar één kern in een back-up — die van de ploeg die op dat moment open stond — terwijl de
+// wedstrijden van alle ploegen er wél in zaten. Wie via het tandwieltje een back-up nam, wist dus
+// niet wiens spelers hij meenam, en bij het terugzetten niet wiens spelers hij overschreef.
+async function backupKernen() {
+  const uit = [];
+  for (const tid of Object.keys(userTeams || {})) {
+    let arr = [];
+    // De actieve ploeg staat in de gewone sleutel; de andere in hun eigen cache van een eerder bezoek.
+    if (tid === activeTeamId) arr = getTeamsV2();
+    if (!arr.length) { try { arr = JSON.parse(localStorage.getItem(rosterCacheKey(tid)) || '[]'); } catch (e) { arr = []; } }
+    if (!Array.isArray(arr)) arr = [];
+    // Nooit op dit toestel geopend? Dan bij de cloud halen, zodat een back-up compleet is en niet
+    // afhangt van waar je toevallig al geweest bent.
+    if (!arr.length && cloudReady && fbdb) {
+      try {
+        const v = (await fbOnce(fbdb.ref('teams/' + tid + '/roster'))).val();
+        arr = v ? (Array.isArray(v) ? v : Object.values(v)) : [];
+      } catch (e) { arr = []; }
+    }
+    uit.push({ teamId: tid, teamName: teamNames[tid] || '', rol: userTeams[tid] || '', kernen: arr });
+  }
+  return uit;
+}
 async function exportBackup() {
   const matches = await dbAll();
-  const data = { app: 'voetbal', version: 2, exportedAt: Date.now(), matches,
-    settings: { clubName: localStorage.getItem('voetbal_club_name'), clubLogo: localStorage.getItem('voetbal_club_logo'),
-      teamsV2: localStorage.getItem('voetbal_teams_v2'), countdown: localStorage.getItem('voetbal_countdown'),
-      theme: localStorage.getItem('voetbal_theme'), dark: localStorage.getItem('voetbal_dark'),
+  const ploegen = await backupKernen();
+  const data = { app: 'voetbal', version: 3, exportedAt: Date.now(), matches, ploegen,
+    settings: { countdown: localStorage.getItem('voetbal_countdown'),
       tournaments: localStorage.getItem('voetbal_tournaments') } };
+  // Wat er in dit bestand zit, meteen zeggen — anders weet je pas bij het terugzetten wat je hebt.
+  const nP = ploegen.filter(p => (p.kernen || []).length).length;
+  showToast(`Back-up: ${matches.length} ${matches.length === 1 ? 'wedstrijd' : 'wedstrijden'}, spelers van ${nP} ${nP === 1 ? 'ploeg' : 'ploegen'}.`, 'ok');
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1173,17 +1199,169 @@ function importBackup(input) {
     }
     if (!data || data.app !== 'voetbal' || !Array.isArray(data.matches)) { showToast('Dit lijkt geen geldige voetbal-back-up.', 'err'); return; }
     pendingRestore = data;
-    openModal(`<h3>Back-up gevonden</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${data.matches.length} wedstrijden in dit bestand.<br>Wil je ze <b>samenvoegen</b> met je huidige data, of <b>alles vervangen</b>?</p>
-      <button class="btn btn-green" onclick="doRestore('merge')">${icI(IC.link)} Samenvoegen (toevoegen)</button>
-      <button class="btn btn-red" style="margin-top:8px" onclick="doRestore('replace')">${icI(IC.warn)} Alles vervangen</button>
-      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    herstelBouwGroepen();
+    go('herstel');
     input.value = '';
   };
   reader.readAsText(f);
 }
 
 let pendingRestore = null;
+// ===================== TERUGZETTEN, PER PLOEG =====================
+// Vroeger waren er twee knoppen: "samenvoegen" of "alles vervangen". Die tweede wiste ALLE
+// wedstrijden van ALLE ploegen op het toestel en overschreef bovendien de spelerslijst — en dat is
+// het plekje van de ploeg die op dat moment open staat. Het tandwieltje staat op elk scherm, dus je
+// wist zelden in welke ploeg je zat. Nu kies je per ploeg wat er terug moet.
+let herstelGroepen = [];   // [{ naam, wedstrijden:[], kernen:[], teamId, mijn, aan, mode, naarNaam }]
+function herstelBouwGroepen() {
+  const d = pendingRestore || {};
+  // Groeperen op ploegNAAM: dat is waarop de lijsten filteren en dus wat bepaalt of je een wedstrijd
+  // te zien krijgt. De ploegverwijzing is er wel, maar die verschilt per toestel en per ploeg-versie.
+  const perNaam = new Map();
+  (d.matches || []).forEach(m => {
+    const naam = (m.teamName || '').trim() || '(zonder ploegnaam)';
+    if (!perNaam.has(naam)) perNaam.set(naam, []);
+    perNaam.get(naam).push(m);
+  });
+  // Welke ploegen zijn van MIJ? Op naam vergelijken, want de wedstrijden dragen een naam.
+  const mijnNamen = new Map();   // naam -> teamId
+  Object.keys(userTeams || {}).forEach(tid => { const n = (teamNames[tid] || '').trim(); if (n) mijnNamen.set(n, tid); });
+  const kernenUitBestand = new Map();
+  (d.ploegen || []).forEach(p => { if ((p.teamName || '').trim()) kernenUitBestand.set(p.teamName.trim(), p.kernen || []); });
+  let tornooien = [];
+  try { tornooien = JSON.parse((d.settings || {}).tournaments || '[]') || []; } catch (e) { tornooien = []; }
+  herstelGroepen = [...perNaam.entries()].map(([naam, wedstrijden]) => {
+    const teamId = mijnNamen.get(naam) || null;
+    // Enkel een ploeg waarvan ik BEHEERDER ben, kan een spelerskern terugkrijgen: bij een kijker
+    // weigert de databank die schrijfactie, en dan mislukt het stil.
+    const mag = teamId && userTeams[teamId] === 'admin';
+    return { naam, wedstrijden, teamId, mijn: !!teamId, magKern: !!mag,
+      kernen: kernenUitBestand.get(naam) || [],
+      tornooien: tornooien.filter(t => t.teamId && teamId && t.teamId === teamId),
+      aan: !!teamId, mode: 'add', naarNaam: '' };
+  }).sort((a, b) => (b.mijn - a.mijn) || a.naam.localeCompare(b.naam));
+}
+function herstelZet(i, veld, waarde) {
+  const g = herstelGroepen[i]; if (!g) return;
+  g[veld] = veld === 'aan' ? !g.aan : waarde;
+  render();
+}
+function renderHerstel() {
+  const d = pendingRestore;
+  if (!d) return `<div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>Back-up terugzetten</h1></div>
+    <div class="content"><p style="text-align:center;color:var(--txt2)">Geen bestand geladen.</p></div>`;
+  const mijnOpties = Object.keys(userTeams || {}).filter(tid => userTeams[tid] === 'admin')
+    .map(tid => teamNames[tid] || '').filter(Boolean).sort();
+  const dat = d.exportedAt ? fmtDate(d.exportedAt) : 'onbekende datum';
+  const kaart = (g, i) => {
+    const nW = g.wedstrijden.length, nS = (g.kernen || []).length ? ((g.kernen[0].players || []).length) : 0;
+    const nT = (g.tornooien || []).length;
+    const info = `${nW} ${nW === 1 ? 'wedstrijd' : 'wedstrijden'}`
+      + (nS ? ` · ${nS} ${nS === 1 ? 'speler' : 'spelers'}` : '') + (nT ? ` · ${nT} ${nT === 1 ? 'tornooi' : 'tornooien'}` : '');
+    if (!g.mijn) {
+      // Kan de app niet onderscheiden: verwijderd, of bestaat nog maar jij hoort er niet meer bij.
+      // Een ploeg waar je geen lid van bent, mag je niet eens lezen — dus één eerlijke formulering.
+      return `<div class="card" style="margin-bottom:10px;border-left:3px solid var(--org)">
+        <b style="font-size:15px">${esc(g.naam)}</b>
+        <div style="font-size:13px;color:var(--txt2);margin:2px 0 8px">${info}</div>
+        <p style="font-size:13px;color:var(--org2);margin:0 0 10px">Deze ploeg zit niet bij jouw ploegen. Haar spelers kunnen niet terug.</p>
+        <div class="fg" style="margin-bottom:0"><label>Wedstrijden toewijzen aan</label>
+          <select onchange="herstelZet(${i},'naarNaam',this.value)">
+            <option value="" ${g.naarNaam===''?'selected':''}>Overslaan</option>
+            ${mijnOpties.map(n => `<option value="${esc(n)}" ${g.naarNaam===n?'selected':''}>${esc(n)}</option>`).join('')}
+          </select></div>
+      </div>`;
+    }
+    return `<div class="card ${g.aan ? '' : ''}" style="margin-bottom:10px;${g.aan ? 'border-left:3px solid var(--grn)' : 'opacity:.7'}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div class="bulk-vink ${g.aan ? '' : ''}" style="${g.aan ? 'background:var(--grn);border-color:var(--grn)' : ''}" onclick="herstelZet(${i},'aan')">${g.aan ? icI(IC.done) : ''}</div>
+        <div style="flex:1" onclick="herstelZet(${i},'aan')">
+          <b style="font-size:15px">${esc(g.naam)}</b>
+          <div style="font-size:13px;color:var(--txt2)">${info}</div>
+        </div>
+      </div>
+      ${g.aan ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <span class="start-chip ${g.mode==='add'?'on':''}" onclick="herstelZet(${i},'mode','add')">Toevoegen wat ontbreekt</span>
+        <span class="start-chip ${g.mode==='replace'?'on':''}" onclick="herstelZet(${i},'mode','replace')">Volledig terugzetten</span>
+      </div>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">${g.mode === 'add'
+        ? 'Enkel wedstrijden die je niet meer hebt. Spelers en bestaande wedstrijden blijven staan.'
+        : `Wedstrijden van <b>${esc(g.naam)}</b> worden vervangen door die uit het bestand${g.magKern && (g.kernen||[]).length ? ', en ook de spelerskern' : ''}. Andere ploegen blijven ongemoeid.${!g.magKern && (g.kernen||[]).length ? ' Je bent geen beheerder van deze ploeg, dus de spelers blijven zoals ze zijn.' : ''}`}</p>` : ''}
+    </div>`;
+  };
+  const teDoen = herstelGroepen.filter(g => (g.mijn && g.aan) || (!g.mijn && g.naarNaam));
+  return `<div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.upload)} Back-up terugzetten</h1></div>
+    <div class="content">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Bestand van <b>${esc(dat)}</b> · ${(d.matches||[]).length} wedstrijden in totaal. Kies per ploeg wat er terug moet. Wat je niet aanvinkt, blijft exact zoals het nu is.</p>
+      ${herstelGroepen.map(kaart).join('')}
+      ${teDoen.length ? `<button class="btn btn-org" onclick="herstelVoerUit()">${icI(IC.done)} Terugzetten</button>` : `<p style="font-size:13px;color:var(--txt2)">Vink aan wat je terug wil.</p>`}
+      <button class="btn btn-gray" style="margin-top:8px" onclick="go('settings')">Annuleren</button>
+    </div>`;
+}
+async function herstelVoerUit() {
+  const d = pendingRestore; if (!d) return;
+  let toegevoegd = 0, vervangen = 0, kernen = 0, verplaatst = 0;
+  const schoon = m => { const c = { ...m }; delete c.fromCloud; return c; };
+  for (const g of herstelGroepen) {
+    // Ploeg die niet van mij is: enkel wedstrijden, en enkel als je een doelploeg koos.
+    if (!g.mijn) {
+      if (!g.naarNaam) continue;
+      const tid = Object.keys(userTeams).find(t => (teamNames[t] || '').trim() === g.naarNaam);
+      const kern = tid === activeTeamId ? (getTeamsV2()[0] || null) : null;
+      for (const m of g.wedstrijden) {
+        const c = schoon(m);
+        c.teamName = g.naarNaam;
+        // De ploegverwijzing meenemen als we ze kennen; anders leegmaken in plaats van de oude,
+        // niet-bestaande verwijzing te laten staan (die maakt de wedstrijd onbewerkbaar).
+        c.teamId = kern ? kern.id : '';
+        recomputeScore(c); recomputeOnField(c);
+        try { await dbSave(c); verplaatst++; } catch (e) {}
+      }
+      continue;
+    }
+    if (!g.aan) continue;
+    // De verwijzing naar de spelerslijst gelijkzetten met de kern die we voor deze ploeg kennen.
+    // Bij een echte back-up klopt die al (wedstrijden en kern komen van hetzelfde toestel), maar
+    // klopt ze niet, dan is zo'n wedstrijd niet bewerkbaar — en dat is precies wat we vandaag
+    // hebben opgelost. Kennen we geen kern, dan laten we de verwijzing zoals ze is.
+    const kernId = ((g.kernen || [])[0] || {}).id || (g.teamId === activeTeamId ? ((getTeamsV2()[0] || {}).id || '') : '');
+    const metKern = m => { const c = schoon(m); if (kernId) c.teamId = kernId; return c; };
+    if (g.mode === 'replace') {
+      // Enkel de wedstrijden van DEZE ploeg wissen, op naam — precies de verzameling die je in de
+      // lijst van die ploeg ziet. Andere ploegen worden niet aangeraakt.
+      const bestaand = (await dbAll()).filter(m => ((m.teamName || '').trim() || '(zonder ploegnaam)') === g.naam);
+      for (const m of bestaand) { try { await dbDelLocal(m.id); } catch (e) {} }
+      for (const m of g.wedstrijden) {
+        const c = metKern(m); recomputeScore(c); recomputeOnField(c);
+        try { await dbSave(c); vervangen++; } catch (e) {}
+      }
+      if (g.magKern && (g.kernen || []).length) {
+        try {
+          cacheRoster(g.teamId, g.kernen);
+          if (g.teamId === activeTeamId) saveTeamsV2(g.kernen);
+          else if (fbdb) await fbdb.ref('teams/' + g.teamId + '/roster').set(g.kernen);
+          kernen++;
+        } catch (e) {}
+      }
+    } else {
+      const ids = new Set((await dbAll()).map(m => m.id));
+      for (const m of g.wedstrijden) {
+        if (ids.has(m.id)) continue;
+        const c = metKern(m); recomputeScore(c); recomputeOnField(c);
+        try { await dbSave(c); toegevoegd++; } catch (e) {}
+      }
+    }
+    for (const t of (g.tornooien || [])) { try { saveTournament(t); } catch (e) {} }
+  }
+  pendingRestore = null; herstelGroepen = [];
+  const stukjes = [];
+  if (toegevoegd) stukjes.push(`${toegevoegd} toegevoegd`);
+  if (vervangen) stukjes.push(`${vervangen} teruggezet`);
+  if (verplaatst) stukjes.push(`${verplaatst} toegewezen`);
+  if (kernen) stukjes.push(`${kernen} ${kernen === 1 ? 'spelerskern' : 'spelerskernen'}`);
+  showToast(stukjes.length ? stukjes.join(', ') + '.' : 'Niets gewijzigd.', 'ok');
+  go('home');
+}
 async function doRestore(mode) {
   const data = pendingRestore;
   if (!data) return;

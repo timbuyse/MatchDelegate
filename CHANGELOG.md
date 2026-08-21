@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.40.0
+- **Een back-up neemt nu de spelers van al je ploegen mee.** Tot nu zaten er wél de wedstrijden van
+  álle ploegen in, maar enkel de spelers van de ploeg die op dat moment open stond. Het tandwieltje
+  staat op elk scherm, dus je wist zelden welke ploeg dat was: je nam een back-up zonder te weten wiens
+  spelers je meenam. Nu zit elke ploeg met haar eigen spelers in het bestand. Staat een ploeg nog niet
+  op je toestel, dan haalt de app haar erbij. Na het downloaden zegt de app wat er in het bestand zit.
+- **Terugzetten gaat per ploeg.** In plaats van "samenvoegen" of "alles vervangen" krijg je een lijst
+  van de ploegen in het bestand, met per ploeg hoeveel wedstrijden, spelers en tornooien erin zitten.
+  Je vinkt aan wat terug moet en kiest per ploeg tussen **toevoegen wat ontbreekt** (de veilige weg, en
+  de standaard) of **volledig terugzetten**. Wat je niet aanvinkt, blijft exact zoals het is.
+- **"Alles vervangen" bestaat niet meer, en dat was de bedoeling.** Die knop wiste de wedstrijden van
+  álle ploegen op je toestel en overschreef bovendien de spelerslijst van de ploeg die open stond — dus
+  een back-up van U11 terugzetten terwijl U13 open stond, overschreef de spelers van U13. Dat kan nu
+  niet meer: een spelerskern gaat altijd terug naar haar eigen ploeg.
+- **Een ploeg uit het bestand die niet bij jouw ploegen zit**, kan je niet terugzetten — haar spelers
+  horen bij een ploeg die je niet beheert. In plaats daarvan kan je haar wedstrijden **toewijzen aan een
+  ploeg die je wél beheert**, of overslaan. Zonder die keuze zouden ze op je toestel staan zonder ooit
+  ergens te verschijnen.
+- Bij een ploeg waar je enkel kijker bent, worden de wedstrijden teruggezet maar de spelers niet — die
+  schrijfactie zou de databank toch weigeren, en dan mislukt het stil.
+- Een back-up zet je clubnaam, clublogo en je donkere modus niet meer terug: het clublogo staat
+  intussen bij de club zelf, en je weergave-instellingen overschrijven bij een herstel is een
+  verrassing die niemand vraagt.
+
 ## v0.39.0
 - **Meerdere wedstrijden in één keer aanpassen.** Bij "Wedstrijden" staat een knop *Meerdere aanpassen*.
   Je tikt de wedstrijden aan die je samen wil wijzigen, kiest één ding, en past het toe. Bedoeld voor wat
