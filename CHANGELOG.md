@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.42.0
+- **Een hele lichting doorschuiven in één keer.** "Speler overzetten" heet nu **Spelers doorschuiven** en
+  werkt met vinkjes in plaats van met één speler per keer. Je kiest van-ploeg en naar-ploeg, vinkt aan wie
+  meegaat — met **Allemaal** als snelkoppeling — en zet ze samen over. Bij een seizoensovergang was dat
+  vijftien keer dezelfde vier stappen; nu is het één handeling per ploeg.
+- **Vinkjes en geen "alles automatisch"**, omdat er altijd iemand achterblijft: wie stopt met voetballen,
+  of wie een jaar in dezelfde categorie blijft.
+- **Iedereen houdt zijn verleden.** Een doorgeschoven speler behoudt zijn blijvende spelers-id, dus op
+  zijn pagina blijft "Carrière — eerder bij" zijn wedstrijden bij de vorige ploeg tonen. Had hij dat id
+  nog niet, dan wordt het ook in zijn oude wedstrijden bijgeschreven — in één doorloop, niet per speler.
+- **Nakijken vóór het opslaan:** je krijgt de lijst te zien van wie meegaat, en hoeveel spelers bij de
+  bronploeg achterblijven.
+- **En het kan in één klik terug.** Na een doorschuifbeurt staat er *"Ongedaan maken"*, dat beide
+  spelerslijsten exact terugzet. Eén stap, tot een dag erna.
+- Praktische tip die de app niet voor je kan bedenken: **begin bij de oudste ploeg.** Schuif U12 naar U13,
+  dan U11 naar U12, dan U10 naar U11. Omgekeerd staan er even twee lichtingen in één lijst.
+- Wie achterblijft en gestopt is, haal je uit de spelerslijst via **Spelers** — daar kan je dat sinds
+  v0.41.0 ook ongedaan maken.
+
 ## v0.41.0
 - **Nieuw scherm "Teruggevonden": wat je per ongeluk wiste, staat er nog.** Bij **Beheer** vind je nu de
   verwijderde wedstrijden en tornooien terug, met wanneer ze gewist zijn en door wie, en je zet ze in één

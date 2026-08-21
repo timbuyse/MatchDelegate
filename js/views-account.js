@@ -129,7 +129,7 @@ async function loadClubBeheerView() {
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-      ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Speler overzetten (binnen club)</button>` : ''}
+      ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>
       ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
@@ -585,9 +585,9 @@ function renderPlayerTransfer() {
   // Speler overzetten is een club-operatie (binnen de ploegen van één club) — toegankelijk voor
   // de clubbeheerder (de eigenaar is dat ook voor zijn club). Gescoped op _clubBeheerId.
   const clubIds = Object.keys(myClubs || {});
-  if (!clubIds.length) return '<div class="hdr"><button class="back" onclick="go(\'clubbeheer\')">‹</button><h1>Speler overzetten</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
+  if (!clubIds.length) return '<div class="hdr"><button class="back" onclick="go(\'clubbeheer\')">‹</button><h1>Spelers doorschuiven</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
   setTimeout(loadPlayerTransferView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('clubbeheer')">‹</button><h1>${icI(IC.swap)} Speler overzetten</h1></div>
+  return `<div class="hdr"><button class="back" onclick="go('clubbeheer')">‹</button><h1>${icI(IC.swap)} Spelers doorschuiven</h1></div>
   <div class="content" id="playertransfer-content"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>`;
 }
 // teams/{id}/roster staat in Firebase soms als array (via de gewone lokale sync,
@@ -620,7 +620,7 @@ async function loadPlayerTransferView() {
       } catch (e) { return null; }
     }))).filter(t => t && t.name).sort((a, b) => a.name.localeCompare(b.name, 'nl'));
     if (teams.length < 2) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Je hebt minstens twee ploegen in deze club nodig om een speler over te zetten.</p>'; return; }
-    ptState = { teams, srcTeamId: teams[0].id, dstTeamId: '', playerId: '' };
+    ptState = { teams, srcTeamId: teams[0].id, dstTeamId: '', gekozen: new Set() };
     el.innerHTML = renderPlayerTransferForm();
   } catch (e) {
     el.innerHTML = '<p style="text-align:center;color:var(--org2)">Kon de ploegen niet laden. Probeer opnieuw.</p>';
@@ -637,19 +637,45 @@ function renderPlayerTransferForm() {
     <div class="card">
       <div class="fg"><label>Van ploeg</label>
         <select onchange="ptSrcChange(this.value)">${s.teams.map(t => `<option value="${esc(t.id)}" ${s.srcTeamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
-      <div class="fg"><label>Speler</label>
-        <select onchange="ptState.playerId=this.value">
-          <option value="">Kies een speler…</option>
-          ${players.map(p => `<option value="${esc(p.id)}" ${s.playerId===p.id?'selected':''}>${esc(playerLabel(p))}${p.number?' · '+esc(p.number):''}</option>`).join('')}
-        </select></div>
       <div class="fg" style="margin-bottom:0"><label>Naar ploeg</label>
         ${dstOptions.length ? `<select onchange="ptState.dstTeamId=this.value">${dstOptions.map(t => `<option value="${esc(t.id)}" ${s.dstTeamId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>` : '<p style="color:var(--txt2);font-size:13px;margin:0">Geen andere ploeg beschikbaar.</p>'}</div>
     </div>
+    ${ptUndoHtml()}
+    ${/* Vinkjes en geen keuzelijstje: bij een seizoensovergang gaan er vijftien spelers samen mee, en
+         één speler kiezen is dan hetzelfde als er één aanvinken. Er blijft altijd iemand achter — wie
+         stopt, of wie een jaar in dezelfde categorie blijft — dus "allemaal" mag geen automatisme zijn. */ ''}
+    <div class="sec">Wie gaat mee? (${s.gekozen.size}/${players.length})</div>
+    <div class="card">
+      ${players.length ? `<div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="ptAlle(true)">Allemaal</button>
+        <button class="btn btn-gray btn-sm" style="width:auto;margin:0" onclick="ptAlle(false)">Niemand</button>
+      </div>
+      ${sortedByName(players.map(p => ({ ...p, name: playerLabel(p) }))).map(p => `
+        <div class="ts-team-row" style="cursor:pointer;gap:10px" onclick="ptToggle('${p.id}')">
+          <div class="bulk-vink" style="${s.gekozen.has(p.id) ? 'background:var(--grn);border-color:var(--grn)' : ''}">${s.gekozen.has(p.id) ? icI(IC.done) : ''}</div>
+          <span style="flex:1;font-size:15px">${esc(playerLabel(p))}</span>
+          ${p.number ? `<span style="font-size:13px;color:var(--txt2)">${esc(p.number)}</span>` : ''}
+        </div>`).join('')}`
+      : `<p style="color:var(--txt2);font-size:14px;margin:0">Deze ploeg heeft nog geen spelers.</p>`}
+    </div>
     <button class="btn btn-green" onclick="confirmTransferPlayer()">${icI(IC.swap)} Overzetten</button>
-    <p style="font-size:12px;color:var(--txt2);margin-top:10px">De speler wordt uit de spelerslijst van de bronploeg verwijderd en toegevoegd aan de doelploeg. Bestaande wedstrijden en statistieken bij de bronploeg blijven behouden.</p>`;
+    <p style="font-size:12px;color:var(--txt2);margin-top:10px">Wie je aanvinkt, verdwijnt uit de spelerslijst van de bronploeg en komt bij de doelploeg. Zijn wedstrijden en statistieken bij de bronploeg blijven behouden, en op zijn spelerspagina blijft "Carrière — eerder bij" werken.<br><br>Wie achterblijft en gestopt is, haal je uit de spelerslijst via <b>Spelers</b> — daar kan je dat ook ongedaan maken.</p>`;
+}
+function ptToggle(id) {
+  if (!ptState) return;
+  if (ptState.gekozen.has(id)) ptState.gekozen.delete(id); else ptState.gekozen.add(id);
+  const el = document.getElementById('playertransfer-content');
+  if (el) el.innerHTML = renderPlayerTransferForm();
+}
+function ptAlle(aan) {
+  if (!ptState) return;
+  const src = ptState.teams.find(t => t.id === ptState.srcTeamId);
+  ptState.gekozen = new Set(aan ? (src ? src.players.map(p => p.id) : []) : []);
+  const el = document.getElementById('playertransfer-content');
+  if (el) el.innerHTML = renderPlayerTransferForm();
 }
 function ptSrcChange(val) {
-  ptState.srcTeamId = val; ptState.playerId = '';
+  ptState.srcTeamId = val; ptState.gekozen = new Set();
   if (ptState.dstTeamId === val) ptState.dstTeamId = '';
   // Enkel het formulier herbouwen met de al-geladen ptState — een volledige render() zou
   // via renderPlayerTransfer() opnieuw loadPlayerTransferView() triggeren, dat ptState.srcTeamId
@@ -659,16 +685,56 @@ function ptSrcChange(val) {
 }
 function confirmTransferPlayer() {
   const s = ptState;
-  if (!s || !s.playerId) { showToast('Kies een speler.', 'err'); return; }
+  if (!s || !s.gekozen.size) { showToast('Vink aan wie meegaat.', 'err'); return; }
   if (!s.dstTeamId || s.dstTeamId === s.srcTeamId) { showToast('Kies een andere doelploeg.', 'err'); return; }
   const srcTeam = s.teams.find(t => t.id === s.srcTeamId);
-  const player = srcTeam && srcTeam.players.find(p => p.id === s.playerId);
   const dstTeam = s.teams.find(t => t.id === s.dstTeamId);
-  if (!player || !dstTeam) return;
-  openModal(`<h3>Speler overzetten?</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px"><b>${esc(playerLabel(player))}</b> gaat van <b>${esc(srcTeam.name)}</b> naar <b>${esc(dstTeam.name)}</b>.<br><br>Bestaande wedstrijden bij ${esc(srcTeam.name)} blijven behouden.</p>
+  if (!srcTeam || !dstTeam) return;
+  const mee = srcTeam.players.filter(p => s.gekozen.has(p.id));
+  const blijft = srcTeam.players.length - mee.length;
+  openModal(`<h3>${icI(IC.swap)} ${mee.length === 1 ? 'Speler' : mee.length + ' spelers'} overzetten?</h3>
+    <p style="font-size:14px;margin-bottom:10px">Van <b>${esc(srcTeam.name)}</b> naar <b>${esc(dstTeam.name)}</b>.</p>
+    <div style="max-height:35vh;overflow-y:auto;text-align:left;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:10px">
+      ${sortedByName(mee.map(p => ({ ...p, name: playerLabel(p) }))).map(p => `<div style="padding:2px 0">${esc(playerLabel(p))}</div>`).join('')}
+    </div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:14px">${blijft
+      ? `${blijft} ${blijft === 1 ? 'speler blijft' : 'spelers blijven'} bij ${esc(srcTeam.name)}.`
+      : `De spelerslijst van ${esc(srcTeam.name)} wordt daarmee leeg.`} Wedstrijden en statistieken blijven bij beide ploegen zoals ze zijn.</p>
     <button class="btn btn-green" onclick="doTransferPlayer()">${icI(IC.check)} Ja, overzetten</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Eén stap terug na een doorschuifbeurt: de twee spelerslijsten zoals ze waren. Bewust met dezelfde
+// vervaltermijn als bij het bulk aanpassen — een knop van vorige week die belooft iets ongedaan te
+// maken, is verwarrender dan nuttig.
+const PT_UNDO_KEY = 'voetbal_kern_undo';
+function ptUndoBeschikbaar() {
+  try {
+    const u = JSON.parse(localStorage.getItem(PT_UNDO_KEY) || 'null');
+    if (!u || !u.src || !u.dst) return null;
+    if (Date.now() - (u.when || 0) > 24 * 60 * 60 * 1000) return null;
+    return u;
+  } catch (e) { return null; }
+}
+function ptUndoHtml() {
+  const u = ptUndoBeschikbaar();
+  if (!u) return '';
+  return `<div class="nudge" style="margin-bottom:12px">${icI(IC.history)} <b>${u.aantal} ${u.aantal === 1 ? 'speler' : 'spelers'}</b> doorgeschoven van ${esc(u.srcNaam)} naar ${esc(u.dstNaam)}.
+    <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="ptUndo()">Ongedaan maken</button>
+    <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="ptUndoVergeten()">Sluiten</button></div>`;
+}
+function ptUndoVergeten() { try { localStorage.removeItem(PT_UNDO_KEY); } catch (e) {} const el = document.getElementById('playertransfer-content'); if (el) el.innerHTML = renderPlayerTransferForm(); }
+async function ptUndo() {
+  const u = ptUndoBeschikbaar();
+  if (!u || !fbdb) return;
+  try {
+    await Promise.all([
+      fbdb.ref('teams/' + u.srcId + '/roster').set(u.src),
+      fbdb.ref('teams/' + u.dstId + '/roster').set(u.dst),
+    ]);
+    try { localStorage.removeItem(PT_UNDO_KEY); } catch (e) {}
+    showToast('Teruggezet.', 'ok');
+    loadPlayerTransferView();
+  } catch (e) { showToast('Terugzetten mislukt, probeer opnieuw.', 'err'); }
 }
 async function doTransferPlayer() {
   const s = ptState;
@@ -688,21 +754,39 @@ async function doTransferPlayer() {
     if (!srcRoster[0] || !dstRoster[0]) {
       showToast('Kon de ploegdata niet laden, probeer opnieuw.', 'err'); return;
     }
-    const player = (srcRoster[0].players || []).find(p => p.id === s.playerId);
-    if (!player) { showToast('Speler niet gevonden, probeer opnieuw.', 'err'); return; }
-    const globalId = player.globalId || uid();
-    const newPlayer = Object.assign({}, player, { id: uid(), globalId });
-    srcRoster[0].players = (srcRoster[0].players || []).filter(p => p.id !== s.playerId);
-    dstRoster[0].players = (dstRoster[0].players || []).concat([newPlayer]);
+    const gekozen = [...s.gekozen];
+    const mee = (srcRoster[0].players || []).filter(p => gekozen.includes(p.id));
+    if (!mee.length) { showToast('Spelers niet gevonden, probeer opnieuw.', 'err'); return; }
+    // De twee lijsten bewaren zoals ze NU zijn, vóór we ze wijzigen — dat is de stap terug.
+    const undo = { when: Date.now(), aantal: mee.length,
+      srcId: s.srcTeamId, dstId: s.dstTeamId,
+      srcNaam: (s.teams.find(t => t.id === s.srcTeamId) || {}).name || '',
+      dstNaam: (s.teams.find(t => t.id === s.dstTeamId) || {}).name || '',
+      src: jclone(srcRoster), dst: jclone(dstRoster) };
+    // Eén nieuw record per speler: een verse lokale id in de doelploeg, maar hetzelfde blijvende
+    // globalId — dát is wat "Carrière — eerder bij" laat werken.
+    const zonderGlobalId = [];
+    const nieuwe = mee.map(p => {
+      const globalId = p.globalId || uid();
+      if (!p.globalId) zonderGlobalId.push({ oudId: p.id, globalId });
+      return Object.assign({}, p, { id: uid(), globalId });
+    });
+    srcRoster[0].players = (srcRoster[0].players || []).filter(p => !gekozen.includes(p.id));
+    dstRoster[0].players = (dstRoster[0].players || []).concat(nieuwe);
+    // Eén schrijfbeurt per ploeg, niet één per speler: bij vijftien spelers zou dat vijftien keer
+    // dezelfde lijst overschrijven, met evenveel kansen om er halfweg uit te vallen.
     await Promise.all([
       fbdb.ref('teams/' + s.srcTeamId + '/roster').set(srcRoster),
       fbdb.ref('teams/' + s.dstTeamId + '/roster').set(dstRoster),
     ]);
+    try { localStorage.setItem(PT_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
     // Carrière-backfill: had de speler nog geen globalId, dan dragen zijn historische wedstrijden
     // bij de bronploeg het zonet gegenereerde id ook niet — en blijft "Carrière — eerder bij" bij
     // een eerste overzetting leeg. Best-effort: het globalId terugschrijven in elke wedstrijd van
     // de bronploeg waarin hij (op rosterId) meespeelde. Een fout hier breekt de overzetting niet.
-    if (!player.globalId) {
+    // Eén doorloop over de wedstrijden voor álle spelers die nog geen globalId hadden, niet één
+    // doorloop per speler.
+    if (zonderGlobalId.length) {
       try {
         const msnap = await fbOnce(fbdb.ref('teams/' + s.srcTeamId + '/matches'));
         const matches = msnap.val() || {};
@@ -710,16 +794,20 @@ async function doTransferPlayer() {
           const players = matches[mid] && matches[mid].players;
           if (!Array.isArray(players)) continue;
           let changed = false;
-          players.forEach(p => { if (p && p.rosterId === s.playerId && !p.globalId) { p.globalId = globalId; changed = true; } });
+          players.forEach(p => {
+            if (!p || p.globalId) return;
+            const hit = zonderGlobalId.find(z => z.oudId === p.rosterId);
+            if (hit) { p.globalId = hit.globalId; changed = true; }
+          });
           if (changed) await fbdb.ref('teams/' + s.srcTeamId + '/matches/' + mid + '/players').set(players);
         }
       } catch (e) {}
     }
-    ptState = null;
-    showToast('Speler overgezet.', 'ok');
-    // Terug naar het clubbeheer — de overzetting start altijd vanuit dat scherm; go('beheer')
-    // toonde het ploegbeheer van de (mogelijk irrelevante) actieve ploeg.
-    go('clubbeheer');
+    const n = mee.length;
+    showToast(`${n} ${n === 1 ? 'speler' : 'spelers'} overgezet.`, 'ok');
+    // Op het scherm blijven: de knop "Ongedaan maken" staat hier, en bij een seizoensovergang
+    // schuif je meestal meteen de volgende ploeg door.
+    loadPlayerTransferView();
   } catch (e) {
     showToast('Overzetten mislukt, probeer opnieuw.', 'err');
   }
