@@ -2517,10 +2517,14 @@ async function loadHome() {
         </div>`;
       }).join('')
     : '';
-  // Laatst gespeelde wedstrijd (zelfde filter).
+  // Laatst gespeelde wedstrijden (zelfde filter). Sorteren op WEDSTRIJDDATUM en niet op de volgorde
+  // van dbAll (dat is aanmaakdatum, nieuwste eerst): sinds de kalenderimport bestaan er wedstrijden
+  // die vandaag aangemaakt zijn maar over maanden gespeeld worden, en dan stond onder "laatst
+  // gespeeld" de laatst ingelezen wedstrijd in plaats van de laatst gespeelde.
   let recent = looseMatches.filter(m => m.status === 'done');
   if (homeFilter !== 'all') recent = recent.filter(m => m.teamName === homeFilter);
-  recent = recent.slice(0, 1);
+  recent.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  recent = recent.slice(0, 2);
   const recentHtml = recent.length ? `<div class="sec">${icI(IC.history)} Laatst gespeeld</div>${recent.map(matchItemHtml).join('')}` : '';
   const newBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:14px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   const createTeamHint = '';
@@ -2547,6 +2551,25 @@ async function loadHome() {
         ${forgotten.map(m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''} afsluiten</button>`).join('')}
       </div>`
     : '';
+  // Wedstrijden waarvan de dag voorbij is en die nooit afgesloten werden: nooit gestart (nog
+  // 'planned') of gestart maar nooit beëindigd ('live'). Die stonden vóór v0.38.0 bij
+  // "Eerstvolgende" — daar hoorden ze niet, maar ze mogen ook niet gewoon verdwijnen: er hangt een
+  // verslag aan dat nog afgewerkt moet worden. Recentste eerst: die is het meest waarschijnlijk aan
+  // de orde. Enkel voor wie de ploeg beheert — voor een kijker is dit administratie waar hij niets
+  // aan kan doen. Staat een wedstrijd al in de banner hierboven (looksForgotten), dan laten we ze
+  // hier weg: dezelfde wedstrijd twee keer op één scherm leest als twee problemen.
+  // Deze berekening hoort ná `forgotten` te staan, anders is die variabele hier nog niet gekend.
+  const inBanner = new Set(forgotten.map(m => m.id));
+  let openOud = canManage()
+    ? looseMatches.filter(m => m.status !== 'done' && !matchCancelled(m)
+        && (m.date || '') && m.date < vandaagISO && !inBanner.has(m.id))
+    : [];
+  if (homeFilter !== 'all') openOud = openOud.filter(m => m.teamName === homeFilter);
+  openOud.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  openOud = openOud.slice(0, 2);
+  const openOudHtml = openOud.length
+    ? `<div class="sec">${icI(IC.warn)} Niet afgesloten</div>${openOud.map(matchItemHtml).join('')}`
+    : '';
   const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd${upcoming.length > 1 ? 'en' : ''}</div>${upcomingHtml}` : '';
   const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
   const noneSection = (!upcoming.length && !upcomingTrn.length)
@@ -2559,7 +2582,7 @@ async function loadHome() {
         ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:40px;height:40px;object-fit:contain">` : ''}
         ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + recentHtml + trnSection + coAdminHint + clubFooter;
+  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter;
 }
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 // ----- Kalenderweergave van de wedstrijden -----

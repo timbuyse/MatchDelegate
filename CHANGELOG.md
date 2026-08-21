@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.38.1
+- **Nieuw blok "Niet afgesloten" op het ploegscherm.** Wedstrijden waarvan de dag voorbij is en die
+  nooit afgesloten werden — nooit gestart, of gestart maar nooit beëindigd. Die stonden tot v0.38.0 bij
+  "Eerstvolgende", waar ze niet hoorden, maar ze mogen ook niet gewoon verdwijnen: er hangt een verslag
+  aan dat nog afgewerkt moet worden. De recentste staat bovenaan, maximaal twee. Enkel voor wie de
+  ploeg beheert — een kijker kan er niets aan doen. Een afgelaste wedstrijd staat er niet bij, en een
+  wedstrijd die al bovenaan in de gele melding staat ook niet: dezelfde wedstrijd twee keer op één
+  scherm leest als twee problemen.
+- **"Laatst gespeeld" toont er nu twee in plaats van één**, en — belangrijker — de **juiste** twee. Dat
+  blok was gesorteerd op wanneer een wedstrijd was *aangemaakt*, niet op wanneer ze gespeeld was. Sinds
+  de kalenderimport bestaan er wedstrijden die vandaag zijn ingelezen maar over maanden gespeeld worden,
+  en dan stond onder "laatst gespeeld" de laatst ingelezen wedstrijd.
+
 ## v0.38.0
 - **Een wedstrijd van vorige week staat niet meer bij "Eerstvolgende wedstrijden".** Een geplande
   wedstrijd die nooit gestart of afgesloten werd, bleef daar staan alsof ze nog moest komen — en duwde
