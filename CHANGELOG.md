@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.39.0
+- **Meerdere wedstrijden in één keer aanpassen.** Bij "Wedstrijden" staat een knop *Meerdere aanpassen*.
+  Je tikt de wedstrijden aan die je samen wil wijzigen, kiest één ding, en past het toe. Bedoeld voor wat
+  na een kalenderimport altijd terugkomt: dertig wedstrijden staan op ploeg-label "B" en dat moet "Zwart"
+  worden.
+- **Zoek eerst, vink dan aan.** De zoekbalk blijft werken in dat scherm, en "Alles in de lijst" volgt je
+  zoekterm — dus wat je weggefilterd hebt, wordt ook niet aangevinkt.
+- **Wat je kan aanpassen:** ploeg-label, soort wedstrijd, terrein, truikleur, trainer en
+  ploegverantwoordelijke. En op **geplande** wedstrijden ook wedstrijdvorm, aantal blokken en blokduur —
+  die bepalen mee de speelminuten, dus op een gespeelde wedstrijd blijven ze onaangeroerd. Zitten er zulke
+  wedstrijden in je selectie, dan zegt de app vooraf hoeveel er dus niet meewijzigen.
+- **Wat je bewust niet kan aanpassen:** de ploeg, de tegenstander, de datum, het uur, thuis of uit, en
+  alles rond selectie, opstelling, plan en gebeurtenissen. Dat is geen vergetelheid: één misklik op de
+  ploeg deed vandaag een wedstrijd uit de lijst verdwijnen.
+- **Nakijken vóór het opslaan.** Je krijgt te zien bij hoeveel wedstrijden wat verandert, met de lijst
+  erbij en per wedstrijd de waarde die er nu staat. Wat al goed stond, wordt overgeslagen.
+- **En daarna kan het in één klik terug.** Na een wijziging staat er bovenaan de wedstrijdenlijst
+  *"Ongedaan maken"*, dat de oude waarden terugzet. Eén stap terug, tot een dag na de wijziging.
+
 ## v0.38.1
 - **Nieuw blok "Niet afgesloten" op het ploegscherm.** Wedstrijden waarvan de dag voorbij is en die
   nooit afgesloten werden — nooit gestart, of gestart maar nooit beëindigd. Die stonden tot v0.38.0 bij

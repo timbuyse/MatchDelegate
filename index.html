@@ -249,6 +249,12 @@
        dus die pijltjes missen we niet. */
     .pn-inp::-webkit-outer-spin-button,.pn-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
     .pn-inp{-moz-appearance:textfield;appearance:textfield}
+    /* Meerdere wedstrijden tegelijk aanpassen: vinkje links, en een aangevinkte rij die je van een
+       halve meter afstand nog ziet — je duidt er dertig aan en moet kunnen nakijken wat je hebt. */
+    .bulk-vink{width:26px;height:26px;border-radius:7px;border:2px solid var(--bdr);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;margin-right:10px}
+    .match-item.bulk-aan{border-color:var(--grn);background:var(--grnp)}
+    .match-item.bulk-aan .bulk-vink{background:var(--grn);border-color:var(--grn)}
+    body.dark .match-item.bulk-aan{background:#12291c}
     .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bdr)}
     .prow:last-child{border-bottom:none}
     .pnum{width:34px;height:34px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}

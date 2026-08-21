@@ -2720,6 +2720,194 @@ async function loadAgenda() {
   el.innerHTML = filterBar + renderKalender(list, trns);
 }
 
+// ===================== MEERDERE WEDSTRIJDEN TEGELIJK AANPASSEN =====================
+// Aanleiding: na een kalenderimport staan tientallen wedstrijden op ploeg-label "B" terwijl het
+// "Zwart" moet zijn. Eén voor één is dat tientallen keren hetzelfde klikken.
+// Twee grenzen, bewust:
+//  1. Enkel velden waar niets van afhangt. De ploeg, de tegenstander, de datum, het uur, thuis/uit en
+//     alles rond selectie, opstelling, plan en gebeurtenissen blijven hier buiten. De ploeg is geen
+//     theoretisch risico: precies dat veld deed op 21-08-2026 een wedstrijd uit de lijst verdwijnen.
+//  2. Wedstrijdvorm, aantal blokken en blokduur enkel op GEPLANDE wedstrijden: die bepalen mee de
+//     speelminuten en hoeveel spelers op het veld horen, dus op een gespeelde wedstrijd zou je het
+//     verslag hertekenen dat al gedeeld is.
+// Er wordt altijd maar één veld per keer gewijzigd, en op elke wedstrijd wordt enkel dat veld gezet —
+// de rest van het object blijft letterlijk staan, zoals de kalenderimport het ook doet.
+let bulkMode = false;
+let bulkSel = new Set();
+let bulkVeld = null;
+const BULK_UNDO_KEY = 'voetbal_bulk_undo';
+const BULK_UNDO_GELDIG_MS = 24 * 60 * 60 * 1000;   // een dag oude "ongedaan maken" helpt niemand meer
+const BULK_VELDEN = [
+  { key: 'subteam',         label: 'Ploeg-label',            soort: 'tekst', plaatshouder: 'bv. A, B of Zwart — leeg mag ook' },
+  { key: 'competition',     label: 'Soort wedstrijd',        soort: 'keuze', opties: () => ['Competitie', 'Beker', 'Vriendschappelijk'] },
+  { key: 'venue',           label: 'Terrein',                soort: 'tekst', plaatshouder: 'bv. Terrein 2' },
+  { key: 'jersey',          label: 'Truikleur',              soort: 'tekst', plaatshouder: 'bv. rood-wit' },
+  { key: 'trainer',         label: 'Trainer',                soort: 'tekst', plaatshouder: 'naam' },
+  { key: 'responsible',     label: 'Ploegverantwoordelijke', soort: 'tekst', plaatshouder: 'naam' },
+  { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => Object.keys(MATCH_TYPES) },
+  { key: 'periodKey',       label: 'Aantal blokken',         soort: 'keuze', enkelGepland: true,
+    opties: () => Object.keys(PERIOD_TYPES), toon: k => `${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}` },
+  { key: 'quarterDuration', label: 'Blokduur',               soort: 'keuze', enkelGepland: true,
+    opties: () => [...new Set([].concat(...Object.values(DURATIONS)))].sort((a, b) => a - b), toon: v => v + ' minuten', getal: true },
+];
+function bulkVeldById(key) { return BULK_VELDEN.find(v => v.key === key) || null; }
+function bulkStart() { bulkMode = true; bulkSel = new Set(); bulkVeld = null; loadMatches(); }
+function bulkStop() { bulkMode = false; bulkSel = new Set(); bulkVeld = null; loadMatches(); }
+function bulkToggle(id) {
+  if (bulkSel.has(id)) bulkSel.delete(id); else bulkSel.add(id);
+  // Enkel het aangetikte kaartje en de teller hertekenen: de hele lijst hertekenen zou de zoekterm
+  // en de schuifpositie wegvegen, en dat is bij dertig wedstrijden bijzonder vervelend.
+  const kaart = document.querySelector(`.match-item[data-bulk="${id}"]`);
+  if (kaart) kaart.classList.toggle('bulk-aan', bulkSel.has(id));
+  bulkBarVerversen();
+}
+// "Alles" werkt op wat je NU ziet, dus binnen je zoekterm — niet op de hele lijst. Anders selecteert
+// een zoekopdracht op "B" stilletjes ook alles wat je net weggefilterd hebt.
+function bulkAllesZichtbaar() {
+  const zichtbaar = [...document.querySelectorAll('#match-list .match-item[data-bulk]')]
+    .filter(el => el.style.display !== 'none');
+  const allemaalAl = zichtbaar.length > 0 && zichtbaar.every(el => bulkSel.has(el.getAttribute('data-bulk')));
+  zichtbaar.forEach(el => {
+    const id = el.getAttribute('data-bulk');
+    if (allemaalAl) bulkSel.delete(id); else bulkSel.add(id);
+    el.classList.toggle('bulk-aan', bulkSel.has(id));
+  });
+  bulkBarVerversen();
+}
+function bulkBarVerversen() {
+  const el = document.getElementById('bulk-teller');
+  if (el) el.textContent = bulkSel.size === 0 ? 'Niets geselecteerd'
+    : bulkSel.size === 1 ? '1 wedstrijd geselecteerd' : `${bulkSel.size} wedstrijden geselecteerd`;
+  const btn = document.getElementById('bulk-pas-btn');
+  if (btn) { btn.disabled = bulkSel.size === 0; btn.style.opacity = bulkSel.size === 0 ? '.5' : ''; }
+}
+function bulkItemHtml(m) {
+  const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
+  const aan = bulkSel.has(m.id);
+  const statusTxt = m.status === 'live' ? 'Live' : m.status === 'planned' ? 'Gepland' : matchCancelled(m) ? 'Geannuleerd' : 'Gespeeld';
+  return `<div class="match-item ${aan ? 'bulk-aan' : ''}" data-bulk="${m.id}" data-s="${esc(sdata)}" onclick="bulkToggle('${m.id}')">
+    <div class="bulk-vink">${aan ? icI(IC.done) : ''}</div>
+    <div class="mi-info">
+      <div class="mi-opp">${esc(m.opponent || '(geen tegenstander)')}</div>
+      <div class="mi-date">${m.teamName ? '<b>' + esc(m.teamName) + (m.subteam ? ' (' + esc(m.subteam) + ')' : '') + '</b> · ' : ''}${matchWhen(m)} · ${statusTxt}</div>
+    </div></div>`;
+}
+// De balk boven de lijst: teller, alles-knop, en de weg naar het aanpassen zelf.
+function bulkBarHtml() {
+  return `<div class="card" style="margin-bottom:12px;position:sticky;top:0;z-index:5">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <b id="bulk-teller" style="flex:1;font-size:14px">Niets geselecteerd</b>
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="bulkAllesZichtbaar()">Alles in de lijst</button>
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 10px">Tik de wedstrijden aan die je samen wil aanpassen. Zoek eerst hierboven om je lijst korter te maken — "Alles in de lijst" volgt je zoekterm.</p>
+    <button class="btn btn-org" id="bulk-pas-btn" disabled style="opacity:.5" onclick="bulkKiesVeld()">${icI(IC.edit)} Aanpassen…</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="bulkStop()">Annuleren</button>
+  </div>`;
+}
+function bulkKiesVeld() {
+  if (!bulkSel.size) return;
+  openModal(`<h3>${icI(IC.edit)} Wat wil je aanpassen?</h3>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Bij <b>${bulkSel.size}</b> ${bulkSel.size === 1 ? 'wedstrijd' : 'wedstrijden'}. Je past één ding per keer aan; al de rest van die wedstrijden blijft ongewijzigd.</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${BULK_VELDEN.map(v => `<button class="btn btn-pale" style="margin:0;text-align:left" onclick="bulkKiesWaarde('${v.key}')">${esc(v.label)}${v.enkelGepland ? ' <span style="color:var(--txt2);font-weight:400">— enkel geplande</span>' : ''}</button>`).join('')}
+    </div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
+async function bulkKiesWaarde(key) {
+  const v = bulkVeldById(key);
+  if (!v) return;
+  bulkVeld = key;
+  // Bij een veld dat enkel op geplande wedstrijden mag: nu al zeggen hoeveel er dan afvallen, niet
+  // pas achteraf. Anders denk je dertig wedstrijden aan te passen en zijn het er twaalf.
+  const alle = await dbAll();
+  const gekozen = alle.filter(m => bulkSel.has(m.id));
+  const raakt = v.enkelGepland ? gekozen.filter(m => m.status === 'planned') : gekozen;
+  const vallenAf = gekozen.length - raakt.length;
+  const invoer = v.soort === 'keuze'
+    ? `<select id="bulk-waarde">${v.opties().map(o => `<option value="${esc(String(o))}">${esc(v.toon ? v.toon(o) : String(o))}</option>`).join('')}</select>`
+    : `<input id="bulk-waarde" type="text" placeholder="${esc(v.plaatshouder || '')}" autocomplete="off">`;
+  openModal(`<h3>${icI(IC.edit)} ${esc(v.label)}</h3>
+    <div class="fg"><label>Nieuwe waarde</label>${invoer}</div>
+    ${vallenAf > 0 ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;text-align:left;margin-bottom:10px">${icI(IC.warn)} ${vallenAf} van je ${gekozen.length} wedstrijden ${vallenAf === 1 ? 'is' : 'zijn'} niet meer gepland en ${vallenAf === 1 ? 'blijft' : 'blijven'} dus ongewijzigd. Dit gaat over de speelminuten, en die van een gespeelde wedstrijd horen niet meer te bewegen.</div>` : ''}
+    ${raakt.length ? `<button class="btn btn-org" onclick="bulkBekijkEnPasToe()">Volgende</button>`
+      : `<p style="font-size:13px;color:var(--org2)">Geen enkele van je gekozen wedstrijden is nog gepland.</p>`}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// Laatste scherm vóór het opslaan: wat er verandert, bij welke wedstrijden, met de oude waarde erbij.
+async function bulkBekijkEnPasToe() {
+  const v = bulkVeldById(bulkVeld);
+  if (!v) return;
+  const inp = document.getElementById('bulk-waarde');
+  let waarde = inp ? inp.value : '';
+  if (v.getal) waarde = Number(waarde) || 0;
+  const alle = await dbAll();
+  const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
+    .filter(m => String(m[v.key] == null ? '' : m[v.key]) !== String(waarde));   // wat al goed staat, laten we staan
+  if (!raakt.length) { closeModal(); showToast('Daar stond die waarde al overal.', 'ok'); return; }
+  const toon = x => (x === '' || x == null) ? '(leeg)' : (v.toon ? v.toon(x) : String(x));
+  openModal(`<h3>${icI(IC.warn)} Nakijken</h3>
+    <p style="font-size:14px;margin-bottom:10px">Bij <b>${raakt.length}</b> ${raakt.length === 1 ? 'wedstrijd' : 'wedstrijden'} wordt <b>${esc(v.label.toLowerCase())}</b> <b>${esc(toon(waarde))}</b>.</p>
+    <div style="max-height:40vh;overflow-y:auto;text-align:left;font-size:13px;color:var(--txt2);border:1px solid var(--bdr);border-radius:8px;padding:8px">
+      ${raakt.map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--bdr)">${esc(m.opponent || '(geen tegenstander)')} · ${esc(matchWhen(m))}<br><span style="font-size:12px">nu: ${esc(toon(m[v.key]))}</span></div>`).join('')}
+    </div>
+    <button class="btn btn-org" style="margin-top:12px" onclick="bulkVoerUit('${esc(String(waarde))}')">Aanpassen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function bulkVoerUit(waardeTxt) {
+  const v = bulkVeldById(bulkVeld);
+  if (!v) return;
+  const waarde = v.getal ? (Number(waardeTxt) || 0) : waardeTxt;
+  closeModal();
+  const alle = await dbAll();
+  const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
+    .filter(m => String(m[v.key] == null ? '' : m[v.key]) !== String(waarde));
+  const undo = { veld: v.key, label: v.label, when: Date.now(), entries: [] };
+  let gelukt = 0, mislukt = 0;
+  for (const m of raakt) {
+    const vers = await dbGet(m.id);
+    if (!vers) { mislukt++; continue; }
+    undo.entries.push({ id: vers.id, oud: vers[v.key] == null ? '' : vers[v.key] });
+    vers[v.key] = waarde;
+    recomputeScore(vers); recomputeOnField(vers);
+    try { await dbSave(vers); gelukt++; } catch (e) { mislukt++; undo.entries.pop(); }
+  }
+  try { localStorage.setItem(BULK_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
+  bulkMode = false; bulkSel = new Set(); bulkVeld = null;
+  showToast(mislukt ? `${gelukt} aangepast, ${mislukt} mislukt.` : `${gelukt} ${gelukt === 1 ? 'wedstrijd' : 'wedstrijden'} aangepast.`, mislukt ? 'err' : 'ok');
+  loadMatches();
+}
+function bulkUndoBeschikbaar() {
+  try {
+    const u = JSON.parse(localStorage.getItem(BULK_UNDO_KEY) || 'null');
+    if (!u || !u.entries || !u.entries.length) return null;
+    if (Date.now() - (u.when || 0) > BULK_UNDO_GELDIG_MS) return null;
+    return u;
+  } catch (e) { return null; }
+}
+function bulkUndoVergeten() { try { localStorage.removeItem(BULK_UNDO_KEY); } catch (e) {} loadMatches(); }
+async function bulkUndo() {
+  const u = bulkUndoBeschikbaar();
+  if (!u) return;
+  let gelukt = 0;
+  for (const e of u.entries) {
+    const m = await dbGet(e.id);
+    if (!m) continue;
+    m[u.veld] = e.oud;
+    recomputeScore(m); recomputeOnField(m);
+    try { await dbSave(m); gelukt++; } catch (err) {}
+  }
+  try { localStorage.removeItem(BULK_UNDO_KEY); } catch (e) {}
+  showToast(`${gelukt} ${gelukt === 1 ? 'wedstrijd' : 'wedstrijden'} teruggezet.`, 'ok');
+  loadMatches();
+}
+function bulkUndoBannerHtml() {
+  const u = bulkUndoBeschikbaar();
+  if (!u || bulkMode) return '';
+  const n = u.entries.length;
+  return `<div class="nudge" style="margin-bottom:12px">${icI(IC.history)} <b>${n} ${n === 1 ? 'wedstrijd' : 'wedstrijden'} aangepast</b> (${esc(u.label.toLowerCase())}).
+    <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="bulkUndo()">Ongedaan maken</button>
+    <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="bulkUndoVergeten()">Sluiten</button></div>`;
+}
 async function loadMatches() {
   const all = (await dbAll()).filter(m => !m.tournamentId);
   const el = document.getElementById('matches-content');
@@ -2749,7 +2937,8 @@ async function loadMatches() {
   // Geannuleerd staat onderaan, apart: het zijn geen geplande wedstrijden meer (er valt niets voor
   // te bereiden) en ook geen uitslagen. Recentste eerst, zoals bij de gespeelde.
   const afgelast = list.filter(matchCancelled).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
-  const sec = (title, arr) => arr.length ? `<div class="sec">${title}</div>${arr.map(matchItemHtml).join('')}` : '';
+  // Tweede parameter zodat dezelfde groepen ook met de vinkjes-weergave getekend kunnen worden.
+  const sec = (title, arr, teken) => arr.length ? `<div class="sec">${title}</div>${arr.map(teken || matchItemHtml).join('')}` : '';
   const items = list.length
     ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done) + sec(`${icI(IC.close)} Geannuleerde wedstrijden`, afgelast)
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
@@ -2761,11 +2950,27 @@ async function loadMatches() {
     <button class="${matchesWeergave === 'lijst' ? 'act' : ''}" onclick="setMatchesWeergave('lijst')">${icI(IC.log)} Lijst</button>
     <button class="${matchesWeergave === 'kalender' ? 'act' : ''}" onclick="setMatchesWeergave('kalender')">${icI(IC.calendar)} Kalender</button>
   </div>`;
-  if (matchesWeergave === 'kalender') {
-    el.innerHTML = newBtn + filterBar + schakelaar + renderKalender(list);
+  // Meerdere tegelijk aanpassen: dezelfde lijst, maar met vinkjes en zonder navigatie bij een tik.
+  // Bewust enkel in de lijstweergave — in de kalender zie je per dag één stip en kan je niet
+  // overzien wát je aanvinkt. De zoekbalk blijft werken, want die is hier het gereedschap: je zoekt
+  // "B" en vinkt dan alles aan.
+  if (bulkMode) {
+    const bulkItems = list.length
+      ? sec(`${icI(IC.live)} Live`, live, bulkItemHtml) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned, bulkItemHtml)
+        + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done, bulkItemHtml) + sec(`${icI(IC.close)} Geannuleerde wedstrijden`, afgelast, bulkItemHtml)
+      : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
+    el.innerHTML = bulkBarHtml() + searchBar + `<div id="match-list">${bulkItems}</div>`;
+    if (homeSearch) filterHomeItems(homeSearch);
+    bulkBarVerversen();
     return;
   }
-  el.innerHTML = newBtn + filterBar + schakelaar + searchBar + `<div id="match-list">${items}</div>`;
+  const bulkBtn = (canManage() && list.length > 1)
+    ? `<button class="btn btn-pale" style="margin-bottom:12px" onclick="bulkStart()">${icI(IC.edit)} Meerdere aanpassen</button>` : '';
+  if (matchesWeergave === 'kalender') {
+    el.innerHTML = bulkUndoBannerHtml() + newBtn + filterBar + schakelaar + renderKalender(list);
+    return;
+  }
+  el.innerHTML = bulkUndoBannerHtml() + newBtn + bulkBtn + filterBar + schakelaar + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
 let homeSearch = '';
