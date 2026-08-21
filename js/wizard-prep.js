@@ -112,8 +112,20 @@ function renderNew() {
 }
 function wizStep1() {
   const teams = getTeamsV2();
+  // Hoort deze wedstrijd bij een ploeg die dit toestel NIET in zijn lijst heeft? Dan mag de
+  // keuzelijst haar niet stil vervangen. Een <select> zonder aangevinkte optie toont namelijk zijn
+  // eerste, en captureStep1() leest die waarde meteen terug in wiz.teamId — zo verhuisde een
+  // wedstrijd bij het bewerken naar de eerste ploeg in de lijst, zonder dat iemand iets koos, en
+  // verdween ze daarna uit de lijst van de eigen ploeg (incident 21-08-2026). De ploeg van de
+  // wedstrijd komt er daarom zelf bij als optie, aangevinkt, met haar eigen id als waarde: dan
+  // blijft alles staan zoals het was, ook als je gewoon doorklikt.
+  const onbekendeEigenPloeg = wiz.teamId && !teamById(wiz.teamId);
+  const eigenOptie = onbekendeEigenPloeg
+    ? `<option value="${esc(wiz.teamId)}" selected>${esc(wiz.teamNameFallback || 'Eigen ploeg')} — nog niet geladen</option>`
+    : '';
   const teamSel = teams.length
-    ? `<select id="n-team-sel" onchange="wizTeamChange()">${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
+    ? `<select id="n-team-sel" onchange="wizTeamChange()">${eigenOptie}${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
+      + (onbekendeEigenPloeg ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px;text-align:left">${icI(IC.warn)} De spelers van <b>${esc(wiz.teamNameFallback || 'deze ploeg')}</b> staan nog niet op dit toestel. Je kan de gegevens van de wedstrijd bijwerken; de ploeg blijft ongewijzigd. Wil je de selectie of de opstelling aanpassen, kies die ploeg dan eerst bij <b>Ploegen</b>.</div>` : '')
     : !rosterReady()
       ? `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Spelers laden…</div>`
       : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
@@ -1087,7 +1099,10 @@ function editMatchWizard(m) {
     // gebruikt. Wil je dat later toch weer toelaten: zet noGuests hier op false (het blokkeert dan
     // enkel nog in startSelectieWizard, of nergens als je het daar ook aanpast).
     noGuests: !!m.tournamentId,
-    teamId: team ? team.id : '', opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
+    // Zie wizStep1: vinden we de ploeg niet, dan houden we HAAR eigen verwijzing vast in plaats van
+    // een leeg veld. Leeg liet de keuzelijst op de eerste ploeg vallen en verhuisde de wedstrijd
+    // stil; nu valt teamName bij het opslaan terug op teamNameFallback (de naam die er stond).
+    teamId: team ? team.id : (m.teamId || ''), opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
     competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
     trainer: m.trainer || '', responsible: m.responsible || '',

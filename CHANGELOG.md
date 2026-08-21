@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.5
+- **Een wedstrijd bewerken kan haar niet meer naar een andere ploeg verhuizen.** Bovenaan stap 1 staat
+  een keuzelijst "Eigen ploeg". Stonden de spelers van die ploeg nog niet op je toestel, dan zette die
+  lijst geen vinkje — en een keuzelijst zonder vinkje toont zijn eerste optie. Bij het doorklikken nam
+  de app dat over als de ploeg van de wedstrijd. Gevolg: de wedstrijd verhuisde stil naar een andere
+  ploeg en verdween daarna uit de lijst van haar eigen ploeg, zonder één melding. Niets ging verloren —
+  ze stond onder de verkeerde naam — maar je kon ze niet meer vinden.
+- Nu staat de eigen ploeg van de wedstrijd zelf in die lijst, aangevinkt, met de vermelding **"nog niet
+  geladen"**. Klik je gewoon door, dan blijft alles staan zoals het was. Er komt ook een waarschuwing
+  bij: je kan de gegevens van de wedstrijd bijwerken, maar wil je de selectie of de opstelling
+  aanpassen, kies die ploeg dan eerst bij Ploegen.
+
 ## v0.37.4
 - **"Klik de link in de mail die we je stuurden" — maar die was er nooit.** Accounts van vóór v0.37.0
   hebben nooit een bevestigingsmail gekregen, en die stonden dus naar een mail te zoeken die niet bestaat.
