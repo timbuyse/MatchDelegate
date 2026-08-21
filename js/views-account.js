@@ -2482,8 +2482,15 @@ async function loadHome() {
   // isoDagVan en niet toISOString: die laatste geeft de UTC-dag, dus tussen middernacht en 2 uur
   // 's nachts (zomertijd) zou een wedstrijd van gisteren nog als "vandaag" gelden.
   const vandaagISO = isoDagVan(new Date());
+  // Een geplande wedstrijd waarvan de dag voorbij is, hoort hier niet meer bij — ook al staat ze nog
+  // op 'planned' omdat ze nooit gestart of afgesloten werd. Die filter stond er wél op een
+  // geannuleerde wedstrijd, maar niet op een gewone geplande: een vergeten wedstrijd van vorige maand
+  // bleef zo bovenaan het startscherm staan als "eerstvolgende". Een wedstrijd zonder datum valt hier
+  // dus ook weg; ze kan niet de eerstvolgende zijn en stond voordien juist vooraan (een lege datum
+  // sorteert vóór alles). In de volledige wedstrijdenlijst blijven beide gewoon staan.
+  // 'live' blijft zonder datumvoorwaarde: die wedstrijd wordt nú gespeeld en moet je kunnen openen.
   let upcoming = all.filter(m => m.status === 'live'
-    || (m.status === 'planned' && !m.tournamentId)
+    || (m.status === 'planned' && !m.tournamentId && (m.date || '') >= vandaagISO)
     || (matchCancelled(m) && !m.tournamentId && (m.date || '') >= vandaagISO));
   if (homeFilter !== 'all') upcoming = upcoming.filter(m => m.teamName === homeFilter);
   upcoming.sort((a, b) => { const r = (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1); if (r) return r; return (a.date || '').localeCompare(b.date || ''); });

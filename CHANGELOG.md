@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.38.0
+- **Een wedstrijd van vorige week staat niet meer bij "Eerstvolgende wedstrijden".** Een geplande
+  wedstrijd die nooit gestart of afgesloten werd, bleef daar staan alsof ze nog moest komen — en duwde
+  zo de échte volgende wedstrijd van het startscherm. Nu tonen we enkel wat vandaag of later is. Een
+  wedstrijd die loopt blijft altijd staan, ook als ze gisteren begon: die moet je kunnen openen. In de
+  volledige wedstrijdenlijst staat alles nog gewoon.
+- **Het rugnummer past nu in zijn vakje bij het samenstellen van de selectie.** Bij een nummer van twee
+  cijfers was het laatste cijfer niet meer te zien. De oorzaak waren de pijltjes omhoog/omlaag die een
+  getalveld standaard meebrengt: die aten de breedte op, precies terwijl je typte. Die pijltjes zijn nu
+  weg — voor een rugnummer tik je het getal toch. Het vakje is even groot gebleven en de cijfers zijn
+  niet kleiner geworden.
+- **Een wedstrijd van een andere ploeg is nu gewoon te bewerken, selectie en opstelling inbegrepen.** De
+  app had altijd maar de spelers van één ploeg in handen — die van de ploeg die je open hebt — terwijl je
+  wedstrijden van al je ploegen op je toestel staan. Bij een wedstrijd van een andere ploeg kende het
+  bewerkscherm die spelers dus niet: sinds v0.37.5 kreeg je daar een waarschuwing, en kon je de selectie
+  niet aanpassen. Nu haalt de app die spelers zelf op. Meestal staan ze al op je toestel van een eerder
+  bezoek — dan gaat het onmiddellijk en werkt het ook zonder internet.
+- Lukt het ophalen niet, bijvoorbeeld bij een ploeg die je op dit toestel nog nooit opende én zonder
+  verbinding, dan blijft het gedrag van v0.37.5: je kan de gegevens van de wedstrijd bijwerken, de ploeg
+  blijft ongewijzigd, en de app zegt waarom de selectie niet kan.
+- Die opgehaalde spelerslijst wordt bewust **niet** bij je ploegenlijst gezet: die lijst hoort bij de
+  ploeg die je open hebt, en er iets aan toevoegen zou háár spelers kunnen overschrijven. Ze bestaat dus
+  enkel zolang het scherm open staat.
+
 ## v0.37.5
 - **Een wedstrijd bewerken kan haar niet meer naar een andere ploeg verhuizen.** Bovenaan stap 1 staat
   een keuzelijst "Eigen ploeg". Stonden de spelers van die ploeg nog niet op je toestel, dan zette die

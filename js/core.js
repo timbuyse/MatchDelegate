@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.37.5'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.38.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -625,6 +625,40 @@ function rosterReady() { return !cloudReady || (rosterLoaded && rosterTeamId ===
 // Tekst bij een lege spelerslijst: "laden…" zolang de cloud niet geantwoord heeft, en pas daarna
 // het eerlijke "geen spelers". Zonder dit las een nog niet gesynct rooster als een leeg rooster.
 function rosterEmptyText(txt) { return rosterReady() ? txt : 'Spelers laden…'; }
+// ----- Kern van een ANDERE dan de actieve ploeg -----
+// getTeamsV2() bevat enkel de kern van de actieve ploeg, terwijl de wedstrijden van álle ploegen op
+// het toestel staan. Een wedstrijd van een niet-actieve ploeg was daardoor niet aan haar kern te
+// koppelen — en het bewerkscherm gokte dan (incident 21-08-2026). Hier halen we die kern gewoon op.
+// BELANGRIJK: nooit in 'voetbal_teams_v2' schrijven en nooit via saveTeamsV2 — die sleutel hoort bij
+// de actieve ploeg en wegschrijven zou háár kern overschrijven. Dit blijft in het geheugen en is na
+// een herlading weer weg; het is een leeshulp, geen tweede waarheid.
+let vreemdeKernen = {};   // kern-id -> kernobject
+function kernById(id) { return teamById(id) || vreemdeKernen[id] || null; }
+async function zoekKernOp(kernId) {
+  if (!kernId) return null;
+  const gekend = kernById(kernId);
+  if (gekend) return gekend;
+  const ids = Object.keys(userTeams || {});
+  // 1. Eerst de lokale caches: die staan er van elke ploeg die dit toestel al eens opende, dus dit
+  //    werkt ook zonder verbinding en kost niets.
+  for (const tid of ids) {
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem(rosterCacheKey(tid)) || '[]'); } catch (e) { arr = []; }
+    const hit = Array.isArray(arr) ? arr.find(t => t && t.id === kernId) : null;
+    if (hit) { vreemdeKernen[kernId] = hit; return hit; }
+  }
+  // 2. Anders bij de cloud, ploeg per ploeg. Enkel de ploegen van deze gebruiker, dus een handvol.
+  if (!cloudReady || !fbdb) return null;
+  for (const tid of ids) {
+    try {
+      const v = (await fbOnce(fbdb.ref('teams/' + tid + '/roster'))).val();
+      const arr = v ? (Array.isArray(v) ? v : Object.values(v)) : [];
+      const hit = arr.find(t => t && t.id === kernId);
+      if (hit) { vreemdeKernen[kernId] = hit; return hit; }
+    } catch (e) {}
+  }
+  return null;
+}
 // Horen twee wedstrijden bij dezelfde ploeg? Bij voorkeur via het stabiele teamId (sinds v0.5.34),
 // met de teamName-fallback voor oudere wedstrijden. De matches-store is niet per ploeg gescheiden.
 function sameTeamAsMatch(a, b) {
@@ -1144,6 +1178,7 @@ async function onAuthChanged(user) {
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
     myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false; archivedTeams = {};
+    vreemdeKernen = {};   // opgehaalde kernen van andere ploegen horen niet bij een volgende gebruiker
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
     stopTeamListeners(); listenAdminRequests();

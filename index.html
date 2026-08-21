@@ -243,6 +243,12 @@
     .evtbtn.disabled{opacity:.35;pointer-events:none}
     /* Player row */
     .pn-inp{width:34px;height:34px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;font-weight:700;text-align:center;padding:0 2px;-webkit-appearance:none;background:#fff;flex-shrink:0;color:var(--txt)}
+    /* Een getalveld zet standaard pijltjes omhoog/omlaag in het veld. Die aten de breedte op, en dan
+       was een rugnummer van twee cijfers niet meer te lezen. -webkit-appearance op het veld zelf is
+       daarvoor niet genoeg: de knopjes zijn aparte onderdelen. Voor een rugnummer tik je het getal,
+       dus die pijltjes missen we niet. */
+    .pn-inp::-webkit-outer-spin-button,.pn-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    .pn-inp{-moz-appearance:textfield;appearance:textfield}
     .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bdr)}
     .prow:last-child{border-bottom:none}
     .pnum{width:34px;height:34px;border-radius:50%;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}

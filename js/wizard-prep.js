@@ -28,7 +28,7 @@ function startWizard() {
 }
 function wizTeamChange() {
   captureStep1();
-  const team = teamById(wiz.teamId);
+  const team = kernById(wiz.teamId);
   if (team) {
     wiz.trainer = teamTrainerNames(team)[0] || '';
     wiz.responsible = teamResponsibleNames(team)[0] || '';
@@ -119,13 +119,18 @@ function wizStep1() {
   // verdween ze daarna uit de lijst van de eigen ploeg (incident 21-08-2026). De ploeg van de
   // wedstrijd komt er daarom zelf bij als optie, aangevinkt, met haar eigen id als waarde: dan
   // blijft alles staan zoals het was, ook als je gewoon doorklikt.
-  const onbekendeEigenPloeg = wiz.teamId && !teamById(wiz.teamId);
-  const eigenOptie = onbekendeEigenPloeg
-    ? `<option value="${esc(wiz.teamId)}" selected>${esc(wiz.teamNameFallback || 'Eigen ploeg')} — nog niet geladen</option>`
+  // De maatstaf is `teamById`, dus wat er ÉCHT in deze keuzelijst staat — niet `kernById`, dat ook
+  // een elders opgehaalde kern vindt. Anders komt de fout terug in precies het geval dat we wilden
+  // verbeteren: de kern is opgehaald, dus geen eigen optie, maar de lijst bevat die ploeg nog steeds
+  // niet, en dan toont de <select> weer zijn eerste regel. (Zelf ingelopen bij het testen.)
+  const eigenNietInLijst = wiz.teamId && !teamById(wiz.teamId);
+  const eigenKern = eigenNietInLijst ? kernById(wiz.teamId) : null;   // opgehaald bij een andere ploeg
+  const eigenOptie = eigenNietInLijst
+    ? `<option value="${esc(wiz.teamId)}" selected>${esc((eigenKern && eigenKern.name) || wiz.teamNameFallback || 'Eigen ploeg')}${eigenKern ? ` (${(eigenKern.players || []).length})` : ' — nog niet geladen'}</option>`
     : '';
   const teamSel = teams.length
     ? `<select id="n-team-sel" onchange="wizTeamChange()">${eigenOptie}${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
-      + (onbekendeEigenPloeg ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px;text-align:left">${icI(IC.warn)} De spelers van <b>${esc(wiz.teamNameFallback || 'deze ploeg')}</b> staan nog niet op dit toestel. Je kan de gegevens van de wedstrijd bijwerken; de ploeg blijft ongewijzigd. Wil je de selectie of de opstelling aanpassen, kies die ploeg dan eerst bij <b>Ploegen</b>.</div>` : '')
+      + ((eigenNietInLijst && !eigenKern) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px;text-align:left">${icI(IC.warn)} De spelers van <b>${esc(wiz.teamNameFallback || 'deze ploeg')}</b> konden niet opgehaald worden. Je kan de gegevens van de wedstrijd bijwerken; de ploeg blijft ongewijzigd. Wil je de selectie of de opstelling aanpassen, kies die ploeg dan eerst bij <b>Ploegen</b>.</div>` : '')
     : !rosterReady()
       ? `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Spelers laden…</div>`
       : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
@@ -200,7 +205,7 @@ function captureStep1() {
   wiz.responsible = readStaffPicker('n', 'resp', wiz.responsible);
 }
 function buildPool() {
-  const team = teamById(wiz.teamId);
+  const team = kernById(wiz.teamId);
   // Gebruikt de ploeg geen vaste rugnummers, dan starten de nummervelden leeg. Je kan er per
   // wedstrijd nog altijd één invullen (bv. geleende truitjes), maar het rooster dringt niets op.
   const numsAan = teamUsesNumbers(team);
@@ -321,7 +326,7 @@ function selRow(p) {
 function setWizCaptain(pid) { wiz.captainPid = (wiz.captainPid === pid) ? null : pid; render(); }
 function wizStep2() {
   const own = wiz.pool.filter(p => !p.guest), guests = wiz.pool.filter(p => p.guest);
-  const team = teamById(wiz.teamId);
+  const team = kernById(wiz.teamId);
   const need = fieldSizeW(), sc = selectedCount();
   const absentCount = wiz.pool.filter(p => p.sel === 'absent').length;
   return `
@@ -942,7 +947,7 @@ async function finishWizard(startNow, zonderOpstelling) {
     // basisspeler zonder plaats achter, en die zou nergens meer opduiken.
     wiz.pool.forEach(p => { if (p.sel === 'basis' && p.slot == null) p.sel = 'bank'; });
   }
-  const team = teamById(wiz.teamId);
+  const team = kernById(wiz.teamId);
   const existing = wiz.editId ? await dbGet(wiz.editId) : null;
   // Nú vastleggen: verderop wordt `existing` met Object.assign overschreven met de nieuwe waarden,
   // dus daarna is de oude formatie niet meer te zien.
@@ -1028,10 +1033,18 @@ async function finishWizard(startNow, zonderOpstelling) {
   await go((startNow || m.status === 'live') ? 'live' : 'prep', m.id);
 }
 // Een geplande wedstrijd opnieuw in de wizard openen om te bewerken.
-function editMatchWizard(m) {
+async function editMatchWizard(m) {
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34) — zoeken op naam breekt na een
   // ploeg-hernoeming (pool zonder roster + teamId-koppeling die verloren gaat bij opslaan).
-  const team = (m.teamId && teamById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName);
+  let team = (m.teamId && kernById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName);
+  // Hoort deze wedstrijd bij een ándere ploeg dan de actieve, dan zit haar kern niet in de lijst van
+  // dit scherm. Die halen we op vóór we de pool bouwen — eerst uit de lokale cache (werkt offline),
+  // anders bij de cloud. Lukt het niet, dan geldt het veilige gedrag van v0.37.5: de wedstrijd houdt
+  // haar eigen ploeg en je kan de gegevens bijwerken, maar de selectie niet.
+  if (!team && m.teamId) {
+    showToast('Spelers van die ploeg ophalen…', 'ok');
+    team = await zoekKernOp(m.teamId);
+  }
   // Onbekende wedstrijdvorm → terugvallen op de standaardvorm van de ploeg (die valt zelf terug op
   // 8v8). Data die de app aanmaakt heeft altijd een geldige vorm — de wizard kiest uit een lijstje —
   // maar dat verandert zodra een vorm in MATCH_TYPES hernoemd of geschrapt wordt: de wedstrijden die
@@ -1152,9 +1165,11 @@ function editMatchWizard(m) {
 // x/y) — dus die hergebruiken we, en we springen meteen naar stap 2. Deze functie bouwde vroeger
 // een eigen pool met iedereen op 'none': dat klopte toen ze enkel diende om een nog lege selectie
 // in te vullen, maar zou nu een bestaande selectie hebben leeggemaakt.
-function startSelectieWizard() {
+async function startSelectieWizard() {
   if (!match) return;
-  editMatchWizard(match);
+  // Awaiten: editMatchWizard kan de kern van een andere ploeg gaan ophalen, en de stap hieronder
+  // moet gezet worden ná het opbouwen van wiz.
+  await editMatchWizard(match);
   if (!wiz) return;
   wiz.step = 2; wiz.vanStap = 2;
   render();
@@ -1162,9 +1177,9 @@ function startSelectieWizard() {
 // De FORMATIE (3-3-1, 2-3-2 …) kiezen kan enkel op stap 3 van de wizard: daar hangen de vaste
 // plaatsen aan vast. Het potlood in de planning verplaatst spelers binnen de huidige formatie, dus
 // zonder deze ingang was de formatie van een geplande wedstrijd niet meer te wijzigen.
-function startOpstellingWizard() {
+async function startOpstellingWizard() {
   if (!match) return;
-  editMatchWizard(match);
+  await editMatchWizard(match);   // zie startSelectieWizard
   if (!wiz) return;
   // vanStap blijft 2: vanaf de opstelling is "← Vorige (selectie aanpassen)" een zinvolle stap
   // terug, en pas dáár brengt het pijltje je weer naar de wedstrijd.
@@ -1416,7 +1431,7 @@ async function finishStep1Only() {
     if (!wiz.teamId) { showToast('Kies of maak eerst een ploeg aan.', 'err'); return; }
     if (!wiz.opponent) { showToast('Vul de tegenstander in.', 'err'); return; }
   }
-  const team = teamById(wiz.teamId);
+  const team = kernById(wiz.teamId);
   const common = {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), teamId: wiz.teamId || '',
     competition: wiz.competition, matchday: wiz.matchday || '', referee: wiz.referee || '',
