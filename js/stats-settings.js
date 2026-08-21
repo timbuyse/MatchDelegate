@@ -456,7 +456,8 @@ function renderSettings(isFirst) {
       <div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px;text-align:left">
         ${icI(IC.warn)} <b>E-mailadres nog niet bevestigd.</b> Klik de link in de mail die we je stuurden.
         Zonder bevestiging kan je niet als club- of ploegbeheerder aangesteld worden.</div>
-      <button class="btn btn-pale" style="margin-bottom:8px" onclick="resendVerification(this)">${icI(IC.mail)} Bevestigingsmail opnieuw sturen</button>` : ''}
+      <button class="btn btn-pale" onclick="checkVerifiedNow(this)">${icI(IC.done)} Ik heb de link aangeklikt</button>
+      <button class="btn btn-pale" style="margin-top:8px;margin-bottom:8px" onclick="resendVerification(this)">${icI(IC.mail)} Bevestigingsmail opnieuw sturen</button>` : ''}
       <button class="btn btn-pale" onclick="confirmChangeName()">${icI(IC.edit)} Naam wijzigen</button>
       ${isGuest ? '' : `
       <button class="btn btn-pale" style="margin-top:8px" onclick="confirmChangeEmail()">${icI(IC.mail)} E-mailadres wijzigen</button>
@@ -498,19 +499,35 @@ async function resendVerification(btn) {
     zet('Bevestigingsmail opnieuw sturen', false);
   }
 }
-// Of een adres bevestigd is, zit in het token dat de app bij het aanmelden kreeg — klikt iemand de
-// link aan in zijn mailprogramma, dan weet deze app dat pas na een verversing. Daarom bij het openen
-// van Instellingen één keer navragen: staat het nu wél bevestigd, dan verdwijnt de herinnering en
-// wordt de e-mailindex bijgewerkt, zodat een aanstelling meteen kan.
+// Of een adres bevestigd is, staat op twee plaatsen: in het gebruikersrecord (dat bepaalt of de
+// herinnering verdwijnt) én in het token dat de app bij het aanmelden kreeg (dat bepaalt of de
+// databank een wijziging aanvaardt). Klik je de link aan in je mailprogramma, dan lopen die twee
+// niet mee: `reload()` verse't het record, maar het token blijft zeggen dat je niet bevestigd bent
+// tot het vernieuwd wordt. Zonder die vernieuwing zou de herinnering verdwijnen terwijl de databank
+// de bijwerking stil weigert — en bleef je onaanstelbaar. Vandaar `getIdToken(true)` ertussen.
 async function refreshEmailVerified() {
-  if (!currentUser || currentUser.isAnonymous || currentUser.emailVerified) return;
+  if (!currentUser || currentUser.isAnonymous || currentUser.emailVerified) return false;
   try {
     await currentUser.reload();
-    if (currentUser.emailVerified) {
-      writeUserEmailIndex(currentUser);
-      if (view === 'settings' || view === 'setup') render();
-    }
-  } catch (e) {}
+    if (!currentUser.emailVerified) return false;
+    try { await currentUser.getIdToken(true); } catch (e) {}
+    writeUserEmailIndex(currentUser);
+    // Ook de ledeninformatie van de actieve ploeg, want daar leest de ploegbeheerder het.
+    if (activeTeamId && userTeams && userTeams[activeTeamId]) writeMemberInfo(activeTeamId, userTeams[activeTeamId]);
+    if (view === 'settings' || view === 'setup') render();
+    return true;
+  } catch (e) { return false; }
+}
+// Terugkomen uit je mailprogramma is genoeg: navigeren naar Instellingen hoeft niet. Doet niets
+// zodra het adres bevestigd is (de functie stopt dan meteen), dus dit kost verder niets.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshEmailVerified(); });
+// Knop in de herinnering, voor wie niet wil wachten of niet ziet dat het al goed zit.
+async function checkVerifiedNow(btn) {
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.innerHTML = icI(IC.timer) + ' Bezig...'; }
+  const ok = await refreshEmailVerified();
+  if (ok) { showToast('Je e-mailadres is bevestigd. Bedankt!', 'ok'); return; }
+  showToast('Nog niet bevestigd. Klik eerst de link in de mail aan; die kan even onderweg zijn.', 'err');
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = icI(IC.done) + ' Ik heb de link aangeklikt'; }
 }
 function showPrivacyModal() {
   openModal(`<h3>${icI(IC.shieldLock)} Privacyverklaring</h3>

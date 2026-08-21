@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.37.1'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.37.2'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1757,6 +1757,11 @@ function writeMemberInfo(teamId, role) {
     email: currentUser.email || '',
     name: currentUser.displayName || '',
     role: role || 'viewer',
+    // Of dit e-mailadres bevestigd is. Een ploegbeheerder mag de e-mailindex niet lezen (die is
+    // enkel voor de eigenaar), dus dit is zijn enige bron om te zien of de naam in zijn ledenlijst
+    // ergens op steunt. De rules binden dit veld aan het token, net als in usersByEmail, zodat
+    // niemand zichzelf hier als bevestigd kan neerzetten.
+    verified: !!currentUser.emailVerified,
     joinedAt: Date.now()
   }).catch(() => {});
 }

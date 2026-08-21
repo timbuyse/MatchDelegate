@@ -990,15 +990,18 @@ async function showMembersModal() {
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
         : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
+      // Onbevestigd adres = de naam hierboven steunt op niets. Geen blokkade (jij gaf zelf de
+      // uitnodiging en kent de persoon meestal), maar je hoort het wel te zien vóór je promoveert.
+      const bevestigd = !!mi.verified;
       const btns = role !== 'admin'
-        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}')">Maak ploegbeheerder</button>
+        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
         : (uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
           : '');
       return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small></span>
+          <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
           ${badge}
         </div>
         ${btns ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>` : ''}
@@ -1010,10 +1013,13 @@ async function showMembersModal() {
       const r = requests[uid];
       const naam = r.name || '(geen naam)';
       const email = r.email || '';
+      // Naam en e-mail in een aanvraag zijn door de aanvrager zelf ingevuld. Of dat adres van hem
+      // is, staat enkel in de ledeninformatie — daar kan hij niet over liegen.
+      const reqBevestigd = !!((info[uid] || {}).verified);
       return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;border-left:3px solid var(--org);flex-direction:column;align-items:stretch;gap:8px">
-        <div><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small><br><small style="color:var(--org)">Vraagt ploegbeheer aan</small></div>
+        <div><b>${esc(naam)}</b><br><small style="color:var(--txt2)">${esc(email)}</small>${reqBevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}<br><small style="color:var(--org)">Vraagt ploegbeheer aan</small></div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-green btn-sm" onclick="approveCoAdmin('${uid}')">Goedkeuren</button>
+          <button class="btn btn-green btn-sm" onclick="approveCoAdmin('${uid}',${reqBevestigd ? 1 : 0})">Goedkeuren</button>
           <button class="btn btn-red btn-sm" onclick="rejectCoAdmin('${uid}')">Weigeren</button>
         </div>
       </div>`;
@@ -1038,14 +1044,19 @@ function filterMembersList(q) {
     row.style.display = (!query || (row.getAttribute('data-search') || '').includes(query)) ? '' : 'none';
   });
 }
-async function approveCoAdmin(uid) {
+async function approveCoAdmin(uid, bevestigd) {
   const tid = activeTeamId;
   if (!isAdmin || !tid || !fbdb) return;
-  try {
-    await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
-    await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
-    showMembersModal();
-  } catch (e) { showToast('Goedkeuren mislukt, probeer opnieuw.', 'err'); }
+  const doe = async () => {
+    try {
+      await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
+      await fbdb.ref('teamAdminRequests/' + tid + '/' + uid).remove();
+      showMembersModal();
+    } catch (e) { showToast('Goedkeuren mislukt, probeer opnieuw.', 'err'); }
+  };
+  if (bevestigd) { doe(); return; }
+  showConfirm('Deze persoon heeft zijn e-mailadres niet bevestigd, dus er is geen bewijs dat dat adres van hem is. '
+    + 'Toch goedkeuren als ploegbeheerder?', doe, 'Goedkeuren', 'btn-green');
 }
 
 async function rejectCoAdmin(uid) {
@@ -1067,9 +1078,10 @@ async function demoteMember(uid) {
   }, 'Terugzetten', 'btn-org');
 }
 
-async function promoteMember(uid) {
+async function promoteMember(uid, bevestigd) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Wil je deze persoon promoveren tot ploegbeheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.', async () => {
+  showConfirm('Wil je deze persoon promoveren tot ploegbeheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.'
+    + (bevestigd ? '' : ' LET OP: deze persoon heeft zijn e-mailadres niet bevestigd, dus er is geen bewijs dat dat adres van hem is. Doe dit enkel als je zeker weet wie het is.'), async () => {
     try {
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).set('admin');
       showMembersModal();

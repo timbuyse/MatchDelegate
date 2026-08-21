@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.37.2
+- **Bevestigd is nu ook meteen bevestigd.** Klikte je de link aan, dan bleef de herinnering staan tot je
+  je afmeldde en opnieuw aanmeldde. Nu volstaat het om terug te keren naar de app: zodra ze weer op de
+  voorgrond komt, kijkt ze het na. Er staat ook een knop **"Ik heb de link aangeklikt"** bij, voor wie
+  niet wil wachten — die zegt eerlijk of het al doorgekomen is of niet.
+- **Belangrijker, want dit zag je niet:** onder water bleef je ook ná het aanklikken onaanstelbaar. De app
+  wist dat je bevestigd was, maar het bewijs dat ze aan de databank voorlegde was nog het oude — en dat
+  werd stil geweigerd. Alleen opnieuw aanmelden haalde een nieuw bewijs op. Dat vernieuwt de app nu zelf.
+- **Iemand promoveren via de ledenlijst kende de bevestiging niet.** En dat is net de weg die je in de
+  praktijk gebruikt: een trainer komt binnen via een uitnodigingslink en wordt daarna gepromoveerd. Wie
+  zich met het adres van iemand anders registreerde, stond dus met díe naam in je ledenlijst. Nu staat er
+  bij zo iemand **"e-mailadres niet bevestigd"**, en waarschuwt de app je nog eens op het moment dat je
+  promoveert. Hetzelfde bij het goedkeuren van iemand die zelf ploegbeheer aanvraagt.
+- Bewust géén blokkade op die twee wegen: jij gaf de uitnodiging zelf en kent de persoon meestal. Bij het
+  aanstellen op e-mailadres — waar dat adres het énige bewijs is — blijft het wél een weigering.
+- Vraagt een nieuwe publicatie van de databankregels.
+
 ## v0.37.1
 - **Na het registreren zegt de app nu écht dat er een mail onderweg is.** In v0.37.0 stond die boodschap
   op het aanmeldformulier, maar een nieuw account heeft nog geen ploeg, dus springt de app onmiddellijk

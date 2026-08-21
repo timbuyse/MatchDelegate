@@ -62,7 +62,16 @@
         "$memberId": {
           // Elk lid leest/schrijft enkel zijn eigen info, en enkel als hij lid is.
           ".read":  "auth != null && $memberId === auth.uid",
-          ".write": "auth != null && $memberId === auth.uid && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()"
+          ".write": "auth != null && $memberId === auth.uid && root.child('teams/' + $teamId + '/members/' + auth.uid).exists()",
+          "verified": {
+            // Hierop steunt de ploegbeheerder bij het promoveren van een lid: hij mag de
+            // e-mailindex niet lezen (owner-only), dus dit is zijn enige signaal of de naam in
+            // zijn ledenlijst ergens op steunt. Schrijf je je eigen entry, dan moet dit veld
+            // exact overeenkomen met email_verified in je token — anders kan je jezelf hier als
+            // bevestigd neerzetten en zo alsnog de promotie krijgen die voor iemand anders
+            // bedoeld was. Laat je het weg, dan geldt "niet bevestigd" (de veilige kant).
+            ".validate": "auth.uid !== $memberId || newData.val() === auth.token.email_verified"
+          }
         }
       }
     },
