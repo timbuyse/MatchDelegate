@@ -9,6 +9,37 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.49.0
+Punt 2 van de veldtest van 22 augustus 2026: de opstelling wijzigen tussen twee blokken. Bij een
+jeugdploeg verandert daar veel, en dat liep mis — spelers verdwenen achter elkaar op het veld, en wat
+je aantikte was niet wat er gebeurde.
+
+- **Het veld in de pauze ís de opstelling van het volgende blok.** Voordien hield de app een lijst
+  losse wijzigingen bij, die elk berekend waren tegen de stand van dát moment maar pas bij de start
+  achter elkaar werden uitgevoerd. Zet je er zes achter elkaar klaar, dan kon een latere wijziging
+  een plaats opeisen die een eerdere al weggaf: **twee shirts op exact dezelfde plek**, waarvan je er
+  één ziet. Dat is de speler die "gewoon verdween" — hij lag eronder. Nu is er één opstelling waarin
+  elke plaats precies één bewoner heeft, en zijn de wissels daar de uitkomst van.
+- **Wat je ziet, is wat er gebeurt.** De voorstelling op het scherm werd door andere code berekend
+  dan de werkelijkheid bij de start, met net andere regels. Die twee zijn samengebracht. Nagegaan met
+  60 willekeurige reeksen van in totaal bijna 400 tikken: geen enkel verschil meer, en nooit twee
+  spelers op één plek.
+- **Drie startpunten bovenaan het pauzescherm.** *Uit je plan* · *Zoals nu* · **Leeg veld**. Die
+  laatste is nieuw: het veld gaat leeg en je zet iedereen opnieuw op zijn plaats, zoals bij de
+  aftrap. Bij veel wijzigingen is dat sneller dan tien spelers één voor één verschuiven. Na elk
+  startpunt kan je nog gewoon bijtikken.
+- **Een speler van het veld halen zonder vervanger.** Tik hem aan en gebruik de knop eronder. Dat kon
+  voordien niet: een wissel was altijd één van twee spelers, en daarom kon je ook niet aanduiden dat
+  iemand na de rust naar huis ging. Zijn speelminuten stoppen op dat moment.
+- **Iemand erbij zetten die er nog niet was** kan nu ook vanaf de bank op een vrije plaats — nodig om
+  vanaf een leeg veld te kunnen beginnen.
+- **Een verkeerd aantal spelers mag, maar valt op.** Staat er "7 spelers op een veld voor 8", dan
+  zegt de app dat en laat ze je begaan: met een man minder spelen komt echt voor. Voordien werd de
+  overtallige speler er stil bijgehouden of viel de bijkomende stil weg.
+- Onder water: een wissel kan nu eenzijdig zijn (iemand gaat eraf zonder vervanger, of komt erbij
+  zonder dat er iemand af gaat). Bestaande wedstrijden merken hier niets van, en de speelminuten,
+  keeperminuten, het verslag en de PDF's lopen door dezelfde berekening als altijd.
+
 ## v0.48.0
 Naar aanleiding van de veldtest van 22 augustus 2026, waarbij een wedstrijd op een scherm zonder
 één bruikbare knop terechtkwam en daardoor een nacht lang bleef doorlopen.

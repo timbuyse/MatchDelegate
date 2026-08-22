@@ -62,7 +62,7 @@ function renderLive() {
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
         <div class="sec" style="margin-top:0">${icI(IC.swap)} Klaar voor ${pSingLow(match)} ${qNum+1}</div>
-        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(match,s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(match,s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
+        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(match,s)}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
         ${pendingPosSwapHtml(match, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}
         ${(!(match.pendingSubs||[]).length && !(match.pendingPosSwaps||[]).length) ? `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Regel ze in het tabblad <b>Opstelling</b>: tik daar een bankspeler en dan een speler op het veld.</p>` : ''}
         ${((match.plannedLineups || {})[qNum + 1] || []).length
@@ -370,10 +370,26 @@ async function startQuarter() {
   match.quarterStatus = 'running';
   match.quarters.push({ num: match.currentQuarter, startTime: Date.now(), endTime: null, totalPaused: 0, pausedAt: null });
   addEvent('quarter_start');
-  // Tijdens de pauze ingeplande wissels nu automatisch doorvoeren bij de start van het deel.
-  for (const s of (match.pendingSubs || [])) {
+  // DRIE RONDES, en de volgorde is wezenlijk (v0.49.0):
+  //   1. de wissels waar iemand het veld verlaat — dat maakt plaatsen vrij;
+  //   2. de positiewissels van wie blijft — nu kan iedereen naar zijn doelplek;
+  //   3. wie erbij komt zonder tegenhanger — zijn plek is dan pas echt vrij.
+  // Deed ronde 3 mee met ronde 1, dan zette die speler zich op een plek die nog bezet was, en bleef
+  // de vorige bewoner op zijn oude plaats staan (gevonden met 40 willekeurige tikreeksen).
+  const subsWissel = (match.pendingSubs || []).filter(s => s.outId);
+  const subsErbij = (match.pendingSubs || []).filter(s => !s.outId);
+  for (const s of subsWissel) {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
-    if (!pOut || !pIn) continue;
+    if (!pOut) continue;
+    // Eenzijdige wissel (geen invaller): de speler gaat eraf en zijn plaats blijft leeg. Zo kan een
+    // doelopstelling met minder spelers ook echt uitgevoerd worden, en verlaat iemand de wedstrijd
+    // in de pauze. Zelfde eventvorm als een gewone wissel, met playerInId null — calcMinutes en
+    // playersAtPeriodStart lezen playerOutId los van playerInId.
+    if (!s.inId || !pIn) {
+      addEvent('substitution', { playerOutId: s.outId, playerInId: null, atBreak: true, reden: s.reden || null });
+      pOut.onField = false;
+      continue;
+    }
     // Speler intussen afwezig gemarkeerd (bv. vertrokken tijdens de rust): wissel niet doorvoeren —
     // een afwezige speler het veld op sturen geeft een onzichtbaar gat op zijn positie.
     if (pIn.absent) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} is afwezig gemarkeerd.`, 'err'); continue; }
@@ -410,6 +426,19 @@ async function startQuarter() {
     pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
   }
   match.pendingPosSwaps = [];
+  // Ronde 3: wie erbij komt zonder dat er iemand af gaat. Nu pas, want zijn plek is pas vrij nadat
+  // de verhuizingen hierboven gebeurd zijn. Zie de uitleg bij de drie rondes.
+  for (const s of subsErbij) {
+    const pIn = match.players.find(p => p.id === s.inId);
+    const plek = s.naarPlek ? gridPlek(s.naarPlek) : null;
+    if (!pIn || !plek || !magOpHetVeld(match, pIn)) continue;
+    addEvent('substitution', { playerOutId: null, playerInId: s.inId, atBreak: true, naarPlek: s.naarPlek });
+    zetOpGridPlek(pIn, plek, match);
+    pIn.onField = true;
+  }
+  // De doelopstelling hoort bij de pauze die net voorbij is en is nu uitgevoerd. Laten staan zou de
+  // volgende pauze laten beginnen met een opstelling van een deel eerder.
+  delete match.nextLineup;
   // Keeper voor dit deel = automatisch de speler op de doellijn.
   syncKeeper();
   requestWake();
@@ -497,6 +526,9 @@ function zetGeplandeOpstellingKlaar(m) {
   const huidig = playersOnField(m).map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
   const diff = lineupToPending(m, huidig, plan);
   if (!diff.subs.length && !diff.swaps.length) return '';
+  // De doelopstelling mee zetten (v0.49.0): het pauzescherm tekent die, en zonder dit zou het veld
+  // de plan-opstelling niet tonen terwijl de wissels er wel al klaarstaan.
+  m.nextLineup = lineupOntdubbel(plan.map(e => ({ ...e })));
   m.pendingSubs = diff.subs;
   m.pendingPosSwaps = diff.swaps;
   const telling = [
@@ -2013,13 +2045,37 @@ async function confirmSub() {
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
-async function removePendingSub(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingSubs) match.pendingSubs.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
+// Eén klaargezette wissel weghalen. Sinds v0.49.0 is de doelopstelling de waarheid en zijn deze
+// lijsten er de afgeleide van, dus na het weghalen wordt de doelopstelling opnieuw bepaald uit wat
+// er overblijft — anders zouden de twee uit elkaar lopen en zag je op het veld iets anders dan wat
+// er zou gebeuren. Dat uit-elkaar-lopen was precies de fout van de veldtest.
+async function removePendingSub(i) {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    if (match.pendingSubs) match.pendingSubs.splice(i, 1);
+    match.nextLineup = lineupOntdubbel(previewNextLineup(match).filter(p => p.onField && magOpHetVeld(match, p)).map(lineupEntry));
+    const diff = lineupToPending(match, huidigVeldEntries(match), match.nextLineup);
+    match.pendingSubs = diff.subs; match.pendingPosSwaps = diff.swaps;
+    await dbSave(match); render();
+  } finally { _eventBusy = false; }
+}
 // Alle klaargezette positiewissels in één keer. Ze staan samen in één blok omdat ze samen één
 // beweging vormen: er één uit een keten halen laat de rest op een onbedoelde plek staan.
 async function removeAllPendingPosSwaps(heropenMenu) {
   if (_eventBusy) return; _eventBusy = true;
-  try { match.pendingPosSwaps = []; await dbSave(match); render(); if (heropenMenu) modalPlannedSubs(); }
-  finally { _eventBusy = false; }
+  try {
+    match.pendingPosSwaps = [];
+    match.nextLineup = lineupOntdubbel(previewNextLineup(match).filter(p => p.onField && magOpHetVeld(match, p)).map(lineupEntry));
+    const diff = lineupToPending(match, huidigVeldEntries(match), match.nextLineup);
+    match.pendingSubs = diff.subs; match.pendingPosSwaps = diff.swaps;
+    await dbSave(match); render(); if (heropenMenu) modalPlannedSubs();
+  } finally { _eventBusy = false; }
+}
+// Eén regel voor een klaargezette wissel, ook als er geen vervanger is (eenzijdige wissel).
+function pendingSubRegel(m, s) {
+  if (!s.inId) return `${icI(IC.swap)} <b>${esc(pName(m, s.outId))}</b> <span style="color:var(--txt2)">gaat van het veld — geen vervanger</span>`;
+  if (!s.outId) return `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">komt erbij${s.naarPlek ? ' op ' + esc(matchGridLabel(m, s.naarPlek)) : ''} — niemand gaat eraf</span>`;
+  return `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`;
 }
 
 // ===================== PAUZE-OPSTELLING (tikken op het veld) =====================
@@ -2033,9 +2089,13 @@ let _lineupSel = null;   // { kind: 'field' | 'bench', id }
 function previewNextLineup(m) {
   const players = (m.players || []).map(p => ({ ...p }));
   const byId = id => players.find(p => p.id === id);
-  for (const s of (m.pendingSubs || [])) {
+  // Zelfde drie rondes en dezelfde volgorde als startQuarter — zie de uitleg daar. Wijkt deze
+  // volgorde af, dan toont het scherm iets anders dan wat er gebeurt, en dat was precies de fout.
+  for (const s of (m.pendingSubs || []).filter(s => s.outId)) {
     const o = byId(s.outId), i = byId(s.inId);
-    if (!o || !i || !magOpHetVeld(m, i)) continue;   // zelfde regels als startQuarter, incl. rood
+    if (!o) continue;
+    if (!s.inId || !i) { o.onField = false; continue; }   // eenzijdig: eraf, plaats blijft leeg
+    if (!magOpHetVeld(m, i)) continue;                    // zelfde regels als startQuarter, incl. rood
     i.x = o.x; i.y = o.y; i.line = o.line; i.posNum = o.posNum;
     o.onField = false; i.onField = true;
   }
@@ -2051,6 +2111,11 @@ function previewNextLineup(m) {
     const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
     a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
     b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
+  }
+  // Ronde 3: wie erbij komt zonder tegenhanger, op zijn nu vrijgekomen plek.
+  for (const s of (m.pendingSubs || []).filter(s => !s.outId)) {
+    const i = byId(s.inId), plek = s.naarPlek ? gridPlek(s.naarPlek) : null;
+    if (i && plek && magOpHetVeld(m, i)) { zetOpGridPlek(i, plek, m); i.onField = true; }
   }
   return players;
 }
@@ -2087,107 +2152,203 @@ function pendingPosSwapHtml(m, verwijderKnop) {
       ${bew.map(b => `<div style="margin-top:2px">${esc(b.naam)} <span style="color:var(--txt2)">naar</span> <b>${esc(b.plek)}</b></div>`).join('')}</div>
     ${verwijderKnop || ''}</div>`;
 }
+// ===================== DE OPSTELLING VAN HET VOLGENDE DEEL =====================
+// EEN DOELOPSTELLING, niet een stapel losse wijzigingen. Dat is het hele punt van v0.49.0.
+//
+// Wat er misging (veldtest 22-08-2026): de pauze hield een lijst pendingSubs + pendingPosSwaps bij,
+// die elk tegen de stand van dát moment berekend waren maar pas bij de start achter elkaar werden
+// toegepast. Zet je er zes achter elkaar klaar, dan kan een latere wijziging een plaats opeisen die
+// een eerdere al gaf: nergens werd gecontroleerd dat een plek één bewoner heeft. Resultaat: twee
+// shirts op exact dezelfde coördinaten, waarvan je er één ziet — "die speler verdween gewoon".
+// En de voorstelling op het scherm werd door ándere code berekend (previewNextLineup) dan de
+// werkelijkheid (startQuarter), met net andere regels, dus wat je aantikte was niet wat je kreeg.
+//
+// Nu: m.nextLineup IS de opstelling van het volgende deel — een lijst plekken met elk één speler.
+// Elke tik wijzigt die opstelling rechtstreeks, en pas daarna wordt ze omgerekend naar de wissels
+// en positiewissels die ervoor nodig zijn (lineupToPending, dezelfde weg als de geplande opstelling
+// altijd al ging). pendingSubs/pendingPosSwaps blijven dus bestaan en bestaan enkel nog als AFGELEIDE
+// van de doelopstelling — dat houdt startQuarter, het verslag, de PDF's en een tweede toestel
+// ongewijzigd werkend. Nieuw, optioneel veld: een wedstrijd zonder nextLineup werkt gewoon door.
+function lineupPlekSleutel(p) { return typeof p.x === 'number' ? `${p.x},${p.y}` : `L:${p.line || ''}`; }
+function lineupEntry(p) { return { id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: p.posCodeVeld }; }
+function huidigVeldEntries(m) { return playersOnField(m).map(lineupEntry); }
+// De doelopstelling. Staat er nog geen (wedstrijd van vóór v0.49.0, of een pauze die al liep), dan
+// leiden we ze één keer af uit wat er klaarstond. Daarna is nextLineup de waarheid.
+function nextLineupOf(m) {
+  if (Array.isArray(m.nextLineup)) return m.nextLineup.map(e => ({ ...e }));
+  return previewNextLineup(m).filter(p => p.onField && magOpHetVeld(m, p)).map(lineupEntry);
+}
+// De invariant: één speler per plek, en niemand twee keer. Dit is de enige plek waar de
+// doelopstelling geschreven wordt, dus dit is ook de enige plek waar die regel moet staan.
+function lineupOntdubbel(entries) {
+  const perPlek = new Map(), gezien = new Set();
+  for (const e of entries) {
+    if (!e || !e.id || gezien.has(e.id)) continue;
+    gezien.add(e.id);
+    perPlek.set(lineupPlekSleutel(e), e);
+  }
+  return [...perPlek.values()];
+}
+async function bewaarNextLineup(m, entries, melding) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const schoon = lineupOntdubbel(entries);
+    m.nextLineup = schoon;
+    // Afgeleide: precies de wissels en positiewissels die nodig zijn om dít veld te krijgen.
+    const diff = lineupToPending(m, huidigVeldEntries(m), schoon);
+    m.pendingSubs = diff.subs;
+    m.pendingPosSwaps = diff.swaps;
+    await dbSave(m); render();
+    if (melding) showToast(melding, 'ok');
+  } finally { _eventBusy = false; }
+}
+// Wat er niet klopt aan de doelopstelling zoals ze nu staat. Bewust niet opgeslagen: het is een
+// vaststelling over de huidige stand, geen gegeven van de wedstrijd.
+function nextLineupProblemen(m) {
+  return lineupToPending(m, huidigVeldEntries(m), nextLineupOf(m)).problemen;
+}
+// ---- De drie startpunten ----
+async function nextLineupUitPlan(deel) {
+  const plan = ((match.plannedLineups || {})[deel] || []);
+  if (!plan.length) return;
+  _lineupSel = null;
+  await bewaarNextLineup(match, plan.map(e => ({ ...e })), `Opstelling uit je plan voor ${pSingLow(match)} ${deel}.`);
+}
+async function nextLineupZoalsNu() {
+  _lineupSel = null;
+  await bewaarNextLineup(match, huidigVeldEntries(match), 'Dezelfde opstelling als nu.');
+}
+function confirmNextLineupLeeg() {
+  const aantal = nextLineupOf(match).length;
+  openModal(`<h3>${icI(IC.shirt)} Leeg veld?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het veld gaat leeg en je zet iedereen opnieuw op zijn plaats. Handig als er in de pauze veel verandert: je bouwt de opstelling op zoals bij de aftrap, in plaats van ${aantal} spelers één voor één te verschuiven.</p>
+    <button class="btn btn-green" onclick="nextLineupLeeg()">${icI(IC.check)} Ja, leeg veld</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function nextLineupLeeg() {
+  _lineupSel = null;
+  closeModal();
+  await bewaarNextLineup(match, [], 'Leeg veld — tik een speler en dan een plaats.');
+}
+// ---- Tikken op het veld en de bank ----
+// Vier mogelijkheden, en elk is een wijziging van de doelopstelling zelf:
+//   speler op het veld + lege plek   -> hij verhuist daarnaartoe
+//   speler op het veld + andere speler op het veld -> ze ruilen van plaats
+//   bankspeler + lege plek           -> hij komt daar staan
+//   bankspeler + speler op het veld  -> hij neemt die plaats over, de ander gaat naar de bank
+// Anders dan voordien mag een bankspeler nu WEL op een lege plek: bij een leeg veld is dat de enige
+// manier om te beginnen. De spelregel achter het oude verbod (na rood speel je met een man minder)
+// zit waar ze hoort — magOpHetVeld() houdt een uitgesloten speler tegen, en de telling hieronder
+// waarschuwt als je er te veel op zet.
 function lineupTap(kind, id) {
+  const m = match;
   const sel = _lineupSel;
   if (sel && sel.id === id) { _lineupSel = null; render(); return; }   // zelfde speler = deselecteren
-  // Een LEGE plek: enkel zinvol voor een speler die al op het veld staat. Van de bank iemand op een
-  // vrijgekomen plek zetten mag niet — na een rode kaart speel je met een man minder, en dat is een
-  // spelregel (zie veldPlaatsenNu). Wie van de bank moet komen, doe je met een wissel.
+  const doel = nextLineupOf(m);
   if (kind === 'plek') {
-    if (!sel) { showToast('Tik eerst de speler die verplaatst.', 'err'); return; }
-    if (sel.kind !== 'field') { showToast('Van de bank kan je enkel wisselen met een speler op het veld.', 'err'); _lineupSel = null; render(); return; }
-    const vast = sel.id; _lineupSel = null;
-    planPauseVerhuis(vast, id);
-    return;
-  }
-  if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _lineupSel = { kind, id }; render(); return; }
-  _lineupSel = null;
-  if (sel.kind === 'bench' && kind === 'field') planPauseSub(id, sel.id);
-  else if (sel.kind === 'field' && kind === 'bench') planPauseSub(sel.id, id);
-  else planPausePosSwap(sel.id, id);
-}
-// Een verhuizing klaarzetten voor de start van het volgende deel: zelfde wachtrij als een
-// pauze-positiewissel (pendingPosSwaps), maar zonder tegenspeler. Nog eens dezelfde plek kiezen voor
-// dezelfde speler haalt ze weer weg.
-async function planPauseVerhuis(spelerId, code) {
-  if (_eventBusy) return;
-  if (!gridPlek(code)) return;
-  _eventBusy = true;
-  try {
-    match.pendingPosSwaps = match.pendingPosSwaps || [];
-    const i = match.pendingPosSwaps.findIndex(s => s.pA === spelerId && !s.pB && s.naarPlek === code);
-    if (i >= 0) match.pendingPosSwaps.splice(i, 1);
-    else match.pendingPosSwaps.push({ pA: spelerId, pB: null, naarPlek: code });
-    await dbSave(match); render();
-  } finally { _eventBusy = false; }
-}
-async function planPauseSub(outId, inId) {
-  if (_eventBusy) return;
-  // Uitgesloten speler kan niet inkomen (hij staat ook niet meer in de banklijst) — vangnet voor een
-  // scherm dat nog van vóór de rode kaart dateert.
-  if (isUitgesloten(match, inId)) {
-    showToast(`${pName(match, inId)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
-    return;
-  }
-  _eventBusy = true;
-  try {
-    match.pendingSubs = match.pendingSubs || [];
-    // Staat er al een wissel gepland op deze plek? Dan die aanpassen i.p.v. een tweede wissel op
-    // dezelfde positie te stapelen; kies je de oorspronkelijke speler opnieuw, dan valt ze weg.
-    const existing = match.pendingSubs.findIndex(s => s.inId === outId);
-    if (existing >= 0) {
-      if (match.pendingSubs[existing].outId === inId) match.pendingSubs.splice(existing, 1);
-      else match.pendingSubs[existing].inId = inId;
-    } else {
-      match.pendingSubs.push({ outId, inId });
+    const plek = gridPlek(id);
+    if (!plek) return;
+    if (!sel) { showToast('Tik eerst de speler die je daar wil zetten.', 'err'); return; }
+    const speler = m.players.find(p => p.id === sel.id);
+    if (!speler) { _lineupSel = null; render(); return; }
+    if (!magOpHetVeld(m, speler)) {
+      showToast(`${fieldName(m, speler.id)} kan niet op het veld.`, 'err');
+      _lineupSel = null; render(); return;
     }
-    await dbSave(match); render();
-  } finally { _eventBusy = false; }
+    _lineupSel = null;
+    const nieuw = doel.filter(e => e.id !== speler.id);
+    nieuw.push({ id: speler.id, x: plek.x, y: plek.y, line: plek.line,
+                 posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code });
+    return bewaarNextLineup(m, nieuw);
+  }
+  if (!sel) { _lineupSel = { kind, id }; render(); return; }
+  // Twee bankspelers na elkaar: de tweede wordt de keuze (de eerste stond nog op niets te wachten).
+  if (sel.kind === 'bench' && kind === 'bench') { _lineupSel = { kind, id }; render(); return; }
+  _lineupSel = null;
+  if (sel.kind === 'field' && kind === 'field') {
+    // Ruilen van plaats: de twee vakjes wisselen van bewoner.
+    const a = doel.find(e => e.id === sel.id), b = doel.find(e => e.id === id);
+    if (!a || !b) { render(); return; }
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
+    return bewaarNextLineup(m, doel);
+  }
+  // Een van de twee komt van de bank: die neemt de plaats van de ander over.
+  const bankId = sel.kind === 'bench' ? sel.id : id;
+  const veldId = sel.kind === 'bench' ? id : sel.id;
+  const bankSpeler = m.players.find(p => p.id === bankId);
+  if (!bankSpeler || !magOpHetVeld(m, bankSpeler)) {
+    showToast(`${fieldName(m, bankId)} kan niet op het veld.`, 'err');
+    render(); return;
+  }
+  const plaats = doel.find(e => e.id === veldId);
+  if (!plaats) { render(); return; }
+  const nieuw = doel.filter(e => e.id !== veldId && e.id !== bankId);
+  nieuw.push({ id: bankId, x: plaats.x, y: plaats.y, line: plaats.line, posNum: plaats.posNum, posCodeVeld: plaats.posCodeVeld });
+  return bewaarNextLineup(m, nieuw);
 }
-async function planPausePosSwap(a, b) {
-  if (_eventBusy) return;
-  _eventBusy = true;
-  try {
-    match.pendingPosSwaps = match.pendingPosSwaps || [];
-    // Dezelfde twee spelers nog eens aantikken = de geplande positiewissel ongedaan maken.
-    const i = match.pendingPosSwaps.findIndex(s => (s.pA === a && s.pB === b) || (s.pA === b && s.pB === a));
-    if (i >= 0) match.pendingPosSwaps.splice(i, 1); else match.pendingPosSwaps.push({ pA: a, pB: b });
-    await dbSave(match); render();
-  } finally { _eventBusy = false; }
+// Iemand van het veld halen zonder vervanger. Voor de speler die de wedstrijd verlaat, en om een
+// plaats vrij te maken als je met een man minder speelt.
+async function lineupVanHetVeld(spelerId) {
+  _lineupSel = null;
+  await bewaarNextLineup(match, nextLineupOf(match).filter(e => e.id !== spelerId));
 }
-// Het pauzescherm in het tabblad Opstelling: veld met de geplande opstelling + bank om uit te kiezen.
+// Het pauzescherm in het tabblad Opstelling. Sinds v0.49.0 tekent dit de DOELOPSTELLING van het
+// volgende deel (m.nextLineup) en niets anders: wat hier op het veld staat, is wat er straks
+// gebeurt. Bovenaan de drie startpunten, want bij de jeugd verandert er in de pauze zoveel dat
+// verschuiven vanaf de vorige opstelling meer werk is dan opnieuw opzetten.
 function pauseLineupHtml(m) {
-  const preview = previewNextLineup(m);
+  const deel = m.currentQuarter + 1;
+  const doel = nextLineupOf(m);
   const mins = calcMinutes(m);
-  const on = preview.filter(p => p.onField && !p.absent);
-  const bench = preview.filter(p => !p.onField && magOpHetVeld(m, p))
+  const opVeld = new Set(doel.map(e => e.id));
+  // Het veld tekent de doelopstelling: de speler met zijn plek uit die opstelling.
+  const on = doel.map(e => {
+    const p = m.players.find(x => x.id === e.id);
+    return p ? { ...p, ...e, onField: true } : null;
+  }).filter(Boolean);
+  const bench = m.players.filter(p => !opVeld.has(p.id) && magOpHetVeld(m, p))
     .sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const mm = id => playedMin(mins[id]?.ms);
   const selId = _lineupSel ? _lineupSel.id : null;
+  const selVeld = _lineupSel && _lineupSel.kind === 'field' ? _lineupSel.id : null;
   const nSubs = (m.pendingSubs || []).length, nSwaps = (m.pendingPosSwaps || []).length;
+  const plaatsen = veldPlaatsenNu(m);
+  const heeftPlan = ((m.plannedLineups || {})[deel] || []).length > 0;
+  const problemen = nextLineupProblemen(m);
+  // De telling apart van de problemen: dit is het ene dat je vlak voor de aftrap wil zien.
+  const telWarn = doel.length !== plaatsen
+    ? `<div style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:10px">${icI(IC.warn)} Je zet <b>${doel.length} ${doel.length === 1 ? 'speler' : 'spelers'}</b> op een veld voor <b>${plaatsen}</b>. Dat mag — je speelt dan met ${doel.length < plaatsen ? 'een man minder' : 'een man te veel'} — maar kijk het even na.</div>`
+    : '';
   return `
     <div class="card" style="border-left:4px solid var(--org)">
-      <div class="sec" style="margin-top:0">${icI(IC.swap)} Wissels voor ${pSingLow(m)} ${m.currentQuarter + 1}</div>
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Het veld toont meteen de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1}; alles wordt doorgevoerd bij de start.</p>
-      ${/* plek: true → de vrije roosterplekken zijn hier aantikbaar, zodat je een speler naar een lege
-         plaats kan zetten voor het volgende deel. Enkel in dit bewerkscherm; het plaatje van het plan
-         eronder en het veld van een kijker tonen alleen de opstelling. */ ''}
-    ${renderPitch(m, on, captainAtStartOfQuarter(m, m.currentQuarter + 1), null, { fn: 'lineupTap', selId, plek: true })}
-      ${/* De opstelling van het volgende deel staat sinds v0.25.0 al klaar zodra de pauze begint
-           (zie zetGeplandeOpstellingKlaar). Deze knop blijft voor wie ze weghaalde en toch wil, of
-           om wat er nu klaarstaat te vervangen door het plan. */ ''}
-      ${((m.plannedLineups || {})[m.currentQuarter + 1] || []).length
-        ? `<button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="modalUsePlannedLineup(${m.currentQuarter + 1})">${icI(IC.shirt)} Geplande opstelling ${nSubs + nSwaps ? 'opnieuw toepassen' : 'gebruiken'}</button>` : ''}
+      <div class="sec" style="margin-top:0">${icI(IC.shirt)} Opstelling voor ${pSingLow(m)} ${deel}</div>
+      ${/* Drie startpunten. "Zoals nu" is geen lege handeling: het gooit weg wat je klaarzette en
+           begint opnieuw van de opstelling waarmee het vorige deel eindigde. */ ''}
+      <div class="wiz-nav" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
+        ${heeftPlan ? `<button class="btn btn-orgpale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupUitPlan(${deel})">${icI(IC.clipboard)} Uit je plan</button>` : ''}
+        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupZoalsNu()">${icI(IC.undo)} Zoals nu</button>
+        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="confirmNextLineupLeeg()">${icI(IC.close)} Leeg veld</button>
+      </div>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Dit veld <b>is</b> de opstelling van ${pSingLow(m)} ${deel}. Tik een speler en dan een <b>lege plaats</b> om hem te verzetten, of tik <b>twee spelers</b> om ze te laten ruilen. Een <b>bankspeler</b> en dan iemand op het veld wisselt hen om.</p>
+      ${/* plek: true → de vrije roosterplekken zijn hier aantikbaar. Enkel in dit bewerkscherm; het
+           plaatje van het plan eronder en het veld van een kijker tonen alleen de opstelling. */ ''}
+    ${renderPitch(m, on, captainAtStartOfQuarter(m, deel), null, { fn: 'lineupTap', selId, plek: true })}
+      ${selVeld ? `<button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="lineupVanHetVeld('${selVeld}')">${icI(IC.close)} ${esc(fieldName(m, selVeld))} van het veld halen</button>` : ''}
+      ${telWarn}
       <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
       <div class="place-chips">${bench.length
         ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-      ${(nSubs || nSwaps) ? `<div class="sec">Ingepland (${nSubs + nSwaps})</div>
-        ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
+      ${(nSubs || nSwaps) ? `<div class="sec">Wat er bij de start gebeurt (${nSubs + nSwaps})</div>
+        ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(m, s)}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
         ${/* Alle positiewissels in één blok, als bewegingen — zie pendingPosSwapHtml. Het kruisje
              wist ze allemaal: ze horen bij elkaar (een keten van drie is niets zonder zijn delen). */ ''}
         ${pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}`
-        : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Nog niets ingepland — de opstelling blijft zoals ze nu staat.</p>'}
+        : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Niets te wijzigen — dezelfde opstelling als nu.</p>'}
+      ${problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:10px">${icI(IC.warn)} ${problemen.map(esc).join('<br>')}</div>` : ''}
     </div>`;
 }
 
@@ -2300,21 +2461,17 @@ function modalUsePlannedLineup(deel) {
 }
 async function doUsePlannedLineup(deel) {
   if (!canManage()) return;
-  if (_eventBusy) return;
-  _eventBusy = true;
-  try {
-    const m = match;
-    const plan = ((m.plannedLineups || {})[deel] || []);
-    if (!plan.length) return;
-    const huidig = playersOnField(m).map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
-    const diff = lineupToPending(m, huidig, plan);
-    // Vervangen, niet aanvullen: het plan beschrijft de eindtoestand, dus na dit knopje ziet het
-    // volgende deel er exact zo uit. Wat er handmatig klaarstond zou anders dubbel tellen.
-    m.pendingSubs = diff.subs;
-    m.pendingPosSwaps = diff.swaps;
-    await dbSave(m); closeModal(); render();
-    showToast(`Opstelling klaargezet voor ${pSingLow(m)} ${deel}.`, 'ok');
-  } finally { _eventBusy = false; }
+  const m = match;
+  const plan = ((m.plannedLineups || {})[deel] || []);
+  if (!plan.length) return;
+  // Sinds v0.49.0 loopt dit langs de doelopstelling, net als elke tik op het veld: het plan wordt
+  // de opstelling van het volgende deel, en de wissels zijn daar de afgeleide van. Zo is er één
+  // weg naar één waarheid, in plaats van twee plekken die pendingSubs zetten.
+  // GEEN eigen _eventBusy-blokkering hier: bewaarNextLineup zet die zelf, en twee keer zetten zou
+  // de tweede meteen laten afhaken — dan deed deze knop niets.
+  _lineupSel = null;
+  closeModal();
+  await bewaarNextLineup(m, plan.map(e => ({ ...e })), `Opstelling klaargezet voor ${pSingLow(m)} ${deel}.`);
 }
 
 // ===================== GEPLANDE (KLAARGEZETTE) WISSELS =====================
@@ -2533,7 +2690,7 @@ function modalPlannedSubs(tab) {
   // De pauze-opstelling staat er enkel ter info bij: die gaat wél automatisch af, en het is
   // verwarrend als je hier "geplande wissels" ziet die niet alles tonen wat er klaarstaat.
   const auto = [
-    ...pendS.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}</div><button class="evt-del" onclick="removePendingSub(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
+    ...pendS.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(m, s)}</div><button class="evt-del" onclick="removePendingSub(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
     pendP.length ? pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps(true)" title="Alle positiewissels verwijderen">×</button>`) : '',
   ].join('');
   const aantal = subs.length + swaps.length;

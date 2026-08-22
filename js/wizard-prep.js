@@ -1616,8 +1616,24 @@ function lineupToPending(m, huidig, gepland) {
   const restEraf = huidig.filter(p => !doelIds.has(p.id));
   const erin = doelLijst.filter(e => !nuIds.has(e.id));
   const subs = [];
+  // Sinds v0.49.0 mag een wissel ook ÉÉNZIJDIG zijn: {outId, inId: null} betekent "gaat eraf, er
+  // komt niemand in de plaats". Zonder die vorm kon een doelopstelling met minder spelers dan er nu
+  // staan niet uitgedrukt worden, en bleef de overtallige speler stil op het veld staan — precies
+  // wat je niet wil als het veld op het scherm zegt dat hij eraf is. Het is ook de bouwsteen voor
+  // "speler verlaat de wedstrijd in de pauze": de speelminutenberekening kon hier al mee om
+  // (calcMinutes stopt de teller van playerOutId en negeert een ontbrekende playerInId).
   for (const i of erin) {
-    if (!restEraf.length) { problemen.push(`Geen plaats vrij voor ${pName(m, i.id)}.`); continue; }
+    // Meer spelers erin dan eruit: dan komt hij erbij ZONDER dat er iemand af gaat — de spiegel van
+    // de eenzijdige wissel hierboven. Zonder deze vorm werd zo iemand stil uit de opstelling
+    // geschrapt: het veld toonde hem, en bij de start stond hij er niet. De plek moet mee, want er
+    // is geen uitgaande speler wiens plaats hij overneemt.
+    if (!restEraf.length) {
+      const code = spelerGridCode(i);
+      if (!code) { problemen.push(`Geen plaats vrij voor ${pName(m, i.id)}.`); continue; }
+      subs.push({ outId: null, inId: i.id, naarPlek: code, slot: sleutel(i) });
+      problemen.push(`${pName(m, i.id)} komt erbij zonder dat er iemand af gaat.`);
+      continue;
+    }
     // liefst de speler die nu net op de plaats staat waar de invaller naartoe moet: dan is er
     // achteraf geen positiewissel meer nodig.
     let idx = restEraf.findIndex(o => sleutel(o) === sleutel(i));
@@ -1628,26 +1644,56 @@ function lineupToPending(m, huidig, gepland) {
   // Het plan telt minder spelers dan er nu op het veld staan — meestal omdat er hierboven iemand
   // uitviel (afwezig of uit de selectie). Zeg wie er dan blijft staan i.p.v. een telling: de vorige
   // formulering ("N speler(s) uit het plan minder op het veld dan er nu staan") was niet te volgen.
+  // Wie overblijft, gaat eraf ZONDER vervanger (eenzijdige wissel). Tot v0.48.0 bleef zo iemand
+  // stil op het veld staan, wat botste met een veld dat op het scherm toont wie er straks staat:
+  // je zag zeven shirts en er startten acht spelers. De melding blijft — dit hoort opgemerkt te
+  // worden — maar zegt nu wat er echt gebeurt.
   if (restEraf.length) {
-    problemen.push(`Er komt niemand in de plaats voor ${restEraf.map(p => pName(m, p.id)).join(', ')} — ${restEraf.length === 1 ? 'hij blijft' : 'zij blijven'} op het veld.`);
+    restEraf.forEach(p => subs.push({ outId: p.id, inId: null, slot: sleutel(p) }));
+    problemen.push(`${restEraf.map(p => pName(m, p.id)).join(', ')} ${restEraf.length === 1 ? 'gaat' : 'gaan'} van het veld zonder vervanger — je speelt met ${restEraf.length === 1 ? 'één man' : restEraf.length + ' man'} minder.`);
   }
   // Stand ná de wissels: plaats -> speler. Daarna de plaatsen rechtzetten met positiewissels.
   const nu = new Map();
   const gewisseldWeg = new Set(subs.map(s => s.outId));
   huidig.forEach(p => { if (!gewisseldWeg.has(p.id)) nu.set(sleutel(p), p.id); });
-  subs.forEach(s => nu.set(s.slot, s.inId));
+  // Enkel een wissel MET invaller én uitgaande speler vult een plaats weer op. Twee uitzonderingen:
+  //  - eenzijdig eraf (inId null): de plaats blijft leeg en hoort helemaal uit deze kaart te
+  //    verdwijnen — zet je er null in, dan gaat de positiewissel-lus met die null aan het ruilen;
+  //  - erbij zonder tegenhanger (outId null): die speler heeft nu nog géén plaats, en zijn doelplek
+  //    kan op dit moment nog door iemand anders bezet zijn. Hem hier al op die plek zetten wist de
+  //    huidige bewoner uit de boekhouding, waardoor die zijn eigen verhuizing niet meer kreeg en op
+  //    de verkeerde plaats bleef staan. Hij komt daarom als laatste aan de beurt — zie de
+  //    drie doorgeefrondes in startQuarter().
+  subs.forEach(s => { if (s.inId && s.outId) nu.set(s.slot, s.inId); });
   const swaps = [];
   for (const e of doelLijst) {
     const slot = sleutel(e);
     const staatEr = nu.get(slot);
-    if (staatEr === undefined || staatEr === e.id) continue;
+    if (staatEr === e.id) continue;                       // staat al goed
     let anderSlot = null;
     for (const [s2, id2] of nu) if (id2 === e.id) { anderSlot = s2; break; }
     if (anderSlot === null) continue;   // staat niet op het veld — al gemeld hierboven
+    // DOELPLEK IS LEEG: dan is het een verhuizing, geen ruil. Deze lus sloeg zo'n zet voordien
+    // stil over (staatEr === undefined → continue), waardoor een speler die je naar een vrije plek
+    // sleepte op zijn oude plaats bleef staan: het veld toonde iets anders dan wat er gebeurde.
+    // Dezelfde eenzijdige vorm die startQuarter en previewNextLineup al kennen ({pA, pB:null,
+    // naarPlek}), dus verderop verandert er niets.
+    if (staatEr === undefined) {
+      const code = spelerGridCode(e);
+      if (!code) continue;              // geen roosterplek: niet uit te drukken als verhuizing
+      swaps.push({ pA: e.id, pB: null, naarPlek: code });
+      nu.delete(anderSlot); nu.set(slot, e.id);
+      continue;
+    }
     swaps.push({ pA: staatEr, pB: e.id });
     nu.set(slot, e.id); nu.set(anderSlot, staatEr);
   }
-  return { subs: subs.map(s => ({ outId: s.outId, inId: s.inId })), swaps, problemen: [...new Set(problemen)] };
+  // naarPlek enkel meegeven waar hij betekenis heeft (een speler die erbij komt zonder tegenhanger);
+  // bij een gewone wissel neemt de invaller de plaats van de uitgaande over.
+  return {
+    subs: subs.map(s => s.naarPlek ? { outId: s.outId, inId: s.inId, naarPlek: s.naarPlek } : { outId: s.outId, inId: s.inId }),
+    swaps, problemen: [...new Set(problemen)],
+  };
 }
 
 let _planLineupQ = 1;        // welk deel staat open in de planner
