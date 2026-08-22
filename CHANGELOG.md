@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.57.1
+Eerste fix uit de doorgedreven zijlijntest van 22/23-08 (twee kritieke vondsten; dit is nr. 1).
+
+### Een verhuizing naar een vrije plek liet haar bestemming naslepen
+- **De bug.** Verplaatste je tijdens het spel een speler via het veld naar een **vrije plek**, dan
+  bleef die bestemming onzichtbaar hangen — voor altijd, zelfs tot in de volgende wedstrijd. Elke
+  volgende **positiewissel via het veld** werd daardoor stil een verhuizing naar die oude plek:
+  het venster beloofde *"X en Y wisselen van positie"*, maar X belandde bovenop wie er intussen op
+  die plek stond en Y bewoog niet. Spelers op elkaar, lege plekken, wissels waarvan onduidelijk was
+  wat er gebeurde — een flink deel van de frustratie van de veldtest. Alleen de oude knop-weg
+  ruimde op; de tikbediening via het veld (sinds v0.57.0 dé weg) niet.
+- **De fix.** De keuze (wie, met wie, welke lege plek) wordt voortaan altijd in haar geheel gezet
+  — een ruil wist dus automatisch een oude lege-plek-bestemming — en na elke doorgevoerde
+  positiewissel wordt ze gewist. Bij een afgebroken poging blijft je selectie staan zodat je kan
+  corrigeren.
+- **Vangnet erbovenop.** Blijkt de vrije plek bij het doorvoeren tóch bezet (bv. een co-admin op
+  een tweede toestel zette daar net iemand), dan gebeurt er niets en zegt de app *"… is intussen
+  bezet door … — tik opnieuw"*. Nooit stil iemand overschrijven.
+- Getest in de sandbox: het chaos-scenario dat hierop 32 fouten gaf, geeft er nu 0; overlap in de
+  willekeurige-tikreeksen zakte van ~15 per wedstrijd naar vrijwel nul.
+
 ## v0.57.0
 Twee ontwerpkeuzes van Tim na het pauzescherm-herontwerp van v0.56.0.
 
