@@ -1107,10 +1107,16 @@ async function pdfMatchBody(doc, L, m) {
     // rowEvents loopt gelijk met rows: het icoon wordt op rij-INDEX opgezocht in didDrawCell, dus
     // de startopstellingsregel (die geen event is) moet daar een leeg vakje innemen. Zonder deze
     // parallelle lijst schoof elk icoon een rij op.
+    // Pauzegebeurtenissen (bv. een speler die de wedstrijd verliet) VÓÓR de startopstelling en met
+    // 'pauze' als tijdstip: het gebeurde er letterlijk voor, en in de pauze loopt geen klok — zelfde
+    // volgorde als op het scherm.
     const rows = [], rowEvents = [];
+    const rij = e => { rows.push([e.atBreak ? 'pauze' : eventMinLocal(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); };
+    lijst.filter(e => e.atBreak).forEach(rij);
     if (startTekst) { rows.push(['', '', startTekst]); rowEvents.push(null); }
-    if (lijst.length) lijst.forEach(e => { rows.push([eventMinLocal(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); });
-    else if (!startTekst) { rows.push(['', '', 'Geen events']); rowEvents.push(null); }
+    const rest = lijst.filter(e => !e.atBreak);
+    if (rest.length) rest.forEach(rij);
+    else if (!rows.length) { rows.push(['', '', 'Geen events']); rowEvents.push(null); }
     // Kopcel over alle kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
     // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,

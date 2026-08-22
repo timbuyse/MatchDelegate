@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.54.2
+- **Wat in de pauze gebeurde, staat vóór de startopstelling — en heet "pauze".** Een speler die in
+  de rust de wedstrijd verliet, stond in het verloop van het volgende blok op "minuut 1", ná de
+  startopstelling. Allebei onwaar: het gebeurde vóór de aftrap van dat blok, en in de pauze loopt
+  geen klok. Pauzegebeurtenissen staan nu bovenaan hun blok met **pauze** als tijdstip, vóór de
+  startopstelling-regel — op het scherm, in de filterweergave en in de PDF-tijdlijn.
+
 ## v0.54.1
 - **De bank staat bij de startopstelling.** De samengevouwen regel per blok op het verslag zegt nu
   ook wie er op dat moment op de bank zat — en wie de wedstrijd verlaten had, staat daar terecht

@@ -2346,19 +2346,25 @@ function renderEventLog(m) {
     const vouwSamen = !activeTypes && g.qn != null;
     const startRegel = vouwSamen ? startLineupHtml(m, g.qn) : '';
     if (vouwSamen) list = list.filter(e => !isBreakLineupEvent(e));
-    const items = startRegel + (list.length
-      ? list.map(e => {
-          const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
-          const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
-          // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
-          // reeks, want de delen ervan hebben los geen betekenis.
-          const knoppen = elog_ro ? ''
-            : (e.type === 'posSwapReeks'
-              ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
-              : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
-          return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
-        }).join('')
-      : (startRegel ? '' : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>'));
+    // Wat in de PAUZE gebeurde (bv. een speler die de wedstrijd verliet) hoort VÓÓR de
+    // startopstelling van dit blok — het gebeurde er letterlijk voor — en draagt geen minuut:
+    // in de pauze loopt de klok niet, dus "1'" was gewoon onwaar.
+    const pauzeItems = list.filter(e => e.atBreak);
+    if (pauzeItems.length) list = list.filter(e => !e.atBreak);
+    const li = e => {
+      const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
+      const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
+      // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
+      // reeks, want de delen ervan hebben los geen betekenis.
+      const knoppen = elog_ro ? ''
+        : (e.type === 'posSwapReeks'
+          ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
+          : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
+      return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinLocal(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
+    };
+    const items = pauzeItems.map(li).join('') + startRegel + (list.length
+      ? list.map(li).join('')
+      : ((startRegel || pauzeItems.length) ? '' : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>'));
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
 }
