@@ -9,6 +9,47 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.57.0
+Twee ontwerpkeuzes van Tim na het pauzescherm-herontwerp van v0.56.0.
+
+### Het pauzekaartje als tegels (keuze "1B")
+- **Eén brede oranje hoofdknop** — *"Opstelling nakijken of wijzigen"*, want dát doe je in elke
+  pauze — met daaronder de drie kleinere handelingen als **tegels** in de stijl van de
+  eventknoppen: *Uit je plan* (alleen als er een plan is), *Leeg veld* en *Event in kwart X*.
+- Het **×-icoon** bij "leeg veld" las als "sluiten" en is vervangen door een **gum** (Tabler
+  *eraser*, broncode letterlijk overgenomen): het veld uitvegen en opnieuw opstellen. Ook bij de
+  "Leeg veld"-knop op het tabblad Opstelling.
+
+### Wissels en posities: één plek voor alles met plaatsen (keuze "2B")
+- De knop **"Positie"** op het tabblad Wedstrijd heet nu **"Opstelling"** en brengt je naar het
+  gelijknamige tabblad. Daar doe je álles met plaatsen, met dezelfde tikbediening als in de pauze:
+  een speler naar een vrije plek, twee spelers laten ruilen, een bankspeler en een veldspeler
+  wisselen, en onderaan "Speler bijzetten". Tijdens het spel vraagt elke beweging eerst een
+  bevestiging (het wordt meteen een event met tijdstip).
+- De knop **"Wissel"** met zijn snelle keuzemodal blijft — dat is het snelste gebaar voor de
+  gewone wissel. Een positiewissel achteraf (in een al afgelopen kwart) blijft bereikbaar via
+  **"Meer" → event toevoegen**.
+- De knop "Opstelling" doet ook dienst in de pauze (hij springt gewoon naar het tabblad), dus hij
+  staat nooit uitgegrijsd.
+- Op het live-opstellingstabblad staat de uitleg (*"Tik een bankspeler en dan een speler op het
+  veld…"*) nu **boven** het velddiagram, net als in de pauze.
+
+### Niet meer kunnen starten met een leeg veld
+- **"Start kwart X" controleert voortaan het veld.** Een leeg veld achterlaten (bv. leeggemaakt en
+  vergeten te vullen) en dan starten was een echte fout die de app gewoon liet passeren. Nu komt er
+  een vraag: is er een plan voor dat kwart, dan *"Je veld is leeg — starten met je geplande
+  opstelling?"* (ja = plan toepassen en starten, nee = naar het opstellingsveld). Zonder plan kan
+  je niet starten en brengt de knop je naar de opstelling.
+- Staan er **minder (of meer) spelers dan er plaats is**, dan vraagt de app het ook even na: *"Kwart
+  X start met minder spelers dan er plaats is — is het de bedoeling?"* Ja = zo starten (met minder
+  spelen mag), nee = naar de opstelling.
+- De hoofdknop op het pauzekaartje is nu écht **oranje** (de "org"-kleur in het palet bleek het
+  merkblauw te zijn — er is een aparte oranje knopstijl bijgekomen).
+- Duidelijker benamingen: de plantegel heet **"Volgens plan"**, en de drie startpunten op het
+  opstellingstabblad heten nu **"Opstellen volgens plan"**, **"Herneem einde kwart X"** en
+  **"Maak veld leeg"**. Staat het veld al zoals gepland, dan zegt de bevestiging dat ook zo:
+  *"De opstelling voor kwart X staat al klaar zoals in het wedstrijdplan."*
+
 ## v0.56.0
 Tims observaties na een avond oefenen met testwedstrijden — het pauzescherm opgeruimd en een reeks
 kleinere ergernissen weggewerkt.

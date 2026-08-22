@@ -63,19 +63,29 @@ function renderLive() {
            AFGELEIDE wissels ("Klaar voor kwart 2") — verwarrend, want die heeft niemand ingegeven:
            het veld op het tabblad Opstelling is de waarheid, en de wissels zijn daar een gevolg van.
            Nu: wat er gaat gebeuren in één zin, en de handelingen die je in een pauze echt doet. */ ''}
-      ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
+      ${canStartNext ? (() => {
+        /* Eén brede hoofdknop (dít doe je in elke pauze) en daaronder de drie kleinere handelingen
+           als tegels — zelfde look als de eventknoppen. Zonder plan valt de plantegel weg en delen
+           de twee overige de rij. (Layout "1B", Tims keuze van 22-08-2026.) */
+        const heeftPlan = ((match.plannedLineups || {})[qNum + 1] || []).length > 0;
+        return `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <div class="sec" style="margin-top:0">${icI(IC.timer)} Wat kan je doen in de pauze?</div>
         <p style="color:var(--txt2);font-size:13px;margin-bottom:10px">${pSing(match)} ${qNum+1} start automatisch met het veld op het tabblad <b>Opstelling</b>.</p>
-        <button class="btn btn-pale btn-sm" style="width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Opstelling nakijken of wijzigen</button>
-        ${((match.plannedLineups || {})[qNum + 1] || []).length
-          ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.clipboard)} Opstelling uit je plan gebruiken</button>` : ''}
-        <button class="btn btn-pale btn-sm" style="margin-top:8px;width:100%" onclick="confirmNextLineupLeeg()">${icI(IC.close)} ${pSing(match)} ${qNum+1} opnieuw opstellen (leeg veld)</button>
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
-      </div>` : ''}
+        <button class="btn btn-orn" style="width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Opstelling nakijken of wijzigen</button>
+        <div class="evtbtns" style="margin:8px 0 0;grid-template-columns:repeat(${heeftPlan ? 3 : 2},1fr)">
+          ${heeftPlan ? `<div class="evtbtn ec" onclick="modalUsePlannedLineup(${qNum + 1})"><span class="ei">${IC.clipboard}</span><span class="el">Volgens plan</span></div>` : ''}
+          <div class="evtbtn" onclick="confirmNextLineupLeeg()"><span class="ei">${IC.eraser}</span><span class="el">Leeg veld</span></div>
+          <div class="evtbtn" onclick="modalAddPostEvent()"><span class="ei">${IC.log}</span><span class="el">Event in ${pSingLow(match)} ${qNum}</span></div>
+        </div>
+      </div>`; })() : ''}
       ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
         <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
-        <div class="evtbtn ${dis}" onclick="modalPosSwap()"><span class="ei">${IC.compass}</span><span class="el">Positie</span></div>
+        ${/* Sinds 2B (22-08-2026): alles met pláátsen — verzetten, ruilen, wisselen via het veld,
+             bijzetten — gebeurt op het tabblad Opstelling. De knop heet daarom exact zoals dat
+             tabblad. modalPosSwap() blijft bestaan voor events achteraf (via "Meer"). */ ''}
+        ${/* Bewust zonder ${dis}: naar het tabblad springen kan ook in de pauze — daar leeft het. */ ''}
+        <div class="evtbtn" onclick="setTab('opstelling')"><span class="ei">${IC.shirt}</span><span class="el">Opstelling</span></div>
         ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         ${simple ? '' : `<div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}`}
         ${simple ? '' : `<div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
@@ -379,8 +389,13 @@ async function resetUndo() {
   showToast('De wedstrijd staat terug zoals ze was.', 'ok');
   await go(terug.status === 'done' ? 'detail' : 'live', terug.id);
 }
-async function startQuarter() {
+async function startQuarter(zonderControle) {
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
+  // DE WACHTER (Tim, 22-08-2026): een volgend deel starten met een leeg — of half leeg — veld is
+  // vrijwel altijd een vergissing (leeg veld gemaakt en vergeten te vullen). Eén controle, hier,
+  // vlak voor de start: de enige plek waar het te laat zou zijn. Enkel voor een VOLGEND deel; de
+  // aftrap van deel 1 heeft haar eigen waarschuwing in de selectiewizard.
+  if (!zonderControle && match.currentQuarter >= 1 && startControleModal()) return;
   _lineupSel = null;   // selectie uit de pauze-opstelling niet laten hangen
   match.currentQuarter++;
   match.quarterStatus = 'running';
@@ -2509,6 +2524,38 @@ async function nextLineupLeeg() {
   tab = 'opstelling';
   await bewaarNextLineup(match, [], 'Leeg veld — tik een speler en dan een plaats.');
 }
+// ---- De wachter vóór "Start kwart X" (zie startQuarter) ----
+// Waar = er is iets mis en de modal staat open; startQuarter() breekt dan af. De vraag is telkens
+// dezelfde: ja = starten (met plan of gewoon toch), nee = naar het opstellingsveld om het te
+// herstellen. Een leeg veld ZONDER plan kan niet gestart worden — dat is nooit de bedoeling.
+function startControleModal() {
+  const volgend = match.currentQuarter + 1;
+  const doel = nextLineupOf(match);
+  const plaatsen = veldPlaatsenNu(match);
+  if (doel.length && doel.length === plaatsen) return false;
+  const naarOpstelling = `<button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();setTab('opstelling')">Nee, naar de opstelling</button>`;
+  if (!doel.length) {
+    const heeftPlan = ((match.plannedLineups || {})[volgend] || []).length > 0;
+    openModal(`<h3>${icI(IC.warn)} Je veld is leeg</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${pSing(match)} ${volgend} zou zonder spelers starten.${heeftPlan
+        ? ` Wil je starten met je geplande opstelling voor ${pSingLow(match)} ${volgend}?`
+        : ` Zet eerst je spelers op het veld op het tabblad Opstelling.`}</p>
+      ${heeftPlan
+        ? `<button class="btn btn-green" onclick="startMetPlan(${volgend})">${icI(IC.check)} Ja, start volgens plan</button>${naarOpstelling}`
+        : `<button class="btn btn-orn" onclick="closeModal();setTab('opstelling')">${icI(IC.shirt)} Naar de opstelling</button>`}`);
+    return true;
+  }
+  openModal(`<h3>${icI(IC.warn)} ${doel.length} ${doel.length === 1 ? 'speler' : 'spelers'} op een veld voor ${plaatsen}</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${pSing(match)} ${volgend} start met ${doel.length < plaatsen ? 'minder spelers dan er plaats is' : 'meer spelers dan er plaats is'}. Dat mag — maar is het de bedoeling?</p>
+    <button class="btn btn-green" onclick="closeModal();startQuarter(true)">${icI(IC.check)} Ja, zo starten</button>
+    ${naarOpstelling}`);
+  return true;
+}
+async function startMetPlan(deel) {
+  closeModal();
+  await nextLineupUitPlan(deel);
+  await startQuarter(true);
+}
 // ---- Tikken op het veld en de bank ----
 // Vier mogelijkheden, en elk is een wijziging van de doelopstelling zelf:
 //   speler op het veld + lege plek   -> hij verhuist daarnaartoe
@@ -2606,9 +2653,9 @@ function pauseLineupHtml(m) {
       ${/* Drie startpunten. "Zoals nu" is geen lege handeling: het gooit weg wat je klaarzette en
            begint opnieuw van de opstelling waarmee het vorige deel eindigde. */ ''}
       <div class="wiz-nav" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
-        ${heeftPlan ? `<button class="btn btn-orgpale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupUitPlan(${deel})">${icI(IC.clipboard)} Uit je plan</button>` : ''}
-        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupZoalsNu()">${icI(IC.undo)} Zoals nu</button>
-        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="confirmNextLineupLeeg()">${icI(IC.close)} Leeg veld</button>
+        ${heeftPlan ? `<button class="btn btn-orgpale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupUitPlan(${deel})">${icI(IC.clipboard)} Opstellen volgens plan</button>` : ''}
+        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="nextLineupZoalsNu()">${icI(IC.undo)} Herneem einde ${pSingLow(m)} ${deel - 1}</button>
+        <button class="btn btn-pale btn-sm" style="flex:1;min-width:110px" onclick="confirmNextLineupLeeg()">${icI(IC.eraser)} Maak veld leeg</button>
       </div>
       <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Dit veld <b>is</b> de opstelling van ${pSingLow(m)} ${deel}. Tik een speler en dan een <b>lege plaats</b> om hem te verzetten, of tik <b>twee spelers</b> om ze te laten ruilen. Een <b>bankspeler</b> en dan iemand op het veld wisselt hen om.</p>
       ${/* plek: true → de vrije roosterplekken zijn hier aantikbaar. Enkel in dit bewerkscherm; het
@@ -2715,7 +2762,7 @@ function modalUsePlannedLineup(deel) {
   const alGelijk = !diff.subs.length && !diff.swaps.length;
   openModal(`<h3>${icI(IC.clipboard)} ${pSing(m)} ${deel} volgens je plan?</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${alGelijk
-      ? 'Het veld staat al precies zoals gepland — er is niets te wijzigen.'
+      ? `De opstelling voor ${pSingLow(m)} ${deel} staat al klaar zoals in het wedstrijdplan.`
       : `${pSing(m)} ${deel} start dan met de opstelling uit je plan. Je ziet en wijzigt ze op het tabblad <b>Opstelling</b>.`}</p>
     ${diff.problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px;text-align:left">${icI(IC.warn)} ${diff.problemen.map(esc).join('<br>')}</div>` : ''}
     ${alGelijk ? '' : `<button class="btn btn-green" onclick="doUsePlannedLineup(${deel})">${icI(IC.check)} Ja, volgens het plan</button>`}
@@ -3387,9 +3434,11 @@ function liveLineupHtml(m) {
     .sort((a, b) => (mins[a.id] ? mins[a.id].ms : 0) - (mins[b.id] ? mins[b.id].ms : 0));
   const selId = _liveTapSel ? _liveTapSel.id : null;
   return `<div class="card">
+    ${/* De uitleg BOVEN het veld, net als in de pauze: je leest eerst wat tikken doet en ziet dan
+         het veld waar het gebeurt (Tim, 22-08-2026). */ ''}
+    <div class="field-legend" style="margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Je krijgt telkens eerst een bevestiging.</div>
     ${/* plek: true → tijdens het spel een speler naar een vrije plek kunnen zetten (zie liveFieldTap). */ ''}
     ${renderPitch(m, on, m.captainId, null, { fn: 'liveFieldTap', selId, plek: true })}
-    <div class="field-legend">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Je krijgt telkens eerst een bevestiging.</div>
     <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
     <div class="place-chips">${bench.length
       ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="liveFieldTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${playedMin(mins[p.id] ? mins[p.id].ms : 0)}'</small></span>`).join('')
