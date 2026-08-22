@@ -2106,10 +2106,29 @@ function showUndoToast(html) {
 }
 
 // ===================== MODALS: GOAL (+ assist) =====================
+// Spelerskeuze voor wie SCOORDE of een KAART kreeg bij een event dat je ACHTERAF toevoegt: de lijst
+// toonde enkel wie het gekozen blok begón, dus een doelpunt van iemand die op minuut 10 inviel was
+// niet toe te kennen. Nu: eerst wie het blok begon, daarna de rest van de selectie, gemerkt als
+// 'bank' — dezelfde oplossing als bij blessure/vertrek (v0.51.0), en bewust géén lijst die met de
+// ingetikte minuut meebeweegt: twee berekeningen voor één waarheid is precies wat deze week brak.
+// Tijdens het spel blijft de lijst gewoon het veld van dit moment.
+function spelersVoorEventKeuze(m) {
+  const veld = playersOnFieldForEvent(m);
+  if (_postEventQuarter == null) return { lijst: veld, bank: new Set() };
+  const veldIds = new Set(veld.map(p => p.id));
+  const rest = sortedByName((m.players || []).filter(p => !veldIds.has(p.id) && !p.absent));
+  return { lijst: [...veld, ...rest], bank: new Set(rest.map(p => p.id)) };
+}
+// Het merkje op zo'n bankspeler in de keuzeknoppen.
+function bankTag(bank, p) {
+  return bank.has(p.id) ? '<span style="font-size:9px;font-weight:800;color:var(--txt2);border:1px solid var(--bdr);border-radius:5px;padding:0 4px">bank</span>' : '';
+}
 let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false;
 function modalGoal() {
   const goalCount = id => match.events.filter(e => (e.type==='goal_us'||e.type==='penalty_us') && e.playerId===id).length;
-  const on = playersOnFieldForEvent(match).slice().sort((a,b) => goalCount(b.id)-goalCount(a.id) || (Number(a.number)||99)-(Number(b.number)||99));
+  const keuze = spelersVoorEventKeuze(match);
+  // Veldspelers eerst (op doelpuntentotaal), de bank erachter.
+  const on = keuze.lijst.slice().sort((a,b) => (keuze.bank.has(a.id)?1:0)-(keuze.bank.has(b.id)?1:0) || goalCount(b.id)-goalCount(a.id) || (Number(a.number)||99)-(Number(b.number)||99));
   goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
   openModal(`
     <h3>${icI(IC.goal)} Goal</h3>
@@ -2121,13 +2140,13 @@ function modalGoal() {
     <div id="goal-us-section">
       <div class="sec">Welke speler scoorde?</div>
       <div id="goal-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}</button>`).join('')}
+        ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join('')}
         <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">eigen doel teg.</span></button>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
         <div id="assist-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt2)')}</button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ap-btn" data-id="${p.id}" onclick="selectAssist('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt2)')}${bankTag(keuze.bank, p)}</button>`).join('')}
           <button type="button" class="ap-btn" data-id="none" onclick="selectAssist(null,this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:18px;color:var(--txt2)">—</span><span style="font-size:10px;color:var(--txt2)">geen</span></button>
         </div>
       </div>
@@ -2141,7 +2160,7 @@ function modalGoal() {
       <div id="own-goal-players" class="hidden">
         <div class="sec">Welke speler?</div>
         <div id="own-goal-player-list" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}</button>`).join('')}
+          ${on.map(p=>`<button type="button" class="ogp-btn" data-id="${p.id}" onclick="selectOwnGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join('')}
         </div>
       </div>
     </div>
@@ -3599,12 +3618,14 @@ async function removePendingPosSwap(i) { if (_eventBusy) return; _eventBusy = tr
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
-  const on = playersOnFieldForEvent(match);
+  // Bij een event-achteraf ook de bank kiesbaar (gemerkt) — zie spelersVoorEventKeuze.
+  const keuze = spelersVoorEventKeuze(match);
+  const on = keuze.lijst;
   const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
     <div class="sec" style="margin-top:0">Voor welke speler?</div>
-    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}</button>`).join(''))}
+    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
 async function logCard(color, pid) {
@@ -3634,14 +3655,16 @@ async function logCard(color, pid) {
 let penTeam = 'us', penPlayerId = null;
 function modalPenalty() {
   penTeam = 'us'; penPlayerId = null;
-  const on = playersOnFieldForEvent(match);
+  // Bij een event-achteraf ook de bank kiesbaar (gemerkt) — een penalty is ook een doelpunt.
+  const keuze = spelersVoorEventKeuze(match);
+  const on = keuze.lijst;
   openModal(`<h3>${icI(IC.penalty)} Penalty</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="pen-team"><button class="act" onclick="tglPen('us',this)">${esc(tName(match))}</button><button onclick="tglPen('them',this)">Tegenstander</button></div>
     <div id="pen-player-section">
       <div class="sec">Wie neemt de penalty?</div>
       <div id="pen-players">
-        ${pgGrid(on.map(p=>pgBtn(p,'pen-pb',`selectPenPlayer('${p.id}',this)`)).join(''))}
+        ${pgGrid(on.map(p=>pgBtn(p,'pen-pb',`selectPenPlayer('${p.id}',this)`,bankTag(keuze.bank,p))).join(''))}
       </div>
     </div>
     <div class="sec">Resultaat?</div>

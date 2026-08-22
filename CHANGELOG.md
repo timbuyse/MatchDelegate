@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.55.0
+- **Een nieuwe ploeg start zonder vaste rugnummers.** Bij jeugdploegen zijn die niet de norm, dus
+  het vinkje *Vaste rugnummers gebruiken* staat bij het aanmaken uit. Bestaande ploegen veranderen
+  niet — wie nummers gebruikt, houdt ze gewoon.
+- **Bij een doelpunt, kaart of penalty achteraf is nu élke speler kiesbaar.** De lijst toonde enkel
+  wie het gekozen blok begón — een doelpunt van iemand die op minuut 10 inviel was dus niet toe te
+  kennen. Nu staat de rest van de selectie erachter, gemerkt met *bank* (ook bij de assist en het
+  eigen doelpunt). Dezelfde oplossing als bij blessure en vertrek; tijdens het spel verandert er
+  niets.
+- **Geen automatische volgnummers meer.** Een nieuwe speler kreeg stilzwijgend het volgende nummer
+  (1, 2, 3, …) mee, ook als de rugnummers uitstonden — zette je ze later aan, dan stond de hele
+  lijst vol volgnummers alsof dat echte rugnummers waren. Het vakje blijft nu leeg; wie vaste
+  nummers gebruikt, vult ze zelf in. Bij *Lijst plakken* wordt een nummer vooraan een regel wél
+  gewoon overgenomen, zoals altijd.
+
 ## v0.54.2
 - **Wat in de pauze gebeurde, staat vóór de startopstelling — en heet "pauze".** Een speler die in
   de rust de wedstrijd verliet, stond in het verloop van het volgende blok op "minuut 1", ná de

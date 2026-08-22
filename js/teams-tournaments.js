@@ -14,7 +14,12 @@ function renderTeamsList() {
         : `<div class="viewer-banner" style="margin-top:8px">${icI(IC.eye)} Je kijkt mee — spelers worden door de beheerder beheerd</div>`}
   </div>`;
 }
-function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], isNew: true }; teamEditMode = true; teamDelUndo = []; go('teamEdit'); }
+// useNumbers: false vanaf het AANMAKEN (v0.55.0): bij jeugdploegen zijn vaste rugnummers niet de
+// norm, dus een nieuwe ploeg start zonder. LET OP: dit hoort hier, bij het aanmaken — niet in de
+// betekenis van een ontbrekend veld. teamUsesNumbers() leest een ontbrekend veld als "aan", en dat
+// moet zo blijven: bestaande ploegen van vóór v0.15.0 hebben het veld niet en horen hun nummers te
+// houden.
+function newTeam() { if (!canManage()) return; editingTeam = { id: uid(), name: '', responsible: '', trainers: [], players: [], useNumbers: false, isNew: true }; teamEditMode = true; teamDelUndo = []; go('teamEdit'); }
 function openTeam(id) { const t = teamById(id); if (!t) return; editingTeam = JSON.parse(JSON.stringify(t)); teamEditMode = false; teamDelUndo = []; go('teamEdit'); }
 function toggleTeamEditMode() { teamEditMode = !teamEditMode; render(); }
 // Het tweede lijstje verschilt per positie: een kant (links/rechts) bij Verdediger en
@@ -244,7 +249,10 @@ function teamDurCustom(v) {
   const n = parseInt(v);
   if (n > 0 && n <= 60) editingTeam.defaultQuarterDuration = n;
 }
-function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: String(editingTeam.players.length + 1), pos: '' }); render(); }
+// Geen automatisch volgnummer meer (v0.55.0): een nieuwe speler kreeg stilzwijgend nummer N+1 mee,
+// óók als de rugnummers uitstonden — zette je ze later aan, dan stond de hele lijst op 1, 2, 3…
+// alsof dat echte rugnummers waren. Het vakje blijft leeg; wie vaste nummers gebruikt, vult ze zelf.
+function teamAddPlayer() { editingTeam.players.push({ id: uid(), globalId: uid(), firstName: '', lastName: '', name: '', number: '', pos: '' }); render(); }
 // Een speler uit de lijst halen is één tik op een klein kruisje, tussen twee tekstvelden, op een
 // telefoon. Dat gaat mis. De verwijderde regels blijven daarom op een stapeltje staan zolang je in
 // dit scherm bent, zodat je ze op hun oude plaats kan terugzetten — ook meerdere na elkaar.
