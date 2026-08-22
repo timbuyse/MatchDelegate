@@ -1156,7 +1156,11 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // niet (puur via zijn clubrol). Bij niet-lid blijft members leeg tot een trainer aangesteld wordt.
     members: joinAsMember ? { [uid]: 'admin' } : {},
     club: { name, logo: '', theme: null },
-    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, defaultPeriodKey: dPeriodKey, defaultQuarterDuration: dDur, fromCloud: true } }
+    // useNumbers: false — een nieuwe ploeg start zonder vaste rugnummers (v0.55.0). LET OP: die
+    // regel leeft op TWEE aanmaakwegen: hier (cloud, "Nieuwe ploeg in deze club") en in newTeam()
+    // (lokaal scherm). De eerste versie zette hem enkel lokaal, en Tim maakt ploegen via de club
+    // aan — het vinkje stond dus gewoon weer aan (gemeld 22-08-2026).
+    roster: { [initialRosterId]: { id: initialRosterId, name, players: [], trainers: [], defaultMatchType: dMatchType, defaultFormation: dFormation, defaultPeriodKey: dPeriodKey, defaultQuarterDuration: dDur, useNumbers: false, fromCloud: true } }
   });
   // Registreer de ploeg in de club-index. Faalt dit stil én is de maker geen lid (joinAsMember
   // uit), dan zou de ploeg nergens zichtbaar zijn — meld het dan minstens.
@@ -2295,6 +2299,23 @@ function startLineupRijen(m, qn) {
     })
     .sort((a, b) => (b.y - a.y) || (a.x - b.x));
 }
+// Wie zat er op de bank op het MOMENT dat dit blok begon? Dat is iets anders dan de bankregel
+// onder het velddiagram (periodBenchNames = wie het hele blok geen minuut speelde): bij de
+// STARTopstelling hoort de momentopname — wie beschikbaar was maar niet begon, ook al viel hij
+// vijf minuten later in. Weg zijn: wie afwezig was, wie de wedstrijd vóór dit blok verliet, en wie
+// vóór dit blok een rode kaart kreeg.
+function bankBijStart(m, qn) {
+  if (!qn) return [];
+  const opVeld = new Set(playersAtPeriodStart(m, qn).map(p => p.id));
+  const weg = vertrokkenIds(m, qn);
+  const rood = new Set((m.events || [])
+    .filter(e => e.type === 'red_card' && e.playerId && e.quarterNum != null
+      && (e.quarterNum < qn || (e.atBreak && e.quarterNum === qn)))
+    .map(e => e.playerId));
+  const dns = fieldDisplayNames(m.players || []);
+  return sortedByName((m.players || []).filter(p => !p.absent && !opVeld.has(p.id) && !weg.has(p.id) && !rood.has(p.id)))
+    .map(p => dns.get(p.id) || p.name || '');
+}
 // Dezelfde regel als platte tekst, voor de PDF-tijdlijn. Eén bron voor de rijen, zodat het scherm
 // en de PDF nooit een andere opstelling tonen.
 function startLineupTekst(m, qn) {
@@ -2303,9 +2324,11 @@ function startLineupTekst(m, qn) {
   // "Vincent F. (GK, 1), Briek D. (LM, 11)" — plaats en positienummer samen tussen één stel haakjes,
   // spelers gescheiden door komma's. De eerdere vorm ("Vincent F. — GK (1) · Briek D. — …") las met
   // die streepjes en middelpunten als één lange brij; dit leest als een opstellingsblad.
-  // De bank hoort erbij: wie beschikbaar was maar dit blok niet begon. periodBenchNames sluit
-  // sinds v0.52.0 uit wie de wedstrijd verliet — die zit niet op de bank, die is weg.
-  const bank = periodBenchNames(m, qn);
+  // De bank hoort erbij als MOMENTOPNAME: wie beschikbaar was maar dit blok niet begon — ook wie
+  // vijf minuten later inviel. Eerst stond hier periodBenchNames (wie het hele blok niet speelde),
+  // maar dat is de regel van het velddiagram-kader; bij een STARTopstelling klopte die niet: na
+  // wissels tijdens het blok stond er dan niemand op de bank (gemeld 22-08-2026).
+  const bank = bankBijStart(m, qn);
   return 'Startopstelling: ' + rijen.map(r => {
     const binnen = [r.code, r.nummer].filter(Boolean).join(', ');
     return binnen ? `${r.naam} (${binnen})` : r.naam;
@@ -2314,7 +2337,7 @@ function startLineupTekst(m, qn) {
 function startLineupHtml(m, qn) {
   const rijen = startLineupRijen(m, qn);
   if (!rijen.length) return '';
-  const bank = periodBenchNames(m, qn);
+  const bank = bankBijStart(m, qn);
   return `<li class="startlineup"><span class="emin">${icI(IC.shirt)}</span><span class="etxt"><b>Startopstelling</b><span class="sl-lijst">${rijen
     .map(r => `<span class="sl-item">${esc(r.naam)}${r.plek ? `<span class="sl-plek">${esc(r.plek)}</span>` : ''}</span>`)
     .join('')}</span>${bank.length ? `<span class="sl-bank">Bank: ${bank.map(esc).join(', ')}</span>` : ''}</span></li>`;

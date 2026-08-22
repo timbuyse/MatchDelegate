@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.55.1
+- **"Nieuwe ploeg zonder rugnummers" geldt nu ook voor een ploeg via de club.** Er zijn twee
+  manieren om een ploeg aan te maken, en v0.55.0 had er maar één aangepast — wie via *Nieuwe ploeg
+  in deze club* werkte (de gewone weg), kreeg het vinkje toch weer aan.
+- **De bank bij de startopstelling is nu een momentopname.** Ze toonde wie het hele blok geen minuut
+  speelde — de regel van het kader onder het velddiagram — en dus stond er na wissels tijdens het
+  blok niemand, ook al begonnen er wél spelers op de bank. Bij een *start*opstelling hoort wie er
+  **op dat moment** op de bank zat, ook wie vijf minuten later inviel. Wie afwezig was, vertrokken
+  was of een rode kaart had, staat er terecht niet bij. Het kader onder het velddiagram behoudt zijn
+  eigen regel (dat gaat over het hele blok).
+
 ## v0.55.0
 - **Een nieuwe ploeg start zonder vaste rugnummers.** Bij jeugdploegen zijn die niet de norm, dus
   het vinkje *Vaste rugnummers gebruiken* staat bij het aanmaken uit. Bestaande ploegen veranderen
