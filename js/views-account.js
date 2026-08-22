@@ -2260,8 +2260,14 @@ function isBreakLineupEvent(e) {
 }
 // De opstelling bij de start van blok qn, op leesbare volgorde: doel eerst, dan achteruit naar voren,
 // en binnen een lijn van links naar rechts. Dat leest als een opstelling i.p.v. als een lijst.
+// EEN bron voor de opstelling van een blok: dezelfde functie die het velddiagram tekent
+// (pitchPlayersAtPeriodStart). Voordien las deze regel playersAtPeriodStart en het diagram de
+// andere — twee wegen naar hetzelfde antwoord, en die liepen uiteen: de tekst zette een speler op
+// CAM terwijl het diagram hem op LM tekende. Dat is exact de fabrieksfout die deze hele reeks
+// veroorzaakte, dus hier geen tweede berekening meer.
 function startLineupRijen(m, qn) {
-  const spelers = (typeof playersAtPeriodStart === 'function') ? playersAtPeriodStart(m, qn) : [];
+  const spelers = (typeof pitchPlayersAtPeriodStart === 'function') ? pitchPlayersAtPeriodStart(m, qn)
+    : ((typeof playersAtPeriodStart === 'function') ? playersAtPeriodStart(m, qn) : []);
   return spelers
     .map(p => {
       const code = spelerGridCode(p);

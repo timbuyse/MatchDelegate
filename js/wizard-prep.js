@@ -734,7 +734,13 @@ function _posEventsChrono(m) {
     .map(({ e }) => e);
 }
 function playersAtPeriodStart(m, qNum) {
-  const on = {}; m.players.forEach(p => { on[p.id] = p.starting; });
+  // Wie de wedstrijd begon: uit de bewaarde startopstelling (v0.54.0) als die er is — dat is het
+  // feit — en anders uit de starting-vlaggen, zoals altijd.
+  const on = {};
+  if (Array.isArray(m.startLineup) && m.startLineup.length) {
+    m.players.forEach(p => { on[p.id] = false; });
+    m.startLineup.forEach(s => { on[s.id] = true; });
+  } else m.players.forEach(p => { on[p.id] = p.starting; });
   const fallback = {};
   const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
@@ -752,8 +758,18 @@ function playersAtPeriodStart(m, qNum) {
       on[e.playerId] = false;
     }
   }
-  // Positie per speler bepalen door vanaf de HUIDIGE (finale) m.players-staat terug te
-  // spoelen: alle sub/posSwap-events die NA het gevraagde kwart gebeurd zijn ongedaan maken,
+  // Posities: met een bewaarde startopstelling rekenen we VOORUIT vanaf dat feit — dezelfde ene
+  // berekening als het velddiagram (_posVooruit), zodat tekst en tekening nooit kunnen verschillen.
+  if (Array.isArray(m.startLineup) && m.startLineup.length) {
+    const vooruit = _posVooruit(m, qNum);
+    return m.players.filter(p => on[p.id]).map(p => {
+      let pos = vooruit[p.id];
+      if ((!pos || typeof pos.x !== 'number') && fallback[p.id]) pos = { ...(pos || {}), ...fallback[p.id] };
+      return { ...p, ...(pos || { x: undefined, y: undefined, line: undefined, posNum: undefined }) };
+    });
+  }
+  // Terugspoelweg voor wedstrijden van vóór v0.54.0: vanaf de HUIDIGE (finale) m.players-staat
+  // alle sub/posSwap-events die NA het gevraagde kwart gebeurd zijn ongedaan maken,
   // in omgekeerde chronologische volgorde (nieuwste eerst). Zo blijft elke eerdere periode
   // correct, ook voor een speler die zelf nooit wisselde maar wél als "bystander" betrokken
   // raakte in een latere wissel van iemand anders — voorheen bouwde deze functie posities
@@ -789,15 +805,31 @@ function playersAtPeriodStart(m, qNum) {
     return { ...p, ...pos };
   });
 }
-// Positie van elke speler bij de AANVANG van de wedstrijd (de startopstelling), gereconstrueerd
-// door vanaf de huidige (finale) m.players-staat alle wissels en positiewisselingen terug te
-// draaien — nieuwste eerst. De startopstelling wordt nergens apart bewaard: m.players.x/y worden
-// live mee gemuteerd, dus terugspoelen is de enige bron.
-// Een positiewissel wordt teruggedraaid door de twee HUIDIGE posities om te wisselen (een swap is
-// zijn eigen omgekeerde) i.p.v. via de posA/posB-snapshots. Dat is exact hetzelfde resultaat, maar
-// werkt ook voor oudere wedstrijden waarin die snapshots nog niet gelogd werden.
+// Positie van elke speler bij de AANVANG van de wedstrijd (de startopstelling).
+//
+// SINDS v0.54.0 wordt de startopstelling BEWAARD (m.startLineup, vastgelegd bij de aftrap in
+// startQuarter). Een gespeelde startopstelling is een feit, geen conclusie — en het terugspoelen
+// hieronder is een conclusie die alleen klopt zolang élke momentopname in élk event klopt. Op
+// 22-08-2026 bleek hoe broos dat is: één scheve momentopname en alle vier de kwarten stonden
+// scheef, en een reparatie van de startopstelling werd bij het eerstvolgende tekenen gewoon weer
+// weggerekend. Staat het veld er, dan is dát de waarheid en wordt er niets teruggespoeld.
+// Bestaande wedstrijden (zonder het veld) blijven het terugspoelen gebruiken — geen migratie nodig.
 function positionsAtMatchStart(m) {
+  if (Array.isArray(m.startLineup) && m.startLineup.length) {
+    const vast = {};
+    m.startLineup.forEach(s => { vast[s.id] = { x: s.x, y: s.y, line: s.line, posNum: s.posNum, posCodeVeld: s.posCodeVeld }; });
+    return vast;
+  }
+  // Terugspoelweg voor wedstrijden van vóór v0.54.0: vanaf de huidige (finale) m.players-staat alle
+  // wissels en positiewisselingen terugdraaien — nieuwste eerst. Een positiewissel wordt
+  // teruggedraaid door de twee HUIDIGE posities om te wisselen (een swap is zijn eigen omgekeerde),
+  // wat ook werkt voor oudere wedstrijden zonder posA/posB-snapshots.
   const pos = {};
+  // Alle spelers als vertrekpunt, óók de bank: een gewisselde speler draagt de coördinaten van zijn
+  // laatste stint nog mee, en het terugdraaien van een wissel hieronder leunt daarop (het zet enkel
+  // de INVALLER terug naar posBefore; de uitgaande speler stond al op zijn eigen plaats). Enkel de
+  // veldspelers inzaaien is geprobeerd en is fout: dan verliest een gewisselde basisspeler zijn
+  // startpositie volledig.
   (m.players || []).forEach(p => { pos[p.id] = { x: p.x, y: p.y, line: p.line, posNum: p.posNum }; });
   const evs = _posEventsChrono(m);
   for (let i = evs.length - 1; i >= 0; i--) {
@@ -821,20 +853,48 @@ function positionsAtMatchStart(m) {
 // (rebuildKeeperByQ) — enkel de tekening negeert ze.
 // WIE er op het veld staat komt onveranderd van playersAtPeriodStart(); enkel de posities worden
 // overschreven.
-function pitchPlayersAtPeriodStart(m, qNum) {
+// De posities bij de start van deel qNum, VOORUIT berekend: startopstelling + alle wissels en
+// positiewisselingen van vóór dat moment. Sinds v0.54.0 is dit de enige positieberekening voor
+// een deel — de tekstregel "Startopstelling", het velddiagram en de veldbezetting lezen allemaal
+// deze ene functie, zodat ze elkaar niet meer kunnen tegenspreken.
+function _posVooruit(m, qNum) {
   const pos = positionsAtMatchStart(m);
+  // WIE STAAT ER OP DAT MOMENT? Zonder dat bij te houden ruilde deze reconstructie posities met een
+  // speler die al gewisseld was: die bleef op zijn plaats staan terwijl de ander erheen verhuisde —
+  // twee shirts op één plek. Precies het beeld van 22-08-2026, en het kwam pas boven na het
+  // omhangen van een wissel naar de startopstelling. Wie er start komt uit de bewaarde
+  // startopstelling als die er is; anders uit de starting-vlaggen, zoals altijd.
+  const opVeld = {};
+  if (Array.isArray(m.startLineup) && m.startLineup.length) {
+    (m.players || []).forEach(p => { opVeld[p.id] = false; });
+    m.startLineup.forEach(s => { opVeld[s.id] = true; });
+  } else {
+    (m.players || []).forEach(p => { opVeld[p.id] = !!p.starting && !p.absent; });
+  }
   for (const e of _posEventsChrono(m)) {
     if (e.quarterNum == null) continue;
     // Zelfde tijdvenster als de veldbezetting in playersAtPeriodStart(): alles van een vorig deel,
     // plus wat bij de start van dit deel is doorgevoerd.
     if (!(e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum))) continue;
     if (e.type === 'substitution') {
-      if (e.playerInId && e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
-    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek && pos[e.pA]) {
-      // Verhuizing naar een lege plek: enkel deze speler verschuift. Anders dan bij een ruil blijft de
-      // som van de plaatsen hier NIET gelijk — zijn oude plaats blijft leeg, en dat is de bedoeling.
+      // Drie vormen sinds v0.49.0: gewoon (in én uit), enkel eraf, en enkel erbij (met naarPlek).
+      if (e.playerOutId) opVeld[e.playerOutId] = false;
+      if (e.playerInId) {
+        opVeld[e.playerInId] = true;
+        if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+        else if (!e.playerOutId && e.naarPlek) {
+          // Erbij zonder tegenhanger: absolute plek uit het event — via zetInPosKaart, want na een
+          // rechtgezette startopstelling kan die plek bezet zijn (zie de uitleg bij die functie).
+          const plek = gridPlek(e.naarPlek);
+          if (plek) zetInPosKaart(m, pos, id => !!opVeld[id], e.playerInId, plek);
+        }
+      }
+    } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek && opVeld[e.pA]) {
+      // Verhuizing naar een lege plek: enkel deze speler verschuift; zijn oude plaats blijft leeg.
+      // Ook hier via zetInPosKaart — het event draagt een absolute plek, en die kan na een
+      // rechtgezette startopstelling bezet blijken.
       const plek = gridPlek(e.naarPlek);
-      if (plek) pos[e.pA] = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code };
+      if (plek) zetInPosKaart(m, pos, id => !!opVeld[id], e.pA, plek);
     } else if (e.type === 'posSwap' && e.pA && e.pB && pos[e.pA] && pos[e.pB]) {
       // ALLE positiewissels binnen het venster tellen mee. Het venster hierboven doet het echte
       // werk: het laat enkel door wat vóór de aftrap van dit deel gebeurd is (een vorig deel, of
@@ -845,11 +905,19 @@ function pitchPlayersAtPeriodStart(m, qNum) {
       // daarna nog een pauzewissel volgde: het diagram wisselde dan twee spelers om terwijl het
       // veld zelf correct stond. Positiewissels tijdens het deel zelf blijven genegeerd — die
       // vallen buiten het venster, want het diagram toont de opstelling bij de START.
-      // Overlappende bollen kan dit niet geven: een positiewissel verwisselt twee plaatsen binnen
-      // dezelfde formatie, dus de posities blijven een permutatie van de startplaatsen.
-      const a = pos[e.pA]; pos[e.pA] = pos[e.pB]; pos[e.pB] = a;
+      // LET OP: hier stond dat overlappende bollen niet konden voorkomen omdat de posities een
+      // permutatie van de startplaatsen blijven. Dat gold tot v0.49.0. Sindsdien bestaan er
+      // eenzijdige wissels en verhuizingen naar een lege plek, en die zijn géén permutatie — dus
+      // die aanname is weg. Ruilen doen we daarom enkel tussen twee spelers die er op dat moment
+      // beide staan; anders bleef één van de twee achter op de plaats van de ander.
+      const a = pos[e.pA], b = pos[e.pB];
+      if (a && b && opVeld[e.pA] && opVeld[e.pB]) { pos[e.pA] = b; pos[e.pB] = a; }
     }
   }
+  return pos;
+}
+function pitchPlayersAtPeriodStart(m, qNum) {
+  const pos = _posVooruit(m, qNum);
   return playersAtPeriodStart(m, qNum).map(p => ({ ...p, ...(pos[p.id] || {}) }));
 }
 let _lcIdx = 0;

@@ -9,6 +9,86 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.54.0
+- **De startopstelling wordt voortaan bewaard.** Tot nu werd ze bij élk tekenen opnieuw *berekend*,
+  door vanaf de eindtoestand alle wissels en positiewissels achterstevoren terug te draaien. Dat is
+  een conclusie die alleen klopt zolang elke momentopname in elk event klopt — en op 22 augustus
+  bleek hoe broos dat is: één scheve momentopname en alle kwarten stonden tegelijk scheef, en zelfs
+  een reparatie van de startopstelling werd bij het eerstvolgende tekenen weer weggerekend. Vanaf nu
+  wordt de opstelling **vastgelegd op het moment van de aftrap** en is ze een feit: alles wordt er
+  vooruit uit doorgerekend, en de tekstregel, het velddiagram en de veldbezetting lezen allemaal
+  diezelfde ene bron.
+  - **Bestaande wedstrijden blijven gewoon werken**: zonder het nieuwe veld rekent de app zoals
+    voorheen. Er verandert niets aan opgeslagen gegevens en er is geen migratie.
+  - "Startopstelling herplaatsen" en "Opnieuw beginnen" houden het bewaarde veld netjes bij.
+  - En dit maakt een reparatie eindelijk blijvend: zet de startopstelling recht, en de kwarten
+    volgen — in plaats van teruggerekend te worden naar de oude fout.
+- **Een zet naar een bezette plek wordt een ruil.** Een verhuizing naar een lege plek en een speler
+  die erbij komt dragen een **absolute** plek mee in hun gebeurtenis. Wordt de startopstelling
+  naderhand rechtgezet, dan kan die plek op dat moment bezet blijken — en dan stonden er weer twee
+  spelers op elkaar. Nu ruilt de bewoner netjes mee (naar de oude plaats van de verhuizer als die
+  vrij is, anders naar de eerste vrije plek op zijn lijn). Voor een gewone wedstrijd verandert er
+  niets: de plek wás leeg toen de zet gebeurde.
+- Nagegaan met **100 volledig nagespeelde wedstrijden**, elk vier keer beproefd: als nieuwe
+  wedstrijd, als bestaande wedstrijd zonder het nieuwe veld, na een rechtzetting van de
+  startopstelling (willekeurige herschikking), en na een rechtzetting op een oude wedstrijd. Nul
+  dubbele plekken, tekst en diagram overal gelijk, en elke rechtzetting hield stand na een tweede
+  herberekening.
+
+## v0.53.1
+Punt 6 van de veldtest van 22 augustus 2026, plus de reparatie van twee spelers op één plek in de
+velddiagrammen.
+
+### Twee shirts op één plek — opgelost
+- **De oorzaak.** Sinds v0.49.0 bestaan er wissels waarbij iemand **erbij** komt zonder dat er iemand
+  af gaat. De reconstructie die de velddiagrammen tekent, gaf zo'n speler zijn plaats via de speler
+  die eraf ging — en die is er niet. Hij bleef dus zonder plaats in de boekhouding, en een latere
+  positiewissel verplaatste dan enkel de ándere speler: twee shirts op dezelfde plek, met een lege
+  plaats ernaast.
+- **Ook opgelost:** een positiewissel werd nog uitgevoerd met een speler die op dat moment al
+  gewisseld was. De reconstructie houdt nu bij wie er op elk moment staat en ruilt alleen tussen twee
+  spelers die er beide zijn.
+- **De tekstregel en het velddiagram komen nu uit dezelfde berekening.** Ze deden dat niet: de regel
+  *Startopstelling* rekende achterwaarts terug, het diagram bouwde voorwaarts op. Twee wegen naar
+  hetzelfde antwoord lopen altijd uiteen — de tekst zette een speler op CAM terwijl het diagram hem
+  op LM tekende. Nu is het één en dezelfde bron, dus kunnen ze niet meer verschillen.
+- **Een wissel omhangen kan geen tegenspraak meer maken.** Schuif je een wissel naar de start van een
+  blok terwijl er tússen het oude en het nieuwe tijdstip nog iets met dezelfde spelers gebeurt, dan
+  zou er van plaats geruild worden met iemand die al gewisseld is — en dat trok de opstelling van
+  élk blok scheef, ook de startopstelling. De app zegt nu wat er in de weg staat en laat het niet
+  doorgaan. Een gewone correctie op minuut 1 blijft gewoon werken.
+- **Een overgeslagen wissel laat ook geen spoor meer na.** Slaat de voorwaartse herberekening een
+  positiewissel over omdat een van de twee spelers al gewisseld was, dan worden ook de momentopnames
+  van dat event gewist. Anders draaide het terugspoelen naar de startopstelling die zet tóch terug,
+  en kwam de fout langs de achterdeur weer binnen — daardoor had het rechtzetten van een
+  startopstelling gewoon geen effect. Nagegaan als eigenschap: na een herberekening geeft het
+  terugspoelen exact het vertrekpunt terug (60 nagespeelde wedstrijden, geen enkele afwijking).
+- Nagegaan met **100 volledig nagespeelde wedstrijden**, telkens met wissels, positiewissels,
+  verhuizingen naar een lege plek, spelers die erbij komen en die vertrekken, gevolgd door het
+  omhangen van een wissel en een volledige herbouw: geen enkele dubbele plek meer, en de tekst en het
+  diagram gaven overal hetzelfde.
+
+### Punt 6 — de duur van een blok
+
+- **De duur van een gespeeld blok is achteraf aan te passen.** Stopte je te vroeg (13' in plaats van
+  15') of liep de wedstrijd langer door dan je afsloot, dan zet je dat nu recht: op het verslag staat
+  bij **Per blok** een potloodje naast de duur. Er bestond al een correctieveld op het *moment* van
+  afsluiten, maar daarna niet meer.
+- **Je ziet eerst wat het doet, per speler.** Het nakijkscherm zegt "Kwart 2 gaat van 15 naar 17
+  minuten" en zet daaronder iedereen van wie de speeltijd verandert, met het oude en het nieuwe
+  getal. Dat voorbeeld wordt berekend op een kopie, met exact dezelfde code die daarna ook echt
+  schrijft — zodat wat je te zien krijgt niet kan afwijken van wat er gebeurt.
+- **De gebeurtenissen in de latere blokken schuiven mee.** Elke gebeurtenis draagt de verstreken
+  speeltijd sinds de aftrap, en die begint voor een later blok dus later zodra je een eerder blok
+  verlengt. Zonder dat meeschuiven zou een doelpunt uit blok 3 op een verkeerde minuut belanden. De
+  keeperminuten schuiven om dezelfde reden mee.
+- **Bij inkorten wordt gewaarschuwd wat er niet meer past.** Kort je een blok in tot vóór een
+  gebeurtenis die erin stond, dan schuift die naar de slotminuut — en is haar oorspronkelijke minuut
+  weg. Het nakijkscherm zegt hoeveel gebeurtenissen dat zijn vóór je bevestigt. Verlengen kan niets
+  verliezen.
+- Zet je de duur terug op de oude waarde, dan staat alles weer precies zoals het was (nagegaan tot
+  op de minuut per speler) — behalve gebeurtenissen die door een eerdere inkorting al geschoven zijn.
+
 ## v0.52.0
 Vier meldingen over de speler die de wedstrijd verlaat, alle vier uit het gebruik van v0.51.0.
 

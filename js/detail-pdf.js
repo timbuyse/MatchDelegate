@@ -11,7 +11,11 @@ function renderDetail() {
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
       <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
-      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min</div>
+      ${/* De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep
+           langer door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de
+           latere blokken mee, want gameTimeMs is cumulatieve speeltijd. */ ''}
+      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min${(canManage() && q.endTime)
+        ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
       <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
   }).join('');

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.52.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.54.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -203,6 +203,39 @@ function zetOpGridPlek(p, plek, m) {
   p.posNum = matchGridNummer(m, plek.code) || '';
   p.posCodeVeld = plek.code;
   return p;
+}
+// Zet speler `id` in de positiekaart `pos` (id -> {x,y,line,posNum}) op roosterplek `plek`, met de
+// waarborg dat elke plek één bewoner houdt. Staat er al iemand anders (die volgens `staatEr` ook
+// echt op het veld staat), dan RUILEN ze: de bewoner krijgt de oude plaats van de verhuizer, of —
+// als die er geen had (speler die erbij komt) — de eerste vrije roosterplek, liefst op zijn eigen
+// lijn. Waarom dit nodig is: een verhuizing-naar-lege-plek en een erbij-komer dragen een ABSOLUTE
+// plek mee in hun event. Wordt de startopstelling naderhand rechtgezet (v0.54.0), dan kan die plek
+// op dat moment bezet blijken, en zonder deze waarborg zette het event twee spelers op elkaar —
+// het hardnekkigste beeld van 22-08-2026. Voor een gewone wedstrijd is dit een no-op: de plek was
+// leeg toen het event ontstond.
+function zetInPosKaart(m, pos, staatEr, id, plek) {
+  let oud = (pos[id] && typeof pos[id].x === 'number') ? { ...pos[id] } : null;
+  // Is zijn "oude" plaats dezelfde als de bestemming (verouderde bankpositie van een vorige stint
+  // die toevallig het doel is), dan is er geen oude plaats om aan de bewoner te geven — anders
+  // stuurde de ruil de bewoner naar exact de plek waar de verhuizer net ging staan.
+  if (oud && oud.x === plek.x && oud.y === plek.y) oud = null;
+  const bewoner = Object.keys(pos).find(x => x !== id && staatEr(x) && pos[x] && pos[x].x === plek.x && pos[x].y === plek.y);
+  pos[id] = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code };
+  if (!bewoner) return;
+  // De oude plaats van de verhuizer alleen doorgeven als ze ook echt vrij is. Bij een speler die
+  // van de BANK komt is pos[id] zijn verouderde plek van een vorige stint, en daar kan intussen
+  // iemand anders staan — de bewoner daarheen sturen zette opnieuw twee spelers op één plek.
+  if (oud) {
+    const oudBezet = Object.keys(pos).some(x => x !== id && x !== bewoner && staatEr(x)
+      && pos[x] && pos[x].x === oud.x && pos[x].y === oud.y);
+    if (!oudBezet) { pos[bewoner] = oud; return; }
+  }
+  const bezet = new Set(Object.keys(pos)
+    .filter(x => x !== bewoner && staatEr(x) && pos[x] && typeof pos[x].x === 'number')
+    .map(x => pos[x].x + ',' + pos[x].y));
+  const eigenLijn = POS_GRID.find(p => p.line === plek.line && !bezet.has(p.x + ',' + p.y));
+  const vrij = eigenLijn || POS_GRID.find(p => !bezet.has(p.x + ',' + p.y));
+  if (vrij) pos[bewoner] = { x: vrij.x, y: vrij.y, line: vrij.line, posNum: matchGridNummer(m, vrij.code) || '', posCodeVeld: vrij.code };
 }
 function spelerGridCode(p) {
   if (!p) return null;

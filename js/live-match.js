@@ -224,6 +224,7 @@ async function terugNaarGepland() {
   match.status = 'planned';
   match.currentQuarter = 0;
   match.quarterStatus = 'not_started';
+  delete match.startLineup;   // hoort bij een aftrap die er niet meer is (zie startQuarter)
   await dbSave(match);
   closeModal();
   showToast('Terug naar gepland.', 'ok');
@@ -336,6 +337,9 @@ async function doResetMatch() {
     m.events = [];
     m.pendingSubs = []; m.pendingPosSwaps = [];
     m.keeperByQ = {};
+    // De vastgelegde startopstelling hoort bij de aftrap die net ongedaan gemaakt is; bij de
+    // volgende start wordt ze opnieuw vastgelegd (zie startQuarter).
+    delete m.startLineup;
     m.scoreUs = 0; m.scoreThem = 0;
     delete m.motmId;
     recomputeScore(m); recomputeOnField(m);
@@ -375,6 +379,17 @@ async function startQuarter() {
   match.quarterStatus = 'running';
   match.quarters.push({ num: match.currentQuarter, startTime: Date.now(), endTime: null, totalPaused: 0, pausedAt: null });
   addEvent('quarter_start');
+  // DE STARTOPSTELLING VASTLEGGEN (v0.54.0) — één keer, bij de aftrap. Vanaf hier is dit veld het
+  // feit waar élke reconstructie van vertrekt; er wordt voor deze wedstrijd nooit meer
+  // teruggespoeld vanaf de eindtoestand. Bewust VÓÓR het doorvoeren van de klaargezette wissels
+  // hieronder: die worden als atBreak-events gelogd en door de reconstructie op deze basis
+  // toegepast — legde je ze al toegepast vast, dan werden ze dubbel gerekend.
+  // Nieuw, optioneel veld: bestaande wedstrijden zonder dit veld blijven terugspoelen zoals altijd.
+  if (match.currentQuarter === 1 && !Array.isArray(match.startLineup)) {
+    match.startLineup = match.players
+      .filter(p => p.starting && magOpHetVeld(match, p) && typeof p.x === 'number')
+      .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: spelerGridCode(p) || null }));
+  }
   // DRIE RONDES, en de volgorde is wezenlijk (v0.49.0):
   //   1. de wissels waar iemand het veld verlaat — dat maakt plaatsen vrij;
   //   2. de positiewissels van wie blijft — nu kan iedereen naar zijn doelplek;
@@ -437,7 +452,13 @@ async function startQuarter() {
     const pIn = match.players.find(p => p.id === s.inId);
     const plek = s.naarPlek ? gridPlek(s.naarPlek) : null;
     if (!pIn || !plek || !magOpHetVeld(match, pIn)) continue;
-    addEvent('substitution', { playerOutId: null, playerInId: s.inId, atBreak: true, naarPlek: s.naarPlek });
+    // posBefore ook hier, om dezelfde reden als bij een gewone wissel: een speler die eerder al op
+    // het veld stond en nu terugkomt, moet bij het terugspoelen zijn vórige plaats terugkrijgen.
+    // Ontbrak dat, dan zette de reconstructie hem op "geen positie" — en dan viel de startopstelling
+    // van een basisspeler weg die tussentijds gewisseld was en later terugkwam.
+    const posBefore = (typeof pIn.x === 'number')
+      ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
+    addEvent('substitution', { playerOutId: null, playerInId: s.inId, atBreak: true, naarPlek: s.naarPlek, posBefore });
     zetOpGridPlek(pIn, plek, match);
     pIn.onField = true;
   }
@@ -541,6 +562,117 @@ function zetGeplandeOpstellingKlaar(m) {
     diff.swaps.length ? `${diff.swaps.length} positiewissel${diff.swaps.length === 1 ? '' : 's'}` : '',
   ].filter(Boolean).join(' en ');
   return `Opstelling voor ${pSingLow(m)} ${deel} klaargezet: ${telling}.${diff.problemen.length ? ' ' + diff.problemen[0] : ''}`;
+}
+// ===================== DE DUUR VAN EEN GESPEELD BLOK AANPASSEN =====================
+// Je stopte te vroeg (13' i.p.v. 15') of de wedstrijd liep langer dan je afsloot. Er bestond al een
+// correctieveld op het MOMENT van afsluiten (zie endPeriod/endMatchModal), maar daarna niet meer.
+//
+// WAT ER MEE MOET SCHUIVEN, en dat is de hele moeilijkheid. De duur van een blok zit in
+// `endTime - startTime - totalPaused`. Maar elke gebeurtenis draagt `gameTimeMs`: de verstreken
+// SPEELTIJD sinds de aftrap. gameTimeMsAtStartOfQuarter() telt daarvoor de duur van alle eerdere
+// blokken op. Verleng je blok 2 met twee minuten, dan begint blok 3 dus twee minuten later in
+// speeltijd — terwijl de gebeurtenissen in blok 3 hun absolute gameTimeMs houden en daardoor twee
+// minuten te vroeg in hun blok zouden komen te staan. Vandaar: alles ná dit blok schuift mee.
+// De wandkloktijden van latere blokken blijven ongemoeid: elk blok berekent zijn eigen duur, dus
+// die zijn onafhankelijk.
+function kwartDuurMs(q) {
+  return (q && q.startTime && q.endTime) ? Math.max(0, q.endTime - q.startTime - (q.totalPaused || 0)) : 0;
+}
+// De wijziging toepassen op een (klonen van een) wedstrijd. Eén functie, zodat het voorbeeld dat we
+// tonen met exact dezelfde berekening gemaakt wordt als wat er straks bewaard wordt.
+function pasKwartDuurToe(m, qNum, nieuweMs) {
+  const q = (m.quarters || []).find(x => x.num === qNum);
+  if (!q || !q.startTime || !q.endTime) return null;
+  const oudeMs = kwartDuurMs(q);
+  const delta = nieuweMs - oudeMs;
+  if (!delta) return { delta: 0, geknipt: [] };
+  const qStart = gameTimeMsAtStartOfQuarter(m, qNum);
+  const nieuwEind = qStart + nieuweMs;
+  q.endTime = q.startTime + (q.totalPaused || 0) + nieuweMs;
+  const geknipt = [];
+  for (const e of (m.events || [])) {
+    if (e.quarterNum == null) continue;
+    if (e.quarterNum > qNum) { e.gameTimeMs = Math.max(0, (e.gameTimeMs || 0) + delta); continue; }
+    if (e.quarterNum !== qNum) continue;
+    // Het einde-event van dit blok hoort per definitie op de nieuwe eindtijd.
+    if (e.type === 'quarter_end') { e.gameTimeMs = nieuwEind; continue; }
+    // Inkorten: wat na het nieuwe einde valt, kan daar niet blijven staan. Dat is verlies van
+    // informatie (de minuut van dat doelpunt), dus het wordt gemeld vóór het bevestigen.
+    if ((e.gameTimeMs || 0) > nieuwEind) {
+      geknipt.push({ id: e.id, type: e.type, van: e.gameTimeMs, naar: nieuwEind });
+      e.gameTimeMs = nieuwEind;
+    }
+  }
+  // Keeperminuten: sinceMs is ook cumulatieve speeltijd.
+  const byQ = m.keeperByQ || {};
+  for (const k of Object.keys(byQ)) {
+    if (!Array.isArray(byQ[k])) continue;
+    const kn = Number(k);
+    if (kn > qNum) byQ[k].forEach(x => { x.sinceMs = Math.max(0, (x.sinceMs || 0) + delta); });
+    else if (kn === qNum) byQ[k].forEach(x => { if ((x.sinceMs || 0) > nieuwEind) x.sinceMs = nieuwEind; });
+  }
+  return { delta, geknipt };
+}
+function modalKwartDuur(qNum) {
+  if (!canManage() || !match) return;
+  const q = (match.quarters || []).find(x => x.num === qNum);
+  if (!q || !q.endTime) {
+    showToast(`Dit ${pSingLow(match)} is nog niet afgesloten — de duur kan je aanpassen bij het afsluiten.`, 'err');
+    return;
+  }
+  const huidig = Math.round(kwartDuurMs(q) / 60000);
+  openModal(`<h3>${icI(IC.timer)} Duur van ${pSingLow(match)} ${qNum}</h3>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:12px;text-align:left">Dit ${pSingLow(match)} staat nu op <b>${huidig} minuten</b>. Stopte je te vroeg of liep het langer door, zet het dan hier recht — de speelminuten van iedereen die er op stond veranderen mee.</p>
+    <div class="fg"><label>Werkelijke duur (minuten)</label>
+      <input id="kd-min" type="number" inputmode="numeric" min="1" max="90" value="${huidig}" style="width:100%"></div>
+    <button class="btn btn-green" onclick="voorbeeldKwartDuur(${qNum})">${icI(IC.check)} Bekijk wat er verandert</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  setTimeout(() => document.getElementById('kd-min')?.select(), 60);
+}
+// Het voorbeeld wordt op een KOPIE berekend met dezelfde functie die straks echt schrijft. Zo kan
+// wat je te zien krijgt niet afwijken van wat er gebeurt — de fout die deze hele reeks begon.
+function voorbeeldKwartDuur(qNum) {
+  const inp = document.getElementById('kd-min');
+  const nieuw = inp ? parseInt(inp.value) : NaN;
+  if (isNaN(nieuw) || nieuw < 1) { showToast('Geef een aantal minuten in.', 'err'); return; }
+  const q = (match.quarters || []).find(x => x.num === qNum);
+  const huidig = Math.round(kwartDuurMs(q) / 60000);
+  if (nieuw === huidig) { showToast('Dat is de huidige duur.', 'ok'); return; }
+  const kopie = jclone(match);
+  const res = pasKwartDuurToe(kopie, qNum, nieuw * 60000);
+  if (!res) { showToast('Kan dit niet berekenen.', 'err'); return; }
+  const voor = calcMinutes(match), na = calcMinutes(kopie);
+  const rijen = (match.players || []).map(p => {
+    const v = Math.round((voor[p.id]?.ms || 0) / 60000), n = Math.round((na[p.id]?.ms || 0) / 60000);
+    return (v === n) ? null : { naam: fieldName(match, p.id), v, n };
+  }).filter(Boolean).sort((a, b) => (b.n - b.v) - (a.n - a.v));
+  const label = pSingLow(match);
+  openModal(`<h3>${icI(IC.warn)} Nakijken</h3>
+    <p style="font-size:14px;margin-bottom:10px;text-align:left"><b>${pSing(match)} ${qNum}</b> gaat van <b>${huidig}</b> naar <b>${nieuw} minuten</b>.</p>
+    ${rijen.length
+      ? `<div style="max-height:34vh;overflow-y:auto;text-align:left;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:10px">
+          ${rijen.map(r => `<div style="padding:3px 0;border-bottom:1px solid var(--bdr)">${esc(r.naam)}: <b>${r.v}</b> → <b>${r.n}</b> min</div>`).join('')}
+        </div>`
+      : `<p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Niemands speelminuten veranderen hierdoor.</p>`}
+    ${res.geknipt.length
+      ? `<div style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px;text-align:left">${icI(IC.warn)} <b>${res.geknipt.length} ${res.geknipt.length === 1 ? 'gebeurtenis' : 'gebeurtenissen'}</b> ${res.geknipt.length === 1 ? 'valt' : 'vallen'} na het nieuwe einde en ${res.geknipt.length === 1 ? 'schuift' : 'schuiven'} naar de slotminuut. Hun oorspronkelijke minuut is daarna niet meer te achterhalen.</div>`
+      : ''}
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:14px;text-align:left">De gebeurtenissen in de ${pPlural(match)} ná dit ${label} schuiven mee, zodat ze op hetzelfde moment van hún ${label} blijven staan.</p>
+    <button class="btn btn-org" onclick="doKwartDuur(${qNum},${nieuw})">${icI(IC.check)} Ja, aanpassen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalKwartDuur(${qNum})">Terug</button>`);
+}
+async function doKwartDuur(qNum, nieuweMin) {
+  if (!canManage() || !match) return;
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const res = pasKwartDuurToe(match, qNum, nieuweMin * 60000);
+    if (!res) { showToast('Kan dit niet aanpassen.', 'err'); return; }
+    recomputeScore(match); recomputeOnField(match);
+    await dbSave(match);
+    closeModal(); render();
+    showToast(`${pSing(match)} ${qNum} staat nu op ${nieuweMin} minuten.`, 'ok');
+  } finally { _eventBusy = false; }
 }
 // Afgesloten wedstrijd heropenen. Dat gebeurt om twee heel verschillende redenen, en die moeten
 // uit elkaar: een foutieve afsluiting hervat het LAATSTE deel, een verlenging voegt er een toe.
@@ -918,6 +1050,13 @@ async function _saveEpPositions() {
     const p = match.players.find(x => x.id === pid);
     const s = _ep.slots[si];
     if (p && s) { p.x = s.x; p.y = s.y; p.line = s.line; p.posNum = computePosNum(match.matchType, si, _ep.slots); }
+  }
+  // De vastgelegde startopstelling (v0.54.0) volgt mee: dit scherm herplaatst per definitie de
+  // startopstelling (het weigert zodra er wissels zijn), dus het bewaarde feit is nu dit.
+  if (Array.isArray(match.startLineup)) {
+    match.startLineup = match.players
+      .filter(p => p.starting && typeof p.x === 'number')
+      .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: spelerGridCode(p) || null }));
   }
   _ep = null;
   await dbSave(match); closeModal(); render();
@@ -1309,6 +1448,11 @@ function revertPosSwapPositions(m, e) {
 // (playersAtPeriodStart(m,1) vóór de bewerking). Repareert meteen de posBefore/posA/posB-snapshots
 // zodat playersAtPeriodStart nadien consistent blijft. Idempotent op een correcte wedstrijd.
 function rebuildPositions(m, baseline) {
+  // De bewaarde startopstelling (v0.54.0) wint altijd van de meegegeven baseline. Aanroepers geven
+  // playersAtPeriodStart(m, 1) mee, en die bevat de pauzewijzigingen van blok 1 al toegepast —
+  // hieronder worden die events opnieuw afgespeeld, dus met die baseline telden ze dubbel. De
+  // bewaarde startopstelling is per definitie de toestand van vóór elk event.
+  if (Array.isArray(m.startLineup) && m.startLineup.length) baseline = m.startLineup;
   const pos = {}, onF = {};
   m.players.forEach(p => { onF[p.id] = false; });
   (baseline || []).forEach(b => { onF[b.id] = true; pos[b.id] = { x: b.x, y: b.y, line: b.line, posNum: b.posNum }; });
@@ -1321,18 +1465,56 @@ function rebuildPositions(m, baseline) {
   for (const e of evs) {
     if (e.type === 'substitution') {
       if (e.playerInId) e.posBefore = pos[e.playerInId] ? { ...pos[e.playerInId] } : null; // snapshot repareren
+      // De plaats van wie eraf gaat NIET wissen: posBefore hierboven heeft ze nodig om een speler
+      // die later terugkeert op zijn vorige stint-positie te kunnen terugspoelen (zie de uitleg bij
+      // posBefore in startQuarter). Wat wél moet: een positiewissel mag hem niet meer betrekken —
+      // en dat regelt onF, niet het wissen van zijn plaats.
       if (e.playerOutId) onF[e.playerOutId] = false;
-      if (e.playerInId && !absent.has(e.playerInId)) { onF[e.playerInId] = true; if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] }; }
+      if (e.playerInId && !absent.has(e.playerInId)) {
+        onF[e.playerInId] = true;
+        if (e.playerOutId && pos[e.playerOutId]) pos[e.playerInId] = { ...pos[e.playerOutId] };
+        // KOMT ERBIJ ZONDER TEGENHANGER (v0.49.0): er is geen uitgaande speler wiens plaats hij
+        // overneemt, dus de plek moet uit het event zelf komen. Zonder dit bleef hij buiten `pos`,
+        // en dan verplaatste een latere positiewissel enkel de ándere speler — twee shirts op één
+        // plek, met een lege plaats ernaast. Precies wat er op 22-08-2026 op het scherm stond.
+        else if (!e.playerOutId && e.naarPlek) {
+          // Absolute plek uit het event, via zetInPosKaart: na een rechtgezette startopstelling kan
+          // die plek bezet blijken, en dan wordt dit een ruil met de bewoner (zie core.js).
+          const plek = gridPlek(e.naarPlek);
+          if (plek) zetInPosKaart(m, pos, id => !!onF[id], e.playerInId, plek);
+        }
+      }
     } else if (e.type === 'posSwap' && e.pA && !e.pB && e.naarPlek) {
       // Verhuizing naar een lege plek: enkel pA verandert, de plek waar hij wegging blijft leeg.
-      const a = pos[e.pA];
-      e.posA = a ? { ...a } : e.posA;   // snapshot repareren
-      const plek = gridPlek(e.naarPlek);
-      if (plek) pos[e.pA] = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(m, plek.code) || '', posCodeVeld: plek.code };
+      // Enkel voor wie op dat moment op het veld staat — een gewisselde speler houdt zijn laatste
+      // plaats in de boekhouding (voor posBefore), maar mag niet meer verplaatst worden.
+      if (onF[e.pA]) {
+        const a = pos[e.pA];
+        e.posA = a ? { ...a } : e.posA;   // snapshot repareren
+        const plek = gridPlek(e.naarPlek);
+        if (plek) zetInPosKaart(m, pos, id => !!onF[id], e.pA, plek);
+      } else {
+        // OVERGESLAGEN: hij stond er niet. Dan moeten ook de momentopnames weg, want het
+        // terugspoelen (positionsAtMatchStart) leest juist die en zou de zet dán wél ongedaan maken —
+        // en daarmee de fout die we hier net vermeden opnieuw binnenhalen. Zonder posA slaat het
+        // terugspoelen dit event over, precies zoals hier.
+        e.posA = null;
+      }
     } else if (e.type === 'posSwap' && e.pA && e.pB) {
-      const a = pos[e.pA], b = pos[e.pB];
-      e.posA = a ? { ...a } : e.posA; e.posB = b ? { ...b } : e.posB; // snapshots repareren
-      if (b) pos[e.pA] = { ...b }; if (a) pos[e.pB] = { ...a };
+      // Ruilen kan alleen tussen twee spelers die er beide staan. Zonder die voorwaarde verplaatste
+      // een ruil met iemand die al gewisseld was maar één kant, en bleef de andere op zijn plek —
+      // twee shirts op één plaats. Dat is wat er op 22-08-2026 op het scherm stond.
+      if (onF[e.pA] && onF[e.pB]) {
+        const a = pos[e.pA], b = pos[e.pB];
+        e.posA = a ? { ...a } : e.posA; e.posB = b ? { ...b } : e.posB; // snapshots repareren
+        if (b) pos[e.pA] = { ...b }; if (a) pos[e.pB] = { ...a };
+      } else {
+        // Overgeslagen, zelfde reden als hierboven: zonder momentopnames slaat het terugspoelen dit
+        // event ook over. Anders draait het een ruil terug die vooruit nooit gebeurd is, en dan
+        // reproduceert het terugspoelen de startopstelling niet meer — precies waardoor een
+        // reparatie van de startopstelling op 22-08-2026 geen effect had.
+        e.posA = null; e.posB = null;
+      }
     } else if (e.type === 'red_card' && e.playerId) {
       onF[e.playerId] = false;
     } else if (e.type === 'injury' && e.leavesField && e.playerId) {
@@ -1460,9 +1642,46 @@ function startopstellingKnopHtml(e) {
     ? `<button class="btn btn-pale btn-sm" style="margin-top:8px;width:100%" onclick="confirmVerplaatsEvent('${e.id}', false)">${icI(IC.swap)} Dit gebeurde tijdens het spel, niet bij de start</button>`
     : `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="confirmVerplaatsEvent('${e.id}', true)">${icI(IC.shirt)} Dit hoorde bij de opstelling van ${label} ${e.quarterNum}</button>`;
 }
+// Welke andere gebeurtenissen komen door dit omhangen in de knoop? Een wissel naar de start van het
+// blok schuiven, terwijl er tússen de nieuwe en de oude tijd nog iets met dezelfde spelers gebeurt,
+// maakt de gegevens tegenstrijdig: dan wordt er van plaats geruild met iemand die al gewisseld is.
+// De reconstructie sleept die tegenspraak door naar élk blok — zichtbaar als twee shirts op één plek,
+// ook in de startopstelling (gevonden op 22-08-2026 met 60 nagespeelde wedstrijden). Beter dus om ze
+// niet te laten ontstaan dan om de reconstructie er nog een uitzondering bij te geven.
+function verplaatsConflicten(e, naarStart) {
+  if (!e || !e.quarterNum) return [];
+  const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
+  const nieuw = naarStart ? qStart : qStart + 60000;
+  const oud = e.gameTimeMs || 0;
+  const van = Math.min(nieuw, oud), tot = Math.max(nieuw, oud);
+  const betrokken = new Set([e.playerOutId, e.playerInId, e.pA, e.pB].filter(Boolean));
+  if (!betrokken.size) return [];
+  // STRIKT tussen de twee tijdstippen, en geen pauzewijzigingen van dit blok. Die laatste staan
+  // precies óp het starttijdstip en zijn juist geen probleem: het omgehangen event komt daar netjes
+  // achter (zie de drie rondes in startQuarter). Nam je ze wel mee, dan weigerde de app precies het
+  // geval waarvoor de knop bestaat — een correctie op minuut 1 in een blok met pauzewissels.
+  return (match.events || []).filter(x => x.id !== e.id
+    && x.quarterNum === e.quarterNum
+    && !x.atBreak
+    && (x.type === 'substitution' || x.type === 'posSwap')
+    && (x.gameTimeMs || 0) > van && (x.gameTimeMs || 0) < tot
+    && [x.playerOutId, x.playerInId, x.pA, x.pB].filter(Boolean).some(pid => betrokken.has(pid)));
+}
 function confirmVerplaatsEvent(id, naarStart) {
   const e = match.events.find(x => x.id === id); if (!e) return;
   const label = pSingLow(match);
+  const conflicten = verplaatsConflicten(e, naarStart);
+  if (conflicten.length) {
+    openModal(`<h3>${icI(IC.warn)} Dit kan zo niet</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
+      <p style="font-size:13px;margin-bottom:10px;text-align:left">Er ${conflicten.length === 1 ? 'staat' : 'staan'} nog ${conflicten.length === 1 ? 'een gebeurtenis' : conflicten.length + ' gebeurtenissen'} met dezelfde spelers <b>tussen</b> het nieuwe en het oude tijdstip. Die zou${conflicten.length === 1 ? '' : 'den'} dan gebeuren met iemand die op dat moment al gewisseld is, en dan klopt de opstelling van geen enkel ${label} meer:</p>
+      <div style="text-align:left;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:12px">
+        ${conflicten.map(x => `<div style="padding:3px 0">${eventMinLocal(x, match)} — ${evtLabel(x, match)}</div>`).join('')}
+      </div>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:14px;text-align:left">Zet ${conflicten.length === 1 ? 'die' : 'die'} eerst recht (verplaatsen of verwijderen), en kom dan hier terug.</p>
+      <button class="btn btn-gray" onclick="modalEditEvent('${id}')">Terug</button>`);
+    return;
+  }
   // Hoeveel speeltijd verschuift er? Dat is het enige dat je vóór het bevestigen wil weten, want het
   // raakt de statistieken van twee spelers. Bij het omhangen naar de start schuift het event naar
   // het begin van het deel; terug wordt het de eerste minuut van dat deel.
