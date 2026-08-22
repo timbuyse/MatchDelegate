@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.49.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.50.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1004,6 +1004,13 @@ function scoreUpToQuarter(m, qNum) {
     else if (e.type === 'penalty_them' && e.scored) them++;
   }
   return { us, them };
+}
+// De doelpunten van DIT blok alleen. Op het verslag stond enkel de tussenstand, en dat las als de
+// score van dat blok — "K2 · 1–1" terwijl er in kwart 2 misschien niets gescoord werd. Dezelfde
+// telregels als hierboven, dus één plek om ze te wijzigen.
+function scoreInQuarter(m, qNum) {
+  const nu = scoreUpToQuarter(m, qNum), voor = scoreUpToQuarter(m, qNum - 1);
+  return { us: nu.us - voor.us, them: nu.them - voor.them };
 }
 // Uitgesloten spelers: wie een rode kaart kreeg (ook de automatische na twee gele, zie
 // autoSecondYellow) mag niet meer op het veld komen en mag ook NIET vervangen worden — zijn plaats

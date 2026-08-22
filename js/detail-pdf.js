@@ -929,7 +929,11 @@ async function pdfMatchBody(doc, L, m) {
     const rows = m.quarters.map(q => {
       const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
-      const cumText = isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`;
+      // Tussenstand met eronder wat er in dit blok zelf gebeurde: "1 – 1" alleen las als de score
+      // van dit blok, terwijl het de totale stand is. Enkel bijzetten als er ook echt gescoord werd.
+      const dit = scoreInQuarter(m, q.num);
+      const cumText = (isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`)
+        + ((dit.us || dit.them) ? `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})` : '');
       const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
       goalsPerRow.push(evts);
       const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
@@ -1069,10 +1073,24 @@ async function pdfMatchBody(doc, L, m) {
     // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
     // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
     const cumText = !g.cum ? '' : (isAway(m) ? `${g.cum.them}–${g.cum.us}` : `${g.cum.us}–${g.cum.them}`);
-    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}` : ''}`;
+    // Idem als in de tussenstandtabel: de totale stand, plus wat er in dit blok zelf gebeurde.
+    const ditQ = g.qn == null ? null : scoreInQuarter(m, g.qn);
+    const ditText = (ditQ && (ditQ.us || ditQ.them))
+      ? ` (dit ${pSingLow(m)}: ${isAway(m) ? `${ditQ.them}–${ditQ.us}` : `${ditQ.us}–${ditQ.them}`})` : '';
+    const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}${ditText}` : ''}`;
     // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.
-    const lijst = groepeerPosSwaps(g.list);
-    const rows = lijst.length ? lijst.map(e => [eventMinLocal(e, m), '', evtLabelPlain(e, m)]) : [['', '', 'Geen events']];
+    // En de pauzewissels samengevouwen tot één "Startopstelling"-regel, net als op het scherm (zie
+    // isBreakLineupEvent): bij een jeugdploeg zijn dat tientallen regels per blok waarin de
+    // doelpunten en kaarten verdronken. De events zelf blijven onaangeroerd — enkel de weergave.
+    const lijst = groepeerPosSwaps(g.list).filter(e => g.qn == null || !isBreakLineupEvent(e));
+    const startTekst = g.qn == null ? '' : startLineupTekst(m, g.qn);
+    // rowEvents loopt gelijk met rows: het icoon wordt op rij-INDEX opgezocht in didDrawCell, dus
+    // de startopstellingsregel (die geen event is) moet daar een leeg vakje innemen. Zonder deze
+    // parallelle lijst schoof elk icoon een rij op.
+    const rows = [], rowEvents = [];
+    if (startTekst) { rows.push(['', '', startTekst]); rowEvents.push(null); }
+    if (lijst.length) lijst.forEach(e => { rows.push([eventMinLocal(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); });
+    else if (!startTekst) { rows.push(['', '', 'Geen events']); rowEvents.push(null); }
     // Kopcel over alle kolommen: anders wordt de titel in de smalle minuut-kolom (60 pt)
     // gewikkeld en komt de tussenstand ónder het kwart te staan i.p.v. ernaast.
     tableBlock(gi === 0 ? `Volledige tijdlijn (${m.events.length} events)` : null,
@@ -1081,7 +1099,7 @@ async function pdfMatchBody(doc, L, m) {
         columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 18 } },
         didDrawCell: data => {
           if (data.section !== 'body' || data.column.index !== 1) return;
-          const png = pdfEventIcon(evtIcons, lijst[data.row.index]);
+          const png = pdfEventIcon(evtIcons, rowEvents[data.row.index]);
           if (!png) return;
           const s = 11;
           try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {}

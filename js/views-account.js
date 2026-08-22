@@ -2244,6 +2244,49 @@ const ELOG_FILTER_GROUPS = {
 // null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
 let elogFilter = null;
 function toggleElogFilter(key) { elogFilter = (elogFilter === key) ? null : key; render(); }
+// ===================== STARTOPSTELLING PER BLOK =====================
+// Alle wissels en positiewissels die in de pauze gebeuren dragen atBreak. Bij een jeugdploeg zijn
+// dat er tientallen per pauze — de trainer zet er in de rust bijna een nieuwe ploeg neer — en op het
+// verslag verdronken de doelpunten en kaarten daarin. Als losse regels zeggen ze bovendien weinig:
+// je wil niet weten via welke reeks ruilingen de opstelling ontstond, je wil de opstelling.
+// Daarom worden ze op het verslag samengevouwen tot ÉÉN regel per blok: wie er staat, en waar.
+// LET OP: er wordt niets weggegooid. De events blijven staan zoals ze zijn, want de speelminuten,
+// de keeperminuten, de veldweergave en het terugspoelen (positionsAtMatchStart) lezen ze allemaal.
+// Dit is uitsluitend een kwestie van tekenen.
+function isBreakLineupEvent(e) {
+  return !!e && !!e.atBreak && (e.type === 'substitution' || e.type === 'posSwap' || e.type === 'posSwapReeks');
+}
+// De opstelling bij de start van blok qn, op leesbare volgorde: doel eerst, dan achteruit naar voren,
+// en binnen een lijn van links naar rechts. Dat leest als een opstelling i.p.v. als een lijst.
+function startLineupRijen(m, qn) {
+  const spelers = (typeof playersAtPeriodStart === 'function') ? playersAtPeriodStart(m, qn) : [];
+  return spelers
+    .map(p => {
+      const code = spelerGridCode(p);
+      return {
+        naam: fieldName(m, p.id),
+        plek: code ? matchGridLabel(m, code) : (p.posNum ? String(p.posNum) : (p.line || '')),
+        y: typeof p.y === 'number' ? p.y : (LINE_Y[p.line] || 50),
+        x: typeof p.x === 'number' ? p.x : 50,
+      };
+    })
+    .sort((a, b) => (b.y - a.y) || (a.x - b.x));
+}
+// Dezelfde regel als platte tekst, voor de PDF-tijdlijn. Eén bron voor de rijen, zodat het scherm
+// en de PDF nooit een andere opstelling tonen.
+function startLineupTekst(m, qn) {
+  const rijen = startLineupRijen(m, qn);
+  if (!rijen.length) return '';
+  // Streepje en geen haakjes: een plek heet soms al "GK (1)", en dan werd het "Bram V. (GK (1))".
+  return 'Startopstelling: ' + rijen.map(r => r.plek ? `${r.naam} — ${r.plek}` : r.naam).join(' · ');
+}
+function startLineupHtml(m, qn) {
+  const rijen = startLineupRijen(m, qn);
+  if (!rijen.length) return '';
+  return `<li class="startlineup"><span class="emin">${icI(IC.shirt)}</span><span class="etxt"><b>Startopstelling</b><span class="sl-lijst">${rijen
+    .map(r => `<span class="sl-item">${esc(r.naam)}${r.plek ? `<span class="sl-plek">${esc(r.plek)}</span>` : ''}</span>`)
+    .join('')}</span></span></li>`;
+}
 // HTML-event-log voor het scherm (detail + live-log), met kwart-kop + tussenstand + verwijderknop.
 function renderEventLog(m) {
   const groups = eventsByQuarter(m);
@@ -2255,12 +2298,23 @@ function renderEventLog(m) {
   const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;
   return filterBar + groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
-    const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}</span>` : '';
+    // Tussenstand ÉN wat er in dit blok zelf gebeurde: "1–1" alleen las als de score van dit kwart,
+    // terwijl het de totale stand is. Enkel bijzetten als er in dit blok ook echt gescoord werd —
+    // anders staat er bij elk doelpuntloos blok een "(dit kwart: 0–0)" dat niets toevoegt.
+    const dit = g.qn == null ? null : scoreInQuarter(m, g.qn);
+    const ditText = (dit && (dit.us || dit.them))
+      ? `<span class="qgroup-dit">dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them}–${dit.us}` : `${dit.us}–${dit.them}`}</span>` : '';
+    const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}${ditText}</span>` : '';
     let list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
     if (activeTypes) list = list.filter(e => activeTypes.has(e.type));
     // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.
     list = groepeerPosSwaps(list);
-    const items = list.length
+    // De pauzewijzigingen samenvouwen tot één "Startopstelling"-regel — zie isBreakLineupEvent.
+    // Enkel zonder actieve filter: wie op 'Wissels' klikt, zoekt net die losse regels.
+    const vouwSamen = !activeTypes && g.qn != null;
+    const startRegel = vouwSamen ? startLineupHtml(m, g.qn) : '';
+    if (vouwSamen) list = list.filter(e => !isBreakLineupEvent(e));
+    const items = startRegel + (list.length
       ? list.map(e => {
           const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
           const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
@@ -2272,7 +2326,7 @@ function renderEventLog(m) {
               : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
           return `<li${goalStyle}><span class="emin">${eventMinLocal(e,m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
         }).join('')
-      : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>';
+      : (startRegel ? '' : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>'));
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
   }).join('');
 }

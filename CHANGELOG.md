@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.50.0
+Punt 3 en punt 5 van de veldtest van 22 augustus 2026, beide over het verslag.
+
+- **Eén "Startopstelling" per blok in plaats van tientallen losse wissels.** Bij een jeugdploeg staat
+  er in de rust bijna een nieuwe ploeg op het veld, en al die wissels en positiewissels kwamen als
+  aparte regels op het verslag — de doelpunten en kaarten verdronken daarin. Nu staat er per blok één
+  regel met wie er staat en waar: *Bram V. `GK` · Noah D. `CV` · Lars M. `LCV` …*, op leesbare
+  volgorde (doel eerst, dan achteruit naar voren, links naar rechts). In het voorbeeld waarmee dit
+  getest is, ging een blok van negen regels naar drie.
+  - Wil je de losse wissels tóch zien, tik dan de filter **Wissels** aan bovenaan het verloop: dan
+    verschijnen ze weer, precies zoals voordien.
+  - Ook in de wedstrijd-PDF, met dezelfde opstelling — de tekst en het scherm lezen uit één bron.
+  - **Er wordt niets weggegooid.** Alle wissels blijven onder water bewaard: de speelminuten, de
+    keeperminuten, de veldweergave en het terugspoelen naar een eerdere opstelling gebruiken ze
+    allemaal. Dit is enkel een kwestie van wat je te zien krijgt.
+- **De tussenstand per blok zegt nu ook wat er in dat blok zelf gebeurde.** Er stond enkel de totale
+  stand, en die las als de score van dat blok: bij *Kwart 2 — 1–3* leek het alsof er in kwart 2
+  één keer voor en drie keer tegen gescoord werd. Nu staat er **dit kwart: 0–3** onder. Enkel bij
+  een blok waarin ook echt gescoord werd, anders zou er overal een nutteloze 0–0 staan. Op het
+  scherm en in beide plaatsen in de PDF (de tussenstandtabel en de tijdlijn).
+
 ## v0.49.0
 Punt 2 van de veldtest van 22 augustus 2026: de opstelling wijzigen tussen twee blokken. Bij een
 jeugdploeg verandert daar veel, en dat liep mis — spelers verdwenen achter elkaar op het veld, en wat
