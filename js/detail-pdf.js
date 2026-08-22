@@ -361,7 +361,7 @@ const PDF_EVT_ICON = {
 const _pdfIconCache = new Map();
 async function pdfEventIcons(events) {
   const icons = {};
-  const keys = [...new Set((events || []).map(e => PDF_EVT_ICON[e.type]).filter(k => k && IC[k]))];
+  const keys = [...new Set((events || []).map(pdfEvtIconKey).filter(k => k && IC[k]))];
   for (const k of keys) {
     if (!_pdfIconCache.has(k)) {
       const svg = IC[k]
@@ -373,7 +373,14 @@ async function pdfEventIcons(events) {
   }
   return icons;
 }
-function pdfEventIcon(icons, e) { const k = e && PDF_EVT_ICON[e.type]; return (k && icons[k]) || null; }
+// Het icoon hangt aan het soort event, met één uitzondering: een vertrek is geen blessure en krijgt
+// het kruisje, hetzelfde teken als op het scherm en op de knop waarmee je het registreert.
+function pdfEvtIconKey(e) {
+  if (!e) return null;
+  if (e.type === 'injury' && e.injuryType === 'vertrokken') return 'close';
+  return PDF_EVT_ICON[e.type] || null;
+}
+function pdfEventIcon(icons, e) { const k = pdfEvtIconKey(e); return (k && icons[k]) || null; }
 // Verhouding van het velddiagram (326 x 504 eenheden, zoals de veldweergave op het scherm).
 const PITCH_PDF_RATIO = 504 / 326;
 // Tekent het velddiagram als ECHTE PDF-vectoren i.p.v. een ingebedde PNG. Voordien werd
@@ -535,8 +542,14 @@ function matchSelectionGroups(m) {
   const num = p => p.number || '';
   // `added` en `reason` dragen de twee dingen mee die tijdens de wedstrijd aan de selectie kunnen
   // veranderen: wie pas na de aftrap bijgekomen is, en waarom iemand niet (meer) meespeelde.
+  // `left`/`leftReason`: wie de wedstrijd verliet (v0.52.0) — zie vertrokkenIds in core.js.
+  const wegEvents = new Map();
+  (m.events || []).forEach(e => {
+    if (e.type === 'injury' && e.injuryType === 'vertrokken' && e.playerId && !wegEvents.has(e.playerId)) wegEvents.set(e.playerId, e);
+  });
   const pick = p => ({ name: p.name || '', number: num(p), rosterId: p.rosterId || null, guest: !!p.guest,
-    added: !!p.addedDuringMatch, reason: p.absentReason || '' });
+    added: !!p.addedDuringMatch, reason: p.absentReason || '',
+    left: wegEvents.has(p.id), leftReason: (wegEvents.get(p.id) || {}).reason || '' });
   const selected = m.players.filter(p => !p.absent).map(pick).sort(byLast);
   const notPresent = m.players.filter(p => p.absent).map(pick).sort(byLast);
   // Ploeg bij voorkeur via het stabiele m.teamId (sinds v0.5.34), met dezelfde naam-fallback als
@@ -590,6 +603,9 @@ function nameWithNum(p) {
   // Bijgekomen na de aftrap (laatkomer, of iemand die kwam bijspringen vanaf een tweede veld):
   // vermelden, anders leest zijn lagere speeltijd als een keuze van de trainer.
   if (p.added) bits.push('bijgekomen');
+  // Spiegelbeeld van 'bijgekomen', om dezelfde reden: anders leest zijn lagere speeltijd als een
+  // keuze van de trainer terwijl hij de wedstrijd verliet.
+  if (p.left) bits.push('vertrokken' + (p.leftReason ? ': ' + p.leftReason : ''));
   if (p.reason) bits.push(absentReasonLabel(p.reason).toLowerCase());
   return (p.number ? p.number + ' ' : '') + p.name + (bits.length ? ` (${bits.join(', ')})` : '');
 }

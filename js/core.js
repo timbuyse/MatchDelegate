@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.51.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.52.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1028,6 +1028,26 @@ function veldPlaatsenNu(m) {
   const vorm = (MATCH_TYPES[m && m.matchType] || MATCH_TYPES['8v8']).field;
   return Math.max(0, vorm - uitgeslotenIds(m).size);
 }
+// Wie de wedstrijd VERLATEN heeft (naar huis, tweede veld) — een 'injury'-event met soort
+// 'vertrokken', zie markLeftField/confirmInjury. Zo iemand is niet `absent`: hij was er wél en
+// speelde mee, hij is enkel weg. Zonder deze lijst stond hij daarna bij élk volgend blok onder het
+// velddiagram op de bank, alsof hij nog beschikbaar was (gemeld 22-08-2026).
+// `voorDeel` = enkel wie al weg was bij de START van dat blok; zelfde tijdvenster als
+// playersAtPeriodStart (een pauzegebeurtenis van dat blok hoort erbij). Zonder `voorDeel`: iedereen
+// die ooit vertrok.
+function vertrokkenIds(m, voorDeel) {
+  const uit = new Set();
+  for (const e of (m && m.events) || []) {
+    if (e.type !== 'injury' || e.injuryType !== 'vertrokken' || !e.playerId) continue;
+    if (voorDeel != null) {
+      if (e.quarterNum == null) continue;
+      if (!(e.quarterNum < voorDeel || (e.atBreak && e.quarterNum === voorDeel))) continue;
+    }
+    uit.add(e.playerId);
+  }
+  return uit;
+}
+function isVertrokken(m, pid) { return vertrokkenIds(m).has(pid); }
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
 function recomputeOnField(m) {

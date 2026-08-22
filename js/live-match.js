@@ -170,11 +170,16 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
   const pct = totalMs > 0 ? Math.round(ms / totalMs * 100) : null;
   const low = pct !== null && pct < 50;
   const mid = pct !== null && pct >= 50 && pct < 75;
+  // De balk en het percentage blijven de feiten: hij speelde echt minder. Maar het RODE alarm zegt
+  // "deze speler kreeg te weinig speeltijd", en dat is geen verwijt dat klopt voor wie halverwege
+  // vertrok of pas later bijkwam. Het cijfer blijft staan, het merkje ernaast legt het uit.
+  const weg = !!(match && isVertrokken(match, p.id));
+  const uitgelegd = weg || !!p.addedDuringMatch;
   const bar = pct !== null ? `<div class="fairbar ${low?'low':mid?'mid':''}" style="max-width:120px"><span style="width:${Math.min(100,pct)}%"></span></div>` : '';
   return `<div class="prow">
     ${numDot(p, 'pnum ' + (isOff?'pnum-off':''))}
-    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}${bijgekomenChip(p)}</div>${bar}</div>
-    <div class="pmins ${low?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
+    <div style="flex:1"><div class="pname">${esc(p.name)}${cap}${motm}${bijgekomenChip(p)}${vertrokkenChip(p)}</div>${bar}</div>
+    <div class="pmins ${(low && !uitgelegd)?'pmins-warn':''}" style="margin-left:6px">${m}'${pct!==null?` · ${pct}%`:' gespeeld'}</div>
     ${extraBtn}
   </div>`;
 }
@@ -1692,6 +1697,15 @@ async function confirmLoosePlayerLive() {
 function bijgekomenChip(p) {
   if (!p || !p.addedDuringMatch) return '';
   return ` <span style="font-size:10px;font-weight:700;color:var(--txt2);border:1px solid var(--bdr);border-radius:6px;padding:1px 5px;white-space:nowrap">bijgekomen</span>`;
+}
+// Het spiegelbeeld: wie de wedstrijd verliet. Zelfde reden om het te tonen als bij "bijgekomen" —
+// zonder dit merkje leest zijn lagere speeltijd als een keuze van de trainer, terwijl hij simpelweg
+// weg was. De reden komt in de tooltip, zodat de rij niet uitdijt.
+function vertrokkenChip(p) {
+  if (!p || !match || !isVertrokken(match, p.id)) return '';
+  const ev = (match.events || []).find(e => e.type === 'injury' && e.injuryType === 'vertrokken' && e.playerId === p.id);
+  const reden = ev && ev.reason ? ev.reason : '';
+  return ` <span title="${esc(reden || 'Verliet de wedstrijd')}" style="font-size:10px;font-weight:700;color:var(--org2,#b45309);border:1px solid #fbbf24;background:var(--org-pale,#fff3e0);border-radius:6px;padding:1px 5px;white-space:nowrap">vertrokken${reden ? ' · ' + esc(reden) : ''}</span>`;
 }
 function modalMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);

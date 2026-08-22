@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.52.0
+Vier meldingen over de speler die de wedstrijd verlaat, alle vier uit het gebruik van v0.51.0.
+
+- **Wie vertrokken is, staat niet meer op de bank.** Onder het velddiagram van elk volgend blok
+  stond hij er nog bij, alsof hij nog kon invallen. De oorzaak: hij is niet *niet aanwezig* — hij was
+  er wél en speelde mee, hij is enkel weg — en de banklijst keek alleen naar "niet aanwezig". Nu
+  wordt per blok gekeken wie op dat moment al vertrokken was. Op het scherm en in de PDF.
+- **Het teken bij een vertrek is geen blessure-icoon meer.** Een vertrek werd onder water als
+  blessure bijgehouden en kreeg daardoor ook dat icoontje. Nu een kruisje, hetzelfde teken als op de
+  knop waarmee je het registreert, en de regel leest *"Verliet de wedstrijd"*. Een echte blessure
+  houdt haar eigen icoon.
+- **Een merkje bij zijn speeltijd.** Achter zijn naam staat nu **vertrokken** (met de reden erbij als
+  je die invulde) — het spiegelbeeld van het bestaande *bijgekomen*. Zonder dat merkje leest zijn
+  lagere speeltijd als een keuze van de trainer.
+- **Geen rood alarm meer bij wie vertrok of later bijkwam.** Het aantal minuten en het percentage
+  blijven staan: hij speelde écht minder, dat is gewoon waar. Maar de rode markering betekent "deze
+  speler kreeg te weinig speeltijd", en dat verwijt klopt niet voor iemand die halverwege naar huis
+  ging. Een speler die zonder reden weinig speelde, blijft wel rood.
+
 ## v0.51.0
 - **"Dit hoorde bij de opstelling van dit blok."** Een wissel of positiewissel die je vlak na de
   aftrap van een blok doet, is bijna altijd geen wissel maar een **correctie**: de trainer had de

@@ -2164,7 +2164,9 @@ function evtLabel(e, m) {
     // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
     // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
     // dat staat al in het woord zelf.
-    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.injury)} Vertrokken · ${pn(e.playerId)}${e.reason ? ` <span style="color:var(--txt2)">(${esc(e.reason)})</span>` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    // Een vertrek is geen blessure, dus ook niet het blessure-icoon: een kruisje, hetzelfde teken
+    // als op de knop waarmee je het registreert.
+    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.close)} Verliet de wedstrijd · ${pn(e.playerId)}${e.reason ? ` <span style="color:var(--txt2)">(${esc(e.reason)})</span>` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ${esc(tName(m))}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
@@ -2198,7 +2200,7 @@ function evtLabelPlain(e, m) {
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
-    case 'injury': { if (e.injuryType === 'vertrokken') return `Vertrokken · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return 'Redding (onze keeper)';
@@ -2691,8 +2693,11 @@ function periodBenchNames(m, qNum) {
   if (!qNum) return [];
   const onField = new Set(playersAtPeriodStart(m, qNum).map(p => p.id));
   (m.events || []).forEach(e => { if (e.type === 'substitution' && e.quarterNum === qNum && e.playerInId) onField.add(e.playerInId); });
+  // Wie de wedstrijd vóór dit blok verliet, zit niet op de bank — hij is weg. Voordien stond zo
+  // iemand hier bij élk volgend blok, omdat hij niet `absent` is (zie vertrokkenIds).
+  const weg = vertrokkenIds(m, qNum);
   const dns = fieldDisplayNames(m.players || []);
-  return (m.players || []).filter(p => !p.absent && !onField.has(p.id))
+  return (m.players || []).filter(p => !p.absent && !weg.has(p.id) && !onField.has(p.id))
     .map(p => dns.get(p.id) || _firstName(p.name || ''))
     .sort((a, b) => a.localeCompare(b, 'nl'));
 }
