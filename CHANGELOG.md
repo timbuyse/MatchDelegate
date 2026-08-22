@@ -9,6 +9,46 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.51.0
+- **"Dit hoorde bij de opstelling van dit blok."** Een wissel of positiewissel die je vlak na de
+  aftrap van een blok doet, is bijna altijd geen wissel maar een **correctie**: de trainer had de
+  opstelling nog gewijzigd en dat kwam pas op het veld aan het licht. Tot nu bleef die als een echte
+  wissel in het verloop staan ("1' Simon voor Sebastian"), en hij vertekende ieders speelminuten met
+  die minuut. Open zo'n event met het potloodje en er staat nu een knop om hem om te hangen naar de
+  **startopstelling van dat blok**. De losse regel verdwijnt, de speler staat in de startopstelling,
+  en de speelminuten kloppen.
+  - De bevestiging zegt eerst **hoeveel minuten er verschuiven en bij wie**, want dit raakt de
+    statistieken van twee spelers.
+  - **Omkeerbaar.** Zet je het per ongeluk om, tik dan bovenaan het verloop de filter **Wissels**
+    aan — dan zijn de pauzewijzigingen weer los te zien, en staat er in hetzelfde venster de
+    omgekeerde knop.
+- **"Speler verlaat de wedstrijd" is nu te vinden.** Iemand die naar huis gaat of naar het tweede
+  veld vertrekt, is geen blessure — maar die keuze was alleen te bereiken via *Meer… → Blessure*, en
+  daar stond ze niet eens in de lijst met types. Nu staat er een eigen knop, zowel bij **Event
+  toevoegen** (ook op het verslag van een afgesloten wedstrijd, dus achteraf) als onder *Meer…*, met
+  een **vrij in te vullen reden** erbij ("naar huis", "speelt op het tweede veld"). Die reden komt in
+  het verloop en in de PDF te staan. Zijn speelminuten stoppen op dat moment; wat hij al speelde
+  blijft staan.
+- **Een gebeurtenis kan nu ook in de pauze vallen.** Bij *Event toevoegen* staat tussen de blokken
+  telkens een knop **"Pauze na blok X"**. Nodig voor het geval dat er niet in paste: een speler die
+  in de rust weggaat stond aan het einde van het vorige blok misschien al niet meer op het veld
+  (hij was gewisseld), en aan het begin van het volgende ook niet. In de pauze loopt de klok niet,
+  dus dit wordt vastgelegd op het moment tussen de twee blokken — wie dan vertrekt, houdt precies de
+  minuten die hij daarvóór speelde.
+- **Bij een blessure of vertrek kan je nu élke speler kiezen, niet enkel wie op het veld stond.**
+  Wie vertrekt zit vaak al op de bank, want hij was eerder gewisseld — die was dus onmogelijk aan te
+  duiden. Spelers die op dat moment op het veld stonden komen vooraan; wie op de bank zat, is
+  gemerkt met *bank*.
+- Een vertrek zonder het veld te verlaten was een onmogelijke toestand die de app toch toeliet (met
+  speelminuten die dan doorliepen). Bij *vertrokken* staat dat vinkje er niet meer en ligt het vast.
+- **De startopstelling leest beter in de PDF.** Er stond *Vincent F. — GK (1) · Briek D. — …*, en met
+  die streepjes en middelpunten werd het één lange brij. Nu: *Vincent F. (GK, 1), Briek D. (CV, 3),
+  Milan P. (LCV), …* — plaats en positienummer samen tussen één stel haakjes, spelers gescheiden door
+  komma's.
+- De **roosterplek van een speler wordt weer meegeschreven** bij het bewaren van de startopstelling.
+  Voordien bleef daar de code van zijn vorige plaats staan. De app tekende altijd correct (ze leest
+  de coördinaten), maar wie een probleem uitzoekt, las een plekcode die nergens meer op klopte.
+
 ## v0.50.0
 Punt 3 en punt 5 van de veldtest van 22 augustus 2026, beide over het verslag.
 

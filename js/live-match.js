@@ -1188,6 +1188,13 @@ async function forceEndMatch(correctMin) {
 }
 let _postEventQuarter = null; // null = gebruik match.currentQuarter (live), anders: kwart-override (detail)
 let _postEventMinute = null;  // null = einde van het deel, anders: minuut binnen het deel (1-based)
+// true = het gebeurde IN DE PAUZE vóór _postEventQuarter. Dat is geen minuut binnen een deel, dus
+// het krijgt de speeltijd van de START van dat deel — en die is in speeltijd hetzelfde moment als
+// het einde van het vorige deel, want tijdens een pauze loopt de klok niet. Zo stopt de teller van
+// een speler die in de rust vertrekt exact op het einde van het deel dat hij nog meespeelde.
+// Zelfde conventie als de pauzewissels (atBreak), zodat de reconstructie en het verslag het zonder
+// uitzonderingen lezen.
+let _postEventAtBreak = false;
 // Cumulatieve speeltijd t/m het EINDE van kwart qNum (voor retrograde events).
 function gameTimeMsAtEndOfQuarter(m, qNum) {
   let t = 0;
@@ -1208,6 +1215,13 @@ function addEvent(type, extra={}) {
   }
   const qn = _postEventQuarter !== null ? _postEventQuarter : match.currentQuarter;
   let gms;
+  // In de pauze vóór dit deel: de speeltijd van de start van het deel, en het event draagt atBreak.
+  // atBreak staat vóór ...extra, zodat een aanroeper die het zelf meegeeft (startQuarter) wint.
+  if (_postEventAtBreak && _postEventQuarter) {
+    match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: gameTimeMsAtStartOfQuarter(match, _postEventQuarter),
+      quarterNum: _postEventQuarter, atBreak: true, type, ...extra });
+    return;
+  }
   if (_postEventQuarter !== null && _postEventQuarter) {
     if (_postEventMinute !== null) {
       const qEnd = Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1);
@@ -1420,7 +1434,71 @@ function modalEditEvent(id) {
       : `<div class="fg"><label>Minuut</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
     ${fields}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
+    ${startopstellingKnopHtml(e)}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// ---- "Dit hoorde bij de opstelling van dit deel" ----
+// Een wissel of positiewissel die je vlak na de aftrap van een deel doet, is bijna altijd geen
+// wissel maar een CORRECTIE: de trainer had de opstelling nog gewijzigd en dat kwam pas op het veld
+// aan het licht. In het verloop staat ze dan als een echte wissel ("1' Simon voor Sebastian"), ze
+// vertekent ieders speelminuten met die minuten, en ze valt buiten de samengevouwen startopstelling
+// van dat deel. Deze knop hangt ze om naar een pauzewijziging: atBreak + de tijd van de start van
+// het deel. Daarmee rekent playersAtPeriodStart() ze mee in de opstelling waarmee dat deel begint
+// (zie de atBreak-uitzondering daar), vouwt het verslag ze samen in die ene regel, en kloppen de
+// speelminuten. Twee velden op één event — de rest volgt uit de bestaande machinerie.
+// Omkeerbaar: bij een pauzewijziging staat er de omgekeerde knop.
+function startopstellingKnopHtml(e) {
+  if (!e || !e.quarterNum) return '';
+  if (e.type !== 'substitution' && e.type !== 'posSwap') return '';
+  const label = pSingLow(match);
+  return e.atBreak
+    ? `<button class="btn btn-pale btn-sm" style="margin-top:8px;width:100%" onclick="confirmVerplaatsEvent('${e.id}', false)">${icI(IC.swap)} Dit gebeurde tijdens het spel, niet bij de start</button>`
+    : `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="confirmVerplaatsEvent('${e.id}', true)">${icI(IC.shirt)} Dit hoorde bij de opstelling van ${label} ${e.quarterNum}</button>`;
+}
+function confirmVerplaatsEvent(id, naarStart) {
+  const e = match.events.find(x => x.id === id); if (!e) return;
+  const label = pSingLow(match);
+  // Hoeveel speeltijd verschuift er? Dat is het enige dat je vóór het bevestigen wil weten, want het
+  // raakt de statistieken van twee spelers. Bij het omhangen naar de start schuift het event naar
+  // het begin van het deel; terug wordt het de eerste minuut van dat deel.
+  const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
+  const nieuwMs = naarStart ? qStart : qStart + 60000;
+  const verschilMin = Math.round(Math.abs(nieuwMs - (e.gameTimeMs || 0)) / 60000);
+  const wie = e.type === 'substitution'
+    ? { af: e.playerOutId ? pName(match, e.playerOutId) : null, op: e.playerInId ? pName(match, e.playerInId) : null }
+    : null;
+  const gevolg = !verschilMin ? '<b>Niemands speelminuten veranderen</b> — het event staat al op dat moment.'
+    : (wie && wie.af && wie.op)
+      ? `<b>${esc(wie.op)}</b> krijgt ${verschilMin} minuut${verschilMin === 1 ? '' : 'en'} ${naarStart ? 'méér' : 'minder'}, <b>${esc(wie.af)}</b> ${naarStart ? 'evenveel minder' : 'evenveel méér'}.`
+      : `Het event verschuift ${verschilMin} minuut${verschilMin === 1 ? '' : 'en'}; de speelminuten worden opnieuw berekend.`;
+  openModal(`<h3>${icI(naarStart ? IC.shirt : IC.swap)} ${naarStart ? `Bij de opstelling van ${label} ${e.quarterNum}?` : 'Terug naar tijdens het spel?'}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
+    <p style="font-size:13px;margin-bottom:10px;text-align:left">${naarStart
+      ? `Dit wordt behandeld als een wijziging <b>bij de start van ${label} ${e.quarterNum}</b> in plaats van als een wissel tijdens het spel. Op het verslag verdwijnt de losse regel en staat het gewoon in de <b>startopstelling</b> van dat ${label}.`
+      : `Dit wordt weer een gewone wissel <b>tijdens ${label} ${e.quarterNum}</b> en krijgt een eigen regel in het verloop.`}</p>
+    <p style="font-size:13px;margin-bottom:14px;text-align:left">${gevolg}</p>
+    <button class="btn btn-green" onclick="doVerplaatsEvent('${id}', ${naarStart ? 'true' : 'false'})">${icI(IC.check)} Ja, doen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalEditEvent('${id}')">Annuleren</button>`);
+}
+async function doVerplaatsEvent(id, naarStart) {
+  if (!canManage()) return;
+  const e = match.events.find(x => x.id === id); if (!e) return;
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    // Zelfde voorzorg als in saveEditEvent: de startopstelling vastleggen TERWIJL de staat nog
+    // consistent is, want rebuildPositions vertrekt daarvan.
+    const baseline = playersAtPeriodStart(match, 1);
+    const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
+    if (naarStart) { e.atBreak = true; e.gameTimeMs = qStart; }
+    else { delete e.atBreak; e.gameTimeMs = qStart + 60000; }
+    recomputeScore(match);
+    rebuildPositions(match, baseline);
+    if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+    await dbSave(match);
+    closeModal(); render();
+    showToast(naarStart ? `Staat nu in de startopstelling van ${pSingLow(match)} ${e.quarterNum}.` : 'Staat weer in het verloop.', 'ok');
+  } finally { _eventBusy = false; }
 }
 async function saveEditEvent(id) {
   const e = match.events.find(x => x.id === id); if (!e) return;
@@ -1484,8 +1562,11 @@ function modalExtra() {
     ${opt(`${icI(IC.penalty)} Penalty`, "modalPenalty()")}
     <div class="sec">${icI(IC.cardR)} Rode kaart</div>
     ${opt(`${icI(IC.cardR)} Rode kaart`, "modalCard('red')")}
-    <div class="sec">${icI(IC.injury)} Blessure</div>
+    <div class="sec">${icI(IC.injury)} Blessure of vertrek</div>
     ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
+    ${/* Eigen ingang, want dit is geen blessure: een speler die naar huis gaat of naar het tweede
+         veld. Stond alleen als vierde keuze binnen het blessurevenster en was daardoor onvindbaar. */ ''}
+    ${opt(`${icI(IC.close)} Speler verlaat de wedstrijd`, "modalInjury(null,'vertrokken')")}
     <div class="sec">${icI(IC.corner)} Hoekschop</div>
     ${opt(`${icI(IC.corner)} Hoekschop voor ${esc(tName(match))}`, "logCorner('us')")}
     ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
@@ -3351,26 +3432,49 @@ async function logPenalty(scored) {
 let injPlayerId = null, injType = 'kramp';
 // preId: speler al aangeduid en "verlaat het veld" aangevinkt — gebruikt door de "Niet aanwezig"-
 // modal, die voor iemand die al gespeeld heeft naar deze flow doorverwijst (zie modalMarkAbsent).
-function modalInjury(preId) {
-  const on = playersOnFieldForEvent(match);
-  injPlayerId = (preId && on.some(p => p.id === preId)) ? preId : null;
-  injType = 'kramp';
-  openModal(`<h3>${icI(IC.injury)} Blessure</h3>
+// `soort` = 'vertrokken' opent dit venster meteen voor een speler die de wedstrijd VERLAAT en niet
+// geblesseerd is (naar huis, naar het tweede veld, opgehaald door de ouders). Dat soort bestond al in
+// de gegevens — de knop tijdens de wedstrijd maakt zulke events (zie markLeftField) — maar was hier
+// niet te kiezen. Daardoor kon je zoiets achteraf, op een afgesloten wedstrijd, enkel als "blessure"
+// registreren, en dat is niet wat er gebeurde.
+function modalInjury(preId, soort) {
+  // ALLE beschikbare spelers, niet enkel wie op het veld stond. Een speler die naar huis gaat of
+  // naar het tweede veld vertrekt, zit op dat moment vaak al op de bank — hij was eerder gewisseld.
+  // Met enkel de veldbezetting was zo iemand niet te kiezen. Dat gold ook voor een blessure op de
+  // bank. Wie op het veld stond komt eerst en is gemarkeerd, zodat de keuze wél gestuurd blijft.
+  // (Voordien: playersOnFieldForEvent alleen. Punt uit de veldtest van 22-08-2026.)
+  const opVeld = playersOnFieldForEvent(match);
+  const opVeldIds = new Set(opVeld.map(p => p.id));
+  const bank = (match.players || []).filter(p => !opVeldIds.has(p.id) && magOpHetVeld(match, p));
+  const lijst = [...opVeld, ...sortedByName(bank)];
+  injPlayerId = (preId && lijst.some(p => p.id === preId)) ? preId : null;
+  injType = soort === 'vertrokken' ? 'vertrokken' : 'kramp';
+  const weg = injType === 'vertrokken';
+  const tb = (t, label) => `<button class="${injType === t ? 'act' : ''}" onclick="tglInjType('${t}',this)">${label}</button>`;
+  const merk = p => opVeldIds.has(p.id) ? '' : '<span style="font-size:10px;color:var(--txt2)">bank</span>';
+  openModal(`<h3>${icI(weg ? IC.close : IC.injury)} ${weg ? 'Speler verlaat de wedstrijd' : 'Blessure'}</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
-    <div id="inj-players">${pgGrid(on.map(p=>pgBtn(p,'inj-pb',`selectInjuryPlayer('${p.id}',this)`)).join(''))}</div>
-    <div class="sec">Type</div>
-    <div class="tgl" id="inj-type">
-      <button class="act" onclick="tglInjType('kramp',this)">Kramp</button>
-      <button onclick="tglInjType('licht',this)">Lichte blessure</button>
-      <button onclick="tglInjType('ernstig',this)">Ernstig</button>
+    ${bank.length ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">Wie op dat moment op het veld stond, staat vooraan; wie op de bank zat, is gemerkt.</p>` : ''}
+    <div id="inj-players">${pgGrid(lijst.map(p=>pgBtn(p,'inj-pb',`selectInjuryPlayer('${p.id}',this)`, merk(p))).join(''))}</div>
+    <div class="sec">Wat is er aan de hand?</div>
+    <div class="tgl" id="inj-type" style="flex-wrap:wrap;gap:6px">
+      ${tb('kramp', 'Kramp')}${tb('licht', 'Lichte blessure')}${tb('ernstig', 'Ernstig')}${tb('vertrokken', 'Vertrokken')}
     </div>
-    <label class="chkrow" style="margin-bottom:16px"><input type="checkbox" id="inj-off"${injPlayerId ? ' checked' : ''}> Speler verlaat het veld</label>
+    ${/* Reden enkel bij "vertrokken": bij een blessure is het type zelf de reden. Vrije tekst, want
+         de redenen zijn te uiteenlopend voor een lijstje (naar huis, tweede veld, ophaalregeling). */ ''}
+    <div class="fg" id="inj-reden-rij" style="margin-top:10px;${weg ? '' : 'display:none'}">
+      <label>Reden <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
+      <input id="inj-reden" type="text" placeholder="bv. naar huis, speelt op het tweede veld" autocomplete="off">
+    </div>
+    ${/* Bij "vertrokken" staat dit vinkje er niet: wie de wedstrijd verlaat, verlaat het veld — een
+         vertrek zonder dat is een onmogelijke toestand, en die hoort niet aanklikbaar te zijn. */ ''}
+    <label class="chkrow" id="inj-off-rij" style="margin-bottom:16px;${weg ? 'display:none' : ''}"><input type="checkbox" id="inj-off"${(injPlayerId || weg) ? ' checked' : ''}> Speler verlaat het veld</label>
     <button class="btn btn-green" onclick="confirmInjury()">${icI(IC.check)}Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   // Voorselectie zichtbaar maken: de keuze wordt met inline stijlen gemarkeerd (gpSel), niet met
   // een klasse, dus dat moet na het renderen gebeuren.
   if (injPlayerId) {
-    const i = on.findIndex(p => p.id === injPlayerId);
+    const i = lijst.findIndex(p => p.id === injPlayerId);
     const btn = document.querySelectorAll('#inj-players button')[i];
     if (btn) gpSel(btn);
   }
@@ -3380,17 +3484,37 @@ function tglInjType(type, btn) {
   injType = type;
   document.querySelectorAll('#inj-type button').forEach(b => b.classList.remove('act'));
   btn.classList.add('act');
+  // Het redenveld hoort bij "vertrokken"; bij een blessure zegt het type zelf al genoeg. En wie
+  // vertrekt, verlaat per definitie het veld — dat vinkje dus meteen aan.
+  const rij = document.getElementById('inj-reden-rij');
+  if (rij) rij.style.display = (type === 'vertrokken') ? '' : 'none';
+  const off = document.getElementById('inj-off');
+  if (off && type === 'vertrokken') off.checked = true;
+  const offRij = document.getElementById('inj-off-rij');
+  if (offRij) offRij.style.display = (type === 'vertrokken') ? 'none' : '';
 }
 async function confirmInjury() {
   if (!injPlayerId) { showToast('Kies een speler.', 'err'); return; }
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    const leavesField = !!document.getElementById('inj-off')?.checked;
-    addEvent('injury', { playerId: injPlayerId, injuryType: injType, leavesField });
+    // "Vertrokken" betekent per definitie van het veld af — niet afhankelijk van een vinkje dat bij
+    // dat soort niet eens getoond wordt. Zonder deze regel kon er een event ontstaan dat zegt dat
+    // iemand vertrok maar hem toch op het veld liet staan, met speelminuten die doorliepen.
+    const leavesField = injType === 'vertrokken' ? true : !!document.getElementById('inj-off')?.checked;
+    const reden = (document.getElementById('inj-reden')?.value || '').trim();
+    // `reason` enkel meegeven als er ook echt iets staat: een leeg veld hoort geen sleutel toe te
+    // voegen aan het event (en dus ook niet naar de cloud te gaan).
+    const extra = { playerId: injPlayerId, injuryType: injType, leavesField };
+    if (injType === 'vertrokken' && reden) extra.reason = reden;
+    // Stond hij op dat moment eigenlijk wél op het veld? Zit hij al op de bank (eerder gewisseld en
+    // dan naar huis), dan komt er niemand in zijn plaats en hoort de wisselvraag er niet te staan.
+    const stondOpHetVeld = playersOnFieldForEvent(match).some(p => p.id === injPlayerId);
+    addEvent('injury', extra);
     if (leavesField) { const p = match.players.find(x => x.id === injPlayerId); if (p) p.onField = false; }
     await dbSave(match);
-    if (leavesField) { modalSubAfterInjury(injPlayerId); } else { closeModal(); render(); }
+    if (leavesField && stondOpHetVeld) { modalSubAfterInjury(injPlayerId, injType === 'vertrokken' ? 'vertrokken' : undefined); }
+    else { closeModal(); render(); }
   } finally { _eventBusy = false; }
 }
 // `reden` = 'vertrokken' wanneer de speler niet geblesseerd is maar weggaat (naar het tweede veld
@@ -3450,18 +3574,28 @@ function modalAddPostEvent() {
   const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
   _postEventQuarter = lastQ !== null ? lastQ : 'unknown';
   _postEventMinute = null;
+  _postEventAtBreak = false;
+  // Per deel een knop, en daartussen de PAUZES. Een speler die in de rust naar huis gaat, hoort in
+  // geen van beide delen: hij stond aan het einde van het vorige niet meer op het veld (misschien al
+  // gewisseld) en aan het begin van het volgende ook niet. Zonder deze keuze was zo'n gebeurtenis
+  // niet vast te leggen — punt uit de veldtest van 22-08-2026.
+  const label = pSing(match);
   const qBtns = quarters.map(q => {
     const act = q.num === lastQ ? ' act' : '';
-    return `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${pSing(match)} ${q.num}</button>`;
+    const pauze = q.num > 1
+      ? `<button class="tgl-btn" onclick="selPostQ(${q.num},this,true)">Pauze na ${pSingLow(match)} ${q.num - 1}</button>`
+      : '';
+    return pauze + `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${label} ${q.num}</button>`;
   }).join('') + `<button class="tgl-btn${lastQ===null?' act':''}" onclick="selPostQ('unknown',this)">Onbekend</button>`;
   openModal(`
     <h3>${icI(IC.log)} Event toevoegen</h3>
-    <div class="sec" style="margin-top:0">In welk deel?</div>
+    <div class="sec" style="margin-top:0">Wanneer?</div>
     <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${qBtns}</div>
-    <div class="fg" style="margin-bottom:4px">
+    <div class="fg" style="margin-bottom:4px" id="post-min-rij">
       <label style="font-size:13px;color:var(--txt2)">Minuut binnen dit deel <span style="font-weight:400">(optioneel — laat leeg voor einde deel)</span></label>
       <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="bv. 12" oninput="selPostMin(this.value)" style="width:100%">
     </div>
+    <p id="post-pauze-uitleg" style="display:none;font-size:12px;color:var(--txt2);margin:-2px 0 8px">In de pauze loopt de klok niet, dus dit wordt vastgelegd op het moment tussen de twee delen. Wie dan vertrekt, houdt de minuten die hij daarvóór speelde.</p>
     <div class="sec">Wat wil je toevoegen?</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button class="btn btn-pale" onclick="postEvt(modalGoal)">${icI(IC.goal)} Goal</button>
@@ -3470,16 +3604,32 @@ function modalAddPostEvent() {
       <button class="btn btn-pale" onclick="postEvt(modalFreekick)">${icI(IC.bolt)} Vrije trap</button>
       <button class="btn btn-pale" onclick="postEvt(modalSub)">${icI(IC.swap)} Wissel</button>
       <button class="btn btn-pale" onclick="postEvt(modalPosSwap)">${icI(IC.compass)} Positiewissel</button>
+      ${/* Achteraf een speler laten vertrekken (naar huis, tweede veld) was enkel te bereiken via
+           "Meer… → Blessure" met een keuze die er niet stond. Dit gebeurt vaak genoeg voor een
+           eigen knop — het was punt 4 van de veldtest van 22-08-2026. */ ''}
+      <button class="btn btn-pale" style="grid-column:1/-1" onclick="postEvt(()=>modalInjury(null,'vertrokken'))">${icI(IC.close)} Speler verlaat de wedstrijd</button>
       ${/* "Meer…" over de volle breedte: met het oneven aantal knoppen hierboven zou hij anders als
            losse halve knop naast een gat staan. */ ''}
       <button class="btn btn-pale" style="grid-column:1/-1" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
-function selPostQ(num, btn) {
+function selPostQ(num, btn, atBreak) {
   _postEventQuarter = num;
+  _postEventAtBreak = !!atBreak;
   document.querySelectorAll('#post-q-tgl .tgl-btn').forEach(b => b.classList.remove('act'));
   btn.classList.add('act');
+  // Een pauze heeft geen minuten: het minuutveld verdwijnt en de eerder ingevulde waarde vervalt,
+  // anders zou een blijven staan getal stil meegenomen worden bij een volgende keuze.
+  const rij = document.getElementById('post-min-rij');
+  const uitleg = document.getElementById('post-pauze-uitleg');
+  if (rij) rij.style.display = _postEventAtBreak ? 'none' : '';
+  if (uitleg) uitleg.style.display = _postEventAtBreak ? '' : 'none';
+  if (_postEventAtBreak) {
+    _postEventMinute = null;
+    const inp = document.getElementById('post-evt-min');
+    if (inp) inp.value = '';
+  }
 }
 function selPostMin(val) {
   const n = parseInt(val);

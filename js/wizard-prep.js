@@ -1875,9 +1875,14 @@ async function _schrijfPlanDraft() {
         if (s) {
           p.starting = true; p.onField = true;
           p.x = s.x; p.y = s.y; p.line = s.line; p.posNum = s.posNum;
+          // posCodeVeld hoort bij de plaats en moet dus mee. Voordien bleef hier de plekcode van de
+          // VORIGE plaats staan. De app tekent goed (spelerGridCode leest x/y als bron), maar bij
+          // het uitzoeken van een probleem lees je dan een code die nergens meer op klopt — dat
+          // heeft op 22-08-2026 twee keer tot een verkeerde conclusie geleid.
+          if (s.posCodeVeld) p.posCodeVeld = s.posCodeVeld; else delete p.posCodeVeld;
         } else if (p.starting || p.onField) {
           p.starting = false; p.onField = false;
-          delete p.x; delete p.y; p.posNum = '';
+          delete p.x; delete p.y; p.posNum = ''; delete p.posCodeVeld;
         }
       });
     } else if (lijst === null) {

@@ -2164,7 +2164,7 @@ function evtLabel(e, m) {
     // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
     // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
     // dat staat al in het woord zelf.
-    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.injury)} Vertrokken · ${pn(e.playerId)}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.injury)} Vertrokken · ${pn(e.playerId)}${e.reason ? ` <span style="color:var(--txt2)">(${esc(e.reason)})</span>` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ${esc(tName(m))}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
@@ -2198,7 +2198,7 @@ function evtLabelPlain(e, m) {
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
-    case 'injury': { if (e.injuryType === 'vertrokken') return `Vertrokken · ${pName(m,e.playerId)}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `Vertrokken · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return 'Redding (onze keeper)';
@@ -2265,7 +2265,11 @@ function startLineupRijen(m, qn) {
       const code = spelerGridCode(p);
       return {
         naam: fieldName(m, p.id),
+        // plek = het samengestelde label voor het scherm ("GK (1)"); code en nummer los erbij, want
+        // de PDF zet ze anders naast elkaar en haakjes binnen haakjes leest niet.
         plek: code ? matchGridLabel(m, code) : (p.posNum ? String(p.posNum) : (p.line || '')),
+        code: code || '',
+        nummer: code ? (matchGridNummer(m, code) || '') : (p.posNum || ''),
         y: typeof p.y === 'number' ? p.y : (LINE_Y[p.line] || 50),
         x: typeof p.x === 'number' ? p.x : 50,
       };
@@ -2277,8 +2281,13 @@ function startLineupRijen(m, qn) {
 function startLineupTekst(m, qn) {
   const rijen = startLineupRijen(m, qn);
   if (!rijen.length) return '';
-  // Streepje en geen haakjes: een plek heet soms al "GK (1)", en dan werd het "Bram V. (GK (1))".
-  return 'Startopstelling: ' + rijen.map(r => r.plek ? `${r.naam} — ${r.plek}` : r.naam).join(' · ');
+  // "Vincent F. (GK, 1), Briek D. (LM, 11)" — plaats en positienummer samen tussen één stel haakjes,
+  // spelers gescheiden door komma's. De eerdere vorm ("Vincent F. — GK (1) · Briek D. — …") las met
+  // die streepjes en middelpunten als één lange brij; dit leest als een opstellingsblad.
+  return 'Startopstelling: ' + rijen.map(r => {
+    const binnen = [r.code, r.nummer].filter(Boolean).join(', ');
+    return binnen ? `${r.naam} (${binnen})` : r.naam;
+  }).join(', ');
 }
 function startLineupHtml(m, qn) {
   const rijen = startLineupRijen(m, qn);
