@@ -50,6 +50,9 @@ function renderLive() {
             ? `<button class="qbtn qbtn-end" onclick="endMatch()">${icI(IC.finish)} Einde match</button>`
             : `<button class="qbtn qbtn-end" onclick="endPeriod()">${icI(IC.stopFilled)} Einde ${pSingLow(match)} ${qNum}</button>`) : ''}
       </div>` : ''}
+      ${/* Geen enkele knop bruikbaar? Dan hoort hier de uitweg te staan, niet niets. Zie
+            vastgelopenLive(): dat overkwam de veldtest van 22-08-2026. */ ''}
+      ${(!ro && vastgelopenLive(match)) ? vastgelopenHtml(match) : ''}
       ${/* Misklik op "Wedstrijd starten" ongedaan maken. Enkel zolang er echt niets gebeurd is:
             geen enkel deel gelopen en geen enkele gebeurtenis gelogd. Bewust een bescheiden knop
             onder de startknop — het is een uitzondering, geen dagelijkse handeling. */ ''}
@@ -82,6 +85,13 @@ function renderLive() {
            in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
       <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}</button>`; })()}
       ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
+      ${/* "Oei, dit was niet de bedoeling": een bescheiden knop onderaan, niet tussen de knoppen die
+            je tijdens het spel nodig hebt. Enkel zolang de wedstrijd niet afgesloten is, en niet in
+            het vastgelopen-kader (daar staat ze al). Bij een wedstrijd waar nog niets gebeurd is,
+            volstaat "Toch nog niet gestart" hierboven. */ ''}
+      ${(!ro && !isDone && (match.quarters || []).length && !vastgelopenLive(match))
+        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-top:10px" onclick="confirmResetMatch()">${icI(IC.undo)} Opnieuw beginnen</button>`
+        : ''}
       ${/* "Deel score" enkel ná de wedstrijd: tijdens het spel stond die knop in de weg van de
            knoppen die je dan echt nodig hebt, en de stand delen doe je toch achteraf. */ ''}
       ${isDone ? `<button class="btn btn-pale" onclick="go('detail','${match.id}')">${icI(IC.chart)} Wedstrijd bekijken</button>
@@ -213,6 +223,145 @@ async function terugNaarGepland() {
   closeModal();
   showToast('Terug naar gepland.', 'ok');
   await go('prep', match.id);
+}
+// ---- Nooit vastzitten (v0.48.0) ----
+// Op 22-08-2026 stond er tijdens een veldtest een wedstrijd op het scherm zonder één bruikbare knop:
+// de klok liep niet (het blok was afgesloten), een volgend blok kon niet (numQuarters stond te laag
+// door het bulk-bewerken van v0.39.0), en afsluiten leek nergens te kunnen. De onderliggende fout is
+// hersteld, maar een livescherm hoort NOOIT een doodlopend eind te zijn: welke toestand er ook in de
+// gegevens staat, er moet een weg vooruit zichtbaar zijn. Vandaar deze vaststelling én de twee
+// uitwegen eronder.
+function vastgelopenLive(m) {
+  if (!m || m.status !== 'live') return false;
+  const q = laatsteQuarter(m);
+  if (!q) return false;                                    // nog niets gespeeld: "Start wedstrijd" staat er
+  if (klokLoopt(m) || q.pausedAt) return false;            // klok loopt of staat op pauze: knoppen aanwezig
+  const qNum = m.currentQuarter || 0;
+  if (qNum === 0) return false;                            // idem: startknop
+  return !(m.quarterStatus === 'between' && qNum < (m.numQuarters || 0));
+}
+function vastgelopenHtml(m) {
+  const label = pSingLow(m);
+  const gespeeld = (m.quarters || []).length;
+  return `<div class="card" style="border-left:4px solid var(--rd)">
+    <div class="sec" style="margin-top:0">${icI(IC.warn)} Deze wedstrijd zit vast</div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Er ${gespeeld === 1 ? 'is 1 ' + label : 'zijn ' + gespeeld + ' ' + pPlural(m)} gespeeld en de klok staat stil, maar de wedstrijd staat op <b>${m.numQuarters || 0} ${(m.numQuarters || 0) === 1 ? label : pPlural(m)}</b>. Daardoor is er geen volgende stap. Kies wat er moet gebeuren:</p>
+    <button class="btn btn-green" onclick="confirmExtraDeel()">${icI(IC.playFilled)} Nog een ${label} spelen</button>
+    <button class="btn btn-red" style="margin-top:8px" onclick="endMatch()">${icI(IC.finish)} Wedstrijd afsluiten</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="confirmResetMatch()">${icI(IC.undo)} Opnieuw beginnen</button>
+  </div>`;
+}
+function confirmExtraDeel() {
+  const label = pSingLow(match);
+  openModal(`<h3>Nog een ${label} spelen?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd krijgt er één ${label} bij (${(match.numQuarters || 0) + 1} in totaal) en je kan meteen starten. De al gespeelde ${pPlural(match)} en hun speelminuten blijven staan.</p>
+    <button class="btn btn-green" onclick="doExtraDeel()">${icI(IC.check)} Ja, ${label} toevoegen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doExtraDeel() {
+  if (!canManage() || !match) return;
+  // Zelfde rekenwijze als bij het heropenen van een afgesloten wedstrijd (zie confirmReopenMatch):
+  // nooit lager dan wat er al gespeeld is, en dan één erbij.
+  match.numQuarters = Math.max(match.numQuarters || 0, (match.quarters || []).length) + 1;
+  match.quarterStatus = 'between';
+  await dbSave(match);
+  closeModal(); render();
+  showToast(`Er is een ${pSingLow(match)} bijgekomen — je kan starten.`, 'ok');
+}
+// ---- Opnieuw beginnen ----
+// "Oei, dit was niet de bedoeling": de wedstrijd terug naar gepland, met de opstelling van de aftrap.
+// Anders dan terugNaarGepland() mag dit ook als er al gespeeld is — en dus gooit het echt iets weg.
+// Daarom drie waarborgen: de bevestiging noemt de wedstrijd bij ploeg, tegenstander, datum en uur
+// (het is te makkelijk om dit op de verkeerde wedstrijd te doen), ze zegt precies wat verdwijnt, en
+// de volledige wedstrijd wordt bewaard zodat het meteen terug te draaien is.
+const RESET_UNDO_KEY = 'voetbal_resetUndo';
+const RESET_UNDO_GELDIG_MS = 24 * 3600 * 1000;
+function matchOmschrijving(m) {
+  return [tName(m), m.opponent ? 'tegen ' + m.opponent : '', matchWhen(m), m.venue].filter(Boolean).join(' · ');
+}
+function confirmResetMatch() {
+  if (!canManage() || !match) return;
+  const m = match;
+  const nEvents = (m.events || []).filter(e => e.type !== 'quarter_start' && e.type !== 'quarter_end').length;
+  const nDelen = (m.quarters || []).length;
+  const heeftPlan = ((m.plannedLineups && Object.keys(m.plannedLineups).length) || 0) > 0;
+  openModal(`<h3>${icI(IC.warn)} Opnieuw beginnen?</h3>
+    <div style="background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:12px;text-align:left">
+      <div style="font-size:12px;color:#b45309;margin-bottom:4px">Dit gaat over deze wedstrijd:</div>
+      <div style="font-weight:700;font-size:14px">${esc(matchOmschrijving(m))}</div>
+    </div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:12px;text-align:left">Ze gaat terug naar <b>gepland</b> en kan daarna gewoon opnieuw gestart worden, met <b>de opstelling van de aftrap</b>${heeftPlan ? ' en je plan per ' + pSingLow(m) + ' zoals het was' : ''}.</p>
+    <p style="font-size:13px;color:var(--rd);margin-bottom:12px;text-align:left">Wat verdwijnt: <b>${nDelen === 1 ? '1 gespeeld ' + pSingLow(m) : nDelen + ' gespeelde ' + pPlural(m)}</b>, <b>${nEvents === 1 ? '1 gebeurtenis' : nEvents + ' gebeurtenissen'}</b> (doelpunten, wissels, kaarten) en alle speelminuten. Je selectie, je plan en je notities blijven staan.</p>
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Vergissing? Dan staat er een dag lang een knop om dit terug te draaien.</p>
+    <button class="btn btn-red" onclick="doResetMatch()">${icI(IC.undo)} Ja, opnieuw beginnen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doResetMatch() {
+  if (!canManage() || !match) return;
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const m = match;
+    // Eerst de volledige wedstrijd wegzetten — pas daarna iets wijzigen. Mislukt het bewaren, dan
+    // gaat de reset niet door: liever een vastzittende wedstrijd dan een onherstelbare.
+    try {
+      localStorage.setItem(RESET_UNDO_KEY, JSON.stringify({
+        when: Date.now(), teamId: activeTeamId || '', id: m.id,
+        omschrijving: matchOmschrijving(m), match: jclone(m),
+      }));
+    } catch (e) {
+      showToast('Kon geen veiligheidskopie bewaren — opnieuw beginnen is daarom niet doorgegaan.', 'err');
+      return;
+    }
+    // Posities van de aftrap terugspoelen vóór we de events weggooien: die reconstructie leest ze.
+    const startPos = positionsAtMatchStart(m);
+    (m.players || []).forEach(p => {
+      const pos = startPos[p.id];
+      if (pos) { p.x = pos.x; p.y = pos.y; p.line = pos.line; p.posNum = pos.posNum; }
+      p.onField = !!p.starting;
+      // x/y is de bron voor de roosterplek (zie spelerGridCode) — de code hier meteen mee bijwerken,
+      // anders blijft een oude plek als terugval hangen voor wie geen coördinaten heeft.
+      const code = spelerGridCode(p);
+      if (code) p.posCodeVeld = code; else delete p.posCodeVeld;
+    });
+    m.status = 'planned';
+    m.currentQuarter = 0;
+    m.quarterStatus = 'not_started';
+    m.quarters = [];
+    m.events = [];
+    m.pendingSubs = []; m.pendingPosSwaps = [];
+    m.keeperByQ = {};
+    m.scoreUs = 0; m.scoreThem = 0;
+    delete m.motmId;
+    recomputeScore(m); recomputeOnField(m);
+    stopTimer(); releaseWake();
+    await dbSave(m);
+    closeModal();
+    showToast('Terug naar gepland — je kan opnieuw starten.', 'ok');
+    await go('prep', m.id);
+  } finally { _eventBusy = false; }
+}
+function resetUndoBeschikbaar() {
+  try {
+    const u = JSON.parse(localStorage.getItem(RESET_UNDO_KEY) || 'null');
+    if (!u || !u.match || !u.id) return null;
+    if (Date.now() - (u.when || 0) > RESET_UNDO_GELDIG_MS) return null;
+    // Enkel aanbieden bij de ploeg waar het gebeurde — zelfde reden als bij het bulk-bewerken:
+    // anders zet een tik hier een wedstrijd terug in de cloud van een ándere ploeg.
+    if (cloudReady && (!u.teamId || u.teamId !== activeTeamId)) return null;
+    return u;
+  } catch (e) { return null; }
+}
+function resetUndoVergeten() { try { localStorage.removeItem(RESET_UNDO_KEY); } catch (e) {} render(); }
+async function resetUndo() {
+  const u = resetUndoBeschikbaar();
+  if (!u) return;
+  const terug = u.match;
+  recomputeScore(terug); recomputeOnField(terug);
+  await dbSave(terug);
+  try { localStorage.removeItem(RESET_UNDO_KEY); } catch (e) {}
+  showToast('De wedstrijd staat terug zoals ze was.', 'ok');
+  await go(terug.status === 'done' ? 'detail' : 'live', terug.id);
 }
 async function startQuarter() {
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al

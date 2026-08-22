@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.47.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '0.48.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -776,13 +776,38 @@ function sameTeamAsMatch(a, b) {
 // blok dat wat uitloopt buiten schot, maar valt een wedstrijd die na de handdruk nooit afgesloten
 // werd wél op — die laat zijn klok anders uren doorlopen.
 const FORGOTTEN_MATCH_GRACE_MS = 30 * 60000;
+// TWEE VERSCHILLENDE PROBLEMEN, bewust apart sinds v0.48.0. Voordien gold looksForgotten() ook voor
+// een wedstrijd waarvan het laatste blok netjes afgesloten was: die kreeg dan de melding "de klok
+// loopt door, wat de speelminuten vertekent" terwijl er niets liep. Dat is niet alleen onjuist, het
+// maakt de melding ook ongeloofwaardig op de dag dat een klok wél doorloopt.
+//  - looksForgotten(m)  = de klok tikt écht door: laatste blok gestart, niet gepauzeerd, niet
+//                         afgesloten, en ruim voorbij zijn voorziene einde. Dringend: elke minuut
+//                         die voorbijgaat komt bij de speelminuten van iedereen op het veld.
+//  - looksUnfinished(m) = live, maar er loopt niets meer. Geen vertekende minuten, wel een verslag
+//                         dat nog afgewerkt moet worden — en, sinds het vastloopgeval van
+//                         22-08-2026, mogelijk een wedstrijd die vastzit (zie vastgelopenLive).
+function laatsteQuarter(m) { const qs = (m && m.quarters) || []; return qs[qs.length - 1] || null; }
+function klokLoopt(m) {
+  const q = laatsteQuarter(m);
+  return !!(q && q.startTime && !q.pausedAt && !q.endTime);
+}
 function looksForgotten(m) {
   if (!m || m.status !== 'live') return false;
-  const qs = m.quarters || [];
-  const q = qs[qs.length - 1];
-  if (!q || !q.startTime) return false;
+  if (!klokLoopt(m)) return false;
+  const q = laatsteQuarter(m);
   const nominal = (m.quarterDuration || 0) * 60000;
   return Date.now() > q.startTime + nominal + FORGOTTEN_MATCH_GRACE_MS;
+}
+// Live, maar de klok staat stil (pauze tussen de blokken, of alles afgesloten zonder de wedstrijd
+// af te sluiten). Pas melden zodra de voorziene speeltijd van de hele wedstrijd ruim voorbij is:
+// tijdens een gewone rust hoort hier niets te staan.
+function looksUnfinished(m) {
+  if (!m || m.status !== 'live') return false;
+  if (klokLoopt(m)) return false;
+  const q = laatsteQuarter(m);
+  if (!q || !q.startTime) return false;
+  const eind = q.endTime || (q.pausedAt || q.startTime);
+  return Date.now() > eind + FORGOTTEN_MATCH_GRACE_MS;
 }
 // Tornooien (localStorage)
 function getTournaments() { try { return JSON.parse(localStorage.getItem('voetbal_tournaments') || '[]'); } catch(e) { return []; } }

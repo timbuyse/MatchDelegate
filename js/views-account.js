@@ -2930,13 +2930,27 @@ async function loadHome() {
   // tornooidag bleef dus volledig onzichtbaar.
   // looksForgotten() wacht een half uur na het voorziene einde, zodat een normale rust of een blok
   // dat wat uitloopt geen melding geeft.
-  let forgotten = canManage() ? all.filter(looksForgotten) : [];
-  if (homeFilter !== 'all') forgotten = forgotten.filter(m => m.teamName === homeFilter);
-  const forgottenBanner = forgotten.length
-    ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${forgotten.length === 1 ? 'Eén wedstrijd staat' : forgotten.length + ' wedstrijden staan'} nog open.</b> De klok loopt door, wat de speelminuten vertekent. Sluit ${forgotten.length === 1 ? 'ze' : 'ze allemaal'} af zodra je kan.
-        ${forgotten.map(m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''} afsluiten</button>`).join('')}
+  // BEWUST NIET GEFILTERD OP DE PLOEGFILTER (v0.48.0). Voordien wel, en dan werd een doorlopende
+  // klok onvindbaar zodra je beginscherm op een andere ploeg stond — of op dezelfde ploeg met een
+  // ander ploeg-id, wat na het incident van 21-08-2026 kon voorkomen. Op 22-08-2026 liep zo een
+  // wedstrijd een hele nacht door zonder dat ze ergens te zien was. Een tikkende klok is dringend
+  // voor de hele club, niet enkel voor de ploeg waar je nu naar kijkt; daarom staat de ploegnaam
+  // op de knop in plaats van de melding weg te filteren.
+  const forgotten = canManage() ? all.filter(looksForgotten) : [];
+  // Live maar de klok staat stil: geen vertekende minuten, wel een wedstrijd die nog afgewerkt of
+  // gedeblokkeerd moet worden (zie vastgelopenLive in live-match.js). Andere tekst, want "de klok
+  // loopt door" zou hier gewoon niet waar zijn.
+  const onafgewerkt = canManage() ? all.filter(looksUnfinished) : [];
+  const openKnop = m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.teamName || '')}${m.teamName ? ' · ' : ''}${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''}</button>`;
+  const forgottenBanner = (forgotten.length
+    ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${forgotten.length === 1 ? 'Eén wedstrijd loopt' : forgotten.length + ' wedstrijden lopen'} nog.</b> De klok tikt door, wat de speelminuten vertekent. Sluit ${forgotten.length === 1 ? 'ze' : 'ze allemaal'} af zodra je kan.
+        ${forgotten.map(openKnop).join('')}
       </div>`
-    : '';
+    : '') + (onafgewerkt.length
+    ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${onafgewerkt.length === 1 ? 'Eén wedstrijd staat' : onafgewerkt.length + ' wedstrijden staan'} nog open.</b> De klok staat stil, dus de speelminuten kloppen — ${onafgewerkt.length === 1 ? 'ze is' : 'ze zijn'} enkel nooit afgesloten.
+        ${onafgewerkt.map(openKnop).join('')}
+      </div>`
+    : '');
   // Wedstrijden waarvan de dag voorbij is en die nooit afgesloten werden: nooit gestart (nog
   // 'planned') of gestart maar nooit beëindigd ('live'). Die stonden vóór v0.38.0 bij
   // "Eerstvolgende" — daar hoorden ze niet, maar ze mogen ook niet gewoon verdwijnen: er hangt een
@@ -2945,7 +2959,7 @@ async function loadHome() {
   // aan kan doen. Staat een wedstrijd al in de banner hierboven (looksForgotten), dan laten we ze
   // hier weg: dezelfde wedstrijd twee keer op één scherm leest als twee problemen.
   // Deze berekening hoort ná `forgotten` te staan, anders is die variabele hier nog niet gekend.
-  const inBanner = new Set(forgotten.map(m => m.id));
+  const inBanner = new Set([...forgotten, ...onafgewerkt].map(m => m.id));
   let openOud = canManage()
     ? looseMatches.filter(m => m.status !== 'done' && !matchCancelled(m)
         && (m.date || '') && m.date < vandaagISO && !inBanner.has(m.id))
@@ -3131,12 +3145,39 @@ const BULK_VELDEN = [
   { key: 'trainer',         label: 'Trainer',                soort: 'tekst', plaatshouder: 'naam' },
   { key: 'responsible',     label: 'Ploegverantwoordelijke', soort: 'tekst', plaatshouder: 'naam' },
   { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => Object.keys(MATCH_TYPES) },
+  // LET OP — dit veld zit in TWEE eigenschappen: periodKey ('kwarten') én numQuarters (4). Overal in
+  // de app worden die samen gezet (zie wizPeriodChange, trnPeriodChange), en "1 deel" is de
+  // uitzondering die het duidelijk maakt: dat is periodKey 'delen' mét numQuarters 1, terwijl
+  // 'delen' normaal 3 betekent. Tot v0.47.0 schreef het bulk-bewerken hier enkel periodKey. Een
+  // wedstrijd hield dan haar oude numQuarters, en na het laatste "gekende" blok viel elke knop weg:
+  // geen volgend blok, geen einde, geen events — een livescherm zonder uitweg, met een klok die
+  // bleef tikken (veldtest 22-08-2026). Vandaar lees/zet/raakt: één keuze, twee velden.
   { key: 'periodKey',       label: 'Aantal blokken',         soort: 'keuze', enkelGepland: true,
-    opties: () => Object.keys(PERIOD_TYPES), toon: k => `${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}` },
+    opties: () => ['1', ...Object.keys(PERIOD_TYPES)],
+    toon: k => k === '1' ? '1 deel' : `${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}`,
+    lees: m => (m.periodKey === 'delen' && Number(m.numQuarters) === 1) ? '1' : (m.periodKey || ''),
+    zet: (m, w) => {
+      if (w === '1') { m.periodKey = 'delen'; m.numQuarters = 1; }
+      else if (PERIOD_TYPES[w]) { m.periodKey = w; m.numQuarters = PERIOD_TYPES[w].count; }
+    },
+    raakt: ['periodKey', 'numQuarters'] },
   { key: 'quarterDuration', label: 'Blokduur',               soort: 'keuze', enkelGepland: true,
     opties: () => [...new Set([].concat(...Object.values(DURATIONS)))].sort((a, b) => a - b), toon: v => v + ' minuten', getal: true },
 ];
 function bulkVeldById(key) { return BULK_VELDEN.find(v => v.key === key) || null; }
+// Eén keuze kan meer dan één eigenschap van de wedstrijd omvatten (zie 'Aantal blokken'). Deze drie
+// helpers zijn de enige plek waar het verschil bestaat; de rest van het bulk-bewerken werkt met de
+// keuzewaarde en weet niet hoeveel velden eronder zitten.
+function bulkLees(v, m) { return v.lees ? v.lees(m) : (m[v.key] == null ? '' : m[v.key]); }
+function bulkZet(v, m, waarde) { if (v.zet) v.zet(m, waarde); else m[v.key] = waarde; }
+// Alles wat dit veld aanraakt, zoals het nú in de wedstrijd staat — het ongedaan-maken moet elk van
+// die eigenschappen terugzetten, niet enkel de eerste. `undefined` wordt null: een veld dat er nog
+// niet was, hoort na een ongedaan-maken ook niet te bestaan.
+function bulkOudeWaarden(v, m) {
+  const o = {};
+  (v.raakt || [v.key]).forEach(k => { o[k] = m[k] === undefined ? null : m[k]; });
+  return o;
+}
 function bulkStart() { bulkMode = true; bulkSel = new Set(); bulkVeld = null; loadMatches(); }
 function bulkStop() { bulkMode = false; bulkSel = new Set(); bulkVeld = null; loadMatches(); }
 function bulkToggle(id) {
@@ -3236,13 +3277,13 @@ async function bulkBekijkEnPasToe() {
   if (v.getal) waarde = Number(waarde) || 0;
   const alle = await dbAll();
   const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
-    .filter(m => String(m[v.key] == null ? '' : m[v.key]) !== String(waarde));   // wat al goed staat, laten we staan
+    .filter(m => String(bulkLees(v, m)) !== String(waarde));   // wat al goed staat, laten we staan
   if (!raakt.length) { closeModal(); showToast('Daar stond die waarde al overal.', 'ok'); return; }
   const toon = x => (x === '' || x == null) ? '(leeg)' : (v.toon ? v.toon(x) : String(x));
   openModal(`<h3>${icI(IC.warn)} Nakijken</h3>
     <p style="font-size:14px;margin-bottom:10px">Bij <b>${raakt.length}</b> ${raakt.length === 1 ? 'wedstrijd' : 'wedstrijden'} wordt <b>${esc(v.label.toLowerCase())}</b> <b>${esc(toon(waarde))}</b>.</p>
     <div style="max-height:40vh;overflow-y:auto;text-align:left;font-size:13px;color:var(--txt2);border:1px solid var(--bdr);border-radius:8px;padding:8px">
-      ${raakt.map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--bdr)">${esc(m.opponent || '(geen tegenstander)')} · ${esc(matchWhen(m))}<br><span style="font-size:12px">nu: ${esc(toon(m[v.key]))}</span></div>`).join('')}
+      ${raakt.map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--bdr)">${esc(m.opponent || '(geen tegenstander)')} · ${esc(matchWhen(m))}<br><span style="font-size:12px">nu: ${esc(toon(bulkLees(v, m)))}</span></div>`).join('')}
     </div>
     <button class="btn btn-org" style="margin-top:12px" onclick="bulkVoerUit('${esc(String(waarde))}')">Aanpassen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3254,7 +3295,7 @@ async function bulkVoerUit(waardeTxt) {
   closeModal();
   const alle = await dbAll();
   const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
-    .filter(m => String(m[v.key] == null ? '' : m[v.key]) !== String(waarde));
+    .filter(m => String(bulkLees(v, m)) !== String(waarde));
   // De ploeg mee in de ongedaan-maken. Zonder dit verscheen het bannertje bij élke ploeg, en zette
   // een tik erop de oude waarden terug terwijl een ándere ploeg actief was — waarna die wedstrijden
   // naar de cloud van díe ploeg gingen. Precies het mechanisme van het incident van 21-08-2026,
@@ -3265,8 +3306,10 @@ async function bulkVoerUit(waardeTxt) {
   for (const m of raakt) {
     const vers = await dbGet(m.id);
     if (!vers) { mislukt++; continue; }
-    undo.entries.push({ id: vers.id, oud: vers[v.key] == null ? '' : vers[v.key] });
-    vers[v.key] = waarde;
+    // `oud` blijft de losse waarde (oudere ongedaan-maken-gegevens in localStorage kennen enkel dat
+    // veld); `oudAlle` draagt élke eigenschap die dit veld aanraakt. Zie bulkUndo.
+    undo.entries.push({ id: vers.id, oud: vers[v.key] == null ? '' : vers[v.key], oudAlle: bulkOudeWaarden(v, vers) });
+    bulkZet(v, vers, waarde);
     recomputeScore(vers); recomputeOnField(vers);
     try { await dbSave(vers); gelukt++; } catch (e) { mislukt++; undo.entries.pop(); }
   }
@@ -3296,7 +3339,14 @@ async function bulkUndo() {
   for (const e of u.entries) {
     const m = await dbGet(e.id);
     if (!m) continue;
-    m[u.veld] = e.oud;
+    // oudAlle sinds v0.48.0: één keuze kan meer dan één eigenschap gezet hebben ('Aantal blokken'
+    // zet periodKey én numQuarters). Ontbreekt het, dan komt deze ongedaan-maken van vóór die
+    // versie en is er ook maar één veld gewijzigd.
+    if (e.oudAlle && typeof e.oudAlle === 'object') {
+      Object.keys(e.oudAlle).forEach(k => {
+        if (e.oudAlle[k] === null) delete m[k]; else m[k] = e.oudAlle[k];
+      });
+    } else m[u.veld] = e.oud;
     recomputeScore(m); recomputeOnField(m);
     try { await dbSave(m); gelukt++; } catch (err) {}
   }

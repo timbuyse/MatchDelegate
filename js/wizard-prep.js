@@ -1259,6 +1259,16 @@ function renderPrep() {
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>
   <div class="content">
+    ${/* Net "opnieuw begonnen"? Dan hoort de weg terug hier te staan, op het scherm waar je landt —
+         en enkel bij die ene wedstrijd, niet als algemene melding. Zie doResetMatch(). */ ''}
+    ${(() => {
+      const u = (typeof resetUndoBeschikbaar === 'function') ? resetUndoBeschikbaar() : null;
+      if (!u || u.id !== m.id || ro) return '';
+      const n = ((u.match.quarters || []).length);
+      return `<div class="nudge" style="margin-bottom:12px">${icI(IC.history)} <b>Opnieuw begonnen.</b> ${n === 1 ? 'Eén gespeeld ' + pSingLow(m) : n + ' gespeelde ' + pPlural(m)} en alle gebeurtenissen zijn weggehaald. Vergissing?
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="resetUndo()">${icI(IC.undo)} Zet alles terug zoals het was</button>
+        <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="resetUndoVergeten()">Nee, het is goed zo</button></div>`;
+    })()}
     ${/* Geannuleerd: geen startknop en geen volgende stap meer — enkel de vaststelling en de weg
          terug. De wedstrijd zelf blijft volledig bewaard (selectie, opstelling, plan), dus ongedaan
          maken zet ze weer op gepland zoals ze was. */ ''}
@@ -1967,13 +1977,21 @@ async function startPlanned() {
   //    looksForgotten, dus na twee uur staat elke basisspeler op absurde speelminuten);
   //  - er staan spelers in beide selecties, want die krijgen op twee klokken tegelijk speeltijd.
   const live = (await dbAll()).filter(m => m.status === 'live' && m.id !== match.id && sameTeamAsMatch(m, match));
+  // Sinds v0.48.0 twee gevallen apart: een klok die écht doorloopt (dringend, vertekent minuten) en
+  // een wedstrijd die enkel nooit afgesloten is (niet dringend, maar wel de reden dat je hier een
+  // waarschuwing krijgt — dus moet ze vindbaar zijn). Voordien viel het tweede onder het eerste, met
+  // de onjuiste boodschap "zijn klok blijft doorlopen".
   const vergeten = live.filter(looksForgotten);
-  if (vergeten.length) {
-    const o = vergeten[0];
+  const onafgewerkt = live.filter(looksUnfinished);
+  if (vergeten.length || onafgewerkt.length) {
+    const tikt = !!vergeten.length;
+    const o = tikt ? vergeten[0] : onafgewerkt[0];
     const q = (o.quarters || [])[(o.quarters || []).length - 1];
     const sinds = q && q.startTime ? ` (gestart om ${new Date(q.startTime).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })})` : '';
-    openModal(`<h3>${icI(IC.warn)} Nog een wedstrijd loopt</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:14px"><b>${esc(o.opponent || 'Wedstrijd')}</b>${sinds} staat nog als lopend gemarkeerd. Sluit die eerst af, anders blijft zijn klok doorlopen en krijgen die spelers veel te veel speelminuten.</p>
+    openModal(`<h3>${icI(IC.warn)} ${tikt ? 'Nog een wedstrijd loopt' : 'Nog een wedstrijd staat open'}</h3>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:14px"><b>${esc(o.opponent || 'Wedstrijd')}</b>${sinds} ${tikt
+        ? 'staat nog als lopend gemarkeerd. Sluit die eerst af, anders blijft zijn klok doorlopen en krijgen die spelers veel te veel speelminuten.'
+        : 'is nooit afgesloten. De klok staat stil, dus de speelminuten kloppen — maar het verslag is nog niet af.'}</p>
       <button class="btn btn-green" onclick="closeModal();go('live','${o.id}')">${icI(IC.check)} Die wedstrijd afsluiten</button>
       <button class="btn btn-orgpale" style="margin-top:8px" onclick="closeModal();doStartPlanned()">Toch starten</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);

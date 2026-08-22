@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.48.0
+Naar aanleiding van de veldtest van 22 augustus 2026, waarbij een wedstrijd op een scherm zonder
+één bruikbare knop terechtkwam en daardoor een nacht lang bleef doorlopen.
+
+- **Het aantal blokken wordt weer volledig bewaard.** Bij *Meerdere wedstrijden aanpassen* zette
+  "Aantal blokken" maar de helft van wat erbij hoort: de app houdt dat in twee gegevens bij (de soort
+  — kwarten, helften, delen — en hoeveel er zijn), en enkel de eerste werd geschreven. Een wedstrijd
+  bleef dan op haar oude aantal staan. Na het laatste "gekende" blok viel daardoor élke knop weg:
+  geen volgend blok, geen einde, geen gebeurtenissen. Ze worden nu samen gezet, het ongedaan-maken
+  zet ze samen terug, en de keuzelijst kent ook **1 deel** — dat kon je er voordien niet eens
+  instellen.
+- **Een wedstrijd kan niet meer vastzitten.** Staat er om welke reden ook geen volgende stap, dan
+  zegt de app dat nu met zoveel woorden en biedt ze drie uitwegen: **nog een blok spelen**,
+  **afsluiten**, of **opnieuw beginnen**.
+- **Opnieuw beginnen.** "Oei, dit was niet de bedoeling": de wedstrijd gaat terug naar *gepland* en
+  kan opnieuw gestart worden, met de opstelling van de aftrap terug op het veld — ook de wissels en
+  positiewissels van tijdens de wedstrijd worden teruggespoeld. De bevestiging noemt eerst de
+  wedstrijd bij **ploeg, tegenstander, datum, uur en terrein**, zodat je dit niet op de verkeerde
+  wedstrijd doet, en ze zegt precies wat verdwijnt. Selectie, plan en notities blijven staan, en er
+  staat een dag lang een knop klaar om alles terug te zetten zoals het was.
+- **"Er loopt nog een wedstrijd" wordt niet meer weggefilterd.** Die melding volgde de ploegfilter
+  van je beginscherm. Stond die op een andere ploeg, dan was een doorlopende klok nergens te zien —
+  precies wat er die ochtend gebeurde. De melding geldt nu voor de hele club en noemt de ploeg.
+- **Twee verschillende problemen, twee verschillende meldingen.** "De klok loopt door" werd ook
+  gezegd over een wedstrijd waarvan het laatste blok netjes afgesloten was. Dat is nu gesplitst: een
+  klok die écht doortikt (dringend, want het vertekent de speelminuten) tegenover een wedstrijd die
+  enkel nooit afgesloten is (de minuten kloppen, het verslag is niet af).
+
 ## v0.47.0
 - **De handleiding is bij.** Er staan twee nieuwe stukken in en een nieuwe pagina:
   - Nieuwe pagina **"Meerdere wedstrijden aanpassen"**, met wat je wel en niet in bulk kan wijzigen, het
