@@ -2260,6 +2260,10 @@ const ELOG_FILTER_GROUPS = {
 };
 // null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
 let elogFilter = null;
+// Vanwaar de huidige wedstrijd geopend werd ('home' of 'matches') — zie go(). Bepaalt waar de
+// terugpijl van prep/live/detail naartoe gaat. Zelfde patroon als _settingsFrom.
+let _matchFrom = 'matches';
+function matchTerug() { return _matchFrom === 'home' ? 'home' : 'matches'; }
 function toggleElogFilter(key) { elogFilter = (elogFilter === key) ? null : key; render(); }
 // ===================== STARTOPSTELLING PER BLOK =====================
 // Alle wissels en positiewissels die in de pauze gebeuren dragen atBreak. Bij een jeugdploeg zijn
@@ -2354,10 +2358,10 @@ function renderEventLog(m) {
   return filterBar + groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
     // Tussenstand ÉN wat er in dit blok zelf gebeurde: "1–1" alleen las als de score van dit kwart,
-    // terwijl het de totale stand is. Enkel bijzetten als er in dit blok ook echt gescoord werd —
-    // anders staat er bij elk doelpuntloos blok een "(dit kwart: 0–0)" dat niets toevoegt.
+    // terwijl het de totale stand is. Staat er ALTIJD, ook bij 0–0: eerst stond hij enkel bij blokken
+    // mét doelpunten, maar dan las het ontbreken als een gat i.p.v. als "hier viel niets" (Tim, 22-08).
     const dit = g.qn == null ? null : scoreInQuarter(m, g.qn);
-    const ditText = (dit && (dit.us || dit.them))
+    const ditText = dit
       ? `<span class="qgroup-dit">dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them}–${dit.us}` : `${dit.us}–${dit.them}`}</span>` : '';
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}${ditText}</span>` : '';
     let list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
@@ -2471,8 +2475,15 @@ function togglePwd(btn) {
 }
 function openModal(html) {
   const el = document.getElementById('modal');
+  // Schuifpositie bewaren over een herrender heen: schermen als de opstellingsplanner hertekenen
+  // zichzelf bij elke tik (openModal opnieuw), en zonder dit sprong de inhoud telkens naar boven —
+  // op een telefoon betekent dat na élke tik op het veld opnieuw naar beneden vegen. Een modal die
+  // een ándere opent na closeModal() start gewoon op 0, want dan is er geen .modal meer om te lezen.
+  const vorige = el.querySelector('.modal');
+  const scroll = vorige ? vorige.scrollTop : 0;
   el.innerHTML = `<div class="modal-ov" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
   el.classList.remove('hidden');
+  if (scroll) { const nieuwe = el.querySelector('.modal'); if (nieuwe) nieuwe.scrollTop = scroll; }
 }
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
@@ -2504,6 +2515,10 @@ async function go(v, id, _histReplace) {
   // Gast: enkel toegang tot deze schermen, ongeacht hoe de navigatie tot stand komt
   // (klik, terugknop, console) — voorkomt dat een gast bij volledige teamdata terechtkomt.
   if (isGuest && !GUEST_ALLOWED_VIEWS.includes(v)) v = 'home';
+  // Onthoud vanwaar een wedstrijd geopend werd: de terugpijl bracht je ALTIJD naar de
+  // wedstrijdenlijst, ook als je vanaf het homescherm kwam (gemeld 22-08-2026). Enkel gezet bij de
+  // overgang lijst→wedstrijd; navigatie tússen wedstrijdschermen (prep→live→detail) laat het staan.
+  if ((v === 'prep' || v === 'live' || v === 'detail') && (view === 'home' || view === 'matches')) _matchFrom = view;
   // Kijkers mogen de statistiekenpagina zien (met enkel de publieke secties); het individuele
   // spelerdetail blijft beheerder-only. Blokkeert ook back-/console-navigatie naar playerDetail.
   if (v === 'playerDetail' && !canSeeStats()) v = 'home';
@@ -2651,8 +2666,14 @@ function pitchOpenPlekken(m, players, tap) {
     // tap.plekSel: de plek die als bestemming gekozen is, met hetzelfde oranje kader als een
     // geselecteerde speler — anders zie je niet waar je zonet op tikte.
     const ring = (tap.plekSel && tap.plekSel === plek.code) ? ';box-shadow:0 0 0 3px var(--org);border-radius:8px' : '';
-    return `<div class="pslot pslot-open${ring ? ' pslot-tip' : ''}" style="left:${plek.x}%;top:${plek.y}%${ring}" onclick="${tap.fn}('plek','${plek.code}')">`
-      + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
+    // Een plek die bij de FORMATIE hoort (draagt een positienummer) is iets groter dan de rest,
+    // net als overal — bij een leeg veld stonden alle 26 even klein en las niets als "hier hoort
+    // iemand". En zodra er een speler vastgehouden wordt (tap.selId), krijgen de vrije plekken een
+    // gestippeld randje: dat zijn de bestemmingen waar je op kan tikken.
+    const nummer = m ? (matchGridNummer(m, plek.code) || '') : '';
+    const doel = tap.selId ? ' pslot-doel' : '';
+    return `<div class="pslot pslot-open${nummer ? ' pslot-vorm' : ''}${doel}${ring ? ' pslot-tip' : ''}" style="left:${plek.x}%;top:${plek.y}%${ring}" onclick="${tap.fn}('plek','${plek.code}')">`
+      + `${shirtSvg(false, gk, nummer)}<span class="pmark-code">${nummer ? esc(nummer + ' · ') : ''}${plek.code}</span></div>`;
   }).join('');
 }
 function renderPitch(m, players, captainId, qNum, tap) {

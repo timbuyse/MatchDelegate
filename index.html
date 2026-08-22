@@ -442,6 +442,13 @@
        op én staan groter: dat is het voorstel, geen verplichting. */
     .pslot-open .pmark-svg{opacity:.5;transform:scale(.66)}
     .pslot-open .pmark-code{opacity:.6;font-size:8px;top:83%;margin-top:0}
+    /* Formatieplekken (met positienummer) iets groter dan de overige vrije plekken — bij een leeg
+       veld leest dat als "hier hoort iemand". */
+    .pslot-open.pslot-vorm .pmark-svg{opacity:.62;transform:scale(.88)}
+    .pslot-open.pslot-vorm .pmark-code{opacity:.8;font-size:9px;top:92%}
+    /* Er wordt een speler vastgehouden: elke vrije plek is een bestemming en toont dat. */
+    .pslot-open.pslot-doel{outline:2px dashed var(--org);outline-offset:-1px;border-radius:10px}
+    .pslot-open.pslot-doel .pmark-svg{opacity:.8}
     .pslot-open.pslot-tip .pmark-svg{opacity:.92;transform:scale(.9)}
     .pslot-open.pslot-tip .pmark-code{opacity:1;font-size:9px;top:95%;margin-top:0}
     /* Zelfde opmaak als .pdot-lbl op het live-veld: even breed en met een donker plaatje eronder,

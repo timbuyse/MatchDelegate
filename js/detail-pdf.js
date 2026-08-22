@@ -20,7 +20,7 @@ function renderDetail() {
     </div>`;
   }).join('');
 
-  const detailBack = match.tournamentId ? `goTournament('${match.tournamentId}')` : `go('matches')`;
+  const detailBack = match.tournamentId ? `goTournament('${match.tournamentId}')` : `go(matchTerug())`;
   return `
   <div class="hdr"><button class="back" onclick="${detailBack}">‹</button>
     <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
@@ -950,10 +950,11 @@ async function pdfMatchBody(doc, L, m) {
       const dur = q.endTime ? Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000) : (m.quarterDuration || 0);
       const cum = scoreUpToQuarter(m, q.num);
       // Tussenstand met eronder wat er in dit blok zelf gebeurde: "1 – 1" alleen las als de score
-      // van dit blok, terwijl het de totale stand is. Enkel bijzetten als er ook echt gescoord werd.
+      // van dit blok, terwijl het de totale stand is. Altijd, ook bij 0–0 (zelfde regel als op het
+      // scherm sinds 22-08): het ontbreken las als een gat.
       const dit = scoreInQuarter(m, q.num);
       const cumText = (isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`)
-        + ((dit.us || dit.them) ? `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})` : '');
+        + `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})`;
       const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
       goalsPerRow.push(evts);
       const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
@@ -1093,9 +1094,10 @@ async function pdfMatchBody(doc, L, m) {
     // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
     // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
     const cumText = !g.cum ? '' : (isAway(m) ? `${g.cum.them}–${g.cum.us}` : `${g.cum.us}–${g.cum.them}`);
-    // Idem als in de tussenstandtabel: de totale stand, plus wat er in dit blok zelf gebeurde.
+    // Idem als in de tussenstandtabel: de totale stand, plus wat er in dit blok zelf gebeurde —
+    // altijd, ook bij 0–0.
     const ditQ = g.qn == null ? null : scoreInQuarter(m, g.qn);
-    const ditText = (ditQ && (ditQ.us || ditQ.them))
+    const ditText = ditQ
       ? ` (dit ${pSingLow(m)}: ${isAway(m) ? `${ditQ.them}–${ditQ.us}` : `${ditQ.us}–${ditQ.them}`})` : '';
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}${ditText}` : ''}`;
     // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.

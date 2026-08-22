@@ -59,15 +59,18 @@ function renderLive() {
       ${(canStartFirst && !(match.quarters || []).length && !(match.events || []).length)
         ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarGepland()">${icI(IC.undo)} Toch nog niet gestart</button>`
         : ''}
+      ${/* HET PAUZEKAARTJE (herontwerp 22-08-2026, op Tims aanwijzing). Hier stond de lijst met
+           AFGELEIDE wissels ("Klaar voor kwart 2") — verwarrend, want die heeft niemand ingegeven:
+           het veld op het tabblad Opstelling is de waarheid, en de wissels zijn daar een gevolg van.
+           Nu: wat er gaat gebeuren in één zin, en de handelingen die je in een pauze echt doet. */ ''}
       ${canStartNext ? `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
-        <button class="btn btn-orgpale btn-sm" style="width:100%;margin-bottom:12px" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
-        <div class="sec" style="margin-top:0">${icI(IC.swap)} Klaar voor ${pSingLow(match)} ${qNum+1}</div>
-        ${(match.pendingSubs&&match.pendingSubs.length) ? match.pendingSubs.map((s,i)=>`<div class="prow" style="padding:8px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(match,s)}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('') : ''}
-        ${pendingPosSwapHtml(match, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}
-        ${(!(match.pendingSubs||[]).length && !(match.pendingPosSwaps||[]).length) ? `<p style="color:var(--txt2);font-size:13px">Nog geen wissels ingepland. Regel ze in het tabblad <b>Opstelling</b>: tik daar een bankspeler en dan een speler op het veld.</p>` : ''}
+        <div class="sec" style="margin-top:0">${icI(IC.timer)} Wat kan je doen in de pauze?</div>
+        <p style="color:var(--txt2);font-size:13px;margin-bottom:10px">${pSing(match)} ${qNum+1} start automatisch met het veld op het tabblad <b>Opstelling</b>.</p>
+        <button class="btn btn-pale btn-sm" style="width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Opstelling nakijken of wijzigen</button>
         ${((match.plannedLineups || {})[qNum + 1] || []).length
-          ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.shirt)} Geplande opstelling ${((match.pendingSubs||[]).length + (match.pendingPosSwaps||[]).length) ? 'opnieuw toepassen' : 'gebruiken'}</button>` : ''}
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Wissels & posities op het veld</button>
+          ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalUsePlannedLineup(${qNum + 1})">${icI(IC.clipboard)} Opstelling uit je plan gebruiken</button>` : ''}
+        <button class="btn btn-pale btn-sm" style="margin-top:8px;width:100%" onclick="confirmNextLineupLeeg()">${icI(IC.close)} ${pSing(match)} ${qNum+1} opnieuw opstellen (leeg veld)</button>
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen aan ${pSingLow(match)} ${qNum}</button>
       </div>` : ''}
       ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
@@ -119,13 +122,16 @@ function renderLive() {
     tabContent = miniScore + (match.events.length
       ? `<div class="card">${renderEventLog(match)}</div>`
       : `<div class="empty"><div class="ei">${IC.clipboard}</div><p>Nog geen events.</p></div>`)
-      + (ro ? '' : `<button class="btn btn-pale" style="margin-top:4px" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Wedstrijdinfo bewerken</button>`);
+      + ((ro || isDone) ? '' : `<button class="btn btn-red" style="margin-top:12px" onclick="endMatch()">${icI(IC.finish)} Wedstrijd afsluiten</button>`);
   }
 
   return `
   <div class="hdr"><button class="back" onclick="confirmLeave()">‹</button>
     <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
-    ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="endMatch()">Afsluiten</button>` : ''}
+    ${/* "Afsluiten" stond hier — pal naast de plek waar je duim de hele wedstrijd komt. Eén mistik
+         en de wedstrijd is dicht. Nu staat hier het onschuldige "Info" (wedstrijdinfo bewerken) en
+         is Afsluiten verhuisd naar onderaan het tabblad Verloop, bewust wat weggestoken. */ ''}
+    ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
   <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${tabContent}</div>
   ${(!ro && !isBetween) ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
@@ -188,13 +194,14 @@ function playerRowHtml(p, minsData, isOff=false, totalMs=0, extraBtn='') {
 // updateTimerDisplay stopt zelf meteen zonder #timer-time-element, dus dit kost niets.
 function setTab(t) { tab = t; _lineupSel = null; render(); startTimer(); }
 function confirmLeave() {
-  const backFn = isGuest ? `go('home')` : (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go('matches')`;
+  // matchTerug(): terug naar waar de wedstrijd geopend werd — homescherm of wedstrijdenlijst.
+  const backFn = isGuest ? `go('home')` : (match && match.tournamentId) ? `goTournament('${match && match.tournamentId}')` : `go(matchTerug())`;
   if (match && match.status === 'live') {
     openModal(`<h3>Wedstrijd verlaten?</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd loopt nog. Je kan later terugkomen.</p>
       <button class="btn btn-pale" onclick="closeModal();${backFn}">${icI(IC.check)}Terug naar overzicht</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
-  } else { if (isGuest) go('home'); else if (match && match.tournamentId) goTournament(match.tournamentId); else go('matches'); }
+  } else { if (isGuest) go('home'); else if (match && match.tournamentId) goTournament(match.tournamentId); else go(matchTerug()); }
 }
 
 // ===================== QUARTER CONTROLS =====================
@@ -2378,38 +2385,6 @@ async function confirmSub() {
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; }
 }
-// Eén klaargezette wissel weghalen. Sinds v0.49.0 is de doelopstelling de waarheid en zijn deze
-// lijsten er de afgeleide van, dus na het weghalen wordt de doelopstelling opnieuw bepaald uit wat
-// er overblijft — anders zouden de twee uit elkaar lopen en zag je op het veld iets anders dan wat
-// er zou gebeuren. Dat uit-elkaar-lopen was precies de fout van de veldtest.
-async function removePendingSub(i) {
-  if (_eventBusy) return; _eventBusy = true;
-  try {
-    if (match.pendingSubs) match.pendingSubs.splice(i, 1);
-    match.nextLineup = lineupOntdubbel(previewNextLineup(match).filter(p => p.onField && magOpHetVeld(match, p)).map(lineupEntry));
-    const diff = lineupToPending(match, huidigVeldEntries(match), match.nextLineup);
-    match.pendingSubs = diff.subs; match.pendingPosSwaps = diff.swaps;
-    await dbSave(match); render();
-  } finally { _eventBusy = false; }
-}
-// Alle klaargezette positiewissels in één keer. Ze staan samen in één blok omdat ze samen één
-// beweging vormen: er één uit een keten halen laat de rest op een onbedoelde plek staan.
-async function removeAllPendingPosSwaps(heropenMenu) {
-  if (_eventBusy) return; _eventBusy = true;
-  try {
-    match.pendingPosSwaps = [];
-    match.nextLineup = lineupOntdubbel(previewNextLineup(match).filter(p => p.onField && magOpHetVeld(match, p)).map(lineupEntry));
-    const diff = lineupToPending(match, huidigVeldEntries(match), match.nextLineup);
-    match.pendingSubs = diff.subs; match.pendingPosSwaps = diff.swaps;
-    await dbSave(match); render(); if (heropenMenu) modalPlannedSubs();
-  } finally { _eventBusy = false; }
-}
-// Eén regel voor een klaargezette wissel, ook als er geen vervanger is (eenzijdige wissel).
-function pendingSubRegel(m, s) {
-  if (!s.inId) return `${icI(IC.swap)} <b>${esc(pName(m, s.outId))}</b> <span style="color:var(--txt2)">gaat van het veld — geen vervanger</span>`;
-  if (!s.outId) return `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">komt erbij${s.naarPlek ? ' op ' + esc(matchGridLabel(m, s.naarPlek)) : ''} — niemand gaat eraf</span>`;
-  return `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`;
-}
 
 // ===================== PAUZE-OPSTELLING (tikken op het veld) =====================
 // In de pauze plan je wissels en positiewissels door op het veld te tikken i.p.v. via modals.
@@ -2451,39 +2426,6 @@ function previewNextLineup(m) {
     if (i && plek && magOpHetVeld(m, i)) { zetOpGridPlek(i, plek, m); i.onField = true; }
   }
   return players;
-}
-// Klaargezette positiewissels als BEWEGINGEN i.p.v. als ruilingen: "Bram naar 11 LA". Een ruil van
-// drie spelers kan alleen als twee opeenvolgende ruilingen ("A wisselt met B", dan "B wisselt met
-// C"), en dan staat B er twee keer in terwijl hij ondertussen al verplaatst is — dat leest als een
-// fout terwijl de uitkomst klopt. Eén regel per speler die verhuist, met de plek waar hij belandt,
-// zegt precies wat je plande.
-// De eindplek komt uit previewNextLineup(): dat past dezelfde wissels toe in dezelfde volgorde als
-// startQuarter, dus dit is per definitie waar iedereen terechtkomt.
-function pendingPosSwapBewegingen(m) {
-  const swaps = m.pendingPosSwaps || [];
-  if (!swaps.length) return [];
-  const nu = new Map((m.players || []).map(p => [p.id, p]));
-  const straks = new Map(previewNextLineup(m).map(p => [p.id, p]));
-  const betrokken = [];
-  swaps.forEach(s => { [s.pA, s.pB].forEach(id => { if (id && !betrokken.includes(id)) betrokken.push(id); }); });
-  return betrokken.map(id => {
-    const was = nu.get(id), wordt = straks.get(id);
-    if (!was || !wordt) return null;
-    // Vergelijken op de ROOSTERPLEK en niet op het positienummer: een verhuizing naar een plek zonder
-    // nummer zou anders als "verplaatst niet" gelden, want twee keer een leeg nummer leest als gelijk.
-    const wasCode = spelerGridCode(was), wordtCode = spelerGridCode(wordt);
-    if (wasCode && wordtCode ? wasCode === wordtCode : String(was.posNum) === String(wordt.posNum)) return null;
-    return { id, naam: fieldName(m, id), plek: wordtCode ? matchGridLabel(m, wordtCode) : String(wordt.posNum || '?') };
-  }).filter(Boolean);
-}
-// Eén blok voor alle positiewissels samen, i.p.v. een rij per ruiling.
-function pendingPosSwapHtml(m, verwijderKnop) {
-  const bew = pendingPosSwapBewegingen(m);
-  if (!bew.length) return '';
-  return `<div class="prow" style="padding:7px 0;align-items:flex-start">
-    <div style="flex:1;font-size:14px">${icI(IC.compass)} <b>Positiewissels</b>
-      ${bew.map(b => `<div style="margin-top:2px">${esc(b.naam)} <span style="color:var(--txt2)">naar</span> <b>${esc(b.plek)}</b></div>`).join('')}</div>
-    ${verwijderKnop || ''}</div>`;
 }
 // ===================== DE OPSTELLING VAN HET VOLGENDE DEEL =====================
 // EEN DOELOPSTELLING, niet een stapel losse wijzigingen. Dat is het hele punt van v0.49.0.
@@ -2562,6 +2504,9 @@ function confirmNextLineupLeeg() {
 async function nextLineupLeeg() {
   _lineupSel = null;
   closeModal();
+  // Meteen naar het tabblad Opstelling: daar staat het lege veld dat je nu gaat vullen. Vanaf het
+  // pauzekaartje op het tabblad Wedstrijd zou je anders een leeg veld maken dat je niet ziet.
+  tab = 'opstelling';
   await bewaarNextLineup(match, [], 'Leeg veld — tik een speler en dan een plaats.');
 }
 // ---- Tikken op het veld en de bank ----
@@ -2675,13 +2620,14 @@ function pauseLineupHtml(m) {
       <div class="place-chips">${bench.length
         ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-      ${(nSubs || nSwaps) ? `<div class="sec">Wat er bij de start gebeurt (${nSubs + nSwaps})</div>
-        ${(m.pendingSubs || []).map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(m, s)}</div><button class="evt-del" onclick="removePendingSub(${i})" title="Verwijderen">×</button></div>`).join('')}
-        ${/* Alle positiewissels in één blok, als bewegingen — zie pendingPosSwapHtml. Het kruisje
-             wist ze allemaal: ze horen bij elkaar (een keten van drie is niets zonder zijn delen). */ ''}
-        ${pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps()" title="Alle positiewissels verwijderen">×</button>`)}`
-        : '<p style="font-size:13px;color:var(--txt2);margin-top:10px">Niets te wijzigen — dezelfde opstelling als nu.</p>'}
+      ${/* GEEN wissellijst meer (herontwerp 22-08-2026): de afgeleide wissels opsommen — met
+           verwijderknoppen — was dubbel gereedschap naast het veld zelf, en niemand had ze
+           ingegeven. Het veld is de waarheid; één zin zegt wat de app ermee doet. */ ''}
+      <p style="font-size:13px;color:var(--txt2);margin-top:10px">${(nSubs || nSwaps)
+        ? `De app zorgt ervoor dat ${pSingLow(m)} ${deel} start met het veld hierboven.`
+        : `Niets te wijzigen — ${pSingLow(m)} ${deel} start met dezelfde opstelling als nu.`}</p>
       ${problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:10px">${icI(IC.warn)} ${problemen.map(esc).join('<br>')}</div>` : ''}
+      <button class="btn btn-gray btn-sm" style="width:100%;margin-top:12px" onclick="setTab('wedstrijd')">‹ Terug naar de wedstrijd</button>
     </div>`;
 }
 
@@ -2760,37 +2706,20 @@ function modalUsePlannedLineup(deel) {
   const m = match;
   const plan = ((m.plannedLineups || {})[deel] || []);
   if (!plan.length) return;
+  // GEEN wisselopsomming meer (herontwerp 22-08-2026): de opgesomde "pauzewissels" had niemand
+  // ingegeven en ze lazen als iets dat je moest nakijken. De vraag is simpel — wil je dit deel
+  // starten volgens je plan? — en het resultaat bekijk je op het veld. Enkel wat er níet kan
+  // (afwezige of uitgesloten spelers uit het plan) wordt nog gemeld, want dat moet je wél weten.
   const huidig = playersOnField(m).map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
   const diff = lineupToPending(m, huidig, plan);
-  const nu = (m.pendingSubs || []).length + (m.pendingPosSwaps || []).length;
-  const telling = [
-    diff.subs.length ? `${diff.subs.length} wissel${diff.subs.length === 1 ? '' : 's'}` : '',
-    diff.swaps.length ? `${diff.swaps.length} positiewissel${diff.swaps.length === 1 ? '' : 's'}` : '',
-  ].filter(Boolean).join(' en ');
-  openModal(`<h3>${icI(IC.shirt)} Geplande opstelling · ${pSing(m)} ${deel}</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${telling
-      ? `Om die opstelling te krijgen zijn <b>${telling}</b> nodig. Ze komen klaar te staan voor de start van ${pSingLow(m)} ${deel}; daar kan je ze nog aanpassen.`
-      : 'Het veld staat al precies zoals gepland — er is niets te wijzigen.'}</p>
-    ${diff.subs.map(s => `<div class="prow" style="padding:6px 0"><div style="flex:1;font-size:14px">${icI(IC.swap)} <b>${esc(fieldName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(fieldName(m, s.outId))}</div></div>`).join('')}
-    ${/* Ook hier de bewegingen i.p.v. de ruilingen: het veld ná de wissels kennen we al (het plan
-         zelf), dus we kunnen per speler zeggen waar hij belandt. */ ''}
-    ${(() => {
-      if (!diff.swaps.length) return '';
-      const plek = new Map(plan.map(e => [e.id, e.posNum]));
-      const betrokken = [];
-      diff.swaps.forEach(s => [s.pA, s.pB].forEach(id => { if (!betrokken.includes(id)) betrokken.push(id); }));
-      const regels = betrokken.map(id => {
-        const nr = plek.get(id); if (!nr) return '';
-        const code = posCode(nr, m.matchType);
-        return `${esc(fieldName(m, id))} <span style="color:var(--txt2)">naar</span> <b>${esc(String(nr) + (code ? ' ' + code : ''))}</b>`;
-      }).filter(Boolean);
-      return `<div class="prow" style="padding:6px 0;align-items:flex-start"><div style="flex:1;font-size:14px">${icI(IC.compass)} <b>Positiewissels</b>
-        ${regels.map(r => `<div style="margin-top:2px">${r}</div>`).join('')}</div></div>`;
-    })()}
-    ${diff.problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-top:10px">${icI(IC.warn)} ${diff.problemen.map(esc).join('<br>')}</div>` : ''}
-    ${nu ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Er ${nu === 1 ? 'staat' : 'staan'} al ${nu} wijziging${nu === 1 ? '' : 'en'} klaar; die word${nu === 1 ? 't' : 'en'} vervangen.</p>` : ''}
-    ${telling ? `<button class="btn btn-green" style="margin-top:12px" onclick="doUsePlannedLineup(${deel})">${icI(IC.check)} Klaarzetten</button>` : ''}
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">${telling ? 'Annuleren' : 'Sluiten'}</button>`);
+  const alGelijk = !diff.subs.length && !diff.swaps.length;
+  openModal(`<h3>${icI(IC.clipboard)} ${pSing(m)} ${deel} volgens je plan?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${alGelijk
+      ? 'Het veld staat al precies zoals gepland — er is niets te wijzigen.'
+      : `${pSing(m)} ${deel} start dan met de opstelling uit je plan. Je ziet en wijzigt ze op het tabblad <b>Opstelling</b>.`}</p>
+    ${diff.problemen.length ? `<div style="font-size:12px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px;text-align:left">${icI(IC.warn)} ${diff.problemen.map(esc).join('<br>')}</div>` : ''}
+    ${alGelijk ? '' : `<button class="btn btn-green" onclick="doUsePlannedLineup(${deel})">${icI(IC.check)} Ja, volgens het plan</button>`}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">${alGelijk ? 'Sluiten' : 'Annuleren'}</button>`);
 }
 async function doUsePlannedLineup(deel) {
   if (!canManage()) return;
@@ -2804,7 +2733,7 @@ async function doUsePlannedLineup(deel) {
   // de tweede meteen laten afhaken — dan deed deze knop niets.
   _lineupSel = null;
   closeModal();
-  await bewaarNextLineup(m, plan.map(e => ({ ...e })), `Opstelling klaargezet voor ${pSingLow(m)} ${deel}.`);
+  await bewaarNextLineup(m, plan.map(e => ({ ...e })), `${pSing(m)} ${deel} start volgens je plan — bekijk het veld op het tabblad Opstelling.`);
 }
 
 // ===================== GEPLANDE (KLAARGEZETTE) WISSELS =====================
@@ -2977,22 +2906,32 @@ function plannedSwapTekst(m, s) {
 // Welk tabblad staat open in "Wissels plannen": een deelnummer, of 0 voor "Altijd" (wissels zonder
 // vast deel). Wordt bij het openen gezet op het deel dat nu aan de beurt is.
 let _planDeelTab = null;
+let _planDeelTabBasis = null;   // bij welk "huidig deel" de keuze hoort — zie modalPlannedSubs
 function modalPlannedSubs(tab) {
   const m = match; if (!m) return;
   const mode = plannedRunMode(m);
   const totaal = plannedPartsCount(m);
+  // Het gekozen tabblad plakte over de kwarten heen: wie het in kwart 2 opende, kreeg het in kwart 3
+  // nog steeds op kwart 2 — en omdat de "Nu"-knoppen enkel op het HUIDIGE deel staan, leek er dan
+  // geen enkele wissel doorvoerbaar. Zodra de wedstrijd een deel opgeschoven is, springt de keuze
+  // terug naar het deel dat nu aan de beurt is.
+  const huidig = plannedHuidigDeel(m);
+  if (_planDeelTabBasis !== huidig) { _planDeelTab = null; _planDeelTabBasis = huidig; }
   if (tab !== undefined && tab !== null) _planDeelTab = tab;
-  if (_planDeelTab === null) _planDeelTab = Math.min(Math.max(1, plannedHuidigDeel(m) || 1), totaal);
+  if (_planDeelTab === null) _planDeelTab = Math.min(Math.max(1, huidig || 1), totaal);
   const actief = _planDeelTab;
   const hoort = s => (actief ? s.quarterNum === actief : !s.quarterNum);
   const subs = (m.plannedSubs || []).filter(hoort), swaps = (m.plannedPosSwaps || []).filter(hoort);
-  const pendS = m.pendingSubs || [], pendP = m.pendingPosSwaps || [];
   // Sinds v0.20.0 geef je een volledige opstelling per deel in met de planning. Dit scherm blijft
   // voor de losse wissel die je MIDDEN in een deel wil doen ("na een kwartier gaat X eruit") — dat
   // is precies wat een opstelling per deel niet kan uitdrukken. Vandaar de verwijzing hieronder:
   // zonder dat leek dit een tweede, concurrerende manier om hetzelfde te doen.
+  // Doorvoeren kan enkel terwijl er een deel LOOPT. In de pauze regel je de opstelling op het
+  // tabblad Opstelling — een doorvoerknop hier was dubbel gereedschap en stond bovendien al
+  // klikbaar voor een deel dat nog moet beginnen (gemeld 22-08-2026).
+  const kanDoorvoeren = mode === 'live';
   const uitleg = mode === 'live' ? 'Doorvoeren wordt meteen een wissel in het verloop.'
-    : mode === 'break' ? `Doorvoeren zet ze klaar bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}.`
+    : mode === 'break' ? `Nu is het pauze: de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1} regel je op het tabblad <b>Opstelling</b>. Doorvoeren kan weer zodra dat ${pSingLow(m)} loopt.`
     : 'Doorvoeren kan zodra een deel bezig is. Tot dan kan je ze hier klaarzetten en aanpassen.';
   const waarvoor = `Voor wissels <b>tijdens</b> een ${pSingLow(m)}: jij kiest zelf wanneer je ze doorvoert. Wie er <b>bij de start</b> van een ${pSingLow(m)} op het veld staat, geef je in bij <b>Planning</b>.`;
   // Tabjes per deel, plus "Altijd" voor wissels die aan geen enkel deel hangen. Bij een wedstrijd
@@ -3009,7 +2948,7 @@ function modalPlannedSubs(tab) {
     <div class="prow" style="padding:8px 0;align-items:flex-start">
       <div style="flex:1;font-size:14px">${icI(ico)} ${tekst}
         ${probleem ? `<div style="font-size:11px;color:var(--rd);margin-top:2px">${esc(probleem)}</div>` : ''}</div>
-      ${(mode && !probleem && nuAanDeBeurt) ? `<button class="btn btn-green btn-sm" style="width:auto;padding:4px 10px;font-size:12px;margin:0 6px 0 0;flex-shrink:0" onclick="${runFn}">Nu</button>` : ''}
+      ${(kanDoorvoeren && !probleem && nuAanDeBeurt) ? `<button class="btn btn-green btn-sm" style="width:auto;padding:4px 10px;font-size:12px;margin:0 6px 0 0;flex-shrink:0" onclick="${runFn}">Nu</button>` : ''}
       <button class="evt-edit" onclick="${editFn}" title="Aanpassen">${icI(IC.edit)}</button>
       <button class="evt-del" onclick="${delFn}" title="Verwijderen">×</button>
     </div>`;
@@ -3020,12 +2959,10 @@ function modalPlannedSubs(tab) {
     ...swaps.map(s => rij(IC.compass, plannedSwapTekst(m, s),
       plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`)),
   ].join('');
-  // De pauze-opstelling staat er enkel ter info bij: die gaat wél automatisch af, en het is
-  // verwarrend als je hier "geplande wissels" ziet die niet alles tonen wat er klaarstaat.
-  const auto = [
-    ...pendS.map((s, i) => `<div class="prow" style="padding:7px 0"><div style="flex:1;font-size:14px">${pendingSubRegel(m, s)}</div><button class="evt-del" onclick="removePendingSub(${i});modalPlannedSubs()" title="Verwijderen">×</button></div>`),
-    pendP.length ? pendingPosSwapHtml(m, `<button class="evt-del" onclick="removeAllPendingPosSwaps(true)" title="Alle positiewissels verwijderen">×</button>`) : '',
-  ].join('');
+  // De pauze-afgeleiden ("gaat automatisch bij de start") staan hier NIET meer: sinds het veld op
+  // het tabblad Opstelling zélf de opstelling van het volgende deel is, is dat de enige plek waar
+  // je die bekijkt en wijzigt. Hier stonden ze nog eens, mét een verwijderknop — dubbel gereedschap
+  // dat het veld en deze lijst uit elkaar kon laten lopen (gemeld 22-08-2026).
   const aantal = subs.length + swaps.length;
   openModal(`<h3>${icI(IC.clipboard)} Wissels plannen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:8px">${waarvoor}</p>
@@ -3035,12 +2972,12 @@ function modalPlannedSubs(tab) {
     <div id="gw-lijst">${lijst || `<p style="color:var(--txt2);font-size:13px;padding:4px 0">Nog niets klaargezet${actief ? ` voor ${pSingLow(m)} ${actief}` : ''}.</p>`}</div>
     ${/* Alles ineens: eerst de wissels, dan de positiewissels — zie runAllPlanned. Enkel zichtbaar
          als er meer dan één ding klaarstaat; voor één regel volstaat de knop "Nu" ernaast. */ ''}
-    ${(mode && nuAanDeBeurt && aantal > 1) ? `<button class="btn btn-green btn-sm" style="margin-top:10px" onclick="runAllPlanned(${actief})">${icI(IC.check)} Alle ${aantal} doorvoeren</button>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-      <button class="btn btn-pale btn-sm" onclick="modalPlanSub(null,false,${actief})">${icI(IC.swap)} + Wissel</button>
-      <button class="btn btn-pale btn-sm" onclick="modalPlanPosSwap(null,false,${actief})">${icI(IC.compass)} + Positiewissel</button>
-    </div>
-    ${auto ? `<div class="sec">Gaat automatisch bij de start van ${pSingLow(m)} ${m.currentQuarter + 1}</div>${auto}` : ''}
+    ${(kanDoorvoeren && nuAanDeBeurt && aantal > 1) ? `<button class="btn btn-green btn-sm" style="margin-top:10px" onclick="runAllPlanned(${actief})">${icI(IC.check)} Alle ${aantal} doorvoeren</button>` : ''}
+    ${/* Geen "+ Positiewissel" meer: wie er bij de START van een deel waar staat, teken je op het
+         veld (Planning/Opstelling), en de app rekent de verschuivingen uit. Een positiewissel apart
+         klaarzetten was gereedschap uit het oude model — Tims vaststelling van 22-08-2026. Bestaande
+         klaargezette positiewissels blijven hierboven gewoon zichtbaar, aanpasbaar en uitvoerbaar. */ ''}
+    <button class="btn btn-pale btn-sm" style="margin-top:10px" onclick="modalPlanSub(null,false,${actief})">${icI(IC.swap)} + Wissel klaarzetten</button>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 // Kiezers voor het klaarzetten/aanpassen. Zonder id = nieuw, met id = bestaande aanpassen.

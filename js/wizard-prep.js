@@ -1321,7 +1321,7 @@ function renderPrep() {
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
   const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
-  const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go('matches')`;
+  const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go(matchTerug())`;
   return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>

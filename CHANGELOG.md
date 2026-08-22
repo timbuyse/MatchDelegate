@@ -9,6 +9,57 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.56.0
+Tims observaties na een avond oefenen met testwedstrijden — het pauzescherm opgeruimd en een reeks
+kleinere ergernissen weggewerkt.
+
+### Het pauzekaartje
+- **"Wat kan je doen in de pauze?"** vervangt de lijst met afgeleide wissels op het tabblad
+  Wedstrijd. Die wissels had niemand ingegeven (de app leidt ze af uit het veld), dus ze lazen als
+  iets dat je moest nakijken. Nu: één zin — *"Kwart X start automatisch met het veld op het tabblad
+  Opstelling"* — en de vier dingen die je in een pauze echt doet: **opstelling nakijken of
+  wijzigen**, **opstelling uit je plan gebruiken**, **opnieuw opstellen (leeg veld)** en **event
+  toevoegen aan het vorige kwart**.
+- **"Leeg veld" springt meteen naar het tabblad Opstelling** — daar staat het lege veld dat je gaat
+  vullen.
+- Op het tabblad Opstelling is de lijst *"Wat er bij de start gebeurt"* vervangen door diezelfde ene
+  zin, en onderaan staat een knop **"Terug naar de wedstrijd"**. De drie startpunten (uit je plan /
+  zoals nu / leeg veld) blijven daar gewoon staan.
+- De bevestiging bij **"Opstelling uit je plan"** vraagt nog gewoon *"Kwart X volgens je plan?"* —
+  zonder wisselopsomming. Wat er níet kan (een afwezige speler uit het plan) wordt wel nog gemeld.
+- De knop *"Wissels & posities op het veld"* is weg (dubbel met "Opstelling nakijken").
+
+### Wissels plannen
+- **Geen "+ Positiewissel" meer bij het klaarzetten.** Wie er bij de start van een blok waar staat,
+  teken je op het veld — de app rekent de verschuivingen uit. Een positiewissel apart klaarzetten
+  was gereedschap uit het oude model. Bestaande klaargezette positiewissels blijven zichtbaar,
+  aanpasbaar en uitvoerbaar.
+- **In de pauze staan er geen doorvoerknoppen meer** — doorvoeren kan alleen terwijl een blok loopt;
+  in de pauze regel je alles op het tabblad Opstelling. De pauze-afgeleiden ("gaat automatisch…")
+  staan er ook niet meer tussen, mét hun verwijderknop — dat was dubbel gereedschap.
+- **Het kwartkeuzetabblad springt mee met de wedstrijd.** Het bleef op het oude kwart staan (jij in
+  kwart 3, de keuze op kwart 2), en omdat de "Nu"-knoppen enkel op het huidige kwart staan, leek er
+  dan niets doorvoerbaar — ook de vermiste knop bij één klaargezette wissel in kwart 4 was hiervan
+  een gevolg.
+
+### Klein maar dagelijks
+- **"dit kwart: 0–0" staat er nu ook bij een blok zonder doelpunten.** Eerst stond de regel enkel
+  bij blokken mét doelpunten, maar dan las het ontbreken als een gat in plaats van als "hier viel
+  niets". Op het scherm en in de PDF.
+- **De terugpijl van een wedstrijd brengt je terug waar je vandaan kwam.** Opende je een wedstrijd
+  vanaf het homescherm, dan kwam je met de terugpijl altijd op de wedstrijdenlijst uit. Nu onthoudt
+  de app of je van het homescherm of de lijst kwam. Tornooiwedstrijden blijven naar hun tornooi
+  teruggaan.
+- **Het scherm springt niet meer naar boven** bij elke tik in de opstellingsplanner — de
+  schuifpositie blijft behouden bij het hertekenen.
+- **Bij een leeg veld zijn de formatieplekken groter** dan de overige vrije plekken (met hun
+  positienummer erbij), zoals overal.
+- **Zodra je een speler vastheb, krijgen de vrije plekken een gestippeld randje** — dat zijn de
+  bestemmingen waar je op kan tikken.
+- **"Info" (wedstrijdinfo bewerken) staat nu in de kop van het livescherm**, en **"Afsluiten" is
+  verhuisd naar onderaan het tabblad Verloop** — in de kop was één mistik genoeg om de wedstrijd
+  dicht te doen. De gewone weg blijft de knop *"Einde match"* bij het laatste blok.
+
 ## v0.55.1
 - **"Nieuwe ploeg zonder rugnummers" geldt nu ook voor een ploeg via de club.** Er zijn twee
   manieren om een ploeg aan te maken, en v0.55.0 had er maar één aangepast — wie via *Nieuwe ploeg
