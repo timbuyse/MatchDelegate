@@ -2152,7 +2152,13 @@ function evtLabel(e, m) {
     case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
-    case 'substitution': return `${icI(IC.swap)} ${e.atBreak?'Pauzewissel: ':''}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
+    // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
+    case 'substitution': {
+      const kop = e.atBreak ? 'Pauzewissel: ' : '';
+      if (e.playerInId && !e.playerOutId) return `${icI(IC.swap)} ${kop}${pn(e.playerInId)} komt erbij${e.naarPlek ? ` op ${esc(matchGridLabel(m, e.naarPlek))}` : ''}`;
+      if (!e.playerInId && e.playerOutId) return `${icI(IC.swap)} ${kop}${pn(e.playerOutId)} gaat van het veld — geen vervanger`;
+      return `${icI(IC.swap)} ${kop}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
+    }
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
@@ -2189,7 +2195,12 @@ function evtLabelPlain(e, m) {
     case 'own_goal_them': return 'Eigen doel tegenstander';
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
-    case 'substitution': return `${e.atBreak?'Pauzewissel: ':''}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+    case 'substitution': {
+      const kop = e.atBreak ? 'Pauzewissel: ' : '';
+      if (e.playerInId && !e.playerOutId) return `${kop}${pName(m,e.playerInId)} komt erbij${e.naarPlek ? ` op ${matchGridLabel(m, e.naarPlek)}` : ''}`;
+      if (!e.playerInId && e.playerOutId) return `${kop}${pName(m,e.playerOutId)} gaat van het veld — geen vervanger`;
+      return `${kop}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+    }
     // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
     case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, '->')}`;
@@ -2292,17 +2303,21 @@ function startLineupTekst(m, qn) {
   // "Vincent F. (GK, 1), Briek D. (LM, 11)" — plaats en positienummer samen tussen één stel haakjes,
   // spelers gescheiden door komma's. De eerdere vorm ("Vincent F. — GK (1) · Briek D. — …") las met
   // die streepjes en middelpunten als één lange brij; dit leest als een opstellingsblad.
+  // De bank hoort erbij: wie beschikbaar was maar dit blok niet begon. periodBenchNames sluit
+  // sinds v0.52.0 uit wie de wedstrijd verliet — die zit niet op de bank, die is weg.
+  const bank = periodBenchNames(m, qn);
   return 'Startopstelling: ' + rijen.map(r => {
     const binnen = [r.code, r.nummer].filter(Boolean).join(', ');
     return binnen ? `${r.naam} (${binnen})` : r.naam;
-  }).join(', ');
+  }).join(', ') + (bank.length ? ` — bank: ${bank.join(', ')}` : '');
 }
 function startLineupHtml(m, qn) {
   const rijen = startLineupRijen(m, qn);
   if (!rijen.length) return '';
+  const bank = periodBenchNames(m, qn);
   return `<li class="startlineup"><span class="emin">${icI(IC.shirt)}</span><span class="etxt"><b>Startopstelling</b><span class="sl-lijst">${rijen
     .map(r => `<span class="sl-item">${esc(r.naam)}${r.plek ? `<span class="sl-plek">${esc(r.plek)}</span>` : ''}</span>`)
-    .join('')}</span></span></li>`;
+    .join('')}</span>${bank.length ? `<span class="sl-bank">Bank: ${bank.map(esc).join(', ')}</span>` : ''}</span></li>`;
 }
 // HTML-event-log voor het scherm (detail + live-log), met kwart-kop + tussenstand + verwijderknop.
 function renderEventLog(m) {

@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.54.1
+- **De bank staat bij de startopstelling.** De samengevouwen regel per blok op het verslag zegt nu
+  ook wie er op dat moment op de bank zat — en wie de wedstrijd verlaten had, staat daar terecht
+  niet bij (die is weg, niet beschikbaar). Op het scherm en in de PDF-tijdlijn.
+- **"Jan-Arthur voor ?" leest nu als wat het is.** Een wissel kan sinds v0.49.0 eenzijdig zijn —
+  iemand komt erbij zonder dat er op dat moment iemand via een wissel af gaat (bijvoorbeeld omdat de
+  vrijgekomen plaats van een speler is die de wedstrijd **verliet**, wat een eigen regel heeft). Het
+  verloopetiket kende die vorm niet en toonde een vraagteken. Nu staat er *"… komt erbij op CVM
+  (10)"* respectievelijk *"… gaat van het veld — geen vervanger"*, op het scherm en in de PDF.
+
 ## v0.54.0
 - **De startopstelling wordt voortaan bewaard.** Tot nu werd ze bij élk tekenen opnieuw *berekend*,
   door vanaf de eindtoestand alle wissels en positiewissels achterstevoren terug te draaien. Dat is
