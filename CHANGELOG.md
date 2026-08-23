@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.0.2
+Het pauzeveld toont voortaan altijd wat er écht gaat gebeuren. Twee vondsten uit de zijlijntest
+met dezelfde wortel, plus een derde die tijdens het testen bovenkwam.
+
+### Wat het pauzeveld toont, is wat er start
+- **Een wissel via de knop stond niet op het veld — en verdween bij de eerste tik.** Sinds v0.49.0
+  is het veld op het tabblad *Opstelling* de opstelling van het volgende blok, en zijn de wissels
+  daar enkel een gevolg van. Maar de wisselknop, de positiewisselknop en "Nu doorvoeren" van een
+  klaargezette wissel schreven hun wijziging er buitenom in. Gevolg: die wissel stond niet op het
+  veld terwijl hij bij de start wél gebeurde, en zodra je daarna één keer op het veld tikte werd
+  alles opnieuw afgeleid en was hij stilletjes weg. Alle vier de paden lopen nu langs de opstelling.
+- **Wie je in de rust afwezig meldt, verdwijnt nu ook van het veld.** De klaargezette wissels werden
+  al opgeruimd, maar op het getekende veld bleef hij staan — aantikbaar en wel. Bij de start gebeurde
+  dan iets anders dan wat je zag.
+- **Een rode kaart haalt de speler uit de opstelling van het volgende blok.** Ook wanneer die
+  opstelling pas ná de kaart uit je plan wordt overgenomen: een plan kan spelers bevatten die
+  intussen uitgesloten of afwezig zijn, en die horen er niet meer in.
+- Die laatste regel staat nu op één plek — de enige plek waar de opstelling geschreven wordt —
+  in plaats van bij elke knop apart. Zo kan er langs geen enkele weg nog iemand in belanden die bij
+  de start toch overgeslagen wordt.
+- Vangnet: een klaargezette wissel met een speler die al van het veld is (rode kaart, blessure)
+  wordt overgeslagen in plaats van er een speler bij te zetten.
+- Gemeten in de sandbox: het verschil tussen "wat het veld belooft" en "wat er start" is nul
+  geworden (was 17 gevallen in 40 gefuzzde wedstrijden), net als de gevallen van twee spelers op
+  één plek. De scenariolijst zakt van 12 naar 7 meldingen — wat overblijft zijn de vertrokken
+  speler (nog te doen) en twee bewuste keuzes.
+
 ## v1.0.1
 Tweede kritieke vondst uit de zijlijntest van 22-08 opgelost.
 

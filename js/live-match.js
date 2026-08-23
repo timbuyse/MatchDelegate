@@ -430,6 +430,11 @@ async function startQuarter(zonderControle) {
   for (const s of subsWissel) {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
     if (!pOut) continue;
+    // Staat hij al niet meer op het veld, dan is deze wissel al uitgevoerd (of achterhaald): hem
+    // toch verwerken zou de invaller erbij zetten zonder dat er iemand af gaat — een man te veel.
+    // Kan sinds v1.0.2 niet meer ontstaan (alles loopt via de doelopstelling), maar een wedstrijd
+    // die met oudere klaargezette wissels op een toestel staat, mag daar niet op stuklopen.
+    if (!pOut.onField) continue;
     // Eenzijdige wissel (geen invaller): de speler gaat eraf en zijn plaats blijft leeg. Zo kan een
     // doelopstelling met minder spelers ook echt uitgevoerd worden, en verlaat iemand de wedstrijd
     // in de pauze. Zelfde eventvorm als een gewone wissel, met playerInId null — calcMinutes en
@@ -604,13 +609,16 @@ function zetGeplandeOpstellingKlaar(m) {
   const diff = lineupToPending(m, huidig, plan);
   if (!diff.subs.length && !diff.swaps.length) return '';
   // De doelopstelling mee zetten (v0.49.0): het pauzescherm tekent die, en zonder dit zou het veld
-  // de plan-opstelling niet tonen terwijl de wissels er wel al klaarstaan.
-  m.nextLineup = lineupOntdubbel(plan.map(e => ({ ...e })));
-  m.pendingSubs = diff.subs;
-  m.pendingPosSwaps = diff.swaps;
+  // de plan-opstelling niet tonen terwijl de wissels er wel al klaarstaan. Via _pasNextLineupAan,
+  // want een plan kan spelers bevatten die intussen afwezig of uitgesloten zijn — die horen er niet
+  // meer in, en die functie is de enige plek waar die regel staat. Ze leidt de wissels ook opnieuw
+  // af, dus die kloppen daarna met wat het veld toont.
+  _pasNextLineupAan(m, plan.map(e => ({ ...e })));
+  const nSubs = (m.pendingSubs || []).length, nSwaps = (m.pendingPosSwaps || []).length;
+  if (!nSubs && !nSwaps) return '';
   const telling = [
-    diff.subs.length ? `${diff.subs.length} wissel${diff.subs.length === 1 ? '' : 's'}` : '',
-    diff.swaps.length ? `${diff.swaps.length} positiewissel${diff.swaps.length === 1 ? '' : 's'}` : '',
+    nSubs ? `${nSubs} wissel${nSubs === 1 ? '' : 's'}` : '',
+    nSwaps ? `${nSwaps} positiewissel${nSwaps === 1 ? '' : 's'}` : '',
   ].filter(Boolean).join(' en ');
   return `Opstelling voor ${pSingLow(m)} ${deel} klaargezet: ${telling}.${diff.problemen.length ? ' ' + diff.problemen[0] : ''}`;
 }
@@ -2208,8 +2216,16 @@ async function doMarkAbsent(pid, reden) {
   }
   p.absent = true;
   if (p.onField) p.onField = false;
-  // Ook uit de ingeplande pauzewissels/positiewissels halen — een afwezige speler mag bij de
-  // start van het volgende deel niet alsnog het veld op gestuurd worden.
+  // Ook uit de GETEKENDE OPSTELLING van het volgende deel halen. Dat is sinds v0.49.0 de waarheid:
+  // de wissels hieronder zijn er enkel de afgeleide van. Bleef hij erin staan, dan toonde het
+  // pauzeveld hem nog gewoon (aantikbaar en wel) terwijl de wissels wél opgeruimd waren — en dan
+  // deed de start iets anders dan wat het scherm liet zien. Gemeld in de zijlijntest van 22-08-2026.
+  // _pasNextLineupAan leidt de pendings meteen opnieuw af, dus die kloppen daarna vanzelf.
+  if (Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === pid)) {
+    _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== pid));
+  }
+  // Wedstrijden zonder getekende opstelling (of een speler die er niet in stond): de klaargezette
+  // wissels alsnog opschonen — een afwezige mag bij de start niet alsnog het veld op gestuurd worden.
   if (match.pendingSubs) match.pendingSubs = match.pendingSubs.filter(s => s.inId !== pid && s.outId !== pid);
   if (match.pendingPosSwaps) match.pendingPosSwaps = match.pendingPosSwaps.filter(s => s.pA !== pid && s.pB !== pid);
   // Idem voor de klaargezette wissels: die zouden anders in het menu blijven staan met een
@@ -2586,8 +2602,12 @@ async function confirmSub() {
     // Echte pauzewissel: enkel tussen de delen ÉN niet in retro-modus (een event toevoegen aan een
     // reeds afgelopen deel). Dan inplannen i.p.v. meteen doorvoeren. Zelfde conditie als modalSub().
     if (match.quarterStatus === 'between' && _postEventQuarter === null) {
-      match.pendingSubs = match.pendingSubs || [];
-      match.pendingSubs.push({ outId: subOut, inId: subIn });
+      // Via de doelopstelling (pauzeWisselInDoel), niet rechtstreeks in de pendings: anders staat
+      // deze wissel niet op het pauzeveld én verdwijnt hij zodra je daar één keer tikt.
+      if (!pauzeWisselInDoel(match, subOut, subIn)) {
+        showToast(`${pName(match, subOut)} staat niet in de opstelling van ${pSingLow(match)} ${match.currentQuarter + 1}.`, 'err');
+        return;
+      }
       await dbSave(match); closeModal(); render();
       return;
     }
@@ -2694,19 +2714,75 @@ function lineupOntdubbel(entries) {
   }
   return [...perPlek.values()];
 }
+// De doelopstelling zetten en de wissels eruit afleiden. Puur de mutatie, zonder opslaan en zonder
+// guard: zo kunnen ook de schermen die zélf al een _eventBusy-guard aanhouden en zelf opslaan
+// (confirmSub, confirmPosSwap, doMarkAbsent, …) langs deze ene weg. Dat is het hele punt van
+// v0.49.0 — wie de pendings rechtstreeks vulde, zette iets klaar dat NIET op het pauzeveld stond en
+// dat bij de eerstvolgende tik weer verdween, omdat de afleiding hieronder dan opnieuw draait.
+function _pasNextLineupAan(m, entries) {
+  // WIE NIET OP HET VELD MAG, STAAT ER OOK NIET IN. Afwezig gemeld of uitgesloten na een rode
+  // kaart: startQuarter slaat zo iemand terecht over, dus als hij in de doelopstelling blijft
+  // staan, belooft het pauzeveld een speler die straks niet verschijnt — en dan doet de start iets
+  // anders dan wat je zag. Hier filteren en niet bij elke deur apart (tik, knop, plan, kaart,
+  // afwezig melden): dit is de énige schrijfweg naar de doelopstelling, net zoals lineupOntdubbel
+  // hier de regel "één speler per plek" bewaakt. Een rode kaart tijdens het spel kwam anders
+  // alsnog binnen via het plan, dat pas ná die kaart de opstelling van het volgende deel wordt.
+  const bruikbaar = entries.filter(e => {
+    const p = m.players.find(x => x.id === e.id);
+    return p && magOpHetVeld(m, p);
+  });
+  const schoon = lineupOntdubbel(bruikbaar);
+  m.nextLineup = schoon;
+  const diff = lineupToPending(m, huidigVeldEntries(m), schoon);
+  m.pendingSubs = diff.subs;
+  m.pendingPosSwaps = diff.swaps;
+}
 async function bewaarNextLineup(m, entries, melding) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    const schoon = lineupOntdubbel(entries);
-    m.nextLineup = schoon;
-    // Afgeleide: precies de wissels en positiewissels die nodig zijn om dít veld te krijgen.
-    const diff = lineupToPending(m, huidigVeldEntries(m), schoon);
-    m.pendingSubs = diff.subs;
-    m.pendingPosSwaps = diff.swaps;
+    _pasNextLineupAan(m, entries);
     await dbSave(m); render();
     if (melding) showToast(melding, 'ok');
   } finally { _eventBusy = false; }
+}
+// Een WISSEL in de pauze, uitgedrukt in de doelopstelling: de invaller neemt de plaats van wie
+// eraf gaat. Geeft false als die speler daar niet (meer) staat — dan is de wissel zinloos en hoort
+// het scherm dat te zeggen in plaats van stil iets klaar te zetten.
+function pauzeWisselInDoel(m, outId, inId) {
+  const doel = nextLineupOf(m);
+  const plaats = doel.find(e => e.id === outId);
+  if (!plaats) return false;
+  _pasNextLineupAan(m, doel.filter(e => e.id !== outId && e.id !== inId).concat([
+    { id: inId, x: plaats.x, y: plaats.y, line: plaats.line, posNum: plaats.posNum, posCodeVeld: plaats.posCodeVeld },
+  ]));
+  return true;
+}
+// Twee spelers van plaats laten ruilen in de doelopstelling.
+function pauzeRuilInDoel(m, aId, bId) {
+  const doel = nextLineupOf(m);
+  const a = doel.find(e => e.id === aId), b = doel.find(e => e.id === bId);
+  if (!a || !b) return false;
+  const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+  a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+  b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
+  _pasNextLineupAan(m, doel);
+  return true;
+}
+// Eén speler naar een (lege) plek in de doelopstelling. Staat er al iemand, dan neemt die de oude
+// plaats over — zelfde uitkomst als tikken op het veld, en nooit twee shirts op één plek.
+function pauzeVerhuisInDoel(m, aId, code) {
+  const plek = gridPlek(code);
+  const doel = nextLineupOf(m);
+  const a = doel.find(e => e.id === aId);
+  if (!plek || !a) return false;
+  const bewoner = doel.find(e => e.id !== aId && e.x === plek.x && e.y === plek.y);
+  if (bewoner) { bewoner.x = a.x; bewoner.y = a.y; bewoner.line = a.line; bewoner.posNum = a.posNum; bewoner.posCodeVeld = a.posCodeVeld; }
+  a.x = plek.x; a.y = plek.y; a.line = plek.line;
+  a.posNum = matchGridNummer(m, plek.code) || '';
+  a.posCodeVeld = plek.code;
+  _pasNextLineupAan(m, doel);
+  return true;
 }
 // Wat er niet klopt aan de doelopstelling zoals ze nu staat. Bewust niet opgeslagen: het is een
 // vaststelling over de huidige stand, geen gegeven van de wedstrijd.
@@ -3480,9 +3556,10 @@ function _voerPlannedSubUit(s, mode) {
   const probleem = plannedSubProbleem(match, s);
   if (probleem) return probleem;
   if (mode === 'break') {
-    // In de pauze bestaat "nu" niet: dan is doorvoeren hetzelfde als een pauzewissel inplannen.
-    match.pendingSubs = match.pendingSubs || [];
-    match.pendingSubs.push({ outId: s.outId, inId: s.inId });
+    // In de pauze bestaat "nu" niet: dan is doorvoeren hetzelfde als de doelopstelling aanpassen —
+    // zie pauzeWisselInDoel. Rechtstreeks in de pendings schrijven zette iets klaar dat niet op het
+    // pauzeveld stond en dat bij de eerstvolgende tik weer verdween.
+    if (!pauzeWisselInDoel(match, s.outId, s.inId)) return `${pName(match, s.outId)} staat niet in de opstelling van het volgende ${pSingLow(match)}.`;
   } else {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
     // Zelfde afhandeling als confirmSub(): posBefore vastleggen, positie overnemen, keeper volgen.
@@ -3506,8 +3583,7 @@ function _voerPlannedPosSwapUit(s, mode) {
   if (!doelId) {
     if (!s.naarPlek || !gridPlek(s.naarPlek)) return 'Er staat niemand op die positie.';
     if (mode === 'break') {
-      match.pendingPosSwaps = match.pendingPosSwaps || [];
-      match.pendingPosSwaps.push({ pA: s.pA, pB: null, naarPlek: s.naarPlek });
+      if (!pauzeVerhuisInDoel(match, s.pA, s.naarPlek)) return `${pName(match, s.pA)} staat niet in de opstelling van het volgende ${pSingLow(match)}.`;
     } else {
       const pA = match.players.find(p => p.id === s.pA);
       if (!pA) return 'Die speler zit niet meer in de selectie.';
@@ -3519,8 +3595,7 @@ function _voerPlannedPosSwapUit(s, mode) {
     return null;
   }
   if (mode === 'break') {
-    match.pendingPosSwaps = match.pendingPosSwaps || [];
-    match.pendingPosSwaps.push({ pA: s.pA, pB: doelId });
+    if (!pauzeRuilInDoel(match, s.pA, doelId)) return 'Die spelers staan niet allebei in de opstelling van het volgende deel.';
   } else {
     const pA = match.players.find(p => p.id === s.pA), pB = match.players.find(p => p.id === doelId);
     if (!pA || !pB) return 'Een van beide spelers zit niet meer in de selectie.';
@@ -3760,8 +3835,11 @@ async function confirmPosSwap() {
     // Echte pauze-positiewissel: enkel tussen de delen ÉN niet in retro-modus. Zelfde conditie als
     // modalPosSwap() hierboven en als de pauzewissel-variant in confirmSub().
     if (match.quarterStatus === 'between' && _postEventQuarter === null) {
-      match.pendingPosSwaps = match.pendingPosSwaps || [];
-      match.pendingPosSwaps.push({ pA: posSwapA, pB: posSwapB });
+      // Via de doelopstelling — zie de uitleg bij de pauzewissel in confirmSub().
+      if (!pauzeRuilInDoel(match, posSwapA, posSwapB)) {
+        showToast(`Die spelers staan niet allebei in de opstelling van ${pSingLow(match)} ${match.currentQuarter + 1}.`, 'err');
+        return;
+      }
       uitgevoerd = true;
       await dbSave(match); closeModal(); render();
       return;
@@ -3810,11 +3888,13 @@ async function confirmPosVerhuis() {
   let uitgevoerd = false;   // zie confirmPosSwap()
   try {
     if (match.quarterStatus === 'between' && _postEventQuarter === null) {
-      match.pendingPosSwaps = match.pendingPosSwaps || [];
-      // Zelfde plek nog eens kiezen voor dezelfde speler = de geplande verhuizing weer weghalen.
-      const i = match.pendingPosSwaps.findIndex(s => s.pA === posSwapA && !s.pB && s.naarPlek === posSwapDoel);
-      if (i >= 0) match.pendingPosSwaps.splice(i, 1);
-      else match.pendingPosSwaps.push({ pA: posSwapA, pB: null, naarPlek: posSwapDoel });
+      // Via de doelopstelling — zie de uitleg bij de pauzewissel in confirmSub(). De oude
+      // "nog eens tikken = weer weghalen"-truc is daarmee verdwenen: je zet de speler nu gewoon op
+      // een andere plek, en het veld toont meteen waar hij staat.
+      if (!pauzeVerhuisInDoel(match, posSwapA, posSwapDoel)) {
+        showToast(`${pName(match, posSwapA)} staat niet in de opstelling van ${pSingLow(match)} ${match.currentQuarter + 1}.`, 'err');
+        return;
+      }
       uitgevoerd = true;
       await dbSave(match); closeModal(); render();
       return;
@@ -3877,6 +3957,13 @@ async function logCard(color, pid) {
         if (p) p.onField = false;
         showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');
       }
+    }
+    // Uitgesloten = niet meer op het veld, ook niet in het volgende deel. Staat hij in de getekende
+    // opstelling van dat deel, dan hoort hij daar meteen uit: het pauzeveld beloofde hem anders nog,
+    // terwijl startQuarter hem terecht overslaat — scherm en werkelijkheid liepen dan uiteen.
+    // Dezelfde regel als bij afwezig melden (doMarkAbsent), maar via de kaartendeur.
+    if (Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === pid) && isUitgesloten(match, pid)) {
+      _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== pid));
     }
     await dbSave(match); closeModal(); render();
     requestAnimationFrame(() => {
