@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.0.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.0.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1205,6 +1205,19 @@ function vertrokkenIds(m, voorDeel) {
 function isVertrokken(m, pid) { return vertrokkenIds(m).has(pid); }
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
+// Kan je deze speler NOG opstellen of inwisselen? Bovenop magOpHetVeld: wie de wedstrijd verlaten
+// heeft (naar huis, tweede veld) is niet afwezig en niet uitgesloten — hij was er wél en speelde
+// mee — maar je kan hem niet meer opstellen. Hij stond zelfs bovenaan elke banklijst, want die
+// sorteren op minst gespeeld (gemeld 22-08-2026).
+// BEWUST EEN APARTE FUNCTIE, niet in magOpHetVeld: die wordt ook gebruikt om het VERLEDEN te
+// tekenen — de bewaarde startopstelling, het plan, de opstelling per blok in het verslag en de PDF.
+// Iemand die in het laatste blok vertrok, hoort in de opstelling van blok 1 gewoon te blijven staan.
+// `voorDeel` volgt hetzelfde tijdvenster als vertrokkenIds: laat je het weg, dan geldt "ooit
+// vertrokken", wat voor het heden het juiste antwoord is (een vertrek in de toekomst bestaat niet).
+function magNogMeedoen(m, p, voorDeel) {
+  if (!magOpHetVeld(m, p)) return false;
+  return !vertrokkenIds(m, voorDeel).has(p.id);
+}
 function recomputeOnField(m) {
   // Wie als "niet aanwezig" gemarkeerd is, staat nooit op het veld — wat de events ook zeggen.
   // De beginstand hield daar al rekening mee, maar de replay hieronder zette een speler die

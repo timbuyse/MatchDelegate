@@ -450,6 +450,9 @@ async function startQuarter(zonderControle) {
     // Uitgesloten speler (rode kaart) mag niet vervangen worden en dus ook zelf niet het veld op:
     // de plaats van wie eruit ging blijft dan gewoon leeg — de ploeg speelt met een man minder.
     if (isUitgesloten(match, pIn.id)) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} is uitgesloten (rode kaart).`, 'err'); continue; }
+    // Vertrokken tijdens de pauze (naar huis, tweede veld): hij kan het volgende blok niet starten.
+    // De doelopstelling filtert hem al weg, dit is het vangnet voor wissels die er al stonden.
+    if (isVertrokken(match, pIn.id)) { showToast(`Ingeplande wissel overgeslagen: ${pIn.name} heeft de wedstrijd verlaten.`, 'err'); continue; }
     // posBefore = positie van pIn vóór deze wissel (meestal geen, tenzij hij al eerder op het
     // veld stond en nadien terugkeert) — nodig zodat playersAtPeriodStart() een speler die
     // meermaals in-en-uit gewisseld wordt correct kan terugspoelen i.p.v. hem simpelweg naar
@@ -485,7 +488,7 @@ async function startQuarter(zonderControle) {
   for (const s of subsErbij) {
     const pIn = match.players.find(p => p.id === s.inId);
     const plek = s.naarPlek ? gridPlek(s.naarPlek) : null;
-    if (!pIn || !plek || !magOpHetVeld(match, pIn)) continue;
+    if (!pIn || !plek || !magNogMeedoen(match, pIn)) continue;
     // posBefore ook hier, om dezelfde reden als bij een gewone wissel: een speler die eerder al op
     // het veld stond en nu terugkomt, moet bij het terugspoelen zijn vórige plaats terugkrijgen.
     // Ontbrak dat, dan zette de reconstructie hem op "geen positie" — en dan viel de startopstelling
@@ -910,7 +913,8 @@ function modalShootout() {
   const st = shootoutStand(m);
   // Wie mag er nemen? Iedereen uit de selectie die niet afwezig of uitgesloten is — na de wedstrijd
   // telt "wie stond er op het veld" niet meer, iedereen mag aan de stip komen.
-  const kiesbaar = eigen ? (m.players || []).filter(p => magOpHetVeld(m, p)) : [];
+  // Wie de wedstrijd verlaten heeft, staat niet meer aan de stip.
+  const kiesbaar = eigen ? (m.players || []).filter(p => magNogMeedoen(m, p)) : [];
   const gekozen = shootoutSchutterId && kiesbaar.some(p => p.id === shootoutSchutterId) ? shootoutSchutterId : null;
   if (!gekozen) shootoutSchutterId = null;
   // Wie al genomen heeft, krijgt een merkje: bij een jeugdreeks wil je iedereen een beurt geven.
@@ -2197,6 +2201,10 @@ async function markLeftField(pid) {
     }
     addEvent('injury', { playerId: pid, injuryType: 'vertrokken', leavesField: true });
     p.onField = false;
+    // Ook uit de getekende opstelling van het volgende blok — zie confirmInjury.
+    if (Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === pid)) {
+      _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== pid));
+    }
     await dbSave(match);
     modalSubAfterInjury(pid, 'vertrokken');
   } finally { _eventBusy = false; }
@@ -2554,15 +2562,18 @@ function modalSub(behoud) {
   const on = veldVoorWisselScherm(match);
   const mins = calcMinutes(match);
   const onIds = new Set(on.map(p => p.id));
-  // bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is
-  const off = match.players.filter(p => !onIds.has(p.id) && magOpHetVeld(match, p)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
+  const qNum = _postEventQuarter != null ? _postEventQuarter : (between ? match.currentQuarter + 1 : match.currentQuarter);
+  // Bank gesorteerd op minst gespeeld, zodat eerlijke rotatie makkelijk is. magNogMeedoen i.p.v.
+  // magOpHetVeld: wie de wedstrijd verlaten heeft, stond hier — met zijn lage speeltijd zelfs
+  // bovenaan — terwijl hij al naar huis was. Het deel meegeven, want bij een event dat je ACHTERAF
+  // aan een vroeger blok toevoegt was hij toen misschien nog gewoon aanwezig.
+  const off = match.players.filter(p => !onIds.has(p.id) && magNogMeedoen(match, p, qNum)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
   if (!behoud) { subOut = null; subIn = null; }
   // Een selectie die niet meer klopt (bv. na het wisselen van deel) niet laten hangen.
   if (subOut && !onIds.has(subOut)) subOut = null;
   if (subIn && onIds.has(subIn)) subIn = null;
-  const qNum = _postEventQuarter != null ? _postEventQuarter : (between ? match.currentQuarter + 1 : match.currentQuarter);
   const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}`
     : (_postEventQuarter != null ? `${icI(IC.swap)} Wissel · ${pSing(match)} ${_postEventQuarter}` : `${icI(IC.swap)} Wissel`);
   const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
@@ -2594,6 +2605,12 @@ async function confirmSub() {
   // in zijn plaats komen, dus de ploeg speelt met een man minder.
   if (isUitgesloten(match, subIn)) {
     showToast(`${pName(match, subIn)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
+    subIn = null; modalSub(true); return;
+  }
+  // Zelfde vangnet voor wie de wedstrijd verliet: hij staat niet meer in de banklijst, maar een
+  // selectie die nog van vóór zijn vertrek dateert (of een tweede toestel) zou hier alsnog door.
+  if (isVertrokken(match, subIn)) {
+    showToast(`${pName(match, subIn)} heeft de wedstrijd verlaten.`, 'err');
     subIn = null; modalSub(true); return;
   }
   if (_eventBusy) return;
@@ -2653,7 +2670,7 @@ function previewNextLineup(m) {
     const o = byId(s.outId), i = byId(s.inId);
     if (!o) continue;
     if (!s.inId || !i) { o.onField = false; continue; }   // eenzijdig: eraf, plaats blijft leeg
-    if (!magOpHetVeld(m, i)) continue;                    // zelfde regels als startQuarter, incl. rood
+    if (!magNogMeedoen(m, i)) continue;                   // zelfde regels als startQuarter: rood én vertrokken
     i.x = o.x; i.y = o.y; i.line = o.line; i.posNum = o.posNum;
     o.onField = false; i.onField = true;
   }
@@ -2673,7 +2690,7 @@ function previewNextLineup(m) {
   // Ronde 3: wie erbij komt zonder tegenhanger, op zijn nu vrijgekomen plek.
   for (const s of (m.pendingSubs || []).filter(s => !s.outId)) {
     const i = byId(s.inId), plek = s.naarPlek ? gridPlek(s.naarPlek) : null;
-    if (i && plek && magOpHetVeld(m, i)) { zetOpGridPlek(i, plek, m); i.onField = true; }
+    if (i && plek && magNogMeedoen(m, i)) { zetOpGridPlek(i, plek, m); i.onField = true; }
   }
   return players;
 }
@@ -2727,9 +2744,12 @@ function _pasNextLineupAan(m, entries) {
   // afwezig melden): dit is de énige schrijfweg naar de doelopstelling, net zoals lineupOntdubbel
   // hier de regel "één speler per plek" bewaakt. Een rode kaart tijdens het spel kwam anders
   // alsnog binnen via het plan, dat pas ná die kaart de opstelling van het volgende deel wordt.
+  // magNogMeedoen: ook wie de wedstrijd verlaten heeft valt weg — die kan het volgende blok niet
+  // meer starten. Het venster is het blok dat gaat beginnen.
+  const deel = (m.currentQuarter || 0) + 1;
   const bruikbaar = entries.filter(e => {
     const p = m.players.find(x => x.id === e.id);
-    return p && magOpHetVeld(m, p);
+    return p && magNogMeedoen(m, p, deel);
   });
   const schoon = lineupOntdubbel(bruikbaar);
   m.nextLineup = schoon;
@@ -2868,7 +2888,7 @@ function lineupTap(kind, id) {
     if (!sel) { showToast('Tik eerst de speler die je daar wil zetten.', 'err'); return; }
     const speler = m.players.find(p => p.id === sel.id);
     if (!speler) { _lineupSel = null; render(); return; }
-    if (!magOpHetVeld(m, speler)) {
+    if (!magNogMeedoen(m, speler, (m.currentQuarter || 0) + 1)) {
       showToast(`${fieldName(m, speler.id)} kan niet op het veld.`, 'err');
       _lineupSel = null; render(); return;
     }
@@ -2895,7 +2915,7 @@ function lineupTap(kind, id) {
   const bankId = sel.kind === 'bench' ? sel.id : id;
   const veldId = sel.kind === 'bench' ? id : sel.id;
   const bankSpeler = m.players.find(p => p.id === bankId);
-  if (!bankSpeler || !magOpHetVeld(m, bankSpeler)) {
+  if (!bankSpeler || !magNogMeedoen(m, bankSpeler, (m.currentQuarter || 0) + 1)) {
     showToast(`${fieldName(m, bankId)} kan niet op het veld.`, 'err');
     render(); return;
   }
@@ -2925,7 +2945,9 @@ function pauseLineupHtml(m) {
     const p = m.players.find(x => x.id === e.id);
     return p ? { ...p, ...e, onField: true } : null;
   }).filter(Boolean);
-  const bench = m.players.filter(p => !opVeld.has(p.id) && magOpHetVeld(m, p))
+  // magNogMeedoen: wie vertrokken is hoort niet op de bank van het volgende blok — en stond daar
+  // met zijn lage speeltijd zelfs bovenaan.
+  const bench = m.players.filter(p => !opVeld.has(p.id) && magNogMeedoen(m, p, deel))
     .sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const mm = id => playedMin(mins[id]?.ms);
   const selId = _lineupSel ? _lineupSel.id : null;
@@ -3130,6 +3152,7 @@ function plannedSubProbleem(m, s) {
   if (!uit || !inn) return 'Een van beide spelers zit niet meer in de selectie.';
   if (inn.absent) return `${pName(m, s.inId)} is afwezig gemarkeerd.`;
   if (isUitgesloten(m, s.inId)) return `${pName(m, s.inId)} is uitgesloten (rode kaart) en mag niet meer op het veld.`;
+  if (isVertrokken(m, s.inId)) return `${pName(m, s.inId)} heeft de wedstrijd verlaten.`;
   if (!veld.has(s.outId)) return `${pName(m, s.outId)} staat niet op het veld.`;
   if (veld.has(s.inId)) return `${pName(m, s.inId)} staat al op het veld.`;
   return null;
@@ -4023,7 +4046,9 @@ function modalInjury(preId, soort) {
   // (Voordien: playersOnFieldForEvent alleen. Punt uit de veldtest van 22-08-2026.)
   const opVeld = playersOnFieldForEvent(match);
   const opVeldIds = new Set(opVeld.map(p => p.id));
-  const bank = (match.players || []).filter(p => !opVeldIds.has(p.id) && magOpHetVeld(match, p));
+  // Wie al vertrokken is, hoort hier niet meer: hem nóg eens laten vertrekken of blesseren kan niet.
+  // Bij een event dat je achteraf aan een vroeger blok hangt, was hij toen misschien nog aanwezig.
+  const bank = (match.players || []).filter(p => !opVeldIds.has(p.id) && magNogMeedoen(match, p, _postEventQuarter != null ? _postEventQuarter : undefined));
   const lijst = [...opVeld, ...sortedByName(bank)];
   injPlayerId = (preId && lijst.some(p => p.id === preId)) ? preId : null;
   injType = soort === 'vertrokken' ? 'vertrokken' : 'kramp';
@@ -4090,6 +4115,12 @@ async function confirmInjury() {
     const stondOpHetVeld = playersOnFieldForEvent(match).some(p => p.id === injPlayerId);
     addEvent('injury', extra);
     if (leavesField) { const p = match.players.find(x => x.id === injPlayerId); if (p) p.onField = false; }
+    // Vertrekt hij, dan hoort hij ook uit de getekende opstelling van het volgende blok — zelfde
+    // regel als bij afwezig melden en bij een rode kaart. Vertrok hij tijdens de PAUZE, dan stond
+    // die opstelling er al mét hem in, en zette de start hem alsnog het veld op.
+    if (injType === 'vertrokken' && Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === injPlayerId)) {
+      _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== injPlayerId));
+    }
     await dbSave(match);
     if (leavesField && stondOpHetVeld) { modalSubAfterInjury(injPlayerId, injType === 'vertrokken' ? 'vertrokken' : undefined); }
     else { closeModal(); render(); }

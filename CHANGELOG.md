@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.0.3
+Laatste van de vijf punten uit de zijlijntest van 22-08.
+
+### Wie de wedstrijd verlaten heeft, doet niet meer mee
+- **Een vertrokken speler bleef overal kiesbaar** — en omdat de banklijsten op minst gespeeld
+  sorteren, stond hij vaak bovenaan als eerst voorgestelde invaller, terwijl hij al thuis was. Eén
+  verstrooide tik en je had iemand opgesteld die er niet was.
+- Hij verdwijnt nu uit de wisselkeuze, de bank van het pauzescherm en van het livescherm, het
+  blessurescherm en de keuze wie een strafschop neemt. Een klaargezette wissel met hem als invaller
+  wordt geweigerd met de reden erbij.
+- **Vertrekt hij tijdens de pauze**, dan verdwijnt hij ook meteen uit de getekende opstelling van
+  het volgende blok — anders zette de start hem alsnog het veld op. Dezelfde regel gold al voor
+  afwezig melden en voor een rode kaart.
+- **Het verleden blijft ongemoeid**, en dat was hier de moeilijkheid: iemand die in het laatste blok
+  vertrok, hoort in de startopstelling en in de blokken die hij wél speelde gewoon te blijven staan,
+  met zijn speelminuten. Daarom is dit een aparte regel ("mag nog meedoen") naast de bestaande ("mag
+  op het veld staan"), in plaats van die laatste aan te passen — die wordt namelijk ook gebruikt om
+  het verslag en de PDF te tekenen.
+- Gemeten: het scenario met een vertrokken speler valt volledig uit de foutenlijst, en de
+  scenariolijst zakt van 7 naar 4 meldingen — wat overblijft zijn twee bewuste keuzes (met meer
+  spelers dan plaatsen mogen starten, en het correctieveld bij het afsluiten van een blok).
+
 ## v1.0.2
 Het pauzeveld toont voortaan altijd wat er écht gaat gebeuren. Twee vondsten uit de zijlijntest
 met dezelfde wortel, plus een derde die tijdens het testen bovenkwam.

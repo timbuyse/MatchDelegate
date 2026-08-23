@@ -1956,7 +1956,9 @@ function sortedByName(list) { return (list || []).slice().sort(byLastNameNl); }
 function playersOnField(m) { return sortedByName(m.players.filter(p => p.onField && !p.absent)); }
 // Bank = wie ingezet kan worden. Een uitgesloten speler (rode kaart) hoort daar niet in: hij mag
 // niet meer op het veld en zou hier aantikbaar staan (zie magOpHetVeld in core.js).
-function playersOnBench(m) { return sortedByName(m.players.filter(p => !p.onField && magOpHetVeld(m, p))); }
+// magNogMeedoen: ook wie de wedstrijd verlaten heeft valt weg. Dit is de bank van NU (livescherm,
+// wissel na blessure), dus zonder tijdvenster — een vertrek in de toekomst bestaat niet.
+function playersOnBench(m) { return sortedByName(m.players.filter(p => !p.onField && magNogMeedoen(m, p))); }
 // Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
 function playersOnFieldForEvent(m) {
   if (_postEventQuarter != null) return playersAtPeriodStart(m, _postEventQuarter);
