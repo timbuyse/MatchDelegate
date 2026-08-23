@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.16
+### Een vergeten wedstrijd is nu te zien, en de kalender zegt hetzelfde als de lijst
+- **Wat er misging.** Een wedstrijd waarvan de datum voorbij is en die je nooit hebt afgesloten, zag er
+  in de lijst **precies uit als een gewone geplande**: dezelfde oranje rand, dezelfde badge "Gepland".
+  Net het geval waar jij nog iets moet doen, was dus niet te onderscheiden van iets dat nog komt.
+- **Nu** hebben alle vijf de toestanden hun eigen kleur: live rood, gepland oranje, **niet afgesloten
+  geel** met de badge *Niet afgesloten*, gespeeld groenblauw, geannuleerd grijs. Geel leest als "dit
+  wacht op jou"; grijs blijft van geannuleerd, want dat gaat niet door.
+- **Op het beginscherm** stond een blok met de twee recentste van die wedstrijden — je zag nooit
+  hoeveel er in totaal open stonden. Nu staat er één regel met het **echte aantal**: *"3 wedstrijden
+  zijn niet afgesloten"*, met de reden erbij (ze tellen niet mee in de statistieken) en een knop naar
+  **alle** wedstrijden in die toestand. Op die lijst staat meteen het filterteken *Niet afgesloten* met
+  de teller, dus je ziet waarom ze korter is en zet hem met één tik uit.
+- **De kalenderstippen zeiden iets anders dan de lijst.** Gepland was daar blauw en gespeeld grijs,
+  terwijl de lijst oranje en groenblauw gebruikt. Nu volgen de stippen exact de lijst, met een gele
+  stip voor niet afgesloten. De legende krijgt die regel erbij — net als bij geannuleerd en tornooi
+  alleen wanneer zo'n wedstrijd er ook echt is.
+
 ## v1.1.15
 ### Twaalf kleine dingen uit de audit, in één keer
 - **De man van de match bleef niet.** Opende je een gespeelde wedstrijd opnieuw om bijvoorbeeld een

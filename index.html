@@ -152,6 +152,9 @@
     /* Geannuleerd: grijs, want er valt niets te doen en niets te zien. Doelbewust niet rood — rood
        is in dit scherm de kleur van "live". */
     .match-item.cancel-border{border-left-color:var(--txt2)}
+    /* Niet afgesloten: geel = "dit wacht op jou". Grijs was al van geannuleerd ("gaat niet door"),
+       oranje van gepland — zie matchNietAfgesloten in core.js. */
+    .match-item.open-border{border-left-color:var(--yl)}
     .mi-info{flex:1}
     .mi-opp{font-size:16px;font-weight:700}
     .mi-date{font-size:12px;color:var(--txt2);margin-top:2px}
@@ -162,6 +165,7 @@
     .badge-plan{background:var(--ornp);color:var(--orn2)}
     .badge-trn{background:var(--grnp);color:var(--grn2)}
     .badge-cancel{background:var(--bdr);color:var(--txt2)}
+    .badge-open{background:var(--ylp);color:#8a6100}
     .badge-type{background:var(--blk2);color:#fff;margin-left:5px}
     /* Soort wedstrijd (competitie/beker/...): omlijnd i.p.v. gevuld, zodat het naast de gevulde
        statusbadge en de zwarte vorm-badge leesbaar blijft zonder een derde kleur te schreeuwen. */
@@ -201,8 +205,14 @@
     .cal-num{font-size:13px;font-weight:700;line-height:1}
     .cal-dots{display:flex;gap:2px;min-height:6px}
     .cal-dot{width:6px;height:6px;border-radius:50%}
-    .cal-dot.plan{background:var(--org)}
-    .cal-dot.done{background:var(--txt2)}
+    /* Dezelfde kleuren als de randen in de wedstrijdenlijst (Tim, 23-08-2026). Gepland stond hier op
+       --org (dat is in deze app BLAUW, #2f74bd — het oranje heet --orn) terwijl de lijst oranje
+       gebruikt, en gespeeld stond op grijs terwijl de lijst groenblauw draagt. Zo beweerden de
+       kalender en de lijst iets anders over dezelfde wedstrijd. Grijs is nu vrij voor "niet
+       afgesloten"... maar dat werd geel, want grijs is van geannuleerd. */
+    .cal-dot.plan{background:var(--orn)}
+    .cal-dot.done{background:var(--tel)}
+    .cal-dot.open{background:var(--yl)}
     .cal-dot.live{background:var(--rd)}
     .cal-dot.trn{background:var(--grn)}
     /* Hol bolletje: op één stip grootte is een kleurverschil met de volle grijze "gespeeld"-stip niet

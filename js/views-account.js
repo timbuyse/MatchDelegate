@@ -2958,6 +2958,13 @@ let homeFilter = 'all';
 // `else` en herlaadde dus het beginscherm — dat op zoek gaat naar zijn eigen blok, dat er niet is, en
 // stil terugkeert. Gevolg: je koos een andere ploeg, de keuzelijst bleef op die ploeg staan alsof het
 // gelukt was, en er veranderde niets (audit 23-08-2026). kalenderHerlaad() kent het onderscheid al.
+// Van de melding op het beginscherm naar de volledige lijst van niet-afgesloten wedstrijden. Het
+// filterteken op die lijst laat zien dat er gefilterd is (en zet het met één tik weer uit).
+async function toonNietAfgesloten() {
+  matchFilter = { ...MATCH_FILTER_LEEG, status: 'nietaf' };
+  matchesWeergave = 'lijst';
+  await go('matches');
+}
 function setHomeFilter(v) {
   homeFilter = v;
   if (view === 'agenda') loadAgenda();
@@ -2971,8 +2978,13 @@ function matchItemHtml(m) {
   // wedstrijdscherm, net als een geplande — daar staat ook de knop om het weer ongedaan te maken.
   const zonderScore = st === 'planned' || af;
   const target = st === 'live' ? 'live' : zonderScore ? 'prep' : 'detail';
-  const border = st === 'live' ? 'live-border' : af ? 'cancel-border' : st === 'planned' ? 'plan-border' : '';
-  const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : af ? `<span class="badge badge-cancel">${icI(IC.close)} Geannuleerd</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
+  // VIJF TOESTANDEN (Tim, 23-08-2026). "Niet afgesloten" — datum voorbij, nooit afgewerkt — stond
+  // hiervoor als een gewone geplande wedstrijd: oranje rand, badge "Gepland". Nu geel: dat leest als
+  // "dit wacht op jou", terwijl grijs al van geannuleerd is ("dit gaat niet door"). Elke toestand
+  // heeft nu zijn eigen kleur, en de kalenderstippen volgen dezelfde indeling.
+  const nietAf = matchNietAfgesloten(m);
+  const border = st === 'live' ? 'live-border' : af ? 'cancel-border' : nietAf ? 'open-border' : st === 'planned' ? 'plan-border' : '';
+  const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : af ? `<span class="badge badge-cancel">${icI(IC.close)} Geannuleerd</span>` : nietAf ? `<span class="badge badge-open">${icI(IC.warn)} Niet afgesloten</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
   // Bij een strafschoppenreeks blijft de wedstrijdscore staan zoals ze is, met de reeks eronder in
   // het klein — "1-1" met daaronder "pen. 4-5". Zo blijft de uitslag leesbaar als uitslag.
   const right = zonderScore
@@ -3200,9 +3212,15 @@ async function loadHome() {
     : [];
   if (homeFilter !== 'all') openOud = openOud.filter(m => m.teamName === homeFilter);
   openOud.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  openOud = openOud.slice(0, 2);
+  // ÉÉN REGEL MET HET ECHTE AANTAL (Tim, 23-08-2026). Hier stonden de twee recentste kaartjes
+  // (`slice(0, 2)`): je zag nooit hoeveel er in totaal open stonden, en met vijf openstaande
+  // wedstrijden las dat als "er zijn er twee". Nu het volledige aantal, met een doorklik naar de
+  // wedstrijdenlijst gefilterd op precies deze toestand — daar staat het filterteken erbij, dus je
+  // ziet waarom die lijst korter is en je zet hem met één tik weer uit.
   const openOudHtml = openOud.length
-    ? `<div class="sec">${icI(IC.warn)} Niet afgesloten</div>${openOud.map(matchItemHtml).join('')}`
+    ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} <b>${openOud.length} ${openOud.length === 1 ? 'wedstrijd is' : 'wedstrijden zijn'} niet afgesloten</b><br>
+        <span style="font-size:13px;color:var(--txt2)">De datum is voorbij en er staat nog geen uitslag. Sluit ze af zodat ze in de statistieken meetellen.</span>
+        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="toonNietAfgesloten()">${icI(IC.ball)} ${openOud.length === 1 ? 'Wedstrijd' : 'Wedstrijden'} bekijken</button></div>`
     : '';
   const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd${upcoming.length > 1 ? 'en' : ''}</div>${upcomingHtml}` : '';
   const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
@@ -3253,7 +3271,10 @@ function matchFilterAantal() { return Object.keys(MATCH_FILTER_LEEG).filter(k =>
 function matchFilterPasToe(lijst) {
   return lijst.filter(m =>
     (matchFilter.kind === 'all' || matchKindOf(m) === matchFilter.kind)
-    && (matchFilter.status === 'all' || m.status === matchFilter.status)
+    // 'nietaf' is geen echte status maar een toestand (datum voorbij, nooit afgewerkt) — zie
+    // matchNietAfgesloten. Zo kan het beginscherm doorlinken naar precies díe wedstrijden, met het
+    // filterteken erbij zodat je ziet waarom de lijst korter is.
+    && (matchFilter.status === 'all' || (matchFilter.status === 'nietaf' ? matchNietAfgesloten(m) : m.status === matchFilter.status))
     && (matchFilter.seizoen === 'all' || seasonOf(m) === matchFilter.seizoen)
     && (matchFilter.locatie === 'all' || (m.location || '') === matchFilter.locatie)
     && (matchFilter.subteam === 'all' || (m.subteam || '') === matchFilter.subteam));
@@ -3271,7 +3292,7 @@ function wisMatchFilter() { matchFilter = { ...MATCH_FILTER_LEEG }; closeModal()
 // weer weg te halen.
 const MATCH_FILTER_LABEL = {
   kind: v => v === 'other' ? 'Andere soort' : v,
-  status: v => ({ planned: 'Gepland', live: 'Live', done: 'Gespeeld', cancelled: 'Geannuleerd' }[v] || v),
+  status: v => ({ planned: 'Gepland', nietaf: 'Niet afgesloten', live: 'Live', done: 'Gespeeld', cancelled: 'Geannuleerd' }[v] || v),
   locatie: v => v,
   seizoen: v => v,
   subteam: v => 'Ploeg ' + v,
@@ -3291,7 +3312,7 @@ function matchFilterVelden(alle) {
   const soorten = [...new Set([...MATCH_KINDS, ...alle.map(m => (m.competition || '').trim()).filter(Boolean)])];
   const velden = [
     { veld: 'kind', label: 'Soort wedstrijd', opties: [['all', 'Alle soorten'], ...soorten.map(s => [s, s])] },
-    { veld: 'status', label: 'Status', opties: [['all', 'Alle'], ['planned', 'Gepland'], ['live', 'Live'], ['done', 'Gespeeld'], ['cancelled', 'Geannuleerd']] },
+    { veld: 'status', label: 'Status', opties: [['all', 'Alle'], ['planned', 'Gepland'], ['nietaf', 'Niet afgesloten'], ['live', 'Live'], ['done', 'Gespeeld'], ['cancelled', 'Geannuleerd']] },
     { veld: 'locatie', label: 'Thuis of uit', opties: [['all', 'Allebei'], ['Thuis', 'Thuis'], ['Uit', 'Uit']] },
   ];
   if (seizoenen.length > 1) velden.push({ veld: 'seizoen', label: 'Seizoen', opties: [['all', 'Alle seizoenen'], ...seizoenen.map(s => [s, s])] });
@@ -3340,7 +3361,9 @@ function renderKalender(matches, tornooien = []) {
     if (!datum) return;
     (perDag[datum] = perDag[datum] || []).push(soort);
   };
-  matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : matchCancelled(m) ? 'cancel' : m.status === 'planned' ? 'plan' : 'done'));
+  // Zelfde vijf toestanden als het wedstrijdkaartje (matchItemHtml), zodat een stip en een regel in de
+  // lijst nooit iets anders beweren over dezelfde wedstrijd.
+  matches.forEach(m => voegToe(m.date, m.status === 'live' ? 'live' : matchCancelled(m) ? 'cancel' : matchNietAfgesloten(m) ? 'open' : m.status === 'planned' ? 'plan' : 'done'));
   tornooien.forEach(t => voegToe(t.date, 'trn'));
 
   // Maandag als eerste kolom (getDay() geeft zondag = 0).
@@ -3400,7 +3423,8 @@ function renderKalender(matches, tornooien = []) {
       <span><i class="cal-dot done"></i> gespeeld</span>
       ${/* Enkel wanneer er ook écht iets geannuleerd is — anders staat er een uitleg bij een stip die
            je nooit ziet. Zelfde regel als bij de tornooistip hiernaast. */ ''}
-      ${matches.some(matchCancelled) ? '<span><i class="cal-dot cancel"></i> geannuleerd</span>' : ''}
+      ${matches.some(matchNietAfgesloten) ? '<span><i class="cal-dot open"></i> niet afgesloten</span>' : ''}
+    ${matches.some(matchCancelled) ? '<span><i class="cal-dot cancel"></i> geannuleerd</span>' : ''}
       ${tornooien.length ? '<span><i class="cal-dot trn"></i> tornooi</span>' : ''}
     </div>
     <div class="sec">${esc(kop)}</div>

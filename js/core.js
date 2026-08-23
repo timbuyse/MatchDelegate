@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.15'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.16'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1021,6 +1021,23 @@ function tournamentClosed(t) { return !!(t && t.status === 'done'); }
 // 'done' staat (statistieken, tornooistanden, uitslagen) én uit die op 'planned' (komende wedstrijd,
 // "nog te spelen" in een tornooi). Alleen de weergave moet ze expliciet kennen.
 function matchCancelled(m) { return !!(m && m.status === 'cancelled'); }
+// NIET AFGESLOTEN: een wedstrijd waarvan de datum voorbij is en die nooit afgewerkt werd (Tim,
+// 23-08-2026). Zo'n wedstrijd was in de lijst niet te onderscheiden van een gewone geplande — zelfde
+// oranje rand, zelfde badge "Gepland" — terwijl het net het geval is waar jij nog iets moet doen.
+// Eén regel op één plek, want de lijst, het beginscherm en de kalenderstippen moeten alle drie
+// hetzelfde zeggen. `live` valt er buiten: die heeft haar eigen rode toestand.
+// Bewust `isoVandaag` en niet `vandaagISO`: die naam is in loadHome al een lokale const, en twee
+// dingen met dezelfde naam in één gedeelde naamruimte is precies waar deze audit fouten vond.
+// Eigen berekening (niet toISOString): die geeft de UTC-dag, dus tussen middernacht en 2 uur zou
+// "vandaag" de vorige dag zijn — dezelfde reden als bij isoDagVan.
+function isoVandaag() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function matchNietAfgesloten(m) {
+  if (!m || m.status === 'done' || m.status === 'live' || matchCancelled(m)) return false;
+  return !!m.date && m.date < isoVandaag();
+}
 // Tornooiselectie uitlezen. Nieuw formaat: squad.players (elk met sel 'mee'/'absent'). Oud formaat:
 // squad.base/bench/absent. Beide worden hier naar één lijst met een sel-veld genormaliseerd, zodat
 // elke aanroeper dezelfde spelers ziet (vroeger stond die normalisatie 5x apart, met verschillen).
