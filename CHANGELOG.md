@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.9
+### Het importscherm kon de app doen stilvallen
+- **Wat er misging.** De knop *Kalender importeren* is verborgen wanneer je niet mag beheren, maar via
+  de terugknop van je telefoon kwam je er wél. Het scherm zette dan geen toestand op en liep vast
+  midden in het tekenen: er veranderde niets op het scherm, terwijl de app dacht dat je op het
+  importscherm stond. **Vanaf dat moment crashte élke hertekening** — een lopende wedstrijd werd niet
+  meer bijgewerkt, meldingen verschenen niet meer, wijzigingen van een ander toestel bleven onzichtbaar.
+  De app leek bevroren. Nog eens op de terugknop tikken bracht je eruit, maar niets wees je daarop.
+- Dit gebeurde in elke situatie waarin je niet mag beheren: **geen verbinding** (het meest
+  waarschijnlijke: thuis inlezen, aan het veld je bereik verliezen, terugknop tikken), kijkmodus, of
+  als kijker. Een gast kwam er al niet, want daar bestond die poortwachter wél.
+- **Nu** stuurt de app je naar de wedstrijdenlijst, net zoals ze dat al deed voor het spelerdetail van
+  een kijker. En het tekenen heeft een vangnet: zonder toestand krijg je een gewoon scherm met een weg
+  terug in plaats van een vastgelopen app.
+
+### Een kalender inlezen kan niet meer zonder ploeg
+- **Wat er misging.** De import wachtte niet tot de spelers van je ploeg binnen waren — de knop
+  *+ Nieuwe wedstrijd* doet dat wel. Was de ploegenlijst nog leeg, dan werden alle wedstrijden
+  weggeschreven **zonder ploeg**, met "Ploeg" als naam. Elke lijst filtert op de ploegnaam, dus die
+  wedstrijden stonden daarna nergens meer op het scherm — terwijl de melding zei dat het gelukt was.
+  Het slot dat dit had moeten tegenhouden liet juist dat geval door.
+- **Nu** wacht het importscherm met dezelfde melding als bij een nieuwe wedstrijd, en wordt er zonder
+  ploeg niets weggeschreven: *"Maak eerst een ploeg aan — een wedstrijd hoort altijd bij een ploeg."*
+
 ## v1.1.8
 ### Een kalenderimport is nu terug te draaien
 - **Wat er misging.** Het inlezen van een kalender schreef in één keer nieuwe wedstrijden weg en werkte

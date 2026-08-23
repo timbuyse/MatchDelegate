@@ -25,6 +25,12 @@ let impSt = null;
 // ---------------------------------------------------------------------------------------------
 function impStart() {
   if (!canManage()) { showToast('Enkel een beheerder kan een kalender importeren.', 'err'); return; }
+  // Dezelfde wacht als bij "+ Nieuwe wedstrijd" (zie newMatch). Zonder deze controle kon je een hele
+  // kalender inlezen terwijl de kern nog onderweg was: getTeamsV2() is dan leeg, en dan schreef de
+  // import wedstrijden weg zónder ploeg en met "Ploeg" als naam. Elke lijst filtert op de ploegnaam,
+  // dus die wedstrijden staan daarna nergens meer op het scherm — terwijl de melding zegt dat het
+  // gelukt is. Precies de verdwijning van het incident van 21-08-2026 (audit 23-08-2026).
+  if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
   const teams = getTeamsV2();
   const team = (cloudReady && activeTeamId ? teamById(activeTeamId) : null) || teams[0] || null;
   const md = teamMatchDefaults(team);
@@ -45,6 +51,17 @@ function impStart() {
 
 function renderImportCal() {
   if (!impSt) impStart();
+  // VANGNET. impStart() weigert wanneer je niet mag beheren en laat impSt dan op null: dit las
+  // meteen daarna impSt.fase en gooide een fout midden in render(), waardoor #app nooit gevuld werd
+  // en elke volgende hertekening óók crashte — de app stond stil op het vorige scherm. De
+  // poortwachter in go() houdt dit geval nu tegen; dit vangnet zorgt dat een volgend vergeten geval
+  // nooit meer een bevroren app kan geven, maar een scherm met een weg terug.
+  if (!impSt) {
+    return `<div class="hdr"><button class="back" onclick="go('matches')">‹</button><h1>${icI(IC.upload)} Kalender importeren</h1></div>
+      <div class="content"><div class="empty"><div class="ei">${IC.upload}</div>
+        <p>Een kalender inlezen kan enkel een ploegbeheerder, en enkel met verbinding.</p></div>
+        <button class="btn btn-pale" onclick="go('matches')">Naar de wedstrijden</button></div>`;
+  }
   const body = impSt.fase === 'lijst' ? impLijstHtml() : impKiesHtml();
   return `<div class="hdr"><button class="back" onclick="impTerug()">‹</button><h1>${icI(IC.upload)} Kalender importeren</h1></div>
     <div class="content" id="imp-content">${body}</div>`;
@@ -767,7 +784,13 @@ async function impVoerUit() {
   const kiezen = impSt.regels.filter(r => r.aan);
   if (!kiezen.length) return;
   const team = teamById(impSt.teamId);
-  if (!team && getTeamsV2().length) { showToast('Kies eerst je eigen ploeg.', 'err'); return; }
+  // Hard blokkeren zonder ploeg. Dit stond er als `!team && getTeamsV2().length`, dus juist in het
+  // ergste geval — een lege ploegenlijst — liet het door, en dan werden wedstrijden weggeschreven met
+  // teamId '' en teamName 'Ploeg'. Zonder ploeg heeft een wedstrijd geen plaats om te staan.
+  if (!team) {
+    showToast(getTeamsV2().length ? 'Kies eerst je eigen ploeg.' : 'Maak eerst een ploeg aan — een wedstrijd hoort altijd bij een ploeg.', 'err');
+    return;
+  }
   let nieuw = 0, bijgewerkt = 0;
   // ONGEDAAN MAKEN NA EEN IMPORT (audit 23-08-2026). Voordien was een verkeerd bestand of een
   // verkeerde ploeg niet terug te draaien: dertig wedstrijden één per één openen en verwijderen, en

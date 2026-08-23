@@ -2591,6 +2591,12 @@ async function go(v, id, _histReplace) {
   if (v === 'playerDetail' && !canSeeStats()) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
   if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
+  // Kalender importeren kan enkel wie mag beheren. Deze poortwachter ontbrak, en de knop verbergen
+  // volstaat niet: via de terugknop van de telefoon kwam je er wél. renderImportCal zette dan geen
+  // toestand op (impStart weigert) en liep vast, waarna ÉLKE hertekening crashte — de app leek
+  // bevroren op het vorige scherm terwijl ze dacht dat je hier stond (audit 23-08-2026). Meest
+  // waarschijnlijke weg ernaartoe: thuis inlezen, aan het veld je verbinding verliezen, terugknop.
+  if (v === 'importcal' && !canManage()) v = 'matches';
   // Algemene gate: wie niet ingelogd is (en geen gast), hoort enkel op het auth-scherm, de
   // handleiding of de onderhoudspagina — via Handleiding → terug → Instellingen → terug kon
   // een afgemelde gebruiker anders op een leeg homescherm belanden zonder weg terug.
