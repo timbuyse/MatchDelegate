@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.16'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.17'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2831,9 +2831,11 @@ function updateCloudChip() {
   el.style.display = '';
   const effectiveAdmin = isAdmin && !viewerMode;
   const coBadge = (effectiveAdmin && pendingCoAdminCount) ? `<span class="req-badge">${pendingCoAdminCount}</span>` : '';
-  // Zegt "Ploeg" en niet meer "Beheer": de chip leidt sinds v1.1.0 naar het ploegscherm, waar
-  // spelers én mensen én ploeginstellingen samen staan. "Beheer" betekende op drie plaatsen in de
-  // app iets anders en is daarom als knopnaam verdwenen.
-  el.innerHTML = effectiveAdmin ? `${icI(IC.shirt)} Ploeg${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  // Weer "Beheer" (Tim, 23-08-2026). In v1.1.0 heette deze chip "Ploeg", omdat ze toen naar hetzelfde
+  // scherm leidde als de tegel Ploeg — één bestemming met twee namen. Sinds die twee gesplitst zijn
+  // (zie openSquad/teamScherm) leidt de chip naar het beheerdeel: mensen met toegang en de ploeg als
+  // geheel. De verwarring waar v1.1.0 bang voor was, is intussen weg: Clubbeheer en App-beheer zijn
+  // eigen schermen met hun eigen naam.
+  el.innerHTML = effectiveAdmin ? `${icI(IC.shield)} Beheer${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }

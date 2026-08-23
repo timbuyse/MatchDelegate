@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.17
+### Het ploegscherm is weer twee schermen: de ploeg apart van het beheer
+- **Wat er misging.** Sinds v1.0.4 stond alles over een ploeg op één lange lijst: de spelers en de standaardinstellingen, maar daaronder ook uitnodigen, leden, de ploegnaam, de kijkmodus en de prullenmand. Het dagelijkse werk (spelers bekijken of aanpassen) stond zo tussen handelingen die je een paar keer per seizoen doet. Scrollen om bij je spelers te komen, en telkens langs knoppen die je daar niet nodig had.
+- **Nu.** Twee schermen, en de knop waarmee je erin gaat bepaalt welk:
+  - De tegel **'Ploeg'** op het startscherm brengt je bij **de ploeg zelf**: de spelers, de trainers en ploegverantwoordelijken, en de standaardinstellingen.
+  - De groene knop **'Beheer'** rechtsboven brengt je bij **wie toegang heeft en de ploeg als geheel**: uitnodigen, leden, naam wijzigen, kijkmodus en prullenmand.
+  Onderaan elk van de twee staat de knop naar het andere, dus je moet niet eerst terug naar het startscherm. Het blijft ook één navigatiestap: de terugknop brengt je meteen terug naar waar je vandaan kwam, niet door twee versies van dezelfde ploeg.
+- **Bewerken begint nu met een potlood.** Op het ploegscherm stond een kaartje met het woord 'Aan'. Dat las als een schakelaar die al aanstond, terwijl het juist de knop was waarmee je begint te bewerken. Nu staat er een potlood; het kleurt groen zolang bewerken aanstaat.
+- Een kijker merkt niets van de splitsing: voor hem bestaat het beheerdeel niet en gaat zowel de tegel als de knop rechtsboven naar de ploeg met de spelers.
+- De handleiding is meegegaan (de pagina's over het ploegscherm en over beheerder zijn).
+
+---
+
 ## v1.1.16
 ### Een vergeten wedstrijd is nu te zien, en de kalender zegt hetzelfde als de lijst
 - **Wat er misging.** Een wedstrijd waarvan de datum voorbij is en die je nooit hebt afgesloten, zag er

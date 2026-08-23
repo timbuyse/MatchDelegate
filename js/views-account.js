@@ -2917,7 +2917,7 @@ const views = {
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openSquad()"></span>
+        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>

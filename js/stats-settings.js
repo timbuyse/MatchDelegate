@@ -765,7 +765,7 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Ploeg & spelers beheren',
     img: 'handleiding/screenshots/10_ploeg_bewerken.png',
     inhoud: `
-      <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je op het <b>ploegscherm</b>. Daar staat alles over deze ploeg bij elkaar: de spelers, de mensen met toegang en de ploeg zelf. Zet bovenaan <b>'Bewerken'</b> aan om iets te wijzigen:</p>
+      <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je op het <b>ploegscherm</b>: de spelers en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik bovenaan op het <b>potlood</b> om iets te wijzigen — het kleurt groen zolang je aan het bewerken bent:</p>
       <ul class="hdl-list">
         <li><b>Ploegnaam</b>.</li>
         <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
@@ -1062,12 +1062,12 @@ const HANDLEIDING_PAGINAS = [
     img: 'handleiding/screenshots/05_beheer.png',
     img2: 'handleiding/screenshots/05b_beheer_toegang.png',
     inhoud: `
-      <p>Alles over één ploeg staat op het <b>ploegscherm</b>. Je opent het met de tegel <b>'Ploeg'</b> op het startscherm, of met de knop <b>'Ploeg'</b> rechtsboven. Het heeft drie delen:</p>
+      <p>Eén ploeg heeft <b>twee schermen</b>, en de knop waarmee je erin gaat bepaalt welk:</p>
       <ul class="hdl-list">
-        <li><b>'De ploeg'</b> — de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Zet <b>'Bewerken'</b> aan om er iets aan te wijzigen.</li>
-        <li><b>'Mensen met toegang'</b> — <b>'Iemand uitnodigen'</b> deelt een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; via <b>'Leden'</b> promoveer of degradeer je hem, en keur je ploegbeheeraanvragen goed of af.</li>
-        <li><b>'Deze ploeg'</b> — de ploegnaam wijzigen, de <b>kijkmodus</b> (bekijk de ploeg zoals een ouder ze ziet), en de <b>Prullenmand</b>.</li>
+        <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
+        <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, de <b>ploegnaam</b> wijzigen, de <b>kijkmodus</b> (bekijk de ploeg zoals een ouder ze ziet) en de <b>Prullenmand</b>.</li>
       </ul>
+      <p>Onderaan elk van de twee staat de knop naar het andere, dus je hoeft niet eerst terug naar het startscherm.</p>
       <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
       <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
       <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden.</p>

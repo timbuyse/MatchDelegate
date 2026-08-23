@@ -45,7 +45,26 @@ function teamPosChange(i, val) {
   }
 }
 // Beheerder: ga rechtstreeks naar de spelerslijst van de huidige ploeg (1 roster per ploeg).
-function openSquad() { const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2(); if (arr.length === 1) openTeam(arr[0].id); else go('teams'); }
+// TWEE INGANGEN, TWEE SCHERMEN (Tim, 23-08-2026). De tegel "Ploeg" op het beginscherm en de groene
+// knop rechtsboven leidden naar hetzelfde scherm: dezelfde bestemming met twee namen, en dus een lange
+// pagina waarin de spelers en het ledenbeheer door elkaar stonden. Nu bepaalt de ingang wat je ziet:
+//   'ploeg'  — de ploeg zelf: standaardinstellingen, trainers en de spelerslijst (tegel "Ploeg").
+//   'beheer' — wie toegang heeft en wat je met de ploeg als geheel doet (de groene knop "Beheer").
+// Eén render-functie, want het is één ploeg met twee gezichten; dat houdt de terugknop en de
+// kijkersweergave op één plek.
+let teamScherm = 'ploeg';
+function openSquad(scherm) {
+  teamScherm = scherm === 'beheer' ? 'beheer' : 'ploeg';
+  const arr = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2();
+  if (arr.length === 1) openTeam(arr[0].id); else go('teams');
+}
+function openTeamBeheer() { openSquad('beheer'); }
+// Binnen hetzelfde scherm van gezicht wisselen: enkel hertekenen, geen nieuwe navigatiestap. Anders
+// zou de terugknop je door twee versies van dezelfde ploeg laten lopen.
+function toonTeamScherm(s) { teamScherm = (s === 'beheer') ? 'beheer' : 'ploeg'; render(); }
+// De groene knop rechtsboven: een beheerder komt in het beheerscherm, een kijker bij de ploeg zelf
+// (voor hem bestaat het beheerdeel niet).
+function openCloudChip() { openSquad((isAdmin && !viewerMode) ? 'beheer' : 'ploeg'); }
 function closeTeamEdit() { editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams'); }
 // De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
 // die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
@@ -114,11 +133,13 @@ function renderTeamView() {
   </div>`;
 }
 // ===================== PLOEGSCHERM =====================
-// Eén scherm met ALLES over één ploeg. Tot v1.0.4 stond dat verdeeld over twee schermen: de
-// spelers en de standaardinstellingen hier, de mensen (uitnodigen, leden, rollen) en de ploegnaam
-// in een apart "Beheer"-scherm. Dat was zo verwarrend dat er in dit scherm letterlijk stond dat je
-// voor de ploegnaam elders moest zijn. De blokken staan in de volgorde waarin je ze nodig hebt:
-// eerst de ploeg zelf, dan wie er toegang heeft, dan wat je met de ploeg als geheel doet.
+// Twee gezichten van hetzelfde scherm (Tim, 23-08-2026), gekozen met teamScherm:
+//   'ploeg'  — de ploeg zelf: spelers, trainers, standaardinstellingen. Dit is het dagelijkse werk.
+//   'beheer' — wie toegang heeft en de ploeg als geheel: uitnodigen, leden, naam, kijkmodus, prullenmand.
+// In v1.0.4 stond alles op één scherm samen. Dat werd één lange lijst waarin het dagelijkse werk
+// (spelers) tussen handelingen stond die je een paar keer per seizoen doet. Belangrijk: het blijft
+// ÉÉN navigatiestap — toonTeamScherm hertekent enkel, zodat de terugknop je niet door twee versies
+// van dezelfde ploeg laat lopen. Onderaan elk gezicht staat de weg naar het andere.
 function renderTeamOverview() {
   const t = editingTeam;
   const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
@@ -152,13 +173,28 @@ function renderTeamOverview() {
             (Tim, 23-08-2026): het zijn clubhandelingen, net als een ploeg aanmaken. Zo staan de drie
             bij elkaar en kan niemand vanuit het dagelijkse ploegscherm per ongeluk een ploeg wissen. */ ''}
     </div>` : '';
+  // BEHEERSCHERM: enkel de twee blokken over toegang en over de ploeg als geheel. Bestaan die hier
+  // niet (geen beheerder, of een ploeg die niet de actieve cloud-ploeg is), dan valt dit terug op de
+  // ploeg zelf — een scherm met enkel een terugknop is nooit het antwoord.
+  if (teamScherm === 'beheer' && (mensenBlok || ploegBlok)) {
+    return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>Beheer · ${esc(t.name)}</h1></div>
+    <div class="content">
+      ${mensenBlok}
+      ${ploegBlok}
+      <button class="btn btn-pale" style="margin-top:14px" onclick="toonTeamScherm('ploeg')">${icI(IC.shirt)} Naar de ploeg en de spelers</button>
+    </div>`;
+  }
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
     <div class="sec">De ploeg</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1"><b style="font-size:15px">${icI(IC.edit)} Bewerken</b><div style="font-size:12px;color:var(--txt2)">Spelers, rugnummers, trainers en de standaardinstellingen aanpassen.</div></div>
-        <span class="start-chip" onclick="toggleTeamEditMode()">Aan</span>
+        <div style="flex:1"><b style="font-size:15px">Spelers en instellingen</b><div style="font-size:12px;color:var(--txt2)">Spelers, rugnummers, trainers en de standaardinstellingen aanpassen.</div></div>
+        ${/* Een potlood in plaats van een chip met het woord "Aan" (Tim, 23-08-2026): "Aan" las als een
+             schakelaar die al aanstond, terwijl het de knop is waarmee je begint te bewerken. Het
+             potlood kleurt groen zodra bewerken aanstaat. */ ''}
+        <button class="lc-btn" onclick="toggleTeamEditMode()" aria-label="Bewerken" title="Bewerken"
+          style="${teamEditMode ? 'background:var(--grn);color:#fff;border-color:var(--grn)' : ''}">${icI(IC.edit)}</button>
       </div>
     </div>
     <div class="card">
@@ -167,8 +203,10 @@ function renderTeamOverview() {
     </div>
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
-    ${mensenBlok}
-    ${ploegBlok}
+    ${/* Mensen met toegang en "Deze ploeg" staan niet meer hieronder maar in het beheerscherm (de
+         groene knop rechtsboven). Enkel de weg ernaartoe blijft hier staan, zodat je niet eerst
+         terug moet naar het beginscherm. */ ''}
+    ${(mensenBlok || ploegBlok) ? `<button class="btn btn-pale" style="margin-top:14px" onclick="toonTeamScherm('beheer')">${icI(IC.shield)} Beheer: mensen met toegang en deze ploeg</button>` : ''}
   </div>`;
 }
 function renderTeamEdit() {
@@ -218,7 +256,11 @@ function renderTeamEdit() {
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
   const dpk = PERIOD_TYPES[editingTeam.defaultPeriodKey] ? editingTeam.defaultPeriodKey : 'kwarten';
   const ddur = Number(editingTeam.defaultQuarterDuration) > 0 ? Number(editingTeam.defaultQuarterDuration) : (DUR_DEFAULT[dpk] || 15);
-  return `<div class="hdr"><button class="back" onclick="${editingTeam.isNew ? 'closeTeamEdit()' : 'toggleTeamEditMode()'}">‹</button><h1>Ploeg bewerken</h1></div>
+  // Het potlood staat hier GROEN: dat is de toestand "bewerken staat aan" (Tim, 23-08-2026). In het
+  // overzicht is het grijs en zet je het aan; hier zegt het dat je aan het bewerken bent, en met één
+  // tik ben je klaar. Bij een nieuwe ploeg niet: daar is er nog geen overzicht om naar terug te keren,
+  // en de terugpijl sluit dan het hele scherm.
+  return `<div class="hdr"><button class="back" onclick="${editingTeam.isNew ? 'closeTeamEdit()' : 'toggleTeamEditMode()'}">‹</button><h1>Ploeg bewerken</h1>${editingTeam.isNew ? '' : `<button class="lc-btn" onclick="toggleTeamEditMode()" aria-label="Klaar met bewerken" title="Klaar met bewerken" style="background:var(--grn);color:#fff;border-color:var(--grn)">${icI(IC.edit)}</button>`}</div>
   <div class="content">
     <div class="card">
       <div class="fg"><label>Ploegnaam</label>${(cloudReady && !editingTeam.isNew)
