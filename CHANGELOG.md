@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.10
+### De planningskaart zegt nu waar een opstelling vandaan komt
+- **Wat er misging.** Bladerde je in het voorbereidingsscherm naar een kwart waarvoor je géén eigen
+  opstelling had ingegeven, dan toonde de kaart een veld waarin de geplande wissels van de vorige
+  kwarten **al doorgevoerd** waren. Maar geplande wissels gaan nooit vanzelf af. Wat je aan de trainer
+  liet zien als "zo begint kwart 3" was in werkelijkheid "zo begint kwart 3 als je die wissel in kwart
+  2 ook echt doorvoert" — en er stond geen woord bij. Nagemeten: de kaart toonde de invaller, en wie
+  die wissel niet doorvoerde begon kwart 3 met de speler die er nog stond.
+- De app zelf doet het wél correct: het pauzescherm toont altijd de werkelijkheid, en een niet
+  doorgevoerde wissel blijft klaarstaan. Alleen die kaart, dagen eerder, beloofde iets anders.
+- **Nu** staat onder elk veld waar die opstelling vandaan komt: *"De opstelling waarmee je aftrapt"*,
+  *"Eigen opstelling — de app zet ze klaar bij het einde van kwart 1"*, of *"Volgt kwart 2, met de
+  wissels die je onderweg doorvoert — geplande wissels gaan niet vanzelf af"*. Een kwart met een eigen
+  opstelling krijgt in de titel een ● , hetzelfde teken als in de planner, zodat je bij het bladeren
+  ziet welke kwarten je zelf hebt ingevuld.
+- **Enkel de weergave**: aan de berekening van die opstellingen en aan wat er bij een kwartovergang
+  gebeurt is niets gewijzigd.
+
 ## v1.1.9
 ### Het importscherm kon de app doen stilvallen
 - **Wat er misging.** De knop *Kalender importeren* is verborgen wanneer je niet mag beheren, maar via

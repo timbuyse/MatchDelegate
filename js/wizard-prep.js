@@ -1347,9 +1347,27 @@ function _prepPlanNav(dir) {
   const slides = wrap.querySelectorAll('.lc-slide');
   _prepPlanQ = Math.min(Math.max(1, _prepPlanQ + dir), total);
   slides.forEach((s, i) => s.style.display = (i === _prepPlanQ - 1) ? '' : 'none');
-  document.getElementById('pp-lbl').textContent = `${pSing(match)} ${_prepPlanQ} / ${total}`;
+  document.getElementById('pp-lbl').textContent = `${pSing(match)} ${_prepPlanQ} / ${total}${prepPlanEigen(match, _prepPlanQ) ? ' \u25cf' : ''}`;
   document.getElementById('pp-prev').disabled = _prepPlanQ === 1;
   document.getElementById('pp-next').disabled = _prepPlanQ === total;
+}
+// WAAR KOMT DIT VELD VANDAAN? (audit 23-08-2026 — enkel weergave, niets aan de berekening gewijzigd.)
+// Een blok met een EIGEN opstelling komt er ook echt: bij het einde van het vorige blok vergelijkt de
+// app het werkelijke veld met dat plan en zet ze de nodige wissels klaar. Een blok ZONDER eigen
+// opstelling is een gevolgtrekking: het erft het vorige blok mét de wissels die je daar plande — en
+// geplande wissels gaan nooit vanzelf af. Nagemeten: de kaart toonde voor kwart 3 de invaller, maar
+// wie die wissel in kwart 2 niet doorvoerde begon kwart 3 met de speler die er nog stond (het
+// pauzescherm zei dat wél correct). Die kaart zei daar niets over, en dat is het hele punt.
+function prepPlanEigen(m, q) { return (((m && m.plannedLineups) || {})[q] || []).length > 0; }
+function prepPlanHerkomstHtml(m, q) {
+  const stijl = 'font-size:12px;color:var(--txt2);line-height:1.4;margin:2px 0 10px';
+  if (q === 1) return `<div style="${stijl}">${icI(IC.shirt)} De opstelling waarmee je aftrapt.</div>`;
+  if (prepPlanEigen(m, q)) return `<div style="${stijl}">${icI(IC.check)} Eigen opstelling — de app zet ze klaar bij het einde van ${pSingLow(m)} ${q - 1}.</div>`;
+  // Het laatste blok vóór dit met een eigen opstelling; anders erft alles van de aftrap.
+  let vorige = 0;
+  for (let i = q - 1; i >= 2; i--) { if (prepPlanEigen(m, i)) { vorige = i; break; } }
+  const bron = vorige ? `${pSingLow(m)} ${vorige}` : `de startopstelling`;
+  return `<div style="${stijl}">${icI(IC.clipboard)} Volgt ${bron}, met de wissels die je onderweg <b>doorvoert</b> — geplande wissels gaan niet vanzelf af.</div>`;
 }
 function prepPlanningHtml(m, ro) {
   const total = plannedPartsCount(m);
@@ -1363,6 +1381,7 @@ function prepPlanningHtml(m, ro) {
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
       ${renderPitch(m, plannedLineupPlayers(m, lijst), m.captainId)}
+      ${prepPlanHerkomstHtml(m, q)}
       <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
       <div class="place-chips">${bank.length
         ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
@@ -1376,7 +1395,7 @@ function prepPlanningHtml(m, ro) {
   return `<div class="card"><div class="lc-wrap" id="pp-wrap">
     <div class="lc-nav">
       <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${_prepPlanQ === 1 ? 'disabled' : ''}>‹</button>
-      <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center">${pSing(m)} ${_prepPlanQ} / ${total}</span>
+      <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center" title="● = dit deel heeft een eigen opstelling">${pSing(m)} ${_prepPlanQ} / ${total}${prepPlanEigen(m, _prepPlanQ) ? ' ●' : ''}</span>
       <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${_prepPlanQ === total ? 'disabled' : ''}>›</button>
       ${potlood}
     </div>
