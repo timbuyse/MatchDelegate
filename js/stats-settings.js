@@ -516,7 +516,7 @@ function renderSettings(isFirst) {
   return `
   <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
-    ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Kijkers uitnodigen, beheren of verwijderen? Dat doe je via de <b>Beheer</b>-knop.</p>` : ''}
+    ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Kijkers uitnodigen, beheren of verwijderen? Dat doe je op het <b>ploegscherm</b>, bij "Mensen met toegang".</p>` : ''}
     <div class="sec">Weergave</div>
     <div class="card">
       <div><b style="font-size:15px">${icI(IC.moon)} Donkere modus</b><div style="font-size:12px;color:var(--txt2);margin-bottom:9px">Rustiger scherm, handig 's avonds. Met <b>Automatisch</b> volgt de app de instelling van je toestel${darkPref()==='auto'?` — nu ${systemDark()?'donker':'licht'}`:''}.</div>
@@ -560,12 +560,17 @@ function renderSettings(isFirst) {
       <button class="btn btn-pale" style="margin-top:8px" onclick="reportProblem()">${icI(IC.mail)} Probleem melden</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showPrivacyModal()">${icI(IC.shieldLock)} Privacyverklaring</button>
     </div>
-    ${canManage() ? `<div class="sec">Back-up &amp; herstel</div>
+    ${/* Heette "Back-up & herstel", maar dat botste met de Prullenmand: het één is overzetten naar
+          een ander toestel, het ander is terughalen wat je verwijderde. Twee knoppen die allebei
+          naar "iets van vroeger" klonken. De naam zegt nu wat het is — een bestand met wat er op
+          DIT toestel staat — en verwijst door voor het andere geval. */ ''}
+    ${canManage() ? `<div class="sec">Dit toestel</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Maak een back-up van je wedstrijden of zet ze terug op een ander toestel.</p>
-      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste back-up: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen back-up gemaakt.`}</p>`; })()}
-      <button class="btn btn-pale" onclick="exportBackup()">${icI(IC.download)} Back-up downloaden</button>
-      <label class="file-btn" style="margin-top:8px">${icI(IC.upload)} Back-up herstellen of importeren<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Een bestand met de wedstrijden en spelers die nu op dit toestel staan. Bedoeld om over te zetten naar een ander toestel.</p>
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:12px">Iets per ongeluk verwijderd? Dat haal je terug via de <b>Prullenmand</b> op het ploegscherm, niet hier.</p>
+      ${(() => { const t = localStorage.getItem('voetbal_last_backup'); return `<p style="font-size:12px;color:${t?'var(--txt2)':'var(--org2)'};margin-bottom:10px">${t?('Laatste bestand: '+fmtDate(+t)):`${icI(IC.warn)} Nog geen bestand gedownload.`}</p>`; })()}
+      <button class="btn btn-pale" onclick="exportBackup()">${icI(IC.download)} Bestand downloaden</button>
+      <label class="file-btn" style="margin-top:8px">${icI(IC.upload)} Bestand inlezen<input type="file" accept="application/json,.json" onchange="importBackup(this)"></label>
     </div>` : ''}
   </div>`;
 }
@@ -1052,13 +1057,13 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Als ploegbeheerder',
     img: 'handleiding/screenshots/05_beheer.png',
     inhoud: `
-      <p>Ben je ploegbeheerder van een ploeg? Dan heb je rechtsboven de groene knop <b>'Beheer'</b> met extra opties voor die ploeg:</p>
+      <p>Alles over één ploeg staat op het <b>ploegscherm</b>. Je opent het met de tegel <b>'Ploeg'</b> op het startscherm, of met de knop <b>'Ploeg'</b> rechtsboven. Het heeft drie delen:</p>
       <ul class="hdl-list">
-        <li><b>'Iemand uitnodigen'</b> — deel een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; je kan hem daarna via <b>'Leden'</b> promoveren tot ploegbeheerder.</li>
-        <li><b>'Leden'</b> — overzicht van alle kijkers en ploegbeheerders. Hier keur je ploegbeheeraanvragen goed of af, en promoveer of degradeer je leden.</li>
-        <li><b>'Kijkmodus'</b> — bekijk de ploeg als kijker.</li>
-        <li><b>'Teruggevonden'</b> — verwijderde wedstrijden en tornooien blijven bewaard. Hier zie je wat er gewist is, wanneer en door wie, en zet je het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</li>
+        <li><b>'De ploeg'</b> — de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Zet <b>'Bewerken'</b> aan om er iets aan te wijzigen.</li>
+        <li><b>'Mensen met toegang'</b> — <b>'Iemand uitnodigen'</b> deelt een uitnodiging via link, QR-code of code van 6 tekens. Wie via de link vervoegt, komt binnen als <b>kijker</b>; via <b>'Leden'</b> promoveer of degradeer je hem, en keur je ploegbeheeraanvragen goed of af.</li>
+        <li><b>'Deze ploeg'</b> — de ploegnaam wijzigen, de <b>kijkmodus</b> (bekijk de ploeg zoals een ouder ze ziet), en de <b>Prullenmand</b>.</li>
       </ul>
+      <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
       <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
       <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden.</p>
       <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
@@ -1331,9 +1336,14 @@ let pendingRestore = null;
 // eigenaar leesbaar. Er is geen tombstone-lijst: een verwijdering ís "staat niet meer in de cloud",
 // dus terugzetten is gewoon terugschrijven.
 let tgvState = null;   // { wedstrijden:[], tornooien:[], ploegen:[], fouten:[] }
+// Heet sinds v1.1.0 "Prullenmand" en hangt aan de ploeg (ploegscherm → Prullenmand), met voor de
+// eigenaar dezelfde ingang in App-beheer voor de verwijderde ploegen. Als "Teruggevonden" stond ze
+// in het oude Beheer-scherm, dat er anders uitzag naargelang je via het ploegscherm of via de
+// ploegenlijst binnenkwam — vandaar dat ze eens wel en dan weer niet leek te bestaan.
+let _tgvFrom = 'home';
 function renderTeruggevonden() {
   setTimeout(loadTeruggevonden, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.history)} Teruggevonden</h1></div>
+  return `<div class="hdr"><button class="back" onclick="go(_tgvFrom||'home')">‹</button><h1>${icI(IC.history)} Prullenmand</h1></div>
     <div class="content" id="tgv-content"><p style="text-align:center;color:var(--txt2)">Zoeken…</p></div>`;
 }
 async function loadTeruggevonden() {

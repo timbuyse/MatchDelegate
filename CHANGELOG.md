@@ -1,4 +1,4 @@
-# Changelog — MatchDelegate
+﻿# Changelog — MatchDelegate
 
 Leesbaar overzicht van de wijzigingen per versie, nieuwste bovenaan. Bedoeld als
 naslag naast de technische commit-messages. Versies vóór 0.5.19 staan in de
@@ -9,6 +9,49 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.0
+De beheerschermen zijn herschikt. Wat verspreid stond over negen plaatsen, staat nu op vier
+schermen — één per niveau: jij, de ploeg, de club, de app.
+
+### Het woord "Beheer" is als knopnaam verdwenen
+- **Wat er misging.** Er waren drie knoppen die "Beheer" of "Beheren" heetten en telkens iets
+  anders deden. Erger nog: één en hetzelfde scherm had twee inhouden. Kwam je er via het
+  homescherm, dan beheerde je de actieve ploeg; kwam je via de ploegenlijst, dan zag je de
+  eigenaarstools. Welke van de twee je kreeg, hing af van een onzichtbare schakelaar.
+- **Nu.** Elk scherm zegt waarover het gaat: **Ploeg**, **Clubbeheer**, **App-beheer**,
+  **Instellingen**.
+
+### Eén ploeg staat niet langer over twee schermen verdeeld
+- **Wat er misging.** De spelers en de standaardinstellingen zaten in het ene scherm, de mensen
+  (uitnodigen, leden, rollen) en de ploegnaam in het andere. Er stond letterlijk in het ene scherm
+  dat je voor de ploegnaam elders moest zijn.
+- **Nu.** Het ploegscherm heeft drie blokken in de volgorde waarin je ze nodig hebt: **De ploeg**
+  (spelers, trainers, standaardinstellingen), **Mensen met toegang** (uitnodigen, leden) en
+  **Deze ploeg** (naam, kijkmodus, prullenmand, verwijderen).
+
+### "Teruggevonden" heet Prullenmand en staat er altijd
+- **Wat er misging.** De knop verscheen alleen met internetverbinding én als beheerder, in een
+  scherm dat er anders uitzag naargelang waar je vandaan kwam. Ze leek dus eens wel en dan weer
+  niet te bestaan. Bovendien toonde één lijst drie verschillende dingen door elkaar.
+- **Nu.** De **Prullenmand** hangt aan de ploeg en staat er altijd, ook leeg. Verwijderde ploegen
+  zijn iets anders en zitten in App-beheer.
+
+### De clubkop is de ingang naar je club
+- Op **Jouw ploegen** staan de ploegen gegroepeerd per club. Beheer je die club, dan is de hele
+  clubbalk de knop naar Clubbeheer — niet meer een knopje van dertig pixels pal boven een ploegrij,
+  waar je met een vinger aan de zijlijn steevast naast tikte.
+- Wie een club beheert zonder er zelf een ploeg van te volgen, houdt de knop onderaan.
+
+### Kleinere dingen
+- Op het clubscherm heet "Beheren" bij een ploeg nu **Openen**, en het brengt je naar het
+  ploegscherm zelf in plaats van naar een beheerscherm.
+- Het clubscherm toont wie de club beheert. Aanstellen blijft bij de maker van de app.
+- De chip rechtsboven op het homescherm zegt **Ploeg** in plaats van "Beheer".
+- In Instellingen heet "Back-up & herstel" nu **Dit toestel**, met erbij wat er in dat bestand zit
+  en waar je moet zijn om iets verwijderds terug te halen. Dat botste met de Prullenmand: het één
+  is overzetten naar een ander toestel, het ander is terughalen.
+
+---
 ## v1.0.4
 Sluitstuk van de zijlijntest: het laatste verschil tussen de opgeslagen opstelling en wat de app
 ervan herberekent.

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.0.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1725,7 +1725,7 @@ async function doRequestAdmin() {
     // Bevestiging met e-mail-nudge: de maker krijgt geen automatische melding (geen
     // serverkant), dus bied aan om hem zelf even te verwittigen via e-mail.
     const mailSubject = encodeURIComponent('MatchDelegate: beheerdersaanvraag van ' + (currentUser.displayName || currentUser.email || ''));
-    const mailBody = encodeURIComponent('Dag,\n\nIk heb zonet in MatchDelegate een aanvraag ingediend om beheerder te worden (zelf ploegen aanmaken).\n\nNaam: ' + (currentUser.displayName || '') + '\nE-mail: ' + (currentUser.email || '') + '\n\nKan je ze goedkeuren via Beheer → Eigenaarstools → Beheerdersaanvragen?\n\nBedankt!');
+    const mailBody = encodeURIComponent('Dag,\n\nIk heb zonet in MatchDelegate een aanvraag ingediend om beheerder te worden (zelf ploegen aanmaken).\n\nNaam: ' + (currentUser.displayName || '') + '\nE-mail: ' + (currentUser.email || '') + '\n\nKan je ze goedkeuren via App-beheer?\n\nBedankt!');
     openModal(`<h3>${icI(IC.done)} Aanvraag verstuurd</h3>
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Zodra de maker je goedkeurt zie je het meteen in de app verschijnen.<br><br>De maker krijgt <b>geen automatische melding</b> — verwittig hem gerust even zelf:</p>
       <a class="btn btn-org" style="display:block;text-decoration:none;text-align:center" href="mailto:${FEEDBACK_EMAIL}?subject=${mailSubject}&body=${mailBody}">${icI(IC.mail)} Verwittig de maker via e-mail</a>
@@ -2761,13 +2761,16 @@ function viewerVisibilityHintHtml(keys) {
 function updateCloudChip() {
   const el = document.getElementById('cloud-chip');
   if (!el) return;
-  // Voor een gast leidt deze chip nergens naartoe (go('beheer') wordt door de guest-guard in
+  // Voor een gast leidt deze chip nergens naartoe (het ploegscherm wordt door de guest-guard in
   // go() stil teruggeschreven naar 'home' — "Vraag ploegbeheer aan" is sowieso niet mogelijk
   // zonder eigen account) — dan liever niet tonen dan een knop die niets zichtbaars doet.
   if (!cloudReady || !activeTeamId || isGuest) { el.style.display = 'none'; return; }
   el.style.display = '';
   const effectiveAdmin = isAdmin && !viewerMode;
   const coBadge = (effectiveAdmin && pendingCoAdminCount) ? `<span class="req-badge">${pendingCoAdminCount}</span>` : '';
-  el.innerHTML = effectiveAdmin ? `${icI(IC.edit)} Beheer${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  // Zegt "Ploeg" en niet meer "Beheer": de chip leidt sinds v1.1.0 naar het ploegscherm, waar
+  // spelers én mensen én ploeginstellingen samen staan. "Beheer" betekende op drie plaatsen in de
+  // app iets anders en is daarom als knopnaam verdwenen.
+  el.innerHTML = effectiveAdmin ? `${icI(IC.shirt)} Ploeg${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
 }

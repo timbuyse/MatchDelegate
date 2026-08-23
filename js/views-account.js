@@ -1,67 +1,36 @@
-// ===================== BEHEER (view) =====================
-// Beheerscherm voor de ACTIEVE ploeg: uitnodigen, leden, naam, kijkmodus, verwijderen
-// (of, voor een kijker: ploegbeheer aanvragen). Account zit in Instellingen (tandwiel),
-// systeembrede eigenaarstools op het ploegkeuzescherm. Vervangt de vroegere cloudLoginModal().
+// ===================== APP-BEHEER (view) =====================
+// Alles wat over de HELE app gaat: clubs en clubbeheerders, alle gebruikers, de prullenmand met
+// verwijderde ploegen, en de onderhoudsmodus. Enkel voor de eigenaar.
+//
+// Tot v1.0.4 heette dit scherm "Beheer" en had het TWEE inhouden in één view: kwam je via het
+// homescherm, dan beheerde je de actieve ploeg; kwam je via de ploegenlijst, dan zag je de
+// eigenaarstools. Welke van de twee je kreeg hing af van een onzichtbare schakelaar
+// (_beheerContext). Dat was de grootste bron van verwarring in de app: drie knoppen die "Beheer"
+// of "Beheren" heetten en telkens iets anders deden. Het ploeggedeelte is verhuisd naar het
+// ploegscherm (renderTeamOverview in teams-tournaments.js), waar het bij de spelers hoort.
 function renderBeheer() {
   // Eigenaar: eenmalig claimen (enkel als nog niet ingesteld)
   const ownerBlock = !ownerUid
     ? `<div class="sec">Eigenaar</div><div class="card"><button class="btn btn-org" onclick="claimOwner()"><span class="ic-i" style="font-size:1.1em">${IC.crown}</span> Ik ben de maker (eigenaar instellen)</button></div>`
     : '';
 
-  // Deze ploeg beheren: enkel getoond in de 'team'-context (vanaf het homescherm).
-  const teamBlock = (_beheerContext !== 'team') ? '' : (!activeTeamId
-    ? `<div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Kies eerst een ploeg om ze te beheren.</p></div>`
-    : (isAdmin ? `
-    <div class="sec">Deze ploeg</div>
+  const toolsBlock = (isOwner && !viewerMode) ? `
     <div class="card">
-      <button class="btn btn-green" onclick="showInviteModal()"><span class="ic-i" style="font-size:1.1em">${IC.qrcode}</span> Iemand uitnodigen</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
-      <button class="btn btn-pale" style="margin-top:8px" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam ploeg wijzigen</button>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
-        <span style="flex:1;font-size:13px;color:var(--txt2)">Deze ploeg bekijken als kijker</span>
-        <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
-      </div>
-      ${isApprovedAdmin ? `<button class="btn btn-red" style="margin-top:16px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
-    </div>` : (!isGuest ? `
-    <div class="sec">Deze ploeg</div>
-    <div class="card">
-      <button class="btn btn-pale" onclick="confirmRequestCoAdmin()">${icI(IC.edit)} Vraag ploegbeheer aan</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>
-    </div>` : '')));
-
-  // Systeembreed: beheerder worden (ploegen mogen aanmaken) + eigenaarstools. Enkel getoond
-  // in de 'system'-context (vanaf het ploegkeuzescherm).
-  // Fase 2e: de oude "Beheerder worden"-aanvraag is uitgefaseerd. Ploegen aanmaken verloopt nu
-  // uitsluitend via een club (de clubbeheerder maakt ze aan; de app-eigenaar stelt clubbeheerders aan).
-  const requestAdminBlock = '';
-  const ownerToolsBlock = (_beheerContext === 'system' && isOwner && !viewerMode) ? `
-    <div class="sec">${icI(IC.shield)} Eigenaarstools <span style="font-weight:400;text-transform:none;color:var(--txt2)">(systeembreed, alle ploegen)</span></div>
-    <div class="card">
-      <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs beheren</button>
+      <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs en clubbeheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
-      <button class="btn" style="margin-top:8px;background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
-    </div>` : '';
-
-  // "Mijn club beheren" staat rechtstreeks op het ploegkeuzescherm (renderTeamSelect), dus hier
-  // niet nog eens herhalen — dat gaf een dubbele ingang naar hetzelfde Clubbeheer-scherm.
-
-  // Teruggevonden: de back-ups van gewiste wedstrijden, tornooien en (voor de eigenaar) ploegen.
-  // Voor elke beheerder, want een trainer die zijn eigen wedstrijd wist, moet ze zelf terug kunnen
-  // halen zonder jou te moeten bellen. Enkel met verbinding: die back-ups staan in de cloud.
-  const teruggevondenBlock = (cloudReady && canManage() && !viewerMode) ? `
-    <div class="sec">${icI(IC.history)} Per ongeluk gewist?</div>
+      ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
+    </div>
+    <div class="sec">${icI(IC.wrench)} Onderhoud</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--txt2);margin:0 0 10px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier kan je ze terugzetten.</p>
-      <button class="btn btn-pale" onclick="go('teruggevonden')">${icI(IC.history)} Teruggevonden</button>
-    </div>` : '';
+      <p style="font-size:13px;color:var(--txt2);margin:0 0 10px">Staat dit aan, dan ziet iedereen een melding en kan er niets gewijzigd worden.</p>
+      <button class="btn" style="background:${maintenanceActive?'#b91c1c':'#1e3a2f'};color:${maintenanceActive?'#fef2f2':'#86efac'};border:1.5px solid ${maintenanceActive?'#ef4444':'#2f9e57'}" onclick="toggleMaintenance()">${maintenanceActive?`${icI(IC.wrench)} Onderhoud UIT-zetten`:`${icI(IC.wrench)} Onderhoud AAN-zetten`}</button>
+    </div>` : (ownerUid ? `
+    <div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Dit scherm is enkel voor de maker van de app.</p></div>` : '');
 
-  return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'home')">‹</button><h1>${icI(IC.edit)} Beheer</h1></div>
+  return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'teamselect')">‹</button><h1>${icI(IC.shield)} App-beheer</h1></div>
   <div class="content">
     ${ownerBlock}
-    ${teamBlock}
-    ${requestAdminBlock}
-    ${teruggevondenBlock}
-    ${ownerToolsBlock}
+    ${toolsBlock}
   </div>`;
 }
 
@@ -111,6 +80,25 @@ async function loadClubBeheerView() {
         catch (e) { clubNamesById[id] = id; }
       }));
     }
+    // Wie beheert deze club? Namen zijn "best effort": usersByEmail is owner-only, dus een
+    // clubbeheerder valt terug op de ledeninformatie van zijn eigen clubploegen en anders op de
+    // ruwe id. Een naam die ontbreekt mag dit scherm niet doen falen.
+    const clubAdminUids = Object.keys(club.admins || {});
+    const clubAdminNamen = {};
+    if (clubAdminUids.length) {
+      let ube = {};
+      try { ube = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {}; } catch (e) {}
+      clubAdminUids.forEach(u => { const i = ube[u]; if (i && (i.name || i.email)) clubAdminNamen[u] = i.name || i.email; });
+      const ontbreekt = clubAdminUids.filter(u => !clubAdminNamen[u]);
+      if (ontbreekt.length) {
+        await Promise.all(teamIds.map(async tid => {
+          try {
+            const mi = (await fbOnce(fbdb.ref('memberInfo/' + tid))).val() || {};
+            ontbreekt.forEach(u => { const i = mi[u]; if (i && (i.name || i.email) && !clubAdminNamen[u]) clubAdminNamen[u] = i.name || i.email; });
+          } catch (e) {}
+        }));
+      }
+    }
     const clubSelector = clubIds.length > 1
       ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(clubNamesById[id] || id)}</option>`).join('')}</select></div>`
       : '';
@@ -122,16 +110,29 @@ async function loadClubBeheerView() {
         ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
           <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">${icI(IC.edit)} Beheren</button>
+            <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">Openen</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}','${jsq(t.name)}')">${icI(IC.archive)} Archiveren</button>
           </div>
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-      ${rows.length >= 2 ? `<button class="btn btn-pale" style="margin-top:8px" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
+      ${/* Wie de club beheert stond nergens in dit scherm — enkel de eigenaar zag het, in een heel
+            ander scherm. Hier alleen ter informatie: aanstellen blijft bij de maker van de app. */ ''}
+      <div class="sec" style="margin-top:20px">Clubbeheerders</div>
+      <div class="card">
+        ${clubAdminUids.length
+          ? clubAdminUids.map(u => `<div class="stat-row"><span style="flex:1">${esc(clubAdminNamen[u] || u)}</span>${(currentUser && u === currentUser.uid) ? '<span class="ts-role admin">jij</span>' : ''}</div>`).join('')
+          : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen clubbeheerder.</p>'}
+        <p style="font-size:12px;color:var(--txt2);margin-top:10px">${isOwner
+          ? 'Als maker van de app stel je ze aan via App-beheer → Clubs en clubbeheerders.'
+          : 'Een clubbeheerder wordt aangesteld door de maker van de app.'}</p>
+        ${isOwner ? `<button class="btn btn-pale" style="margin-top:4px" onclick="_beheerFrom='clubbeheer';go('clubsadmin')">${icI(IC.shield)} Aanstellen of wijzigen</button>` : ''}
+      </div>
+      <div class="sec" style="margin-top:20px">Extra</div>
+      ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Clubexport (Excel)</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:10px">Open een ploeg met "Beheren" om trainers/afgevaardigden uit te nodigen (via uitnodigingslink) en leden te beheren.</p>
       ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
         ${archivedRows.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
@@ -145,9 +146,10 @@ async function loadClubBeheerView() {
   }
 }
 async function openTeamFromClub(tid) {
-  // Clubbeheerder klikt door naar het gewone ploegbeheer (team-context) van een clubploeg.
-  // De terugknop daar keert terug naar dit clubbeheer-scherm.
-  _beheerFrom = 'clubbeheer'; _beheerContext = 'team';
+  // Clubbeheerder klikt een clubploeg open. Sinds v1.1.0 landt hij op het ploegscherm zelf (met de
+  // wedstrijden, de tegels en de volgende match) in plaats van meteen in een beheerscherm — de
+  // knop heet daarom "Openen" en niet meer "Beheren". Alles over die ploeg staat één tik verder,
+  // achter de tegel Ploeg.
   await selectTeam(tid);
   // Optimistisch: we komen uit het clubbeheer van deze club, dus toon meteen de beheercontroles
   // (selectTeam bevestigt dit ook async via isClubAdmin → isAdmin).
@@ -159,7 +161,7 @@ async function openTeamFromClub(tid) {
     // set al true is tegen de tijd dat de info-fetch resolvet (wasAdmin-check).
     stopTeamListeners(); cloudListen(); listenCoAdminRequests();
   }
-  go('beheer');
+  go('home');
 }
 // Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
 // als ploegbeheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn
@@ -1647,11 +1649,11 @@ function renderTeamSelect() {
   // Gearchiveerde ploegen (fase 2d schijf 3) niet tonen in "Jouw ploegen" — ze blijven bereikbaar
   // via Clubbeheer (sectie Gearchiveerd) en kunnen daar hersteld worden.
   const teamIds = orderedTeamIds(Object.keys(userTeams)).filter(id => !archivedTeams[id]);
-  // Het Beheer-knopje leidt (in de 'system'-context) enkel nog naar de eigenaarstools; voor een
-  // niet-eigenaar is dat scherm sinds fase 2e leeg. Dus enkel tonen aan de eigenaar (of zolang er
-  // nog geen eigenaar is, om het eenmalig te kunnen claimen). Clubbeheerders hebben "Mijn club
-  // beheren" al rechtstreeks op dit scherm.
-  const showBeheerBtn = !ownerUid || isOwner;
+  // De groene "Beheer"-knop in de kop is weg sinds v1.1.0: hij leidde naar hetzelfde scherm als de
+  // Beheer-chip op het homescherm, maar toonde er iets anders in. Wat erachter zat (App-beheer)
+  // staat nu als een gewoon blok onderaan, en enkel voor de eigenaar. Zolang er nog geen eigenaar
+  // is blijft het bereikbaar om die eenmalig te kunnen claimen.
+  const showAppBeheer = !ownerUid || isOwner;
   // Clubnaam tonen boven de ploegen (fase 2f). Bij méér dan één club: echt groeperen met een kopje
   // per club (handig voor een ouder/kijker met kinderen in verschillende clubs) — dan geen herschik.
   // Bij één club: één clubkopje boven de gewone, herschikbare lijst. Bij nog onbekende clubnaam:
@@ -1661,7 +1663,27 @@ function renderTeamSelect() {
   const canReorder = teamIds.length > 1 && !grouped;
   // Eén logo per club opzoeken via een willekeurige ploeg uit die club (cache teamClubLogos).
   const clubLogoFor = cn => { const id = teamIds.find(t => teamClubNames[t] === cn && teamClubLogos[t]); return id ? teamClubLogos[id] : ''; };
-  const clubHdrHtml = cn => { const logo = clubLogoFor(cn); return `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px">${logo ? `<img src="${logo}" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:4px">` : ''}<span style="font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(cn)}</span></div>`; };
+  // Clubbeheerder van déze club? Dan is de hele clubkop de ingang naar Clubbeheer. Bewust de hele
+  // balk en niet een knopje ernaast: dat knopje was ~30px hoog met de eerste ploegrij er vlak
+  // onder, en aan de zijlijn tikte je dan de ploeg open in plaats van de club.
+  const clubIdFor = cn => { const id = teamIds.find(t => teamClubNames[t] === cn && teamClubIds[t]); return id ? teamClubIds[id] : null; };
+  // Welke beheerde clubs kregen effectief een klikbare kop? Wie een club beheert zonder er zelf een
+  // ploeg van te volgen, heeft geen kop — en zou zonder de terugvalknop onderaan geen enkele ingang
+  // naar zijn club meer hebben.
+  const clubKoppen = {};
+  const clubHdrHtml = cn => {
+    const logo = clubLogoFor(cn);
+    const cid = clubIdFor(cn);
+    const mag = cid && myClubs && myClubs[cid] && !viewerMode;
+    if (mag) clubKoppen[cid] = true;
+    const binnen = `${logo ? `<img src="${logo}" alt="" style="width:26px;height:26px;object-fit:contain;border-radius:5px;flex-shrink:0">` : ''}
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;font-weight:700;color:${mag ? 'var(--grn2)' : 'var(--txt2)'};text-transform:uppercase;letter-spacing:.5px">${esc(cn)}</span>
+      ${mag ? `<span style="display:block;font-size:11.5px;font-weight:600;color:var(--grn2);text-transform:none;letter-spacing:0">Club beheren</span>` : ''}</span>
+      ${mag ? `<span style="color:var(--grn2);font-size:19px;font-weight:700">›</span>` : ''}`;
+    return mag
+      ? `<div onclick="_clubBeheerId='${cid}';go('clubbeheer')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">${binnen}</div>`
+      : `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px">${binnen}</div>`;
+  };
   const teamRowHtml = id => {
     const role = userTeams[id];
     const name = teamNames[id] || id;
@@ -1721,7 +1743,6 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">Match Delegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
-      ${showBeheerBtn ? `<button class="hdr-gear-beheer" onclick="_beheerFrom=view;_beheerContext='system';go('beheer')" title="Beheer">${icI(IC.edit)} Beheer</button>` : ''}
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
@@ -1729,8 +1750,16 @@ function renderTeamSelect() {
       ${teamRows}
       <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
       <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
-      ${Object.keys(myClubs || {}).length ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
-      <button class="btn btn-org" onclick="go('clubbeheer')">${icI(IC.players)} Mijn club beheren</button>` : ''}
+      ${(() => {
+        // Terugvalknop: enkel voor beheerde clubs die hierboven géén klikbare kop kregen.
+        const zonderKop = Object.keys(myClubs || {}).filter(cid => !clubKoppen[cid]);
+        if (!zonderKop.length || viewerMode) return '';
+        return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
+      <button class="btn btn-org" onclick="_clubBeheerId='${zonderKop[0]}';go('clubbeheer')">${icI(IC.players)} ${zonderKop.length > 1 ? 'Mijn clubs beheren' : 'Mijn club beheren'}</button>`;
+      })()}
+      ${showAppBeheer ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
+      <button class="btn btn-dark" onclick="_beheerFrom='teamselect';go('beheer')">${icI(IC.shield)} App-beheer</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs en clubbeheerders, alle gebruikers, onderhoud.</p>` : ''}
       <div style="display:flex;gap:8px;margin-top:20px">
         <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
         <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
@@ -1868,7 +1897,6 @@ async function doJoinTeam() {
 
 // ===================== STATE =====================
 let view = 'home', match = null, tab = 'wedstrijd', timerInt = null, _settingsFrom = 'home', _beheerFrom = 'home';
-let _beheerContext = 'team'; // 'team' = deze ploeg beheren (via home), 'system' = beheerder worden/eigenaarstools (via ploegkeuzescherm)
 let currentTournament = null, trnWiz = null;
 
 // ===================== UTILS =====================
@@ -2870,7 +2898,7 @@ const views = {
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="_beheerFrom=view;_beheerContext='team';go('beheer')"></span>
+        <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openSquad()"></span>
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>

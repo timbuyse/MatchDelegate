@@ -105,18 +105,57 @@ function renderTeamView() {
     </div>` : ''}
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
+    ${(cloudReady && activeTeamId && t.fromCloud && !isGuest) ? `
+    <div class="sec">Meedoen</div>
+    <div class="card">
+      <button class="btn btn-pale" onclick="confirmRequestCoAdmin()">${icI(IC.edit)} Vraag ploegbeheer aan</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Wil je zelf wedstrijden mogen bijhouden voor deze ploeg? Vraag het hier aan.</p>
+    </div>` : ''}
   </div>`;
 }
+// ===================== PLOEGSCHERM =====================
+// Eén scherm met ALLES over één ploeg. Tot v1.0.4 stond dat verdeeld over twee schermen: de
+// spelers en de standaardinstellingen hier, de mensen (uitnodigen, leden, rollen) en de ploegnaam
+// in een apart "Beheer"-scherm. Dat was zo verwarrend dat er in dit scherm letterlijk stond dat je
+// voor de ploegnaam elders moest zijn. De blokken staan in de volgorde waarin je ze nodig hebt:
+// eerst de ploeg zelf, dan wie er toegang heeft, dan wat je met de ploeg als geheel doet.
 function renderTeamOverview() {
   const t = editingTeam;
   const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
+  // De beheerblokken gelden de ACTIEVE cloud-ploeg. In lokale modus (geen cloud) en bij een ploeg
+  // die niet de actieve cloud-ploeg is, horen ze er niet te staan — anders zou je de leden van de
+  // ene ploeg beheren terwijl je naar de andere kijkt.
+  const cloudPloeg = cloudReady && activeTeamId && t.fromCloud;
+  const mensenBlok = (cloudPloeg && isAdmin) ? `
+    <div class="sec">${icI(IC.players)} Mensen met toegang</div>
+    <div class="card">
+      <button class="btn btn-green" onclick="showInviteModal()"><span class="ic-i" style="font-size:1.1em">${IC.qrcode}</span> Iemand uitnodigen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showMembersModal()">${icI(IC.players)} Leden${pendingCoAdminCount ? `<span class="req-badge">${pendingCoAdminCount}</span>` : ''}</button>
+      ${isOwner ? `<button class="btn btn-pale" style="margin-top:8px" onclick="showAppointTeamAdmin('${activeTeamId}','${jsq(t.name)}')">${icI(IC.shield)} Aanstellen op e-mailadres</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Voor wie de uitnodigingslink niet kreeg. Enkel jij als maker van de app ziet dit.</p>` : ''}
+    </div>` : '';
+  // Prullenmand staat er ALTIJD (ook leeg), want een knop die verdwijnt als er niets in zit was
+  // precies de reden dat "Teruggevonden" eens wel en dan weer niet leek op te duiken.
+  const ploegBlok = (cloudPloeg && isAdmin) ? `
+    <div class="sec">Deze ploeg</div>
+    <div class="card">
+      <button class="btn btn-pale" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam wijzigen</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
+        <span style="flex:1;font-size:13px;color:var(--txt2)">Bekijken als kijker</span>
+        <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
+      </div>
+      <button class="btn btn-pale" style="margin-top:14px" onclick="_tgvFrom='teamEdit';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier zet je ze terug.</p>
+      ${isApprovedAdmin ? `<button class="btn btn-red" style="margin-top:14px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
+    </div>` : '';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">
+    <div class="sec">De ploeg</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1"><b style="font-size:15px">${icI(IC.edit)} Bewerken</b><div style="font-size:12px;color:var(--txt2)">Spelers, rugnummers en trainers aanpassen.</div></div>
+        <div style="flex:1"><b style="font-size:15px">${icI(IC.edit)} Bewerken</b><div style="font-size:12px;color:var(--txt2)">Spelers, rugnummers, trainers en de standaardinstellingen aanpassen.</div></div>
         <span class="start-chip" onclick="toggleTeamEditMode()">Aan</span>
       </div>
     </div>
@@ -126,6 +165,8 @@ function renderTeamOverview() {
     </div>
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
+    ${mensenBlok}
+    ${ploegBlok}
   </div>`;
 }
 function renderTeamEdit() {
@@ -179,7 +220,7 @@ function renderTeamEdit() {
   <div class="content">
     <div class="card">
       <div class="fg"><label>Ploegnaam</label>${(cloudReady && !editingTeam.isNew)
-        ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">De ploegnaam wijzig je via <b>Beheer → "Naam ploeg wijzigen"</b>.</div>`
+        ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">De ploegnaam wijzig je met <b>"Naam wijzigen"</b>, onderaan het ploegscherm.</div>`
         : `<input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off">`}</div>
     </div>
     <div class="sec">Ploegverantwoordelijken</div>
@@ -1203,7 +1244,7 @@ async function deleteTournamentConfirm(id) {
   const n = mine.length;
   if (n === 0) {
     openModal(`<h3>Tornooi verwijderen?</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd.${(cloudReady && activeTeamId && isAdmin) ? ' Er wordt een back-up bewaard, dus je kan dit terugvinden via <b>Beheer → Teruggevonden</b>.' : ' Zonder internetverbinding kan er geen back-up bewaard worden.'}</p>
+      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${esc(t.name)}" wordt verwijderd.${(cloudReady && activeTeamId && isAdmin) ? ' Er wordt een back-up bewaard, dus je kan dit terugvinden in de <b>Prullenmand</b> op het ploegscherm.' : ' Zonder internetverbinding kan er geen back-up bewaard worden.'}</p>
       <button class="btn btn-red" onclick="doDeleteTournament('${id}')">${icI(IC.trash)} Ja, verwijderen</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
