@@ -1483,7 +1483,7 @@ function renderAuth() {
       <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     </div>
     <div class="auth-box" style="max-width:400px;width:100%">
-      ${localStorage.getItem('voetbal_pending_join') ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.link)} Je volgt een uitnodigingslink voor een ploeg. Meld je aan, registreer of ga verder als gast om ze te vervoegen.</div>` : ''}
+      ${localStorage.getItem('voetbal_pending_join') ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.link)} Je volgt een uitnodigingslink voor een ploeg. Meld je aan, registreer of ga verder als gast om ze te kunnen volgen.</div>` : ''}
       <div class="auth-welcome">Welkom</div>
       <div class="auth-welcome-sub">Meld aan om verder te gaan</div>
       <div class="auth-tabs">
@@ -1696,7 +1696,7 @@ function renderTeamSelect() {
   };
   let teamRows;
   if (!teamIds.length) {
-    teamRows = `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je hebt nog geen ploegen.<br>Vervoeg een ploeg via een uitnodigingscode.</p></div>`;
+    teamRows = `<div class="empty"><div class="ei">${icI(IC.players)}</div><p>Je volgt nog geen ploegen.<br>Volg er een met een uitnodigingscode.</p></div>`;
   } else if (grouped) {
     const buckets = {}; const order = [];
     teamIds.forEach(id => { const cn = teamClubNames[id] || 'Overige ploegen'; if (!(cn in buckets)) { buckets[cn] = []; order.push(cn); } buckets[cn].push(id); });
@@ -1748,8 +1748,13 @@ function renderTeamSelect() {
     <div class="ts-content">
       ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
       ${teamRows}
-      <div class="sec" style="margin-top:20px;margin-bottom:10px">Ploeg toevoegen</div>
-      <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg bekijken via code</button>
+      ${/* Heette "Ploeg toevoegen", maar dat beloofde iets anders dan de knop doet: je maakt hier
+            geen ploeg, je gaat er een volgen met een code die je van een trainer kreeg. Aanmaken
+            gebeurt in Clubbeheer. Kop, knop en venster zeggen nu alle drie hetzelfde woord —
+            eerst waren dat "toevoegen", "bekijken" en "vervoegen". */ ''}
+      <div class="sec" style="margin-top:20px;margin-bottom:10px">Een ploeg volgen</div>
+      <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg volgen via code</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kreeg je een code van een trainer? Dan komt die ploeg hierboven bij je lijst.${Object.keys(myClubs || {}).length ? ' Een <b>nieuwe</b> ploeg maak je aan bij Clubbeheer.' : ''}</p>
       ${(() => {
         // Terugvalknop: enkel voor beheerde clubs die hierboven géén klikbare kop kregen.
         const zonderKop = Object.keys(myClubs || {}).filter(cid => !clubKoppen[cid]);
@@ -1871,11 +1876,11 @@ async function doCreateTeam() {
 }
 
 function showJoinTeamModal() {
-  openModal(`<h3>${icI(IC.link)} Ploeg vervoegen</h3>
+  openModal(`<h3>${icI(IC.link)} Ploeg volgen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Vraag de uitnodigingscode aan de beheerder van de ploeg.</p>
     <div class="fg"><label>Uitnodigingscode</label><input id="join-token" type="text" placeholder="bv. AB12CD" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;font-size:22px;text-align:center" autofocus></div>
     <div class="auth-err" id="jt-err"></div>
-    <button class="btn btn-green" onclick="doJoinTeam()">Vervoegen</button>
+    <button class="btn btn-green" onclick="doJoinTeam()">Volgen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 
@@ -1891,7 +1896,7 @@ async function doJoinTeam() {
     closeModal();
   } catch (e) {
     console.error('joinTeam fout:', e);
-    if (err) err.textContent = 'Vervoegen mislukt, controleer je internetverbinding.';
+    if (err) err.textContent = 'Volgen mislukt, controleer je internetverbinding.';
   }
 }
 

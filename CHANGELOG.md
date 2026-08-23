@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.1
+### "Ploeg toevoegen" beloofde iets wat die knop niet doet
+- **Wat er misging.** Op *Jouw ploegen* stond het kopje **Ploeg toevoegen** met daaronder de knop
+  *Ploeg bekijken via code*. Je voegt daar geen ploeg toe — je gaat er een volgen met een code die
+  je van een trainer kreeg. Een nieuwe ploeg **maken** gebeurt in Clubbeheer. Erger nog: dezelfde
+  handeling had drie namen — de kop zei "toevoegen", de knop "bekijken" en het venster "vervoegen".
+- **Nu.** Overal hetzelfde woord: **volgen**. Het kopje heet *Een ploeg volgen*, de knop *Ploeg
+  volgen via code*, het venster *Ploeg volgen*. Eronder staat wat de knop doet, en wie een club
+  beheert leest erbij dat een nieuwe ploeg in Clubbeheer gemaakt wordt.
+- De handleiding zei bij een uitnodigingslink "tik op 'Ploeg vervoegen'", maar die knop bestaat
+  niet: via een link of QR-code komt de ploeg vanzelf in je lijst. Rechtgezet.
+
+### De handleiding volgt de nieuwe schermen
+- Vier pagina's beschreven nog de oude indeling: *Als kijker* (sprak van een tegel "Spelers" — die
+  heet al sinds v0.45.0 "Ploeg"), *Ploegbeheer aanvragen*, *Ploeg & spelers beheren* (verwees naar
+  een scherm "Ploeg bewerken") en *Als clubbeheerder* ("Mijn club beheren", "Beheren" bij een ploeg).
+- Nieuw stukje **"Waar je terechtkomt"** bij het aanmelden: het scherm *Jouw ploegen* stond nergens
+  beschreven, terwijl je daar na het inloggen landt.
+- "Wedstrijd verwijderen" heette "verwijder definitief" — dat klopt niet meer sinds er een
+  prullenmand is. Idem bij een tornooi.
+
+---
 ## v1.1.0
 De beheerschermen zijn herschikt. Wat verspreid stond over negen plaatsen, staat nu op vier
 schermen — één per niveau: jij, de ploeg, de club, de app.

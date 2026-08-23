@@ -701,6 +701,9 @@ const HANDLEIDING_PAGINAS = [
         <li>Tik op <b>'Aanmelden'</b>.</li>
       </ol>
       <p class="hdl-tip">Wachtwoord vergeten? Tik op <b>'Wachtwoord vergeten?'</b> en volg de instructies per e-mail.</p>
+      <div class="sec">Waar je terechtkomt</div>
+      <p>Volg je meer dan één ploeg, dan land je op <b>'Jouw ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
+      <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Jouw ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account.</p>
     `
   },
   {
@@ -725,15 +728,15 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Als kijker',
     img: 'handleiding/screenshots/04_homescherm_kijker.png',
     inhoud: `
-      <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Spelers</b>, <b>Tornooien</b> en <b>Statistieken</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
+      <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Ploeg</b>, <b>Tornooien</b>, <b>Statistieken</b> en <b>Agenda</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
       <p>Bij <b>Statistieken</b> zie je de secties die de beheerder heeft vrijgegeven; de overige statistieken en het individuele spelersdetail blijven voorbehouden aan ploegbeheerders.</p>
       <p>Bij een wedstrijd zie je onder <b>Planning</b> de melding dat de opstelling en de geplande wissels enkel voor ploegbeheerders zijn. Dat geldt vóór én tijdens de wedstrijd: wie waar begint en welke wissels klaarstaan, blijft bij de trainer. Wat er <b>gebeurd</b> is — de score, de events en het verslag achteraf — kan je gewoon volgen.</p>
       <div class="sec">Een ploeg volgen</div>
       <p>De beheerder deelt een uitnodiging als <b>link</b>, <b>QR-code</b> of <b>code van 6 tekens</b> (letters en cijfers).</p>
       <ul class="hdl-list">
-        <li><b>Via link:</b> tik op de link → tik op <b>'Ploeg vervoegen'</b>.</li>
-        <li><b>Via QR-code:</b> scan de code → tik op <b>'Ploeg vervoegen'</b>.</li>
-        <li><b>Via code:</b> tik op <b>'Ploeg bekijken via code'</b> → voer de code van 6 tekens in.</li>
+        <li><b>Via link:</b> tik op de link. De ploeg komt vanzelf in je lijst zodra je aangemeld bent.</li>
+        <li><b>Via QR-code:</b> scan de code — verder hetzelfde als bij een link.</li>
+        <li><b>Via code:</b> tik op <b>'Ploeg volgen via code'</b> → voer de code van 6 tekens in.</li>
       </ul>
       <div class="sec">Live wedstrijd bekijken</div>
       <ol class="hdl-list">
@@ -749,8 +752,8 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Ben je kijker en wil je wedstrijden kunnen beheren? Vraag ploegbeheer aan:</p>
       <ol class="hdl-list">
-        <li>Tik rechtsboven op <b>'Kijken'</b>.</li>
-        <li>Tik op <b>'Vraag ploegbeheer aan'</b>.</li>
+        <li>Tik rechtsboven op <b>'Kijken'</b>, of op de tegel <b>'Ploeg'</b>. Je komt op het ploegscherm.</li>
+        <li>Tik onderaan, bij <b>'Meedoen'</b>, op <b>'Vraag ploegbeheer aan'</b>.</li>
         <li>De beheerder krijgt een melding en keurt je aanvraag goed of af.</li>
         <li>Zodra goedgekeurd, krijg je toegang als ploegbeheerder.</li>
       </ol>
@@ -761,7 +764,7 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Ploeg & spelers beheren',
     img: 'handleiding/screenshots/10_ploeg_bewerken.png',
     inhoud: `
-      <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je in <b>'Ploeg bewerken'</b>:</p>
+      <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je op het <b>ploegscherm</b>. Daar staat alles over deze ploeg bij elkaar: de spelers, de mensen met toegang en de ploeg zelf. Zet bovenaan <b>'Bewerken'</b> aan om iets te wijzigen:</p>
       <ul class="hdl-list">
         <li><b>Ploegnaam</b>.</li>
         <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
@@ -990,7 +993,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
         <li><b>'Spelernotities'</b> / <b>'Info bewerken'</b> — voeg notities per speler toe of pas de wedstrijdinfo aan.</li>
         <li><b>'Posities herplaatsen'</b> — pas de opstelling aan.</li>
-        <li><b>'Wedstrijd verwijderen'</b> — verwijder definitief.</li>
+        <li><b>'Wedstrijd verwijderen'</b> — haalt ze uit de lijst. Ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten.</li>
       </ul>
       <p class="hdl-tip"><b>'Posities herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
       <div class="sec">Wat staat er in het verslag?</div>
@@ -1049,7 +1052,7 @@ const HANDLEIDING_PAGINAS = [
       </ol>
       <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
       <div class="sec">Overzicht</div>
-      <p>Bovenaan het tornooi zie je de info en het aantal geselecteerde spelers; zodra er wedstrijden gespeeld zijn, komt daar de balans (gewonnen, gelijk, verloren, doelpunten) bij. Onderaan kan je het hele tornooi verwijderen.</p>
+      <p>Bovenaan het tornooi zie je de info en het aantal geselecteerde spelers; zodra er wedstrijden gespeeld zijn, komt daar de balans (gewonnen, gelijk, verloren, doelpunten) bij. Onderaan kan je het hele tornooi verwijderen; het blijft bewaard in de <b>Prullenmand</b> op het ploegscherm.</p>
       <p class="hdl-tip">Tornooiwedstrijden staan apart: ze verschijnen niet in de gewone wedstrijdenlijst en tellen niet mee in de seizoensstatistieken. Wel wordt bijgehouden in hoeveel tornooien een speler in de selectie zat.</p>
     `
   },
@@ -1073,21 +1076,21 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Als clubbeheerder',
     img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
     inhoud: `
-      <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Daarna verschijnt op het ploegkeuzescherm de knop <b>'Mijn club beheren'</b>.</p>
+      <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Daarna is op <b>'Jouw ploegen'</b> de <b>groene clubbalk</b> boven je ploegen de ingang: tik erop en je komt in <b>Clubbeheer</b>. Volg je zelf geen enkele ploeg van die club, dan staat er onderaan de knop <b>'Mijn club beheren'</b>.</p>
       <div class="sec">Ploegen beheren</div>
       <ul class="hdl-list">
-        <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen').</li>
-        <li><b>'Beheren'</b> bij een ploeg — open het gewone ploegbeheer om trainers uit te nodigen en leden te beheren.</li>
+        <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>
+        <li><b>'Openen'</b> bij een ploeg — ga naar het ploegscherm van die ploeg, met haar wedstrijden, spelers en leden.</li>
         <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden.</li>
       </ul>
       <div class="sec">Een trainer uitnodigen</div>
       <ol class="hdl-list">
-        <li>Open de ploeg met <b>'Beheren'</b> en tik op <b>'Iemand uitnodigen'</b>.</li>
-        <li>Bezorg de trainer de <b>uitnodigingslink</b> (of QR-code / code). Hij vervoegt eerst als kijker.</li>
+        <li>Open de ploeg met <b>'Openen'</b>, tik op de tegel <b>'Ploeg'</b> en dan bij <b>'Mensen met toegang'</b> op <b>'Iemand uitnodigen'</b>.</li>
+        <li>Bezorg de trainer de <b>uitnodigingslink</b> (of QR-code / code). Hij komt eerst binnen als kijker.</li>
         <li>Ga naar <b>'Leden'</b> en <b>promoveer</b> hem tot ploegbeheerder.</li>
       </ol>
       <div class="sec">Spelers doorschuiven</div>
-      <p>Elk seizoen schuiven de lichtingen door. Tik in 'Mijn club beheren' op <b>'Spelers doorschuiven'</b>, kies <b>van</b> welke ploeg <b>naar</b> welke, en vink aan wie meegaat — met <b>'Allemaal'</b> als snelkoppeling. Je krijgt eerst te zien wie meegaat en hoeveel spelers achterblijven.</p>
+      <p>Elk seizoen schuiven de lichtingen door. Tik in Clubbeheer op <b>'Spelers doorschuiven'</b>, kies <b>van</b> welke ploeg <b>naar</b> welke, en vink aan wie meegaat — met <b>'Allemaal'</b> als snelkoppeling. Je krijgt eerst te zien wie meegaat en hoeveel spelers achterblijven.</p>
       <ul class="hdl-list">
         <li><b>Iedereen houdt zijn verleden.</b> Op de spelerspagina blijft onder <b>'Carrière — eerder bij'</b> staan wat hij bij zijn vorige ploeg deed. Zijn oude wedstrijden blijven bij die ploeg, met zijn naam erin.</li>
         <li><b>Doe het niet met de hand.</b> Tik je een speler in de nieuwe ploeg opnieuw in, dan is dat voor de app een nieuwe persoon en blijft zijn carrière-overzicht leeg. Gebruik altijd dit scherm.</li>
@@ -1106,7 +1109,7 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Spelernotities en kwetsuurdetails zitten er bewust <b>niet</b> in. In de app zijn die enkel voor beheerders; in een bestand dat rondgestuurd wordt, zijn ze dat niet meer.</p>
       <div class="sec">Extra</div>
       <ul class="hdl-list">
-        <li><b>Clublogo</b> — stel bovenaan in 'Mijn club beheren' het clublogo in. Het verschijnt bij je club op het ploegkeuzescherm, onderaan de ploegpagina en in de wedstrijd-PDF.</li>
+        <li><b>Clublogo</b> — stel bovenaan in Clubbeheer het clublogo in. Het verschijnt bij je club op 'Jouw ploegen', onderaan de ploegpagina en in de wedstrijd-PDF.</li>
       </ul>
     `
   },
