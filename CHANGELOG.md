@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.0
+### Het livescherm doorgelicht: de klok, de pauze en wie er nog meedoet
+Eerste helft van de zijlijn-audit. De belangrijkste vondsten waren geen schoonheidsfoutjes maar
+speelminuten die niet konden kloppen, en een scherm dat zichzelf tegensprak zodra je de klok stilzette.
+
+- **Een blok korter zetten sleept de gebeurtenissen nu mee.** Je vergeet af te sluiten, er wordt op 30 minuten gewisseld, en bij het afsluiten zet je de werkelijke duur op 15. Tot nu bleef die wissel op 30 minuten staan: de uitgewisselde speler kreeg 30 minuten in een blok van 15, en de ingebrachte **min 15**. Nu schuift het einde mee, wordt wat erna valt op de slotminuut gezet, en zegt een melding hoeveel gebeurtenissen dat waren. Precies wat het venster "Duur aanpassen" op het verslag al deed.
+- **De werkelijke duur is nu altijd in te vullen** bij het afsluiten van een blok, niet enkel bij een ruime overschrijding. Achttien minuten op een blok van vijftien was voordien niet recht te zetten. Bevestig je de voorgestelde waarde, dan verandert er niets.
+- **Met de klok op pauze werkt het opstellingstabblad weer.** Tijdens een klokpauze kon je niet meer op het veld tikken en weigerde "Doorvoeren" met de melding dat er geen deel bezig was — terwijl de knoppen voor doelpunt, kaart en wissel gewoon bleven werken. Een stilgelegd spel is juist het moment om te wisselen.
+- **Wie de wedstrijd verlaat, blijft zichtbaar.** Hij stond in geen enkele lijst meer: niet op het veld, niet op de bank, niet bij "Niet aanwezig". Nu staat hij onder **'Weg uit de wedstrijd'**, met zijn gespeelde minuten en een **Herstel**-knop. Voordien kon je een mistik alleen terugdraaien door het event op te zoeken bij Verloop.
+- **Een blok kan niet meer starten terwijl het vorige nog openstaat.** Zo'n open blok bleef in de speeltijd doortellen tot nu — een blok dat nooit stopt.
+- **De strafschoppenreeks staat alleen nog bij een gelijke stand.** Heropende je een wedstrijd voor een verlenging en viel er nog een doelpunt, dan las het verslag "1-0 · pen. 4-3". De reeks blijft wel bewaard: verdwijnt dat doelpunt weer, dan staat ze er weer.
+- **Zonder verbinding werkt er meer.** Het pennetje om de duur van een afgesloten blok recht te zetten was offline weg (en dat is de enige plek waar dat kan), de twee waarschuwingen op het beginscherm over een doorlopende of vastzittende wedstrijd verdwenen precies langs de lijn, en een gedeeld verslag verloor stil zijn notities.
+- **Teksten die niet meer waar waren.** "De klok stopt en je kan dit kwart niet meer hervatten" — terwijl daar sinds vorige week precies die knop staat. De belofte dat je "een dag lang" kan terugdraaien, terwijl die knop verdwijnt zodra je opnieuw start. Twee meldingen die je naar een knop "Positiewissel" stuurden die niet bestaat. Het kader "deze wedstrijd zit vast" dat altijd dezelfde oorzaak noemde, ook wanneer die niet klopte.
+- **Kleinere rechtzettingen.** De klokknop toont wat je tik doet in plaats van de huidige stand, en verdwijnt bij een wedstrijd zonder blokduur (er valt dan niets af te tellen). Het ×-knopje naast een speler heet "Van het veld" zodra hij gespeeld heeft. In de pauze staat er nu bij welk deel de onderste opstelling hoort. De knoppen voor een snelle notitie en een gemarkeerd moment blijven in de pauze staan. Ná het eindsignaal kan je niemand meer afwezig melden — dat wiste zijn speelminuten.
+- Onder de motorkap: negentien klok- en afsluitfuncties kregen de rolcontrole die er nog niet stond (in kijkmodus opende "Wedstrijd afsluiten" nog een venster), en een dode dubbele functie is opgeruimd.
+
+---
+
 ## v1.1.17
 ### Het ploegscherm is weer twee schermen: de ploeg apart van het beheer
 - **Wat er misging.** Sinds v1.0.4 stond alles over een ploeg op één lange lijst: de spelers en de standaardinstellingen, maar daaronder ook uitnodigen, leden, de ploegnaam, de kijkmodus en de prullenmand. Het dagelijkse werk (spelers bekijken of aanpassen) stond zo tussen handelingen die je een paar keer per seizoen doet. Scrollen om bij je spelers te komen, en telkens langs knoppen die je daar niet nodig had.

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.17'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.2.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -538,8 +538,13 @@ function shootoutTxt(m) {
 }
 // De volledige uitslag zoals ze overal geschreven hoort te worden: "1-1 · pen. 4-5". De reguliere
 // stand blijft vooraan en onveranderd — dat is de uitslag van de wedstrijd — met de reeks erachter.
+// Enkel bij een GELIJKE stand (audit 24-08-2026). Een strafschoppenreeks bestaat alleen om een
+// gelijkspel te beslissen, en matchResultaat rekent ze ook enkel dan mee. Zonder deze voorwaarde
+// bleef ze in het verslag en de PDF achter een gewijzigde stand staan: heropen je een afgesloten
+// wedstrijd (verlenging) en valt er nog een doelpunt, dan las het verslag "1-0 · pen. 4-3". De reeks
+// blijft wel bewaard in de gegevens — verdwijnt het doelpunt weer, dan staat ze er weer.
 function uitslagTxt(m) {
-  return heeftShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
+  return (heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0)) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
 }
 // W / G / V vanuit het standpunt van de eigen ploeg, mét de reeks meegerekend. Tims keuze
 // (23-08-2026): wie de strafschoppenreeks wint, heeft gewonnen — ook voor de tornooipunten en de

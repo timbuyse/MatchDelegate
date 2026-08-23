@@ -39,7 +39,12 @@ function renderLive() {
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
-        <button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen aan':'Optellen aan'}</button>
+        ${/* Twee dingen rechtgezet op 24-08-2026: (1) het opschrift was de HUIDIGE stand ("Optellen
+             aan") terwijl je bij een knop het gevolg van je tik verwacht — nu staat de stand er met
+             "tik om te wisselen" erbij; (2) zonder blokduur kan er niets afgeteld worden (timerText
+             negeert aftellen dan), en toch werd de knop groen met "Aftellen aan". Nu staat hij er
+             enkel als er een blokduur is. */ ''}
+        ${match.quarterDuration ? `<button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen':'Optellen'} <span style="font-weight:400;opacity:.75">· tik om te wisselen</span></button>` : ''}
       </div>
       ${(!isDone && !ro) ? `<div class="qctrl">
         ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start wedstrijd</button>` : ''}
@@ -130,17 +135,40 @@ function renderLive() {
       <button class="btn btn-pale" style="margin-top:8px" onclick="shareWhatsApp(match)">${icI(IC.share)} Deel score</button>` : ''}`;
   } else if (tab === 'opstelling') {
     const on = playersOnField(match), off = playersOnBench(match), absent = match.players.filter(p => p.absent), mins = calcMinutes(match);
-    const absentBtn = pid => ro ? '' : `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="Niet aanwezig">×</button>`;
+    // Wie de wedstrijd verlaten heeft (naar huis, tweede veld, blessure met vertrek) stond in GEEN
+    // van de drie lijsten: niet op het veld, niet op de bank (magNogMeedoen sluit hem uit) en niet
+    // bij "Niet aanwezig" (p.absent blijft false). Gemeten 24-08-2026: zijn naam stond nergens meer
+    // op dit tabblad terwijl hij 8 minuten gespeeld had, en een mistik was enkel terug te draaien
+    // door het event te wissen op het tabblad Verloop. Daarom een vierde groep.
+    const vertrokken = match.players.filter(p => !p.absent && isVertrokken(match, p.id));
+    // Het ×-knopje heette altijd "Niet aanwezig", maar zodra iemand gespeeld heeft opent het een
+    // ánder venster ("X van het veld": blessure of vertrokken). Titel volgt nu wat er echt gebeurt.
+    const absentBtn = pid => {
+      // Ná het eindsignaal geen kruisje meer: afwezig melden WIST de speelminuten van die speler, en
+      // dat op een afgesloten wedstrijd is nooit wat iemand bedoelt. Rechtzetten kan nog altijd via
+      // het verslag (audit 24-08-2026).
+      if (ro || isDone) return '';
+      const gespeeld = Math.round((((mins[pid] || {}).ms) || 0) / 60000);
+      return `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="${gespeeld > 0 ? 'Van het veld' : 'Niet aanwezig'}">×</button>`;
+    };
     tabContent = `
       ${miniScore}
+      ${/* 'paused' erbij (audit 24-08-2026): tijdens een klokpauze viel dit terug op een veld waar je
+           niet op kon tikken — gemeten: 26 aantikbare plekken tijdens het spel, 0 tijdens een pauze —
+           terwijl de knoppen voor doelpunt, kaart en wissel gewoon bleven werken. Een stilgelegd spel
+           is juist wanneer je wisselt. */ ''}
       ${canStartNext ? pauseLineupHtml(match)
-        : ((!ro && !isDone && match.quarterStatus === 'running')
+        : ((!ro && !isDone && (match.quarterStatus === 'running' || match.quarterStatus === 'paused'))
           ? liveLineupHtml(match)
           : `<div class="card">${renderPitch(match, on)}</div>`)}
       <div class="card">
-        <div class="sec" style="margin-top:0">Op het veld (${on.length})</div>
+        ${/* In de pauze staat hierboven al de opstelling VAN HET VOLGENDE deel. Deze lijst is die van
+             het deel dat net gespeeld is; zonder dat erbij te zeggen stonden er twee opstellingen
+             onder elkaar zonder onderscheid (audit 24-08-2026). */ ''}
+        <div class="sec" style="margin-top:0">${canStartNext ? `Op het veld aan het einde van ${pSingLow(match)} ${qNum}` : 'Op het veld'} (${on.length})</div>
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
+        ${vertrokken.length ? `<hr><div class="sec" style="color:var(--org2,#b45309)">Weg uit de wedstrijd (${vertrokken.length})</div>${vertrokken.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.6')}<div style="flex:1"><div class="pname">${esc(p.name)}${vertrokkenChip(p)}</div><div style="font-size:11px;color:var(--txt2)">Speelde ${Math.round((((mins[p.id]||{}).ms)||0)/60000)} min — die blijven staan</div></div>${(ro || isDone) ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="confirmHerstelVertrokken('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
         ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
         ${/* Zie modalAddPlayerLive: de selectie lag vast vanaf de aftrap, en dat botst met de
              laatkomer en met de speler die van het tweede veld komt bijspringen. */ ''}
@@ -163,7 +191,10 @@ function renderLive() {
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
   <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${tabContent}</div>
-  ${(!ro && !isBetween) ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
+  ${/* Stonden tot 24-08-2026 niet in de pauze (`!isBetween`), net het moment waarop je iets wil
+       opschrijven: wat er in het vorige deel gebeurde, of een afspraak voor het volgende. Ná het
+       afsluiten bleven ze wél staan, dus het was ook niet consequent. */ ''}
+  ${!ro ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling${canStartNext ? '<span class="ltab-dot" title="Wissels voor het volgende deel regel je hier"></span>' : ''}</button>
@@ -282,18 +313,27 @@ function vastgelopenLive(m) {
   if (qNum === 0) return false;                            // idem: startknop
   return !(m.quarterStatus === 'between' && qNum < (m.numQuarters || 0));
 }
+// De uitleg volgt de ECHTE oorzaak (audit 24-08-2026). Tot dan stond er altijd "er zijn N gespeeld
+// maar de wedstrijd staat op M" — ook wanneer N en M gelijk waren en enkel het toestandsveld niet op
+// 'between' stond. Dan las het kader tegenstrijdige onzin.
 function vastgelopenHtml(m) {
   const label = pSingLow(m);
   const gespeeld = (m.quarters || []).length;
+  const voorzien = m.numQuarters || 0;
+  const teLaag = (m.currentQuarter || 0) >= voorzien;   // alle voorziene delen zijn gespeeld
+  const uitleg = teLaag
+    ? `Er ${gespeeld === 1 ? 'is 1 ' + label : 'zijn ' + gespeeld + ' ' + pPlural(m)} gespeeld, en dat ${gespeeld === 1 ? 'is' : 'zijn'} er even veel als voorzien. De klok staat stil en de wedstrijd is nog niet afgesloten.`
+    : `Er ${gespeeld === 1 ? 'is 1 ' + label : 'zijn ' + gespeeld + ' ' + pPlural(m)} gespeeld en de klok staat stil, maar de wedstrijd staat in een tussentoestand waarin ze niet verder kan.`;
   return `<div class="card" style="border-left:4px solid var(--rd)">
     <div class="sec" style="margin-top:0">${icI(IC.warn)} Deze wedstrijd zit vast</div>
-    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Er ${gespeeld === 1 ? 'is 1 ' + label : 'zijn ' + gespeeld + ' ' + pPlural(m)} gespeeld en de klok staat stil, maar de wedstrijd staat op <b>${m.numQuarters || 0} ${(m.numQuarters || 0) === 1 ? label : pPlural(m)}</b>. Daardoor is er geen volgende stap. Kies wat er moet gebeuren:</p>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">${uitleg} Kies wat er moet gebeuren:</p>
     <button class="btn btn-green" onclick="confirmExtraDeel()">${icI(IC.playFilled)} Nog een ${label} spelen</button>
     <button class="btn btn-red" style="margin-top:8px" onclick="endMatch()">${icI(IC.finish)} Wedstrijd afsluiten</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="confirmResetMatch()">${icI(IC.undo)} Opnieuw beginnen</button>
   </div>`;
 }
 function confirmExtraDeel() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const label = pSingLow(match);
   openModal(`<h3>Nog een ${label} spelen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De wedstrijd krijgt er één ${label} bij (${(match.numQuarters || 0) + 1} in totaal) en je kan meteen starten. De al gespeelde ${pPlural(match)} en hun speelminuten blijven staan.</p>
@@ -334,7 +374,11 @@ function confirmResetMatch() {
     </div>
     <p style="font-size:13px;color:var(--txt2);margin-bottom:12px;text-align:left">Ze gaat terug naar <b>gepland</b> en kan daarna gewoon opnieuw gestart worden, met <b>de opstelling van de aftrap</b>${heeftPlan ? ' en je plan per ' + pSingLow(m) + ' zoals het was' : ''}.</p>
     <p style="font-size:13px;color:var(--rd);margin-bottom:12px;text-align:left">Wat verdwijnt: <b>${nDelen === 1 ? '1 gespeeld ' + pSingLow(m) : nDelen + ' gespeelde ' + pPlural(m)}</b>, <b>${nEvents === 1 ? '1 gebeurtenis' : nEvents + ' gebeurtenissen'}</b> (doelpunten, wissels, kaarten) en alle speelminuten. Je selectie, je plan en je notities blijven staan.</p>
-    <p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Vergissing? Dan staat er een dag lang een knop om dit terug te draaien.</p>
+    ${/* Zei tot 24-08-2026 "een dag lang". De undo-knop staat enkel op het voorbereidingsscherm, dus
+         zodra je opnieuw start is ze onbereikbaar — de belofte klopte niet met waar de knop staat.
+         Ook eerlijk gezegd wat NIET meegaat: doResetMatch raakt numQuarters en de afwezigmeldingen
+         bewust niet (die zijn meestal nog waar), maar dat verwacht niemand vanzelf. */ ''}
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Vergissing? Zolang je niet opnieuw gestart bent, staat er op het voorbereidingsscherm een knop om dit terug te draaien.${(m.players || []).some(p => p.absent) ? ' Wie je afwezig meldde, blijft afwezig.' : ''}</p>
     <button class="btn btn-red" onclick="doResetMatch()">${icI(IC.undo)} Ja, opnieuw beginnen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -399,6 +443,7 @@ function resetUndoBeschikbaar() {
 }
 function resetUndoVergeten() { try { localStorage.removeItem(RESET_UNDO_KEY); } catch (e) {} render(); }
 async function resetUndo() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const u = resetUndoBeschikbaar();
   if (!u) return;
   const terug = u.match;
@@ -409,7 +454,18 @@ async function resetUndo() {
   await go(terug.status === 'done' ? 'detail' : 'live', terug.id);
 }
 async function startQuarter(zonderControle) {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
+  // Bovenop de statuscontrole ook naar het BLOK zelf kijken (audit 24-08-2026). pauseQuarter,
+  // resumeQuarter en doEndPeriod doen dat al; hier niet, en dus kon een verouderd scherm of een
+  // synchronisatie met een medebeheerder een nieuw blok openen terwijl het vorige nog geen eindtijd
+  // had. Zo'n open blok blijft in de speeltijd doortellen tot nu — een blok dat nooit stopt.
+  const laatsteBlok = (match.quarters || [])[match.quarters.length - 1];
+  if (laatsteBlok && !laatsteBlok.endTime) {
+    showToast(`${pSing(match)} ${laatsteBlok.num} is nog niet afgesloten. Sluit dat eerst af.`, 'err');
+    render();
+    return;
+  }
   // DE WACHTER (Tim, 22-08-2026): een volgend deel starten met een leeg — of half leeg — veld is
   // vrijwel altijd een vergissing (leeg veld gemaakt en vergeten te vullen). Eén controle, hier,
   // vlak voor de start: de enige plek waar het te laat zou zijn. Enkel voor een VOLGEND deel; de
@@ -537,6 +593,7 @@ function syncKeeper() {
   if (!last || last.id !== kid) arr.push({ id: kid, sinceMs: getGameTimeMs(match) });
 }
 async function pauseQuarter() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (!q || q.pausedAt || q.endTime) return; // guard: al gepauzeerd, of het deel is al beëindigd (stale UI/co-admin-sync)
   q.pausedAt = Date.now(); match.quarterStatus = 'paused';
@@ -544,6 +601,7 @@ async function pauseQuarter() {
   await dbSave(match); render();
 }
 async function resumeQuarter() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (!q || q.pausedAt == null || q.endTime) return; // guard: niet gepauzeerd, of het deel is al beëindigd — anders krimpt de reeds vastgelegde speeltijd
   q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null;
@@ -568,6 +626,7 @@ function hervatBaarDeel(m) {
 // verdwijnt, dus het is geen onschuldige tik. De tijd sinds het (foute) afsluiten telt als pauze,
 // zodat niemand er speelminuten bij krijgt — zie doResumeLastPeriod.
 function confirmHervatDeel() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const nr = hervatBaarDeel(match);
   if (!nr) return;
   const label = pSingLow(match);
@@ -583,25 +642,53 @@ function confirmHervatDeel() {
 // geven de werkelijke duur te corrigeren, i.p.v. stilzwijgend Date.now() te nemen — anders
 // vertekent zo'n vergeten tik alle speeltijden van dit deel.
 function endPeriod() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const label = pSingLow(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
-  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.
-    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="ep-correct-min" type="number" inputmode="numeric" value="${Math.round(getQElapsed(match)/60000)}" min="1"></div></div>` : '';
+  // AUDIT 24-08-2026 — het duurveld zat VÁST aan de waarschuwing, en die verschijnt enkel bij ruime
+  // overschrijding. Gemeten: 18 minuten op een blok van 15 gaf geen enkel invoerveld, dus drie
+  // minuten te veel waren hier niet recht te zetten. Nu staat het veld er altijd; de luide
+  // waarschuwing blijft voorbehouden aan een echte overschrijding. Bevestig je de voorgevulde
+  // waarde, dan verandert er niets (doEndPeriod slaat de correctie over bij dezelfde minuut).
+  const gelopenMin = Math.round(getQElapsed(match) / 60000);
+  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder de werkelijke duur.</div>` : '';
+  const duurVeld = `<div class="fg" style="margin-bottom:12px"><label style="font-size:12px;color:var(--txt2)">Werkelijke duur van dit ${label} (minuten)</label><input id="ep-correct-min" type="number" inputmode="numeric" value="${gelopenMin}" min="1"></div>`;
   openModal(`<h3>Einde ${label} ${match.currentQuarter}?</h3>
     ${warn}
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De klok stopt en je kan dit ${label} niet meer hervatten.</p>
+    ${duurVeld}
+    ${/* Zei tot 24-08-2026 "en je kan dit kwart niet meer hervatten". Dat is sinds 23-08 niet meer
+         waar: op het scherm waar je hierna landt staat "Te vroeg gestopt — verder in kwart N". Wie
+         het oude venster las, besliste op verkeerde informatie én zocht de herstelknop niet. */ ''}
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De klok stopt. Was het te vroeg? Dan staat er daarna een knop om dit ${label} te hervatten.</p>
     <button class="btn btn-red" onclick="doEndPeriod()">${icI(IC.stopFilled)} Ja, beëindig ${label}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doEndPeriod() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (!q || q.endTime) { closeModal(); return; } // dubbeltik-guard: deel al beëindigd
   if (q.pausedAt) { q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null; }
   const corrInp = document.getElementById('ep-correct-min');
   const corrMin = corrInp ? parseInt(corrInp.value) : NaN;
-  q.endTime = (!isNaN(corrMin) && corrMin > 0) ? q.startTime + (q.totalPaused || 0) + corrMin * 60000 : Date.now();
+  // AUDIT 24-08-2026 — het correctieveld zette alleen q.endTime en liet de gebeurtenissen staan waar
+  // ze stonden. Gemeten gevolg: blok van 15 min, wissel gelogd op 30', duur gecorrigeerd naar 15 →
+  // de uitgewisselde speler kreeg 30 minuten in een blok van 15, en de ingebrachte MIN 15. Het
+  // venster "Duur aanpassen" op het verslag deed dit al jaren correct, dus doen we nu hetzelfde:
+  // eerst normaal afsluiten (klok + einde-event), daarna de correctie via pasKwartDuurToe, die het
+  // einde-event meeschuift, gebeurtenissen ná het nieuwe einde afknipt en de keeperminuten meeneemt.
+  q.endTime = Date.now();
   addEvent('quarter_end');
+  // Alleen toepassen als de gebruiker de waarde ECHT veranderd heeft. Anders zou elke gewone
+  // afsluiting de duur op hele minuten afronden, en kon een gebeurtenis in de laatste seconden
+  // daardoor stil naar de slotminuut geknipt worden.
+  const gelopenMin = Math.round(kwartDuurMs(q) / 60000);
+  if (!isNaN(corrMin) && corrMin > 0 && corrMin !== gelopenMin) {
+    const res = pasKwartDuurToe(match, q.num, corrMin * 60000);
+    if (res && res.geknipt.length) {
+      showToast(`${res.geknipt.length === 1 ? '1 gebeurtenis' : res.geknipt.length + ' gebeurtenissen'} stond na de gecorrigeerde eindtijd en staat nu op de slotminuut.`, 'err');
+    }
+  }
   match.quarterStatus = 'between';
   const gezet = zetGeplandeOpstellingKlaar(match);
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
@@ -760,6 +847,7 @@ async function doKwartDuur(qNum, nieuweMin) {
 // Voordien deed heropenen altijd +1, waardoor een per ongeluk afgesloten wedstrijd van één blok
 // stil een wedstrijd van twee delen werd — met een "deel 2" in het verslag en in beide PDF's.
 function confirmReopenMatch() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const label = pSingLow(match);
   const laatste = match.quarters[match.quarters.length - 1];
   const hervatbaar = !!(laatste && laatste.startTime && laatste.endTime);
@@ -780,6 +868,7 @@ function confirmReopenMatch() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doUnfinishToPlanned() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.quarters.length) { closeModal(); return; }
   match.status = 'planned'; match.quarterStatus = 'not_started'; match.currentQuarter = 0;
   closeModal();
@@ -792,6 +881,7 @@ async function doUnfinishToPlanned() {
 // De guard kijkt daarom niet meer naar de status van de wedstrijd maar naar het deel zelf: loopt
 // het al (geen endTime), dan valt er niets te hervatten en is dit een dubbeltik.
 async function doResumeLastPeriod() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (!q || !q.startTime || !q.endTime) { closeModal(); return; }
   // De tijd tussen het (foute) afsluiten en nu telt als pauze — zo hervat de klok exact waar ze
@@ -815,6 +905,7 @@ async function doResumeLastPeriod() {
   go('live', match.id);
 }
 async function doReopenMatch() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard: anders telkens +1 fantoomdeel
   match.status = 'live';
   match.quarterStatus = 'between';
@@ -827,6 +918,7 @@ async function doReopenMatch() {
 // die nog nooit gestart is, zette die tik ze zonder enige vraag op 0-0 "Gespeeld" met nul delen —
 // en zo verscheen ze ook in de uitslagen van het dagverslag. Eerst de veilige uitweg aanbieden.
 function endMatch() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (!match.quarters.length) {
     openModal(`<h3>Deze wedstrijd is nog niet gestart</h3>
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Afsluiten zet ze op <b>0-0 "Gespeeld"</b> zonder speeltijd, en dan komt ze zo ook in de uitslagen van het dagverslag te staan.</p>
@@ -837,6 +929,7 @@ function endMatch() {
   endMatchModal();
 }
 function endMatchModal() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const label = pSingLow(match);
   const durMs = (match.quarterDuration || 0) * 60000;
   const overtimeMin = durMs ? Math.round((getQElapsed(match) - durMs) / 60000) : 0;
@@ -846,16 +939,23 @@ function endMatchModal() {
   // typen — wie gewoon bevestigde, zette die 140 minuten definitief vast.
   const vergeten = !!durMs && getQElapsed(match) > durMs * 2;
   const prefill = vergeten ? (match.quarterDuration || 1) : Math.round(getQElapsed(match) / 60000);
-  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder desgewenst de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}
-    <div class="fg" style="margin-top:8px"><label>Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${prefill}" min="1"></div></div>` : '';
+  // Zelfde rechtzetting als in endPeriod (audit 24-08-2026): het duurveld staat er altijd, de luide
+  // waarschuwing enkel bij een echte overschrijding. Loopt het laatste deel al, dan hoort de duur
+  // van dát deel hier recht te kunnen — ook bij een kleine afwijking.
+  const laatste = match.quarters[match.quarters.length - 1];
+  const nogBezig = !!laatste && !laatste.endTime;
+  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}</div>` : '';
+  const duurVeld = nogBezig ? `<div class="fg" style="margin-bottom:12px"><label style="font-size:12px;color:var(--txt2)">Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${prefill}" min="1"></div>` : '';
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     ${warn}
+    ${duurVeld}
     <div class="fg"><label>Notities (optioneel)</label>
       <textarea id="end-notes" rows="4" placeholder="Aanvullingen over de wedstrijd, bv. weer, blessures, opmerkingen...">${esc(match.notes||'')}</textarea></div>
     <button class="btn btn-red" onclick="confirmEndMatch()">${icI(IC.finish)} Afsluiten &amp; opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function confirmEndMatch() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const t = document.getElementById('end-notes');
   if (t) match.notes = t.value;
   const corrInp = document.getElementById('em-correct-min');
@@ -1047,6 +1147,7 @@ async function markMoment() {
   } finally { _noteBusy = false; }
 }
 function modalEditMatchInfo() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
   const partsBlock = notStarted ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1126,6 +1227,7 @@ function eiPeriodChange() {
   const ci = document.getElementById('ei-qd-custom'); if (ci) ci.style.display = 'none';
 }
 async function saveMatchInfo() {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const opp = v('ei-opp').trim(); if (opp) match.opponent = opp;
   match.subteam = v('ei-subteam').trim();
@@ -1162,7 +1264,10 @@ async function saveMatchInfo() {
   // herplaatsen (zou de kwart-reconstructie corrumperen) — bied de knop dan ook niet aan.
   if (slots && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
     closeModal(); render();
-    showToast('Formatie gewijzigd (label). Er zijn al wissels gebeurd — gebruik "Positiewissel" om spelers individueel te herplaatsen.', 'ok');
+    // Verwees tot 24-08-2026 naar "Positiewissel" als knop. Zo'n knop staat niet op dit scherm: je
+    // herplaatst iemand door hem op het tabblad Opstelling aan te tikken en dan zijn nieuwe plek.
+    // De oude tekst stuurde je dus zoeken naar iets wat er niet staat.
+    showToast('Formatie gewijzigd (enkel het label). Er zijn al wissels gebeurd — verplaats iemand door hem op het tabblad Opstelling aan te tikken en dan zijn nieuwe plek.', 'ok');
   } else if (slots) {
     openModal(`<h3>Spelersposities aanpassen?</h3>
       <p style="color:var(--txt2);font-size:14px;text-align:center;margin-bottom:16px">Wil je de posities van de spelers ook herplaatsen volgens de nieuwe formatie <b>${esc(match.formation)}</b>?</p>
@@ -1172,9 +1277,11 @@ async function saveMatchInfo() {
     closeModal(); render();
   }
 }
-function applyFormationPositions() {
-  modalEditPositions();
-}
+// LET OP: hier stond tot 24-08-2026 een tweede, dode definitie van applyFormationPositions die
+// gewoon modalEditPositions() opende. Ze bleef staan bij het herbouwen van het herplaatsvenster in
+// v1.1.14. Omdat de échte versie (verderop, op de aanbevolen plekken van de formatie) later in
+// hetzelfde bestand staat, won die altijd — de knop werkte dus correct, maar wie de dode versie
+// "herstelde" of verplaatste, veranderde stil het gedrag van "Ja, posities herplaatsen".
 
 // ===================== DE STARTOPSTELLING HERPLAATSEN =====================
 // HERBOUWD OP HET POSITIEROOSTER (audit 23-08-2026). Dit venster kwam uit het oude model, waarin een
@@ -1205,7 +1312,9 @@ function _epStarters() { return (match.players || []).filter(p => p.starting); }
 function _epMag() {
   if ((match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
     closeModal();
-    showToast('Er zijn al wissels of positiewissels gebeurd — gebruik "Positiewissel" om posities aan te passen. De startopstelling kan hier niet meer herplaatst worden.', 'err');
+    // Zelfde rechtzetting als hierboven: niet naar een knopnaam verwijzen die niet bestaat, maar naar
+    // de weg die er wél is (tik de speler aan op het tabblad Opstelling, dan zijn nieuwe plek).
+    showToast('Er zijn al wissels of positiewissels gebeurd, dus de startopstelling kan hier niet meer herplaatst worden. Verplaats iemand via het tabblad Opstelling: tik de speler aan en dan zijn nieuwe plek.', 'err');
     return false;
   }
   return true;
@@ -1444,9 +1553,10 @@ async function shareReport() {
   if (ycLine) lines.push(`🟨 ${ycLine}`);
   if (rcLine) lines.push(`🟥 ${rcLine}`);
   if (m.motmId) lines.push(`⭐ Man v/d match: ${pName(m, m.motmId)}`);
-  // canManage() i.p.v. isAdmin: in "Kijken"-modus zie je de notities zelf niet op het scherm, dus
-  // dan horen ze ook niet in een bericht dat je doorstuurt.
-  if (canManage() && m.notes) lines.push('', m.notes);
+  // canLive() i.p.v. isAdmin: in "Kijken"-modus zie je de notities zelf niet op het scherm, dus dan
+  // horen ze ook niet in een bericht dat je doorstuurt. Stond tot 24-08-2026 op canManage, en die is
+  // offline false — een beheerder zonder verbinding stuurde dus stil een verslag zonder notities.
+  if (canLive() && m.notes) lines.push('', m.notes);
   // Volgende geplande wedstrijd van dezelfde ploeg
   try {
     const all = await dbAll();
@@ -1596,14 +1706,21 @@ function exportMatchCSV() {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 async function forceEndMatch(correctMin) {
+  if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (q && !q.endTime) {
     if (q.pausedAt) { q.totalPaused=(q.totalPaused||0)+(Date.now()-q.pausedAt); q.pausedAt=null; }
-    q.endTime = correctMin ? q.startTime + (q.totalPaused || 0) + correctMin * 60000 : Date.now();
-  } else if (q && correctMin) {
-    // Het laatste deel was al beëindigd, maar de gebruiker vulde in het afsluitdialoog een
-    // gecorrigeerde duur in — die alsnog toepassen, anders is het correctieveld een stille no-op.
-    q.endTime = q.startTime + (q.totalPaused || 0) + correctMin * 60000;
+    q.endTime = Date.now();
+  }
+  // Zelfde rechtzetting als in doEndPeriod (audit 24-08-2026): de correctie loopt via
+  // pasKwartDuurToe, zodat het einde-event meeschuift en gebeurtenissen ná de nieuwe eindtijd niet
+  // buiten hun blok blijven hangen (dat gaf speelminuten hoger dan de wedstrijdduur, en negatieve).
+  // Enkel als de waarde echt afwijkt van de gelopen duur — zie doEndPeriod.
+  if (q && correctMin && correctMin !== Math.round(kwartDuurMs(q) / 60000)) {
+    const res = pasKwartDuurToe(match, q.num, correctMin * 60000);
+    if (res && res.geknipt.length) {
+      showToast(`${res.geknipt.length === 1 ? '1 gebeurtenis' : res.geknipt.length + ' gebeurtenissen'} stond na de gecorrigeerde eindtijd en staat nu op de slotminuut.`, 'err');
+    }
   }
   match.status = 'done'; match.quarterStatus = 'done';
   stopTimer(); releaseWake(); await dbSave(match); render();
@@ -2211,6 +2328,25 @@ function vertrokkenChip(p) {
   const ev = (match.events || []).find(e => e.type === 'injury' && e.injuryType === 'vertrokken' && e.playerId === p.id);
   const reden = ev && ev.reason ? ev.reason : '';
   return ` <span title="${esc(reden || 'Verliet de wedstrijd')}" style="font-size:10px;font-weight:700;color:var(--org2,#b45309);border:1px solid #fbbf24;background:var(--org-pale,#fff3e0);border-radius:6px;padding:1px 5px;white-space:nowrap">vertrokken${reden ? ' · ' + esc(reden) : ''}</span>`;
+}
+// "Herstel" bij de groep "Weg uit de wedstrijd" (audit 24-08-2026). Tot dan was een mistik hier enkel
+// terug te draaien door het event op te zoeken in het tabblad Verloop. Het verwijderen loopt via
+// doDeleteEvent, dus mét tombstone (anders brengt de synchronisatie met een medebeheerder het event
+// terug) en mét het herrekenen van veld, score en keeperminuten.
+function confirmHerstelVertrokken(pid) {
+  if (!canLive() || !match) return;
+  const p = match.players.find(pl => pl.id === pid);
+  if (!p) return;
+  const ev = (match.events || []).slice().reverse().find(e => e.type === 'injury' && e.playerId === pid && (e.injuryType === 'vertrokken' || e.leavesField));
+  if (!ev) { showToast('Geen vertrek gevonden om terug te draaien.', 'err'); return; }
+  const inPlan = Array.isArray(match.nextLineup) && match.nextLineup.some(x => x.id === pid);
+  openModal(`<h3>${esc(p.name)} terug in de wedstrijd?</h3>
+    ${/* Gemeten 24-08-2026: doDeleteEvent laat de reconstructie opnieuw lopen, dus wie op het veld
+         stond toen hij wegging, staat daar weer — hij komt NIET op de bank terecht. De tekst zei dat
+         eerst wel, en dat zou een verkeerd beeld van het veld geven. */ ''}
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Zijn vertrek wordt geschrapt en hij doet weer mee: stond hij op het veld toen hij wegging, dan staat hij daar weer. Zijn gespeelde minuten blijven zoals ze zijn en zijn teller loopt weer.${inPlan ? '' : ' Stond hij in een getekende opstelling voor een volgend deel, kijk die dan nog eens na.'}</p>
+    <button class="btn btn-green" onclick="doDeleteEvent('${ev.id}')">${icI(IC.check)} Ja, terug in de wedstrijd</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 function modalMarkAbsent(pid) {
   const p = match.players.find(pl => pl.id === pid);
@@ -3178,7 +3314,10 @@ async function doUsePlannedLineup(deel) {
 //   null    = nog niet begonnen of afgelopen: enkel klaarzetten
 function plannedRunMode(m) {
   if (!m || m.status === 'done') return null;
-  if (m.quarterStatus === 'running') return 'live';
+  // 'paused' hoort hier bij 'running' (audit 24-08-2026): de klok staat stil, maar het deel is bezig.
+  // Zonder deze regel weigerde "Doorvoeren" tijdens een klokpauze met "kan zodra een deel bezig is",
+  // terwijl een stilstaand spel juist HET moment is om te wisselen (blessure, fluitsignaal).
+  if (m.quarterStatus === 'running' || m.quarterStatus === 'paused') return 'live';
   if (m.quarterStatus === 'between') return 'break';
   return null;
 }
@@ -3765,7 +3904,8 @@ async function runPlannedPosSwap(id) {
 // (die staat enkel klaar), tijdens het spel niet.
 let _liveTapSel = null;   // { kind: 'field' | 'bench', id }
 function liveFieldTap(kind, id) {
-  if (!canLive() || match.quarterStatus !== 'running') return;
+  // 'paused' hoort hier bij 'running': het deel is bezig, enkel de klok staat stil (audit 24-08-2026).
+  if (!canLive() || !match || (match.quarterStatus !== 'running' && match.quarterStatus !== 'paused')) return;
   const sel = _liveTapSel;
   if (sel && sel.id === id) { _liveTapSel = null; render(); return; }              // deselecteren
   // Een LEGE plek tijdens het spel: een speler die al op het veld staat verhuist ernaartoe. Van de

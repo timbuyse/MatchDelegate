@@ -14,7 +14,10 @@ function renderDetail() {
       ${/* De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep
            langer door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de
            latere blokken mee, want gameTimeMs is cumulatieve speeltijd. */ ''}
-      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min${(canManage() && q.endTime)
+      ${/* canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
+           offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
+           een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
+      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min${(canLive() && q.endTime)
         ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
       <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;

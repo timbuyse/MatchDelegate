@@ -3182,11 +3182,14 @@ async function loadHome() {
   // wedstrijd een hele nacht door zonder dat ze ergens te zien was. Een tikkende klok is dringend
   // voor de hele club, niet enkel voor de ploeg waar je nu naar kijkt; daarom staat de ploegnaam
   // op de knop in plaats van de melding weg te filteren.
-  const forgotten = canManage() ? all.filter(looksForgotten) : [];
+  // canLive, niet canManage (audit 24-08-2026): canManage sluit offline uit, dus precies langs de
+  // lijn — waar de verbinding wegvalt — verdwenen de twee meldingen die een tikkende klok of een
+  // vastzittende wedstrijd vindbaar maken. Je moest dan al ín die wedstrijd zitten om het te zien.
+  const forgotten = canLive() ? all.filter(looksForgotten) : [];
   // Live maar de klok staat stil: geen vertekende minuten, wel een wedstrijd die nog afgewerkt of
   // gedeblokkeerd moet worden (zie vastgelopenLive in live-match.js). Andere tekst, want "de klok
   // loopt door" zou hier gewoon niet waar zijn.
-  const onafgewerkt = canManage() ? all.filter(looksUnfinished) : [];
+  const onafgewerkt = canLive() ? all.filter(looksUnfinished) : [];
   const openKnop = m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.teamName || '')}${m.teamName ? ' · ' : ''}${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''}</button>`;
   const forgottenBanner = (forgotten.length
     ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${forgotten.length === 1 ? 'Eén wedstrijd loopt' : forgotten.length + ' wedstrijden lopen'} nog.</b> De klok tikt door, wat de speelminuten vertekent. Sluit ${forgotten.length === 1 ? 'ze' : 'ze allemaal'} af zodra je kan.
