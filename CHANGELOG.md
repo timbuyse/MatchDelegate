@@ -9,6 +9,57 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.2
+Eerste drie punten uit de feature-audit van het klaarzetten van een wedstrijd: staat elke knop op een
+logische plek, en doet hij wat zijn label belooft?
+
+### Het veld liet twaalf spelers toe voor acht plaatsen, en zei dat het klopte
+- **Wat er misging.** In de opstelling van een nieuwe wedstrijd werd er bij het plaatsen niet geteld.
+  Op een 8v8-wedstrijd kon je er twaalf op zetten: de teller sprong naar **12/8** in het **groen**,
+  met eronder "Het veld is vol", en het opslaan bewaarde alle twaalf als basisspeler. Geen woord.
+  Dat gebeurt makkelijker dan het lijkt: wijzig je het formaat van 11v11 naar 8v8, dan blijven de
+  spelers staan die je al geplaatst had.
+- **Waarom dat telt.** De aftrapopstelling is de bron voor de speelminuten, de keeperminuten, het
+  plan voor de volgende blokken en het verslag. Twaalf man daar laat alles daarna met twaalf rekenen.
+- **Nu.** Hetzelfde als in het pauzescherm — het mag, maar je ziet het: de teller wordt oranje en er
+  staat *"Je zet 12 spelers op een veld voor 8. Dat mag — je speelt dan met 4 spelers te veel — maar
+  kijk het even na."* Onder de bank staat hoe je iemand er weer af haalt. Spelen met zeven man voor
+  acht plaatsen blijft groen en zonder waarschuwing, want dan zijn er gewoon niet meer spelers.
+
+### Een andere formatie kiezen wiste je hele plan per blok
+- **Wat er misging.** Koos je in de opstelling een andere formatie, dan verdwenen de opstellingen die
+  je voor de volgende blokken had ingegeven — met enkel een mededeling áchteraf en geen weg terug.
+  Terwijl die formatiekeuze zichtbaar niemand verplaatst: sinds v0.34.0 licht ze enkel plekken op.
+- **Waarom het niet meer nodig was.** De reden ervoor ("die opstellingen staan op de plaatsen van de
+  oude formatie") gold in het oude model. Elke planregel draagt nu zijn eigen roosterplek en
+  coördinaten, en die zijn formatie-onafhankelijk.
+- **Nu.** Het plan blijft staan. Wat wél van de formatie afhangt is het *nummer* van een plek — dat
+  is een label — en dat wordt bij een formatiewijziging hernummerd.
+
+### Te veel spelers na een rode kaart: nu ook zichtbaar in de pauze
+- Na een rode kaart speel je met een man minder, maar een plan van vóór die kaart zet er nog een vol
+  veld klaar. De waarschuwing daarover stond enkel op het tabblad *Opstelling*, en de vraag pas op
+  het moment dat je op *Start* tikte.
+- **Nu** staat het ook op het pauzekaartje bij *Wat kan je doen in de pauze?* — *"Er staan nu 8
+  spelers op het veld voor 7 plaatsen — je begint met een man te veel."* — en in de melding waarmee
+  de app het plan klaarzet.
+
+### "Namen, nummers & notities" opende een venster dat spelers verwijderde
+- **Wat er misging.** Het menu-item beloofde rugnummers, kapitein en een notitie. Het venster dat
+  openging heette *Spelers bewerken* en had per speler ook een **×** die hem onmiddellijk uit de
+  wedstrijd gooide, zonder bevestiging. **"Annuleren" bracht hem niet terug**: het venster schreef
+  rechtstreeks in de wedstrijd, dus de eerstvolgende gewone handeling — de wedstrijd starten, bijvoorbeeld —
+  maakte het definitief, en het plan hield een regel over voor een speler die niet meer bestond.
+- Datzelfde venster had ook een keuzelijst voor de **lijn** van een speler en een veld voor zijn
+  **positienummer**. Dat zijn sinds v0.34.0 afgeleiden van zijn plek op het veld. Ze los overschrijven
+  liet hem staan waar hij stond maar verlegde zijn plek naar een andere lijn — waardoor een geplande
+  positiewissel hem niet meer vond en de aftrap een plek vastlegde die niet overeenkwam met het veld
+  dat je zag.
+- **Nu.** Het venster heet zoals het menu-item en bevat precies dat: naam, rugnummer, notitie,
+  kapitein. Wie meespeelt regel je via *Selectie*, twee regels hoger in hetzelfde menu. En het werkt
+  op een werkkopie, dus **"Annuleren" annuleert echt**. Een speler die je in dít venster toevoegde,
+  kan je er ook weer uit halen — dat is je eigen tik terugnemen.
+
 ## v1.1.1
 ### "Ploeg toevoegen" beloofde iets wat die knop niet doet
 - **Wat er misging.** Op *Jouw ploegen* stond het kopje **Ploeg toevoegen** met daaronder de knop

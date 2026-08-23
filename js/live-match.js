@@ -78,6 +78,18 @@ function renderLive() {
         return `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
         <div class="sec" style="margin-top:0">${icI(IC.timer)} Wat kan je doen in de pauze?</div>
         <p style="color:var(--txt2);font-size:13px;margin-bottom:10px">${pSing(match)} ${qNum+1} start automatisch met het veld op het tabblad <b>Opstelling</b>.</p>
+        ${/* Klopt het aantal niet met de plaatsen die er ZIJN (na een rode kaart is dat er één
+             minder), dan hoort dat hier te staan. Dit kaartje belooft wat er gaat gebeuren, maar de
+             telwaarschuwing stond enkel op het tabblad Opstelling — en de vraag bij het starten komt
+             pas als je al op "Start" tikt. Zo zie je het terwijl je nog rustig in de pauze zit.
+             Zelfde woorden en kleuren als de waarschuwing daar (audit 23-08-2026, Tims keuze). */ ''}
+        ${(() => {
+          const doel = nextLineupOf(match).length, plaatsen = veldPlaatsenNu(match);
+          if (!doel || doel === plaatsen) return '';
+          const verschil = Math.abs(doel - plaatsen);
+          const hoeveel = verschil === 1 ? 'een man' : verschil + ' spelers';
+          return `<p style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px">${icI(IC.warn)} Er ${doel === 1 ? 'staat' : 'staan'} nu <b>${doel}</b> ${doel === 1 ? 'speler' : 'spelers'} op het veld voor <b>${plaatsen}</b> ${plaatsen === 1 ? 'plaats' : 'plaatsen'} — je begint met ${hoeveel} ${doel > plaatsen ? 'te veel' : 'minder'}.</p>`;
+        })()}
         <button class="btn btn-orn" style="width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Opstelling nakijken of wijzigen</button>
         <div class="evtbtns" style="margin:8px 0 0;grid-template-columns:repeat(${heeftPlan ? 3 : 2},1fr)">
           ${heeftPlan ? `<div class="evtbtn ec" onclick="modalUsePlannedLineup(${qNum + 1})"><span class="ei">${IC.clipboard}</span><span class="el">Volgens plan</span></div>` : ''}
@@ -623,7 +635,14 @@ function zetGeplandeOpstellingKlaar(m) {
     nSubs ? `${nSubs} wissel${nSubs === 1 ? '' : 's'}` : '',
     nSwaps ? `${nSwaps} positiewissel${nSwaps === 1 ? '' : 's'}` : '',
   ].filter(Boolean).join(' en ');
-  return `Opstelling voor ${pSingLow(m)} ${deel} klaargezet: ${telling}.${diff.problemen.length ? ' ' + diff.problemen[0] : ''}`;
+  // Past het plan niet op de plaatsen die er nog ZIJN (rode kaart: één minder), dan hoort dat in
+  // dezelfde melding: het plan is van vóór die kaart, dus het aantal kan niet meer kloppen. De
+  // uitgesloten speler is er hierboven al uit gefilterd, dus dit gaat over de spelers die overblijven.
+  const staan = (m.nextLineup || []).length, plaatsen = veldPlaatsenNu(m);
+  const mismatch = (staan && staan !== plaatsen)
+    ? ` Let op: ${staan} ${staan === 1 ? 'speler' : 'spelers'} voor ${plaatsen} ${plaatsen === 1 ? 'plaats' : 'plaatsen'}.`
+    : '';
+  return `Opstelling voor ${pSingLow(m)} ${deel} klaargezet: ${telling}.${diff.problemen.length ? ' ' + diff.problemen[0] : ''}${mismatch}`;
 }
 // ===================== DE DUUR VAN EEN GESPEELD BLOK AANPASSEN =====================
 // Je stopte te vroeg (13' i.p.v. 15') of de wedstrijd liep langer dan je afsloot. Er bestond al een
