@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.5
+### Een ploeg verwijderen kan enkel nog vanuit Clubbeheer
+- **Wat er misging.** De knop *Ploeg verwijderen* stond onderaan het ploegscherm, tussen de
+  dagelijkse handelingen. Archiveren stond ergens anders, in Clubbeheer. Twee knoppen die allebei
+  "deze ploeg moet weg" betekenen, op twee plaatsen — en de gevaarlijkste van de twee stond op de
+  plek waar je elke week komt.
+- **Nu.** Aanmaken, archiveren en verwijderen staan alle drie in **Clubbeheer**, naast elkaar bij
+  de ploeg. Op het ploegscherm staat geen van beide meer.
+- **Verwijderen is grijs voor een clubbeheerder.** Enkel de maker van de app kan een ploeg
+  definitief wissen — dat stond al zo in de databankregels, maar was in de app niet te zien. Tik je
+  er toch op, dan zegt de app waarom en wijst ze je naar Archiveren, waar alle gegevens bewaard
+  blijven. Geen dode knop dus.
+- Verwijdert de eigenaar een ploeg die hij zelf volgt, dan verdwijnt ze nu meteen uit "Jouw
+  ploegen" in plaats van bij de volgende opstart.
+
+---
 ## v1.1.4
 Twee punten uit de feature-audit van het klaarzetten van een wedstrijd.
 

@@ -1367,6 +1367,11 @@ function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
   const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
+  // Beheerder zónder verbinding (audit 23-08-2026). De wedstrijd volgen, starten, de selectie en de
+  // opstelling ingeven en het plan per blok aanpassen kan offline (zie canLive); wat NIET kan is de
+  // wedstrijdgegevens wijzigen, annuleren of verwijderen — dat blijft achter canManage(). Voordien
+  // stonden die knoppen er wél en deden ze stil niets, terwijl de rode knop als enige doorging.
+  const geenVerbinding = !ro && !canManage() && canLive();
   const af = matchCancelled(m);   // afgelast: alles blijft bewaard, maar er valt niets meer te doen
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
@@ -1401,10 +1406,14 @@ function renderPrep() {
          scherm, elk voor een stukje van dezelfde wedstrijd. Er staat enkel een tweede knop naast
          wanneer er nog een duidelijke volgende stap is — de selectie, of de opstelling — want dát
          is dan wat je komt doen, niet iets om op te zoeken. */ ''}
+    ${/* Zonder verbinding valt "Bewerken" weg in plaats van er te staan en niets te doen. Wat je
+         zonder verbinding wél kan, blijft staan: starten, de selectie en de opstelling ingeven, en
+         het plan per blok. Eén regel zegt waar de grens ligt. */ ''}
+    ${geenVerbinding ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px">${icI(IC.warn)} Geen verbinding — je kan de wedstrijd starten, volgen en de opstelling ingeven. De wedstrijdgegevens wijzigen, annuleren of verwijderen kan pas weer met verbinding.</div>` : ''}
     ${heeftOpstelling(m)
-      ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`
+      ? (geenVerbinding ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`)
       : `<div class="wiz-nav" style="margin-top:8px">
-      <button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
+      ${geenVerbinding ? '' : `<button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`}
       ${heeftSelectie(m)
         ? `<button class="btn btn-orgpale" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>`
         : `<button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>`}
@@ -1437,7 +1446,10 @@ function renderPrep() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}` : ''}
     ${/* Annuleren staat bewust boven de rode zone: het is de omkeerbare uitweg voor een wedstrijd die
          niet doorgaat, en juist de knop die je hier zoekt in de plaats van verwijderen. */ ''}
-    ${ro ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
+    ${/* Annuleren en verwijderen vragen een verbinding (canManage). Zonder verbinding stonden ze er
+         wel: annuleren deed stil niets en verwijderen ging als enige gewoon door — de gevaarlijkste
+         van de twee. Nu vallen ze samen weg, met de banner hierboven als uitleg. */ ''}
+    ${(ro || geenVerbinding) ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
@@ -1878,7 +1890,7 @@ function planOpgeslagenTekst(m) {
 // startopstelling vertrekken, en die achteraf verzetten zou het verslag laten liegen. Voor deel 1
 // van een lopende wedstrijd bestaat het pauzescherm ("Wissels & posities op het veld").
 function planLineupEditable(m, deel) {
-  if (!canManage()) return false;
+  if (!canLive()) return false;
   return deel > 1 || (m.status || 'planned') === 'planned';
 }
 function modalPlannedLineups(q) {

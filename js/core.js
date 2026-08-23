@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1893,7 +1893,13 @@ async function doOwnerDeleteTeam(tid) {
     if (info.clubId) { try { await fbdb.ref('clubs/' + info.clubId + '/teams/' + tid).remove(); } catch (e) {} }
     showToast('Ploeg verwijderd.', 'ok');
     closeModal();
+    // Ook het eigen lidmaatschap en de lokale caches opruimen: sinds v1.1.4 verwijdert de eigenaar
+    // meestal vanuit Clubbeheer, en daar gaat het vaak om een ploeg die hij zélf volgt. Zonder dit
+    // bleef ze in "Jouw ploegen" staan tot de volgende opstart ze als wees opruimde.
+    if (activeTeamId === tid) { stopTeamListeners(); isAdmin = false; rosterLoaded = false; rosterTeamId = null; }
+    if ((userTeams && userTeams[tid]) || activeTeamId === tid) pruneDeadTeam(tid);
     if (view === 'allusers') loadAllUsersView();
+    if (view === 'clubbeheer') loadClubBeheerView();
   } catch (e) {
     if (err) err.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
       ? 'Ongeldig wachtwoord.' : 'Verwijderen mislukt, probeer opnieuw.';

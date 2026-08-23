@@ -113,6 +113,14 @@ async function loadClubBeheerView() {
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">Openen</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}','${jsq(t.name)}')">${icI(IC.archive)} Archiveren</button>
+            ${/* Verwijderen staat hier naast archiveren, want dat hoort samen: allebei "deze ploeg
+                  moet weg". Voor een clubbeheerder is het grijs — de databankregels laten enkel de
+                  maker van de app een ploeg hard verwijderen; hij archiveert (alles blijft bewaard).
+                  Een grijze knop mét uitleg bij het aantikken, geen dode knop: anders blijf je zoeken
+                  waarom er niets gebeurt. */ ''}
+            ${isOwner
+              ? `<button class="btn btn-red btn-sm" style="width:auto;margin:0" onclick="ownerDeleteTeam('${t.id}','${jsq(t.name)}')">${icI(IC.trash)} Verwijderen</button>`
+              : `<button class="btn btn-sm" style="width:auto;margin:0;background:#f1f1f1;color:var(--txt2);opacity:.7;cursor:not-allowed" onclick="showToast('Definitief verwijderen kan enkel de maker van de app. Gebruik Archiveren: de ploeg verdwijnt uit de lijsten en alle gegevens blijven bewaard.','err')">${icI(IC.trash)} Verwijderen</button>`}
           </div>
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>

@@ -1083,8 +1083,10 @@ const HANDLEIDING_PAGINAS = [
       <ul class="hdl-list">
         <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>
         <li><b>'Openen'</b> bij een ploeg — ga naar het ploegscherm van die ploeg, met haar wedstrijden, spelers en leden.</li>
-        <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden.</li>
+        <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden. Dit is wat je wil bij een ploeg die niet meer speelt.</li>
+        <li><b>'Verwijderen'</b> — definitief wissen. Deze knop staat grijs: enkel de maker van de app kan dat. Vraag het aan hem als het echt moet.</li>
       </ul>
+      <p class="hdl-tip">Aanmaken, archiveren en verwijderen van een hele ploeg staan alle drie hier, in Clubbeheer — niet op het ploegscherm zelf. Zo kan niemand tijdens het dagelijkse werk per ongeluk een ploeg wissen.</p>
       <div class="sec">Een trainer uitnodigen</div>
       <ol class="hdl-list">
         <li>Open de ploeg met <b>'Openen'</b>, tik op de tegel <b>'Ploeg'</b> en dan bij <b>'Mensen met toegang'</b> op <b>'Iemand uitnodigen'</b>.</li>
@@ -1828,94 +1830,9 @@ async function doRenameTeam() {
 }
 
 // ---- Hele ploeg (Firebase-team) verwijderen ----
-async function confirmDeleteCloudTeam() {
-  if (!isApprovedAdmin || !activeTeamId || !fbdb) return;
-  const naam = getClubName() || 'deze ploeg';
-  if (!isOwner) {
-    let infoSnap;
-    try { infoSnap = await fbOnce(fbdb.ref('teams/' + activeTeamId + '/info/createdBy')); }
-    catch (e) { showToast('Kon niet controleren wie de ploeg aanmaakte (geen verbinding). Probeer later opnieuw.', 'err'); return; }
-    if (infoSnap.val() !== currentUser.uid) {
-      showToast('Je kan enkel ploegen verwijderen die je zelf hebt aangemaakt.', 'err');
-      return;
-    }
-  }
-  openModal(`<h3>Ploeg verwijderen</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:14px;font-size:14px"><b>${esc(naam)}</b> wordt volledig uit de cloud gewist: spelers, wedstrijden, tornooien en de toegangscode. Ook je kijkers verliezen toegang. Dit kan niet ongedaan gemaakt worden.</p>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Geef je wachtwoord in ter bevestiging:</p>
-    <div class="fg fg-pwd"><input id="delteam-pwd" type="password" placeholder="wachtwoord"><button type="button" class="pwd-eye" onclick="togglePwd(this)" tabindex="-1">${icI(IC.eye)}</button></div>
-    <div class="auth-err" id="delteam-err"></div>
-    <button class="btn btn-red" onclick="doDeleteCloudTeam()">Permanent verwijderen</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
-}
-async function doDeleteCloudTeam() {
-  if (!isAdmin || !activeTeamId || !fbdb) return;
-  const tid = activeTeamId;
-  const err = document.getElementById('delteam-err');
-  const pwd = (document.getElementById('delteam-pwd') || {}).value || '';
-  if (!pwd) { if (err) err.textContent = 'Geef je wachtwoord in.'; return; }
-  if (_teamDeleteBusy) return; // dubbeltik-guard: een 2e run zou de backup met null overschrijven
-  _teamDeleteBusy = true;
-  if (err) err.textContent = 'Bezig met verwijderen...';
-  try {
-    // Wachtwoord opnieuw bevestigen
-    const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, pwd);
-    await currentUser.reauthenticateWithCredential(cred);
-    const [teamSnap, memberInfoSnap, teamNotesSnap] = await Promise.all([
-      fbOnce(fbdb.ref('teams/' + tid)),
-      fbOnce(fbdb.ref('memberInfo/' + tid)),
-      fbOnce(fbdb.ref('teamNotes/' + tid)),
-    ]);
-    // Al verwijderd (dubbeltik / ander toestel)? Nooit de bestaande backup met leeg overschrijven.
-    if (!teamSnap.exists()) { showToast('Ploeg is al verwijderd.', 'ok'); closeModal(); go('teamselect', undefined, true); return; }
-    // Zelfde voorwaarden als de rules afdwingen VÓÓR er iets gewist wordt (eigenaar, of
-    // goedgekeurd beheerder die de ploeg maakte): anders wist dit pad eerst de uitnodiging,
-    // ledeninfo en notities en strandt het pas daarna op de geweigerde team-remove — die
-    // bijzaken zijn dan weg terwijl de ploeg blijft bestaan.
-    if (!(isOwner || (isApprovedAdmin && ((teamSnap.val() || {}).info || {}).createdBy === currentUser.uid))) {
-      if (err) err.textContent = 'Enkel de maker van de ploeg (of de eigenaar) kan ze definitief verwijderen.';
-      return;
-    }
-    // Backup opslaan vóór verwijderen
-    await fbdb.ref('deletedTeams/' + tid).set({
-      deletedAt: Date.now(),
-      deletedBy: currentUser.uid,
-      deletedByEmail: currentUser.email || '',
-      team: teamSnap.val(),
-      memberInfo: memberInfoSnap.val(),
-      teamNotes: teamNotesSnap.val(),
-    });
-    const info = (teamSnap.val() || {}).info || {};
-    const token = info.inviteToken;
-    // Uitnodiging + ledeninfo + notities eerst proberen wissen (terwijl team-lidmaatschap nog
-    // bestaat — teamNotes/memberInfo staan los van teams/$teamId en volgen daar dus niet
-    // automatisch uit mee; hun schrijfrechten vervallen bovendien zodra teams/$teamId weg is).
-    if (token) { try { await fbdb.ref('invites/' + token).remove(); } catch (e) {} }
-    try { await fbdb.ref('memberInfo/' + tid).remove(); } catch (e) {}
-    try { await fbdb.ref('teamNotes/' + tid).remove(); } catch (e) {}
-    // Openstaande ploegbeheer-aanvragen mee opruimen (het owner-verwijderpad doet dit al) —
-    // na de team-remove kan enkel de eigenaar deze wees nog wissen.
-    try { await fbdb.ref('teamAdminRequests/' + tid).remove(); } catch (e) {}
-    // Club-index opkuisen (fase 2) zodat de ploeg niet als wees in Clubbeheer blijft staan.
-    // Best-effort: onder de huidige rules mag de eigenaar clubs schrijven; voor een niet-eigenaar
-    // clubbeheerder komt dat schrijfrecht in fase 2d.
-    if (info.clubId) { try { await fbdb.ref('clubs/' + info.clubId + '/teams/' + tid).remove(); } catch (e) {} }
-    // Het hele team verwijderen
-    await fbdb.ref('teams/' + tid).remove();
-    if (currentUser) { try { await fbdb.ref('users/' + currentUser.uid + '/teams/' + tid).remove(); } catch (e) {} }
-    delete userTeams[tid];
-    stopTeamListeners();
-    activeTeamId = null; isAdmin = false;
-    localStorage.removeItem('voetbal_activeTeamId');
-    forgetRosterCache(tid); rosterLoaded = false; rosterTeamId = null;
-    rememberTeamClubLogo(tid, '');
-    closeModal();
-    go('teamselect', undefined, true);
-  } catch (e) {
-    console.error('Ploeg verwijderen mislukt:', e);
-    if (err) err.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
-      ? 'Onjuist wachtwoord.'
-      : 'Verwijderen mislukt, probeer opnieuw.';
-  } finally { _teamDeleteBusy = false; }
-}
+// De knop stond tot v1.1.3 onderaan het ploegscherm (confirmDeleteCloudTeam/doDeleteCloudTeam,
+// hier verwijderd). Sinds v1.1.4 gebeurt dat uitsluitend in Clubbeheer, naast Archiveren, via
+// ownerDeleteTeam() in core.js — het hoort bij de club, net als een ploeg aanmaken. Voor een
+// clubbeheerder staat die knop daar grijs: de databankregels laten enkel de eigenaar hard
+// verwijderen, hij archiveert.
 

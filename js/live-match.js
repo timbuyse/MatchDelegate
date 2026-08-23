@@ -241,7 +241,7 @@ function confirmLeave() {
 // geen enkele gebeurtenis gelogd is — anders zou je speelminuten en events in een tussentoestand
 // achterlaten. De controle staat bewust twee keer: de knop verschijnt niet, en de actie weigert.
 function confirmTerugNaarGepland() {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   if ((match.quarters || []).length || (match.events || []).length) {
     showToast('Deze wedstrijd is al begonnen — terugzetten kan niet meer.', 'err');
     return;
@@ -252,7 +252,7 @@ function confirmTerugNaarGepland() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function terugNaarGepland() {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   if ((match.quarters || []).length || (match.events || []).length) {
     closeModal(); showToast('Deze wedstrijd is al begonnen — terugzetten kan niet meer.', 'err');
     return;
@@ -301,7 +301,7 @@ function confirmExtraDeel() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doExtraDeel() {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   // Zelfde rekenwijze als bij het heropenen van een afgesloten wedstrijd (zie confirmReopenMatch):
   // nooit lager dan wat er al gespeeld is, en dan één erbij.
   match.numQuarters = Math.max(match.numQuarters || 0, (match.quarters || []).length) + 1;
@@ -322,7 +322,7 @@ function matchOmschrijving(m) {
   return [tName(m), m.opponent ? 'tegen ' + m.opponent : '', matchWhen(m), m.venue].filter(Boolean).join(' · ');
 }
 function confirmResetMatch() {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   const m = match;
   const nEvents = (m.events || []).filter(e => e.type !== 'quarter_start' && e.type !== 'quarter_end').length;
   const nDelen = (m.quarters || []).length;
@@ -339,7 +339,7 @@ function confirmResetMatch() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function doResetMatch() {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   if (_eventBusy) return;
   _eventBusy = true;
   try {
@@ -695,7 +695,7 @@ function pasKwartDuurToe(m, qNum, nieuweMs) {
   return { delta, geknipt };
 }
 function modalKwartDuur(qNum) {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   const q = (match.quarters || []).find(x => x.num === qNum);
   if (!q || !q.endTime) {
     showToast(`Dit ${pSingLow(match)} is nog niet afgesloten — de duur kan je aanpassen bij het afsluiten.`, 'err');
@@ -743,7 +743,7 @@ function voorbeeldKwartDuur(qNum) {
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalKwartDuur(${qNum})">Terug</button>`);
 }
 async function doKwartDuur(qNum, nieuweMin) {
-  if (!canManage() || !match) return;
+  if (!canLive() || !match) return;
   if (_eventBusy) return;
   _eventBusy = true;
   try {
@@ -994,7 +994,7 @@ async function stopShootout() {
 }
 // Ingang achteraf, vanuit het verslag: reeks alsnog ingeven of corrigeren.
 function shootoutVanuitVerslag() {
-  if (!canManage()) return;
+  if (!canLive()) return;
   if (match.shootout) modalShootout(); else startShootout();
 }
 // De hele reeks weghalen (bv. verkeerd ingegeven).
@@ -1950,7 +1950,7 @@ function confirmVerplaatsEvent(id, naarStart) {
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalEditEvent('${id}')">Annuleren</button>`);
 }
 async function doVerplaatsEvent(id, naarStart) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   const e = match.events.find(x => x.id === id); if (!e) return;
   if (_eventBusy) return;
   _eventBusy = true;
@@ -3034,7 +3034,7 @@ function planningTijdensMatchHtml(m) {
   // Zelfde regel als in het voorbereidingsscherm: het plan voor de komende delen is enkel voor
   // beheerders. Hier weegt dat nog zwaarder — dit toont net wat er nog gaat gebeuren. Pas ná de
   // controles hierboven, anders krijgt een kijker de melding ook bij een wedstrijd zonder plan.
-  if (!canManage()) {
+  if (!canLive()) {
     return `<div class="sec">Planning</div>
       <div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`;
   }
@@ -3065,7 +3065,7 @@ function planningTijdensMatchHtml(m) {
       </div>` : `<div class="lc-nav"><span class="lc-nav-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ}</span></div>`}
       ${delen.map(slide).join('')}
     </div></div>
-    ${canManage() ? `<button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>` : ''}`;
+    ${canLive() ? `<button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>` : ''}`;
 }
 let _planLiveQ = 1;
 let _planLiveVanaf = 0;
@@ -3089,7 +3089,7 @@ function _planLiveNav(dir) {
 // gebeurt enkel als je hier op drukt, en wat eruit komt belandt in de pauze-opstelling waar je het
 // nog kan aanpassen of weggooien voor het deel start.
 function modalUsePlannedLineup(deel) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   const m = match;
   const plan = ((m.plannedLineups || {})[deel] || []);
   if (!plan.length) return;
@@ -3109,7 +3109,7 @@ function modalUsePlannedLineup(deel) {
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">${alGelijk ? 'Sluiten' : 'Annuleren'}</button>`);
 }
 async function doUsePlannedLineup(deel) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   const m = match;
   const plan = ((m.plannedLineups || {})[deel] || []);
   if (!plan.length) return;
@@ -3402,17 +3402,17 @@ async function planSubOpen(bron) {
   if (bron === 'planner') { await _schrijfPlanDraft(); _planLineupDraft = {}; }
 }
 async function planSubBewerk(id, soort, bron) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   await planSubOpen(bron);
   if (soort === 'swap') modalPlanPosSwap(id); else modalPlanSub(id);
 }
 async function planSubNieuw(deel, soort, bron) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   await planSubOpen(bron);
   if (soort === 'swap') modalPlanPosSwap(null, false, deel); else modalPlanSub(null, false, deel);
 }
 async function planSubWis(id, soort, bron) {
-  if (!canManage()) return;
+  if (!canLive()) return;
   if (_eventBusy) return; _eventBusy = true;
   try {
     if (bron === 'planner') { await _schrijfPlanDraft(); _planLineupDraft = {}; }
@@ -3714,7 +3714,7 @@ async function runPlannedPosSwap(id) {
 // (die staat enkel klaar), tijdens het spel niet.
 let _liveTapSel = null;   // { kind: 'field' | 'bench', id }
 function liveFieldTap(kind, id) {
-  if (!canManage() || match.quarterStatus !== 'running') return;
+  if (!canLive() || match.quarterStatus !== 'running') return;
   const sel = _liveTapSel;
   if (sel && sel.id === id) { _liveTapSel = null; render(); return; }              // deselecteren
   // Een LEGE plek tijdens het spel: een speler die al op het veld staat verhuist ernaartoe. Van de

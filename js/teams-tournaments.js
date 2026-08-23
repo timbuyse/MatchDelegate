@@ -148,7 +148,9 @@ function renderTeamOverview() {
       </div>
       <button class="btn btn-pale" style="margin-top:14px" onclick="_tgvFrom='teamEdit';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier zet je ze terug.</p>
-      ${isApprovedAdmin ? `<button class="btn btn-red" style="margin-top:14px" onclick="confirmDeleteCloudTeam()">${icI(IC.trash)} Ploeg verwijderen</button>` : ''}
+      ${/* Archiveren en verwijderen van een hele ploeg staan bewust NIET hier maar in Clubbeheer
+            (Tim, 23-08-2026): het zijn clubhandelingen, net als een ploeg aanmaken. Zo staan de drie
+            bij elkaar en kan niemand vanuit het dagelijkse ploegscherm per ongeluk een ploeg wissen. */ ''}
     </div>` : '';
   return `<div class="hdr"><button class="back" onclick="closeTeamEdit()">‹</button><h1>${esc(t.name)}</h1></div>
   <div class="content">

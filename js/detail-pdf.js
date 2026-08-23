@@ -271,12 +271,18 @@ function cloneMatch() {
   go('new');
 }
 function confirmDelete() {
+  // Verwijderen hoort bij beheren, niet bij een wedstrijd volgen: het vraagt dus een verbinding.
+  // Deze controle ontbrak, waardoor de rode knop offline als ENIGE gewoon doorging terwijl Bewerken
+  // en Annuleren daar stil niets deden (audit 23-08-2026). Ook een eigen melding in plaats van een
+  // stille weigering, want een knop die niets zegt laat je drie keer tikken.
+  if (!canManage()) { showToast(offlineWithKnownCloudTeam() ? 'Geen verbinding — verwijderen kan pas weer met verbinding.' : 'Enkel een ploegbeheerder kan een wedstrijd verwijderen.', 'err'); return; }
   openModal(`<h3>Wedstrijd verwijderen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Dit kan niet ongedaan gemaakt worden.</p>
     <button class="btn btn-red" onclick="deleteCurrentMatch()">${icI(IC.trash)} Ja, verwijderen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function deleteCurrentMatch() {
+  if (!canManage()) return;   // tweede slot: de handler weigert zelf, ook als de knop ergens blijft staan
   const m = match;
   // Vangnet: back-up naar de cloud vóór de echte verwijdering, zodat een misklik herstelbaar
   // blijft (zelfde patroon als deletedTeams bij ploeg verwijderen). Enkel zinvol voor
