@@ -1977,16 +1977,29 @@ function calcMinutes(m) {
   for (const p of m.players) if (p.starting && !p.absent) entry[p.id] = 0;
   const evts = [...m.events].sort((a,b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of evts) {
+    // EENZIJDIGE WISSELS (v0.49.0): iemand kan eraf gaan zónder vervanger (playerInId is dan null)
+    // of erbij komen zónder dat er iemand af gaat (playerOutId null). Zonder de controles hieronder
+    // kwam er een teller onder de sleutel `null` te staan, en liet het eerstvolgende eenzijdige
+    // event de hele berekening crashen op `mins[null].ms`. Dat nam élk scherm mee dat speelminuten
+    // toont: het pauzescherm, de wisselkeuze ("minst gespeeld eerst"), het blessurescherm, het
+    // verslag en de statistieken. Gevonden in de zijlijntest van 22-08-2026.
+    // De `mins[...]`-controle is een vangnet voor een speler die intussen uit de selectie gehaald
+    // is: zijn teller opruimen mag altijd, optellen enkel als hij nog bestaat.
     if (e.type === 'substitution') {
-      if (entry[e.playerOutId] !== undefined) { mins[e.playerOutId].ms += e.gameTimeMs - entry[e.playerOutId]; delete entry[e.playerOutId]; }
-      entry[e.playerInId] = e.gameTimeMs;
+      if (e.playerOutId && entry[e.playerOutId] !== undefined) {
+        if (mins[e.playerOutId]) mins[e.playerOutId].ms += e.gameTimeMs - entry[e.playerOutId];
+        delete entry[e.playerOutId];
+      }
+      if (e.playerInId) entry[e.playerInId] = e.gameTimeMs;
     }
-    if (e.type === 'red_card' && entry[e.playerId] !== undefined) {
-      mins[e.playerId].ms += e.gameTimeMs - entry[e.playerId]; delete entry[e.playerId];
+    if (e.type === 'red_card' && e.playerId && entry[e.playerId] !== undefined) {
+      if (mins[e.playerId]) mins[e.playerId].ms += e.gameTimeMs - entry[e.playerId];
+      delete entry[e.playerId];
     }
     // Blessure waarbij de speler het veld verlaat zonder directe wissel: stop de teller.
-    if (e.type === 'injury' && e.leavesField && entry[e.playerId] !== undefined) {
-      mins[e.playerId].ms += e.gameTimeMs - entry[e.playerId]; delete entry[e.playerId];
+    if (e.type === 'injury' && e.leavesField && e.playerId && entry[e.playerId] !== undefined) {
+      if (mins[e.playerId]) mins[e.playerId].ms += e.gameTimeMs - entry[e.playerId];
+      delete entry[e.playerId];
     }
   }
   for (const [pid, entryMs] of Object.entries(entry)) if (mins[pid]) mins[pid].ms += totalMs - entryMs;
@@ -2040,12 +2053,23 @@ function calcMinutesPerQuarter(m) {
   for (const p of m.players) if (p.starting) entry[p.id] = 0;
   const evts = [...m.events].sort((a, b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of evts) {
+    // Zelfde eenzijdige-wisselvalstrik als in calcMinutes hierboven — zie de uitleg daar. Deze
+    // functie had ze ook, en crashte op `intervals[null].push`.
     if (e.type === 'substitution') {
-      if (entry[e.playerOutId] !== undefined) { intervals[e.playerOutId].push({ start: entry[e.playerOutId], end: e.gameTimeMs }); delete entry[e.playerOutId]; }
-      entry[e.playerInId] = e.gameTimeMs;
+      if (e.playerOutId && entry[e.playerOutId] !== undefined) {
+        if (intervals[e.playerOutId]) intervals[e.playerOutId].push({ start: entry[e.playerOutId], end: e.gameTimeMs });
+        delete entry[e.playerOutId];
+      }
+      if (e.playerInId) entry[e.playerInId] = e.gameTimeMs;
     }
-    if (e.type === 'red_card' && entry[e.playerId] !== undefined) { intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs }); delete entry[e.playerId]; }
-    if (e.type === 'injury' && e.leavesField && entry[e.playerId] !== undefined) { intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs }); delete entry[e.playerId]; }
+    if (e.type === 'red_card' && e.playerId && entry[e.playerId] !== undefined) {
+      if (intervals[e.playerId]) intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs });
+      delete entry[e.playerId];
+    }
+    if (e.type === 'injury' && e.leavesField && e.playerId && entry[e.playerId] !== undefined) {
+      if (intervals[e.playerId]) intervals[e.playerId].push({ start: entry[e.playerId], end: e.gameTimeMs });
+      delete entry[e.playerId];
+    }
   }
   for (const [pid, ms] of Object.entries(entry)) if (intervals[pid]) intervals[pid].push({ start: ms, end: totalMs });
   const result = {};

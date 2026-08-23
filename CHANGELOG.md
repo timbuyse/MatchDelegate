@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.0.1
+Tweede kritieke vondst uit de zijlijntest van 22-08 opgelost.
+
+### De speelminuten crashten na een eenzijdige wissel
+- **Wat er misging.** Ging er iemand van het veld **zonder vervanger**, en kwam er later iemand
+  **bij zonder dat er iemand af ging**, dan liep de berekening van de speelminuten stuk. Alles wat
+  minuten toont viel dan mee uit: het pauzescherm, de wisselkeuze ("minst gespeeld eerst"), het
+  blessurescherm, het verslag en de statistieken. Bij een jeugdploeg zijn dat allebei doodgewone
+  handelingen, dus dit trof net de wedstrijden waarin het druk was.
+- **De oorzaak.** Bij een eenzijdige wissel is er geen invaller (of geen vertrekker). De teller
+  werd toch onder een lege naam weggeschreven, en het eerstvolgende eenzijdige event struikelde
+  daarover. Beide plekken die speelminuten berekenen hadden dezelfde fout — ook die voor de
+  minuten *per blok*, die bij de eerste vaststelling nog niet opgemerkt was.
+- Meteen ook een vangnet: een speler die intussen uit de selectie gehaald is, laat de berekening
+  niet meer struikelen.
+- Gemeten in de sandbox: het scenario met eenzijdige wissels valt volledig uit de foutenlijst, en
+  in 40 willekeurige wedstrijden gingen de 53 crashes naar nul.
+
 ## v1.0.0 — uit de testfase
 De eerste **major** versie: de app is niet langer "in testfase". Aanleiding is de
 strafschoppenreeks, maar er zit een hele reeks verbeteringen in van 23 augustus 2026.
