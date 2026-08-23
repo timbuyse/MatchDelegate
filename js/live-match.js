@@ -1502,7 +1502,7 @@ function shareWhatsApp(m) {
   const lines = [];
   lines.push(`⚽ ${us} ${usScore}–${themScore} ${them}`);
   // Strafschoppenreeks onder de uitslag, met wie er won — zonder de score zelf aan te passen.
-  if (heeftShootout(m)) {
+  if (toonShootout(m)) {   // enkel bij een gelijke stand — zie toonShootout in core.js
     const so = shootoutStand(m);
     lines.push(`🥅 Strafschoppen: ${home ? so.us : so.them}–${home ? so.them : so.us}`);
     const zin = shootoutZin(m); if (zin) lines.push(`🏆 ${zin}`);

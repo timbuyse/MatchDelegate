@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.2.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.2.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -543,8 +543,19 @@ function shootoutTxt(m) {
 // bleef ze in het verslag en de PDF achter een gewijzigde stand staan: heropen je een afgesloten
 // wedstrijd (verlenging) en valt er nog een doelpunt, dan las het verslag "1-0 · pen. 4-3". De reeks
 // blijft wel bewaard in de gegevens — verdwijnt het doelpunt weer, dan staat ze er weer.
+// MAG DE REEKS GETOOND WORDEN? Enkel bij een gelijke stand. Een strafschoppenreeks bestaat alleen om
+// een gelijkspel te beslissen, en matchResultaat rekent ze ook enkel dan mee. Zonder deze voorwaarde
+// bleef ze achter een gewijzigde stand staan: heropen je een afgesloten wedstrijd (verlenging) en
+// valt er nog een doelpunt, dan las het verslag "1-0 · pen. 4-3".
+// LET OP (24-08-2026): de voorwaarde zat eerst enkel in uitslagTxt hieronder — en die functie had
+// GEEN ENKELE aanroeper. Elk van de vier weergaveplekken (beginscherm, verslag, PDF, "Deel score")
+// deed zijn eigen `heeftShootout(m) ? ...`. Daarom staat de regel nu in deze helper, die ze alle vier
+// gebruiken. De reeks blijft bewaard in de gegevens: verdwijnt dat doelpunt weer, dan staat ze er weer.
+function toonShootout(m) {
+  return heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0);
+}
 function uitslagTxt(m) {
-  return (heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0)) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
+  return toonShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
 }
 // W / G / V vanuit het standpunt van de eigen ploeg, mét de reeks meegerekend. Tims keuze
 // (23-08-2026): wie de strafschoppenreeks wint, heeft gewonnen — ook voor de tornooipunten en de

@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.1
+### De strafschoppenregel van v1.2.0 werkte niet
+- **Wat er misging.** v1.2.0 beloofde dat een strafschoppenreeks alleen nog bij een gelijke stand getoond wordt. Die regel is toen op één plek gezet — een hulpfunctie die door **geen enkel scherm** gebruikt werd. Het beginscherm, het verslag, de PDF en "Deel score" haalden hun tekst elk apart op, dus in de app veranderde er niets: na een verlenging met een extra doelpunt las het verslag nog altijd "1-0 · pen. 4-3".
+- **Nu.** Alle vier de plekken gebruiken dezelfde regel. Bij een gelijke stand staat de reeks er zoals altijd; is de stand niet gelijk, dan verdwijnt ze uit de uitslag, de zin "X wint na strafschoppen", de PDF en het gedeelde bericht.
+- **De reeks blijft wel bewaard en bereikbaar.** Op het verslag blijft het blok met de strafschoppen staan — dat is de enige plek waar je ze kan aanpassen of wissen — met een regel erbij die zegt waarom ze niet bij de uitslag staat. Verdwijnt dat doelpunt weer, dan staat de reeks gewoon terug bij de uitslag.
+
+---
+
 ## v1.2.0
 ### Het livescherm doorgelicht: de klok, de pauze en wie er nog meedoet
 Eerste helft van de zijlijn-audit. De belangrijkste vondsten waren geen schoonheidsfoutjes maar

@@ -35,14 +35,20 @@ function renderDetail() {
       <div style="font-size:14px;color:var(--txt2)">${esc(isAway(match)?match.opponent:tName(match))} – ${esc(isAway(match)?tName(match):match.opponent)}</div>
       ${/* De strafschoppenreeks staat ONDER de eindscore, niet erin: de wedstrijd eindigde op die
            stand, de reeks bepaalt enkel wie wint (zie shootoutSchoten in core.js). */ ''}
-      ${heeftShootout(match) ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
+      ${/* toonShootout, niet heeftShootout (24-08-2026): enkel bij een gelijke stand. Na een
+           verlenging waarin nog gescoord werd, stond hier "pen. 4-3" onder een 1-0. */ ''}
+      ${toonShootout(match) ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
         <div style="font-size:22px;font-weight:900">pen. ${esc(shootoutTxt(match))}</div>
         <div style="font-size:13px;color:var(--txt2)">${esc(shootoutZin(match))}</div>
       </div>` : ''}
     </div>
     ${/* De reeks zelf: per ploeg de bollen in volgorde, met de nemers eronder. */ ''}
+    ${/* Deze sectie blijft op heeftShootout staan, ook bij een niet-gelijke stand: het is de ENIGE
+         plek waar je een reeks kan aanpassen of wissen. Ze zou dus verdwijnen net wanneer je haar
+         nodig hebt. Er komt wel een regel bij die zegt waarom ze niet in de uitslag staat. */ ''}
     ${heeftShootout(match) ? `<div class="sec">${icI(IC.penalty)} Strafschoppen</div>
       <div class="card">
+        ${!toonShootout(match) ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} De stand is niet gelijk (${esc(scoreTxt(match))}), dus deze reeks staat niet bij de uitslag. Een strafschoppenreeks beslist enkel een gelijkspel — wis ze hieronder als ze hier niet hoort.</div>` : ''}
         ${penaltyReeksHtml(match)}
         ${ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
@@ -1407,7 +1413,7 @@ async function exportPDF() {
   L.y += 46;
   // Strafschoppenreeks onder de score: de stand en wie ze won. De score zelf blijft de uitslag van
   // de wedstrijd — zie shootoutSchoten in core.js.
-  if (heeftShootout(m)) {
+  if (toonShootout(m)) {   // enkel bij een gelijke stand — zie toonShootout in core.js
     doc.setFont(undefined, 'bold'); doc.setFontSize(14);
     doc.text(`na strafschoppen ${shootoutTxt(m)}`, PW / 2, L.y, { align: 'center' });
     L.y += 16;

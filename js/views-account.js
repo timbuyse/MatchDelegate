@@ -2989,7 +2989,7 @@ function matchItemHtml(m) {
   // het klein — "1-1" met daaronder "pen. 4-5". Zo blijft de uitslag leesbaar als uitslag.
   const right = zonderScore
     ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>`
-    : `<div style="text-align:right"><div class="mi-score">${scoreTxt(m)}</div>${heeftShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
+    : `<div style="text-align:right"><div class="mi-score">${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {
