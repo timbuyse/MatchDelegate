@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.7
+### De ploeg van een wedstrijd staat vast
+- **Wat er misging.** Bij *Bewerken → Info bewerken* kon je in de keuzelijst **Eigen ploeg** een andere
+  ploeg kiezen. De wedstrijd verhuisde dan wel, maar de selectie niet: een wedstrijd van ploeg B met
+  de spelers van ploeg A erin, zonder één vraag of melding. Je merkt dat pas veel later, en dan als
+  twee losse raadsels — de wedstrijd is uit de lijst van ploeg A verdwenen, en in de cijfers van ploeg
+  B staan spelers die daar niet spelen.
+- Dezelfde handeling had bovendien twee tegengestelde uitkomsten: via *Volgende* wiste de app de hele
+  selectie en bouwde ze opnieuw op met de nieuwe ploeg, via *Opslaan* bleef de oude selectie staan.
+  Beide zonder een woord.
+- **Nu** staat de ploeg bij het bewerken als tekst in plaats van als keuzelijst. Hoort een wedstrijd
+  bij een andere ploeg, dan verwijder je ze en maak je ze opnieuw aan bij die ploeg. De rest van de
+  app deed dat al zo: bij *Meerdere aanpassen* staat de ploeg bewust niet tussen de velden die je kan
+  wijzigen.
+- **Ook geen keuzelijst wanneer er niets te kiezen valt.** Je maakt een wedstrijd altijd binnen de
+  ploeg die open staat, en in cloudmodus bevat die lijst enkel je actieve ploeg — dus stond er een
+  keuzelijst met één regel. Vanaf nu enkel de naam. Met meerdere ploegen op één toestel blijft de
+  keuzelijst, anders kan je geen wedstrijd voor de tweede meer aanmaken.
+
 ## v1.1.6
 ### Zonder verbinding kan je nu écht een wedstrijd volgen
 > Deze wijziging kwam uit de feature-audit en liep over twee commits: de schermen in v1.1.5, en de

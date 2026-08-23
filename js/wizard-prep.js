@@ -143,7 +143,27 @@ function wizStep1() {
   const eigenOptie = eigenNietInLijst
     ? `<option value="${esc(wiz.teamId)}" selected>${esc((eigenKern && eigenKern.name) || wiz.teamNameFallback || 'Eigen ploeg')}${eigenKern ? ` (${(eigenKern.players || []).length})` : ' — nog niet geladen'}</option>`
     : '';
-  const teamSel = teams.length
+  // DE PLOEG VAN EEN BESTAANDE WEDSTRIJD STAAT VAST (Tims keuze, 23-08-2026). Deze keuzelijst hoort
+  // bij het AANMAKEN — daar moet je de ploeg kiezen. Bij het bewerken kon je ze ook wisselen, en dan
+  // verhuisde de wedstrijd wél naar de andere ploeg maar de selectie niet: een wedstrijd van ploeg B
+  // met de spelers van ploeg A erin, zonder één vraag of melding (gemeten in de audit). Je merkt dat
+  // pas veel later, en dan als twee losse raadsels: de wedstrijd is uit de lijst van ploeg A
+  // verdwenen, en in de cijfers van ploeg B staan spelers die daar niet spelen.
+  // De rest van de app behandelde de ploeg al als vast: bij "Meerdere aanpassen" staat ze bewust niet
+  // in de lijst van velden. Hoort een wedstrijd bij een andere ploeg, dan verwijder je ze en maak je
+  // ze opnieuw aan bij die ploeg — één regel die je kan uitleggen.
+  // Geen keuzelijst bij het BEWERKEN (de ploeg staat vast, zie hierboven) en ook niet wanneer er maar
+  // één ploeg te kiezen valt: in cloudmodus bevat deze lijst enkel de actieve ploeg, dus je maakt een
+  // wedstrijd altijd binnen de ploeg die open staat. Een keuzelijst met één regel is een keuze die
+  // niets te kiezen valt — dezelfde regel als bij de ploegfilters op de lijsten (Tim, 23-08-2026).
+  const vastePloeg = !!wiz.editId || teams.length === 1;
+  const vasteNaam = (teamById(wiz.teamId) || kernById(wiz.teamId) || {}).name || wiz.teamNameFallback || 'Eigen ploeg';
+  const teamSel = vastePloeg
+    ? `<div style="font-weight:600;padding:10px 0 2px">${esc(vasteNaam)}${wiz.subteam ? ' ' + esc(wiz.subteam) : ''}</div>
+       ${/* Deze uitleg blijft nodig: bij een ploeg waarvan de spelers niet ophaalbaar zijn, kan je de
+            wedstrijdgegevens wél bijwerken maar de selectie en de opstelling niet. */ ''}
+       ${(eigenNietInLijst && !eigenKern) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px;text-align:left">${icI(IC.warn)} De spelers van <b>${esc(wiz.teamNameFallback || 'deze ploeg')}</b> konden niet opgehaald worden. Je kan de gegevens van de wedstrijd bijwerken; de selectie en de opstelling niet. Kies die ploeg daarvoor eerst bij <b>Ploegen</b>.</div>` : ''}`
+    : teams.length
     ? `<select id="n-team-sel" onchange="wizTeamChange()">${eigenOptie}${teams.map(t => `<option value="${t.id}" ${wiz.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
       + ((eigenNietInLijst && !eigenKern) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px;text-align:left">${icI(IC.warn)} De spelers van <b>${esc(wiz.teamNameFallback || 'deze ploeg')}</b> konden niet opgehaald worden. Je kan de gegevens van de wedstrijd bijwerken; de ploeg blijft ongewijzigd. Wil je de selectie of de opstelling aanpassen, kies die ploeg dan eerst bij <b>Ploegen</b>.</div>` : '')
     : !rosterReady()
