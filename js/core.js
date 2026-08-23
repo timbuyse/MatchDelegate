@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2749,6 +2749,23 @@ function cloudRefreshUI() {
 // geverifieerd worden zonder verbinding, dus geen beheerrechten geven tot die bevestigd is.
 function offlineWithKnownCloudTeam() { return !cloudReady && !!localStorage.getItem('voetbal_activeTeamId'); }
 function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudTeam() && (!cloudReady || isAdmin); }
+// EEN WEDSTRIJD BIJHOUDEN MAG ZONDER VERBINDING (Tims regel, 23-08-2026: "alles wat er live kan
+// gebeuren moet je echt kunnen doen"). Dezelfde rolcontrole als canManage(), zonder de eis dat er
+// verbinding is — precies de maatstaf die de schermen zelf al gebruiken (`ro`), zodat knop en
+// handler eindelijk hetzelfde zeggen.
+//
+// Waarom dit veilig is: alles gaat eerst naar de lokale opslag, en pushen naar de cloud hangt aan de
+// onthouden beheerdersrol (`isAdmin`, zie cloudOnLocalMatchSave en het offline-vangnet in
+// applyCloudMatch). Wie geen beheerder is, schrijft dus lokaal en de server weigert de rest — net
+// zoals vóór deze wijziging. Wat NIET hier hoort: wedstrijden of ploegen aanmaken, verwijderen,
+// annuleren of hun basisgegevens wijzigen. Die blijven op canManage(), want daar is een verkeerde
+// gecachete rol wél schadelijk en er is geen zijlijn-noodzaak.
+//
+// Gemeten vóór deze wijziging (audit 23-08-2026): zonder verbinding deden een veld-tik tijdens het
+// spel, "Volgens plan", een geplande wissel bewerken, de blokduur rechtzetten, "Toch nog niet
+// gestart", "Opnieuw beginnen", een event verplaatsen en de strafschoppenreeks via het verslag
+// STIL niets — geen venster, geen melding. Precies wat je langs de lijn niet kan gebruiken.
+function canLive() { return !isGuest && !viewerMode && (!cloudReady || isAdmin); }
 // Statistieken (seizoensoverzicht + individueel spelerdetail) zijn enkel voor beheerders,
 // niet voor kijkers of gasten (bewuste keuze). Anders dan canManage() blijft dit offline wél
 // true, zodat een beheerder zijn stats ook zonder verbinding kan bekijken.
