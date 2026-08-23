@@ -362,7 +362,15 @@ function setSel(pid, val) {
   if (p.sel !== 'absent') p.absentReason = '';
   render();
 }
-function setPoolNum(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
+// Rugnummers zijn positief (audit 23-08-2026): het veld liet "-5" en "0" door. En na een wijziging
+// meteen hertekenen, want de rode balk over dubbele nummers hing aan de volgende render — die kwam
+// pas bij een tik op Mee of NB, dus de waarschuwing liep een handeling achter.
+function setPoolNum(pid, val) {
+  const p = wiz.pool.find(x => x.pid === pid); if (!p) return;
+  const n = parseInt(val, 10);
+  p.number = (val === '' || isNaN(n)) ? '' : String(Math.min(99, Math.max(1, n)));
+  render();
+}
 function setAbsentReason(pid, val) { const p = wiz.pool.find(x => x.pid === pid); if (p) { p.absentReason = val; render(); } }
 // Optioneel redenmenu bij NB. 'Speelt elders' is de enige keuze die de statistieken beïnvloedt
 // (die wedstrijd telt dan niet als gemist), de andere zijn informatie voor het verslag.
@@ -379,7 +387,7 @@ function selRow(p) {
   // wie NB is, gaat niet mee en staat hier dus ook niet in de lijst.
   const trn = !!wiz.trnMode;
   return `<div class="selrow">
-    <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
+    <input type="number" min="1" max="99" class="pn-inp" value="${esc(p.number)}" placeholder="" onchange="setPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     ${isSelected ? `<button class="cap-btn ${isCap?'on':''}" onclick="setWizCaptain('${p.pid}')" title="Kapitein aanduiden">${icI(IC.captain)}</button>` : '<span style="width:22px;flex-shrink:0"></span>'}
     <div class="nm">${esc(p.name)}${p.guest ? '<span class="guest-badge">gast</span>' : ''}<small>${posDisplay(p) || '—'}</small>
       ${(!trn && p.sel === 'absent') ? absentReasonSelect(p.pid, p.absentReason || '', 'setAbsentReason') : ''}</div>
@@ -425,10 +433,18 @@ function wizStep2() {
     <div class="sec">${esc(team ? team.name : 'Ploeg')}</div>
     <div class="card">${own.length ? selRowHead('Speler · voorkeurspositie', true) + own.map(selRow).join('') : `<p style="color:var(--txt2);font-size:14px">${rosterEmptyText('Deze ploeg heeft nog geen spelers. Voeg ze toe via ' + icI(IC.players) + ' Ploegen.')}</p>`}</div>
     ${guests.length ? `<div class="sec">Gastspelers</div><div class="card">${selRowHead('Speler · van welke ploeg', true)}${guests.map(selRow).join('')}</div>` : ''}
-    ${wiz.noGuests ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>
+    ${/* "+ Speler van andere ploeg" enkel wanneer er ook een andere ploeg IS: bij één ploeg op het
+         toestel gaf die knop alleen een foutmelding (audit 23-08-2026). In cloudmodus staan de andere
+         ploegen van de gebruiker in userTeams, ook al bevat de lokale lijst enkel de actieve — dus die
+         telt mee, anders zou de knop juist daar verdwijnen waar hij nodig is. "+ Losse speler" blijft
+         altijd: die heeft geen tweede ploeg nodig. */ ''}
+    ${wiz.noGuests ? '' : (() => {
+      const anderePloegen = getTeamsV2().filter(t => t.id !== wiz.teamId).length
+        + (cloudReady ? Object.keys(userTeams || {}).filter(id => id !== wiz.teamId).length : 0);
+      return `<div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${anderePloegen ? `<button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>` : ''}
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
-    </div>`}
+    </div>`; })()}
     ${/* Twee uitwegen, en welke er past hangt af van wat er al ligt. Heeft de wedstrijd nog GEEN
          opstelling, dan kan je de selectie hier gewoon opslaan en de opstelling later maken — dat
          is de normale gang van zaken wanneer je de ploeg 's avonds al kent maar nog niet weet wie
@@ -712,6 +728,10 @@ function wizStep3() {
   const teveel = geplaatst > plaatsen;
   const compleet = vol && !teveel;
   const overtal = geplaatst - plaatsen;
+  // Niemand in het doel? Dat mag (bij 3v3 speel je soms zonder keeper), dus geen blokkade maar een
+  // zachte melding zodra het veld verder af is — anders merk je het pas bij de keeperminuten, die
+  // dan leeg blijven (audit 23-08-2026, Tims keuze: melden).
+  const doelLeeg = vol && !wiz.pool.some(p => p.sel === 'basis' && p.slot && (gridPlek(p.slot) || {}).line === 'Doel');
   return `
     <div class="card" style="text-align:center;padding:10px">
       <div style="font-size:22px;font-weight:900;color:${teveel ? '#b45309' : compleet ? 'var(--grn)' : 'var(--org)'}">${geplaatst}/${nodig}</div>
@@ -720,11 +740,16 @@ function wizStep3() {
     ${/* Zelfde waarschuwing, kleuren en woorden als in het pauzescherm (pauseLineupHtml): één
          handeling hoort niet op twee schermen anders te reageren. */ ''}
     ${teveel ? `<div style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:12px">${icI(IC.warn)} Je zet <b>${geplaatst} spelers</b> op een veld voor <b>${plaatsen}</b>. Dat mag — je speelt dan met ${overtal === 1 ? 'een man' : overtal + ' spelers'} te veel — maar kijk het even na.</div>` : ''}
+    ${doelLeeg ? `<div style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:12px">${icI(IC.warn)} Er staat <b>niemand in het doel</b>. Dat mag — maar dan blijven de keeperminuten leeg.</div>` : ''}
     ${/* Deze stap gaat enkel over de aftrap. Dat de volgende delen en de wissels daarna komen, stond
          alleen onderaan en dan nog geformuleerd rond opslaan — hier leest het als een wegwijzer. */ ''}
     ${wizDelen() > 1 ? `<p class="stat-hint">${icI(IC.shirt)}<span>Dit is de opstelling waarmee je <b>begint</b>. De opstelling van de volgende ${pPlural(wiz)} en de wissels geef je in de volgende stap in.</span></p>` : ''}
     <div class="fg"><label>Formatie</label>
-      <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select></div>
+      <select onchange="setFormation(this.value)">${forms.map((f, i) => `<option value="${i}" ${i===wiz.formationIndex?'selected':''}>${f.name}</option>`).join('')}</select>
+      ${/* Sinds v0.34.0 verplaatst een formatie NIEMAND: ze licht de plekken op die erbij horen en
+           bepaalt de positienummers. Dat stond nergens, en dus koos je er een en gebeurde er zichtbaar
+           niets — waarna je nog eens tikte (audit 23-08-2026). */ ''}
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px;line-height:1.4">Een formatie licht de plekken op die erbij horen en bepaalt de positienummers. Ze verplaatst niemand — je zet de spelers zelf op het veld.</div></div>
     <div class="card">${wizPitch(form)}
       <div class="field-legend">Klik op een speler hieronder en dan op een positie op het veld om hem te plaatsen. Klik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Klik tweemaal dezelfde positie om de speler te verwijderen.</div>
     </div>
@@ -1157,7 +1182,12 @@ async function finishWizard(startNow, zonderOpstelling) {
   if (wiz.editId) {
     m = Object.assign(existing || {}, common);
     m.status = startNow ? 'live' : (m.status === 'live' ? 'live' : 'planned');
-    m.captainId = capId; m.motmId = null;
+    m.captainId = capId;
+    // De man van de match BEHOUDEN zolang die speler nog in de selectie zit (audit 23-08-2026). Dit
+    // stond hier als `m.motmId = null`, zonder uitleg: bij een gespeelde wedstrijd die je opnieuw in
+    // de wizard opende — bijvoorbeeld om een rugnummer of het terrein recht te zetten — was die keuze
+    // daarna weg. Valt hij wél uit de selectie, dan kan hij niet blijven staan.
+    if (m.motmId && !allP.some(p => p.id === m.motmId)) m.motmId = null;
   } else {
     m = Object.assign({ id: uid(), createdAt: Date.now(), notes: '', motmId: null, captainId: null, quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [] }, common);
     m.captainId = capId;
@@ -1186,7 +1216,10 @@ async function finishWizard(startNow, zonderOpstelling) {
     });
   }
   syncTournamentStaff(m);
+  // Blokken kunnen op stap 1 verlaagd zijn: dan valt het plan van de blokken die niet meer bestaan weg.
+  const planWeg = knipPlanBovenAantal(m);
   wiz = null; await dbSave(m); match = m;
+  if (planWeg.length) showToast(`Minder ${pPlural(m)} — weggevallen: ${planWeg.join(' · ')}.`, 'ok');
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
   // Een wedstrijd die al liep blijft live (zie m.status hierboven) en hoort dus terug in het
   // livescherm, niet in het voorbereidingsscherm — dat toont "Wedstrijd starten" voor iets wat al
@@ -1414,7 +1447,13 @@ function prepPlanningHtml(m, ro) {
 function renderPrep() {
   const m = match;
   if (!m) return '<div class="content"><p>Niet gevonden.</p></div>';
-  const ro = !!(m.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
+  // Alleen-lezen = "ik mag deze wedstrijd niet bijhouden", en dat is precies canLive() (audit
+  // 23-08-2026). Voordien stond hier `m.fromCloud && (!isAdmin || viewerMode)`, een eigen formule die
+  // net iets anders besliste dan het livescherm: bij een NIET-gesynchroniseerde wedstrijd met de
+  // kijkmodus aan bleef dit scherm bewerkbaar terwijl het livescherm dicht ging (o.a. de knop
+  // "Wedstrijdplan (PDF)" stond hier wel en daar niet). Voor een cloudwedstrijd is de uitkomst
+  // identiek; wat erbij komt is dat de kijkmodus nu ook lokaal telt — wat die modus hoort te doen.
+  const ro = !canLive();
   // Beheerder zónder verbinding (audit 23-08-2026). De wedstrijd volgen, starten, de selectie en de
   // opstelling ingeven en het plan per blok aanpassen kan offline (zie canLive); wat NIET kan is de
   // wedstrijdgegevens wijzigen, annuleren of verwijderen — dat blijft achter canManage(). Voordien
@@ -1473,12 +1512,17 @@ function renderPrep() {
          die je nooit geplaatst hebt (renderPitch spreidt wie geen x/y heeft over zijn lijn), en dat
          leest als een opstelling die er niet is. In de plaats staat hierboven "Opstelling
          aanmaken"; zodra die er is, verschijnt alles — planning, wissels en de PDF. */ ''}
-    ${heeftOpstelling(m) ? `<div class="sec">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
+    ${/* Voor een KIJKER staat dit blok er ook zonder opstelling (audit 23-08-2026). Zonder dat viel
+         het hele blok weg en kon hij niet zien of het plan verborgen was of nog niet bestond — twee
+         heel verschillende dingen. Nu zegt de regel welk van de twee het is. */ ''}
+    ${(heeftOpstelling(m) || ro) ? `<div class="sec">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
     ${/* Voor een kijker blijft het plan dicht: wie waar begint en welke wissels klaarstaan is iets
          tussen de trainer en zijn ploeg, niet iets om vooraf op de tribune te lezen. Er staat wél
          dat het bestaat, anders lijkt de wedstrijd onvoorbereid. */ ''}
     ${ro
-      ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.</p></div>`
+      ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${heeftOpstelling(m)
+          ? `${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.`
+          : `${icI(IC.eye)} De opstelling is nog niet ingegeven.`}</p></div>`
       : `${prepPlanningHtml(m, ro || af)}
     ${plannedLineupWarnHtml(m)}`}
     ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en staan in dezelfde
@@ -1652,7 +1696,10 @@ async function finishStep1Only() {
   if (wiz.tournamentId) m.tournamentId = wiz.tournamentId;
   syncTournamentStaff(m);
   if (m.tournamentId) currentTournament = tournamentById(m.tournamentId);
+  // Blokken kunnen op stap 1 verlaagd zijn: dan valt het plan van de blokken die niet meer bestaan weg.
+  const planWeg = knipPlanBovenAantal(m);
   wiz = null; await dbSave(m); match = m;
+  if (planWeg.length) showToast(`Minder ${pPlural(m)} — weggevallen: ${planWeg.join(' · ')}.`, 'ok');
   await go('prep', m.id);
 }
 // ===================== OPSTELLING PER DEEL (VOORAF PLANNEN) =====================
@@ -1707,6 +1754,26 @@ function plannedLineupPlayers(m, lijst) {
   return lijst.map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || { id: e.id, name: '?' }, e));
 }
 function plannedLineupCount(m) { return Object.keys((m && m.plannedLineups) || {}).length; }
+// Minder blokken gekozen? Dan verdwijnt het plan van de blokken die niet meer bestaan (audit
+// 23-08-2026). Ze bleven staan, onzichtbaar — plannedPartsCount toont enkel de blokken die er zijn —
+// en doken weer op zodra je later terug naar meer blokken ging. Dat leest als een plan dat je nooit
+// ingaf. Een plan voor kwart 4 in een wedstrijd van twee helften is niet te gebruiken, dus dit
+// opruimen kost niets; wat er weg is, staat wél in de melding.
+function knipPlanBovenAantal(m) {
+  const aantal = m.numQuarters || PERIOD_TYPES[m.periodKey || 'kwarten'].count;
+  const weg = [];
+  Object.keys(m.plannedLineups || {}).forEach(k => {
+    if (parseInt(k, 10) > aantal) { delete m.plannedLineups[k]; weg.push('opstelling ' + k); }
+  });
+  ['plannedSubs', 'plannedPosSwaps'].forEach(veld => {
+    const voor = (m[veld] || []).length;
+    if (voor) m[veld] = m[veld].filter(s => !s.quarterNum || s.quarterNum <= aantal);
+    const na = (m[veld] || []).length;
+    if (na < voor) weg.push((voor - na) + ' geplande wissel' + ((voor - na) === 1 ? '' : 's'));
+  });
+  if (m.plannedLineups && !Object.keys(m.plannedLineups).length) delete m.plannedLineups;
+  return weg;
+}
 // De losse wissels die je aan dít deel koppelde (zie planDeelSelHtml in live-match.js), als blokje
 // onder het veld. Ze horen visueel bij de opstelling van dat deel: het veld toont hoe je begint, dit
 // toont wat er tijdens dat deel nog gepland staat. Gebruikt door de planningskaart in het
@@ -1974,7 +2041,7 @@ function modalPlannedLineups(q) {
     ? (deel === 1
       ? `De startopstelling van deze wedstrijd.`
       : `Zo ziet de opstelling van ${pSingLow(m)} ${deel} eruit volgens het plan.`)
-    : `Tik een speler en dan een <b>vrije plek</b> om hem daar te zetten. Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen.${deel === 1
+    : `Tik een speler en dan een <b>vrije plek</b> om hem daar te zetten. Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen, of <b>twee veldspelers</b> om ze van plaats te wisselen. Tik een speler op het veld <b>twee keer</b> aan om hem naar de bank te zetten.${deel === 1
       ? ` Dit is de <b>startopstelling</b>.`
       : (eigen
         ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
@@ -1990,7 +2057,11 @@ function modalPlannedLineups(q) {
     ${(!ro && totaal > 1) ? `<details class="more-details" style="margin-bottom:12px">
       <summary>Hoe werkt dit?</summary>
       <div style="font-size:13px;color:var(--txt2);margin-top:10px;line-height:1.45">
-        <p style="margin-bottom:8px">Geef per ${pSingLow(m)} de opstelling in waarmee dat ${pSingLow(m)} <b>begint</b>, en daaronder de wissels en positiewissels die je <b>tijdens</b> dat ${pSingLow(m)} wil doen.</p>
+        ${/* "en positiewissels" geschrapt (audit 23-08-2026): die knop is er sinds v0.58.0 uit, dus die
+             belofte stuurde je op zoek naar een ingang die niet bestaat. Precies het soort restant
+             waar deze audit naar zocht — Tims eigen voorbeeld. Verschuivingen binnen het veld leidt de
+             app zelf af uit de opstelling; dat staat in de derde alinea hieronder. */ ''}
+        <p style="margin-bottom:8px">Geef per ${pSingLow(m)} de opstelling in waarmee dat ${pSingLow(m)} <b>begint</b>, en daaronder de wissels die je <b>tijdens</b> dat ${pSingLow(m)} wil doen.</p>
         <p style="margin-bottom:8px"><b>Vul je een ${pSingLow(m)} in</b>, dan zorgt de app dat die opstelling er ook echt komt. Bij het einde van het vorige ${pSingLow(m)} vergelijkt ze het <b>werkelijke</b> veld met jouw plan en zet ze de nodige wissels klaar in het pauzescherm; bij de start worden die automatisch doorgevoerd. Ook als er onderweg heel andere dingen gebeurden dan gepland. Had je in de pauze zelf al wissels klaargezet, dan blijft dat staan — je handwerk wordt niet overschreven.</p>
         <p style="margin-bottom:8px"><b>Vul je een ${pSingLow(m)} niet in</b>, dan begint het zoals het vorige <b>eindigt</b>, met de wissels die je daar doorvoerde erin, en zet de app niets klaar.</p>
         <p style="margin-bottom:8px">De wissels die je hieronder plant voor <b>tijdens</b> een ${pSingLow(m)} gaan niet vanzelf af: die voer je zelf door op het moment dat je ze wil.</p>
@@ -2117,7 +2188,22 @@ function planLineupTap(kind, id) {
     return;
   }
   const sel = _planLineupSel;
-  if (sel && sel.id === id) { _planLineupSel = null; modalPlannedLineups(); return; }   // deselecteren
+  if (sel && sel.id === id) {
+    _planLineupSel = null;
+    // TWEEDE TIK OP EEN SPELER OP HET VELD: naar de bank (audit 23-08-2026, Tims keuze). Er was geen
+    // enkele tikcombinatie die iemand van het veld haalde — je kon alleen vervangen of bijzetten, dus
+    // het aantal spelers in een plan kon enkel groeien. Wil je een blok met een man minder beginnen
+    // (iemand gaat naar huis), dan kon je dat niet tekenen, terwijl lineupToPending een eenzijdige
+    // wissel wél aankan. Een bezette plek is in dit veld niet apart aantikbaar (die tik is de speler
+    // zelf), dus de tweede tik is de enige plaats waar dit kan.
+    if (sel.kind === 'field' && kind === 'field') {
+      const zonder = planLineupBaseNu(match, deel).filter(p => p.id !== id);
+      _savePlannedLineup(deel, zonder);
+      showToast(`${pName(match, id)} staat op de bank voor ${pSingLow(match)} ${deel}.`, 'ok');
+      return;
+    }
+    modalPlannedLineups(); return;   // bankspeler opnieuw aantikken = selectie weg
+  }
   // Een LEGE plek aantikken zonder speler in de hand doet niets: er is niemand om te verhuizen.
   if (kind === 'plek' && !sel) return;
   if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }
@@ -2458,4 +2544,3 @@ async function saveEditPlayers() {
     showToast(`${toegevoegd.join(', ')} ${toegevoegd.length === 1 ? 'is' : 'zijn'} ook aan de tornooiselectie toegevoegd.`, 'ok');
   }
 }
-

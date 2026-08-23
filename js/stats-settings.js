@@ -873,7 +873,7 @@ const HANDLEIDING_PAGINAS = [
         opstelling</b>, en je past ze later enkel aan waar er iets verandert.</p>
       <p>Met <b>'Verder → wissels en volgende kwarten'</b> bouw je het plan kwart per kwart op. Je
         krijgt telkens hetzelfde scherm: bovenaan de opstelling waarmee dat kwart begint, eronder de
-        <b>wissels tijdens dat kwart</b> (met <b>'+ Wissel'</b> en <b>'+ Positiewissel'</b>), en
+        <b>wissels tijdens dat kwart</b> (met <b>'+ Wissel'</b>), en
         onderaan de knop naar het volgende kwart. Stop je onderweg, dan zegt de app welke kwarten de
         laatste opstelling overnemen — bijwerken kan altijd nog via <b>Planning</b> in het
         wedstrijdscherm.</p>
@@ -882,8 +882,8 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
         blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
         onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
-        een aan, met het <b>kruisje</b> haal je hem weg, en met <b>'+ Wissel'</b> of
-        <b>'+ Positiewissel'</b> zet je er een bij voor precies dat kwart.</p>
+        een aan, met het <b>kruisje</b> haal je hem weg, en met <b>'+ Wissel'</b> zet je er een bij
+        voor precies dat kwart.</p>
       <div class="sec">Nadien nog iets wijzigen?</div>
       <p>Bij een geplande wedstrijd zit alles achter de knop <b>'Bewerken'</b>. Daar kies je wat je
         wil aanpassen:</p>

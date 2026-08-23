@@ -9,6 +9,37 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.15
+### Twaalf kleine dingen uit de audit, in één keer
+- **De man van de match bleef niet.** Opende je een gespeelde wedstrijd opnieuw om bijvoorbeeld een
+  rugnummer recht te zetten, dan was die keuze daarna weg. Nu blijft hij staan zolang die speler in de
+  selectie zit.
+- **Minder blokken kiezen liet een plan achter dat je niet meer zag.** Ging je van vier kwarten naar
+  twee helften, dan bleven de opstelling en de wissels van kwart 3 en 4 onzichtbaar bestaan en doken ze
+  weer op als je later terugschakelde. Die vallen nu weg, met een melding die zegt wat er verdween.
+- **Bij de formatiekeuze staat nu wat ze doet:** *"Een formatie licht de plekken op die erbij horen en
+  bepaalt de positienummers. Ze verplaatst niemand."* Voordien koos je er een en gebeurde er zichtbaar
+  niets.
+- **Niemand in het doel** geeft nu een melding zodra het veld verder vol is — geen blokkade, want bij
+  3v3 speel je soms zonder keeper, maar anders merk je het pas aan lege keeperminuten.
+- **Rugnummers zijn positief:** het veld aanvaardde "-5" en "0". En de waarschuwing over dubbele
+  nummers verschijnt nu meteen in plaats van één handeling later.
+- **In de planner kan je iemand naar de bank sturen:** tik een speler op het veld twee keer aan. Dat
+  kon nergens — een plan kon alleen groeien — terwijl een blok met een man minder wél te spelen is.
+- **"+ Speler van andere ploeg" verdwijnt** wanneer er geen andere ploeg is; die gaf daar enkel een
+  foutmelding. *"+ Losse speler"* blijft.
+- **Het lege beginscherm** zei "tik dan +" terwijl die knop daar niet stond. Nu staat er een knop
+  **Ploeg aanmaken**, en een kijker krijgt geen instructies meer die hij niet kan uitvoeren.
+- **De terugpijl in het importscherm verlaat het scherm**, zoals overal in de app. Terug naar de
+  bestandskeuze doet de knop onderaan, die dat ook letterlijk zegt.
+- **Een kijker ziet nu het verschil** tussen "het plan is verborgen" en "er is nog geen opstelling".
+- **Alleen-lezen volgt één regel** op het voorbereidingsscherm en in het livescherm; die liepen net
+  iets uiteen, waardoor de knop *Wedstrijdplan (PDF)* soms op het ene scherm stond en op het andere niet.
+- **De keuzelijsten in de import komen uit de centrale lijsten**, dus een nieuwe wedstrijdvorm of
+  soort verschijnt daar automatisch mee.
+- En de uitleg in de planner belooft geen **positiewissels** meer om vooraf te plannen — die knop is er
+  sinds v0.58.0 uit. Ook de handleiding is bijgewerkt.
+
 ## v1.1.14
 ### "Startopstelling herplaatsen" wiste je opstelling in plaats van ze te tonen
 - **Wat er misging.** Dat venster kwam uit het oude model, waarin een formatie de plaatsen vastlegde.

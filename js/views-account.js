@@ -3061,9 +3061,15 @@ async function loadHome() {
     // Kijkers/gasten kunnen zelf geen ploeg/wedstrijd aanmaken — geef hen geen instructie
     // die ze toch niet kunnen uitvoeren.
     const emptyMsg = canManage()
-      ? `<p>Welkom! Maak eerst een <b>ploeg</b> aan,<br>tik dan <b>+</b> voor je eerste wedstrijd.</p>`
+      ? `<p>Welkom! Maak eerst een <b>ploeg</b> aan.<br>Daarna kan je je eerste wedstrijd inplannen.</p>`
       : `<p>Er staat nog niets klaar voor deze ploeg.<br>Vraag de beheerder om een wedstrijd aan te maken.</p>`;
-    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>`;
+    // De tekst zei "tik dan +", maar in dit pad wordt die knop nooit getekend en staat er ook geen
+    // knop om een ploeg te maken: de állereerste gebruiker kreeg dus een instructie die op dat scherm
+    // niet uit te voeren was (audit 23-08-2026). Nu staat de handeling er die de tekst belooft.
+    const startBtns = canManage()
+      ? `<button class="btn btn-org" style="margin-top:12px" onclick="go('teams')">${icI(IC.players)} Ploeg aanmaken</button>`
+      : '';
+    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>${startBtns}`;
     return;
   }
   const guestBanner = isGuest
@@ -3683,7 +3689,11 @@ async function loadMatches() {
   const impBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="impStart()">${icI(IC.upload)} Kalender importeren</button>` : '';
   const maakBtns = nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '');
   if (!all.length) {
-    el.innerHTML = maakBtns + `<div class="empty"><div class="ei">${IC.ball}</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b> — of lees de kalender van je reeks in.</p></div>`;
+    // Ook hier stond "tik dan +" terwijl die knop (met de andere twee) enkel voor een beheerder
+    // getekend wordt: een kijker kreeg drie handelingen aangeraden die voor hem niet bestaan.
+    el.innerHTML = maakBtns + `<div class="empty"><div class="ei">${IC.ball}</div><p>${canManage()
+      ? 'Nog geen wedstrijden.<br>Maak er een aan met <b>+ Nieuwe wedstrijd</b> — of lees de kalender van je reeks in.'
+      : 'Nog geen wedstrijden voor deze ploeg.'}</p></div>`;
     return;
   }
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();

@@ -66,9 +66,14 @@ function renderImportCal() {
   return `<div class="hdr"><button class="back" onclick="impTerug()">‹</button><h1>${icI(IC.upload)} Kalender importeren</h1></div>
     <div class="content" id="imp-content">${body}</div>`;
 }
-function impTerug() {
-  if (impSt && impSt.fase === 'lijst') { impSt.fase = 'kies'; impSt.regels = []; impSt.fout = ''; render(); return; }
-  impSt = null; go('matches');
+// De ‹ in de titelbalk VERLAAT het scherm, zoals overal in de app (audit 23-08-2026). Ze deed in de
+// lijstfase hetzelfde als "Ander bestand kiezen" onderaan: dezelfde handeling twee keer op één
+// scherm, en je moest twee keer tikken om weg te raken — terwijl de browserterugknop wél meteen weg
+// ging. Teruggaan naar de bestandskeuze blijft de knop onderaan, die letterlijk zegt wat ze doet.
+function impTerug() { impSt = null; go('matches'); }
+function impAnderBestand() {
+  if (!impSt) return;
+  impSt.fase = 'kies'; impSt.regels = []; impSt.fout = ''; render();
 }
 // Enkel het inhoudsblok hertekenen: de titelbalk hoeft niet mee, en zo blijft de scrollpositie
 // van een lange lijst bewaard bij het aan- en uitvinken.
@@ -121,16 +126,16 @@ function impLijstHtml() {
         <input type="text" value="${esc(impSt.subteam)}" oninput="impVeld('subteam',this.value)" onchange="impHermarkeer()" placeholder="bv. A of B" autocomplete="off">
         ${impSt.subteamVoorstel ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Uit de reeksnaam in het bestand (<b>${esc(impSt.subteamVoorstel)}</b>). Lees je de kalender van je andere ploeg in, zet hier dan haar label.</div>` : ''}</div>
       <div class="fg"><label>Format</label>
-        <select onchange="impVeld('matchType',this.value)">${['3v3','5v5','8v8','11v11'].map(t => `<option value="${t}" ${impSt.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
+        <select onchange="impVeld('matchType',this.value)">${Object.keys(MATCH_TYPES).map(t => `<option value="${t}" ${impSt.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Aantal blokken</label>
-          <select id="imp-pt" onchange="impPeriode()">${['helften','delen','kwarten'].map(k => `<option value="${k}" ${impSt.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+          <select id="imp-pt" onchange="impPeriode()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${impSt.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
         <div class="fg"><label>Duur van een blok</label>
           <select id="imp-qd" onchange="impDuur()">${durOptsHtml(impSt.periodKey, impSt.quarterDuration)}</select>
           <input id="imp-qd-custom" type="number" min="1" max="99" placeholder="min." oninput="impDuur()" style="margin-top:6px;${isCustomDur?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${isCustomDur?impSt.quarterDuration:''}"></div>
       </div>
       <div class="fg"><label>Soort</label>
-        <select onchange="impVeld('competition',this.value)">${['Competitie','Vriendschappelijk','Beker'].map(c => `<option ${impSt.competition===c?'selected':''}>${c}</option>`).join('')}</select>
+        <select onchange="impVeld('competition',this.value)">${MATCH_KINDS.map(c => `<option ${impSt.competition===c?'selected':''}>${c}</option>`).join('')}</select>
         <div style="font-size:12px;color:var(--txt2);margin-top:4px">Geldt voor alles wat je nu importeert; per wedstrijd nadien aan te passen.</div></div>
       ${mapKaart}
     </div>
@@ -144,7 +149,7 @@ function impLijstHtml() {
       ${icI(IC.check)} ${aan ? `${aan} ${aan === 1 ? 'wedstrijd' : 'wedstrijden'} importeren` : 'Niets aangevinkt'}</button>
     ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit en plaats. Selectie, opstelling en plan blijven staan.</div>` : ''}`
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden herkend in dit bestand.${impSt.bron === 'tabel' ? '<br>Kijk hierboven na welke kolom de datum en de tegenstander bevat.' : ''}</p></div>`}
-    <button class="btn btn-gray" style="margin-top:10px" onclick="impTerug()">Ander bestand kiezen</button>`;
+    <button class="btn btn-gray" style="margin-top:10px" onclick="impAnderBestand()">Ander bestand kiezen</button>`;
 }
 
 function impRegelHtml(r, i) {
