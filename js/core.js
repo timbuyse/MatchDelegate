@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.1.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.1.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -342,6 +342,29 @@ function posLine(pos) { const m = posMeta(pos); return m ? m.line : ''; }
 function posSides(pos) { const m = posMeta(pos); return m ? m.sides : {}; }
 function posSideLabel(pos) { const m = posMeta(pos); return m ? m.sideLabel : ''; }
 function posSideValid(pos, side) { return !!posSides(pos)[side]; }
+// ----- Een bewaarde opstelling terugzetten op het rooster (voor de pool van de wizard) -----
+// Eén regel op één plek (audit 23-08-2026). Ze stond drie keer: bij het bewerken van een wedstrijd
+// (waar ze goed was) en bij de twee kloonknoppen (waar ze nog een EXACTE match op x/y in de formatie
+// zocht). Sinds v0.34.0 staan spelers op roosterplekken en de formatieslots op eigen coördinaten:
+// die vallen in geen enkele formatie van geen enkel formaat samen, dus die zoektocht mislukte altijd
+// en "Gebruik als template" opende met een leeg veld terwijl de code net het omgekeerde bedoelde.
+// Voorrang aan de bewaarde plekcode; anders de dichtstbijzijnde plek BINNEN dezelfde lijn, want de
+// lijn waarin iemand speelde is de baas (zie gridPlekVoor: zonder die beperking wordt een verdediger
+// van de dubbele ruit stil een middenvelder). `entries` zijn pool-regels met _posCodeVeld/_line/_x/_y.
+function poolPlekTerug(entries) {
+  (entries || []).forEach(p => {
+    const plek = (p._posCodeVeld && gridPlek(p._posCodeVeld)) ? gridPlek(p._posCodeVeld)
+      : gridPlekVoor(p._line || posLine(p.pos) || 'Middenveld', p._x, p._y);
+    p.slot = plek ? plek.code : null;
+  });
+  // Twee spelers op dezelfde plek kan niet: de eerste houdt de plek, de rest gaat naar de bank en kan
+  // daar gewoon opnieuw geplaatst worden.
+  const gezien = new Set();
+  (entries || []).forEach(p => {
+    if (!p.slot) return;
+    if (gezien.has(p.slot)) { p.slot = null; p.sel = 'bank'; } else gezien.add(p.slot);
+  });
+}
 // ----- Rugnummers zijn optioneel -----
 // Bij jeugdploegen zijn vaste rugnummers niet de norm (wisselende truitjes), dus een ploeg kan ze
 // uitzetten met `useNumbers: false`. Bestaande ploegen hebben dat veld niet en gebruiken ze dus wel.

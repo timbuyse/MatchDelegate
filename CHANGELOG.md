@@ -9,6 +9,40 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.4
+Twee punten uit de feature-audit van het klaarzetten van een wedstrijd.
+
+### Het terugpijltje gooide een gewijzigd uur stil weg
+- **Wat er misging.** Bij *Bewerken → Info bewerken* pas je het uur, de tegenstander, de datum, het
+  terrein of de scheidsrechter aan, en je tikt het pijltje links boven in plaats van *Opslaan*. Er
+  kwam geen vraag en alles was weg. De vraag *"Wijzigingen niet bewaren?"* bestond wél — maar ze
+  vergeleek alleen wat de app al in het geheugen had, en wat je op de eerste stap intikt komt daar
+  pas in op het moment dat je doorklikt of opslaat. Van alle velden op die stap werd er dus precies
+  één opgemerkt (de wedstrijdvorm), bij toeval.
+- **Nu** leest de app vóór die vergelijking uit wat er op het scherm staat. Alle velden van stap 1
+  tellen mee: tegenstander, ploeg-label, datum, uur, thuis/uit, wedstrijdvorm, aantal blokken,
+  blokduur, soort, speeldag, truikleur, scheidsrechter en terrein. De vraag die al bestond verschijnt
+  nu wanneer ze hoort te verschijnen, en niet wanneer je enkel kwam kijken.
+- **Ook bij een nieuwe wedstrijd.** Daar keek dezelfde vraag enkel naar de tegenstander en de
+  selectie: had je alleen een datum, een terrein of een scheidsrechter ingevuld en tikte je terug,
+  dan ging dat zonder vraag verloren. Nu geldt daar dezelfde regel.
+- Trainer en ploegverantwoordelijke blijven bewust buiten die vergelijking: die komen uit een eigen
+  kiezer, en een vraag die verschijnt terwijl je niets wijzigde is erger dan een gemiste vraag.
+
+### "Gebruik als template" liet je opstelling achter
+- **Wat er misging.** De knop op een afgesloten wedstrijd nam de wedstrijdgegevens en de selectie mee,
+  maar de opstelling niet: de nieuwe wedstrijd opende met een leeg veld en iedereen op de bank.
+  Nochtans probeerde de code die opstelling wél terug te zetten — ze zocht de plaats van een speler op
+  door in de gekozen formatie een plek met exact dezelfde coördinaten te zoeken. Sinds het rooster van
+  26 plekken (v0.34.0) staan spelers op roosterplekken en de formaties op hun eigen coördinaten: die
+  vallen in **geen enkele** formatie van geen enkel formaat samen, dus die zoektocht mislukte altijd.
+- **Nu** gebeurt het zoals bij *Info bewerken*, waar het al goed ging: eerst de bewaarde plek van de
+  speler, en anders de dichtstbijzijnde plek **binnen zijn eigen linie** — zo wordt een verdediger
+  nooit stil een middenvelder. Staan er twee op dezelfde plek, dan houdt de eerste ze en gaat de
+  tweede naar de bank.
+- Dezelfde fout zat in **"Kloon als nieuwe tornooiwedstrijd"**; die is meteen meegenomen. De regel
+  staat nu op één plaats in plaats van drie keer apart.
+
 ## v1.1.3
 ### De handleiding-screenshots tonen de nieuwe schermen
 - `05_beheer` toonde nog het oude "Beheer"-scherm. Het ploegscherm is te lang voor één

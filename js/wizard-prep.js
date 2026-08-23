@@ -31,6 +31,11 @@ function startWizard() {
     responsible: teamResponsibleNames(team)[0] || '',
     pool: [], poolTeamId: null, formationIndex: md.formationIndex, selPlace: null,
   };
+  // Ook een NIEUWE wedstrijd krijgt een ijkpunt (audit 23-08-2026). Zonder dit was `snap` undefined,
+  // gaf wizDirty() altijd false, en moest wizLeave het met een eigen, smallere controle doen: die
+  // keek enkel naar de tegenstander en de selectie. Vulde je alleen een datum, een terrein of een
+  // scheidsrechter in en tikte je terug, dan ging dat zonder vraag verloren.
+  wiz.snap = wizSnapshot(wiz);
 }
 function wizTeamChange() {
   captureStep1();
@@ -243,9 +248,33 @@ function wizSnapshot(w) {
   return JSON.stringify([
     (w.pool || []).map(p => [p.pid, p.sel || '', p.slot === null || p.slot === undefined ? -1 : p.slot, (p.number || '').toString(), p.absentReason || '']),
     w.captainPid || '', w.formationIndex, w.matchType || '', w.opponent || '',
+    // DE GEGEVENS VAN STAP 1 (audit 23-08-2026). Ze stonden hier niet in, en daardoor gooide het
+    // terugpijltje een gewijzigd uur, een andere tegenstander of een nieuwe scheidsrechter stil weg:
+    // de vraag "wijzigingen niet bewaren?" ging af op deze vergelijking, en die zag niets. Alles als
+    // tekst, want de invoervelden geven tekst terug en het geheugen soms een getal (blokduur).
+    // Trainer en ploegverantwoordelijke blijven er bewust BUITEN: die komen uit een eigen kiezer, en
+    // een uitlezing die net iets anders teruggeeft dan wat er staat, zou de vraag stellen terwijl je
+    // niets wijzigde — een valse waarschuwing is hier erger dan een gemiste.
+    String(w.teamId || ''), String(w.subteam || ''), String(w.date || ''), String(w.time || ''),
+    String(w.location || ''), String(w.periodKey || ''), String(w.quarterDuration || ''),
+    String(w.competition || ''), String(w.matchday || ''), String(w.referee || ''),
+    String(w.jersey || ''), String(w.venue || ''),
   ]);
 }
-function wizDirty() { return wiz && wiz.snap !== undefined && wizSnapshot(wiz) !== wiz.snap; }
+// Is er iets gewijzigd sinds de wizard openging? Op stap 1 staat wat je intikte nog NIET in `wiz` —
+// dat gebeurt pas bij "Volgende" of "Opslaan" (captureStep1). Daarom hier eerst de velden uitlezen,
+// op een KOPIE: captureStep1 schrijft in de globale `wiz`, en dat mag het antwoord op een vraag niet
+// zijn. Zonder deze omweg was elke wijziging op stap 1 onzichtbaar voor de wachter.
+function wizDirty() {
+  if (!wiz || wiz.snap === undefined) return false;
+  let nu = wiz;
+  if (wiz.step === 1 && document.getElementById('n-opp')) {
+    const echte = wiz;
+    wiz = Object.assign({}, echte);
+    try { captureStep1(); nu = wiz; } finally { wiz = echte; }
+  }
+  return wizSnapshot(nu) !== wiz.snap;
+}
 // Terug naar waar je vandaan kwam. Bij een bestaande wedstrijd is dat het scherm van die wedstrijd
 // (prep of live); een nieuwe wedstrijd valt terug op wizLeave, dat naar het startscherm of de
 // tornooipagina gaat en daar zijn eigen vraag stelt.
@@ -264,10 +293,16 @@ function wizVerlaat() {
 // hier al een dirty-guard stond. De tegenstander wordt uit het veld zelf gelezen: op stap 1 zit hij
 // nog niet in wiz (captureStep1 loopt pas bij "Volgende").
 function wizLeave() {
+  const naar = (wiz && wiz.trnMode) ? 'tournament' : 'home';
+  // Sinds startWizard een ijkpunt zet, is wizDirty() ook hier de maatstaf: die kijkt naar álle
+  // gegevens van stap 1 en naar de selectie, i.p.v. enkel naar de tegenstander. De oude controle op
+  // het invoerveld blijft als terugval staan voor het geval er geen ijkpunt is (bv. een wizard die
+  // van elders komt zonder startWizard).
   const oppEl = document.getElementById('n-opp');
   const opp = oppEl ? oppEl.value : ((wiz && wiz.opponent) || '');
-  const naar = (wiz && wiz.trnMode) ? 'tournament' : 'home';
-  const dirty = wiz && ((opp || '').trim() || (wiz.pool || []).some(p => p.sel && p.sel !== 'none'));
+  const dirty = wiz && (wiz.snap !== undefined
+    ? wizDirty()
+    : ((opp || '').trim() || (wiz.pool || []).some(p => p.sel && p.sel !== 'none')));
   if (dirty) {
     openModal(`<h3>Wedstrijd niet bewaren?</h3>
       <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Je ingevulde gegevens gaan verloren.</p>
@@ -1236,21 +1271,13 @@ async function editMatchWizard(m) {
   // zie gridPlekVoor: zonder die beperking zou een verdediger van de dubbele ruit op (24,65) bij een
   // middenvelder belanden en stil van linie veranderen. Voordien werd hier een exacte match op x/y
   // gezocht in de formatie; viel die naast een slot, dan verloor de speler zijn plaats helemaal.
-  wiz.pool.filter(p => p.sel === 'basis').forEach(p => {
-    // De lijn waarin hij in DEZE wedstrijd stond (_line) is de baas, niet zijn voorkeurspositie uit
-    // het rooster: een vleugelspeler die als middenvelder speelde, hoort op een middenveldplek terug.
-    const plek = (p._posCodeVeld && gridPlek(p._posCodeVeld)) ? gridPlek(p._posCodeVeld)
-      : gridPlekVoor(p._line || posLine(p.pos) || 'Middenveld', p._x, p._y);
-    p.slot = plek ? plek.code : null;
-  });
-  // Twee spelers op dezelfde plek kan niet: valt er iemand samen (oude data, of een lijn met meer
-  // spelers dan het rooster daar plekken heeft), dan houdt de eerste de plek en gaat de rest naar de
-  // bank — daar kan je hem gewoon opnieuw plaatsen.
-  const gezien = new Set();
-  wiz.pool.filter(p => p.sel === 'basis').forEach(p => {
-    if (!p.slot) return;
-    if (gezien.has(p.slot)) { p.slot = null; p.sel = 'bank'; } else gezien.add(p.slot);
-  });
+  // De lijn waarin hij in DEZE wedstrijd stond (_line) is de baas, niet zijn voorkeurspositie uit het
+  // rooster: een vleugelspeler die als middenvelder speelde, hoort op een middenveldplek terug. Deze
+  // regel staat sinds de audit van 23-08-2026 in core.js (poolPlekTerug), zodat de twee kloonknoppen
+  // hem niet elk apart hoeven na te bouwen — daar was ze uit elkaar gegroeid.
+  // (poolPlekTerug ontdubbelt ook: valt er iemand samen — oude data, of een lijn met meer spelers dan
+  // het rooster daar plekken heeft — dan houdt de eerste de plek en gaat de rest naar de bank.)
+  poolPlekTerug(wiz.pool.filter(p => p.sel === 'basis'));
   // Onthouden waar we vandaan komen en op welke stap we begonnen: het terugpijltje hoort daar weer
   // uit te komen (zie wizBack/wizVerlaat). startSelectieWizard en startOpstellingWizard zetten
   // vanStap hierna op hun eigen beginstap.
@@ -2206,7 +2233,7 @@ async function saveQuickResult() {
 
 // ===================== EDIT PLAYERS =====================
 function modalPlayerNotes() {
-  _epLaatWerkkopieVallen();   // zie daar: deze twee vensters schrijven rechtstreeks
+  _spelersKopieVallenLaten();   // zie daar: deze twee vensters schrijven rechtstreeks
   // Alfabetisch op familienaam zoals elke spelerslijst, en het rugnummer enkel als de ploeg ze
   // gebruikt. De index voor het onchange-pad moet wél die van match.players blijven.
 
@@ -2227,7 +2254,7 @@ function modalPlayerNotes() {
 // statistieken hangen eraan. Een nummer is een label, dus dat is wél veilig aanpasbaar, ook
 // achteraf. "Alles wissen" is er voor de ploeg die overstapt naar spelen zonder vaste nummers.
 function modalMatchNumbers() {
-  _epLaatWerkkopieVallen();   // zie daar: deze twee vensters schrijven rechtstreeks
+  _spelersKopieVallenLaten();   // zie daar: deze twee vensters schrijven rechtstreeks
   const rows = sortedByName(match.players).map(p => {
     const i = match.players.indexOf(p);
     return `<div class="selrow">
@@ -2266,52 +2293,52 @@ async function saveMatchNumbers() {
 //     nummer samen bijgewerkt worden.
 // EN: het venster werkt nu op een WERKKOPIE. Voordien schreef elk veld rechtstreeks in match.players,
 // dus "Annuleren" annuleerde niets en de eerstvolgende gewone bewaring maakte alles definitief.
-let _epDraft = null;      // werkkopie van de spelers zolang dit venster open staat
-let _epCaptain = null;    // werkkopie van de kapiteinskeuze
+let _spelersKopie = null;      // werkkopie van de spelers zolang dit venster open staat
+let _spelersKopieKapitein = null;    // werkkopie van de kapiteinskeuze
 function modalEditPlayers() {
-  _epDraft = match.players.map(p => ({ ...p }));
-  _epCaptain = match.captainId || null;
+  _spelersKopie = match.players.map(p => ({ ...p }));
+  _spelersKopieKapitein = match.captainId || null;
   _renderEditPlayers();
 }
 function _renderEditPlayers() {
-  if (!_epDraft) return;
-  const rows = _epDraft.map((p, i) => `
+  if (!_spelersKopie) return;
+  const rows = _spelersKopie.map((p, i) => `
     <div class="pirow">
-      <input type="number" value="${esc(p.number)}" placeholder="#" onchange="_epDraft[${i}].number=this.value" inputmode="numeric">
-      <input type="text" value="${esc(p.name)}" placeholder="Naam" onchange="_epDraft[${i}].name=this.value">
+      <input type="number" value="${esc(p.number)}" placeholder="#" onchange="_spelersKopie[${i}].number=this.value" inputmode="numeric">
+      <input type="text" value="${esc(p.name)}" placeholder="Naam" onchange="_spelersKopie[${i}].name=this.value">
       ${/* Enkel een speler die je in DIT venster toevoegde kan je hier weer weghalen: dat is je eigen
            tik terugnemen, geen ingreep in de selectie. */ ''}
-      ${p._nieuw ? `<button class="delbtn" onclick="_epVerwijderNieuw('${p.id}')">×</button>` : ''}
+      ${p._nieuw ? `<button class="delbtn" onclick="_spelersKopieVerwijderNieuw('${p.id}')">×</button>` : ''}
     </div>
-    <input type="text" value="${esc(p.note||'')}" placeholder="Notitie over deze speler (optioneel)" onchange="_epDraft[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;margin-bottom:6px">
-    <div style="margin:0 0 14px"><span class="start-chip ${_epCaptain===p.id?'on':''}" onclick="_epZetKapitein('${p.id}')">${icI(IC.captain)} Kapitein</span></div>`).join('');
+    <input type="text" value="${esc(p.note||'')}" placeholder="Notitie over deze speler (optioneel)" onchange="_spelersKopie[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px;margin-bottom:6px">
+    <div style="margin:0 0 14px"><span class="start-chip ${_spelersKopieKapitein===p.id?'on':''}" onclick="_spelersKopieKapiteinZet('${p.id}')">${icI(IC.captain)} Kapitein</span></div>`).join('');
   openModal(`<h3>${icI(IC.edit)} Namen, nummers & notities</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wijzigt enkel deze wedstrijd — het spelersrooster van je ploeg blijft ongewijzigd. Wie meespeelt, regel je via <b>Selectie</b>.${match.tournamentId ? ' Wie je hier toevoegt, komt ook in de <b>tornooiselectie</b> van vandaag: anders zou hij speelminuten krijgen zonder in de selectie te staan.' : ''}</p>
     <div id="edit-rows">${rows}</div>
     <button class="btn btn-pale" onclick="addPlayerToMatch()" style="margin-top:6px">+ Speler toevoegen</button>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)}Opslaan</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="_epAnnuleer()">Annuleren</button>`);
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_spelersKopieAnnuleer()">Annuleren</button>`);
 }
 function addPlayerToMatch() {
-  if (!_epDraft) return;
+  if (!_spelersKopie) return;
   const lines = matchLines(match);
-  _epDraft.push({ id:uid(), name:'', number:'', line:lines[Math.min(1,lines.length-1)], posNum:'', starting:false, onField:false, _nieuw:true });
+  _spelersKopie.push({ id:uid(), name:'', number:'', line:lines[Math.min(1,lines.length-1)], posNum:'', starting:false, onField:false, _nieuw:true });
   _renderEditPlayers();
 }
-function _epVerwijderNieuw(id) {
-  if (!_epDraft) return;
-  const p = _epDraft.find(x => x.id === id);
+function _spelersKopieVerwijderNieuw(id) {
+  if (!_spelersKopie) return;
+  const p = _spelersKopie.find(x => x.id === id);
   if (!p || !p._nieuw) return;   // enkel wat je hier toevoegde
-  _epDraft = _epDraft.filter(x => x.id !== id);
-  if (_epCaptain === id) _epCaptain = null;
+  _spelersKopie = _spelersKopie.filter(x => x.id !== id);
+  if (_spelersKopieKapitein === id) _spelersKopieKapitein = null;
   _renderEditPlayers();
 }
-function _epZetKapitein(id) {
-  _epCaptain = (_epCaptain === id) ? null : id;
+function _spelersKopieKapiteinZet(id) {
+  _spelersKopieKapitein = (_spelersKopieKapitein === id) ? null : id;
   _renderEditPlayers();
 }
-function _epAnnuleer() {
-  _epLaatWerkkopieVallen();
+function _spelersKopieAnnuleer() {
+  _spelersKopieVallenLaten();
   closeModal();
 }
 // De werkkopie weggooien. Nodig op meer plaatsen dan bij "Annuleren": je kan een venster ook sluiten
@@ -2319,7 +2346,7 @@ function _epAnnuleer() {
 // delen saveEditPlayers() maar schrijven wél rechtstreeks in match.players — een blijven hangen
 // kopie zou hun verse wijzigingen dus overschrijven bij het opslaan. Vandaar: die twee vensters
 // gooien ze bij het openen weg, en modalEditPlayers maakt bij elke opening een nieuwe.
-function _epLaatWerkkopieVallen() { _epDraft = null; _epCaptain = null; }
+function _spelersKopieVallenLaten() { _spelersKopie = null; _spelersKopieKapitein = null; }
 // Een speler die je hier toevoegt zit enkel in m.players. Bij een TORNOOIwedstrijd komen de
 // selectiegroepen uit het tornooi (sinds v0.7.5), dus zo'n speler kreeg wel speelminuten, doelpunten
 // en een plek in de PDF, maar stond in géén enkele groep — niet als geselecteerd, niet als NB, niet
@@ -2351,15 +2378,15 @@ async function saveEditPlayers() {
   // Werkkopie doorvoeren (enkel wat dit venster mag wijzigen: naam, nummer, notitie, kapitein).
   // Zonder werkkopie — de twee smalle vensters "Rugnummers" en "Spelernotities" schrijven nog
   // rechtstreeks — valt hij terug op het oude gedrag, zodat die twee blijven werken.
-  if (_epDraft) {
-    _epDraft.forEach(d => {
+  if (_spelersKopie) {
+    _spelersKopie.forEach(d => {
       const naam = d.name || 'Speler';
       const p = match.players.find(x => x.id === d.id);
       if (p) { p.name = naam; p.number = d.number; p.note = d.note; }
       else { const nieuw = { ...d, name: naam }; delete nieuw._nieuw; match.players.push(nieuw); }
     });
-    match.captainId = _epCaptain;
-    _epDraft = null; _epCaptain = null;
+    match.captainId = _spelersKopieKapitein;
+    _spelersKopie = null; _spelersKopieKapitein = null;
   }
   match.players.forEach(p => { if (!p.name) p.name = 'Speler'; });
   syncKeeper(); // keeper volgt automatisch de doellijn

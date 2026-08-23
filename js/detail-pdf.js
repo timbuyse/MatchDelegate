@@ -224,7 +224,9 @@ function cloneMatch() {
     fromName: p.guest ? (p.fromName || '') : (src.teamName || (team ? team.name : '')),
     guest: !!p.guest,
     sel: p.starting ? 'basis' : 'bank',
-    slot: null, _x: p.x, _y: p.y,
+    // _posCodeVeld en _line erbij: poolPlekTerug() zet de speler eerst op zijn bewaarde roosterplek
+    // en valt enkel terug op x/y binnen zijn lijn als die er niet is.
+    slot: null, _x: p.x, _y: p.y, _posCodeVeld: p.posCodeVeld || spelerGridCode(p) || null, _line: p.line || '',
   }));
   // Spelers die deze wedstrijd niet meededen alsnog in de pool als 'none', zoals editMatchWizard
   // doet — anders waren ze in de kloon enkel via de gast-modal (fout gelabeld als gast) terug te
@@ -256,10 +258,11 @@ function cloneMatch() {
     formationIndex: fi,
     selPlace: null,
   };
-  // Basisspelers terugzetten op hun formatieslot (x/y-match), zoals editMatchWizard en
-  // cloneTournamentMatch — anders opende stap 3 met een leeg veld.
-  const form = FORMATIONS[matchType] && FORMATIONS[matchType][fi];
-  if (form) wiz.pool.filter(p => p.sel === 'basis').forEach(p => { const idx = form.slots.findIndex(s => s.x === p._x && s.y === p._y); p.slot = idx >= 0 ? idx : null; });
+  // Basisspelers terugzetten op hun roosterplek, met dezelfde regel als bij het bewerken van een
+  // wedstrijd (poolPlekTerug in core.js). Hier stond een exacte match op x/y in de formatie: die
+  // mislukte sinds v0.34.0 altijd, dus stap 3 opende met een leeg veld — precies wat deze regels
+  // moesten voorkomen (audit 23-08-2026).
+  poolPlekTerug(wiz.pool.filter(p => p.sel === 'basis'));
   // Kapitein meenemen: de eerste pool-entries volgen de volgorde van src.players.
   if (src.captainId) {
     const ci = (src.players || []).findIndex(p => p.id === src.captainId);
