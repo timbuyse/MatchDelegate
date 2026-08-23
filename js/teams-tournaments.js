@@ -541,9 +541,10 @@ async function loadTournamentDetail() {
   const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
   const done = matches.filter(m => m.status === 'done');
   const team = teamById(t.teamId);
-  const w = done.filter(m => m.scoreUs > m.scoreThem).length;
-  const d = done.filter(m => m.scoreUs === m.scoreThem).length;
-  const l = done.filter(m => m.scoreUs < m.scoreThem).length;
+  // Zie matchResultaat in core.js: een gewonnen strafschoppenreeks telt als winst.
+  const w = done.filter(m => matchResultaat(m) === 'W').length;
+  const d = done.filter(m => matchResultaat(m) === 'G').length;
+  const l = done.filter(m => matchResultaat(m) === 'V').length;
   const gf = done.reduce((s, m) => s + m.scoreUs, 0);
   const ga = done.reduce((s, m) => s + m.scoreThem, 0);
   const infoRows = [
@@ -686,7 +687,9 @@ function tournamentReportData(t, matches) {
     // terwijl hij wél meetelt als "in de selectie" — dat was hij immers echt.
     const gemeten = getGameTimeMs(m) > 0;
     gf += m.scoreUs; ga += m.scoreThem;
-    const res = m.scoreUs > m.scoreThem ? 'W' : m.scoreUs < m.scoreThem ? 'V' : 'G';
+    // matchResultaat (core.js) rekent een gewonnen strafschoppenreeks als winst — Tims keuze. De
+    // score zelf blijft ongemoeid, dus gf/ga hierboven kloppen gewoon.
+    const res = matchResultaat(m);
     if (res === 'W') w++; else if (res === 'V') l++; else { d++; if (m.scoreUs === 0 && m.scoreThem === 0) dNil++; }
     if (m.scoreThem === 0) cleanSheets++;
     const mins = calcMinutes(m);

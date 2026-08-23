@@ -831,6 +831,152 @@ async function confirmEndMatch() {
   const corrInp = document.getElementById('em-correct-min');
   const corrMin = corrInp ? parseInt(corrInp.value) : NaN;
   closeModal(); await forceEndMatch(!isNaN(corrMin) && corrMin > 0 ? corrMin : null);
+  // Gelijkspel? Dan kan er een strafschoppenreeks gevolgd zijn. Pas NA het afsluiten vragen: de
+  // eindstand ligt dan vast, en wie geen reeks had, is met één tik klaar.
+  if (match.scoreUs === match.scoreThem && !heeftShootout(match)) vraagShootout();
+}
+// ===================== STRAFSCHOPPENREEKS =====================
+// De wedstrijdscore blijft ongemoeid (zie de uitleg bij shootoutSchoten in core.js): de reeks staat
+// ernaast en bepaalt enkel wie wint. Eén scherm dat zichzelf opnieuw tekent na elke strafschop.
+function vraagShootout() {
+  openModal(`<h3>${icI(IC.penalty)} Strafschoppen?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het staat <b>${esc(scoreTxt(match))}</b>. Volgde er een strafschoppenreeks?</p>
+    <button class="btn btn-green" onclick="startShootout()">${icI(IC.penalty)} Ja, strafschoppen ingeven</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Nee, het blijft gelijk</button>`);
+}
+// Wie begint? In de reeks wisselen de ploegen elkaar af, dus dit bepaalt de hele volgorde.
+function startShootout() {
+  openModal(`<h3>${icI(IC.penalty)} Wie begint?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De ploegen nemen om beurten een strafschop.</p>
+    <button class="btn btn-green" onclick="zetShootoutStart('us')">${esc(tName(match))} begint</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="zetShootoutStart('them')">${esc(match.opponent || 'De tegenstander')} begint</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>`);
+}
+async function zetShootoutStart(eerste) {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    match.shootout = { eerste: eerste === 'them' ? 'them' : 'us', schoten: [] };
+    await dbSave(match);
+    modalShootout();
+  } finally { _eventBusy = false; }
+}
+// Wie is er nu aan de beurt? De reeks wisselt strikt af vanaf `eerste`.
+function shootoutAanZet(m) {
+  const s = m.shootout; if (!s) return 'us';
+  const n = shootoutSchoten(m).length;
+  const start = s.eerste === 'them' ? 'them' : 'us';
+  return (n % 2 === 0) ? start : (start === 'us' ? 'them' : 'us');
+}
+// Het rijtje bollen per ploeg, zoals op televisie: groen = raak, rood = gemist.
+function shootoutRijHtml(m, ploeg) {
+  const schoten = shootoutSchoten(m).filter(s => s.ploeg === ploeg);
+  const naam = ploeg === 'us' ? tName(m) : (m.opponent || 'Tegenstander');
+  const raak = schoten.filter(s => s.raak).length;
+  const bollen = schoten.map(s => {
+    const titel = s.playerId ? esc(fieldName(m, s.playerId)) : '';
+    return `<span class="pen-bol ${s.raak ? 'raak' : 'mis'}" title="${titel}"></span>`;
+  }).join('') || '<span style="color:var(--txt2);font-size:13px">—</span>';
+  return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+    <div style="flex:1;font-weight:700;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(naam)}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${bollen}</div>
+    <div style="font-weight:900;font-size:18px;min-width:22px;text-align:right;font-variant-numeric:tabular-nums">${raak}</div>
+  </div>`;
+}
+// De reeks zoals ze in het verslag staat: per ploeg een rij bollen, en daaronder wie er nam. Ook
+// gebruikt door het scherm zelf (shootoutRijHtml) — één weergave, geen tweede die kan afwijken.
+function penaltyReeksHtml(m) {
+  const nemers = shootoutSchoten(m).filter(s => s.ploeg === 'us' && s.playerId)
+    .map((s, i) => `<span style="white-space:nowrap"><span class="pen-bol ${s.raak ? 'raak' : 'mis'}" style="width:10px;height:10px;vertical-align:middle;margin-right:4px"></span>${esc(fieldName(m, s.playerId))}</span>`)
+    .join('<span style="color:var(--bdr);margin:0 6px">·</span>');
+  return `${shootoutRijHtml(m, isAway(m) ? 'them' : 'us')}${shootoutRijHtml(m, isAway(m) ? 'us' : 'them')}
+    ${nemers ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bdr);font-size:13px;line-height:1.9">${nemers}</div>` : ''}`;
+}
+let shootoutSchutterId = null;
+function selectShootoutSchutter(id, el) { shootoutSchutterId = id; gpSelIn('so-spelers', el); }
+function modalShootout() {
+  const m = match;
+  if (!m.shootout) return;
+  const aanZet = shootoutAanZet(m);
+  const eigen = aanZet === 'us';
+  const nr = shootoutSchoten(m).filter(s => s.ploeg === aanZet).length + 1;
+  const st = shootoutStand(m);
+  // Wie mag er nemen? Iedereen uit de selectie die niet afwezig of uitgesloten is — na de wedstrijd
+  // telt "wie stond er op het veld" niet meer, iedereen mag aan de stip komen.
+  const kiesbaar = eigen ? (m.players || []).filter(p => magOpHetVeld(m, p)) : [];
+  const gekozen = shootoutSchutterId && kiesbaar.some(p => p.id === shootoutSchutterId) ? shootoutSchutterId : null;
+  if (!gekozen) shootoutSchutterId = null;
+  // Wie al genomen heeft, krijgt een merkje: bij een jeugdreeks wil je iedereen een beurt geven.
+  const alGenomen = new Set(shootoutSchoten(m).filter(s => s.ploeg === 'us' && s.playerId).map(s => s.playerId));
+  const merk = p => alGenomen.has(p.id) ? `<span style="font-size:9px;color:var(--txt2)">nam al</span>` : '';
+  openModal(`<h3>${icI(IC.penalty)} Strafschoppen</h3>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px">
+      ${shootoutRijHtml(m, isAway(m) ? 'them' : 'us')}
+      ${shootoutRijHtml(m, isAway(m) ? 'us' : 'them')}
+    </div>
+    <div class="sec" style="margin-top:0">${esc(eigen ? tName(m) : (m.opponent || 'Tegenstander'))} · strafschop ${nr}</div>
+    ${eigen
+      ? `<p style="font-size:13px;color:var(--txt2);margin:-4px 0 8px">Kies wie neemt${kiesbaar.length ? '' : ' — niemand beschikbaar'}.</p>
+         <div id="so-spelers">${pgGrid(kiesbaar.map(p => pgBtn(p, 'so-pb', `selectShootoutSchutter('${p.id}',this)`, merk(p))).join(''))}</div>`
+      : `<p style="font-size:13px;color:var(--txt2);margin:-4px 0 8px">Scoorde de tegenstander?</p>`}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <button class="btn btn-green" onclick="logShootout(true)">${icI(IC.goal)} Raak</button>
+      <button class="btn btn-red" onclick="logShootout(false)">${icI(IC.close)} Gemist</button>
+    </div>
+    ${shootoutSchoten(m).length ? `<button class="btn btn-pale btn-sm" style="margin-top:10px" onclick="undoShootout()">${icI(IC.undo)} Laatste strafschop wissen</button>` : ''}
+    <button class="btn btn-orgpale" style="margin-top:10px" onclick="stopShootout()">${icI(IC.check)} Reeks afsluiten${st.us !== st.them ? ` (${shootoutTxt(m)})` : ''}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Later verder</button>`);
+}
+async function logShootout(raak) {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    const aanZet = shootoutAanZet(match);
+    if (aanZet === 'us' && !shootoutSchutterId) { showToast('Kies wie de strafschop neemt.', 'err'); return; }
+    match.shootout.schoten = shootoutSchoten(match).concat([{
+      ploeg: aanZet, raak: !!raak, playerId: aanZet === 'us' ? shootoutSchutterId : null,
+    }]);
+    shootoutSchutterId = null;
+    await dbSave(match);
+    modalShootout();
+  } finally { _eventBusy = false; }
+}
+async function undoShootout() {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    const s = shootoutSchoten(match).slice(0, -1);
+    match.shootout.schoten = s;
+    await dbSave(match);
+    modalShootout();
+  } finally { _eventBusy = false; }
+}
+// De reeks is afgelopen wanneer JIJ dat zegt — de app rekent geen "best of five" uit, want bij de
+// jeugd neemt vaak iedereen een strafschop en gelden er lokale afspraken.
+async function stopShootout() {
+  if (_eventBusy) return; _eventBusy = true;
+  try {
+    if (!heeftShootout(match)) { delete match.shootout; }
+    await dbSave(match);
+    closeModal(); render();
+    const w = shootoutWinnaar(match);
+    if (w) showToast(shootoutZin(match), 'ok');
+    else if (heeftShootout(match)) showToast('De reeks staat gelijk — vul aan of wis ze in het verslag.', 'err');
+  } finally { _eventBusy = false; }
+}
+// Ingang achteraf, vanuit het verslag: reeks alsnog ingeven of corrigeren.
+function shootoutVanuitVerslag() {
+  if (!canManage()) return;
+  if (match.shootout) modalShootout(); else startShootout();
+}
+// De hele reeks weghalen (bv. verkeerd ingegeven).
+function confirmWisShootout() {
+  openModal(`<h3>${icI(IC.trash)} Strafschoppen wissen?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De reeks verdwijnt. De uitslag <b>${esc(scoreTxt(match))}</b> blijft zoals ze is.</p>
+    <button class="btn btn-red" onclick="doWisShootout()">${icI(IC.trash)} Wissen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doWisShootout() {
+  if (_eventBusy) return; _eventBusy = true;
+  try { delete match.shootout; await dbSave(match); closeModal(); render(); }
+  finally { _eventBusy = false; }
 }
 function modalNotes() {
   openModal(`<h3>${icI(IC.edit)} Notities</h3>
@@ -1174,6 +1320,12 @@ function shareWhatsApp(m) {
   // Samenstellen
   const lines = [];
   lines.push(`⚽ ${us} ${usScore}–${themScore} ${them}`);
+  // Strafschoppenreeks onder de uitslag, met wie er won — zonder de score zelf aan te passen.
+  if (heeftShootout(m)) {
+    const so = shootoutStand(m);
+    lines.push(`🥅 Strafschoppen: ${home ? so.us : so.them}–${home ? so.them : so.us}`);
+    const zin = shootoutZin(m); if (zin) lines.push(`🏆 ${zin}`);
+  }
   lines.push(`📍 ${statusTxt}`);
   if (goalLines.length || ownGoalLines.length) {
     lines.push('');

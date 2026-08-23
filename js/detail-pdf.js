@@ -30,7 +30,23 @@ function renderDetail() {
       <div style="font-size:13px;color:var(--txt2);margin-bottom:4px">Eindscore</div>
       <div style="font-size:50px;font-weight:900;color:var(--txt)">${scoreHtml(match,'grn')}</div>
       <div style="font-size:14px;color:var(--txt2)">${esc(isAway(match)?match.opponent:tName(match))} – ${esc(isAway(match)?tName(match):match.opponent)}</div>
+      ${/* De strafschoppenreeks staat ONDER de eindscore, niet erin: de wedstrijd eindigde op die
+           stand, de reeks bepaalt enkel wie wint (zie shootoutSchoten in core.js). */ ''}
+      ${heeftShootout(match) ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
+        <div style="font-size:22px;font-weight:900">pen. ${esc(shootoutTxt(match))}</div>
+        <div style="font-size:13px;color:var(--txt2)">${esc(shootoutZin(match))}</div>
+      </div>` : ''}
     </div>
+    ${/* De reeks zelf: per ploeg de bollen in volgorde, met de nemers eronder. */ ''}
+    ${heeftShootout(match) ? `<div class="sec">${icI(IC.penalty)} Strafschoppen</div>
+      <div class="card">
+        ${penaltyReeksHtml(match)}
+        ${ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
+          <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
+          <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
+        </div>`}
+      </div>`
+      : (ro || match.status !== 'done' ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
       <button class="btn btn-org btn-sm" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
@@ -1377,6 +1393,29 @@ async function exportPDF() {
   doc.setFont(undefined, 'bold'); doc.setFontSize(30); doc.setTextColor(23, 23, 23);
   doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, L.y + 24, { align: 'center' });
   L.y += 46;
+  // Strafschoppenreeks onder de score: de stand en wie ze won. De score zelf blijft de uitslag van
+  // de wedstrijd — zie shootoutSchoten in core.js.
+  if (heeftShootout(m)) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(14);
+    doc.text(`na strafschoppen ${shootoutTxt(m)}`, PW / 2, L.y, { align: 'center' });
+    L.y += 16;
+    const zin = shootoutZin(m);
+    if (zin) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110, 110, 110);
+      doc.text(zin, PW / 2, L.y, { align: 'center' });
+      doc.setTextColor(23, 23, 23);
+      L.y += 16;
+    }
+    // De nemers, als één regel: bij de jeugd wil je zien wie er durfde.
+    const nemers = shootoutSchoten(m).filter(s => s.ploeg === 'us' && s.playerId)
+      .map(s => `${fieldName(m, s.playerId)} ${s.raak ? 'v' : 'x'}`).join(' · ');
+    if (nemers) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
+      for (const regel of doc.splitTextToSize(nemers, PW - 2 * L.M)) { doc.text(regel, PW / 2, L.y, { align: 'center' }); L.y += 11; }
+      doc.setTextColor(23, 23, 23);
+      L.y += 6;
+    }
+  }
   if (m.motmId) {
     doc.setFont(undefined, 'bold'); doc.setFontSize(12);
     doc.text(`Man van de match: ${pName(m, m.motmId)}`, PW / 2, L.y, { align: 'center' });

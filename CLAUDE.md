@@ -51,6 +51,7 @@ A match object has:
 - `quarters`: array of `{num, startTime, endTime, totalPaused, pausedAt}`
 - `events`: flat array (`goal_us`/`goal_them`, `corner_us`/`corner_them`, `substitution`, `yellow_card`/`red_card`, `penalty_us`/`penalty_them`, `freekick_us`/`freekick_them`, `injury`, `own_goal`, `quarter_start`/`quarter_end`), each carrying `gameTimeMs` (continuous play time) and `quarterNum`
 - `players`: array with `starting`/`onField`/`x`/`y` for pitch position
+- `shootout` (optional, v0.58.1): a penalty **shoot-out** after a draw — `{eerste: 'us'|'them', schoten: [{ploeg, raak, playerId}]}`. Deliberately **not** events: `penalty_us`/`penalty_them` events count towards the score in `recomputeScore`, so a shoot-out would turn 1-1 into 6-5. The match score stays untouched; the shoot-out only decides who won. Read it through the helpers in `core.js` (`heeftShootout`, `shootoutStand`, `shootoutWinnaar`, `shootoutTxt`, `uitslagTxt`, `shootoutZin`) — never touch `m.shootout` directly. **`matchResultaat(m)` is the single source for W/G/V** and counts a won shoot-out as a win (Tim's choice, 23-08-2026); every place that derives won/drawn/lost must use it, not a raw `scoreUs > scoreThem`.
 
 Anything that doesn't fit the format (e.g. an opponent's disallowed goal) goes in the match's free-text `notes` field, never forced into an event.
 

@@ -9,6 +9,48 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.0.0 — uit de testfase
+De eerste **major** versie: de app is niet langer "in testfase". Aanleiding is de
+strafschoppenreeks, maar er zit een hele reeks verbeteringen in van 23 augustus 2026.
+
+### Strafschoppenreeks
+- Eindigt een wedstrijd op een **gelijkspel**, dan vraagt de app bij het afsluiten of er
+  strafschoppen volgden. Je kiest wie begint en geeft dan schot per schot in: bij de eigen ploeg
+  wie neemt en of hij scoort, bij de tegenstander enkel raak of gemist. De **bolletjes** lopen op
+  zoals op tv (groen = raak, rood = gemist), en jij bepaalt wanneer de reeks afgelopen is — de app
+  rekent geen "best of five", want bij de jeugd neemt vaak iedereen een strafschop.
+- **Wie de reeks wint, heeft gewonnen.** Dat telt mee als overwinning in de seizoensstatistieken en
+  in de tornooistand (punten inbegrepen). Internationaal blijft zo'n wedstrijd officieel een
+  gelijkspel, maar bij de jeugd ís de reeks de beslissing van de dag — een bewuste keuze.
+- **De wedstrijdscore blijft ongemoeid**: 1-1 blijft 1-1. Een strafschop uit de reeks is dus géén
+  doelpunt en verschijnt niet bij de topschutters, precies zoals in het echte voetbal. Zo blijft
+  "doelpunten voor" gelijk aan de som van de topschutterslijst.
+- De uitslag staat overal als **`1-1 · pen. 4-3`**: op het wedstrijdkaartje, in het verslag (met de
+  bolletjes en de nemers), in de PDF en in het deelbericht.
+- Achteraf aan te passen of te wissen vanuit het wedstrijdverslag.
+
+### Statistieken
+- Nieuwe regel **"Strafschoppenreeksen — X van de Y gewonnen"** bij de seizoenscijfers.
+- Bij een **speler** een blok **Strafschoppen** met genomen en gescoord, waarbij een strafschop
+  tijdens de wedstrijd en één uit een reeks samengeteld worden — voor een speler is het dezelfde
+  vaardigheid.
+- De statistieken openen voortaan op je **competitiewedstrijden** in plaats van op alles. Zijn er in
+  dat seizoen nog geen competitiewedstrijden gespeeld, dan blijft het "alle wedstrijden".
+- Seizoen en soort zitten achter één **filtertekentje**, met de actieve keuzes als kaartjes ernaast.
+
+### Wedstrijdenlijst
+- De **soort wedstrijd** (competitie, beker, vriendschappelijk) staat nu op elk wedstrijdkaartje.
+- Een **filter** op soort, status, thuis/uit, ploeglabel en seizoen — met hetzelfde filtertekentje en
+  dezelfde kaartjes als bij de statistieken. Bewust enkel in de lijstweergave: in de kalender zou een
+  filter stil dagen leegmaken.
+- "Kalender importeren" en "Meerdere aanpassen" staan naast elkaar op halve breedte.
+- De keuzelijst "Alle ploegen" verschijnt enkel nog bij méér dan één ploeg op het toestel.
+
+### Nieuw bij een major-versie: "Wat is er nieuw"
+- Bij elke **major**-versie ziet iedereen één keer een venster met wat er veranderd is. Bewust enkel
+  bij major: een melding bij elke kleine update went, en wat went wordt weggeklikt zonder lezen. Wie
+  de app voor het eerst installeert, krijgt niets te zien.
+
 ## v0.58.0
 Drie dingen die Tim opmerkte bij het gebruiken, alle drie aan de zijlijn.
 

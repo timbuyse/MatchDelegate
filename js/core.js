@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '0.58.0'; // MAJOR.MINOR.PATCH — 0.x = testfase, nog niet officieel live
+const APP_VERSION = '1.0.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -7,6 +7,18 @@ const MATCH_TYPES = {
   '8v8':  { field: 8,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '11v11':{ field: 11, lines: ['Doel','Verdediging','Middenveld','Aanval'] },
 };
+// SOORT WEDSTRIJD. Stond tot v0.58.1 in stats-settings.js en daarnaast nog eens letterlijk
+// uitgeschreven in de wizard, het bewerkscherm, de kalenderimport en het bulk-bewerken — vier
+// kopieën die na de eerste wijziging uit elkaar zouden lopen. Nu één lijst, hier in core.js omdat
+// elk ander bestand hem nodig heeft (kaartje, filter, statistieken).
+// Het veld `m.competition` blijft VRIJE TEKST: de drie hieronder zijn de keuzes die de app aanbiedt,
+// maar je mag via "Andere…" iets eigens invullen (bv. "Oefentornooi"). Alles wat niet in de lijst
+// staat, valt onder 'other'. Tornooiwedstrijden dragen 'Tornooi' en horen ook bij 'other'.
+const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker'];
+function matchKindOf(m) {
+  const c = ((m && m.competition) || '').trim();
+  return MATCH_KINDS.includes(c) ? c : 'other';
+}
 // De lijnen van een wedstrijd, met terugval op 8v8 als de wedstrijdvorm niet (meer) in MATCH_TYPES
 // staat — bv. na het hernoemen of schrappen van een vorm, terwijl oude wedstrijden op de toestellen
 // de oude tekst houden. Enkel voor keuzelijstjes: een lijnenlijst hoort geen scherm te doen crashen.
@@ -389,6 +401,8 @@ const IC = {
   live: _svg('<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="9.5" stroke-opacity=".35"/>'),
   done: _svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8 5-5.8"/>'),
   search: _svg('<circle cx="11" cy="10.5" r="7"/><line x1="16.5" y1="16" x2="21" y2="20.5"/>'),
+  // Trechter: het gangbare filterteken. Zelfde lijnstijl als de rest (geen vulling, ronde uiteinden).
+  filter: _svg('<path d="M4 5h16l-6.2 7.4v5.9l-3.6 2.2v-8.1z"/>'),
   assist: _svg('<path d="M5 12.5h11M13.5 8l3.5 4.5-3.5 4.5"/><circle cx="5" cy="12.5" r="2.5" fill="currentColor" stroke="none"/>'),
   timer: _svg('<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5V14l2.5 2.5"/><path d="M9.5 3.5h5M12 3.5V6"/>'),
   balance: _svg('<path d="M12 4v17M4 6h16"/><path d="M6 6l-3 7h6l-3-7"/><path d="M18 6l-3 7h6l-3-7"/>'),
@@ -464,6 +478,64 @@ function scoreHtml(m, cls) {
 // Platte tekst voor score (bv. in share/PDF-titel).
 function scoreTxt(m) {
   return isAway(m) ? `${m.scoreThem}-${m.scoreUs}` : `${m.scoreUs}-${m.scoreThem}`;
+}
+// ===================== STRAFSCHOPPENREEKS =====================
+// Nieuw optioneel veld `m.shootout` (v0.58.1). Vorm:
+//   { eerste: 'us'|'them', schoten: [ { ploeg:'us'|'them', raak:true|false, playerId:string|null } ] }
+// Een wedstrijd zonder dit veld werkt exact zoals voordien — zelfde aanpak als startLineup en
+// nextLineup: één accessor met een Array.isArray-guard, en nergens anders rechtstreeks lezen.
+//
+// BEWUST GEEN EVENTS. De bestaande types penalty_us/penalty_them tellen in recomputeScore
+// automatisch mee in de wedstrijdscore; een reeks van tien strafschoppen zou van 1-1 een 6-5 maken.
+// De reeks staat dus náást de score, precies zoals in het echte voetbal: de wedstrijd blijft 1-1,
+// de reeks bepaalt wie wint. Bijkomend voordeel: een strafschop uit de reeks heeft geen speelminuut
+// en geen kwart, en zou in elke tijdlijn en elke minutenberekening moeten worden weggefilterd.
+function shootoutSchoten(m) {
+  const s = m && m.shootout;
+  return (s && Array.isArray(s.schoten)) ? s.schoten : [];
+}
+function heeftShootout(m) { return shootoutSchoten(m).length > 0; }
+// Stand van de reeks. Altijd {us, them}, ongeacht thuis of uit.
+function shootoutStand(m) {
+  const st = { us: 0, them: 0 };
+  for (const s of shootoutSchoten(m)) if (s.raak) st[s.ploeg === 'them' ? 'them' : 'us']++;
+  return st;
+}
+// Wie won de reeks? null zolang het gelijk staat (of er geen reeks is) — de gebruiker beslist zelf
+// wanneer de reeks afgelopen is, dus een gelijke stand betekent gewoon "nog niet beslist".
+function shootoutWinnaar(m) {
+  if (!heeftShootout(m)) return null;
+  const st = shootoutStand(m);
+  return st.us > st.them ? 'us' : st.them > st.us ? 'them' : null;
+}
+// De reeksstand in thuisploeg-eerst volgorde, zoals scoreTxt. "4-5".
+function shootoutTxt(m) {
+  const st = shootoutStand(m);
+  return isAway(m) ? `${st.them}-${st.us}` : `${st.us}-${st.them}`;
+}
+// De volledige uitslag zoals ze overal geschreven hoort te worden: "1-1 · pen. 4-5". De reguliere
+// stand blijft vooraan en onveranderd — dat is de uitslag van de wedstrijd — met de reeks erachter.
+function uitslagTxt(m) {
+  return heeftShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
+}
+// W / G / V vanuit het standpunt van de eigen ploeg, mét de reeks meegerekend. Tims keuze
+// (23-08-2026): wie de strafschoppenreeks wint, heeft gewonnen — ook voor de tornooipunten en de
+// seizoensstatistiek. Internationaal telt zo'n wedstrijd meestal als gelijkspel, maar bij de jeugd
+// is de reeks wél de beslissing van de dag. De SCORE blijft ongemoeid (1-1 blijft 1-1), dus
+// doelpuntensaldo en topschutters kloppen gewoon.
+function matchResultaat(m) {
+  if (!m) return 'G';
+  if (m.scoreUs > m.scoreThem) return 'W';
+  if (m.scoreUs < m.scoreThem) return 'V';
+  const w = shootoutWinnaar(m);
+  return w === 'us' ? 'W' : w === 'them' ? 'V' : 'G';
+}
+// Korte zin voor onder de score: "Testploeg wint na strafschoppen (4-5)".
+function shootoutZin(m) {
+  const w = shootoutWinnaar(m);
+  if (!w) return heeftShootout(m) ? `Strafschoppen: ${shootoutTxt(m)} — nog niet beslist` : '';
+  const naam = w === 'us' ? tName(m) : (m.opponent || 'de tegenstander');
+  return `${naam} wint na strafschoppen (${shootoutTxt(m)})`;
 }
 // Speelminuten van één speler als getal om te tonen. ÉÉN regel voor de hele app: afronden.
 // Voordien kapte de spelerslijst af (Math.floor) terwijl het dagoverzicht van een tornooi, de
@@ -587,6 +659,54 @@ function fileToClubLogoDataUri(file, size = CLUB_LOGO_MAX_PX) {
   });
 }
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
+// ===================== "WAT IS ER NIEUW" BIJ EEN MAJOR-VERSIE =====================
+// Bij een MAJOR-bump (1.x → 2.x) krijgt iedereen één keer te zien wat er nieuw is. Bewust enkel bij
+// major: een melding bij elke patch went, en wat went wordt weggeklikt zonder lezen.
+// De tekst is per major uitgeschreven en wordt door Tim goedgekeurd vóór de release.
+const RELEASE_NOTES = {
+  '1': {
+    titel: 'Versie 1.0 is er',
+    kop: 'Strafschoppenreeks',
+    intro: 'Eindigt een wedstrijd gelijk, dan vraagt de app of er strafschoppen volgden. Je duidt per schot aan wie neemt en of hij scoort — de bolletjes lopen op zoals op tv. Wie de reeks wint, heeft gewonnen: dat telt mee in je statistieken en in de tornooistand. De reeks komt ook in het verslag, de PDF en het deelbericht.',
+    punten: [
+      'Een filter in de wedstrijdenlijst: op soort, status, thuis of uit, en ploeglabel',
+      'De soort wedstrijd (competitie, beker, vriendschappelijk) staat nu op elk wedstrijdkaartje',
+      'De statistieken openen op je competitiewedstrijden in plaats van op alles',
+      'Een blok dat je te vroeg afsloot, kan je hervatten alsof je nooit gestopt was',
+      '"Ongedaan maken" vraagt eerst wát er weggaat, en laat je opstelling met rust',
+    ],
+  },
+};
+function majorVan(v) { return String(v || '').split('.')[0]; }
+const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
+// Eén keer per major tonen. Wie de app voor het ÉÉRST installeert krijgt niets: "nieuw sinds vorige
+// keer" slaat dan nergens op. Dat herkennen we aan het ontbreken van eerdere gegevens — bij de
+// allereerste versie met deze melding (1.0) heeft nog niemand een opgeslagen major, dus zou anders
+// niemand ze zien.
+async function toonNieuwAlsNodig() {
+  try {
+    const huidig = majorVan(APP_VERSION);
+    const gezien = localStorage.getItem(MAJOR_GEZIEN_KEY);
+    if (gezien === huidig) return;
+    const notes = RELEASE_NOTES[huidig];
+    if (!notes) { localStorage.setItem(MAJOR_GEZIEN_KEY, huidig); return; }
+    // Bestaande gebruiker? Dan is er al iets ingesteld of gespeeld.
+    let bestaand = setupDone() || getTeamsV2().length > 0;
+    if (!bestaand) { try { bestaand = (await dbAll()).length > 0; } catch (e) {} }
+    localStorage.setItem(MAJOR_GEZIEN_KEY, huidig);
+    if (!bestaand) return;
+    openModal(`<h3>${icI(IC.medal)} ${esc(notes.titel)}</h3>
+      <div class="card" style="margin:8px 0 12px;padding:12px 14px;border-left:4px solid var(--org)">
+        <div style="font-weight:800;font-size:15px;margin-bottom:4px">${esc(notes.kop)}</div>
+        <p style="font-size:14px;color:var(--txt2);margin:0">${esc(notes.intro)}</p>
+      </div>
+      ${(notes.punten || []).length ? `<div class="sec" style="margin-top:0">Ook nieuw</div>
+        <ul style="margin:0 0 14px;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.7">
+          ${notes.punten.map(p => `<li>${esc(p)}</li>`).join('')}
+        </ul>` : ''}
+      <button class="btn btn-green" onclick="closeModal()">${icI(IC.check)} Aan de slag</button>`);
+  } catch (e) { /* een melding hoort nooit de app te breken */ }
+}
 // ----- Thema (kleuren passen zich aan het logo aan) -----
 const GENERIC_THEME = { primary: '#2f9e57', accent: '#2f74bd', dark: '#0f172a' };
 function clamp255(n) { return Math.max(0, Math.min(255, Math.round(n))); }

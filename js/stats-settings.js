@@ -1,6 +1,8 @@
 // ===================== SEIZOENSSTATISTIEKEN =====================
 let statsFilter = 'all', seasonFilter = null;
-let kindFilter = 'all'; // soort wedstrijd — zie MATCH_KINDS
+// null = de gebruiker koos nog niets, dus loadStats bepaalt de standaard (competitie, met terugval
+// op alles als er nog geen competitiewedstrijd gespeeld is). Zie de uitleg daar.
+let kindFilter = null; // soort wedstrijd — zie MATCH_KINDS in core.js
 // Welke statistieksecties standaard zichtbaar zijn voor kijkers (vóór de beheerder iets kiest).
 // De samenvattingskaart bovenaan staat hier niet in — die is altijd publiek.
 const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false };
@@ -21,28 +23,67 @@ function toggleStatPublic(key) {
 }
 function setStatsFilter(v) { statsFilter = v; loadStats(); }
 function setSeasonFilter(v) { seasonFilter = v; loadStats(); }
-// Soort wedstrijd. Hangt aan het bestaande vrije veld m.competition ("Soort" in de wizard): de drie
-// standaardwaarden staan vast, en alles daarbuiten — een eigen soort via "Andere…", of een oudere
-// wedstrijd waar niets is ingevuld — valt onder 'other'. Tornooiwedstrijden komen hier nooit langs,
-// die zitten al buiten de statistieken.
-const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker'];
-function matchKindOf(m) {
-  const c = ((m && m.competition) || '').trim();
-  return MATCH_KINDS.includes(c) ? c : 'other';
+// MATCH_KINDS en matchKindOf staan sinds v0.58.1 in core.js: het kaartje in de lijsten en de filter
+// van de wedstrijdenlijst hebben ze ook nodig, en vier losse kopieën van dezelfde drie soorten lopen
+// vroeg of laat uit elkaar. Tornooiwedstrijden komen hier nooit langs, die zitten al buiten de
+// statistieken.
+// null = nog niets gekozen (loadStats bepaalt dan de standaard). Kom je hier vóór dat gebeurde —
+// bv. rechtstreeks in een spelerdetail — dan telt alles mee; een niet-gemaakte keuze mag nooit stil
+// elke wedstrijd wegfilteren.
+function kindMatches(m) { return !kindFilter || kindFilter === 'all' || matchKindOf(m) === kindFilter; }
+// ===================== FILTERKNOP (seizoen + soort) =====================
+// Sinds v0.58.1 zitten seizoen en soort achter één knop in plaats van als twee losse keuzelijsten
+// bovenaan (Tim's keuze). Twee volle-breedte selects duwden de eigenlijke cijfers onder de vouw,
+// terwijl je ze zelden wisselt. De knop toont wél altijd wáár je naar kijkt — "2025/2026 ·
+// Competitie" — want een statistiek zonder dat kader is misleidend.
+function statsFilterLabel() {
+  const soort = (kindFilter === 'all') ? 'alle wedstrijden' : (kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase());
+  return `${seasonFilter || '—'} · ${soort}`;
 }
-function kindMatches(m) { return kindFilter === 'all' || matchKindOf(m) === kindFilter; }
-function kindFilterBar() {
-  const opts = [['all', 'Alle wedstrijden'], ...MATCH_KINDS.map(k => [k, k]), ['other', 'Andere']];
-  return `<div class="filterbar"><select onchange="setKindFilter(this.value)">
-      ${opts.map(([v, l]) => `<option value="${v}" ${kindFilter === v ? 'selected' : ''}>${l}</option>`).join('')}
-    </select></div>`;
+// Een filtertekentje met daarnaast de actieve filters als kaartjes (Tim, 23-08-2026). Zo zie je in
+// één oogopslag waar de cijfers over gaan — seizoen en soort staan er altijd, want die twee bepalen
+// altijd wat je ziet. Tikken op het teken of op een kaartje opent hetzelfde paneel.
+function statsFilterKnopHtml(seasons) {
+  const arg = JSON.stringify(seasons || []).replace(/"/g, '&quot;');
+  const soort = (!kindFilter || kindFilter === 'all') ? 'Alle wedstrijden' : (kindFilter === 'other' ? 'Andere' : kindFilter);
+  const chip = t => `<span class="start-chip on" onclick="modalStatsFilter(${arg})">${esc(t)}</span>`;
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalStatsFilter(${arg})">${icI(IC.filter)}</button>
+    ${seasonFilter ? chip(seasonFilter) : ''}${chip(soort)}
+  </div>`;
+}
+function modalStatsFilter(seasons) {
+  const soorten = [['all', 'Alle wedstrijden'], ...MATCH_KINDS.map(k => [k, k]), ['other', 'Andere']];
+  const ss = seasons || [];
+  openModal(`<h3>${icI(IC.search)} Welke wedstrijden?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">De cijfers hieronder gelden altijd voor één seizoen en één soort.</p>
+    ${ss.length ? `<div class="fg"><label>Seizoen</label>
+      <select onchange="setSeasonFilter(this.value);modalStatsFilter(${JSON.stringify(ss).replace(/"/g, '&quot;')})">
+        ${ss.map(s => `<option value="${esc(s)}" ${seasonFilter === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+      </select></div>` : ''}
+    <div class="fg"><label>Soort wedstrijd</label>
+      <select onchange="setKindFilter(this.value);modalStatsFilter(${JSON.stringify(ss).replace(/"/g, '&quot;')})">
+        ${soorten.map(([w, l]) => `<option value="${esc(w)}" ${kindFilter === w ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+      </select></div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 // Eén gedeelde keuze voor het seizoensoverzicht én het spelerdetail: wie naar de bekerwedstrijden
 // kijkt en dan op een speler tikt, verwacht daar hetzelfde. Het seizoen blijft bewust wél per
 // scherm (dat kan legitiem verschillen: een speler heeft niet in elk seizoen gespeeld).
 function setKindFilter(v) { kindFilter = v; if (view === 'playerDetail') loadPlayerDetail(); else loadStats(); }
-// Label voor de lege staat, zodat "niets te zien" niet als "geen wedstrijden" leest.
-function kindLabelLow() { return kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase(); }
+// Label voor de lege staat, zodat "niets te zien" niet als "geen wedstrijden" leest. Verdraagt de
+// null-stand (nog niets gekozen): die komt hier normaal niet, maar een label hoort geen scherm te
+// laten crashen.
+function kindLabelLow() { return (!kindFilter || kindFilter === 'all') ? 'alle wedstrijden' : (kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase()); }
+// In het spelerdetail staat de soort onder de seizoenskiezer, als knop met dezelfde tekst als op de
+// statistiekenpagina. Het seizoen zit daar in zijn eigen kiezer, dus dit paneel toont enkel de soort.
+function spelerSoortKnopHtml() {
+  const soort = (!kindFilter || kindFilter === 'all') ? 'Alle wedstrijden' : (kindFilter === 'other' ? 'Andere' : kindFilter);
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalStatsFilter([])">${icI(IC.filter)}</button>
+    <span class="start-chip on" onclick="modalStatsFilter([])">${esc(soort)}</span>
+  </div>`;
+}
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
 function seasonOf(m) {
   const d = m.date ? new Date(m.date + 'T00:00:00') : (m.createdAt ? new Date(m.createdAt) : null);
@@ -84,13 +125,21 @@ async function loadStats() {
   // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
   // De soortfilter zit bewust NIET in `candidates` hierboven: de seizoenslijst mag niet verspringen
   // (of verdwijnen) omdat je even op "Beker" filtert — dan kon je niet meer terug van seizoen wisselen.
+  // STANDAARD OP COMPETITIE (Tim, 23-08-2026). Statistieken gaan over hoe je het in de competitie
+  // doet; een oefenmatch of een bekeravond hoort daar niet zomaar in mee te tellen. Maar zolang er
+  // in dit seizoen nog geen competitiewedstrijd gespeeld is, zou "Competitie" een lege pagina geven
+  // — dan blijft het "alle wedstrijden". Enkel de EERSTE keer: zodra je zelf iets kiest (ook
+  // "alle"), blijft die keuze staan zolang de app open is.
+  if (kindFilter === null) {
+    const inSeizoen = candidates.filter(m => seasonOf(m) === seasonFilter);
+    kindFilter = inSeizoen.some(m => matchKindOf(m) === 'Competitie') ? 'Competitie' : 'all';
+  }
   const list = candidates.filter(m => seasonOf(m) === seasonFilter && kindMatches(m));
-  const filterBar = `${(!cloudReady && teams.length) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
+  // Enkel bij meer dan één ploeg op dit toestel — zie dezelfde afweging in loadMatches.
+  const filterBar = `${(!cloudReady && teams.length > 1) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
-    </select></div>` : ''}${seasons.length ? `<div class="filterbar"><select onchange="setSeasonFilter(this.value)">
-      ${seasons.map(s => `<option value="${s}" ${seasonFilter===s?'selected':''}>Seizoen ${s}</option>`).join('')}
-    </select></div>` : ''}${candidates.length ? kindFilterBar() : ''}`;
+    </select></div>` : ''}${candidates.length ? statsFilterKnopHtml(seasons) : ''}`;
   if (!list.length) {
     const leeg = kindFilter === 'all'
       ? 'Nog geen wedstrijden.'
@@ -100,6 +149,7 @@ async function loadStats() {
   // Oudste eerst verwerken, zodat de weergavenaam van een speler steeds de meest recente is (bv. na een naamscorrectie).
   const sortedList = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
+  let reeksen = 0, reeksenGewonnen = 0;   // strafschoppenreeksen (zie m.shootout in core.js)
   const pl = {};
   // Groepeert op rosterId wanneer beschikbaar (stabiel over naamswijzigingen heen), anders op naam (oude matches, gasten).
   const getp = (rosterId, name, num) => {
@@ -125,7 +175,10 @@ async function loadStats() {
   for (const m of sortedList) for (const p of (m.players || [])) { const kr = selKeyR(p.rosterId, m.date); if (kr) selectedOnDate.add(kr); selectedOnDate.add(selKeyN(p.name, m.date)); }
   for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
-    if (m.scoreUs > m.scoreThem) w++; else if (m.scoreUs < m.scoreThem) l++; else d++;
+    // Een gewonnen strafschoppenreeks telt als winst (matchResultaat in core.js). De doelpunten
+    // hierboven blijven die van de wedstrijd zelf — een strafschop uit de reeks is geen doelpunt.
+    { const r = matchResultaat(m); if (r === 'W') w++; else if (r === 'V') l++; else d++; }
+    if (heeftShootout(m)) { reeksen++; if (shootoutWinnaar(m) === 'us') reeksenGewonnen++; }
     if (m.scoreThem === 0) cleanSheets++;
     const mins = calcMinutes(m);
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
@@ -223,6 +276,13 @@ async function loadStats() {
         <div class="stat-box"><div class="v">${ga}</div><div class="l">Doelpunten tegen</div></div>
         <div class="stat-box"><div class="v">${gf-ga>=0?'+':''}${gf-ga}</div><div class="l">Saldo</div></div>
       </div>
+      ${/* Strafschoppenreeksen: alleen tonen als er ook echt één genomen is — een regel met nullen
+           bij een ploeg die nooit penalty's schiet, is ruis. De winst zit al in "Winst" hierboven
+           (zie matchResultaat), hier staat waar die vandaan kwam. */ ''}
+      ${reeksen ? `<div class="stat-row" style="margin-top:10px;border-top:1px solid var(--bdr);padding-top:10px">
+        <span style="flex:1">${icI(IC.penalty)} Strafschoppenreeksen</span>
+        <span style="font-weight:800">${reeksenGewonnen} van de ${reeksen} gewonnen</span>
+      </div>` : ''}
     </div>`
     // Eén keer zeggen wat de chevrons hieronder betekenen. Enkel voor beheerders (kijkers hebben geen
     // spelerdetail) en enkel als er ook effectief spelersrijen zijn — een wedstrijd die via "Snel
@@ -301,12 +361,14 @@ async function loadPlayerDetail() {
     const gespeeld = new Set(allDone.map(seasonOf));
     playerDetailSeason = seasons.find(s => gespeeld.has(s)) || seasons[0] || null;
   }
+  // Het seizoen blijft hier een eigen keuze (een speler heeft niet in elk seizoen gespeeld), de
+  // soort is dezelfde gedeelde keuze als op de statistiekenpagina — zie setKindFilter.
   const filterBar = seasons.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
       ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
-    </select></div>` + kindFilterBar() : '';
+    </select></div>` + spelerSoortKnopHtml() : '';
   // Een tornooi heeft geen "soort", dus bij een actieve soortfilter hoort dit kadertje er niet bij
   // (0 = het blok wordt niet gerenderd) — anders lees je een bekerfilter met tornooien erin.
-  const tournamentCount = kindFilter !== 'all' ? 0
+  const tournamentCount = (kindFilter && kindFilter !== 'all') ? 0
     : myTournaments.filter(t => seasonOf(t) === playerDetailSeason).length;
   const tournamentBlock = tournamentCount
     ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Geselecteerd voor</span><span style="font-weight:800">${tournamentCount} ${tournamentCount===1?'tornooi':'tornooien'}</span></div></div>`
@@ -325,6 +387,11 @@ async function loadPlayerDetail() {
     el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>` + tournamentBlock; return;
   }
   let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
+  // Strafschoppen van deze speler, tijdens de wedstrijd én in een reeks samengeteld (Tim, 23-08-2026):
+  // voor een speler is het dezelfde vaardigheid en hetzelfde lef. In `penGescoord` zit dus zowel een
+  // strafschopdoelpunt (dat óók bij zijn doelpunten telt) als een rake strafschop uit een reeks
+  // (die nooit bij de doelpunten telt — de reeks staat buiten de score).
+  let penGenomen = 0, penGescoord = 0;
   const rows = [];
   for (const m of doneList) {
     const pl = findPlayer(m);
@@ -344,6 +411,11 @@ async function loadPlayerDetail() {
       if (e.type === 'goal_us' && e.assistId === pl.id) a++;
       if (e.type === 'yellow_card' && e.playerId === pl.id) y++;
       if (e.type === 'red_card' && e.playerId === pl.id) r++;
+      if (e.type === 'penalty_us' && e.playerId === pl.id) { penGenomen++; if (e.scored) penGescoord++; }
+    }
+    // En de strafschoppen uit een reeks na de wedstrijd.
+    for (const s of shootoutSchoten(m)) {
+      if (s.ploeg === 'us' && s.playerId === pl.id) { penGenomen++; if (s.raak) penGescoord++; }
     }
     squad++;
     // keeperByQ i.p.v. eind-positie — zie toelichting bij wasKeeperAtAll().
@@ -420,6 +492,13 @@ async function loadPlayerDetail() {
     ${tournamentBlock}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
+    ${/* Strafschoppen: tijdens de wedstrijd en in een reeks samengeteld. Enkel tonen wie er ooit
+         één nam — anders staat er bij elke speler een lege rubriek. */ ''}
+    ${penGenomen ? `<div class="sec">${icI(IC.penalty)} Strafschoppen</div><div class="card">
+      <div class="stat-row"><span style="flex:1">Genomen</span><span style="font-weight:800">${penGenomen}</span></div>
+      <div class="stat-row"><span style="flex:1">Gescoord</span><span style="font-weight:800">${penGescoord} <small style="color:var(--txt2);font-weight:400">van de ${penGenomen}</small></span></div>
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tijdens de wedstrijd en in een strafschoppenreeks samengeteld.</p>
+    </div>` : ''}
     ${(yc || rc) ? `<div class="sec">${icI(IC.cardY)} Kaarten</div><div class="card"><div class="stat-row"><span style="flex:1">Gele kaarten</span><span style="font-weight:800">${yc}</span></div><div class="stat-row"><span style="flex:1">Rode kaarten</span><span style="font-weight:800">${rc}</span></div></div>` : ''}
     ${keeperApps ? `<div class="sec">${icI(IC.save)} Als doelman</div><div class="card"><div class="stat-row"><span style="flex:1">Wedstrijden in doel</span><span style="font-weight:800">${keeperApps}</span></div><div class="stat-row"><span style="flex:1">Clean sheets</span><span style="font-weight:800">${cs}</span></div></div>` : ''}
     <div class="sec">${icI(IC.ball)} Wedstrijden</div>

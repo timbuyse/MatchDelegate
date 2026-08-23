@@ -2891,7 +2891,11 @@ function matchItemHtml(m) {
   const target = st === 'live' ? 'live' : zonderScore ? 'prep' : 'detail';
   const border = st === 'live' ? 'live-border' : af ? 'cancel-border' : st === 'planned' ? 'plan-border' : '';
   const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : af ? `<span class="badge badge-cancel">${icI(IC.close)} Geannuleerd</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
-  const right = zonderScore ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>` : `<div class="mi-score">${scoreTxt(m)}</div>`;
+  // Bij een strafschoppenreeks blijft de wedstrijdscore staan zoals ze is, met de reeks eronder in
+  // het klein — "1-1" met daaronder "pen. 4-5". Zo blijft de uitslag leesbaar als uitslag.
+  const right = zonderScore
+    ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>`
+    : `<div style="text-align:right"><div class="mi-score">${scoreTxt(m)}</div>${heeftShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {
@@ -2921,7 +2925,10 @@ function matchItemHtml(m) {
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
       <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+(m.subteam?' ('+esc(m.subteam)+')':'')+'</b> · ':''}${matchWhen(m)}${!zonderScore&&m.location?' · '+esc(m.location):''}${af&&m.cancelReason?' · '+esc(m.cancelReason):''}</div>
-      ${badge}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
+      ${/* De SOORT wedstrijd hoort hier bij: op een kaartje zag je wel "Gepland" en "5v5", maar niet
+           of het om competitie, beker of een oefenmatch ging — net wat bepaalt hoe zwaar ze weegt.
+           Vrije tekst, dus we tonen wat er staat (ook een eigen soort via "Andere…"); leeg = niets. */ ''}
+      ${badge}${m.competition ? `<span class="badge badge-kind">${esc(m.competition)}</span>` : ''}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
     </div>${right}</div>`;
 }
 // HOME = dashboard: tegels + komende wedstrijd (filterbaar per ploeg) + recent.
@@ -3122,7 +3129,12 @@ async function loadHome() {
         ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
   el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter;
+  // "Wat is er nieuw" bij een major-versie — hier en niet in init(), omdat de gebruiker op dit punt
+  // écht binnen is (voorbij splash, aanmelden en setup). Eén keer per sessie proberen; de melding
+  // zelf beslist of ze getoond wordt (zie toonNieuwAlsNodig in core.js).
+  if (!_nieuwGetoond) { _nieuwGetoond = true; setTimeout(toonNieuwAlsNodig, 700); }
 }
+let _nieuwGetoond = false;
 // WEDSTRIJDEN = volledige lijst met filter + zoeken.
 // ----- Kalenderweergave van de wedstrijden -----
 // De lijst blijft de standaard; de kalender is een tweede kijk op dezelfde wedstrijden, handig om
@@ -3140,6 +3152,81 @@ function setMatchesWeergave(v) {
   try { localStorage.setItem('voetbal_matches_weergave', matchesWeergave); } catch (e) {}
   loadMatches();
 }
+// ===================== FILTER OP DE WEDSTRIJDENLIJST =====================
+// Vijf keuzes achter één knop (Tim, 23-08-2026). Bewust ALLEEN in de lijstweergave: in de kalender
+// zie je per dag één stip, en een filter die daar stil wedstrijden wegneemt maakt van een lege dag
+// een leugen. Zelfde afweging als bij de zoekbalk en het bulk-bewerken, die daar ook niet staan.
+// Niet bewaard tussen sessies: een filter die je bij het openen van de app niet ziet staan, is de
+// snelste manier om te denken dat er wedstrijden verdwenen zijn. De teller op de knop zegt tijdens
+// het gebruiken hoeveel er actief zijn.
+let matchFilter = { kind: 'all', status: 'all', seizoen: 'all', locatie: 'all', subteam: 'all' };
+const MATCH_FILTER_LEEG = { kind: 'all', status: 'all', seizoen: 'all', locatie: 'all', subteam: 'all' };
+function matchFilterAantal() { return Object.keys(MATCH_FILTER_LEEG).filter(k => matchFilter[k] !== 'all').length; }
+function matchFilterPasToe(lijst) {
+  return lijst.filter(m =>
+    (matchFilter.kind === 'all' || matchKindOf(m) === matchFilter.kind)
+    && (matchFilter.status === 'all' || m.status === matchFilter.status)
+    && (matchFilter.seizoen === 'all' || seasonOf(m) === matchFilter.seizoen)
+    && (matchFilter.locatie === 'all' || (m.location || '') === matchFilter.locatie)
+    && (matchFilter.subteam === 'all' || (m.subteam || '') === matchFilter.subteam));
+}
+function setMatchFilterVeld(veld, waarde) {
+  if (!(veld in MATCH_FILTER_LEEG)) return;
+  matchFilter[veld] = waarde;
+  loadMatches();
+  modalMatchFilter();   // paneel blijft open: je zet er meestal meer dan één achter elkaar
+}
+function wisMatchFilter() { matchFilter = { ...MATCH_FILTER_LEEG }; closeModal(); loadMatches(); }
+// De actieve filters als kaartjes naast het filterteken — zelfde patroon als op de
+// statistiekenpagina (Tim, 23-08-2026): het teken opent het paneel, de kaartjes zeggen waar je
+// naar kijkt. Elk kaartje is zelf ook aantikbaar, want dat is waar je naartoe grijpt om het
+// weer weg te halen.
+const MATCH_FILTER_LABEL = {
+  kind: v => v === 'other' ? 'Andere soort' : v,
+  status: v => ({ planned: 'Gepland', live: 'Live', done: 'Gespeeld', cancelled: 'Geannuleerd' }[v] || v),
+  locatie: v => v,
+  seizoen: v => v,
+  subteam: v => 'Ploeg ' + v,
+};
+function matchFilterChipsHtml() {
+  return Object.keys(MATCH_FILTER_LEEG)
+    .filter(k => matchFilter[k] !== 'all')
+    .map(k => `<span class="start-chip on" onclick="modalMatchFilter()">${esc(MATCH_FILTER_LABEL[k](matchFilter[k]))}</span>`)
+    .join('');
+}
+// De keuzes komen uit de wedstrijden zelf, niet uit een vaste lijst: een seizoen of ploeglabel dat
+// niet voorkomt, hoort niet in het menu te staan. Enkel de soort toont ook de drie standaardwaarden,
+// zodat je op "Beker" kan filteren voordat er één ingelezen is.
+function matchFilterVelden(alle) {
+  const seizoenen = [...new Set(alle.map(seasonOf))].sort().reverse();
+  const subteams = [...new Set(alle.map(m => (m.subteam || '').trim()).filter(Boolean))].sort();
+  const soorten = [...new Set([...MATCH_KINDS, ...alle.map(m => (m.competition || '').trim()).filter(Boolean)])];
+  const velden = [
+    { veld: 'kind', label: 'Soort wedstrijd', opties: [['all', 'Alle soorten'], ...soorten.map(s => [s, s])] },
+    { veld: 'status', label: 'Status', opties: [['all', 'Alle'], ['planned', 'Gepland'], ['live', 'Live'], ['done', 'Gespeeld'], ['cancelled', 'Geannuleerd']] },
+    { veld: 'locatie', label: 'Thuis of uit', opties: [['all', 'Allebei'], ['Thuis', 'Thuis'], ['Uit', 'Uit']] },
+  ];
+  if (seizoenen.length > 1) velden.push({ veld: 'seizoen', label: 'Seizoen', opties: [['all', 'Alle seizoenen'], ...seizoenen.map(s => [s, s])] });
+  if (subteams.length) velden.push({ veld: 'subteam', label: 'Ploeglabel', opties: [['all', 'Alle'], ...subteams.map(s => [s, s])] });
+  return velden;
+}
+function modalMatchFilter() {
+  const alle = (_matchFilterBron || []);
+  const velden = matchFilterVelden(alle);
+  const aantal = matchFilterPasToe(alle).length;
+  const n = matchFilterAantal();
+  openModal(`<h3>${icI(IC.search)} Filter</h3>
+    ${velden.map(v => `<div class="fg"><label>${v.label}</label>
+      <select onchange="setMatchFilterVeld('${v.veld}', this.value)">
+        ${v.opties.map(([w, l]) => `<option value="${esc(w)}" ${matchFilter[v.veld] === w ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+      </select></div>`).join('')}
+    <p style="text-align:center;font-size:13px;color:var(--txt2);margin:12px 0">${aantal} van de ${alle.length} ${alle.length === 1 ? 'wedstrijd' : 'wedstrijden'}${n ? '' : ' · geen filter actief'}</p>
+    ${n ? `<button class="btn btn-pale" onclick="wisMatchFilter()">${icI(IC.close)} Filter wissen</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+}
+// De lijst waarop het paneel zijn keuzes en tellingen baseert. Wordt door loadMatches gezet, zodat
+// het paneel niet zelf de databank moet lezen (en dus niet async hoeft te zijn).
+let _matchFilterBron = [];
 // Dezelfde kalender staat in twee schermen; bladeren moet het scherm herladen waar je op staat.
 function kalenderHerlaad() { if (view === 'agenda') loadAgenda(); else loadMatches(); }
 function calSchuif(delta) {
@@ -3507,8 +3594,12 @@ async function loadMatches() {
   if (!el) return;
   // Ook zonder één wedstrijd horen de twee aanmaakknoppen hier te staan: wie met een lege app
   // begint, is net degene die zijn hele kalender in één keer wil inlezen.
-  const maakBtns = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>
-    <button class="btn btn-orgpale" onclick="impStart()" style="margin-bottom:12px">${icI(IC.upload)} Kalender importeren</button>` : '';
+  // "Nieuwe wedstrijd" is de hoofdhandeling en houdt de volle breedte; importeren en meerdere
+  // aanpassen zijn bijzaken en staan daaronder naast elkaar (Tim, 23-08-2026). Bij een lege lijst
+  // bestaat "meerdere aanpassen" niet en krijgt importeren de hele regel.
+  const nieuwBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
+  const impBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="impStart()">${icI(IC.upload)} Kalender importeren</button>` : '';
+  const maakBtns = nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '');
   if (!all.length) {
     el.innerHTML = maakBtns + `<div class="empty"><div class="ei">${IC.ball}</div><p>Nog geen wedstrijden.<br>Maak eerst een ploeg aan, tik dan <b>+</b> — of lees de kalender van je reeks in.</p></div>`;
     return;
@@ -3517,8 +3608,17 @@ async function loadMatches() {
   // Zie loadHome(): in de cloud altijd op de actieve ploeg filteren, nooit blind 'all'.
   if (cloudReady) homeFilter = teamNames[activeTeamId] || UNKNOWN_TEAM_FILTER;
   else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
-  const list = (homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter)).slice();
-  const filterBar = (!cloudReady && teams.length) ? `<div class="filterbar">
+  const perPloeg = (homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter)).slice();
+  // De filter geldt enkel in de lijstweergave (zie matchFilter): in de kalender zou hij stil dagen
+  // leegmaken. `_matchFilterBron` is wat het paneel telt en waaruit het zijn keuzes haalt — dus de
+  // wedstrijden van deze ploeg, vóór het filteren.
+  _matchFilterBron = perPloeg;
+  const filterAan = matchesWeergave === 'lijst' && matchFilterAantal() > 0;
+  const list = filterAan ? matchFilterPasToe(perPloeg) : perPloeg;
+  // Alleen zinvol met MEER dan één ploeg op dit toestel: bij één ploeg stond er een keuzelijst met
+  // "Alle ploegen" en die ene ploeg — een keuze die niets te kiezen valt, en die leest als een filter
+  // op iets anders (Tim, 23-08-2026). In cloud-modus stond ze er sowieso al niet.
+  const filterBar = (!cloudReady && teams.length > 1) ? `<div class="filterbar">
     <select onchange="setHomeFilter(this.value)">
       <option value="all" ${homeFilter==='all'?'selected':''}>Alle ploegen (${all.length})</option>
       ${teams.map(t => `<option value="${esc(t)}" ${homeFilter===t?'selected':''}>${esc(t)} (${all.filter(m=>m.teamName===t).length})</option>`).join('')}
@@ -3534,9 +3634,10 @@ async function loadMatches() {
   const sec = (title, arr, teken) => arr.length ? `<div class="sec">${title}</div>${arr.map(teken || matchItemHtml).join('')}` : '';
   const items = list.length
     ? sec(`${icI(IC.live)} Live`, live) + sec(`${icI(IC.calendar)} Geplande wedstrijden`, planned) + sec(`${icI(IC.done)} Gespeelde wedstrijden`, done) + sec(`${icI(IC.close)} Geannuleerde wedstrijden`, afgelast)
-    : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`;
+    : (filterAan
+      ? `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden met deze filter.<br><button class="btn btn-pale btn-sm" style="width:auto;margin-top:10px" onclick="wisMatchFilter()">Filter wissen</button></p></div>`
+      : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden voor deze ploeg.</p></div>`);
   const searchBar = all.length > 6 ? `<div class="searchbar"><input id="home-search" type="search" placeholder="Zoek op tegenstander, ploeg, plaats…" oninput="filterHomeItems(this.value)" value="${esc(homeSearch)}"></div>` : '';
-  const newBtn = maakBtns;
   // Twee kijken op dezelfde wedstrijden. De zoekbalk hoort bij de lijst: in de kalender zoek je op
   // datum, niet op naam.
   const schakelaar = `<div class="cal-switch">
@@ -3558,12 +3659,25 @@ async function loadMatches() {
     return;
   }
   const bulkBtn = (canManage() && list.length > 1)
-    ? `<button class="btn btn-pale" style="margin-bottom:12px" onclick="bulkStart()">${icI(IC.edit)} Meerdere aanpassen</button>` : '';
+    ? `<button class="btn btn-pale btn-sm" style="margin:0" onclick="bulkStart()">${icI(IC.edit)} Meerdere aanpassen</button>` : '';
+  // De twee bijzaken naast elkaar op halve breedte; staat er maar één, dan vult die de regel.
+  const rijBtns = (impBtn || bulkBtn)
+    ? `<div style="display:grid;grid-template-columns:${impBtn && bulkBtn ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:12px">${impBtn}${bulkBtn}</div>` : '';
   if (matchesWeergave === 'kalender') {
-    el.innerHTML = bulkUndoBannerHtml() + newBtn + filterBar + schakelaar + renderKalender(list);
+    el.innerHTML = bulkUndoBannerHtml() + nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '') + filterBar + schakelaar + renderKalender(list);
     return;
   }
-  el.innerHTML = bulkUndoBannerHtml() + newBtn + bulkBtn + filterBar + schakelaar + searchBar + `<div id="match-list">${items}</div>`;
+  // Het filterteken met de actieve filters ernaast als kaartjes. Zonder filter staat het woord
+  // "Filter" erbij (een kaal tekentje zegt niets als er nog niets gekozen is); zodra er kaartjes
+  // staan, zeggen die wat er gebeurt en volstaat het teken.
+  const n = matchFilterAantal();
+  const filterBtn = perPloeg.length > 3
+    ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalMatchFilter()">${icI(IC.filter)}${n ? '' : ' Filter'}</button>
+        ${matchFilterChipsHtml()}
+        ${n ? `<span style="font-size:12px;color:var(--txt2)">${list.length} van ${perPloeg.length}</span>` : ''}
+      </div>` : '';
+  el.innerHTML = bulkUndoBannerHtml() + nieuwBtn + rijBtns + filterBar + schakelaar + filterBtn + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
 let homeSearch = '';
