@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.6
+### Zonder verbinding kan je nu écht een wedstrijd volgen
+> Deze wijziging kwam uit de feature-audit en liep over twee commits: de schermen in v1.1.5, en de
+> functie waar ze op rekenen in v1.1.6. Tussen die twee stond het livescherm even stil — twee sessies
+> werkten tegelijk in dezelfde map en de helft van de wijziging kwam eerst. Meteen hersteld.
+
+- **Wat er misging.** Op een veld zonder bereik stonden alle knoppen er nog, maar een hele reeks deed
+  **stil niets** — geen venster, geen melding. Gemeten: een speler op het veld aantikken om hem te
+  verzetten, *"Volgens plan"*, een geplande wissel toevoegen of bewerken, de blokduur van een kwart
+  rechtzetten, *"Toch nog niet gestart"*, *"Opnieuw beginnen"*, een doelpunt naar een ander kwart
+  verplaatsen en *"Strafschoppenreeks toevoegen"* op het verslag. Het planningsblok zei zelfs
+  *"enkel zichtbaar voor ploegbeheerders"* — tegen de ploegbeheerder.
+- De oorzaak: het **scherm** besliste met "is dit een cloudwedstrijd waarvan ik geen beheerder ben"
+  (zonder verbinding onwaar, dus de knoppen stonden er) en de **knop zelf** met "mag ik beheren"
+  (zonder verbinding altijd onwaar). Die twee zijn nu gelijkgetrokken voor alles wat bij het verloop
+  van een wedstrijd hoort.
+- **Nu** werkt alles wat tijdens een wedstrijd gebeurt ook zonder verbinding: starten, doelpunten,
+  wissels, kaarten, penalty's, blessures, kwarten starten en afsluiten, de opstelling in de pauze,
+  het plan per kwart, de strafschoppenreeks, en afsluiten. Alles blijft lokaal en wordt gesynct zodra
+  er weer verbinding is — dat werkte al zo en is niet gewijzigd.
+- **Wat bewust dicht blijft**, want dat hoort bij beheren en niet bij een wedstrijd volgen: de
+  wedstrijdgegevens wijzigen, annuleren en verwijderen. Op het voorbereidingsscherm verdwijnen die
+  drie knoppen nu zonder verbinding, met één regel uitleg in de plaats: *"Geen verbinding — je kan de
+  wedstrijd starten, volgen en de opstelling ingeven."* Voordien stonden ze er en deden Bewerken en
+  Annuleren niets, terwijl **Wedstrijd verwijderen als enige gewoon doorging**. Dat gat is dicht:
+  verwijderen weigert nu met uitleg, ook wanneer het langs een andere weg wordt aangeroepen.
+- **Een kijker kan hierdoor niets extra.** Nagemeten in kijkmodus: veld aantikken, "Volgens plan",
+  geplande wissels, opnieuw beginnen en verwijderen zijn alle vijf geweigerd.
+
 ## v1.1.5
 ### Een ploeg verwijderen kan enkel nog vanuit Clubbeheer
 - **Wat er misging.** De knop *Ploeg verwijderen* stond onderaan het ploegscherm, tussen de
