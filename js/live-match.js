@@ -1176,114 +1176,155 @@ function applyFormationPositions() {
   modalEditPositions();
 }
 
-// ===================== MANUELE HERPLAATSING =====================
-let _ep = null; // { slots, assign: Map<slotIdx,playerId>, sel: playerId|null }
-function modalEditPositions() {
-  const forms = FORMATIONS[match.matchType] || [];
-  if (!forms.length) { closeModal(); render(); return; }
-  // Dit herplaatst de STARTopstelling. Zodra er wissels/positiewissels zijn gebeurd, zou dat de
-  // reconstructie van de latere kwarten corrumperen (de posBefore/posA/posB-snapshots en
-  // playersAtPeriodStart() verwijzen naar de oorspronkelijke posities). Dan blokkeren en naar de
-  // per-kwart "Positiewissel" verwijzen. Vóór de eerste wissel (opstelling opzetten) blijft dit werken.
+// ===================== DE STARTOPSTELLING HERPLAATSEN =====================
+// HERBOUWD OP HET POSITIEROOSTER (audit 23-08-2026). Dit venster kwam uit het oude model, waarin een
+// FORMATIE de plaatsen vastlegde: het tekende de acht slots van de formatie en zocht wie daar stond
+// via een exacte coördinatenvergelijking. Sinds v0.34.0 staan spelers op roosterplekken, en die vallen
+// in geen enkele formatie samen met formatiecoördinaten — dus opende het venster met NIEMAND
+// geplaatst. En omdat het opslaan eerst alle posities wist en daarna enkel de toewijzingen terugzet,
+// veegde één tik op Opslaan de volledige startopstelling van een gespeelde wedstrijd weg, inclusief
+// het vastgelegde m.startLineup. Gemeten: 8 spelers met een plek → 0, startLineup 8 → 0.
+//
+// Nu: hetzelfde tikbare veld en dezelfde 26 plekken als de planner en het livescherm (renderPitch met
+// een tik-handler). Twee ingangen, elk met een eigen betekenis:
+//   1. "Startopstelling herplaatsen" op het verslag → opent met IEDEREEN op zijn huidige plek. Je
+//      versleept er één en klaar. Dat is waarvoor de knop bestaat: een gespeelde wedstrijd rechtzetten
+//      zodat het verslag en de PDF het juiste veld tonen.
+//   2. Na een formatiewijziging → de spelers op de AANBEVOLEN plekken van die formatie zetten. Dat is
+//      precies de verzameling die de wizard oplicht (formatieVoorstel), dus dezelfde belofte als daar.
+//      Wie niet in zijn eigen lijn past (2-3-2 heeft twee verdedigers, 3-3-1 drie), komt op de
+//      dichtstbijzijnde vrije aanbevolen plek. Dat verandert zijn lijn, maar zichtbaar: hij staat er,
+//      en je kan hem verzetten (Tims keuze 23-08-2026 — het bezwaar bij punt 3 was juist dat een lijn
+//      daar stil werd overschreven in een keuzelijst, zonder veld).
+// En: OPSLAAN WEIGERT zolang niet iedereen staat. Dit venster kan dus nooit meer een opstelling wissen.
+let _ep = null;   // { plaats: {playerId: code|null}, sel: {kind:'field'|'bench', id} | null }
+function _epStarters() { return (match.players || []).filter(p => p.starting); }
+// Mag de startopstelling nog herplaatst worden? Zodra er wissels of positiewissels gelogd zijn, hangt
+// de reconstructie van de latere kwarten aan de oorspronkelijke posities (zie de snapshots in de
+// events en playersAtPeriodStart) — dan blokkeren we, met de weg die dan wél klopt.
+function _epMag() {
   if ((match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
     closeModal();
     showToast('Er zijn al wissels of positiewissels gebeurd — gebruik "Positiewissel" om posities aan te passen. De startopstelling kan hier niet meer herplaatst worden.', 'err');
-    return;
+    return false;
   }
-  const fi = Math.max(0, forms.findIndex(f => f.name === match.formation));
-  const slots = forms[fi].slots;
-  // Initialiseer toewijzingen op basis van huidige spelerposities
-  const assign = new Map();
-  match.players.filter(p => p.starting && typeof p.x === 'number').forEach(p => {
-    const si = slots.findIndex(s => s.x === p.x && s.y === p.y);
-    if (si >= 0 && !assign.has(si)) assign.set(si, p.id);
+  return true;
+}
+// INGANG 1: iedereen op zijn huidige plek.
+function modalEditPositions() {
+  if (!canLive() || !match) return;
+  if (!_epMag()) return;
+  const plaats = {};
+  const gezien = new Set();
+  _epStarters().forEach(p => {
+    const code = spelerGridCode(p);
+    // Botsen twee spelers op dezelfde plek (oude data), dan houdt de eerste ze en moet de tweede
+    // opnieuw geplaatst worden — zichtbaar in "Nog te plaatsen" i.p.v. stil boven op elkaar.
+    plaats[p.id] = (code && gridPlek(code) && !gezien.has(code)) ? (gezien.add(code), code) : null;
   });
-  _ep = { fi, slots, assign, sel: null };
+  _ep = { plaats, sel: null };
   _renderEpModal();
 }
-function _epChangeFormation(fi) {
+// INGANG 2: op de aanbevolen plekken van de (nieuwe) formatie.
+function applyFormationPositions() {
+  if (!canLive() || !match) return;
+  if (!_epMag()) return;
   const forms = FORMATIONS[match.matchType] || [];
-  _ep.fi = parseInt(fi);
-  _ep.slots = forms[_ep.fi].slots;
-  _ep.assign = new Map();
-  _ep.sel = null;
+  const form = forms.find(f => f.name === match.formation) || forms[0];
+  const voorstel = [...(typeof formatieVoorstel === 'function' ? formatieVoorstel(form, match.matchType) : new Set())]
+    .map(c => gridPlek(c)).filter(Boolean);
+  const vrij = new Set(voorstel.map(p => p.code));
+  const plaats = {};
+  const starters = _epStarters();
+  const afstand = (p, plek) => {
+    const eigen = gridPlek(spelerGridCode(p));
+    if (!eigen) return 0;
+    return Math.abs(eigen.x - plek.x) + Math.abs(eigen.y - plek.y);
+  };
+  // Eerst iedereen in zijn EIGEN lijn, dichtstbij zijn huidige plek: zo blijft een verdediger
+  // verdediger zolang die formatie daar plaats voor heeft.
+  const nogTeDoen = [];
+  starters.forEach(p => {
+    const eigen = gridPlek(spelerGridCode(p));
+    const lijn = (eigen && eigen.line) || p.line;
+    const kand = voorstel.filter(pl => vrij.has(pl.code) && pl.line === lijn)
+      .sort((a, b) => afstand(p, a) - afstand(p, b));
+    if (kand.length) { plaats[p.id] = kand[0].code; vrij.delete(kand[0].code); }
+    else nogTeDoen.push(p);
+  });
+  // Wie niet in zijn lijn paste: de dichtstbijzijnde vrije aanbevolen plek.
+  nogTeDoen.forEach(p => {
+    const kand = voorstel.filter(pl => vrij.has(pl.code)).sort((a, b) => afstand(p, a) - afstand(p, b));
+    if (kand.length) { plaats[p.id] = kand[0].code; vrij.delete(kand[0].code); }
+    else plaats[p.id] = null;   // meer starters dan de formatie plaatsen heeft: zelf plaatsen
+  });
+  _ep = { plaats, sel: null };
   _renderEpModal();
 }
-function _epSelectPlayer(pid) {
-  _ep.sel = (_ep.sel === pid) ? null : pid;
-  _renderEpModal();
-}
-function _epClickSlot(si) {
-  const occupantId = _ep.assign.get(si);
-  if (_ep.sel) {
-    // Vorige positie van de geselecteerde speler opzoeken (null = komt uit "Nog te plaatsen")
-    let prevSlot = null;
-    for (const [k, v] of _ep.assign) if (v === _ep.sel) { prevSlot = k; break; }
-    if (prevSlot === si) {
-      // Zelfde positie opnieuw aangetikt → speler van het veld halen
-      _ep.assign.delete(si);
-    } else {
-      if (prevSlot !== null) _ep.assign.delete(prevSlot);
-      _ep.assign.set(si, _ep.sel);
-      // Bezette positie: wissel van plek als de geselecteerde speler op het veld stond,
-      // anders gaat de verdrongen speler terug naar "Nog te plaatsen".
-      if (occupantId !== undefined && prevSlot !== null) _ep.assign.set(prevSlot, occupantId);
-    }
-    _ep.sel = null;
-  } else if (occupantId !== undefined) {
-    // Speler op het veld aantikken → selecteren om te verplaatsen of te wisselen
-    _ep.sel = occupantId;
+// Tikken, met dezelfde regels als in de planner: speler + lege plek = verhuizen, speler + speler =
+// van plaats wisselen, tweemaal dezelfde speler = selectie weg.
+function _epTap(kind, id) {
+  if (!_ep) return;
+  const sel = _ep.sel;
+  if (kind !== 'plek' && sel && sel.id === id) { _ep.sel = null; _renderEpModal(); return; }
+  if (kind === 'plek') {
+    if (!sel) return;                                  // geen speler in de hand: niets te verhuizen
+    const bewoner = Object.keys(_ep.plaats).find(pid => _ep.plaats[pid] === id);
+    const oude = _ep.plaats[sel.id] || null;
+    _ep.plaats[sel.id] = id;
+    // Bezette plek: ze ruilen. Kwam de verhuizer nergens vandaan, dan moet de bewoner opnieuw
+    // geplaatst worden — hij komt in "Nog te plaatsen" te staan, niet stil onder de ander.
+    if (bewoner && bewoner !== sel.id) _ep.plaats[bewoner] = oude;
+    _ep.sel = null; _renderEpModal(); return;
   }
-  _renderEpModal();
+  if (!sel) { _ep.sel = { kind, id }; _renderEpModal(); return; }
+  // Twee spelers: van plaats wisselen.
+  const a = sel.id, b = id;
+  const pa = _ep.plaats[a] || null, pb = _ep.plaats[b] || null;
+  _ep.plaats[a] = pb; _ep.plaats[b] = pa;
+  _ep.sel = null; _renderEpModal();
+}
+function _epVeldSpelers() {
+  return _epStarters().filter(p => _ep.plaats[p.id]).map(p => {
+    const plek = gridPlek(_ep.plaats[p.id]);
+    return Object.assign({}, p, { x: plek.x, y: plek.y, line: plek.line,
+      posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code });
+  });
 }
 function _renderEpModal() {
-  const forms = FORMATIONS[match.matchType] || [];
-  const form = forms[_ep.fi];
-  const starters = match.players.filter(p => p.starting);
-  const placedIds = new Set(_ep.assign.values());
-  const unplaced = starters.filter(p => !placedIds.has(p.id));
-  // Veld
-  const slotsHtml = _ep.slots.map((s, i) => {
-    const pid = _ep.assign.get(i);
-    const p = pid ? match.players.find(x => x.id === pid) : null;
-    const gk = s.line === 'Doel';
-    // Shirt met het rugnummer erin; een lege plek toont de positiecode eronder. Zie shirtSvg.
-    const plek = gridPlekVoor(s.line, s.x, s.y);
-    if (p) return `<div class="pslot" style="left:${s.x}%;top:${s.y}%${_ep.sel===p.id?';box-shadow:0 0 0 3px var(--org);border-radius:8px':''}" onclick="_epClickSlot(${i})">`
-      + `${shirtSvg(true, gk, pNum(p))}<span class="pslot-lbl">${esc(p.name)}</span></div>`;
-    return `<div class="pslot" style="left:${s.x}%;top:${s.y}%" onclick="_epClickSlot(${i})">`
-      + `${shirtSvg(false, gk, '')}${plek ? `<span class="pmark-code">${plek.code}</span>` : ''}</div>`;
-  }).join('');
-  const chipsHtml = unplaced.length
-    ? unplaced.map(p => `<span class="place-chip ${_ep.sel===p.id?'sel':''}" onclick="_epSelectPlayer('${p.id}')">${numSpan(p, 'pcn')}${esc(p.name)}</span>`).join('')
-    : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen geplaatst</span>`;
-  const formSel = forms.map((f,i) => `<option value="${i}" ${i===_ep.fi?'selected':''}>${esc(f.name)}</option>`).join('');
+  if (!_ep) return;
+  const veld = _epVeldSpelers();
+  const nogTeDoen = _epStarters().filter(p => !_ep.plaats[p.id]);
+  const selId = _ep.sel ? _ep.sel.id : null;
+  const chips = nogTeDoen.length
+    ? nogTeDoen.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
+    : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen staat op het veld</span>`;
   document.getElementById('modal').innerHTML = `<div class="modal-ov"><div class="modal">
-    <h3>${icI(IC.shirt)} Posities herplaatsen</h3>
-    <div class="fg" style="margin-bottom:8px"><label>Formatie</label><select onchange="_epChangeFormation(this.value)">${formSel}</select></div>
-    <div class="card" style="padding:8px">${`<div class="pitch">${pitchLines()}${slotsHtml}</div>`}
-      <div class="field-legend">Tik een speler hieronder en dan een positie om hem te plaatsen. Tik een speler op het veld en dan een andere positie om te verplaatsen of van plek te wisselen. Tik tweemaal dezelfde positie om de speler eraf te halen.</div>
-    </div>
-    <div class="sec" style="margin-top:8px">Nog te plaatsen (${unplaced.length})</div>
-    <div class="place-chips">${chipsHtml}</div>
+    <h3>${icI(IC.shirt)} Startopstelling herplaatsen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Zo stonden ze bij de aftrap. Tik een speler en dan een andere plek om hem te verzetten, of twee spelers om ze van plaats te wisselen.</p>
+    <div class="card" style="padding:8px">${renderPitch(match, veld, match.captainId, null, { fn: '_epTap', selId, plek: true })}</div>
+    <div class="sec" style="margin-top:8px">Nog te plaatsen (${nogTeDoen.length})</div>
+    <div class="place-chips">${chips}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="_saveEpPositions()">${icI(IC.check)} Opslaan</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_ep=null;closeModal();render()">Annuleren</button>
   </div></div>`;
   document.getElementById('modal').classList.remove('hidden');
 }
 async function _saveEpPositions() {
-  const forms = FORMATIONS[match.matchType] || [];
-  const form = forms[_ep.fi];
-  match.formation = form.name;
-  // Reset alle starter-posities
-  match.players.filter(p => p.starting).forEach(p => { p.x = undefined; p.y = undefined; p.line = undefined; p.posNum = undefined; });
-  for (const [si, pid] of _ep.assign) {
-    const p = match.players.find(x => x.id === pid);
-    const s = _ep.slots[si];
-    if (p && s) { p.x = s.x; p.y = s.y; p.line = s.line; p.posNum = computePosNum(match.matchType, si, _ep.slots); }
+  if (!_ep || !canLive()) return;
+  const nogTeDoen = _epStarters().filter(p => !_ep.plaats[p.id]);
+  // WEIGEREN bij een onvolledige opstelling. Dit is het slot dat er niet was: opslaan wiste eerst
+  // alle posities, dus een half gevuld veld liet spelers zonder plaats achter.
+  if (nogTeDoen.length) {
+    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} eerst op een plek.`, 'err');
+    return;
   }
-  // De vastgelegde startopstelling (v0.54.0) volgt mee: dit scherm herplaatst per definitie de
-  // startopstelling (het weigert zodra er wissels zijn), dus het bewaarde feit is nu dit.
+  _epStarters().forEach(p => {
+    const plek = gridPlek(_ep.plaats[p.id]);
+    if (plek) zetOpGridPlek(p, plek, match);
+  });
+  // De vastgelegde startopstelling volgt mee: dit venster herplaatst per definitie de aftrap (het
+  // weigert zodra er wissels zijn), dus het bewaarde feit is nu dit.
   if (Array.isArray(match.startLineup)) {
     match.startLineup = match.players
       .filter(p => p.starting && typeof p.x === 'number')

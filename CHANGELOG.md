@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.14
+### "Startopstelling herplaatsen" wiste je opstelling in plaats van ze te tonen
+- **Wat er misging.** Dat venster kwam uit het oude model, waarin een formatie de plaatsen vastlegde.
+  Het opende met **niemand** op het veld — het zocht wie waar stond via coördinaten die sinds het
+  rooster van 26 plekken niet meer bestaan. En het opslaan wist eerst alle posities en zette daarna
+  enkel de toewijzingen terug: één tik op Opslaan veegde dus de volledige startopstelling van een
+  **gespeelde** wedstrijd weg, inclusief de vastgelegde aftrap. Nagemeten: 8 spelers met een plaats
+  werden 0.
+- **Nu** werkt het met dezelfde 26 plekken en hetzelfde tikken als de planner en het livescherm. Het
+  opent met **iedereen op zijn eigen plek**: je tikt een speler en dan een andere plek, of twee spelers
+  om ze te laten ruilen. Opslaan weigert zolang er iemand naast het veld staat, dus dit venster kan
+  nooit meer een opstelling wissen.
+- **En de vraag na een formatiewijziging doet weer wat ze belooft.** *"Wil je de spelers ook op de
+  aanbevolen plekken van deze formatie zetten?"* zet ze nu echt op de plekken die bij die formatie
+  horen — dezelfde die de wizard oplicht. Heeft de nieuwe formatie minder plaats in een linie (2-3-2
+  heeft twee verdedigers, 3-3-1 drie), dan komt die speler op de dichtstbijzijnde vrije plek en zie je
+  hem daar staan; één tik zet hem waar jij hem wil.
+- Is er al gewisseld, dan blijft de knop verborgen met dezelfde uitleg als voordien: de startopstelling
+  is dan het fundament van de kwart-reconstructie en wordt niet meer herplaatst.
+
 ## v1.1.13
 ### De ploegfilter in de agenda deed niets
 - **Wat er misging.** Koos je in de agenda een andere ploeg, dan bleef die keuze in de lijst staan
