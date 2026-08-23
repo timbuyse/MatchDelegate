@@ -1476,7 +1476,7 @@ function renderPrep() {
          planner (zie openPlannedLineups). Hier stonden er twee — 'Opstelling per kwart' en 'Wissels
          plannen' — die elk de helft deden en naar een eigen scherm leidden. Het potlood in de kaart
          hierboven brengt je in diezelfde planner, maar meteen op het deel waar je naar kijkt. */ ''}
-    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCount(m) ? ` (${plannedCount(m)} ${plannedCount(m) === 1 ? 'wissel' : 'wissels'})` : ''}</button>
+    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCountPerDeel(m) ? ` (${plannedCountPerDeel(m)} klaargezet)` : ''}</button>
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}

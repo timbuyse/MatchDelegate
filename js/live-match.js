@@ -3274,6 +3274,16 @@ function plannedSwapProbleem(m, s) {
   return null;
 }
 function plannedCount(m) { return ((m && m.plannedSubs) || []).length + ((m && m.plannedPosSwaps) || []).length; }
+// Enkel wat aan een BLOK hangt (audit 23-08-2026). Het telletje op "Opstelling en wissels per kwart"
+// gebruikte plannedCount, dus álles — ook de wissels zonder vast blok, die in een eigen knop eronder
+// staan. Twee losse plus één in kwart 2 las dan als "(3 wissels)" naast "(2)": vijf voor drie, en het
+// scherm dat die knop opent toonde er één, want daar staat per blok alleen wat aan dat blok hangt.
+// plannedCount blijft bestaan voor waar het totaal juist is (zie confirmClearSelectie: "dit wist 3
+// geplande wissels").
+function plannedCountPerDeel(m) {
+  const heeftDeel = s => !!s.quarterNum;
+  return ((m && m.plannedSubs) || []).filter(heeftDeel).length + ((m && m.plannedPosSwaps) || []).filter(heeftDeel).length;
+}
 // Hoe een geplande positiewissel leest: de PLEK waar hij naartoe gaat. Bewust ZONDER "nu speler X"
 // erachter — wie daar staat wordt pas bij het doorvoeren bepaald, dus die naam was een momentopname
 // die bovendien wegviel zodra de plek (nog) niet bezet was. Dat las als een grillig detail.

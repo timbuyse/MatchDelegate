@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.11
+### Het telletje bij "Opstelling en wissels" telde dubbel
+- **Wat er misging.** Dat telletje telde *alle* geplande wissels, ook die zonder vast kwart — en die
+  staan in een eigen knop daaronder. Twee losse wissels plus één in kwart 2 las dan als
+  *"(3 wissels)"* naast *"(2)"*: vijf voor drie. Wie op de eerste knop drukte om die drie na te kijken,
+  vond er één, want daar staat per kwart alleen wat aan dat kwart hangt.
+- **Nu** telt die knop enkel wat je in dat scherm ook ziet: *"(1 klaargezet)"* naast *"(2)"* — samen
+  drie. Het woord is ook eerlijker: in oudere wedstrijden kan er een positiewissel tussen zitten, en
+  dan klopte "wissels" niet. Waar het totaal wél juist was, blijft het staan: *Selectie wissen* zegt
+  nog steeds hoeveel geplande wissels er in totaal verdwijnen.
+
 ## v1.1.10
 ### De planningskaart zegt nu waar een opstelling vandaan komt
 - **Wat er misging.** Bladerde je in het voorbereidingsscherm naar een kwart waarvoor je géén eigen
