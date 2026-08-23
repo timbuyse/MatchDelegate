@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.3
+### De handleiding-screenshots tonen de nieuwe schermen
+- `05_beheer` toonde nog het oude "Beheer"-scherm. Het ploegscherm is te lang voor één
+  telefoonhoogte, dus het zijn er nu **twee**: de kop met "De ploeg" en de spelers, en daaronder
+  "Mensen met toegang" en "Deze ploeg".
+- `13_cobeheer_aanvragen` (ploegbeheer aanvragen) verwees ook naar dat oude scherm; het staat nu
+  onderaan het ploegscherm, bij "Meedoen".
+- Nieuw beeld **`26_jouw_ploegen`** bij de pagina *Rollen in de app*: de ploegen gegroepeerd per
+  club, met de groene clubbalk en de rol achter elke ploeg. Die pagina had nog geen enkel beeld,
+  terwijl ze net over clubs en rollen gaat.
+
+---
 ## v1.1.2
 Eerste drie punten uit de feature-audit van het klaarzetten van een wedstrijd: staat elke knop op een
 logische plek, en doet hij wat zijn label belooft?

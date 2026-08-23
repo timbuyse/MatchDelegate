@@ -708,8 +708,9 @@ const HANDLEIDING_PAGINAS = [
   },
   {
     titel: 'Rollen in de app',
+    img: 'handleiding/screenshots/26_jouw_ploegen.png',
     inhoud: `
-      <p>Match Delegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. De rollen:</p>
+      <p>Match Delegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Jouw ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
       <div class="hdl-rol"><b>Ploegbeheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
       <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen en het clublogo instellen</span></div>
@@ -1059,6 +1060,7 @@ const HANDLEIDING_PAGINAS = [
   {
     titel: 'Als ploegbeheerder',
     img: 'handleiding/screenshots/05_beheer.png',
+    img2: 'handleiding/screenshots/05b_beheer_toegang.png',
     inhoud: `
       <p>Alles over één ploeg staat op het <b>ploegscherm</b>. Je opent het met de tegel <b>'Ploeg'</b> op het startscherm, of met de knop <b>'Ploeg'</b> rechtsboven. Het heeft drie delen:</p>
       <ul class="hdl-list">
