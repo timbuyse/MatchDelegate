@@ -770,8 +770,13 @@ function wizStep3() {
 // de pijlen wandel je verder. Stoppen kan overal — de wedstrijd staat op dat moment al ingepland,
 // ook als je niets meer invult, en de delen die je niet ingaf volgen het deel ervoor.
 async function finishWizardThenPlan() {
-  await finishWizard(false);
-  if (match) openPlannedLineups(1);
+  // Enkel doorgaan naar de planner als het opslaan écht gelukt is. Dit stond hier als `if (match)`,
+  // en `match` is de globale wedstrijd: liep finishWizard op een controle vast (bv. een half gevuld
+  // veld), dan bleef daar de wedstrijd staan die je daarvóór open had — en dan opende de planner van
+  // die ándere wedstrijd bovenop de wizard, mét een Opslaan-knop. Gemeten met een veld van 5 op 8:
+  // de melding "zet 8 spelers op het veld" kwam, en het plan van de vorige wedstrijd ging open.
+  const bewaard = await finishWizard(false);
+  if (bewaard) openPlannedLineups(1);
 }
 function ensurePosNums(m) {
   if (!m || !m.matchType) return false;
@@ -1187,6 +1192,10 @@ async function finishWizard(startNow, zonderOpstelling) {
   // livescherm, niet in het voorbereidingsscherm — dat toont "Wedstrijd starten" voor iets wat al
   // bezig is. Sinds v0.20.0 is dit het enige pad terug uit de wizard, dus het viel op.
   await go((startNow || m.status === 'live') ? 'live' : 'prep', m.id);
+  // De bewaarde wedstrijd teruggeven, zodat een aanroeper wéét of het gelukt is. Alle controles
+  // hierboven eindigen op een `return` zonder waarde, dus alleen een geslaagde bewaring geeft iets
+  // terug — zie finishWizardThenPlan (audit 23-08-2026).
+  return m;
 }
 // Een geplande wedstrijd opnieuw in de wizard openen om te bewerken.
 async function editMatchWizard(m) {

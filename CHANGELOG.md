@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.12
+### Bij een half gevuld veld opende het plan van een ándere wedstrijd
+- **Wat er misging.** Zette je in een nieuwe wedstrijd nog niet genoeg spelers op het veld en tikte je
+  *Verder → wissels en volgende kwarten*, dan weigerde de app terecht ("zet 8 spelers op het veld") —
+  maar opende ze daarna alsnog de planner. En die hoorde bij de wedstrijd die je daarvóór open had,
+  volledig bewerkbaar en met een Opslaan-knop. Je was een nieuwe wedstrijd aan het inplannen en zat
+  plots in het plan van die van vorige week.
+- **Nu** gaat de planner alleen open wanneer het opslaan echt gelukt is; bij een half gevuld veld blijf
+  je gewoon in de wizard staan met de melding.
+
 ## v1.1.11
 ### Het telletje bij "Opstelling en wissels" telde dubbel
 - **Wat er misging.** Dat telletje telde *alle* geplande wissels, ook die zonder vast kwart — en die
