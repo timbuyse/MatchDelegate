@@ -3731,7 +3731,7 @@ async function loadMatches() {
   const rijBtns = (impBtn || bulkBtn)
     ? `<div style="display:grid;grid-template-columns:${impBtn && bulkBtn ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:12px">${impBtn}${bulkBtn}</div>` : '';
   if (matchesWeergave === 'kalender') {
-    el.innerHTML = bulkUndoBannerHtml() + nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '') + filterBar + schakelaar + renderKalender(list);
+    el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '') + filterBar + schakelaar + renderKalender(list);
     return;
   }
   // Het filterteken met de actieve filters ernaast als kaartjes. Zonder filter staat het woord
@@ -3744,7 +3744,7 @@ async function loadMatches() {
         ${matchFilterChipsHtml()}
         ${n ? `<span style="font-size:12px;color:var(--txt2)">${list.length} van ${perPloeg.length}</span>` : ''}
       </div>` : '';
-  el.innerHTML = bulkUndoBannerHtml() + nieuwBtn + rijBtns + filterBar + schakelaar + filterBtn + searchBar + `<div id="match-list">${items}</div>`;
+  el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + rijBtns + filterBar + schakelaar + filterBtn + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
 let homeSearch = '';

@@ -144,7 +144,7 @@ function impRegelHtml(r, i) {
         <span class="badge badge-plan" style="cursor:pointer" title="Wissel thuis/uit"
               onclick="event.stopPropagation();impWisselTU(${i})">${r.thuis ? icI(IC.home) + 'Thuis' : icI(IC.plane) + 'Uit'}</span>
         ${r.reeks ? `<span class="badge badge-type">${esc(r.reeks)}</span>` : ''}
-        ${r.bestaat ? `<span class="badge badge-cancel">${icI(IC.warn)}${r.andereNaam ? 'Staat er al als ' + esc(r.andereNaam) : 'Staat er al'}</span>` : ''}
+        ${r.bestaat ? `<span class="badge badge-cancel">${icI(IC.warn)}${r.andereNaam ? 'Staat er al als ' + esc(r.andereNaam) : 'Staat er al'}${r.bestaatStatus === 'done' ? ' · gespeeld' : (r.bestaatStatus === 'live' ? ' · loopt nu' : '')}</span>` : ''}
         ${r.dagWaarschuwing ? `<span class="badge badge-type">${icI(IC.warn)}Ook ${esc(r.dagWaarschuwing)} op deze dag</span>` : ''}
       </div>
     </div></div>`;
@@ -196,7 +196,20 @@ function impToggle(i) {
   const r = impSt.regels[i]; if (!r) return;
   r.aan = !r.aan; impRender();
 }
-function impAlles(aan) { impSt.regels.forEach(r => { r.aan = aan; }); impRender(); }
+// "Alles aan" laat een GESPEELDE of lopende wedstrijd staan (audit 23-08-2026). Eén tik zette
+// anders ook die regels aan, en dan schrijft de bondskalender datum, uur, thuis/uit, terrein en
+// tegenstander over een wedstrijd waar al een verslag aan hangt. Wil je zo'n regel toch bijwerken,
+// dan vink je ze zelf aan — dat blijft mogelijk, het gebeurt alleen niet meer per ongeluk.
+// "Alles uit" zet gewoon alles uit: dat kan niets overschrijven.
+function impAlles(aan) {
+  let overgeslagen = 0;
+  impSt.regels.forEach(r => {
+    if (aan && r.gespeeld) { r.aan = false; overgeslagen++; return; }
+    r.aan = aan;
+  });
+  impRender();
+  if (overgeslagen) showToast(`${overgeslagen} ${overgeslagen === 1 ? 'wedstrijd is' : 'wedstrijden zijn'} al gespeeld — die laat ik staan. Vink ze zelf aan als je ze toch wil bijwerken.`, 'ok');
+}
 function impWisselTU(i) { const r = impSt.regels[i]; if (!r) return; r.thuis = !r.thuis; impRender(); }
 async function impZetClub(naam) { impSt.eigenClub = naam; await impHerbouw(); }
 async function impZetMap(sleutel, waarde) { impSt.map[sleutel] = parseInt(waarde, 10); await impHerbouw(); }
@@ -704,7 +717,14 @@ async function impMarkeerDubbels() {
   const alle = await dbAll();
   const bestaand = new Map();
   const perDag = new Map();
+  // De TOESTAND van een bestaande wedstrijd erbij (audit 23-08-2026). Een gespeelde of lopende
+  // wedstrijd was voor de dubbeldetectie een gewone dubbel: het kaartje zei enkel "Staat er al", en
+  // één tik op "Alles aan" schreef datum, uur, thuis/uit, terrein en tegenstander over een wedstrijd
+  // met verslag en gebeurtenissen. Gemeten: een afgesloten wedstrijd verhuisde via het agenda-nummer
+  // van 6 september naar 5 juli, met haar 1-0 en drie gebeurtenissen erin.
+  const statusVan = new Map();
   alle.forEach(m => {
+    statusVan.set(m.id, m.status || 'planned');
     if (m.tournamentId) return;                        // tornooiwedstrijden staan buiten de kalender
     bestaand.set(impDubbelSleutel(m.teamId || '', m.subteam || '', m.date || '', m.opponent || ''), m.id);
     if (m.importUid) bestaand.set('uid|' + m.importUid, m.id);
@@ -733,6 +753,10 @@ async function impMarkeerDubbels() {
     r.dagWaarschuwing = (!r.bestaat && dagAlles.length)
       ? dagAlles.filter(m => m.opponent).map(m => m.opponent + (m.subteam ? ` (${m.subteam})` : '')).join(', ')
       : '';
+    // Is de bestaande wedstrijd al gespeeld (of loopt ze), dan hoort dat op het kaartje: "Staat er al"
+    // alleen zegt niet dat er een verslag aan hangt. `r.gespeeld` houdt "Alles aan" er ook van af.
+    r.bestaatStatus = r.bestaat ? (statusVan.get(r.bestaat) || '') : '';
+    r.gespeeld = r.bestaatStatus === 'done' || r.bestaatStatus === 'live';
     // Een bestaande wedstrijd staat standaard uit: niets overschrijven wat je niet zelf vraagt.
     r.aan = !r.bestaat;
   });
@@ -745,6 +769,14 @@ async function impVoerUit() {
   const team = teamById(impSt.teamId);
   if (!team && getTeamsV2().length) { showToast('Kies eerst je eigen ploeg.', 'err'); return; }
   let nieuw = 0, bijgewerkt = 0;
+  // ONGEDAAN MAKEN NA EEN IMPORT (audit 23-08-2026). Voordien was een verkeerd bestand of een
+  // verkeerde ploeg niet terug te draaien: dertig wedstrijden één per één openen en verwijderen, en
+  // bij een bijgewerkte wedstrijd waren de oude datum, het oude uur en het oude terrein definitief
+  // weg. Zelfde vorm en zelfde geldigheidsduur als het ongedaan-maken van "Meerdere aanpassen", met
+  // één verschil: een import kan ook wedstrijden AANMAKEN, en die moeten dan weer verdwijnen.
+  const undo = { when: Date.now(), teamId: activeTeamId || '',
+    ploeg: (cloudReady ? (teamNames[activeTeamId] || '') : (team ? team.name : '')) || '',
+    aangemaakt: [], bijgewerkt: [] };
   for (const r of kiezen) {
     const veld = {
       opponent: r.tegenstander, date: r.datum, time: r.tijd || '00:00',
@@ -755,6 +787,12 @@ async function impVoerUit() {
       // en de notities van die wedstrijd blijven staan.
       const m = await dbGet(r.bestaat);
       if (!m) continue;
+      // De oude waarden bewaren vóór het overschrijven: exact de velden die deze import aanraakt.
+      // null betekent "stond er niet" — bij het terugzetten wordt die eigenschap dan verwijderd.
+      const oud = {};
+      Object.keys(veld).forEach(k => { oud[k] = (m[k] === undefined) ? null : m[k]; });
+      oud.importUid = (m.importUid === undefined) ? null : m.importUid;
+      undo.bijgewerkt.push({ id: m.id, oud });
       Object.assign(m, veld);
       if (r.uid) m.importUid = r.uid;
       await dbSave(m);
@@ -776,9 +814,71 @@ async function impVoerUit() {
     });
     if (r.uid) m.importUid = r.uid;
     await dbSave(m);
+    undo.aangemaakt.push(m.id);
     nieuw++;
+  }
+  if (undo.aangemaakt.length || undo.bijgewerkt.length) {
+    try { localStorage.setItem(IMP_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
   }
   impSt = null;
   await go('matches');
   showToast(`${nieuw} ${nieuw === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd${bijgewerkt ? ` · ${bijgewerkt} bijgewerkt` : ''}.`);
+}
+
+// ---------------------------------------------------------------------------------------------
+// ONGEDAAN MAKEN — zelfde vorm als bulkUndo (zie views-account.js): in de opslag, 24 uur geldig, en
+// enkel aangeboden bij de ploeg waar de import gebeurde. Een import raakt twee soorten wedstrijden,
+// dus het terugzetten doet twee dingen: wat aangemaakt werd verdwijnt, en wat bijgewerkt werd krijgt
+// zijn oude datum, uur, thuis/uit, terrein, tegenstander en agenda-nummer terug. De selectie, de
+// opstelling, het plan, de gebeurtenissen en de notities zijn nooit aangeraakt, dus die blijven.
+// ---------------------------------------------------------------------------------------------
+const IMP_UNDO_KEY = 'voetbal_import_undo';
+const IMP_UNDO_GELDIG_MS = 24 * 60 * 60 * 1000;
+function impUndoBeschikbaar() {
+  try {
+    const u = JSON.parse(localStorage.getItem(IMP_UNDO_KEY) || 'null');
+    if (!u || (!(u.aangemaakt || []).length && !(u.bijgewerkt || []).length)) return null;
+    if (Date.now() - (u.when || 0) > IMP_UNDO_GELDIG_MS) return null;
+    // Enkel bij de ploeg waar het gebeurde: anders zou je in de lijst van een ándere ploeg een
+    // ongedaan-maken zien die daar niets mee te maken heeft (zelfde regel als bulkUndoBeschikbaar,
+    // en dezelfde les uit het incident van 21-08-2026).
+    if (cloudReady) { if (!u.teamId || u.teamId !== activeTeamId) return null; }
+    else if (u.ploeg && homeFilter !== 'all' && u.ploeg !== homeFilter) return null;
+    return u;
+  } catch (e) { return null; }
+}
+function impUndoVergeten() { try { localStorage.removeItem(IMP_UNDO_KEY); } catch (e) {} loadMatches(); }
+async function impUndo() {
+  const u = impUndoBeschikbaar();
+  if (!u || !canManage()) return;
+  let weg = 0, terug = 0;
+  for (const id of (u.aangemaakt || [])) {
+    // Enkel wedstrijden waar niets mee gebeurd is. Wie intussen aan een ingelezen wedstrijd werkte
+    // (selectie, opstelling, of ze zelfs al speelde), verliest dat niet door een ongedaan-maken.
+    const m = await dbGet(id);
+    if (!m) continue;
+    if ((m.status && m.status !== 'planned') || (m.players || []).length || (m.events || []).length) continue;
+    await dbDel(id); weg++;
+  }
+  for (const e of (u.bijgewerkt || [])) {
+    const m = await dbGet(e.id);
+    if (!m) continue;
+    Object.keys(e.oud || {}).forEach(k => { if (e.oud[k] === null) delete m[k]; else m[k] = e.oud[k]; });
+    await dbSave(m); terug++;
+  }
+  try { localStorage.removeItem(IMP_UNDO_KEY); } catch (e) {}
+  const delen = [];
+  if (weg) delen.push(`${weg} ${weg === 1 ? 'wedstrijd' : 'wedstrijden'} verwijderd`);
+  if (terug) delen.push(`${terug} teruggezet`);
+  showToast(delen.length ? delen.join(' · ') + '.' : 'Niets om terug te zetten.', 'ok');
+  loadMatches();
+}
+function impUndoBannerHtml() {
+  const u = impUndoBeschikbaar();
+  if (!u || !canManage() || (typeof bulkMode !== 'undefined' && bulkMode)) return '';
+  const n = (u.aangemaakt || []).length, b = (u.bijgewerkt || []).length;
+  const wat = [n ? `${n} ${n === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd` : '', b ? `${b} bijgewerkt` : ''].filter(Boolean).join(' · ');
+  return `<div class="nudge" style="margin-bottom:12px">${icI(IC.upload)} <b>Kalender ingelezen</b> — ${esc(wat)}.
+    <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="impUndo()">Import ongedaan maken</button>
+    <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="impUndoVergeten()">Sluiten</button></div>`;
 }

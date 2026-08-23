@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.8
+### Een kalenderimport is nu terug te draaien
+- **Wat er misging.** Het inlezen van een kalender schreef in één keer nieuwe wedstrijden weg en werkte
+  bestaande bij, zonder bevestiging vooraf en zonder enig spoor achteraf. Verkeerd bestand of verkeerde
+  ploeg gekozen? Dan moest je dertig wedstrijden één per één openen en verwijderen, en bij de
+  bijgewerkte wedstrijden waren de oude datum, het oude uur en het oude terrein definitief weg.
+- **Nu** staat er na een import een balk bovenaan de wedstrijdenlijst — *"Kalender ingelezen — 3
+  wedstrijden toegevoegd · 2 bijgewerkt"* — met **Import ongedaan maken**. Aangemaakte wedstrijden
+  verdwijnen weer, bijgewerkte krijgen hun tegenstander, datum, uur, thuis/uit, terrein en
+  agendanummer terug. Zelfde vorm en dezelfde 24 uur als het ongedaan maken van *Meerdere aanpassen*,
+  en alleen bij de ploeg waar de import gebeurde.
+- **Werk gaat nooit verloren aan zo'n ongedaan-maken.** Een ingelezen wedstrijd waar je intussen aan
+  werkte — een selectie ingegeven, of ze zelfs al gespeeld — blijft staan; alleen de nog lege
+  wedstrijden verdwijnen. De melding zegt hoeveel er echt weg zijn.
+
+### "Alles aan" laat gespeelde wedstrijden staan
+- **Wat er misging.** Een bestaande wedstrijd stond bij het inlezen terecht standaard uit, maar
+  *Alles aan* zette zonder onderscheid álles aan — ook een wedstrijd die al gespeeld was, met verslag
+  en gebeurtenissen. Het kaartje zei enkel "Staat er al", niet dat er een verslag aan hing. En de
+  koppeling op het agendanummer vindt zo'n wedstrijd ook terug wanneer de **datum** in het bestand
+  verschoven is: nagemeten ging een afgesloten wedstrijd van 6 september naar 5 juli, met haar 1-0 en
+  haar drie gebeurtenissen erin. Verschuift zo'n datum over 1 juli, dan valt die wedstrijd in een
+  ander seizoen en verdwijnt ze uit de statistieken waar ze hoorde.
+- **Nu** staat op het kaartje *"Staat er al · gespeeld"* (of *"· loopt nu"*), en laat *Alles aan* die
+  regels uit staan, met een melding erbij. Wil je er toch één bijwerken, dan vink je ze zelf aan.
+
 ## v1.1.7
 ### De ploeg van een wedstrijd staat vast
 - **Wat er misging.** Bij *Bewerken → Info bewerken* kon je in de keuzelijst **Eigen ploeg** een andere
