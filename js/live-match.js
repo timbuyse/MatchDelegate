@@ -1674,10 +1674,15 @@ function rebuildPositions(m, baseline) {
   const pos = {}, onF = {};
   m.players.forEach(p => { onF[p.id] = false; });
   (baseline || []).forEach(b => { onF[b.id] = true; pos[b.id] = { x: b.x, y: b.y, line: b.line, posNum: b.posNum }; });
-  // Zelfde regel als in recomputeOnField: een afwezig gemarkeerde speler blijft van het veld, ook
-  // al brengt een oudere wissel hem in de replay hieronder weer in (undo/event verwijderen).
-  const absent = new Set(m.players.filter(p => p.absent).map(p => p.id));
-  m.players.forEach(p => { if (p.absent) onF[p.id] = false; });
+  // AFWEZIG GEMARKEERD IS GEEN TIJDSTIP. `p.absent` is een vlag zonder moment: je zet ze bv. in het
+  // derde blok, terwijl die speler de twee eerste blokken gewoon meespeelde. Die vlag hier vooraf op
+  // "nooit op het veld" zetten was dus fout — de replay sloeg dan élke ruil over waar hij in een
+  // vroeger blok bij betrokken was (`if (onF[e.pA] && onF[e.pB])`), en dan belandden ANDERE spelers
+  // op een verkeerde plek. Precies het soort scheve velddiagram dat de veldtest opleverde, en het
+  // werd blijvend opgeslagen zodra je daarna een event bewerkte of verwijderde.
+  // De replay loopt nu gewoon door zoals de events het zeggen; enkel de EINDstand mag hem niet meer
+  // op het veld zetten (zie onderaan). De posities van de anderen blijven zo kloppen.
+  const absent = new Set();
   const evs = [...m.events].filter(e => e.type === 'substitution' || e.type === 'posSwap' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of evs) {
@@ -1740,7 +1745,10 @@ function rebuildPositions(m, baseline) {
     }
   }
   m.players.forEach(p => {
-    p.onField = !!onF[p.id];
+    // Wie afwezig gemeld of uitgesloten is, staat op het EIND nooit op het veld — ongeacht wat een
+    // oudere wissel in de replay zei (undo, event verwijderen). Zie de uitleg bij `absent` hierboven:
+    // dit hoort hier, aan het einde, en niet vooraf.
+    p.onField = !!onF[p.id] && !p.absent && !isUitgesloten(m, p.id);
     if (pos[p.id]) { p.x = pos[p.id].x; p.y = pos[p.id].y; p.line = pos[p.id].line; p.posNum = pos[p.id].posNum; }
   });
 }

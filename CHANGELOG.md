@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.0.4
+Sluitstuk van de zijlijntest: het laatste verschil tussen de opgeslagen opstelling en wat de app
+ervan herberekent.
+
+### Afwezig melden verschoof de posities van ándere spelers
+- **Wat er misging.** "Afwezig" is een vlag zonder tijdstip: je zet ze bijvoorbeeld in het derde
+  blok, terwijl die speler de twee eerste blokken gewoon meespeelde. Bij het herberekenen van de
+  opstelling — wat gebeurt zodra je achteraf een gebeurtenis bewerkt, verwijdert of toevoegt — deed
+  de app alsof hij er de héle wedstrijd niet was. Elke positiewissel waar hij in een vroeger blok bij
+  betrokken was, werd dan overgeslagen, en dáárdoor belandden **andere** spelers op een verkeerde
+  plek. Dat werd blijvend opgeslagen, dus het velddiagram en de PDF klopten daarna niet meer.
+- **De fix.** Het herberekenen volgt nu gewoon de gebeurtenissen; alleen de eindstand houdt hem van
+  het veld. De blokken die hij wél speelde blijven dus intact, en de anderen blijven staan waar ze
+  stonden.
+- Gemeten: in 40 willekeurige wedstrijden bleven er vier over waarin de herberekening afweek van de
+  opgeslagen stand — nu nul. Daarmee is de hele reeks vondsten uit de zijlijntest van 22-08
+  afgewerkt: wat er nog overblijft zijn twee bewuste keuzes (met meer spelers dan plaatsen mogen
+  starten, en het correctieveld dat alleen bij een ruime overschrijding verschijnt).
+
 ## v1.0.3
 Laatste van de vijf punten uit de zijlijntest van 22-08.
 
