@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v0.58.0
+Drie dingen die Tim opmerkte bij het gebruiken, alle drie aan de zijlijn.
+
+### Ongedaan maken vraagt eerst, en blijft van je plan af
+- **Er komt een bevestiging** met de gebeurtenis erin ("Doelpunt Gust — ongedaan maken?"). Voordien
+  verdween de laatste actie meteen, zonder te zeggen wát; je zag het pas in de melding achteraf.
+- **Enkel je eigen acties uit het lopende blok.** De wissels die de app bij de start van een blok
+  automatisch doorvoert om je opstelling te halen, zijn geen actie van jou — die stonden hier tussen
+  en konden één voor één weggeklikt worden, waardoor je opstelling stil uit elkaar viel. Die pas je
+  aan op het tabblad Opstelling of achteraf in het verslag. Ook alles uit een vórig blok valt weg:
+  dat corrigeer je in het verslag, niet met een knop die je blind kan blijven indrukken.
+- Staat er niets van jou in dit blok, dan verdwijnt de knop.
+
+### Een blok dat je te vroeg afsloot, kan je hervatten
+- Nieuwe knop in de pauze: **"Te vroeg gestopt — verder in kwart X"**, met een bevestiging die zegt
+  op welke minuut je terugkomt. De klok hervat exact waar ze stond en de tijd sinds het (foute)
+  afsluiten telt niet mee als speeltijd — alsof je nooit gestopt was.
+- Dit bestond al, maar enkel op een **afgesloten** wedstrijd via "Wedstrijd heropenen" — precies niet
+  waar je staat op het moment dat de mistik gebeurt. De enige zichtbare uitweg was tot nu "Opnieuw
+  beginnen", dat de hele wedstrijd wist.
+
+### Geen positiewissels meer inplannen
+- De knop **"+ Positiewissel"** is weg uit de planningskaart. Een positiewissel plan je niet vooraf,
+  die gebeurt à la minute op het veld; waar iedereen bij de start van een blok staat, teken je op het
+  veld en de app rekent de verschuivingen zelf uit. Echte wissels plan je bij de jeugd wél vooraf, dus
+  "+ Wissel" blijft. Dezelfde opruiming was al gebeurd in het scherm "Wissels plannen" — deze kaart
+  was vergeten. Bestaande klaargezette positiewissels blijven zichtbaar, aanpasbaar en uitvoerbaar.
+
 ## v0.57.1
 Eerste fix uit de doorgedreven zijlijntest van 22/23-08 (twee kritieke vondsten; dit is nr. 1).
 

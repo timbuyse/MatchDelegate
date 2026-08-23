@@ -1625,9 +1625,14 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
     ${regels.length
       ? regels.map(r => `<div class="prow" style="padding:6px 0;align-items:center"><div style="flex:1;font-size:14px">${r.tekst}</div>${knoppen(r)}</div>`).join('')
       : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${dit} ${pSingLow(m)}.</p>`}
-    ${bewerkbaar ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
-      <button class="btn btn-pale btn-sm" onclick="planSubNieuw(${q},'swap','${b}')">${icI(IC.compass)} + Positiewissel</button>
+    ${/* Geen "+ Positiewissel" meer (Tim, 23-08-2026): een positiewissel plan je niet vooraf, die
+         gebeurt à la minute op het veld. Waar iedereen bij de START van een deel staat, teken je op
+         het veld hierboven — de app rekent de verschuivingen zelf uit. Echte wissels plan je bij de
+         jeugd wél vooraf, dus die knop blijft. Dezelfde opruiming gebeurde al in het scherm
+         'Wissels plannen' (zie modalPlannedSubs); deze kaart was vergeten. Bestaande klaargezette
+         positiewissels blijven hierboven zichtbaar, aanpasbaar en verwijderbaar. */ ''}
+    ${bewerkbaar ? `<div style="margin-top:4px">
+      <button class="btn btn-pale btn-sm" style="width:100%" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
     </div>` : ''}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig

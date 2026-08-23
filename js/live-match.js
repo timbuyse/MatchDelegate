@@ -59,6 +59,13 @@ function renderLive() {
       ${(canStartFirst && !(match.quarters || []).length && !(match.events || []).length)
         ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarGepland()">${icI(IC.undo)} Toch nog niet gestart</button>`
         : ''}
+      ${/* Mistik op "Einde kwart X" ongedaan maken. Bescheiden knop onder de startknop, zelfde
+            plaats en toon als "Toch nog niet gestart": het is een uitzondering, geen dagelijkse
+            handeling. Stond tot 23-08-2026 enkel achter "Wedstrijd heropenen" op een AFGESLOTEN
+            wedstrijd — precies niet waar je staat wanneer het gebeurt. */ ''}
+      ${(!ro && hervatBaarDeel(match))
+        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmHervatDeel()">${icI(IC.undo)} Te vroeg gestopt — verder in ${pSingLow(match)} ${hervatBaarDeel(match)}</button>`
+        : ''}
       ${/* HET PAUZEKAARTJE (herontwerp 22-08-2026, op Tims aanwijzing). Hier stond de lijst met
            AFGELEIDE wissels ("Klaar voor kwart 2") — verwarrend, want die heeft niemand ingegeven:
            het veld op het tabblad Opstelling is de waarheid, en de wissels zijn daar een gevolg van.
@@ -97,7 +104,7 @@ function renderLive() {
            wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). Het telletje toont enkel wat je
            in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
       <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}</button>`; })()}
-      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="undoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
+      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="confirmUndoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${/* "Oei, dit was niet de bedoeling": een bescheiden knop onderaan, niet tussen de knoppen die
             je tijdens het spel nodig hebt. Enkel zolang de wedstrijd niet afgesloten is, en niet in
             het vastgelopen-kader (daar staat ze al). Bij een wedstrijd waar nog niets gebeurd is,
@@ -529,6 +536,28 @@ async function resumeQuarter() {
 // 10 min was bij blokken van 20 min veel te laks — 9 min te laat afsluiten (+45% op de speeltijd
 // van elke speler op het veld) gaf dan geen enkele waarschuwing.
 function overtimeNudgeMin(m) { return Math.max(3, Math.round(((m && m.quarterDuration) || 0) * 0.25)); }
+// Een net afgesloten deel dat je nog kan hervatten: we staan tussen de delen (of na het laatste)
+// en het laatste deel heeft een eindtijd. Geeft het nummer terug, anders null. Voor de mistik op
+// "Einde kwart" — die was tot nu onomkeerbaar zolang de wedstrijd liep (Tim, 23-08-2026).
+function hervatBaarDeel(m) {
+  if (!m || m.status === 'done' || m.quarterStatus !== 'between') return null;
+  const q = (m.quarters || [])[(m.quarters || []).length - 1];
+  return (q && q.startTime && q.endTime) ? q.num : null;
+}
+// Bevestiging vóór het hervatten: de klok springt terug naar waar ze stond en het einde-event
+// verdwijnt, dus het is geen onschuldige tik. De tijd sinds het (foute) afsluiten telt als pauze,
+// zodat niemand er speelminuten bij krijgt — zie doResumeLastPeriod.
+function confirmHervatDeel() {
+  const nr = hervatBaarDeel(match);
+  if (!nr) return;
+  const label = pSingLow(match);
+  const q = match.quarters[match.quarters.length - 1];
+  const gespeeld = Math.round(kwartDuurMs(q) / 60000);
+  openModal(`<h3>${icI(IC.live)} Verder in ${label} ${nr}?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Dit ${label} staat afgesloten op <b>${gespeeld} min</b>. Hervatten zet de klok terug op dat punt en laat ze weer lopen, alsof je nooit gestopt was. De tijd sinds het afsluiten telt niet mee als speeltijd.</p>
+    <button class="btn btn-green" onclick="doResumeLastPeriod()">${icI(IC.live)} Ja, verder in ${label} ${nr}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
 // Beëindig het huidige deel handmatig -> pauze tussen de delen (klok staat stil tot de volgende start).
 // Vergeten af te sluiten? Bij fors overtime (zie overtimeNudgeMin) waarschuwen en de mogelijkheid
 // geven de werkelijke duur te corrigeren, i.p.v. stilzwijgend Date.now() te nemen — anders
@@ -727,9 +756,12 @@ async function doUnfinishToPlanned() {
   await dbSave(match);
   go('prep', match.id);
 }
-// Foutieve afsluiting ongedaan maken: het laatste deel loopt weer, zonder extra deel.
+// Foutieve afsluiting ongedaan maken: het laatste deel loopt weer, zonder extra deel. Bereikbaar
+// langs twee kanten: bij een afgesloten wedstrijd via "Wedstrijd heropenen", en sinds 23-08-2026
+// ook mídden in de wedstrijd, vanuit de pauze (zie hervatBaarDeel) — dat is waar de mistik gebeurt.
+// De guard kijkt daarom niet meer naar de status van de wedstrijd maar naar het deel zelf: loopt
+// het al (geen endTime), dan valt er niets te hervatten en is dit een dubbeltik.
 async function doResumeLastPeriod() {
-  if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard
   const q = match.quarters[match.quarters.length - 1];
   if (!q || !q.startTime || !q.endTime) { closeModal(); return; }
   // De tijd tussen het (foute) afsluiten en nu telt als pauze — zo hervat de klok exact waar ze
@@ -2089,16 +2121,47 @@ function modalDisallowed(side) {
     <button class="btn btn-org" onclick="logExtra('${type}',{reason:(document.getElementById('disallowed-reason').value||'').trim()})">Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-function hasUndo() { return match && match.events.some(e => e.type !== 'quarter_start' && e.type !== 'quarter_end'); }
+// WAT KAN JE ONGEDAAN MAKEN? (Tim, 23-08-2026) Enkel wat je ZELF net loggde in het deel dat nu
+// bezig is. Drie soorten vallen er bewust buiten:
+//   - de kwartgrenzen (quarter_start/quarter_end): die horen bij de klok, niet bij een actie;
+//   - alles met atBreak: de wissels die de app bij de START van dit deel automatisch doorvoerde om
+//     je opstelling te halen. Die heb je hier niet ingetikt, dus "ongedaan maken" leest als een
+//     vergissing van jou terwijl het de uitvoering van je plan is. Aanpassen doe je in het verslag
+//     of op het tabblad Opstelling;
+//   - alles uit een vórig deel: dat corrigeer je in het verslag, niet met een knop die je aan de
+//     zijlijn blind kan blijven indrukken.
+// Eén functie, zodat de knop (hasUndo), de bevestiging en de uitvoering het over dezelfde
+// gebeurtenis hebben — anders toont het venster iets anders dan wat er verdwijnt.
+function undoKandidaat(m) {
+  if (!m || !Array.isArray(m.events)) return null;
+  for (let i = m.events.length - 1; i >= 0; i--) {
+    const e = m.events[i];
+    if (e.type === 'quarter_start' || e.type === 'quarter_end') continue;
+    if (e.atBreak) continue;
+    if (e.quarterNum !== m.currentQuarter) continue;
+    return e;
+  }
+  return null;
+}
+function hasUndo() { return !!undoKandidaat(match); }
+// Bevestigen vóór het weggaat: de knop stond naast de eventknoppen en verwijderde meteen, zonder
+// te zeggen wát. Nu zie je eerst de gebeurtenis staan.
+function confirmUndoLast() {
+  const e = undoKandidaat(match);
+  if (!e) { showToast(`Niets van jou om ongedaan te maken in dit ${pSingLow(match)}.`, 'err'); return; }
+  openModal(`<h3>${icI(IC.undo)} Ongedaan maken?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${evtLabel(e, match)}"<br>Deze gebeurtenis verdwijnt uit het verloop. De score en de opstelling worden herberekend.</p>
+    <button class="btn btn-red" onclick="undoLast()">${icI(IC.undo)} Ja, ongedaan maken</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
 async function undoLast() {
   // Dubbeltik-guard: een tweede tik vóór de re-render zou stil óók het voorlaatste event verwijderen.
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-  let idx = -1;
-  for (let i = match.events.length - 1; i >= 0; i--) { const t = match.events[i].type; if (t !== 'quarter_start' && t !== 'quarter_end') { idx = i; break; } }
-  if (idx < 0) return;
-  const removed = match.events[idx];
+  const removed = undoKandidaat(match);
+  if (!removed) { closeModal(); return; }
+  const idx = match.events.indexOf(removed);
   const toRemove = [removed];
   // Een automatische rode kaart bij de 2e gele hoort bij die gele kaart — samen ongedaan maken,
   // anders blijft de speler van het veld staan met twee gele kaarten in het verloop.
@@ -2115,7 +2178,7 @@ async function undoLast() {
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten kloppen niet meer na het ongedaan maken van een keeper-relevante actie → herbouwen.
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
-  await dbSave(match); render();
+  await dbSave(match); closeModal(); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
   } finally { _eventBusy = false; }
 }
