@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.1.13
+### De ploegfilter in de agenda deed niets
+- **Wat er misging.** Koos je in de agenda een andere ploeg, dan bleef die keuze in de lijst staan
+  alsof ze toegepast was — maar er veranderde niets op het scherm. De filter werd wel gezet, alleen
+  werd het verkeerde scherm herladen (het beginscherm in plaats van de agenda), en dat keert stil terug.
+- **Nu** herlaadt de agenda zichzelf. Nagemeten met wedstrijden op 5, 12 (ploeg A) en 19 september
+  (ploeg B): alle ploegen markeert de drie dagen, ploeg A de eerste twee, ploeg B enkel de 19de. En de
+  agenda blijft staan op de maand waar je naar kijkt.
+
+### Een actieve filter kon onzichtbaar zijn
+- **Wat er misging.** Het filterteken op de wedstrijdenlijst verscheen pas vanaf vier wedstrijden,
+  terwijl het filteren zelf altijd werkt. Met drie wedstrijden waarvan de filter er twee verborg, toonde
+  de lijst er één en stond er nergens een teken, een kaartje of een teller — terwijl de tegel op het
+  beginscherm er drie meldde. Dat leest als "mijn wedstrijden zijn verdwenen".
+- **Nu** staat het filterteken er zodra er een filter aan staat, met de teller erbij: *"1 van 3"*.
+  (Filterde je álles weg, dan stond er al een knop "Filter wissen"; dit gat zat in het geval dat er nog
+  iets overblijft.)
+
 ## v1.1.12
 ### Bij een half gevuld veld opende het plan van een ándere wedstrijd
 - **Wat er misging.** Zette je in een nieuwe wedstrijd nog niet genoeg spelers op het veld en tikte je

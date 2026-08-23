@@ -2954,7 +2954,16 @@ const views = {
   importcal: () => renderImportCal(),
 };
 let homeFilter = 'all';
-function setHomeFilter(v) { homeFilter = v; if (view === 'matches') loadMatches(); else loadHome(); }
+// Herlaad het scherm waar je OP staat. De agenda heeft dezelfde ploegfilter, en die viel hier in de
+// `else` en herlaadde dus het beginscherm — dat op zoek gaat naar zijn eigen blok, dat er niet is, en
+// stil terugkeert. Gevolg: je koos een andere ploeg, de keuzelijst bleef op die ploeg staan alsof het
+// gelukt was, en er veranderde niets (audit 23-08-2026). kalenderHerlaad() kent het onderscheid al.
+function setHomeFilter(v) {
+  homeFilter = v;
+  if (view === 'agenda') loadAgenda();
+  else if (view === 'matches') loadMatches();
+  else loadHome();
+}
 // Eén wedstrijd-kaartje (gebruikt op het dashboard én in de volledige lijst).
 function matchItemHtml(m) {
   const st = m.status, af = matchCancelled(m);
@@ -3744,7 +3753,13 @@ async function loadMatches() {
   // "Filter" erbij (een kaal tekentje zegt niets als er nog niets gekozen is); zodra er kaartjes
   // staan, zeggen die wat er gebeurt en volstaat het teken.
   const n = matchFilterAantal();
-  const filterBtn = perPloeg.length > 3
+  // Ook tonen zodra er een filter AAN staat, ongeacht het aantal wedstrijden. De grens lag op "meer
+  // dan drie", terwijl het filteren zelf enkel van `n` afhangt: met drie wedstrijden waarvan de filter
+  // er twee verbergt, toonde de lijst er één en stond er nergens een teken, een kaartje of een teller
+  // — terwijl de tegel op het beginscherm er drie meldde. Dat leest als "mijn wedstrijden zijn
+  // verdwenen" (audit 23-08-2026). Filtert de filter álles weg, dan stond er al een knop
+  // "Filter wissen"; dit gat zat in het geval dat er nog iets overblijft.
+  const filterBtn = (perPloeg.length > 3 || n > 0)
     ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalMatchFilter()">${icI(IC.filter)}${n ? '' : ' Filter'}</button>
         ${matchFilterChipsHtml()}
