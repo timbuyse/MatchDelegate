@@ -1740,7 +1740,11 @@ function exportMatchCSV() {
   // Vast label: dit is een export, en een kolomnaam die meebeweegt met het aantal trainers maakt
   // het bestand moeilijker te verwerken. De namen zelf staan komma-gescheiden in de waarde.
   row('Trainer', matchTrainer(m));
-  row('Afgevaardigde', matchResponsible(m));
+  // "Ploegverantwoordelijke", niet "Afgevaardigde" (audit 25-08-2026): die rol heet in de hele app
+  // ploegverantwoordelijke — op het ploegscherm, in de wizard, op het verslag en in de PDF. In dit
+  // ene bestand stond een ander woord, en dan lijkt het een andere rol. Vast label blijft: dit is een
+  // export, en een kolomnaam die meebeweegt met het aantal namen maakt het bestand lastiger te lezen.
+  row('Ploegverantwoordelijke', matchResponsible(m));
   row('Scheidsrechter', m.referee || '');
   row('Truikleur', m.jersey || '');
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));

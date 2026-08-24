@@ -1421,7 +1421,7 @@ async function exportPDF() {
   // `venue` alleen erbij als het iets toevoegt: bij een tornooiwedstrijd is de locatie gelijk aan
   // m.location, dat al in de metaregel hierboven staat — dan stond ze er twee keer.
   const sameVenue = (m.venue || '').trim().toLowerCase() === (m.location || '').trim().toLowerCase();
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), matchTrainer(m) && (trainerLabel(matchTrainer(m)) + ': ' + matchTrainer(m)), matchResponsible(m) && ((staffList(matchResponsible(m)).length > 1 ? 'Afgevaardigden' : 'Afgevaardigde') + ': ' + matchResponsible(m)), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), matchTrainer(m) && (trainerLabel(matchTrainer(m)) + ': ' + matchTrainer(m)), matchResponsible(m) && (responsibleLabel(matchResponsible(m)) + ': ' + matchResponsible(m)), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Locatie: ' + m.venue), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });

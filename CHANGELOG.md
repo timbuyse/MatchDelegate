@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.7
+### De laatste drie punten van de audit
+- **Een speler die zich alleen maar afmeldde, kreeg een leeg scherm.** Zijn detail zei "nog geen gespeelde wedstrijden", terwijl de statistiekenpagina hem wél toonde. Nu staat er voor welke wedstrijden hij afgemeld was, met de datums.
+- **"Geen tegendoel" telde een snel ingevoerde uitslag mee bij de ploeg, maar niet bij de keepers.** Op dezelfde kaart stond dan bijvoorbeeld "3/8" bij de ploeg terwijl de keepers samen op 2 kwamen. Nu dezelfde noemer voor beide, met de uitleg erbij welke wedstrijden niet meetellen en waarom.
+- **De ploegverantwoordelijke heette in het exportbestand en in de PDF "Afgevaardigde"** en in de rest van de app "Ploegverantwoordelijke". Nu overal hetzelfde woord.
+
+---
+
 ## v1.3.6
 ### De cijfers: posities per kwart, een A/B-filter en eerlijke aantallen
 - **"Posities" telde alleen de plek waar een speler bij het eindsignaal stond.** Wie drie kwarten centraal achterin stond en het laatste kwart spits speelde, stond in dat blok als spits — één keer. Nu wordt per kwart geteld, wat het opschrift ("hoe vaak per plek") ook belooft.

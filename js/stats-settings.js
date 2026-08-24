@@ -227,6 +227,7 @@ async function loadStats() {
   const sortedList = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
   let reeksen = 0, reeksenGewonnen = 0;   // strafschoppenreeksen (zie m.shootout in core.js)
+  let gemetenAantal = 0;                  // wedstrijden met geregistreerde speeltijd — zie clean sheets
   const pl = {};
   // Groepeert op rosterId wanneer beschikbaar (stabiel over naamswijzigingen heen), anders op naam (oude matches, gasten).
   const getp = (rosterId, name, num) => {
@@ -262,11 +263,16 @@ async function loadStats() {
     // hierboven blijven die van de wedstrijd zelf — een strafschop uit de reeks is geen doelpunt.
     { const r = matchResultaat(m); if (r === 'W') w++; else if (r === 'V') l++; else d++; }
     if (heeftShootout(m)) { reeksen++; if (shootoutWinnaar(m) === 'us') reeksenGewonnen++; }
-    if (m.scoreThem === 0) cleanSheets++;
     const mins = calcMinutes(m);
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
     const gemeten = getGameTimeMs(m) > 0;
+    // ALLEEN GEMETEN WEDSTRIJDEN (audit 25-08-2026). De ploegteller nam élke wedstrijd zonder
+    // tegendoel mee, ook een "Snel resultaat" — maar de keeperregels eisen ms > 0, wat bij een
+    // snelinvoer nooit waar is. Op dezelfde kaart stond dan "Ploeg 3/8" met keeperrijen die samen op
+    // 2 kwamen, zonder uitleg. Nu dezelfde grens voor beide, en de noemer is het aantal wedstrijden
+    // waarin er speeltijd bijgehouden is (`gemetenAantal`).
+    if (gemeten) { gemetenAantal++; if (m.scoreThem === 0) cleanSheets++; }
     for (const p of (m.players || [])) {
       // Reden "speelt elders" (weggeroepen naar de tweede wedstrijd van dezelfde ploeg, die op
       // hetzelfde uur loopt): hij voetbalde wel degelijk, alleen niet hier. Dus geen gemiste
@@ -434,7 +440,7 @@ async function loadStats() {
     + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>{
       const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
-    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
+    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: die ${list.length - gemetenAantal === 1 ? 'is' : 'zijn'} via "Snel resultaat" ingevoerd, dus er is geen speeltijd bijgehouden.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
       // Per PLEK, aflopend: "CAM×5 · CM×3 · RM×1". De linie staat eronder als samenvatting, want dat is
@@ -530,7 +536,22 @@ async function loadPlayerDetail() {
       : `Geen wedstrijden van soort "${esc(kindLabelLow())}" voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.`;
     // Het tornooiblok hoort hier wél bij: een speler kan in een tornooiselectie staan in een seizoen
     // waarin nog geen enkele wedstrijd gespeeld is (bv. een tornooi vóór de competitiestart).
-    el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>` + tournamentBlock; return;
+    // WIE ENKEL AFGEMELD STOND, KRIJGT NU ZIJN AFWEZIGHEDEN TE ZIEN (audit 25-08-2026). doneList eist
+    // dat hij in `players` van de wedstrijd zat; een seizoen waarin hij alleen in `absentPlayers`
+    // voorkomt gaf dus "nog geen gespeelde wedstrijden", terwijl de statistiekenpagina hem wél toont
+    // (met 0%). Je klikte op een rij met informatie en landde op een leeg scherm.
+    // Zonder gespeelde wedstrijden is er ook geen seizoen gekozen (de seizoenskiezer komt uit
+    // allDone, en die is dan leeg) — dan mag er niet op seizoen gefilterd worden, anders blijft dit
+    // blok altijd leeg. Precies het geval van een speler die enkel afgemeld stond (gemeten).
+    const nbLijst = all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2)
+      && (!playerDetailSeason || seasonOf(m2) === playerDetailSeason) && kindMatches(m2)
+      && (m2.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
+        .some(ab => rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name));
+    const nbBlok = nbLijst.length ? `<div class="sec">${icI(IC.clipboard)} Niet beschikbaar</div><div class="card">
+      <p style="font-size:13px;color:var(--txt2);margin:0 0 8px">${nbLijst.length === 1 ? 'Voor deze wedstrijd was' : 'Voor deze ' + nbLijst.length + ' wedstrijden was'} ${esc(name)} afgemeld. Gespeeld heeft hij dit seizoen nog niet.</p>
+      ${nbLijst.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m2 => `<div class="stat-row"><span style="flex:1">${esc(m2.opponent || 'Wedstrijd')}</span><span style="color:var(--txt2);font-size:13px">${m2.date ? esc(fmtDate(new Date(m2.date + 'T00:00:00').getTime())) : ''}</span></div>`).join('')}
+    </div>` : '';
+    el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>` + nbBlok + tournamentBlock; return;
   }
   let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
   // Strafschoppen van deze speler, tijdens de wedstrijd én in een reeks samengeteld (Tim, 23-08-2026):
