@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.6
+### De cijfers: posities per kwart, een A/B-filter en eerlijke aantallen
+- **"Posities" telde alleen de plek waar een speler bij het eindsignaal stond.** Wie drie kwarten centraal achterin stond en het laatste kwart spits speelde, stond in dat blok als spits — één keer. Nu wordt per kwart geteld, wat het opschrift ("hoe vaak per plek") ook belooft.
+- **Nieuw: een ploeglabel-filter (A/B) in de cijfers.** De wedstrijdenlijst had die al; de cijfers telden A en B altijd samen en je kon dat nergens splitsen.
+- **Het filterpaneel zegt nu hoeveel wedstrijden er overblijven** ("1 van de 3 gespeelde wedstrijden in dit seizoen") en heeft een knop **Filter wissen**. Voordien moest je het paneel sluiten en naar de kaart "Gespeeld" kijken.
+- **Niet-afgesloten wedstrijden verdwenen zonder woord uit de cijfers.** Er staat nu een regel boven: hoeveel er niet meetellen, en dat je ze via het startscherm kan afsluiten.
+- **In de prullenmand zegt de bevestiging nu wat er met het tornooi is.** Zet je een wedstrijd terug van een tornooi dat óók verwijderd is, dan hoor je of dat tornooi nog in de prullenmand staat (zet dat dan eerst terug) of definitief weg is (dan komt ze terug als losse wedstrijd).
+- Onder de motorkap: een oude, onbereikbare herstelroutine is verwijderd. Ze hoorde bij een back-upformaat van vóór versie 3 en zou bij een moderne back-up de clubnaam, het clublogo, **de spelerskern** en het thema uit de opslag hebben gewist.
+
+---
+
 ## v1.3.5
 ### Het verslag: kloppende blokduur, de stand per blok, en niets meer wegschrijven bij het kijken
 - **Een blok zonder eindtijd toonde de duur van een ánder blok.** Bij een halverwege afgebroken of gesynchroniseerde wedstrijd stond bij kwart 2 de tijd van het laatste kwart. Nu staat er een streepje: alleen voor het lopende blok is de verstreken tijd het juiste antwoord.

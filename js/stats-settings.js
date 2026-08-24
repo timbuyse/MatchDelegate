@@ -90,7 +90,7 @@ function statsFilterKnopHtml(seasons) {
   const chip = t => `<span class="start-chip on" onclick="modalStatsFilter(${arg})">${esc(t)}</span>`;
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
     <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalStatsFilter(${arg})">${icI(IC.filter)}</button>
-    ${seasonFilter ? chip(seasonFilter) : ''}${chip(soort)}
+    ${seasonFilter ? chip(seasonFilter) : ''}${chip(soort)}${statsSubteam !== 'all' ? chip('Ploeg ' + statsSubteam) : ''}
   </div>`;
 }
 function modalStatsFilter(seasons) {
@@ -106,6 +106,17 @@ function modalStatsFilter(seasons) {
       <select onchange="setKindFilter(this.value);modalStatsFilter(${JSON.stringify(ss).replace(/"/g, '&quot;')})">
         ${soorten.map(([w, l]) => `<option value="${esc(w)}" ${kindFilter === w ? 'selected' : ''}>${esc(l)}</option>`).join('')}
       </select></div>
+    ${statsSubteamOpties().length ? `<div class="fg"><label>Ploeglabel</label>
+      <select onchange="setStatsSubteam(this.value);modalStatsFilter(${JSON.stringify(ss).replace(/"/g, '&quot;')})">
+        <option value="all" ${statsSubteam === 'all' ? 'selected' : ''}>Alle</option>
+        ${statsSubteamOpties().map(s => `<option value="${esc(s)}" ${statsSubteam === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+      </select></div>` : ''}
+    ${(() => {
+      const bron = (_statsBron || []).filter(m => seasonOf(m) === seasonFilter);
+      const over = bron.filter(m => kindMatches(m) && (statsSubteam === 'all' || (m.subteam || '').trim() === statsSubteam));
+      return `<p style="text-align:center;color:var(--txt2);font-size:12px;margin:2px 0 10px">${over.length} van de ${bron.length} gespeelde ${bron.length === 1 ? 'wedstrijd' : 'wedstrijden'} in dit seizoen${statsFilterActief() ? '' : ' · geen filter actief'}</p>`;
+    })()}
+    ${statsFilterActief() ? `<button class="btn btn-pale" onclick="wisStatsFilter()">${icI(IC.close)} Filter wissen</button>` : ''}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 // Eén gedeelde keuze voor het seizoensoverzicht én het spelerdetail: wie naar de bekerwedstrijden
@@ -115,6 +126,18 @@ function setKindFilter(v) { kindFilter = v; if (view === 'playerDetail') loadPla
 // Label voor de lege staat, zodat "niets te zien" niet als "geen wedstrijden" leest. Verdraagt de
 // null-stand (nog niets gekozen): die komt hier normaal niet, maar een label hoort geen scherm te
 // laten crashen.
+// PLOEGLABEL-FILTER (audit 25-08-2026): de wedstrijdenlijst filtert al op subteam (A/B), de cijfers
+// niet — een ploeg die in A én B speelt zag beide altijd samengeteld en kon dat nergens splitsen.
+// `_statsBron` is waaruit het paneel zijn keuzes haalt en waarmee het het aantal toont, net zoals
+// `_matchFilterBron` bij de wedstrijdenlijst.
+let statsSubteam = 'all';
+let _statsBron = [];
+function setStatsSubteam(v) { statsSubteam = v || 'all'; loadStats(); }
+function statsSubteamOpties() {
+  return [...new Set((_statsBron || []).map(m => (m.subteam || '').trim()).filter(Boolean))].sort();
+}
+function statsFilterActief() { return (statsSubteam !== 'all' ? 1 : 0) + ((kindFilter && kindFilter !== 'all') ? 1 : 0); }
+function wisStatsFilter() { statsSubteam = 'all'; kindFilter = 'all'; closeModal(); loadStats(); }
 function kindLabelLow() { return (!kindFilter || kindFilter === 'all') ? 'alle wedstrijden' : (kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase()); }
 // In het spelerdetail staat de soort onder de seizoenskiezer, als knop met dezelfde tekst als op de
 // statistiekenpagina. Het seizoen zit daar in zijn eigen kiezer, dus dit paneel toont enkel de soort.
@@ -175,7 +198,20 @@ async function loadStats() {
     const inSeizoen = candidates.filter(m => seasonOf(m) === seasonFilter);
     kindFilter = inSeizoen.some(m => matchKindOf(m) === 'Competitie') ? 'Competitie' : 'all';
   }
-  const list = candidates.filter(m => seasonOf(m) === seasonFilter && kindMatches(m));
+  _statsBron = candidates;
+  const list = candidates.filter(m => seasonOf(m) === seasonFilter && kindMatches(m)
+    && (statsSubteam === 'all' || (m.subteam || '').trim() === statsSubteam));
+  // ZEG HET WANNEER ER WEDSTRIJDEN BUITEN VALLEN (audit 25-08-2026). `candidates` eist status 'done',
+  // dus een wedstrijd waarvan de dag voorbij is maar die nooit afgesloten werd, telt nergens mee. Het
+  // beginscherm heeft daar een eigen melding voor; hier stond niets, en dan is "Gespeeld: 12" naast
+  // een kalender met 14 gespeelde wedstrijden het soort verschil waar iemand een uur naar zoekt.
+  const nietAfgesloten = (typeof matchNietAfgesloten === 'function')
+    ? all.filter(m => !m.tournamentId && (statsFilter === 'all' || m.teamName === statsFilter)
+        && matchNietAfgesloten(m) && seasonOf(m) === seasonFilter && kindMatches(m)).length
+    : 0;
+  const nietAfgeslotenRegel = nietAfgesloten
+    ? `<p style="font-size:12px;color:var(--org2,#b45309);margin:-4px 0 10px">${icI(IC.warn)} ${nietAfgesloten === 1 ? '1 wedstrijd is' : nietAfgesloten + ' wedstrijden zijn'} nooit afgesloten en ${nietAfgesloten === 1 ? 'telt' : 'tellen'} hier niet mee. Sluit ${nietAfgesloten === 1 ? 'ze' : 'ze allemaal'} af via het startscherm.</p>`
+    : '';
   // Enkel bij meer dan één ploeg op dit toestel — zie dezelfde afweging in loadMatches.
   const filterBar = `${(!cloudReady && teams.length > 1) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
@@ -257,9 +293,27 @@ async function loadStats() {
     // van 26 plekken maar het seizoen wél leesbaar houdt.
     if (ms > 0) {
       r.mp++;
+      // PER BLOK TELLEN, NIET ÉÉN KEER PER WEDSTRIJD (audit 25-08-2026). p.x/p.y is de plek waar hij
+      // bij het EINDSIGNAAL stond — die wordt bij elke wissel en positiewissel overschreven. Wie drie
+      // kwarten centraal achterin stond en het laatste kwart spits speelde, stond hier als spits, één
+      // keer. Het opschrift belooft "hoe vaak per plek", en die gegevens bestaan: playersAtPeriodStart
+      // geeft per blok wie waar begon. Lukt dat niet (oude wedstrijd zonder blokken), dan valt het
+      // terug op de eindpositie zoals voorheen.
+      let geteld = false;
+      for (const q of (m.quarters || [])) {
+        if (!q || !q.num || typeof playersAtPeriodStart !== 'function') continue;
+        const toen = playersAtPeriodStart(m, q.num).find(x => x.id === p.id);
+        if (!toen) continue;
+        const c = spelerGridCode(toen);
+        if (c) { r.plekken[c] = (r.plekken[c] || 0) + 1; geteld = true; }
+        const lijn = toen.line || p.line;
+        if (lijn) { r.lines[lijn] = (r.lines[lijn] || 0) + 1; geteld = true; }
+      }
+      if (geteld) { /* per blok geteld */ } else {
       r.lines[p.line] = (r.lines[p.line] || 0) + 1;
       const code = spelerGridCode(p);
       if (code) r.plekken[code] = (r.plekken[code] || 0) + 1;
+      }
     }
       r.ms += ms;
       // keeperByQ (per-kwart bijgehouden, zie syncKeeper()) i.p.v. de eind-positie: anders krijgt
@@ -349,6 +403,7 @@ async function loadStats() {
   const attendTot = p => p.squad + (p.gemist != null ? p.gemist : p.absent);
   const attend = players.filter(p => attendTot(p) > 0).sort((a, b) => (b.squad / attendTot(b)) - (a.squad / attendTot(a)) || b.squad - a.squad);
   el.innerHTML = filterBar
+    + nietAfgeslotenRegel
     + `<div class="card">
       <div class="stat-big" style="margin-bottom:10px">
         <div class="stat-box"><div class="v">${list.length}</div><div class="l">Gespeeld</div></div>
@@ -1532,7 +1587,18 @@ async function loadTeruggevonden() {
 async function tgvHerstelWedstrijd(i) {
   const w = (tgvState || {}).wedstrijden ? tgvState.wedstrijden[i] : null;
   if (!w || !fbdb) return;
-  showConfirm(`"${jsq(w.match.opponent || 'Wedstrijd')}" terugzetten bij ${jsq(w.ploeg)}?`, async () => {
+  // ZEG HET ALS HET TORNOOI OOK WEG IS (audit 25-08-2026). De regel in de prullenmand vermeldt netjes
+  // "hoorde bij tornooi X", maar dat tornooi wordt hier niet mee teruggezet: de wedstrijd komt dan
+  // terug met een verwijzing naar iets dat niet meer bestaat. Het tornooischerm vangt dat op met een
+  // duidelijke melding en twee uitwegen, dus het loopt niet dood — maar je hoort het te weten vóór je
+  // terugzet, en of het tornooi zelf nog in de prullenmand staat.
+  const trnId = w.match.tournamentId;
+  const trnWeg = !!trnId && !(myTournaments || []).some(t => t.id === trnId);
+  const trnInMand = trnWeg && ((tgvState || {}).tornooien || []).some(t => (t.tournament || {}).id === trnId || t.id === trnId);
+  const extra = !trnWeg ? '' : (trnInMand
+    ? ' Let op: het tornooi waar deze wedstrijd bij hoorde staat óók in de prullenmand. Zet eerst dat tornooi terug, dan hangt ze er weer aan.'
+    : ' Let op: het tornooi waar deze wedstrijd bij hoorde bestaat niet meer. Ze komt terug als losse wedstrijd.');
+  showConfirm(`"${jsq(w.match.opponent || 'Wedstrijd')}" terugzetten bij ${jsq(w.ploeg)}?${jsq(extra)}`, async () => {
     try {
       const m = { ...w.match }; delete m.fromCloud;
       // Eerst de back-up weg, dan terugschrijven: staat de wedstrijd er weer terwijl de back-up nog
@@ -1747,15 +1813,18 @@ async function doRestore(mode) {
   // bewerking door een beheerder gaat ze opnieuw naar de cloud van de actieve ploeg.
   const incoming = (data.matches || []).map(m => { const c = { ...m }; delete c.fromCloud; return c; });
   const norm = s => (s || '').trim().toLowerCase();
+  // DE 'replace'-TAK IS OPGERUIMD (audit 25-08-2026). Ze wiste de matches-store en zette daarna de
+  // instellingen terug uit `data.settings` — maar exportBackup schrijft die sleutels sinds versie 3
+  // niet meer weg. Op een moderne back-up deed setOrDel dus localStorage.removeItem op de clubnaam,
+  // het clublogo, de SPELERSKERN (voetbal_teams_v2) en het thema. Onbereikbaar (de enige aanroeper is
+  // doRestore('merge')), maar dat is precies het soort code dat iemand later "weer aanzet".
+  // Komt er ooit opnieuw een volledige-vervangingsmodus, dan hoort ze bij een back-up die die
+  // sleutels ook echt meeschrijft.
   if (mode === 'replace') {
-    await new Promise((res, rej) => { const tx = db.transaction('matches', 'readwrite'); const st = tx.objectStore('matches'); st.clear(); incoming.forEach(m => st.put(m)); tx.oncomplete = () => res(); tx.onerror = () => rej(); });
-    const s = data.settings || {};
-    const setOrDel = (k, v) => { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); };
-    setOrDel('voetbal_club_name', s.clubName); setOrDel('voetbal_club_logo', s.clubLogo);
-    setOrDel('voetbal_teams_v2', s.teamsV2); setOrDel('voetbal_countdown', s.countdown);
-    setOrDel('voetbal_theme', s.theme); setOrDel('voetbal_dark', s.dark);
-    setOrDel('voetbal_tournaments', s.tournaments);
-  } else {
+    showToast('Volledig vervangen bestaat niet meer — de back-up wordt samengevoegd.', 'err');
+    mode = 'merge';
+  }
+  {   // het samenvoegen (de enige modus die overblijft)
     // Samenvoegen: enkel wedstrijden toevoegen die nog niet bestaan (op id).
     const existing = await dbAll();
     const ids = new Set(existing.map(m => m.id));
