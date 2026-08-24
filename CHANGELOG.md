@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.7.0
+### Twee toestellen kunnen elkaars werk niet meer stil wissen
+Uit een echte tweetoestellentest op 24-08-2026, met twee aanmeldingen op dezelfde ploeg. Wat al goed werkte: een wedstrijd aanmaken komt aan, twee doelpunten op exact hetzelfde moment blijven allebei staan, een toestel dat een half minuutje offline gaat verliest niets, en de klok loopt op beide toestellen gelijk.
+
+- **De kern werd als één blok bewaard.** Bewerkten twee beheerders tegelijk — de een hernoemt een speler, de ander voegt er een toe — dan won wie het laatst opsloeg en verdween het werk van de ander zonder melding, ook uit de cloud. Nu wordt er **per speler** samengevoegd: de nieuwste wijziging van elke speler wint, wat het ene toestel heeft en het andere niet blijft bestaan, en een verwijderde speler komt niet terug. De opgeslagen vorm verandert niet, dus bestaande kernen werken ongewijzigd verder. (De tornooien gingen al per stuk sinds v0.9.3.)
+- **Een invaller kon zijn plaats op het veld verliezen.** Voerden twee beheerders op hetzelfde moment een wissel door, dan overleefden beide wissels wel, maar de invaller van het ene toestel kwam er zónder positie op te staan — waardoor hij ontbrak op het velddiagram, in de PDF en in de positiestatistiek. Bij het samenvoegen worden de plaatsen nu mee herbouwd, langs dezelfde weg die het verslag gebruikt. Wedstrijden die al in die toestand staan, herstellen zichzelf bij de eerstvolgende synchronisatie.
+
+---
+
 ## v1.6.1
 ### De kijkmodus is weg
 - **De schakelaar "Bekijken als kijker" is verwijderd.** Hij was een val: de schakelaar stond op het beheerscherm, maar zodra de kijkmodus aanstond, opende de chip bovenaan het gewone ploegscherm in plaats van het beheerscherm — de enige weg terug zat dus achter een deur die je net had dichtgedaan. De app herladen was de enige uitweg.

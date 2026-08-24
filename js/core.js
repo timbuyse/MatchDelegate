@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.6.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.7.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -808,7 +808,46 @@ function setDarkPref(v) { localStorage.setItem('voetbal_dark', v); applyDark(); 
 })();
 // ----- Ploegen v2: {id, name, players:[{id,name,number,pos}]} -----
 function getTeamsV2() { try { return JSON.parse(localStorage.getItem('voetbal_teams_v2') || '[]'); } catch (e) { return []; } }
-function saveTeamsV2(arr) { localStorage.setItem('voetbal_teams_v2', JSON.stringify(arr)); cloudOnLocalTeamsSave(arr); }
+// ---- Per speler stempelen en grafstenen zetten (v1.7.0) ----
+// Het rooster ging als één blok naar de cloud én werd als één blok teruggelezen: bewerkten twee
+// beheerders tegelijk, dan won de laatste en verdween het werk van de ander zonder één melding.
+// (Dat is in juli al eens een echte kern kwijtgeraakt.) De VORM van de opgeslagen gegevens blijft
+// hier bewust ongewijzigd — dat is de zwaarste soort wijziging in deze app. In de plaats krijgt
+// elke speler die je wijzigt een `updatedAt`, en wie je verwijdert een grafsteen in
+// `deletedPlayers`. applyCloudTeams voegt daarmee per speler samen, precies zoals de events van een
+// wedstrijd dat al doen. Een rooster zonder die velden werkt exact zoals voordien: geen stempel =
+// oudst, dus de kant die er wél een heeft wint, en dat is de kant die net bewerkt is.
+function _stempelSpelers(nieuw, oud) {
+  const nu = Date.now();
+  const oudById = {};
+  (oud || []).forEach(t => (t.players || []).forEach(p => { if (p && p.id) oudById[p.id] = p; }));
+  (nieuw || []).forEach(t => {
+    (t.players || []).forEach(p => {
+      if (!p || !p.id) return;
+      const v = oudById[p.id];
+      // Enkel stempelen wat écht veranderde: anders is élke bewaring "de nieuwste" en voegt de
+      // samenvoeging niets meer toe. De stempel zelf blijft buiten de vergelijking.
+      const zonder = o => { const c = Object.assign({}, o); delete c.updatedAt; return JSON.stringify(c); };
+      if (!v || zonder(v) !== zonder(p)) p.updatedAt = nu;
+      else if (v.updatedAt) p.updatedAt = v.updatedAt;
+    });
+    // Wie uit de lijst verdween, krijgt een grafsteen — anders zet de samenvoeging hem terug vanaf
+    // een toestel dat hem nog kent. Zelfde gedachte als deletedEventIds bij een wedstrijd.
+    const nuIds = new Set((t.players || []).map(p => p && p.id).filter(Boolean));
+    const oudeVanDezePloeg = (oud || []).find(x => x.id === t.id);
+    const weg = ((oudeVanDezePloeg || {}).players || []).filter(p => p && p.id && !nuIds.has(p.id));
+    if (weg.length) {
+      t.deletedPlayers = Object.assign({}, t.deletedPlayers || {});
+      weg.forEach(p => { t.deletedPlayers[p.id] = nu; });
+    }
+  });
+  return nieuw;
+}
+function saveTeamsV2(arr) {
+  const gestempeld = _stempelSpelers(arr, getTeamsV2());
+  localStorage.setItem('voetbal_teams_v2', JSON.stringify(gestempeld));
+  cloudOnLocalTeamsSave(gestempeld);
+}
 function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
 // ----- Rooster per ploeg: cache + "al geladen?"-vlag -----
 // In cloudmodus bevat 'voetbal_teams_v2' enkel het rooster van de ACTIEVE ploeg: applyCloudTeams
@@ -2569,17 +2608,42 @@ async function applyCloudMatch(id, m) {
     }
   }
   // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
+  let eventsGemerged = false;
   if (existing && Array.isArray(existing.events) && existing.events.length) {
     const cloudEventIds = new Set(m.events.map(e => e.id));
     const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
     if (localOnly.length) {
       m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
       recomputeScore(m); recomputeOnField(m);
+      eventsGemerged = true;
       // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een
       // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
       // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
       cloudOnLocalMatchSave(m);
     }
+  }
+  // OOK DE PLAATSEN HERBOUWEN (v1.6.2) — punt 22 van de openstaande lijst.
+  // De gebeurtenissen mergen hierboven correct, maar `m.players` wordt integraal overgenomen van
+  // wat er binnenkomt. Wisselden twee beheerders op hetzelfde moment, dan overleefden beide wissels
+  // wél (recomputeOnField zet allebei de invallers op het veld), maar de invaller van het
+  // "verliezende" toestel kwam er zonder PLAATS op te staan: x/y bleven leeg, want in het
+  // binnengekomen spelersobject stond hij nog op de bank. Gemeten met twee echte toestellen op
+  // 24-08-2026: acht spelers op het veld, beide wissels in het verloop, maar "Ilias@undefined".
+  // Gevolg: hij ontbreekt op het velddiagram, in de PDF en in de positiestatistiek.
+  // Herbouwen lost het volledig op (gemeten: Ilias komt terug op LV, de plek van wie hij verving).
+  // Dit is exact dezelfde reconstructie die het verslag en de PDF gebruiken om een blok te tekenen,
+  // dus ze kan per definitie geen andere waarheid opleveren dan wat er straks getoond wordt — in
+  // het normale geval is het een no-op.
+  // Twee aanleidingen: (1) we hebben net events samengevoegd, (2) er staat iemand op het veld
+  // zonder plaats. Dat tweede maakt het zelfherstellend voor wedstrijden die al in die toestand
+  // bewaard zijn.
+  const gatInOpstelling = (m.players || []).some(p => p.onField && typeof p.x !== 'number');
+  if ((eventsGemerged || gatInOpstelling) && Array.isArray(m.quarters) && m.quarters.length) {
+    try {
+      if (typeof rebuildPositions === 'function' && typeof playersAtPeriodStart === 'function') {
+        rebuildPositions(m, playersAtPeriodStart(m, 1));
+      }
+    } catch (e) { /* een mislukte herbouw mag de sync nooit breken */ }
   }
   // Notities zitten niet (meer) in het cloud-object (zie cloudOnLocalMatchSave) — lokaal bewaarde
   // notities overnemen zodat ze niet verdwijnen tot de aparte teamNotes-listener ze aanvult.
@@ -2737,13 +2801,46 @@ function applyCloudTeams(val) {
     trainers: Array.isArray(t.trainers) ? t.trainers : [],
     fromCloud: true
   }));
-  const merged = cloud; // in cloud-modus enkel cloud-ploegen bewaren
+  // PER SPELER SAMENVOEGEN (v1.7.0) — punt 3 van de openstaande lijst. Hier stond `const merged =
+  // cloud`: wat binnenkwam verving het lokale rooster volledig. Bewerkte een tweede beheerder op
+  // hetzelfde moment een ándere speler, dan was jouw wijziging weg zodra zijn versie binnenkwam —
+  // zonder melding, en ook uit de cloud, want niemand pushte ze nog terug.
+  // Nu per speler: de nieuwste stempel wint, wie de cloud niet kent maar wij wél blijft staan, en
+  // wie een grafsteen heeft blijft weg. Daarna terugpushen zodat alle toestellen samenkomen —
+  // dezelfde zelfherstellende lus als bij de gebeurtenissen van een wedstrijd.
+  const lokaal = getTeamsV2();
+  let moetTerug = false;
+  const merged = cloud.map(ct => {
+    const lt = lokaal.find(x => x.id === ct.id);
+    if (!lt) return ct;
+    const graven = Object.assign({}, lt.deletedPlayers || {}, ct.deletedPlayers || {});
+    const perId = {};
+    (ct.players || []).forEach(p => { if (p && p.id) perId[p.id] = p; });
+    (lt.players || []).forEach(p => {
+      if (!p || !p.id) return;
+      const c = perId[p.id];
+      if (!c) { perId[p.id] = p; moetTerug = true; return; }   // cloud kent hem niet: bewaren
+      if ((p.updatedAt || 0) > (c.updatedAt || 0)) { perId[p.id] = p; moetTerug = true; }
+    });
+    Object.keys(graven).forEach(id => {
+      // Een speler die je na het grafsteentje opnieuw toevoegde, mag niet alsnog weggegooid worden.
+      if (perId[id] && (perId[id].updatedAt || 0) > graven[id]) return;
+      if (perId[id]) { delete perId[id]; moetTerug = true; }
+    });
+    const spelers = Object.values(perId);
+    return Object.assign({}, ct, { players: spelers }, Object.keys(graven).length ? { deletedPlayers: graven } : {});
+  });
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   // Rooster van de actieve ploeg is nu écht binnen: vlag zetten (leeg betekent van hier af ook
   // echt "geen spelers") en apart cachen zodat een volgende wissel naar deze ploeg meteen klopt.
   rosterTeamId = activeTeamId;
   rosterLoaded = true;
   cacheRoster(activeTeamId, merged);
+  // Terugpushen wanneer wij iets hadden dat de cloud miste, zodat het andere toestel het ook krijgt.
+  // NA het zetten van de vlaggen hierboven: cloudOnLocalTeamsSave weigert te schrijven zolang
+  // rosterReady() onwaar is, en dat is precies wat die vlaggen bepalen.
+  // Geen lus: na de echo is er niets meer dat enkel lokaal staat en stopt dit vanzelf.
+  if (moetTerug && isAdmin) cloudOnLocalTeamsSave(merged);
   cloudRefreshUI();
 }
 // Tornooien stonden vroeger als één array in de cloud en werden hier onvoorwaardelijk over de
