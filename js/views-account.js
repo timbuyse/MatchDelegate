@@ -2429,7 +2429,7 @@ function startLineupHtml(m, qn) {
 function renderEventLog(m) {
   const groups = eventsByQuarter(m);
   if (!groups.length) return '<p style="color:var(--txt2);font-size:14px">Geen events.</p>';
-  const elog_ro = !!(m.fromCloud && (!isAdmin || viewerMode));
+  const elog_ro = !canLive();   // zelfde maatstaf als het livescherm en het verslag (audit 25-08-2026)
   const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']);
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;

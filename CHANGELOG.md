@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.5
+### Eén regel voor wie wat mag, en je notities blijven ook zonder verbinding
+- **Kijkmodus werkte niet op een wedstrijd die niet in de cloud staat.** Op het livescherm, het verslag en het verloop bleven dan alle knoppen staan. Een deel weigerde stil, maar een ander deel deed het echt: de opstelling, de wissels, de kapitein en het afwezig melden. Nu geldt overal dezelfde regel als op het voorbereidingsscherm: geen gast, geen kijkmodus, en zonder verbinding mag alles wat live kan gebeuren.
+- **Zonder verbinding zag je je notities niet meer.** De notitiekaart in het verslag, de notities per speler en de notities in de PDF hingen aan "verbinding nodig" — terwijl je aan de zijlijn wél notities kan schrijven. Je typte dus in het niets tot je weer bereik had. Nu staan ze er ook offline.
+- **"Export" is voor wie de wedstrijd beheert.** Die knop stond voor iedereen op het verslag, en het bestand bevat de wedstrijd ongefilterd: jouw notities, de notities per speler en de reden van een afwezigheid — precies wat het scherm voor een kijker verbergt. **Delen en PDF blijven wel voor iedereen**: de PDF houdt zich aan jouw oogjes, en een ouder mag de uitslag doorsturen.
+
+---
+
 ## v1.2.4
 ### Doelpunten die niet klopten met wat je zag
 - **Het doelpuntvenster kon "eigen doel" tonen en een gewoon tegendoel opslaan.** Wisselde je van ploeg en terug, dan bleef het schakelaartje op "Eigen doel" staan mét de speler die je had aangeduid — maar er werd een gewoon tegendoel bewaard, zonder speler. De stand was gelijk, het verloop en de spelersstatistiek niet. Nu gaat dat deel van het venster mee terug wanneer je van ploeg wisselt.

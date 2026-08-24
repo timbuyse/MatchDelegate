@@ -1,7 +1,14 @@
 // ===================== LIVE MATCH =====================
 function renderLive() {
   if (!match) return '<div class="content"><p>Geen wedstrijd.</p></div>';
-  const ro = !!(match.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
+  // ÉÉN MAATSTAF (audit 25-08-2026). Stond hier: `match.fromCloud && (!isAdmin || viewerMode)`.
+  // Twee gaten: (1) bij een wedstrijd die NIET uit de cloud komt was ro altijd false, ook met de
+  // kijkmodus aan — en de helft van de handelingen op dit scherm heeft geen eigen wachter, dus daar
+  // kon een "kijker" de opstelling, de wissels en de kapitein echt herschrijven; (2) een gast zat er
+  // niet in, en offline (waar isAdmin false kan zijn) sloot het een beheerder juist buiten.
+  // canLive() is precies de bedoelde regel: niet als gast, niet in kijkmodus, en zonder verbinding
+  // mag alles wat live kan gebeuren. renderPrep gebruikt die al sinds 23-08.
+  const ro = !canLive(); // kijker of gast: alleen-lezen
   const q = match.quarters[match.quarters.length - 1];
   const isRunning = q && q.startTime && !q.pausedAt && !q.endTime;
   const isPaused = q && q.pausedAt;
@@ -1626,6 +1633,7 @@ async function shareReport() {
 }
 // Eén wedstrijd exporteren als bestand (om door te sturen of op een ander toestel te importeren).
 function exportMatchModal() {
+  if (!canLive() || !match) return;   // audit 25-08-2026: ruwe export enkel voor wie beheert
   openModal(`<h3>${icI(IC.download)} Export</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <button class="btn btn-pale" style="flex-direction:column;align-items:center;gap:6px;padding:16px 8px" onclick="closeModal();exportMatchCSV()">
@@ -1642,6 +1650,9 @@ function exportMatchModal() {
     <button class="btn btn-gray" onclick="closeModal()">Annuleer</button>`);
 }
 function exportMatch() {
+  // Tweede slot naast de verborgen knop (audit 25-08-2026): dit bestand bevat de wedstrijd
+  // ongefilterd, dus ook de notities. Wie het scherm alleen mag lezen, hoort het niet te krijgen.
+  if (!canLive() || !match) return;
   const data = { app: 'voetbal-match', version: 1, exportedAt: Date.now(), match };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -1651,6 +1662,7 @@ function exportMatch() {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function exportMatchCSV() {
+  if (!canLive() || !match) return;   // audit 25-08-2026: ruwe export enkel voor wie beheert
   const m = match;
   const team = tName(m);
   const opp = m.opponent || '';

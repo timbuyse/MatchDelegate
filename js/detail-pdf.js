@@ -2,7 +2,7 @@
 function renderDetail() {
   if (!match) return '<div class="content"><p>Niet gevonden.</p></div>';
   if (ensurePosNums(match)) dbSave(match);
-  const ro = !!(match.fromCloud && (!isAdmin || viewerMode)); // kijker: alleen-lezen
+  const ro = !canLive(); // kijker of gast: alleen-lezen — zelfde maatstaf als het livescherm (25-08-2026)
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
@@ -59,10 +59,15 @@ function renderDetail() {
         </div>`}
       </div>`
       : (ro || match.status !== 'done' ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" class="no-print">
+    ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
+         stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
+         notities, de notities per speler en de reden van afwezigheid — precies wat het scherm voor een
+         kijker verbergt. Delen en PDF blijven voor iedereen: dat is een bewuste keuze (de PDF
+         respecteert de oogjes, en een ouder mag de uitslag doorsturen). */ ''}
+    <div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
       <button class="btn btn-org btn-sm" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
-      <button class="btn btn-pale btn-sm" onclick="exportMatchModal()">${icI(IC.download)} Export</button>
+      ${ro ? '' : `<button class="btn btn-pale btn-sm" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
@@ -88,7 +93,10 @@ function renderDetail() {
       </div>`;
     })()}
     ${photoSectionHtml(match, ro)}
-    ${!canManage() ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
+    ${/* canLive, niet canManage (audit 25-08-2026): canManage is offline false, dus zonder verbinding
+         verdween de notitiekaart — terwijl de knop om een snelle notitie te SCHRIJVEN aan de lijn wel
+         werkt. Je typte dus in het niets: niet te lezen, niet te verbeteren tot je weer bereik had. */ ''}
+    ${!canLive() ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
       <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
@@ -123,7 +131,7 @@ function renderDetail() {
         }).join('');
       })()}
     </div>`}
-    ${canManage() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
+    ${canLive() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
     <div class="sec">Events (${match.events.length})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(() => {
@@ -1103,7 +1111,8 @@ async function pdfMatchBody(doc, L, m) {
   }
 
   // ---- Notities (enkel beheerder) ----
-  if (canManage() && m.notes) {
+  // canLive: een PDF zonder notities was het gevolg van canManage offline (audit 25-08-2026).
+  if (canLive() && m.notes) {
     // Lettergrootte instellen vóór splitTextToSize, anders wordt er op de verkeerde maat gewikkeld.
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     const lines = doc.splitTextToSize(m.notes, CW);
@@ -1113,7 +1122,7 @@ async function pdfMatchBody(doc, L, m) {
     L.y += 10;
   }
   const notedPlayers = m.players.filter(p => p.note);
-  if (canManage() && notedPlayers.length) {
+  if (canLive() && notedPlayers.length) {
     heading('Notities per speler', 15);
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
     for (const p of notedPlayers) {
