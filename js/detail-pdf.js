@@ -177,7 +177,14 @@ function renderDetail() {
         .map(([pid, ms]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(pName(match, pid))}</span><span style="font-weight:600">${Math.round(ms / 60000)} min</span></div>`).join('');
       return `<div class="sec">Keeper(s)</div><div class="card">${rows}</div>`;
     })()}
-    ${(match.fromCloud && (!isAdmin || viewerMode)) ? '' : `<div class="no-print">
+    ${/* DEZELFDE MAATSTAF ALS DE REST VAN DIT SCHERM (rollentest 24-08-2026). Hier stond nog
+         `match.fromCloud && (!isAdmin || viewerMode)`: een eigen formule die enkel afging bij een
+         wedstrijd die uit de cloud kwam. Bij een LOKALE wedstrijd bleef deze hele zone dus staan in
+         de kijkmodus — met Event toevoegen, Spelernotities, Info bewerken, heropenen en
+         verwijderen. Precies dezelfde fout als die op 23-08-2026 in renderPrep rechtgezet is; dit
+         scherm bleef toen staan. `ro` bovenaan deze functie is al !canLive(), en de notitiezone
+         hierboven gebruikt die maatstaf ook. */ ''}
+    ${ro ? '' : `<div class="no-print">
       <div style="margin-bottom:8px">
         <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
       </div>

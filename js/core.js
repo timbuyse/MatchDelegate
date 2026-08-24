@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.4.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.4.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2885,8 +2885,12 @@ function canManage() { return !isGuest && !viewerMode && !offlineWithKnownCloudT
 // gestart", "Opnieuw beginnen", een event verplaatsen en de strafschoppenreeks via het verslag
 // STIL niets — geen venster, geen melding. Precies wat je langs de lijn niet kan gebruiken.
 function canLive() { return !isGuest && !viewerMode && (!cloudReady || isAdmin); }
-// Statistieken (seizoensoverzicht + individueel spelerdetail) zijn enkel voor beheerders,
-// niet voor kijkers of gasten (bewuste keuze). Anders dan canManage() blijft dit offline wél
+// Het individuele SPELERDETAIL is enkel voor beheerders (zie de bocht naar 'home' in render()).
+// Het seizoensoverzicht mag een kijker wél openen: welke blokken hij daar ziet, bepalen de oogjes
+// hieronder (statSectionVisible). Deze regel zei eerder dat het overzicht óók enkel voor beheerders
+// was — dat klopte niet meer met de code (vastgesteld bij de rollentest van 24-08-2026).
+// Een GAST komt nergens: die wordt op elk scherm teruggestuurd naar de gastpagina.
+// Anders dan canManage() blijft dit offline wél
 // true, zodat een beheerder zijn stats ook zonder verbinding kan bekijken.
 // Offline mét een gekende cloud-ploeg telt de gecachete rol (isAdmin uit localStorage): anders
 // zag een KIJKER bij een falende SDK-load plots de volledige beheerdersweergave. Pure lokale

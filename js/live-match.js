@@ -4848,6 +4848,7 @@ async function confirmFreekick() {
 
 // Event toevoegen achteraf (detail view): kies eerst het kwart, dan het event-type
 function modalAddPostEvent() {
+  if (!canLive() || !match) return;   // rollentest 24-08-2026: gordel EN bretellen
   const quarters = match.quarters || [];
   const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
   _postEventQuarter = lastQ !== null ? lastQ : 'unknown';

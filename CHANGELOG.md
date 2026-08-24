@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.4.2
+### Wat een kijker ziet op een verslag
+- **Bij een lokale (niet-gesynchroniseerde) wedstrijd bleven de bewerkknoppen zichtbaar voor een kijker.** Het verslagscherm verborg die zone met een eigen formule die enkel afging bij een wedstrijd uit de cloud, terwijl de rest van datzelfde scherm de gewone rolcontrole al gebruikte. Precies dezelfde fout die op 23-08-2026 in het voorbereidingsscherm rechtgezet is; dit scherm bleef toen staan. Gevolg: in de **kijkmodus** kreeg je voor zulke wedstrijden een weergave die niet klopte met wat een kijker echt ziet, en *Event toevoegen* en *Spelernotities* — de enige twee knoppen daar zonder eigen wachter — deden hun werk gewoon. Naar de cloud ging er niets: dat pad vraagt de beheerdersrol en de serverregels weigeren het.
+- Die twee vensters hebben nu ook zelf een wachter, zoals de andere.
+- De toelichting bij de cijferrechten zei dat het seizoensoverzicht enkel voor beheerders was. Dat klopt niet: een kijker mag dat overzicht openen en de oogjes bepalen welke blokken hij ziet. Alleen het individuele spelerdetail is beheerdersgebied. Tekst gelijkgezet met de code.
+
+---
+
 ## v1.4.1
 ### Twee toestellen: een blok zonder start kan niet meer
 - **Een teruggenomen blok kon terugkeren zonder zijn startgebeurtenis.** Nam je een blok terug (*Toch nog niet gestart*) of begon je opnieuw, en schreef een tweede toestel daarna nog met verouderde gegevens weg, dan kwam dat blok terug uit de cloud terwijl zijn start als verwijderd gemarkeerd stond. Je hield een kwart over dat volgens de gegevens nooit begonnen is, met speelminuten die niet meer klopten. Het samenvoegen laat de wismarkering nu ook gelden voor het blok zelf. Blijkt uit de gegevens dat het andere toestel dat blok tóch gespeeld heeft (er staat bijvoorbeeld een doelpunt in), dan blijft het blok staan en komt de start terug — er gaat nooit iets van iemand anders verloren om een blok te kunnen verwijderen.

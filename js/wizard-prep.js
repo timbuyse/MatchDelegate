@@ -2497,6 +2497,7 @@ function _spelersKopieStart() {
   _spelersKopieKapitein = match.captainId || null;
 }
 function modalPlayerNotes() {
+  if (!canLive() || !match) return;   // rollentest 24-08-2026: gordel EN bretellen
   _spelersKopieStart();
   // Alfabetisch op familienaam zoals elke spelerslijst, en het rugnummer enkel als de ploeg ze
   // gebruikt. De index voor het onchange-pad is die van match.players — en dus ook die van de kopie.
