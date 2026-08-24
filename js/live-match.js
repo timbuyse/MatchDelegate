@@ -1175,7 +1175,8 @@ async function confirmEndMatch() {
   closeModal(); await forceEndMatch(!isNaN(corrMin) && corrMin > 0 ? corrMin : null);
   // Gelijkspel? Dan kan er een strafschoppenreeks gevolgd zijn. Pas NA het afsluiten vragen: de
   // eindstand ligt dan vast, en wie geen reeks had, is met één tik klaar.
-  if (match.scoreUs === match.scoreThem && !heeftShootout(match)) vraagShootout();
+  // Zonder uitslag valt er niets te beslissen met strafschoppen (v1.6.0).
+  if (!geenUitslag(match) && match.scoreUs === match.scoreThem && !heeftShootout(match)) vraagShootout();
 }
 // ===================== STRAFSCHOPPENREEKS =====================
 // De wedstrijdscore blijft ongemoeid (zie de uitleg bij shootoutSchoten in core.js): de reeks staat
@@ -1394,7 +1395,11 @@ function modalEditMatchInfo() {
     ${(FORMATIONS[match.matchType]||[]).length ? `<div class="fg"><label>Spelvorm (formatie)</label>
       <select id="ei-formation">${(FORMATIONS[match.matchType]||[]).map(f=>`<option value="${esc(f.name)}" ${match.formation===f.name?'selected':''}>${esc(f.name)}</option>`).join('')}
       ${!(FORMATIONS[match.matchType]||[]).some(f=>f.name===match.formation)&&match.formation?`<option value="${esc(match.formation)}" selected>${esc(match.formation)}</option>`:''}</select></div>` : ''}
-    <details class="more-details">
+    ${/* OPEN BIJ HET BEWERKEN (Tim, 24-08-2026). In de wizard staat dit blok dicht: daar vul je een
+         nieuwe wedstrijd in en zijn die velden optioneel. Kom je hier via "Info bewerken", dan is
+         het net dát wat je komt aanpassen — scheidsrechter, locatie, trainer — en dan is een
+         dichtgeklapt blok een extra tik voor niets. De wizard blijft ongewijzigd. */ ''}
+    <details class="more-details" open>
       <summary>+ Meer details (optioneel)</summary>
       <div class="fg" style="margin-top:12px"><label>Soort</label>
         ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=match.competition||''; const isCustom=cur&&!std.includes(cur);
@@ -1715,7 +1720,8 @@ function shareWhatsApp(m) {
 
   // Samenstellen
   const lines = [];
-  lines.push(`⚽ ${us} ${usScore}–${themScore} ${them}`);
+  // Gespeeld zonder uitslag (v1.6.0): één vorm, dezelfde als op het scherm en in de PDF.
+  lines.push(geenUitslag(m) ? `⚽ ${us} ${SCORE_GEEN} ${them}` : `⚽ ${us} ${usScore}–${themScore} ${them}`);
   // Strafschoppenreeks onder de uitslag, met wie er won — zonder de score zelf aan te passen.
   if (toonShootout(m)) {   // enkel bij een gelijke stand — zie toonShootout in core.js
     const so = shootoutStand(m);
@@ -1874,7 +1880,7 @@ function exportMatchCSV() {
   row('Scheidsrechter', m.referee || '');
   row('Truikleur', m.jersey || '');
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));
-  row('Score', `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
+  row('Score', geenUitslag(m) ? SCORE_GEEN : `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
   row('Man v/d match', m.motmId ? pName(m, m.motmId) : '');
   blank();
 

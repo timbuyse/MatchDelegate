@@ -72,17 +72,26 @@ function renderDetail() {
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
         </div>`}
       </div>`
-      : (ro || match.status !== 'done' ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
+      // geenUitslag: zonder uitslag valt er niets met strafschoppen te beslissen (v1.6.0) — de 0-0
+      // in de gegevens is daar geen gelijkspel maar "niet bijgehouden".
+      : (ro || match.status !== 'done' || geenUitslag(match) ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
     ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
          stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
          notities, de notities per speler en de reden van afwezigheid — precies wat het scherm voor een
          kijker verbergt. Delen en PDF blijven voor iedereen: dat is een bewuste keuze (de PDF
          respecteert de oogjes, en een ouder mag de uitslag doorsturen). */ ''}
-    <div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:8px" class="no-print">
+    ${/* ZONDER UITSLAG STAAN HIER ANDERE KNOPPEN (Tim, 24-08-2026). Delen, PDF en Export gaan over
+         een verslag dat je doorstuurt — en er valt niets door te sturen van een wedstrijd waarvan
+         niemand iets bijhield. Op precies dezelfde plek staan dan de twee dingen die je daar wél
+         wil doen: alsnog een uitslag ingeven, of de wedstrijd heropenen. */ ''}
+    ${geenUitslag(match) ? (ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="no-print">
+      <button class="btn btn-green btn-sm" onclick="modalQuickResult()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
+      <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
+    </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
       <button class="btn btn-org btn-sm" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
       ${ro ? '' : `<button class="btn btn-pale btn-sm" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
-    </div>
+    </div>`}
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
       ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
@@ -184,6 +193,14 @@ function renderDetail() {
          scherm bleef toen staan. `ro` bovenaan deze functie is al !canLive(), en de notitiezone
          hierboven gebruikt die maatstaf ook. */ ''}
     ${ro ? '' : `<div class="no-print">
+      ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Zonder deze knop was "Snel resultaat" enkel
+           bereikbaar op een GEPLANDE wedstrijd, en dan kon je een wedstrijd die op "– . –" staat
+           nooit meer een score geven — of een fout ingevoerde snelscore niet meer rechtzetten.
+           Enkel wanneer er géén speeltijd bijgehouden is: bij een live gevolgde wedstrijd corrigeer
+           je de score via de gebeurtenissen, en zou dit venster er doelpunten bovenop zetten. */ ''}
+      ${(!match.tournamentId && !geenUitslag(match) && getGameTimeMs(match) === 0) ? `<div style="margin-bottom:8px">
+        <button class="btn btn-pale" style="width:100%" onclick="modalQuickResult()">${icI(IC.bolt)} Uitslag aanpassen</button>
+      </div>` : ''}
       <div style="margin-bottom:8px">
         <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
       </div>
@@ -203,7 +220,8 @@ function renderDetail() {
         ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Startopstelling herplaatsen</button>`
         : ((FORMATIONS[match.matchType]||[]).length ? `<p style="font-size:11px;color:var(--txt2);margin:-2px 0 8px">De startopstelling kan niet meer herplaatst worden — er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met <b>Positiewissel</b> in het livescherm.</p>` : '')}
       ${cloneMatchBtnHtml(match)}
-      <button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
+      ${/* Bij "zonder uitslag" staat heropenen al bovenaan, naast "Alsnog een uitslag ingeven". */ ''}
+      ${geenUitslag(match) ? '' : `<button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>`}
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
     ${viewerVisibilityHintHtml(['selected', 'minutes'])}
@@ -1462,7 +1480,8 @@ async function exportPDF() {
 
   // ---- Score ----
   doc.setFont(undefined, 'bold'); doc.setFontSize(30); doc.setTextColor(23, 23, 23);
-  doc.text(isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`, PW / 2, L.y + 24, { align: 'center' });
+  doc.text(geenUitslag(m) ? SCORE_GEEN
+    : (isAway(m) ? `${m.scoreThem} – ${m.scoreUs}` : `${m.scoreUs} – ${m.scoreThem}`), PW / 2, L.y + 24, { align: 'center' });
   L.y += 46;
   // Strafschoppenreeks onder de score: de stand en wie ze won. De score zelf blijft de uitslag van
   // de wedstrijd — zie shootoutSchoten in core.js.

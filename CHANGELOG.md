@@ -1,4 +1,4 @@
-﻿# Changelog — MatchDelegate
+# Changelog — MatchDelegate
 
 Leesbaar overzicht van de wijzigingen per versie, nieuwste bovenaan. Bedoeld als
 naslag naast de technische commit-messages. Versies vóór 0.5.19 staan in de
@@ -6,6 +6,20 @@ git-geschiedenis en in de `analyse-*`-bestanden in de repo.
 
 De meeste wijzigingen sinds 0.5.19 komen uit een grondige audit van het nieuwe
 clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → gast).
+
+---
+
+## v1.6.0
+### Gespeeld zonder uitslag, en een opgeruimd wedstrijdscherm
+- **Nieuw: een wedstrijd afsluiten zonder uitslag.** Bij een vriendschappelijke noteert soms niemand de score, en dan bleef die wedstrijd voor eeuwig gevlagd als *niet afgesloten*. Je kan ze nu afsluiten met **– . –** als uitslag: ze staat dan als **gespeeld** en telt mee in het aantal wedstrijden, maar levert geen winst, gelijk, verlies, doelpunten of nul gehouden. Speelminuten tellen wél mee als je die toevallig bijhield. Later alsnog een uitslag ingeven kan altijd — en omgekeerd ook. Twee wegen ernaartoe: de knop **Afsluiten als gespeeld zonder uitslag** onderaan het wedstrijdscherm (ook als er nog geen selectie is), en in het venster *Uitslag ingeven*. Niet bij een tornooiwedstrijd: daar hoort een uitslag bij.
+- **De uitslagvelden staan niet meer op 0.** Ze zijn leeg met een streepje als plaatshouder, zodat je nooit per ongeluk een 0-0 opslaat die je niet bedoelde. De groene knop zegt wat je gaat opslaan: *Opslaan als gespeeld met uitslag: 3-1*.
+- **De doelpuntenmakers staan dichtgeklapt** in dat venster. Met een volledige kern moest je langs veertien rijen scrollen voor je de knoppen zag.
+- **Bij een wedstrijd op – . – staan Delen, PDF en Export er niet.** Er valt niets door te sturen. In hun plaats staan *Alsnog een uitslag ingeven* en *Wedstrijd heropenen*, naast elkaar.
+- **Eén woord voor één ding: uitslag.** De app gebruikte *uitslag*, *resultaat* en *score* door elkaar. Het venster heet nu *Uitslag ingeven* (was "Snel resultaat"), en de teksten in de cijfers en de handleiding volgen. *Score* blijft waar het over het cijfer zelf gaat.
+- **De melding "niet afgesloten" op het startscherm is kleiner en uitklapbaar.** Dichtgeklapt is het één regel met het aantal; open staat erbij wat je kan doen — de uitslag ingeven, of registreren als gespeeld zonder uitslag.
+- **Het wedstrijdplan (PDF) staat nu bovenaan**, naast de kop *Planning*, in plaats van helemaal onderaan. Het is het blad dat je meeneemt naar het veld.
+- **"Opstelling en wissels per kwart (2 klaargezet)" heet nu "Opstelling & wissels aanpassen".** Die teller telde alle blokken bij elkaar op, terwijl je per blok al ziet wat er klaarstaat.
+- **"Meer details" staat open** bij het aanmaken én het bewerken van een wedstrijd. Scheidsrechter, terrein, trainer en ploegverantwoordelijke zijn precies wat je bij een wedstrijd invult; achter een tik verstopt worden ze vooral vergeten. Dichtklappen kan nog altijd.
 
 ---
 

@@ -947,7 +947,7 @@ async function loadTournamentReport() {
       if (!lijst.length) return sec(`${icI(IC.timer)} Speeltijd over de dag`, '<p style="color:var(--txt2);font-size:14px">—</p>');
       const uitleg = `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">${toonFair
         ? 'Twee gemiddelden per speler: <b>per gespeelde match</b> (hoe lang hij speelde als hij speelde) en <b>per selectie</b> (bank inbegrepen) — dat laatste toont of iedereen ongeveer gelijk aan spelen kwam. '
-        : ''}Een wedstrijd waarvoor de speler als "niet aanwezig" stond telt niet mee, en een wedstrijd die je via "Snel resultaat" invoerde ook niet: daar is geen speeltijd bijgehouden.</p>`;
+        : ''}Een wedstrijd waarvoor de speler als "niet aanwezig" stond telt niet mee, en een wedstrijd waarvan je enkel de uitslag ingaf ook niet: daar is geen speeltijd bijgehouden.</p>`;
       const rijen = lijst.map(p => {
         const bits = [`${p.mp} van ${p.squad} gespeeld`];
         if (p.notPresent) bits.push(`${p.notPresent}× niet aanwezig`);
@@ -1151,7 +1151,7 @@ async function exportTournamentPDF() {
       headStyles: Object.assign({}, HEAD_STYLE, { fontSize: 9 }),
       columnStyles: colShift(breedtes),
       didParseCell: rechtsUitgelijndeKoppen,
-    }, 24, `"Gespeeld" is in hoeveel van de wedstrijden waarvoor hij geselecteerd was, hij effectief speelde.${toonFair ? ' Het gemiddelde per selectie telt de bank mee en laat zo zien of iedereen ongeveer gelijk aan spelen kwam.' : ''} Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd die via "Snel resultaat" ingevoerd is ook niet: daar is geen speeltijd bijgehouden.`);
+    }, 24, `"Gespeeld" is in hoeveel van de wedstrijden waarvoor hij geselecteerd was, hij effectief speelde.${toonFair ? ' Het gemiddelde per selectie telt de bank mee en laat zo zien of iedereen ongeveer gelijk aan spelen kwam.' : ''} Een wedstrijd waarvoor hij zich afmeldde telt niet mee, en een wedstrijd waarvan enkel de uitslag ingegeven is ook niet: daar is geen speeltijd bijgehouden.`);
   }
 
   // ---- Doelpunten, assists, keepers, kaarten ----

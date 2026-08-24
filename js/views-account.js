@@ -784,8 +784,9 @@ function clubExportWedstrijdRijen(ploegen) {
       rijen.push([pl.naam, m.subteam || '', seasonOf(m), m.date || '', m.time || '', m.opponent || '',
         m.location || '', m.venue || '', m.competition || '', m.matchType || '',
         m.numQuarters || '', m.quarterDuration || '', status,
-        gespeeld ? (m.scoreUs != null ? m.scoreUs : '') : '',
-        gespeeld ? (m.scoreThem != null ? m.scoreThem : '') : '']);
+        // Gespeeld zonder uitslag: leeg laten, niet 0 — anders leest het exportbestand als 0-0.
+        (gespeeld && !geenUitslag(m)) ? (m.scoreUs != null ? m.scoreUs : '') : '',
+        (gespeeld && !geenUitslag(m)) ? (m.scoreThem != null ? m.scoreThem : '') : '']);
     });
   });
   return rijen;
@@ -838,8 +839,12 @@ async function showClubCijfers(clubId) {
       let w = 0, g = 0, v = 0, voor = 0, tegen = 0, minuten = 0, beurten = 0;
       for (const m of ms) {
         const r = matchResultaat(m);          // ENIGE bron voor W/G/V — rekent een gewonnen reeks als winst
-        if (r === 'W') w++; else if (r === 'V') v++; else g++;
-        voor += (m.scoreUs || 0); tegen += (m.scoreThem || 0);
+        // null = gespeeld zonder uitslag (v1.6.0): wél in het aantal wedstrijden, maar geen W/G/V
+        // en geen doelpunten. Zonder deze test landde ze in de else-tak, dus bij de gelijke spelen.
+        if (r) {
+          if (r === 'W') w++; else if (r === 'V') v++; else g++;
+          voor += (m.scoreUs || 0); tegen += (m.scoreThem || 0);
+        }
         const mins = calcMinutes(m);
         for (const p of (m.players || [])) {
           const pm = (mins[p.id] || {}).ms || 0;
@@ -3357,11 +3362,24 @@ async function loadHome() {
   // wedstrijden las dat als "er zijn er twee". Nu het volledige aantal, met een doorklik naar de
   // wedstrijdenlijst gefilterd op precies deze toestand — daar staat het filterteken erbij, dus je
   // ziet waarom die lijst korter is en je zet hem met één tik weer uit.
-  const openOudHtml = openOud.length
-    ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} <b>${openOud.length} ${openOud.length === 1 ? 'wedstrijd is' : 'wedstrijden zijn'} niet afgesloten</b><br>
-        <span style="font-size:13px;color:var(--txt2)">De datum is voorbij en er staat nog geen uitslag. Sluit ze af zodat ze in de statistieken meetellen.</span>
-        <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="toonNietAfgesloten()">${icI(IC.ball)} ${openOud.length === 1 ? 'Wedstrijd' : 'Wedstrijden'} bekijken</button></div>`
-    : '';
+  // KLEIN EN UITKLAPBAAR (Tim, 24-08-2026). Dit blok stond altijd volledig open op het startscherm,
+  // met uitleg én knop, terwijl het meestal iets is dat je al wéét. Dichtgeklapt is het één regel
+  // met het aantal; wie wil weten wat hij ermee aan moet, tikt het open. En de uitleg noemt nu de
+  // tweede weg: je hoeft zo'n wedstrijd niet alsnog live te volgen, enkel de uitslag ingeven mag ook
+  // (de knop "Uitslag" op het wedstrijdscherm, of "Afsluiten als gespeeld zonder uitslag" onderaan).
+  // ÉÉN WOORD: "uitslag" (Tim, 24-08-2026). De app gebruikte er drie door elkaar — uitslag,
+  // resultaat en score. "Score" blijft alleen waar het over het cijfer zelf gaat (de info-rij, het
+  // exportbestand); de uitslag van een wedstrijd heet overal uitslag.
+  const openOudHtml = (() => {
+    if (!openOud.length) return '';
+    const een = openOud.length === 1;
+    return `<details class="nudge nudge-fold" style="margin-bottom:12px">
+      <summary>${icI(IC.warn)} <b>${openOud.length} ${een ? 'wedstrijd is' : 'wedstrijden zijn'} niet afgesloten</b></summary>
+      <div class="nudge-body">${een ? 'Deze wedstrijd heeft' : 'Deze wedstrijden hebben'} nog geen uitslag. Sluit ze af door de <b>uitslag in te geven</b>, of registreer ze als <b>gespeeld zonder uitslag</b> als je er geen wil ingeven.
+        <button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="toonNietAfgesloten()">${icI(IC.ball)} ${een ? 'Wedstrijd' : 'Wedstrijden'} bekijken</button>
+      </div>
+    </details>`;
+  })();
   const matchSection = upcoming.length ? `<div class="sec">${icI(IC.calendar)} Eerstvolgende wedstrijd${upcoming.length > 1 ? 'en' : ''}</div>${upcomingHtml}` : '';
   const trnSection = upcomingTrn.length ? `<div class="sec">${icI(IC.medal)} Eerstvolgende tornooi</div>${upcomingTrnHtml}` : '';
   const noneSection = (!upcoming.length && !upcomingTrn.length)

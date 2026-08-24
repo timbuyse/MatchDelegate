@@ -196,7 +196,12 @@ function wizStep1() {
           <select id="n-qd" onchange="onDurChange('n-qd','n-qd-custom')">${durOptsHtml(wiz.periodKey, wiz.quarterDuration)}</select>
           <input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${isCustomDur?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${isCustomDur?wiz.quarterDuration:''}"></div>
       </div>
-      <details class="more-details">
+      ${/* ALTIJD OPEN (Tim, 24-08-2026). Dit blok stond dichtgeklapt om het eerste scherm kort te
+           houden, maar de velden erin — scheidsrechter, terrein, trainer, ploegverantwoordelijke —
+           zijn precies wat je bij een wedstrijd invult. Ze wegstoppen achter een tik betekent vooral
+           dat ze vergeten worden. Geldt zowel bij een nieuwe wedstrijd als bij "Info bewerken".
+           De uitklapper zelf blijft staan, zodat je ze alsnog kan dichtklappen. */ ''}
+      <details class="more-details" open>
         <summary>+ Meer details (optioneel)</summary>
         <div class="fg" style="margin-top:12px"><label>Soort</label>
           ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=wiz.competition||''; const isCustom=cur&&!std.includes(cur);
@@ -1564,7 +1569,7 @@ function renderPrep() {
     ${geenVerbinding ? '' : (heeftSelectie(m)
       ? `<div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:8px;margin-top:8px">
         <button class="btn btn-pale" style="margin:0;min-width:0" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
-        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px" onclick="modalQuickResult()" title="Snel resultaat invoeren — de wedstrijd niet live volgen, enkel de uitslag ingeven" aria-label="Snel resultaat invoeren">${icI(IC.bolt)} Uitslag</button>
+        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px" onclick="modalQuickResult()" title="Uitslag ingeven — de wedstrijd niet live volgen, enkel de uitslag ingeven" aria-label="Uitslag ingeven">${icI(IC.bolt)} Uitslag</button>
       </div>`
       : `<div class="wiz-nav" style="margin-top:8px">
         <button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
@@ -1584,7 +1589,13 @@ function renderPrep() {
     ${/* Voor een KIJKER staat dit blok er ook zonder opstelling (audit 23-08-2026). Zonder dat viel
          het hele blok weg en kon hij niet zien of het plan verborgen was of nog niet bestond — twee
          heel verschillende dingen. Nu zegt de regel welk van de twee het is. */ ''}
-    ${(heeftOpstelling(m) || ro) ? `<div class="sec">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</div>
+    ${/* HET WEDSTRIJDPLAN BOVENAAN (Tim, 24-08-2026). De downloadknop stond helemaal onderaan, ná de
+         planningskaart en de wisselknoppen — terwijl het net het blad is dat je meeneemt naar het
+         veld. Nu naast de kop "Planning", waar het over gaat. */ ''}
+    ${(heeftOpstelling(m) || ro) ? `<div class="sec" style="display:flex;align-items:center;gap:8px">
+      <span style="flex:1">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</span>
+      ${(ro || af) ? '' : `<button class="btn btn-gray btn-sm" style="margin:0;width:auto;padding:5px 10px;font-size:12px;text-transform:none;letter-spacing:0" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}
+    </div>
     ${/* Voor een kijker blijft het plan dicht: wie waar begint en welke wissels klaarstaan is iets
          tussen de trainer en zijn ploeg, niet iets om vooraf op de tribune te lezen. Er staat wél
          dat het bestaat, anders lijkt de wedstrijd onvoorbereid. */ ''}
@@ -1598,18 +1609,28 @@ function renderPrep() {
          planner (zie openPlannedLineups). Hier stonden er twee — 'Opstelling per kwart' en 'Wissels
          plannen' — die elk de helft deden en naar een eigen scherm leidden. Het potlood in de kaart
          hierboven brengt je in diezelfde planner, maar meteen op het deel waar je naar kijkt. */ ''}
-    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling en wissels${plannedPartsCount(m) > 1 ? ` per ${pSingLow(m)}` : ''}${plannedCountPerDeel(m) ? ` (${plannedCountPerDeel(m)} klaargezet)` : ''}</button>
+    ${/* GEEN TELLER MEER (Tim, 24-08-2026). "(2 klaargezet)" telde de wissels van álle blokken bij
+         elkaar, terwijl je in de kaart hierboven per blok al ziet wat er klaarstaat. Zo'n som zegt
+         weinig — en hij suggereerde dat de knop over die wissels ging, terwijl hij de hele planner
+         opent. De naam zegt nu gewoon wat de knop doet. */ ''}
+    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling &amp; wissels aanpassen</button>
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}
     ${(() => { const los = ((m.plannedSubs || []).filter(s => !s.quarterNum).length + (m.plannedPosSwaps || []).filter(s => !s.quarterNum).length);
-      return los ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs(0)">${icI(IC.clipboard)} Wissels zonder vast ${pSingLow(m)} (${los})</button>` : ''; })()}
-    <button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}` : ''}
+      return los ? `<button class="btn btn-pale" style="margin-top:8px" onclick="modalPlannedSubs(0)">${icI(IC.clipboard)} Wissels zonder vast ${pSingLow(m)} (${los})</button>` : ''; })()}`}` : ''}
     ${/* Annuleren staat bewust boven de rode zone: het is de omkeerbare uitweg voor een wedstrijd die
          niet doorgaat, en juist de knop die je hier zoekt in de plaats van verwijderen. */ ''}
     ${/* Annuleren en verwijderen vragen een verbinding (canManage). Zonder verbinding stonden ze er
          wel: annuleren deed stil niets en verwijderen ging als enige gewoon door — de gevaarlijkste
          van de twee. Nu vallen ze samen weg, met de banner hierboven als uitleg. */ ''}
+    ${/* AFSLUITEN ZONDER UITSLAG, ALTIJD BEREIKBAAR (Tim, 24-08-2026). De knop "Uitslag" hierboven
+         verschijnt bewust pas zodra er een selectie is — maar een vriendschappelijke waarvan niemand
+         iets bijhield, heeft vaak niet eens een selectie. Die bleef dan voor eeuwig als "niet
+         afgesloten" gevlagd zonder enige uitweg. Daarom hier, boven de omkeerbare uitweg
+         (annuleren) en ruim boven de rode zone: dit is geen dagelijkse handeling, maar hij moet er
+         wél staan. Niet bij een tornooiwedstrijd — zie modalQuickResult. */ ''}
+    ${(ro || m.tournamentId || af || m.status === 'done') ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="confirmZonderUitslag()">${icI(IC.done)} Afsluiten als gespeeld zonder uitslag</button>`}
     ${(ro || geenVerbinding) ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
@@ -1643,7 +1664,7 @@ function modalEditMatchMenu() {
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
-    ${item(IC.timer, 'Snel resultaat invoeren', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
+    ${item(IC.timer, 'Uitslag ingeven', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
     ${(heeftSel && (m.status || 'planned') === 'planned')
@@ -2451,26 +2472,102 @@ function gedeeldeSpelers(a, b) {
 async function doStartPlanned() {
   match.status = 'live'; await dbSave(match); await go('live', match.id);
 }
-// ----- Snel resultaat invoeren (wedstrijd die al gespeeld is, zonder live opvolging) -----
+// ----- Uitslag ingeven (wedstrijd die al gespeeld is, zonder live opvolging) -----
 let qrScorers = {};
 function modalQuickResult() {
   const m = match; qrScorers = {};
-  openModal(`<h3>${icI(IC.bolt)} Snel resultaat</h3>
+  // GESPEELD ZONDER UITSLAG (Tim, 24-08-2026). Bij een vriendschappelijke noteert niemand de score,
+  // en dan bleef de wedstrijd voor eeuwig als "niet afgesloten" gevlagd. Hier kan je ze afsluiten
+  // met "– . –". Bewust in ditzelfde venster: het is dezelfde vraag ("wat was de uitslag?") en zo is
+  // er ook maar één weg terug — je vult later gewoon alsnog een score in.
+  // NIET bij een tornooiwedstrijd: daar wordt met punten en een dagstand gewerkt, en Tims antwoord
+  // was dat dit geval zich daar niet voordoet. Door de knop weg te laten, kán het ook niet.
+  // En niet wanneer er al doelpunten geregistreerd zijn. Een eerdere snelinvoer (`quick`) wordt
+  // hieronder toch gewist en telt dus niet mee, maar échte doelpunten uit een gevolgde wedstrijd
+  // wél: die zouden in het verloop blijven staan onder een uitslag die "– . –" beweert te zijn.
+  const echteDoelpunten = (m.events || []).some(e => !e.quick &&
+    ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'].includes(e.type));
+  const magZonder = !m.tournamentId && !echteDoelpunten;
+  const staatZonder = geenUitslag(m);
+  openModal(`<h3>${icI(IC.bolt)} Uitslag ingeven</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Voor een wedstrijd die al gespeeld is. Vul de eindstand in; speeltijd wordt niet bijgehouden.</p>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:14px">
-      <div class="fg" style="margin:0"><label>${esc(tName(m))}</label><input id="qr-us" type="number" inputmode="numeric" value="0" style="text-align:center;font-size:22px;font-weight:800"></div>
+      ${/* LEEG, NIET 0 (Tim, 24-08-2026). Met een 0 vooringevuld kan je met twee tikken een 0-0
+           opslaan die je nooit bedoeld hebt — en 0-0 is een echte uitslag. Nu moet je ze zelf
+           ingeven, en de knop eronder zegt wat je gaat opslaan. */ ''}
+      <div class="fg" style="margin:0"><label>${esc(tName(m))}</label><input id="qr-us" type="number" inputmode="numeric" min="0" placeholder="–" value="" oninput="qrKnopBij()" style="text-align:center;font-size:22px;font-weight:800"></div>
       <div style="font-size:22px;font-weight:800;padding-bottom:12px">–</div>
-      <div class="fg" style="margin:0"><label>${esc(m.opponent)}</label><input id="qr-them" type="number" inputmode="numeric" value="0" style="text-align:center;font-size:22px;font-weight:800"></div>
+      <div class="fg" style="margin:0"><label>${esc(m.opponent)}</label><input id="qr-them" type="number" inputmode="numeric" min="0" placeholder="–" value="" oninput="qrKnopBij()" style="text-align:center;font-size:22px;font-weight:800"></div>
     </div>
-    <div class="sec" style="margin-top:0">Doelpuntenmakers (optioneel)</div>
+    ${/* DE SPELERSLIJST DICHTGEKLAPT (Tim, 24-08-2026). Met een volledige kern stond hier een lijst
+         van veertien rijen tussen de score en de knoppen — je moest er voorbij scrollen om te zien
+         dat er nog knoppen waren, en de knop "zonder uitslag" was daardoor onvindbaar. Ze is
+         optioneel, dus ze hoort dicht te staan tot je ze nodig hebt. */ ''}
+    <details class="more-details" style="margin-top:4px">
+      <summary>Doelpuntenmakers aanduiden (optioneel)</summary>
+    <div class="sec" style="margin-top:8px">Doelpuntenmakers</div>
     <div>${m.players.map(p => `<div class="selrow"><div class="nm">${esc(p.name)}</div><div class="seg"><button type="button" onclick="qrAdj('${p.id}',-1)">−</button><span id="qr-c-${p.id}" style="min-width:34px;text-align:center;font-weight:800;padding:0 6px;align-self:center">0</span><button type="button" onclick="qrAdj('${p.id}',1)">+</button></div></div>`).join('')}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="saveQuickResult()">${icI(IC.check)}Opslaan als gespeeld</button>
+    </details>
+    ${/* Beide knoppen zeggen nu "opslaan als gespeeld": dat is de wedstrijd in beide gevallen. Het
+         verschil zit in wat erachter staat — mét welke uitslag, of zonder. De uitslag in het
+         opschrift volgt live wat je hierboven intikt (zie qrKnopBij). */ ''}
+    <button class="btn btn-green" style="margin-top:12px" id="qr-opslaan" onclick="saveQuickResult()">${icI(IC.check)}Opslaan als gespeeld met uitslag</button>
+    ${magZonder ? `<button class="btn btn-pale" style="margin-top:8px" onclick="saveQuickResult(true)">${icI(IC.done)} Opslaan als gespeeld zonder uitslag (${SCORE_GEEN})</button>
+    <p style="text-align:center;color:var(--txt2);font-size:12px;margin:8px 0 0">${staatZonder
+      ? `Deze wedstrijd staat nu op <b>${SCORE_GEEN}</b>. Vul hierboven de uitslag in en kies de groene knop om er alsnog een uitslag aan te geven.`
+      : 'De wedstrijd staat dan als <b>gespeeld</b> zonder uitslag: ze telt mee in het aantal wedstrijden, maar niet bij winst, gelijk, verlies of doelpunten. Je kan later altijd nog een uitslag ingeven.'}</p>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  qrKnopBij();   // gedempt opschrift zolang de velden leeg zijn
 }
 function qrAdj(id, d) { qrScorers[id] = Math.max(0, (qrScorers[id] || 0) + d); const el = document.getElementById('qr-c-' + id); if (el) el.textContent = qrScorers[id]; }
-async function saveQuickResult() {
-  const us = Math.max(0, parseInt(document.getElementById('qr-us').value) || 0);
-  const them = Math.max(0, parseInt(document.getElementById('qr-them').value) || 0);
+// De uitslag in het opschrift van de opslaanknop meelaten lopen met wat je intikt. Zolang er geen
+// twee cijfers staan, blijft het opschrift zonder uitslag — dan valt er ook niets op te slaan en
+// zegt saveQuickResult dat.
+function qrLeesScore() {
+  const lees = id => { const el = document.getElementById(id); const v = el ? el.value.trim() : ''; if (v === '') return null; const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : null; };
+  return { us: lees('qr-us'), them: lees('qr-them') };
+}
+function qrKnopBij() {
+  const b = document.getElementById('qr-opslaan'); if (!b) return;
+  const { us, them } = qrLeesScore();
+  const compleet = us != null && them != null;
+  b.innerHTML = `${icI(IC.check)}Opslaan als gespeeld met uitslag${compleet ? `: ${isAway(match) ? `${them}-${us}` : `${us}-${them}`}` : ''}`;
+  b.style.opacity = compleet ? '' : '.6';
+}
+// De rechtstreekse weg vanaf het wedstrijdscherm, zonder eerst het uitslagvenster te openen. Wél
+// met een bevestiging: het zet de wedstrijd op "gespeeld", en dat is geen tik die je per ongeluk doet.
+function confirmZonderUitslag() {
+  if (!canLive() || !match) return;
+  if (match.tournamentId) { showToast('Bij een tornooiwedstrijd hoort altijd een uitslag.', 'err'); return; }
+  openModal(`<h3>${icI(IC.done)} Afsluiten zonder uitslag?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">De wedstrijd komt op <b>gespeeld</b> te staan met <b>${SCORE_GEEN}</b> als uitslag. Ze telt mee in het aantal wedstrijden, maar niet bij winst, gelijk, verlies of doelpunten. Je kan er later altijd nog een uitslag aan geven.</p>
+    <button class="btn btn-green" onclick="saveQuickResult(true)">${icI(IC.check)} Ja, afsluiten zonder uitslag</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function saveQuickResult(zonderUitslag) {
+  // Zonder uitslag: geen score, geen scorers, geen doelpunt-events. De eerder ingevoerde
+  // snelinvoer gaat wél weg — anders bleven er doelpunten aan een wedstrijd hangen die volgens het
+  // scherm geen uitslag heeft. Events uit een LIVE gevolgde wedstrijd blijven staan: die zijn echt
+  // gebeurd, en `geenUitslag` gaat over de uitslag, niet over wat je bijhield.
+  if (zonderUitslag) {
+    if (match.tournamentId) { showToast('Bij een tornooiwedstrijd hoort altijd een uitslag.', 'err'); return; }
+    if ((match.events || []).some(e => !e.quick && ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'].includes(e.type))) {
+      showToast('Er staan al doelpunten in het verloop — wis die eerst als er toch geen uitslag is.', 'err'); return;
+    }
+    match.events = (match.events || []).filter(e => !e.quick);
+    recomputeScore(match);
+    match.geenUitslag = true;
+    match.status = 'done'; match.quarterStatus = 'done';
+    await dbSave(match); closeModal(); go('detail', match.id);
+    return;
+  }
+  // Leeg is géén 0 (v1.6.0): zolang je niet allebei de cijfers ingaf, is er geen uitslag om op te
+  // slaan. Wie er echt geen wil, heeft de knop eronder.
+  const gelezen = qrLeesScore();
+  if (gelezen.us == null || gelezen.them == null) {
+    showToast('Vul beide scores in — of kies "Opslaan als gespeeld zonder uitslag".', 'err'); return;
+  }
+  const us = gelezen.us, them = gelezen.them;
   const sum = Object.values(qrScorers).reduce((a, b) => a + b, 0);
   // Meer aangeduide doelpuntenmakers dan de ingevulde eindstand: waarschuw i.p.v. de score stil op te trekken.
   if (sum > us) { showToast(`Je duidde ${sum} doelpuntenmaker(s) aan, maar de eindstand staat op ${us}. Pas de score of de scorers aan.`, 'err'); return; }
@@ -2480,6 +2577,9 @@ async function saveQuickResult() {
   for (let i = 0; i < usFinal - sum; i++) match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: 'goal_us', playerId: null, assistId: null, quick: true });
   for (let i = 0; i < them; i++) match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: 'goal_them', quick: true });
   recomputeScore(match);
+  // Er is nu wél een uitslag: de vlag hoort weg. Zo is dit ook de weg terug van "– . –" naar een
+  // gewone score, zonder aparte knop.
+  delete match.geenUitslag;
   match.status = 'done'; match.quarterStatus = 'done';
   await dbSave(match); closeModal(); go('detail', match.id);
 }

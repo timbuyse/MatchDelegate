@@ -258,11 +258,16 @@ async function loadStats() {
   // opgesteld en mist deze wedstrijd niet. Zo hoeft er nergens een speeldag ingevuld te worden.
   const opDezelfdeSpeeldagElders = bouwSpeeldagIndex(all);
   for (const m of sortedList) {
-    gf += m.scoreUs; ga += m.scoreThem;
-    // Een gewonnen strafschoppenreeks telt als winst (matchResultaat in core.js). De doelpunten
-    // hierboven blijven die van de wedstrijd zelf — een strafschop uit de reeks is geen doelpunt.
-    { const r = matchResultaat(m); if (r === 'W') w++; else if (r === 'V') l++; else d++; }
-    if (heeftShootout(m)) { reeksen++; if (shootoutWinnaar(m) === 'us') reeksenGewonnen++; }
+    // GESPEELD ZONDER UITSLAG (v1.6.0): telt mee in het aantal gespeelde wedstrijden — daarvoor
+    // staat ze in deze lijst — maar levert geen doelpunten en geen W/G/V. Zonder deze uitzondering
+    // zou ze als 0-0 gelijkspel meegeteld worden, want dat is wat er in de gegevens staat.
+    if (!geenUitslag(m)) {
+      gf += m.scoreUs; ga += m.scoreThem;
+      // Een gewonnen strafschoppenreeks telt als winst (matchResultaat in core.js). De doelpunten
+      // hierboven blijven die van de wedstrijd zelf — een strafschop uit de reeks is geen doelpunt.
+      { const r = matchResultaat(m); if (r === 'W') w++; else if (r === 'V') l++; else d++; }
+      if (heeftShootout(m)) { reeksen++; if (shootoutWinnaar(m) === 'us') reeksenGewonnen++; }
+    }
     const mins = calcMinutes(m);
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
@@ -437,10 +442,10 @@ async function loadStats() {
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>{
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>{
       const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
-    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: die ${list.length - gemetenAantal === 1 ? 'is' : 'zijn'} via "Snel resultaat" ingevoerd, dus er is geen speeltijd bijgehouden.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
+    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven, dus er is geen speeltijd bijgehouden.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
       // Per PLEK, aflopend: "CAM×5 · CM×3 · RM×1". De linie staat eronder als samenvatting, want dat is
@@ -1075,11 +1080,11 @@ const HANDLEIDING_PAGINAS = [
           iemand weg die op het veld stond, dan vraagt de app om de opstelling aan te vullen.</li>
         <li><b>Opstelling &amp; wissels</b> — het hele plan, kwart per kwart.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
-        <li><b>Snel resultaat invoeren</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
+        <li><b>Uitslag ingeven</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
         <li><b>Selectie wissen</b> — helemaal opnieuw beginnen: de selectie, de opstellingen per
           kwart en de geplande wissels gaan weg, de wedstrijd zelf blijft staan.</li>
       </ul>
-      <p>Onder het veld staat <b>'Opstelling en wissels per kwart'</b>: dat is dezelfde reeks als bij
+      <p>Onder het veld staat <b>'Opstelling &amp; wissels aanpassen'</b>: dat is dezelfde reeks als bij
         het aanmaken, waarin je kwart per kwart de opstelling en de wissels nakijkt. Wil je gericht
         één kwart bijstellen, gebruik dan het <b>potlood</b> in het blok <b>Planning</b>; daar
         blijven je wijzigingen pas bewaard als je op <b>'Opslaan'</b> tikt, en met <b>'Sluiten'</b>

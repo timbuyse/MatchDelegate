@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.5.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.6.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -491,15 +491,32 @@ function matchTitle(m) {
   const own = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : ''), opp = esc(m.opponent || '');
   return isAway(m) ? `${opp} vs ${own}` : `${own} vs ${opp}`;
 }
+// ---- Gespeeld zonder uitslag (v1.6.0) ----
+// Nieuw optioneel veld `m.geenUitslag`. Voor een wedstrijd die wél gespeeld is maar waarvan de
+// uitslag niet bijgehouden werd — een vriendschappelijke waar niemand de score noteerde. Ze stond
+// tot nu voor eeuwig gevlagd als "niet afgesloten", terwijl ze gewoon voorbij is.
+// Tims keuze (24-08-2026): ze telt als GESPEELD en verder niets — geen winst/gelijk/verlies, geen
+// doelpunten voor of tegen, geen nul gehouden. Speelminuten tellen wél mee als je die toevallig
+// bijhield. De score zelf blijft op 0-0 in de gegevens staan: alleen de weergave en de tellingen
+// kijken naar deze vlag. Zo blijft een wedstrijd zonder het veld exact zoals voordien werken, en
+// kan je later alsnog een echte uitslag ingeven (dan gaat de vlag weer weg).
+function geenUitslag(m) { return !!(m && m.geenUitslag); }
+const SCORE_LEEG = '–';
+// Eén vorm voor "geen uitslag", overal hetzelfde: scherm, deelbericht, PDF en exportbestand.
+// Een bolletje tussen twee streepjes (Tims keuze): het leest niet als een score van nul, en het
+// scheidingsteken is duidelijk géén cijfer.
+const SCORE_GEEN = `${SCORE_LEEG} • ${SCORE_LEEG}`;
 // Score in thuisploeg-eerst volgorde. cls = CSS-klasse voor eigen score (groen).
 function scoreHtml(m, cls) {
   const c = cls || 'us';
+  if (geenUitslag(m)) return `<span style="opacity:.5">${SCORE_GEEN}</span>`;
   return isAway(m)
     ? `${m.scoreThem} – <span class="${c}">${m.scoreUs}</span>`
     : `<span class="${c}">${m.scoreUs}</span> – ${m.scoreThem}`;
 }
 // Platte tekst voor score (bv. in share/PDF-titel).
 function scoreTxt(m) {
+  if (geenUitslag(m)) return SCORE_GEEN;
   return isAway(m) ? `${m.scoreThem}-${m.scoreUs}` : `${m.scoreUs}-${m.scoreThem}`;
 }
 // ===================== STRAFSCHOPPENREEKS =====================
@@ -552,7 +569,8 @@ function shootoutTxt(m) {
 // deed zijn eigen `heeftShootout(m) ? ...`. Daarom staat de regel nu in deze helper, die ze alle vier
 // gebruiken. De reeks blijft bewaard in de gegevens: verdwijnt dat doelpunt weer, dan staat ze er weer.
 function toonShootout(m) {
-  return heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0);
+  // Zonder uitslag is er geen gelijkspel om te beslissen, dus ook geen reeks om te tonen.
+  return !geenUitslag(m) && heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0);
 }
 function uitslagTxt(m) {
   return toonShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
@@ -564,6 +582,10 @@ function uitslagTxt(m) {
 // doelpuntensaldo en topschutters kloppen gewoon.
 function matchResultaat(m) {
   if (!m) return 'G';
+  // Geen uitslag bijgehouden = geen W, geen G, geen V. NULL en niet 'G', want een gelijkspel is een
+  // uitspraak en dit is er net géén. Elke teller die op deze functie steunt, moet null overslaan —
+  // zie de optellingen in stats-settings.js en views-account.js.
+  if (geenUitslag(m)) return null;
   if (m.scoreUs > m.scoreThem) return 'W';
   if (m.scoreUs < m.scoreThem) return 'V';
   const w = shootoutWinnaar(m);
