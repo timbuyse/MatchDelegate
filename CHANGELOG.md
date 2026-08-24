@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.2
+### Dezelfde cijfers op elk scherm, en de clubexport klopt weer
+- **Belangrijk: de clubexport uit v1.2.3 gaf elke speler een regel per wedstrijd.** Bij het scheiden van naamgenoten gebruikte ik een kenmerk dat per wedstrijd verschilt, dus in plaats van één regel per speler per seizoen kreeg je er één per wedstrijd. Nu op het vaste spelersnummer uit de kern: één regel per speler, naamgenoten uit verschillende ploegen nog steeds apart, en een echt doorgeschoven speler nog steeds samengeteld.
+- **Het spelerdetail rekende "Geselecteerd" anders dan de statistiekenpagina.** Dezelfde speler kon twee percentages hebben, afhankelijk van welk scherm je opende. De speeldag-regel staat nu op één plek en beide schermen gebruiken ze — dus ook in het spelerdetail telt een zaterdag-zondagverdeling over twee ploeglabels niet als gemiste wedstrijd.
+- **Delen op het verslag nam de strafschoppenreeks niet mee.** Dat was de laatste van de vijf plekken; een op strafschoppen gewonnen wedstrijd werd dus als "1-1" doorgestuurd.
+- **Een los ingelezen wedstrijdbestand kwam binnen zonder ploegcontrole** en werd daarna weggeschreven naar de ploeg waar je toevallig in stond. Een wedstrijd van U9 kon zo bij U13 belanden. Nu wordt het geweigerd met de uitleg naar welke ploeg je eerst moet wisselen.
+- **"Volgens plan" vergeleek met het huidige veld** in plaats van met de opstelling die je voor het volgende deel getekend had. Daardoor zei het venster soms "staat al klaar zoals in het wedstrijdplan" terwijl dat niet zo was — en verborg het dan de bevestigknop.
+- **Een verzette kapiteinswissel werkt de kapitein bij.** Had je twee kapiteinswissels en verzette je er één in de tijd, dan bleef de oude kapitein staan.
+- **De clubexport telt een strafschopdoelpunt nu als doelpunt** (de app deed dat al), en "niet komen opdagen" staat in een eigen kolom naast "niet beschikbaar" — die twee zaten door elkaar.
+
+---
+
 ## v1.3.1
 ### De oogjes gelden nu ook in het verslag, afwezigheden apart, en cijfers per ploeg
 - **Wat je voor kijkers verbergt, blijft nu ook verborgen in het verslag en de PDF.** Zet je Kaarten op onzichtbaar, dan verdwijnen de kaartentellers én de kaarten met naam uit de tijdlijn — voordien stonden die er altijd, ook al had je ze net verborgen. Zet je Speelminuten op onzichtbaar, dan verdwijnt ook het keeperblok; dat zijn immers speelminuten. Voor jou als beheerder verandert er niets.

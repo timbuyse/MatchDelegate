@@ -5,6 +5,47 @@ let statsFilter = 'all', seasonFilter = null;
 let kindFilter = null; // soort wedstrijd — zie MATCH_KINDS in core.js
 // Welke statistieksecties standaard zichtbaar zijn voor kijkers (vóór de beheerder iets kiest).
 // De samenvattingskaart bovenaan staat hier niet in — die is altijd publiek.
+// ===================== DE SPEELDAG-REGEL =====================
+// ÉÉN plek voor "was deze speler die speeldag ergens opgesteld?" (Tims regel, 25-08-2026), gebruikt
+// door de statistiekenpagina ÉN het spelerdetail. Die twee hadden elk hun eigen versie, en dat is
+// precies hoe uitslagTxt een dode functie werd: een regel op één plek die de schermen niet volgden.
+// De regel: wie binnen één dag ervoor of erna in de selectie van eender welke wedstrijd stond — ander
+// ploeglabel, andere soort, andere ploeg — was die speeldag opgesteld en mist deze wedstrijd niet.
+// Dekt A/B op dezelfde dag, A op zaterdag en B op zondag, en meespelen bij een andere ploeg, zonder
+// dat er ergens een speeldag ingevuld moet worden.
+// Op BEIDE sleutels indexeren (rosterId én naam): oude wedstrijden en losse spelers hebben geen
+// rosterId, en dan zou de match op naam gemist worden.
+function bouwSpeeldagIndex(alle) {
+  const sleutels = (rosterId, name) => [rosterId ? 'r:' + rosterId : null, 'n:' + (name || '').trim().toLowerCase()].filter(Boolean);
+  const perSpeler = new Map();
+  for (const m of (alle || [])) {
+    if (!m || !m.date || (typeof matchCancelled === 'function' && matchCancelled(m))) continue;
+    for (const p of (m.players || [])) {
+      if (p.absent) continue;   // in de selectie staan maar niet komen opdagen is geen speeldag elders
+      for (const k of sleutels(p.rosterId, p.name)) {
+        if (!perSpeler.has(k)) perSpeler.set(k, new Set());
+        perSpeler.get(k).add(m.date);
+      }
+    }
+  }
+  const DAG_MS = 86400000;
+  return (rosterId, name, datum) => {
+    if (!datum) return false;
+    // In UTC rekenen, niet in lokale tijd: `new Date('2026-09-12T00:00:00')` is middernacht híer, en
+    // daar een dag bij optellen en dan via toISOString terug naar een datum gaf in de zomertijd
+    // opnieuw 2026-09-12 (twee uur eerder in UTC). De zondagwedstrijd viel zo buiten de marge.
+    const t = Date.parse(datum + 'T00:00:00Z');
+    if (isNaN(t)) return false;
+    for (const k of sleutels(rosterId, name)) {
+      const set = perSpeler.get(k);
+      if (!set) continue;
+      for (const off of [-DAG_MS, 0, DAG_MS]) {
+        if (set.has(new Date(t + off).toISOString().split('T')[0])) return true;
+      }
+    }
+    return false;
+  };
+}
 const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false };
 // Beheerder zet een sectie publiek/privé voor kijkers. Opgeslagen in teams/{id}/info/statsPublic
 // (leesbaar voor kijkers, schrijfbaar door beheerders). Lokaal meteen bijwerken + herrenderen.
@@ -178,35 +219,7 @@ async function loadStats() {
   // A op zaterdag en B op zondag, en een speler die meedoet bij een ándere ploeg. Nu geldt: wie
   // binnen één dag ervoor of erna in de selectie van eender welke wedstrijd stond, was die speeldag
   // opgesteld en mist deze wedstrijd niet. Zo hoeft er nergens een speeldag ingevuld te worden.
-  const spelerSleutels = (rosterId, name) => [rosterId ? 'r:' + rosterId : null, 'n:' + (name || '').trim().toLowerCase()].filter(Boolean);
-  const selDatums = new Map();
-  for (const m2 of all) {
-    if (!m2.date || (typeof matchCancelled === 'function' && matchCancelled(m2))) continue;
-    for (const p of (m2.players || [])) {
-      if (p.absent) continue;   // in de selectie maar niet komen opdagen is geen speeldag elders
-      for (const k of spelerSleutels(p.rosterId, p.name)) {
-        if (!selDatums.has(k)) selDatums.set(k, new Set());
-        selDatums.get(k).add(m2.date);
-      }
-    }
-  }
-  const DAG_MS = 86400000;
-  const opDezelfdeSpeeldagElders = (rosterId, name, datum) => {
-    if (!datum) return false;
-    // In UTC rekenen, niet in lokale tijd: `new Date('2026-09-12T00:00:00')` is middernacht híer, en
-    // daar een dag bij optellen en dan via toISOString terug naar een datum gaf in de zomertijd
-    // opnieuw 2026-09-12 (twee uur eerder in UTC). De zondagwedstrijd viel zo buiten de marge.
-    const t = Date.parse(datum + 'T00:00:00Z');
-    if (isNaN(t)) return false;
-    for (const k of spelerSleutels(rosterId, name)) {
-      const set = selDatums.get(k);
-      if (!set) continue;
-      for (const off of [-DAG_MS, 0, DAG_MS]) {
-        if (set.has(new Date(t + off).toISOString().split('T')[0])) return true;
-      }
-    }
-    return false;
-  };
+  const opDezelfdeSpeeldagElders = bouwSpeeldagIndex(all);
   for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
     // Een gewonnen strafschoppenreeks telt als winst (matchResultaat in core.js). De doelpunten
@@ -502,15 +515,29 @@ async function loadPlayerDetail() {
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
-  // 2b (A/B-ploegen): dagen waarop de speler in de selectie van een wedstrijd van deze ploeg zat
-  // (doneList bevat enkel wedstrijden waarin hij effectief geselecteerd was). Een ✗ op zo'n dag
-  // telt niet als afwezig — hij speelde dan bij de A/B-tegenhanger.
-  const selectedDates = new Set(doneList.map(m => m.date || ''));
-  for (const m of all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2) && seasonOf(m2) === playerDetailSeason && kindMatches(m2))) {
-    // Zelfde uitzondering als in loadStats: reden "speelt elders" is geen gemiste wedstrijd.
-    const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
-      .find(ab => rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name);
-    if (rec && rec.reason !== 'elders' && !selectedDates.has(m.date || '')) absent++;
+  // DEZELFDE NOEMER ALS DE STATISTIEKENPAGINA (audit 25-08-2026). Dit rekende alleen de wedstrijden
+  // mee waarin hij in `absentPlayers` stond, en de A/B-correctie keek enkel naar exact dezelfde datum
+  // binnen dezelfde ploeg en soort. Gevolg: dezelfde speler had hier een ánder percentage dan op de
+  // statistiekenpagina, en wie simpelweg niet gekozen werd, kwam nergens in de noemer.
+  // Nu: alle wedstrijden van deze ploeg (in dit seizoen en deze soort) vanaf de eerste waarin hij
+  // voorkomt, min de speeldagen waarop hij elders opgesteld stond en min "speelt elders".
+  const isHem = (rec) => rosterId ? rec.rosterId === rosterId : (rec.name || '').trim() === name;
+  const ploegLijst = all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2)
+    && seasonOf(m2) === playerDetailSeason && kindMatches(m2) && m2.date);
+  const speeldagElders = bouwSpeeldagIndex(all);
+  const vermeld = ploegLijst.filter(m2 => (m2.players || []).some(isHem)
+    || (m2.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).some(isHem));
+  const vanaf = vermeld.length ? vermeld.map(m2 => m2.date).sort()[0] : null;
+  absent = 0;
+  if (vanaf) {
+    for (const m of ploegLijst) {
+      if (m.date < vanaf) continue;
+      if ((m.players || []).some(p => isHem(p) && !p.absent)) continue;      // stond in de selectie
+      if (speeldagElders(rosterId, name, m.date)) continue;                  // die speeldag elders
+      const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).find(isHem);
+      if (rec && rec.reason === 'elders') continue;
+      absent++;
+    }
   }
   const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
   // (De tornooitelling zelf staat bovenaan, samen met de seizoenslijst — zie myTournaments.)
@@ -1396,6 +1423,25 @@ function importBackup(input) {
     try { data = JSON.parse(e.target.result); } catch (err) { showToast('Ongeldig back-upbestand.', 'err'); return; }
     // Losse wedstrijd?
     if (data && data.app === 'voetbal-match' && data.match) {
+      // EERST DE PLOEG CONTROLEREN (audit 25-08-2026). Deze ingang nam de wedstrijd over met háár
+      // eigen teamId/teamName, terwijl cloudOnLocalMatchSave altijd naar de ACTIEVE ploeg schrijft —
+      // zonder de cross-team-wachter die de tornooivariant wél heeft. Een wedstrijd van U9 kon zo in
+      // de cloud van U13 belanden. Het herstelscherm vraagt netjes een doelploeg; deze niet.
+      // Zelfde regel als bij een wedstrijd die in de verkeerde ploeg is aangemaakt (Tim, 24-08-2026):
+      // weigeren in plaats van verhuizen. Wissel van ploeg en lees het bestand daar opnieuw in.
+      const bestandPloeg = (data.match.teamName || '').trim();
+      const huidigePloeg = cloudReady ? (teamNames[activeTeamId] || '') : '';
+      const lokaleNamen = (typeof getTeamsV2 === 'function' ? getTeamsV2() : []).map(t => (t.name || '').trim());
+      const past = cloudReady
+        ? (!!bestandPloeg && bestandPloeg === (huidigePloeg || '').trim())
+        : (!bestandPloeg || lokaleNamen.includes(bestandPloeg));
+      if (!past) {
+        openModal(`<h3>${icI(IC.warn)} Andere ploeg</h3>
+          <p style="text-align:left;color:var(--txt2);margin-bottom:14px">Dit bestand hoort bij <b>${esc(bestandPloeg || 'een onbekende ploeg')}</b>${cloudReady ? `, en je staat nu in <b>${esc(huidigePloeg || 'geen ploeg')}</b>` : ''}. Een wedstrijd hoort bij één ploeg, dus we zetten ze niet zomaar over.</p>
+          <p style="text-align:left;color:var(--txt2);font-size:13px;margin-bottom:14px">Wissel eerst naar ${esc(bestandPloeg || 'de juiste ploeg')} en lees het bestand daar opnieuw in.</p>
+          <button class="btn btn-gray" onclick="closeModal()">Sluiten</button>`);
+        input.value = ''; return;
+      }
       pendingRestore = { matches: [data.match], settings: null, single: true };
       openModal(`<h3>Wedstrijd importeren?</h3>
         <p style="text-align:center;color:var(--txt2);margin-bottom:16px"><b>${esc(data.match.teamName||'')} vs ${esc(data.match.opponent||'')}</b><br>Deze wordt toegevoegd aan je bestaande wedstrijden.</p>

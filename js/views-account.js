@@ -653,19 +653,38 @@ function ceSpelerTotalen(ploegen, sleutelFn) {
       (m.players || []).forEach(p => {
         const k = sleutelFn(p, pl, seizoen);
         if (!per.has(k)) per.set(k, { naam: p.name || '', seizoen, ploegen: new Set(), nummers: new Set(),
-          selecties: 0, gespeeld: 0, ms: 0, doelpunten: 0, assists: 0, geel: 0, rood: 0, keeper: 0, afwezig: 0 });
+          selecties: 0, gespeeld: 0, ms: 0, doelpunten: 0, assists: 0, geel: 0, rood: 0, keeper: 0, afwezig: 0, nietOpgedaagd: 0 });
         const r = per.get(k);
         r.ploegen.add(pl.naam);
         if (p.number) r.nummers.add(String(p.number));
-        if (p.absent) { r.afwezig++; return; }
+        // AUDIT 25-08-2026 — `p.absent` is de speler die WEL in de selectie stond maar niet kwam
+        // opdagen. Die belandde in de kolom "Niet beschikbaar", terwijl wie zich vooraf afmeldde
+        // (m.absentPlayers) daar nergens in stond: die array werd hier niet gelezen. Twee tabbladen in
+        // hetzelfde bestand gaven dus een ander antwoord op "hoe vaak was hij er niet". Nu twee
+        // kolommen, zoals Tim ook op de statistiekenpagina koos (afgemeld vs. niet komen opdagen).
+        if (p.absent) { r.nietOpgedaagd++; return; }
         r.selecties++;
         const ms = (mins[p.id] || {}).ms || 0;
         if (ms > 0) { r.gespeeld++; r.ms += ms; }
-        r.doelpunten += evts.filter(e => e.type === 'goal_us' && e.playerId === p.id).length;
+        // Een strafschopdoelpunt is een doelpunt (de app en het tornooiverslag tellen het mee), dus
+        // hier ook — anders stond dezelfde speler in het clubbestand op 3 en in de app op 4.
+        r.doelpunten += evts.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
         r.assists += evts.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
         r.geel += evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
         r.rood += evts.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
         if (wasKeeperAtAll(m, p.id)) r.keeper++;
+      });
+      // Wie zich vooraf afmeldde staat in absentPlayers, niet in players — zie hierboven. "Speelt
+      // elders" is geen gemiste wedstrijd (zelfde regel als in de app).
+      (m.absentPlayers || []).forEach(a => {
+        const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
+        if (ab.reason === 'elders') return;
+        const k = sleutelFn({ id: null, rosterId: ab.rosterId, globalId: ab.globalId, name: ab.name }, pl, seizoen);
+        if (!per.has(k)) per.set(k, { naam: ab.name || '', seizoen, ploegen: new Set(), nummers: new Set(),
+          selecties: 0, gespeeld: 0, ms: 0, doelpunten: 0, assists: 0, geel: 0, rood: 0, keeper: 0, afwezig: 0, nietOpgedaagd: 0 });
+        const r = per.get(k);
+        r.ploegen.add(pl.naam);
+        r.afwezig++;
       });
     });
   });
@@ -675,13 +694,13 @@ function ceSpelerTotalen(ploegen, sleutelFn) {
 function ceSpelerRij(r) {
   const min = Math.round(r.ms / 60000);
   return [r.seizoen, r.naam, [...r.ploegen].join(', '), [...r.nummers].join(', '),
-    r.selecties, r.gespeeld, r.afwezig, min,
+    r.selecties, r.gespeeld, r.afwezig, r.nietOpgedaagd || 0, min,
     r.gespeeld ? Math.round(min / r.gespeeld) : 0,
     r.selecties ? Math.round(min / r.selecties) : 0,
     r.doelpunten, r.assists, r.geel, r.rood, r.keeper];
 }
 const CE_SPELER_KOP = ['Seizoen', 'Speler', 'Ploeg(en)', 'Rugnummer(s)', 'Geselecteerd', 'Gespeeld',
-  'Niet beschikbaar', 'Totale minuten', 'Gem. per gespeelde wedstrijd', 'Gem. per selectie',
+  'Niet beschikbaar', 'Niet komen opdagen', 'Totale minuten', 'Gem. per gespeelde wedstrijd', 'Gem. per selectie',
   'Doelpunten', 'Assists', 'Geel', 'Rood', 'Keeperbeurten'];
 // Per speler per seizoen, over al zijn ploegen samen. Bij de leeftijdsrotatie van Voetbal Vlaanderen
 // verhuist een speler middenin het seizoen; enkel per ploeg tonen zou hem in beide ploegen te weinig
@@ -695,10 +714,17 @@ const CE_SPELER_KOP = ['Seizoen', 'Speler', 'Ploeg(en)', 'Rugnummer(s)', 'Gesele
 // (samenvoegen op het blijvende spelersnummer, anders twee personen); de sleutel deed iets anders.
 // Nu: globalId als die er is, anders het spelersnummer uit de kern van die ploeg. Dat is per ploeg
 // uniek, dus naamgenoten blijven gescheiden en de kolom "Ploeg(en)" laat zien wie wie is.
+// CORRECTIE op v1.2.3 (25-08-2026): daar stond `p.id` als terugval, en dat is het spelers-id BINNEN
+// ÉÉN WEDSTRIJD — elke wedstrijd maakt nieuwe id's. Gevolg: elke speler kreeg een regel per wedstrijd
+// in plaats van één per seizoen. Mijn test van toen gebruikte een verzonnen vast id, dus het leek te
+// werken; met echte gegevens niet. Het stabiele kenmerk binnen een ploeg is `rosterId` (de speler in
+// de kern), en dat is per ploeg uniek — dus naamgenoten in twee ploegen blijven gescheiden en twee
+// naamgenoten binnen één ploeg ook.
 function ceSpelerSleutel(p, pl) {
   if (p.globalId) return 'g:' + p.globalId;
-  if (p.id) return 'k:' + (pl && pl.naam ? pl.naam : '') + '|' + p.id;
-  return 'n:' + (pl && pl.naam ? pl.naam : '') + '|' + (p.name || '');
+  const ploeg = (pl && pl.naam) ? pl.naam : '';
+  if (p.rosterId) return 'r:' + ploeg + '|' + p.rosterId;
+  return 'n:' + ploeg + '|' + (p.name || '');
 }
 function clubExportSpelerRijen(ploegen) {
   return [CE_SPELER_KOP].concat(

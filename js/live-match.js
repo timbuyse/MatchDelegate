@@ -1629,6 +1629,16 @@ async function shareReport() {
   const ycLine = tally(e => e.type === 'yellow_card', 'playerId');
   const rcLine = tally(e => e.type === 'red_card', 'playerId');
   const lines = [`${isAway(m)?m.opponent:tName(m)} ${scoreTxt(m)} ${isAway(m)?tName(m):m.opponent}`, `${matchWhen(m)} · ${m.location}${m.competition ? ' · ' + m.competition : ''}`];
+  // DE STRAFSCHOPPENREEKS HOORT ER OOK IN (audit 25-08-2026). Dit is de deelknop op het VERSLAG, en
+  // die was de vijfde weergaveplek: v1.2.1 zette de regel al op het beginscherm, het verslag, de PDF
+  // en "Deel score" (shareWhatsApp), maar hier bleef het `scoreTxt` alleen. Een op strafschoppen
+  // gewonnen wedstrijd werd dus als "1-1" doorgestuurd. Zelfde vorm als shareWhatsApp, en achter
+  // toonShootout, zodat een reeks bij een niet-gelijke stand nergens opduikt.
+  if (toonShootout(m)) {
+    const so = shootoutStand(m);
+    lines.push(`🥅 Strafschoppen: ${isAway(m) ? so.them : so.us}–${isAway(m) ? so.us : so.them}`);
+    const zin = shootoutZin(m); if (zin) lines.push(`🏆 ${zin}`);
+  }
   if (scLine) lines.push(`⚽ ${scLine}`);
   if (asLine) lines.push(`🎯 Assists: ${asLine}`);
   if (ycLine) lines.push(`🟨 ${ycLine}`);
@@ -2263,6 +2273,19 @@ async function saveEditEvent(id) {
     rebuildPositions(match, baseline); // C2: posities + bezetting herberekenen (onField incl.)
     if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match); // C3
   } else recomputeOnField(match);
+  // AUDIT 25-08-2026 — de keeperminuten hangen niet alleen aan wissels en positiewissels: een rode
+  // kaart en een blessure met "verlaat het veld" halen ook iemand van het veld. Bewerkte je zo'n
+  // event (andere speler, ander moment, vinkje aan of uit), dan bleven de keeperminuten op de oude
+  // verdeling staan. doDeleteEvent doet dit al goed — daar staan red_card en injury in de lijst — en
+  // volgt daar dezelfde weg: recomputeOnField voor de bezetting (hierboven al gebeurd) plus een
+  // herbouw van de keeperminuten. Posities hoeven niet herbouwd te worden: bij een kaart of blessure
+  // verhuist er niemand naar een andere plek, er valt enkel iemand weg.
+  if (!posAffecting && (e.type === 'red_card' || e.type === 'injury')
+      && match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+  // En de kapitein: recomputeCaptain liep enkel bij het VERWIJDEREN van een captain_change. Verzet je
+  // er een naar een andere speler of naar een vroeger tijdstip, dan bleef match.captainId op de oude
+  // waarde staan tot iets anders het herrekende.
+  if (e.type === 'captain_change') recomputeCaptain(match);   // zonder tweede argument: het event bestaat nog
   await dbSave(match); closeModal(); render();
 }
 // Extra registraties: schoten, reddingen, afgekeurd doelpunt.
@@ -3376,8 +3399,14 @@ function modalUsePlannedLineup(deel) {
   // ingegeven en ze lazen als iets dat je moest nakijken. De vraag is simpel — wil je dit deel
   // starten volgens je plan? — en het resultaat bekijk je op het veld. Enkel wat er níet kan
   // (afwezige of uitgesloten spelers uit het plan) wordt nog gemeld, want dat moet je wél weten.
-  const huidig = playersOnField(m).map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum }));
-  const diff = lineupToPending(m, huidig, plan);
+  // VERGELIJKEN MET DE GETEKENDE OPSTELLING (audit 25-08-2026). Dit vergeleek het plan met het
+  // HUIDIGE veld. Had je het pauzeveld al herschikt, dan zei dit venster "staat al klaar zoals in het
+  // wedstrijdplan" zodra het plan gelijk was aan het einde van het vorige deel — en het verborg dan
+  // de bevestigknop, terwijl de doelopstelling iets heel anders was. In de pauze is nextLineupOf de
+  // opstelling die straks start; tijdens het spel is dat het veld zelf, en dan geeft nextLineupOf
+  // hetzelfde antwoord als voorheen.
+  const basis = nextLineupOf(m).map(e2 => ({ id: e2.id, x: e2.x, y: e2.y, line: e2.line, posNum: e2.posNum }));
+  const diff = lineupToPending(m, basis, plan);
   const alGelijk = !diff.subs.length && !diff.swaps.length;
   openModal(`<h3>${icI(IC.clipboard)} ${pSing(m)} ${deel} volgens je plan?</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${alGelijk
