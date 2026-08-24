@@ -1181,8 +1181,11 @@ async function doTransferPlayer() {
     showToast('Overzetten mislukt, probeer opnieuw.', 'err');
   }
 }
-function toggleViewerMode() {
-  viewerMode = !viewerMode;
+// NIET MEER BEREIKBAAR VANUIT DE APP sinds v1.6.1 — de schakelaar is weg (zie de uitleg in
+// teams-tournaments.js). De functie blijft bestaan voor het testharnas, dat een kijker nabootst
+// zonder tweede account. Met een argument kan je hem uitdrukkelijk aan- of uitzetten.
+function toggleViewerMode(aan) {
+  viewerMode = (aan === undefined) ? !viewerMode : !!aan;
   closeModal();
   updateCloudChip();
   if (view === 'live' || view === 'detail' || view === 'home' || view === 'beheer') render();

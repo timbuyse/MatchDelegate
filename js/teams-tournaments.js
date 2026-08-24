@@ -64,7 +64,12 @@ function openTeamBeheer() { openSquad('beheer'); }
 function toonTeamScherm(s) { teamScherm = (s === 'beheer') ? 'beheer' : 'ploeg'; render(); }
 // De groene knop rechtsboven: een beheerder komt in het beheerscherm, een kijker bij de ploeg zelf
 // (voor hem bestaat het beheerdeel niet).
-function openCloudChip() { openSquad((isAdmin && !viewerMode) ? 'beheer' : 'ploeg'); }
+// DE WEG TERUG MAG NOOIT VERDWIJNEN (24-08-2026). Dit stond op `isAdmin && !viewerMode`, dus zodra
+// de kijkmodus aanstond opende de chip het gewone ploegscherm — en net dáár stond de schakelaar om
+// hem weer uit te zetten, op het beheerscherm. Tim zat daardoor vast en kwam er alleen uit door de
+// app te herladen. De schakelaar is nu weg, maar deze regel blijft op `isAdmin`: wie beheerder is,
+// raakt altijd op zijn beheerscherm, wat de kijkmodus ook zegt.
+function openCloudChip() { openSquad(isAdmin ? 'beheer' : 'ploeg'); }
 function closeTeamEdit() { editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams'); }
 // De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
 // die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
@@ -163,10 +168,15 @@ function renderTeamOverview() {
     <div class="sec">Deze ploeg</div>
     <div class="card">
       <button class="btn btn-pale" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam wijzigen</button>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)">
-        <span style="flex:1;font-size:13px;color:var(--txt2)">Bekijken als kijker</span>
-        <button onclick="toggleViewerMode()" style="background:${viewerMode?'var(--grn)':'rgba(0,0,0,.12)'};border:none;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;color:${viewerMode?'#fff':'var(--txt2)'};cursor:pointer;white-space:nowrap">${viewerMode ? `${icI(IC.eye)} Kijker` : `${icI(IC.eye)} Kijkmodus`}</button>
-      </div>
+      ${/* DE KIJKMODUS-SCHAKELAAR IS WEG (Tim, 24-08-2026). Hij was een val: de schakelaar stond op
+           dít scherm, maar zodra de kijkmodus aanstond opende de chip bovenaan het gewone
+           ploegscherm i.p.v. het beheerscherm (zie openCloudChip) — de enige weg terug zat dus
+           achter een deur die je net had dichtgedaan. Tim zat vast en kwam er alleen uit door de
+           app te herladen. Hij voegde bovendien weinig toe.
+           De onderliggende `viewerMode` en alle `!viewerMode`-controles blijven staan: ze zijn
+           overal verweven in canLive/canManage/canSeeStats, en het testharnas (rollen.js) gebruikt
+           ze om een kijker na te bootsen zonder tweede account. Enkel de knop is weg, dus de modus
+           kan niet meer per ongeluk aangezet worden. */ ''}
       <button class="btn btn-pale" style="margin-top:14px" onclick="_tgvFrom='teamEdit';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier zet je ze terug.</p>
       ${/* Archiveren en verwijderen van een hele ploeg staan bewust NIET hier maar in Clubbeheer

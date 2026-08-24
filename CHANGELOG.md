@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.6.1
+### De kijkmodus is weg
+- **De schakelaar "Bekijken als kijker" is verwijderd.** Hij was een val: de schakelaar stond op het beheerscherm, maar zodra de kijkmodus aanstond, opende de chip bovenaan het gewone ploegscherm in plaats van het beheerscherm — de enige weg terug zat dus achter een deur die je net had dichtgedaan. De app herladen was de enige uitweg.
+- **Extra vangnet:** de chip bovenaan brengt een ploegbeheerder nu altijd op zijn beheerscherm, wat er verder ook aan staat. Zo kan een weg terug nooit meer verdwijnen.
+- De onderliggende kijkersrechten blijven ongewijzigd — daar verandert niets aan voor wie écht kijker is.
+
+---
+
 ## v1.6.0
 ### Gespeeld zonder uitslag, en een opgeruimd wedstrijdscherm
 - **Nieuw: een wedstrijd afsluiten zonder uitslag.** Bij een vriendschappelijke noteert soms niemand de score, en dan bleef die wedstrijd voor eeuwig gevlagd als *niet afgesloten*. Je kan ze nu afsluiten met **– . –** als uitslag: ze staat dan als **gespeeld** en telt mee in het aantal wedstrijden, maar levert geen winst, gelijk, verlies, doelpunten of nul gehouden. Speelminuten tellen wél mee als je die toevallig bijhield. Later alsnog een uitslag ingeven kan altijd — en omgekeerd ook. Twee wegen ernaartoe: de knop **Afsluiten als gespeeld zonder uitslag** onderaan het wedstrijdscherm (ook als er nog geen selectie is), en in het venster *Uitslag ingeven*. Niet bij een tornooiwedstrijd: daar hoort een uitslag bij.
