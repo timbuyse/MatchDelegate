@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.5
+### Het verslag: kloppende blokduur, de stand per blok, en niets meer wegschrijven bij het kijken
+- **Een blok zonder eindtijd toonde de duur van een ánder blok.** Bij een halverwege afgebroken of gesynchroniseerde wedstrijd stond bij kwart 2 de tijd van het laatste kwart. Nu staat er een streepje: alleen voor het lopende blok is de verstreken tijd het juiste antwoord.
+- **De kaart per kwart toont nu ook de stand van dát kwart**, onder het bloknummer. "1–1" alleen las als de stand van dat kwart, terwijl het de doorlopende stand was. De tijdlijn en de PDF deden dat al.
+- **Een verslag openen kon de wedstrijd wegschrijven en naar de cloud sturen.** Er liep bij elke tekening een reparatie van oude positienummers mee, zonder rolcontrole — dus ook wanneer een kijker enkel keek. Dat gebeurt nu alleen nog voor wie de wedstrijd mag bijhouden.
+- **In de PDF stond bij een wedstrijd van één blok de láátste kapitein op de startopstelling**, terwijl het scherm de eerste toont. Dat raakt vooral tornooiwedstrijden, die meestal uit één blok bestaan.
+- **Een kijker zag in de PDF meer dan op het scherm**: de positiewisselingen stonden er wel in. Die worden nu ook in de PDF weggelaten voor wie alleen mag lezen.
+
+---
+
 ## v1.3.4
 ### Snel resultaat naast Bewerken, en de opstelling houdt haar plekken
 - **Nieuw: de knop "Uitslag" naast "Bewerken"** op het wedstrijdscherm, op een kwart van de breedte. Een uitslag invoeren zonder de wedstrijd live te volgen zat weggestopt in het bewerkmenu — daar staat hij nog steeds, maar nu ook meteen in zicht. Hij verschijnt zodra de selectie ingegeven is; daarvoor staat er "Bewerken" en "Selectie ingeven", zoals altijd.

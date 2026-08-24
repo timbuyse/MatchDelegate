@@ -1,18 +1,32 @@
 // ===================== DETAIL VIEW =====================
 function renderDetail() {
   if (!match) return '<div class="content"><p>Niet gevonden.</p></div>';
-  if (ensurePosNums(match)) dbSave(match);
+  // ENKEL WIE MAG SCHRIJVEN, SCHRIJFT (audit 25-08-2026). Deze reparatie van oude positienummers
+  // liep bij élke tekening van dit scherm, zonder rolcontrole en zonder await: een kijker die een
+  // verslag opende, schreef de wedstrijd weg en pushte ze naar de cloud (dbSave zet updatedAt, wat de
+  // samenvoeging met een medebeheerder beïnvloedt). Nu alleen voor wie de wedstrijd mag bijhouden.
+  if (canLive() && ensurePosNums(match)) dbSave(match);
   const ro = !canLive(); // kijker of gast: alleen-lezen — zelfde maatstaf als het livescherm (25-08-2026)
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
-    const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
+    // getQElapsed kijkt ALTIJD naar het laatste blok (audit 25-08-2026). Voor een blok zonder
+    // eindtijd dat niet het laatste is — een halverwege afgebroken of gesynchroniseerde wedstrijd —
+    // stond hier dus de duur van een ánder blok. Enkel voor het laatste blok is de lopende tijd het
+    // juiste antwoord; verder weten we het niet, en dan is een streepje eerlijker dan een getal.
+    const isLaatsteBlok = q.num === (match.quarters[match.quarters.length - 1] || {}).num;
+    const dur = q.endTime ? (q.endTime - q.startTime - (q.totalPaused || 0)) : (isLaatsteBlok ? getQElapsed(match) : null);
     // own_goal_them hoort erbij (audit 25-08-2026): recomputeScore telt een eigen doel van de
     // tegenstander als ons doelpunt, dus zonder dit type sprong de tussenstand van 0-0 naar 1-0
     // met een streepje in de doelpuntenkolom. Zelfde lijst als in de PDF hieronder.
     const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||e.type==='own_goal_them'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
     const cum = scoreUpToQuarter(match, q.num);
+    // De stand van DIT blok erbij (audit 25-08-2026). Deze kaart toonde enkel de doorlopende stand,
+    // en "1-1" alleen las als de score van dit kwart. De tijdlijn en beide PDF-plekken zetten er
+    // daarom al "(dit kwart: x-y)" bij; precies deze kaart had die toevoeging niet gekregen.
+    const vorige = q.num > 1 ? scoreUpToQuarter(match, q.num - 1) : { us: 0, them: 0 };
+    const dit = { us: cum.us - vorige.us, them: cum.them - vorige.them };
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
-      <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
+      <div style="min-width:32px"><div style="font-weight:800">${pAbbr(match)}${q.num}</div>${((dit.us || dit.them) && match.quarters.length > 1) ? `<div style="font-size:10px;color:var(--txt2);white-space:nowrap;font-variant-numeric:tabular-nums">${isAway(match) ? `${dit.them}-${dit.us}` : `${dit.us}-${dit.them}`}</div>` : ''}</div>
       <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       ${/* De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep
            langer door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de
@@ -20,7 +34,7 @@ function renderDetail() {
       ${/* canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
            offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
            een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
-      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${Math.round(dur / 60000)} min${(canLive() && q.endTime)
+      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(canLive() && q.endTime)
         ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
       <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
@@ -858,8 +872,12 @@ async function pdfMatchBody(doc, L, m) {
     // positiewisselingen (zie de toelichting bij die functie). Ook het één-blok-geval loopt via de
     // reconstructie, anders staan de basisspelers er op hun finale positie — met overlappende
     // bollen bij een wedstrijd met wissels én positiewissels.
+    // captainAtStartOfQuarter i.p.v. m.captainId (audit 25-08-2026): m.captainId is de kapitein van
+    // NU, en die wordt bij elke kapiteinswissel overschreven. Bij een wedstrijd van één blok — de
+    // gewone vorm van een tornooiwedstrijd — zette de PDF dus de LAATSTE kapitein op de
+    // startopstelling, terwijl het scherm de eerste toont. Nu volgen beide dezelfde bron.
     const items = numQ <= 1
-      ? [{ q: null, ps: pitchPlayersAtPeriodStart(m, m.quarters.length ? 1 : undefined), capId: m.captainId }]
+      ? [{ q: null, ps: pitchPlayersAtPeriodStart(m, m.quarters.length ? 1 : undefined), capId: m.quarters.length ? captainAtStartOfQuarter(m, 1) : m.captainId }]
       : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: pitchPlayersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
     // De diagrammen lopen gewoon mee in de tekst en mogen over twee pagina's vloeien (bv. twee
     // velden op pagina 1 en twee op pagina 2). De breedte volgt uit de PAGINABREEDTE, niet uit de
@@ -1154,8 +1172,15 @@ async function pdfMatchBody(doc, L, m) {
   // Kaarten ook uit de PDF-tijdlijn wanneer het oogje 'cards' uit staat (Tims keuze, 25-08-2026):
   // anders staat "Gele kaart · Jonas" er alsnog voluit, en dan heeft het verbergen geen zin.
   const _kaartenUit = !statSectionVisible('cards');
-  const timelineGroups = eventsByQuarter(m).map(g => _kaartenUit
-    ? Object.assign({}, g, { list: (g.list || []).filter(e => e.type !== 'yellow_card' && e.type !== 'red_card') })
+  // EEN KIJKER ZIET IN DE PDF NIET MEER DAN OP HET SCHERM (audit 25-08-2026). renderEventLog laat
+  // voor wie alleen mag lezen de blokmarkeringen en de positiewisselingen weg (HIDDEN_FOR_VIEWER);
+  // de PDF-tijdlijn filterde niets. Zelfde lijst, zelfde grens: canLive() bepaalt of je meekijkt of
+  // meewerkt. Voor een beheerder verandert er niets.
+  const _kijker = !canLive();
+  const _verbergen = new Set(_kijker ? ['posSwap'] : []);
+  if (_kaartenUit) { _verbergen.add('yellow_card'); _verbergen.add('red_card'); }
+  const timelineGroups = eventsByQuarter(m).map(g => _verbergen.size
+    ? Object.assign({}, g, { list: (g.list || []).filter(e => !_verbergen.has(e.type)) })
     : g);
   timelineGroups.forEach((g, gi) => {
     // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
