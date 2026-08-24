@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.4.1
+### Twee toestellen: een blok zonder start kan niet meer
+- **Een teruggenomen blok kon terugkeren zonder zijn startgebeurtenis.** Nam je een blok terug (*Toch nog niet gestart*) of begon je opnieuw, en schreef een tweede toestel daarna nog met verouderde gegevens weg, dan kwam dat blok terug uit de cloud terwijl zijn start als verwijderd gemarkeerd stond. Je hield een kwart over dat volgens de gegevens nooit begonnen is, met speelminuten die niet meer klopten. Het samenvoegen laat de wismarkering nu ook gelden voor het blok zelf. Blijkt uit de gegevens dat het andere toestel dat blok tóch gespeeld heeft (er staat bijvoorbeeld een doelpunt in), dan blijft het blok staan en komt de start terug — er gaat nooit iets van iemand anders verloren om een blok te kunnen verwijderen.
+- Dit trof enkel wedstrijden die op **twee toestellen tegelijk** bijgehouden worden, waarvan er één een tijd zonder verbinding zat. Met één toestel kon het niet gebeuren. Gevonden met een nieuwe samenvoegtest (twaalf scenario's) op 24-08-2026; het gold ook al vóór v1.4.0, via *Opnieuw beginnen*.
+
+---
+
 ## v1.4.0
 ### De zijlijnketen: twee gaten gedicht
 Uit de ketentest van 24-08-2026, waarin de volledige stroom van een afgevaardigde is nagespeeld — plan klaarzetten, live bijhouden, pauzes, strafschoppen, verslag en PDF — over twaalf wedstrijden in alle spelvormen en blokindelingen. De cijfers klopten overal tot op de minuut; deze twee punten zaten in het verloop.

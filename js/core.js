@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.4.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.4.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2497,11 +2497,51 @@ async function applyCloudMatch(id, m) {
   // Tombstones van beide kanten verenigen vóór de event-merge: een bewust verwijderd
   // event mag nooit "terugkomen" via een ander toestel of een oude back-up.
   const tomb = new Set([...(m.deletedEventIds || []), ...((existing && existing.deletedEventIds) || [])]);
+  // EEN BLOK ZONDER START BESTAAT NIET (v1.4.1). De tombstones golden enkel voor de GEBEURTENISSEN;
+  // de blokken (m.quarters) werden altijd integraal van de cloud overgenomen. Nam je een blok terug
+  // ("Toch nog niet gestart") of begon je opnieuw, en schreef een tweede toestel daarna nog met zijn
+  // verouderde gegevens, dan kwam het blok terug zonder zijn quarter_start: een kwart dat volgens de
+  // gegevens nooit begonnen is, met speelminuten die niet meer kloppen. Gemeten met de
+  // samenvoegtest van 24-08-2026; het gold ook al voor "Opnieuw beginnen", dus niet nieuw.
+  // Welke blokken hun start kwijt zijn, moeten we WEL vóór het filteren vaststellen — daarna is het
+  // event weg en weten we niet meer bij welk blok het hoorde.
+  // De gewiste startgebeurtenissen zélf bijhouden (niet enkel hun bloknummer): staat er straks
+  // blijkt dat het blok tóch gespeeld is, dan kunnen we ze alleen zó terugzetten.
+  const gewisteStarts = tomb.size
+    ? (m.events || []).filter(e => e.type === 'quarter_start' && tomb.has(e.id) && e.quarterNum != null)
+    : [];
   if (tomb.size) {
     m.deletedEventIds = [...tomb];
     const before = m.events.length;
     m.events = m.events.filter(e => !tomb.has(e.id));
     if (m.events.length !== before) { recomputeScore(m); recomputeOnField(m); }
+  }
+  if (gewisteStarts.length) {
+    // Blijft er in zo'n blok tóch nog een gebeurtenis over, dan heeft het andere toestel dat blok
+    // wél degelijk gespeeld (bv. daar een doelpunt gelogd nadat jij het blok terugnam). Dan is het
+    // terugnemen achterhaald: het blok blijft staan en zijn start komt terug. Nooit stil iemands
+    // doelpunt weggooien om een blok te kunnen verwijderen.
+    const nogInGebruik = new Set((m.events || []).filter(e => e.quarterNum != null).map(e => e.quarterNum));
+    const terug = gewisteStarts.filter(e => nogInGebruik.has(e.quarterNum));
+    const weg = new Set(gewisteStarts.filter(e => !nogInGebruik.has(e.quarterNum)).map(e => e.quarterNum));
+    if (terug.length) {
+      const terugIds = new Set(terug.map(e => e.id));
+      m.deletedEventIds = (m.deletedEventIds || []).filter(id => !terugIds.has(id));
+      m.events = [...m.events, ...terug].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+      recomputeScore(m); recomputeOnField(m);
+    }
+    if (weg.size) {
+      m.quarters = (m.quarters || []).filter(q => !weg.has(q.num));
+      if (m.keeperByQ) weg.forEach(q => { delete m.keeperByQ[q]; });
+      // De teller van het huidige blok mee terugschuiven, anders wijst ze naar een blok dat er niet
+      // meer is en staat het livescherm naar een leegte te kijken.
+      const hoogste = (m.quarters || []).reduce((a, q) => Math.max(a, q.num || 0), 0);
+      if ((m.currentQuarter || 0) > hoogste) {
+        m.currentQuarter = hoogste;
+        m.quarterStatus = hoogste ? 'between' : 'not_started';
+        if (!hoogste && m.status === 'live') { m.status = 'planned'; delete m.startLineup; }
+      }
+    }
   }
   // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
   if (existing && Array.isArray(existing.events) && existing.events.length) {
