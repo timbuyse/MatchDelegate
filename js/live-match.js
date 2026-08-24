@@ -471,6 +471,18 @@ async function startQuarter(zonderControle) {
   // vlak voor de start: de enige plek waar het te laat zou zijn. Enkel voor een VOLGEND deel; de
   // aftrap van deel 1 heeft haar eigen waarschuwing in de selectiewizard.
   if (!zonderControle && match.currentQuarter >= 1 && startControleModal()) return;
+  // DE GETEKENDE OPSTELLING IS DE WAARHEID (audit 25-08-2026). De drie rondes hieronder voeren de
+  // AFGELEIDE wissels uit (pendingSubs/pendingPosSwaps), en die werden tot nu alleen herrekend op het
+  // moment dat je de doelopstelling schreef. Veranderde het veld daarna nog, dan waren ze verouderd
+  // en deed de start iets anders dan wat op het pauzeveld stond. GEMETEN: pauze na kwart 1, opstelling
+  // voor kwart 2 getekend mét Cas, dan het vorige deel hervat ("Te vroeg gestopt"), daarin één keer
+  // live gewisseld, afgesloten en kwart 2 gestart → Jef stond op het veld en Cas niet. Het aantal
+  // klopte (8), dus het viel niet op. Door de afleiding hier nog één keer te draaien, is de
+  // doelopstelling per definitie wat er gebeurt.
+  // Raakt match.plannedSubs NIET: dat is de aparte lijst met de wissels die JIJ klaarzet.
+  // Zonder getekende opstelling niets doen — dan zijn de pendings leeg en start het deel zoals het
+  // vorige eindigde, precies zoals altijd.
+  if (Array.isArray(match.nextLineup) && match.nextLineup.length) _pasNextLineupAan(match, match.nextLineup);
   _lineupSel = null;   // selectie uit de pauze-opstelling niet laten hangen
   match.currentQuarter++;
   match.quarterStatus = 'running';
@@ -690,6 +702,13 @@ async function doEndPeriod() {
     }
   }
   match.quarterStatus = 'between';
+  // De afgeleide wissels opnieuw uitrekenen tegen het veld zoals het NU staat (audit 25-08-2026).
+  // Stond er al een getekende opstelling voor het volgende deel, dan is die de bedoeling; de
+  // afgeleide lijst eronder was berekend op het veld van toen. Gemeten: het veld eindigde met Gust
+  // en Jef terwijl de doelopstelling Cas en Ilias vroeg, en de lijst beloofde één wissel waar er
+  // twee nodig waren — het pauzekaartje onderrapporteerde dus. startQuarter rekent ze óók nog eens
+  // na (gordel en bretellen), maar dan heb je het kaartje al gelezen.
+  if (Array.isArray(match.nextLineup) && match.nextLineup.length) _pasNextLineupAan(match, match.nextLineup);
   const gezet = zetGeplandeOpstellingKlaar(match);
   stopTimer(); releaseWake(); await dbSave(match); closeModal(); render();
   if (gezet) showToast(gezet, 'ok');
@@ -854,8 +873,17 @@ function confirmReopenMatch() {
   // Nooit gestart en toch afgesloten (mis-tik op "Afsluiten"): er is geen deel om te hervatten,
   // dus dan is de juiste herstelactie ze terugzetten naar "gepland".
   if (!match.quarters.length) {
+    // TWEE HEEL VERSCHILLENDE GEVALLEN LANDEN HIER (audit 25-08-2026), want beide hebben nul delen:
+    // een mistik op "Afsluiten", én een wedstrijd waarvan je de uitslag SNEL invoerde. Bij die
+    // tweede stond hier "afgesloten zonder ooit gestart te zijn" — feitelijk onjuist voor een 3-1
+    // die je zelf ingaf — en bleven de doelpunten staan, dus begon de volgende echte poging op 3-1.
+    // De snelinvoer-doelpunten dragen `quick: true`, dus ze zijn precies te herkennen.
+    const snel = (match.events || []).filter(e => e.quick);
     openModal(`<h3>Wedstrijd heropenen?</h3>
-      <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Deze wedstrijd is afgesloten zonder ooit gestart te zijn. We zetten ze terug op <b>gepland</b>, zodat ze uit de uitslagen verdwijnt en je ze gewoon kan starten.</p>
+      ${snel.length
+        ? `<p style="text-align:center;color:var(--txt2);margin-bottom:16px">Je vulde voor deze wedstrijd enkel de <b>uitslag</b> in (${esc(scoreTxt(match))}). We zetten ze terug op <b>gepland</b>, zodat je ze echt kan spelen en bijhouden.</p>
+           <p style="text-align:center;color:var(--rd);font-size:13px;margin-bottom:16px">${snel.length === 1 ? 'Het doelpunt dat' : 'De ' + snel.length + ' doelpunten die'} bij die uitslag ${snel.length === 1 ? 'hoort' : 'horen'}, ${snel.length === 1 ? 'verdwijnt' : 'verdwijnen'} — anders begint de wedstrijd straks op ${esc(scoreTxt(match))}. Je selectie en je opstelling blijven staan.</p>`
+        : `<p style="text-align:center;color:var(--txt2);margin-bottom:16px">Deze wedstrijd is afgesloten zonder ooit gestart te zijn. We zetten ze terug op <b>gepland</b>, zodat ze uit de uitslagen verdwijnt en je ze gewoon kan starten.</p>`}
       <button class="btn btn-org" onclick="doUnfinishToPlanned()">${icI(IC.check)}Terug naar gepland</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
     return;
@@ -870,7 +898,16 @@ function confirmReopenMatch() {
 async function doUnfinishToPlanned() {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.quarters.length) { closeModal(); return; }
+  // De snel ingevoerde doelpunten mee opruimen (audit 25-08-2026): zonder dit begon de volgende
+  // echte poging op de oude stand, want recomputeScore telt elk goal-event ongeacht zijn deel.
+  // Mét tombstone, anders brengt de synchronisatie met een medebeheerder ze terug.
+  const snel = (match.events || []).filter(e => e.quick);
+  if (snel.length) {
+    snel.forEach(e => tombstoneEvent(match, e.id));
+    match.events = (match.events || []).filter(e => !e.quick);
+  }
   match.status = 'planned'; match.quarterStatus = 'not_started'; match.currentQuarter = 0;
+  recomputeScore(match); recomputeOnField(match);
   closeModal();
   await dbSave(match);
   go('prep', match.id);
@@ -3802,6 +3839,17 @@ function _voerPlannedSubUit(s, mode) {
     if (!pauzeWisselInDoel(match, s.outId, s.inId)) return `${pName(match, s.outId)} staat niet in de opstelling van het volgende ${pSingLow(match)}.`;
   } else {
     const pOut = match.players.find(p => p.id === s.outId), pIn = match.players.find(p => p.id === s.inId);
+    // DE WERKELIJKHEID, NIET DE VOORSPELLING (audit 25-08-2026). plannedSubProbleem hierboven toetst
+    // aan veldMetGeplandeWissels: het veld zoals het ZOU zijn met de andere klaargezette wissels
+    // erbij. Dat is juist voor de knop (een wissel voor een later deel mag niet grijs staan), maar
+    // niet voor het doorvoeren zelf. Stond de uitgaande speler in werkelijkheid al niet meer op het
+    // veld, dan kopieerde de regel hieronder zijn VEROUDERDE plek naar de invaller — en die plek is
+    // intussen van iemand anders. Gevolg: twee spelers op één plek.
+    // Gevonden door de fuzzer (seed 7313: Fons ging er live af, daarna gaf "nu doorvoeren" zijn oude
+    // plek aan Ilias, waar Jef stond). Bestond ook vóór de wijzigingen van vandaag — nagegaan door
+    // dezelfde seed op de vorige versie te draaien.
+    if (!pOut || !pOut.onField) return `${pName(match, s.outId)} staat niet meer op het veld.`;
+    if (pIn && pIn.onField) return `${pName(match, s.inId)} staat al op het veld.`;
     // Zelfde afhandeling als confirmSub(): posBefore vastleggen, positie overnemen, keeper volgen.
     const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
     addEvent('substitution', { playerOutId: s.outId, playerInId: s.inId, posBefore });

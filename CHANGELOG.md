@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.2
+### Wat je tekent is wat er gebeurt
+- **Het pauzeveld en de start liepen uit elkaar.** Je tekende de opstelling voor het volgende kwart, en toch stond er iemand anders op het veld na de start. Dat kon zodra het veld nog veranderde nadat je die opstelling getekend had — bijvoorbeeld: pauze, opstelling tekenen, dan "te vroeg gestopt" om het vorige kwart te hervatten, daarin nog wisselen, en dan starten. De app voerde dan een verouderd lijstje wissels uit in plaats van jouw opstelling. Het aantal spelers klopte wel, dus het viel niet op. Nu is de getekende opstelling altijd wat er gebeurt, en het pauzekaartje toont vanaf het begin van de pauze het juiste aantal wijzigingen.
+- **Twee spelers op één plek na "geplande wissel nu doorvoeren".** Was de speler die eraf moest in werkelijkheid al gewisseld, dan kreeg de invaller diens oude plek — en daar stond intussen iemand anders. Nu weigert de app dat met een duidelijke melding in plaats van twee shirts op elkaar te zetten. Gevonden door de willekeurige testronde; deze fout zat er al langer in.
+- **Een snel ingevoerde uitslag terugzetten naar "gepland" hield de doelpunten.** Het venster zei zelfs dat de wedstrijd "nooit gestart" was, wat voor een uitslag die je zelf ingaf niet klopt. Startte je haar daarna echt, dan begon het scorebord op 3-1. Nu zegt het venster wat er staat te gebeuren en verdwijnen die doelpunten mee — je selectie en opstelling blijven staan.
+
+---
+
 ## v1.2.1
 ### De strafschoppenregel van v1.2.0 werkte niet
 - **Wat er misging.** v1.2.0 beloofde dat een strafschoppenreeks alleen nog bij een gelijke stand getoond wordt. Die regel is toen op één plek gezet — een hulpfunctie die door **geen enkel scherm** gebruikt werd. Het beginscherm, het verslag, de PDF en "Deel score" haalden hun tekst elk apart op, dus in de app veranderde er niets: na een verlenging met een extra doelpunt las het verslag nog altijd "1-0 · pen. 4-3".
