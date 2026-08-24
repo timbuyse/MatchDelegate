@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.4.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.5.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2248,7 +2248,10 @@ function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
   try {
     const c = jclone(m);
-    delete c.photo1; delete c.photo2; // base64 niet naar Firebase (te groot)
+    // De fotofunctie is weg sinds v1.5.0, maar wedstrijden van vóór die versie kunnen nog een foto
+    // dragen. Die mag nooit in Firebase belanden (base64, veel te groot voor de databank), dus dit
+    // blijft staan zolang er zulke wedstrijden op toestellen kunnen staan.
+    delete c.photo1; delete c.photo2;
     // Notities gaan niet mee in "matches" (leesbaar door elk teamlid) maar apart naar
     // "teamNotes" (enkel beheerders) — zie notesRef().
     const playerNotes = {};
@@ -2564,8 +2567,10 @@ async function applyCloudMatch(id, m) {
       const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
       if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
     }
-    // Foto's gaan bewust nooit naar de cloud (te groot voor RTDB) — lokale foto's
-    // overnemen zodat de cloud-echo ze niet wist vlak na het toevoegen.
+    // Foto's gaan bewust nooit naar de cloud (te groot voor RTDB) — lokale foto's overnemen zodat
+    // de cloud-echo ze niet wist. De functie is weg sinds v1.5.0; dit blijft staan voor wedstrijden
+    // van vóór die versie. Ze stilzwijgend laten wissen door een echo zou gegevens van de gebruiker
+    // vernietigen zonder dat hij erom vroeg — ze zijn onzichtbaar geworden, niet weggegooid.
     if (existing.photo1 && m.photo1 === undefined) m.photo1 = existing.photo1;
     if (existing.photo2 && m.photo2 === undefined) m.photo2 = existing.photo2;
   }

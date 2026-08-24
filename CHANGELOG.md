@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.5.0
+### De foto's zijn eruit
+- **Teamfoto en actiefoto zijn weg** — uit het verslag, uit de PDF en uit de opslag van nieuwe wedstrijden. Ze werden niet gebruikt en kostten onevenredig veel: een gsm-foto ging **ongewijzigd** de opslag in. Gemeten: 3,8 MB per foto, 7,6 MB voor één wedstrijd met twee, tot 25 MB in het uiterste geval. Elke keer dat zo'n wedstrijd bewaard werd, ging dat hele blok mee — én nog eens door de kopie die de synchronisatie maakt om de foto's er dan weer uit te gooien. De PDF gebruikte ze op zo'n 600 px breed en duurde er 5 seconden over in plaats van 3,5.
+- **Foto's bij bestaande wedstrijden worden niet gewist.** Ze worden alleen niet meer getoond. Ze blijven ook uit de cloud, net als voorheen.
+
+---
+
 ## v1.4.2
 ### Wat een kijker ziet op een verslag
 - **Bij een lokale (niet-gesynchroniseerde) wedstrijd bleven de bewerkknoppen zichtbaar voor een kijker.** Het verslagscherm verborg die zone met een eigen formule die enkel afging bij een wedstrijd uit de cloud, terwijl de rest van datzelfde scherm de gewone rolcontrole al gebruikte. Precies dezelfde fout die op 23-08-2026 in het voorbereidingsscherm rechtgezet is; dit scherm bleef toen staan. Gevolg: in de **kijkmodus** kreeg je voor zulke wedstrijden een weergave die niet klopte met wat een kijker echt ziet, en *Event toevoegen* en *Spelernotities* — de enige twee knoppen daar zonder eigen wachter — deden hun werk gewoon. Naar de cloud ging er niets: dat pad vraagt de beheerdersrol en de serverregels weigeren het.

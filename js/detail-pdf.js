@@ -112,7 +112,6 @@ function renderDetail() {
         ${rows.map(([label,a,b])=>`<div class="stat-row"><span style="flex:1">${label}</span><span style="min-width:90px;text-align:right;font-weight:700">${a}</span><span style="min-width:70px;text-align:right;color:var(--txt2)">${b}</span></div>`).join('')}
       </div>`;
     })()}
-    ${photoSectionHtml(match, ro)}
     ${/* canLive, niet canManage (audit 25-08-2026): canManage is offline false, dus zonder verbinding
          verdween de notitiekaart — terwijl de knop om een snelle notitie te SCHRIJVEN aan de lijn wel
          werkt. Je typte dus in het niets: niet te lezen, niet te verbeteren tot je weer bereik had. */ ''}
@@ -210,50 +209,15 @@ function renderDetail() {
     ${viewerVisibilityHintHtml(['selected', 'minutes'])}
   </div>`;
 }
-function pickPhoto(slot) {
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*';
-  inp.onchange = async e => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async ev => {
-      match['photo' + slot] = ev.target.result;
-      await dbSave(match); render();
-    };
-    reader.readAsDataURL(file);
-  };
-  inp.click();
-}
-async function deletePhoto(slot) {
-  delete match['photo' + slot];
-  await dbSave(match); render();
-}
-function photoSectionHtml(m, ro) {
-  const slots = [
-    { key: 'photo1', label: 'TEAMFOTO' },
-    { key: 'photo2', label: 'ACTIEFOTO' },
-  ];
-  const html = slots.map((s, i) => {
-    const num = i + 1;
-    const src = m[s.key];
-    if (src) {
-      return `<div class="photo-slot">
-        <img src="${src}" alt="${s.label}">
-        <div class="photo-slot-lbl">${s.label}</div>
-        ${ro ? '' : `<button class="photo-del" onclick="deletePhoto(${num})" title="Verwijderen">×</button>`}
-      </div>`;
-    }
-    if (ro) return `<div class="photo-slot" style="cursor:default"><span style="font-size:22px;opacity:.3">📷</span><span>${s.label}</span></div>`;
-    return `<div class="photo-slot" onclick="pickPhoto(${num})">
-      <span style="font-size:28px;opacity:.4">📷</span>
-      <span>${s.label}</span>
-      <span style="font-size:10px;opacity:.6">Tik om toe te voegen</span>
-    </div>`;
-  }).join('');
-  const hasPhotos = m.photo1 || m.photo2;
-  if (ro && !hasPhotos) return '';
-  return `<div class="sec">Foto's</div><div class="card"><div class="photo-grid">${html}</div></div>`;
-}
+// DE FOTO'S ZIJN ERUIT (Tims keuze, 24-08-2026). Teamfoto en actiefoto zijn nooit gebruikt en
+// kostten onevenredig veel: een gsm-foto ging ONGEWIJZIGD de opslag in (gemeten: 3,8 MB per stuk,
+// 7,6 MB voor één wedstrijd, tot 25 MB in het uiterste geval), en elke keer dat zo'n wedstrijd
+// bewaard werd, ging dat hele blok mee door de opslag én door de kopie die de cloudsync maakt om
+// de foto's er dan weer uit te gooien. De PDF gebruikte ze op zo'n 600 px breed.
+// Wat blijft staan en waarom: in core.js worden foto's van vóór deze versie nog steeds uit het
+// cloud-object gehaald (ze mogen daar nooit in belanden) en bij een echo bewaard (ze wissen zou
+// gegevens van de gebruiker vernietigen zonder dat hij erom vroeg). Ze zijn dus onzichtbaar
+// geworden, niet weggegooid.
 // "Gebruik als template" hoort niet bij een tornooiwedstrijd: cloneMatch() maakt een LOSSE
 // wedstrijd (geen tournamentId, geen tornooimodus), en dat is op een tornooidag nooit wat je wil.
 // Daar bestaat "Kloon als nieuwe wedstrijd" voor, die de kloon in hetzelfde tornooi houdt — die
@@ -1148,20 +1112,7 @@ async function pdfMatchBody(doc, L, m) {
     // minuten wel, maar zonder dit regeltje zie je niet waaróm de percentages lager liggen.
     (() => { const ms = minutenMetMinderMs(m); return ms >= 60000 ? `Ongeveer ${Math.round(ms / 60000)} min met minder spelers op het veld dan er plaatsen zijn.` : ''; })());
 
-  // ---- Foto's ----
-  const photos = [m.photo1, m.photo2].filter(Boolean);
-  if (photos.length) {
-    heading("Foto's");
-    const gap = 12, imgW = photos.length > 1 ? (CW - gap) / 2 : Math.min(CW, 300), imgH = imgW * 0.66;
-    ensure(imgH + 10);
-    let x = MG;
-    for (const src of photos) {
-      const png = await rasterizeToPng(src, Math.round(imgW * 2), Math.round(imgH * 2));
-      if (png) { try { doc.addImage(png, 'PNG', x, L.y, imgW, imgH, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {} }
-      x += imgW + gap;
-    }
-    L.y += imgH + 20;
-  }
+  // (De fotosectie is eruit — zie de uitleg bovenaan dit bestand bij het weggehaalde photoSectionHtml.)
 
   // ---- Notities (enkel beheerder) ----
   // canLive: een PDF zonder notities was het gevolg van canManage offline (audit 25-08-2026).
