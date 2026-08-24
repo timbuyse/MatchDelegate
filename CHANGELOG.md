@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.4
+### Doelpunten die niet klopten met wat je zag
+- **Het doelpuntvenster kon "eigen doel" tonen en een gewoon tegendoel opslaan.** Wisselde je van ploeg en terug, dan bleef het schakelaartje op "Eigen doel" staan mét de speler die je had aangeduid — maar er werd een gewoon tegendoel bewaard, zonder speler. De stand was gelijk, het verloop en de spelersstatistiek niet. Nu gaat dat deel van het venster mee terug wanneer je van ploeg wisselt.
+- **Een eigen doel van de tegenstander stond in geen enkele doelpuntenlijst per blok.** Het telde wél mee in de stand, dus op de blokkaart sprong de tussenstand van 0-0 naar 1-0 met een streepje in de doelpuntenkolom. Nu staat het er, op het scherm en in de PDF.
+- **"Opnieuw beginnen" liet twee dingen achter.** De opstelling die je voor het volgende kwart getekend had bleef staan, dus bij de eerste pauze van je nieuwe poging tekende de app de opstelling van de vorige — terwijl er tegelijk stond dat er niets te wijzigen was. En de gewiste gebeurtenissen werden niet als verwijderd gemarkeerd, waardoor ze bij twee beheerders op één wedstrijd konden terugkomen via de synchronisatie. Beide rechtgezet.
+
+---
+
 ## v1.2.3
 ### Wisselen na een vertrek in de pauze, en naamgenoten in de clubexport
 - **Meld je in de pauze iemand als vertrokken, dan kan je nu ook echt iemand inbrengen.** De app bood die wissel al aan, maar er gebeurde niets: je kreeg "X staat niet in de opstelling van het volgende kwart" en je ploeg bleef met één speler minder staan. De invaller neemt nu de plek over die de vertrokken speler net vrijmaakte. Staat daar intussen al iemand anders, dan zegt de app dat — in plaats van twee spelers op één plek te zetten.

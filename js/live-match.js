@@ -414,12 +414,22 @@ async function doResetMatch() {
     m.currentQuarter = 0;
     m.quarterStatus = 'not_started';
     m.quarters = [];
+    // MET TOMBSTONE (audit 25-08-2026). De gebeurtenissen werden hier leeggegooid zonder ze als
+    // verwijderd te markeren, terwijl undoLast en doDeleteEvent dat wél doen. Bij twee beheerders op
+    // één wedstrijd zet de merge in applyCloudMatch elk lokaal event terug dat niet in de cloud staat
+    // én niet getombsteend is — en pusht het opnieuw. Het tweede toestel heeft de oude events nog, dus
+    // die stroomden terug in de leeggemaakte wedstrijd. Gemeten: 0 tombstones na een reset.
+    (m.events || []).forEach(e => tombstoneEvent(m, e.id));
     m.events = [];
     m.pendingSubs = []; m.pendingPosSwaps = [];
     m.keeperByQ = {};
     // De vastgelegde startopstelling hoort bij de aftrap die net ongedaan gemaakt is; bij de
     // volgende start wordt ze opnieuw vastgelegd (zie startQuarter).
     delete m.startLineup;
+    // En de getekende opstelling voor het volgende deel (audit 25-08-2026). Die bleef staan, dus bij
+    // de eerste pauze van de NIEUWE poging tekende de app de opstelling van de vorige — terwijl het
+    // kaartje ernaast zei dat er niets te wijzigen was, want de afgeleide wissels waren wél leeg.
+    delete m.nextLineup;
     m.scoreUs = 0; m.scoreThem = 0;
     delete m.motmId;
     recomputeScore(m); recomputeOnField(m);
@@ -2675,6 +2685,19 @@ function tglGoalTeam(team, btn) {
   btn.classList.add('act');
   document.getElementById('goal-us-section').classList.toggle('hidden', team !== 'us');
   document.getElementById('goal-them-section').classList.toggle('hidden', team !== 'them');
+  // OOK HET EIGEN-DOELDEEL TERUGZETTEN (audit 25-08-2026). De regel hierboven zet goalIsOwnGoal op
+  // false, maar liet het schakelaartje op "Eigen doel" staan en de spelerslijst open. Gemeten reeks:
+  // tegenstander → eigen doel → onze speler aanduiden → onze ploeg → weer tegenstander → Bevestigen.
+  // Op het scherm stond "Eigen doel" mét een gekozen speler, opgeslagen werd een gewoon tegendoel
+  // zonder speler. Zelfde stand, verkeerd verloop en verkeerde spelersstatistiek.
+  const ogTgl = document.getElementById('goal-own-tgl');
+  if (ogTgl) {
+    ogTgl.querySelectorAll('button').forEach((b, i) => b.classList.toggle('act', i === 0));
+  }
+  const ogWrap = document.getElementById('own-goal-players');
+  if (ogWrap) ogWrap.classList.add('hidden');
+  document.querySelectorAll('#own-goal-player-list .mopt').forEach(o => o.classList.remove('sel'));
+  document.querySelectorAll('#own-goal-player-list .ogp-btn').forEach(o => gpDesel(o));
 }
 function tglOwnGoal(isOwn, btn) {
   goalIsOwnGoal = isOwn; goalPlayerId = null;

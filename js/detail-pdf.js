@@ -6,7 +6,10 @@ function renderDetail() {
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused||0) : getQElapsed(match);
-    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
+    // own_goal_them hoort erbij (audit 25-08-2026): recomputeScore telt een eigen doel van de
+    // tegenstander als ons doelpunt, dus zonder dit type sprong de tussenstand van 0-0 naar 1-0
+    // met een streepje in de doelpuntenkolom. Zelfde lijst als in de PDF hieronder.
+    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||e.type==='own_goal_them'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
     const cum = scoreUpToQuarter(match, q.num);
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
       <div style="font-weight:800;min-width:32px">${pAbbr(match)}${q.num}</div>
@@ -989,7 +992,8 @@ async function pdfMatchBody(doc, L, m) {
       const dit = scoreInQuarter(m, q.num);
       const cumText = (isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`)
         + `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})`;
-      const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
+      // own_goal_them erbij — zelfde reden als op het scherm (audit 25-08-2026).
+      const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
       goalsPerRow.push(evts);
       const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
