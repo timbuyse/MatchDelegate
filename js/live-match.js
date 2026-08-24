@@ -142,7 +142,12 @@ function renderLive() {
            wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). Het telletje toont enkel wat je
            in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
       <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}</button>`; })()}
-      ${(canEvent && hasUndo()) ? `<button class="btn btn-orgpale" onclick="confirmUndoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
+      ${/* OOK IN DE PAUZE (audit 25-08-2026). Deze knop hing aan canEvent, en dat is false zodra de
+           pauze begint — net het moment waarop een delegé nakijkt wat hij ingetikt heeft.
+           undoKandidaat vindt op dat moment nog netjes de laatste gebeurtenis van het deel dat pas
+           afgelopen is, dus de knop werkt daar gewoon. Corrigeren moest anders via Verloop en het
+           potloodje, twee tabbladen verder. Niet ná het eindsignaal: dan hoort het via het verslag. */ ''}
+      ${(!ro && !isDone && hasUndo()) ? `<button class="btn btn-orgpale" onclick="confirmUndoLast()">${icI(IC.undo)} Laatste actie ongedaan maken</button>` : ''}
       ${/* "Oei, dit was niet de bedoeling": een bescheiden knop onderaan, niet tussen de knoppen die
             je tijdens het spel nodig hebt. Enkel zolang de wedstrijd niet afgesloten is, en niet in
             het vastgelopen-kader (daar staat ze al). Bij een wedstrijd waar nog niets gebeurd is,
@@ -1893,7 +1898,8 @@ async function doDeleteEvents(ids) {
   // Nieuwste eerst: revertPosSwapPositions draait één wissel terug op de HUIDIGE stand, dus de
   // volgorde moet omgekeerd chronologisch zijn — anders herstel je een tussenstand.
   const geordend = (ids || []).slice().reverse();
-  for (const id of geordend) await doDeleteEvent(id);
+  for (const id of geordend) await doDeleteEvent(id, true);   // stil: één keer opslaan hieronder
+  await dbSave(match); closeModal(); render();
 }
 // Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatch)
 // ze niet "terugbrengt" vanaf een ander toestel of uit een oude back-up.
@@ -2064,7 +2070,11 @@ function rebuildKeeperByQ(m) {
   }
   m.keeperByQ = kbq;
 }
-async function doDeleteEvent(id) {
+// `stil` = niet opslaan en niet hertekenen: dan doet de aanroeper dat één keer voor de hele reeks
+// (zie doDeleteEvents). Zonder dat deed het verwijderen van zes samengevouwen positiewisselingen zes
+// schrijfacties naar IndexedDB én zes pushes naar de cloud, met halve tussenstanden erin
+// (audit 25-08-2026).
+async function doDeleteEvent(id, stil) {
   const removed = match.events.find(e => e.id === id);
   const toRemove = removed ? [removed] : [];
   // 2e gele + automatische rode horen samen (zelfde paar-logica als undoLast): wie de foutieve
@@ -2072,8 +2082,13 @@ async function doDeleteEvent(id) {
   // van het veld terwijl het verloop nog maar één gele kaart toont.
   if (removed && removed.type === 'yellow_card' && removed.playerId) {
     const remainingYellows = match.events.filter(e => e.type === 'yellow_card' && e.playerId === removed.playerId && e.id !== id).length;
-    const autoRed = match.events.find(e => e.type === 'red_card' && e.autoSecondYellow && e.playerId === removed.playerId);
-    if (autoRed && remainingYellows < 2) { toRemove.push(autoRed); showToast('De automatische rode kaart (2e geel) is mee verwijderd.', 'ok'); }
+    // filter, niet find (audit 25-08-2026): stonden er door een oude invoerfout twee automatische
+    // rode kaarten bij dezelfde speler, dan bleef er één achter — en die had niemand gegeven.
+    const autoReds = match.events.filter(e => e.type === 'red_card' && e.autoSecondYellow && e.playerId === removed.playerId);
+    if (autoReds.length && remainingYellows < 2) {
+      autoReds.forEach(r => toRemove.push(r));
+      showToast(autoReds.length === 1 ? 'De automatische rode kaart (2e geel) is mee verwijderd.' : `${autoReds.length} automatische rode kaarten (2e geel) zijn mee verwijderd.`, 'ok');
+    }
   }
   const ids = new Set(toRemove.map(ev => ev.id));
   toRemove.forEach(ev => tombstoneEvent(match, ev.id));
@@ -2083,6 +2098,7 @@ async function doDeleteEvent(id) {
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten herbouwen na het verwijderen van een keeper-relevante actie.
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
+  if (stil) return;
   await dbSave(match); closeModal(); render();
 }
 // Een bestaand event bewerken (speler/assist/minuut/details).
@@ -2095,8 +2111,11 @@ function modalEditEvent(id) {
   else if (t === 'yellow_card' || t === 'red_card') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div>`;
   else if (t === 'own_goal') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
   else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
-  else if (t === 'corner_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Type</label><select id="ee-ctype"><option value="lang" ${e.cornerType === 'lang' ? 'selected' : ''}>Lang</option><option value="kort" ${e.cornerType === 'kort' ? 'selected' : ''}>Kort</option></select></div>`;
-  else if (t === 'corner_them') fields = `<div class="fg"><label>Type</label><select id="ee-ctype"><option value="lang" ${e.cornerType === 'lang' ? 'selected' : ''}>Lang</option><option value="kort" ${e.cornerType === 'kort' ? 'selected' : ''}>Kort</option></select></div>`;
+  // HOEKSCHOP: geen nemer en geen type meer (audit 25-08-2026). logCorner vraagt die bewust niet
+  // meer ("overbodig voor jeugd"), dus het bewerkvenster vroeg naar twee dingen die je bij het
+  // ingeven nooit invult — en een leeg veld dat je moet bevestigen leest als een ontbrekend
+  // gegeven. Enkel de minuut blijft, en die staat er altijd.
+  else if (t === 'corner_us' || t === 'corner_them') fields = '';
   else if (t === 'penalty_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Gescoord</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'penalty_them') fields = `<div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Tegendoel</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'substitution') fields = `<div class="fg"><label>Speler eraf</label><select id="ee-out">${opts(e.playerOutId)}</select></div><div class="fg"><label>Speler erin</label><select id="ee-in">${opts(e.playerInId)}</select></div>`;
@@ -2147,10 +2166,16 @@ function startopstellingKnopHtml(e) {
 // De reconstructie sleept die tegenspraak door naar élk blok — zichtbaar als twee shirts op één plek,
 // ook in de startopstelling (gevonden op 22-08-2026 met 60 nagespeelde wedstrijden). Beter dus om ze
 // niet te laten ontstaan dan om de reconstructie er nog een uitzondering bij te geven.
+// "Tijdens het spel" hoort in de EERSTE minuut van het deel (audit 25-08-2026). Met qStart + 60000
+// kwam het event op minuut 2 te staan: eventMinLocal rekent floor(verstreken/60000) + 1, dus één
+// volle minuut erbij is al de tweede minuut. Het venster en de commentaar spraken van de eerste.
+// Eén seconde ná de start: minuut 1, en toch duidelijk ná het blokbegin (dat is de atBreak-variant,
+// die exact op qStart staat).
+const EERSTE_MINUUT_MS = 1000;
 function verplaatsConflicten(e, naarStart) {
   if (!e || !e.quarterNum) return [];
   const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
-  const nieuw = naarStart ? qStart : qStart + 60000;
+  const nieuw = naarStart ? qStart : qStart + EERSTE_MINUUT_MS;
   const oud = e.gameTimeMs || 0;
   const van = Math.min(nieuw, oud), tot = Math.max(nieuw, oud);
   const betrokken = new Set([e.playerOutId, e.playerInId, e.pA, e.pB].filter(Boolean));
@@ -2185,7 +2210,7 @@ function confirmVerplaatsEvent(id, naarStart) {
   // raakt de statistieken van twee spelers. Bij het omhangen naar de start schuift het event naar
   // het begin van het deel; terug wordt het de eerste minuut van dat deel.
   const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
-  const nieuwMs = naarStart ? qStart : qStart + 60000;
+  const nieuwMs = naarStart ? qStart : qStart + EERSTE_MINUUT_MS;
   const verschilMin = Math.round(Math.abs(nieuwMs - (e.gameTimeMs || 0)) / 60000);
   const wie = e.type === 'substitution'
     ? { af: e.playerOutId ? pName(match, e.playerOutId) : null, op: e.playerInId ? pName(match, e.playerInId) : null }
@@ -2214,7 +2239,7 @@ async function doVerplaatsEvent(id, naarStart) {
     const baseline = playersAtPeriodStart(match, 1);
     const qStart = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
     if (naarStart) { e.atBreak = true; e.gameTimeMs = qStart; }
-    else { delete e.atBreak; e.gameTimeMs = qStart + 60000; }
+    else { delete e.atBreak; e.gameTimeMs = qStart + EERSTE_MINUUT_MS; }
     recomputeScore(match);
     rebuildPositions(match, baseline);
     if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
@@ -2237,7 +2262,19 @@ async function saveEditEvent(id) {
   if (has('ee-swap-a') && has('ee-swap-b') && val('ee-swap-a') === val('ee-swap-b')) {
     showToast('Kies twee verschillende spelers.', 'err'); return;
   }
-  const min = parseInt(val('ee-min'));
+  // Dezelfde controle voor een WISSEL (audit 25-08-2026): die bestond enkel voor de positiewissel,
+  // dus je kon een wissel bewerken naar "X voor X" — en dan staat er in het verloop dat iemand
+  // zichzelf vervangt.
+  if (has('ee-out') && has('ee-in') && val('ee-out') === val('ee-in')) {
+    showToast('Kies twee verschillende spelers: iemand kan zichzelf niet vervangen.', 'err'); return;
+  }
+  const minRuw = val('ee-min');
+  const min = parseInt(minRuw);
+  // Een onmogelijke minuut werd stil weggeslikt: het venster sloot met de oude waarde en er kwam geen
+  // woord. Nu blijft het venster open met uitleg (audit 25-08-2026).
+  if (minRuw !== undefined && String(minRuw).trim() !== '' && (isNaN(min) || min < 1)) {
+    showToast('De minuut moet 1 of hoger zijn.', 'err'); return;
+  }
   if (!isNaN(min) && min > 0) {
     const qStart = e.quarterNum ? gameTimeMsAtStartOfQuarter(match, e.quarterNum) : 0;
     // Begrens tot binnen het kwart, zodat het event niet in een volgend kwart schuift (wat de
@@ -4317,7 +4354,12 @@ async function logCard(color, pid) {
     else {
       addEvent('yellow_card', { playerId: pid });
       const prevYellow = match.events.filter(e => e.type === 'yellow_card' && e.playerId === pid).length;
-      if (prevYellow >= 2) {
+      // EXACT TWEE, en nog geen automatische rode (audit 25-08-2026). Met `>= 2` gaf een dérde gele
+      // kaart er nóg een automatische rode bij, en bij het verwijderen wordt er maar één ontkoppeld
+      // (find i.p.v. filter) — dan bleef er een rode kaart staan die niemand gegeven had. Realistisch
+      // alleen bij een invoerfout, maar dan sta je met een speler die niet meer mag meedoen.
+      const alRood = match.events.some(e => e.type === 'red_card' && e.autoSecondYellow && e.playerId === pid);
+      if (prevYellow === 2 && !alRood) {
         addEvent('red_card', { playerId: pid, autoSecondYellow: true });
         const p = match.players.find(x => x.id === pid);
         if (p) p.onField = false;
@@ -4476,7 +4518,16 @@ function modalSubAfterInjury(outId, reden) {
   subOut = outId; subIn = null;
   const outPlayer = match.players.find(p => p.id === outId);
   const mins = calcMinutes(match);
-  const off = playersOnBench(match).slice().sort((a,b) => (mins[a.id]?.ms||0) - (mins[b.id]?.ms||0));
+  // DE BANK VAN HET JUISTE DEEL (audit 25-08-2026). Geef je een blessure of vertrek ACHTERAF in (via
+  // "Event toevoegen" voor een eerder deel), dan opende dit venster met de bank van NU. Daar konden
+  // spelers tussen staan die op dat moment net op het veld stonden. modalInjury doet het al goed met
+  // magNogMeedoen(…, _postEventQuarter); hier bleef het de huidige bank. confirmSub neemt daarna wél
+  // de juiste retro-weg, dus de wissel landde in het goede deel — met mogelijk de verkeerde namen.
+  const deelVoorBank = (typeof _postEventQuarter !== 'undefined' && _postEventQuarter != null) ? _postEventQuarter : undefined;
+  const opVeldDanIds = new Set((typeof playersOnFieldForEvent === 'function' ? playersOnFieldForEvent(match) : playersOnField(match)).map(p => p.id));
+  const off = match.players
+    .filter(p => !opVeldDanIds.has(p.id) && p.id !== outId && magNogMeedoen(match, p, deelVoorBank))
+    .slice().sort((a,b) => (mins[a.id]?.ms||0) - (mins[b.id]?.ms||0));
   const minMs = off.length ? (mins[off[0].id]?.ms||0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
   openModal(`<h3>${icI(IC.swap)} Wissel na ${weg ? 'vertrek' : 'blessure'}</h3>
@@ -4491,7 +4542,12 @@ function modalSubAfterInjury(outId, reden) {
 let fkTeam = 'us', fkPlayerId = null;
 function modalFreekick() {
   fkTeam = 'us'; fkPlayerId = null;
-  const on = playersOnFieldForEvent(match);
+  // spelersVoorEventKeuze zoals bij doelpunt, kaart en strafschop (audit 25-08-2026): in retro-modus
+  // zet die de rest van de selectie erachter met een bank-merkje, zodat ook een speler die pas later
+  // inviel kiesbaar is. Deze modal bleef op playersOnFieldForEvent hangen en toonde dus enkel wie het
+  // deel begon.
+  const keuze = spelersVoorEventKeuze(match);
+  const on = keuze.lijst;
   openModal(`<h3>${icI(IC.bolt)} Vrije trap</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="fk-team">
@@ -4501,7 +4557,7 @@ function modalFreekick() {
     <div id="fk-player-section">
       <div class="sec">Wie neemt de vrije trap?</div>
       <div id="fk-players">
-        ${on.map(p=>`<div class="mopt" onclick="selectFkPlayer('${p.id}',this)">${numDot(p, 'mopt-num')}${esc(p.name)}</div>`).join('')}
+        ${on.map(p=>`<div class="mopt" onclick="selectFkPlayer('${p.id}',this)">${numDot(p, 'mopt-num')}${esc(p.name)} ${bankTag(keuze.bank, p)}</div>`).join('')}
         <div class="mopt mopt-skip" onclick="selectFkPlayer(null,this)">Niet ingeven</div>
       </div>
     </div>

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.3
+### Gebeurtenissen: geen verzonnen minuten, en ongedaan maken kan in de pauze
+- **Een gebeurtenis zonder tijdstip stond in het verloop op 1'.** Kies je "Onbekend" als moment, dan bewaart de app bewust géén tijdstip — en toch las het verloop "1'". Datzelfde gold voor élk doelpunt uit "Snel resultaat": een 3-1 leek vier doelpunten in de eerste minuut. Nu staat er een streepje.
+- **"Laatste actie ongedaan maken" verdween net in de pauze** — het moment waarop je nakijkt wat je hebt ingetikt. Nu staat de knop er ook daar. Ná het eindsignaal blijft hij weg; dan hoort het via het verslag.
+- **Geef je een blessure of vertrek achteraf in, dan zie je nu de bank van dát blok** in plaats van de bank van nu. Er konden spelers tussen staan die op dat moment net op het veld stonden.
+- **Bij een vrije trap achteraf zijn ingevallen spelers nu ook kiesbaar**, met een "bank"-merkje — net zoals bij een doelpunt, een kaart of een strafschop.
+- **Een wissel was bewerkbaar naar "X voor X".** Nu weigert de app dat: iemand kan zichzelf niet vervangen. Die controle bestond al voor een positiewissel.
+- **Een onmogelijke minuut werd stil weggeslikt.** Typte je 0 of een negatief getal, dan sloot het venster met de oude waarde en zei niets. Nu krijg je een melding.
+- **Een derde gele kaart gaf een tweede automatische rode kaart.** En bij het verwijderen werd er maar één ontkoppeld, dus er bleef een rode kaart staan die niemand gegeven had. Nu gaat het automatisch alleen bij precies de tweede gele, en verdwijnen ze allemaal mee.
+- **"Dit gebeurde tijdens het spel" zette de gebeurtenis op minuut 2** in plaats van in de eerste minuut, zoals het venster belooft.
+- **Het bewerkvenster van een hoekschop vroeg nog naar nemer en type** — twee dingen die je bij het ingeven bewust niet meer invult.
+- **Een reeks positiewisselingen wissen slaat nu één keer op** in plaats van één keer per wisseling. Voordien gingen er ook halve tussenstanden naar de cloud.
+
+---
+
 ## v1.3.2
 ### Dezelfde cijfers op elk scherm, en de clubexport klopt weer
 - **Belangrijk: de clubexport uit v1.2.3 gaf elke speler een regel per wedstrijd.** Bij het scheiden van naamgenoten gebruikte ik een kenmerk dat per wedstrijd verschilt, dus in plaats van één regel per speler per seizoen kreeg je er één per wedstrijd. Nu op het vaste spelersnummer uit de kern: één regel per speler, naamgenoten uit verschillende ploegen nog steeds apart, en een echt doorgeschoven speler nog steeds samengeteld.

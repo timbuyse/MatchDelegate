@@ -2068,7 +2068,12 @@ function eventMinSummaryText(e, m) {
   return extra > 0 ? `${min}' + ${extra}'` : `${min}'`;
 }
 function eventMinLocal(e, m) {
-  if (!e.quarterNum) return `${gameMin(e.gameTimeMs)}'`;
+  // GEEN MINUUT VERZINNEN (audit 25-08-2026). Een gebeurtenis zonder deel heeft bewust géén tijdstip:
+  // addEvent zet dan gameTimeMs 0 en quarterNum null ("Onbekend"), en élk doelpunt uit "Snel
+  // resultaat" is zo'n gebeurtenis. gameMin(0) is 1, dus het verloop toonde ze allemaal op 1' — een
+  // 3-1 gaf vier doelpunten die er allemaal in de eerste minuut leken te vallen. Een streepje zegt
+  // de waarheid: het moment is niet bekend.
+  if (!e.quarterNum) return (e.gameTimeMs > 0) ? `${gameMin(e.gameTimeMs)}'` : '–';
   const nomMs = (m.quarterDuration || 15) * 60000;
   const actualStart = gameTimeMsAtStartOfQuarter(m, e.quarterNum);
   const withinQ = Math.max(0, e.gameTimeMs - actualStart);
