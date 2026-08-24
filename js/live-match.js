@@ -117,10 +117,17 @@ function renderLive() {
              tabblad. modalPosSwap() blijft bestaan voor events achteraf (via "Meer"). */ ''}
         ${/* Bewust zonder ${dis}: naar het tabblad springen kan ook in de pauze — daar leeft het. */ ''}
         <div class="evtbtn" onclick="setTab('opstelling')"><span class="ei">${IC.shirt}</span><span class="el">Opstelling</span></div>
-        ${(match.matchType==='3v3'||match.matchType==='5v5') ? '' : `<div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
-        ${simple ? '' : `<div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>`}`}
-        ${simple ? '' : `<div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
-        <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>`}
+        ${/* KAARTEN OOK BIJ 3v3 EN 5v5 (Tims keuze, 25-08-2026). De gele kaart viel bij die twee
+             spelvormen weg, maar "Meer" bood de rode onvoorwaardelijk aan en "Event toevoegen" beide
+             — dus de beperking gold enkel op dit scherm en was daardoor vooral verwarrend. Tim koos
+             voor overal toelaten in plaats van overal weglaten. */ ''}
+        <div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
+        ${/* Blessure staat nu in de eenvoudige rij (Tims keuze, 25-08-2026): "blessure en dan wissel"
+             is aan de zijlijn een van de meest voorkomende handelingen, en de uitleg bij de instelling
+             beweerde al dat hij erin zat. Rood en penalty blijven onder "Meer". */ ''}
+        <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
+        ${simple ? '' : `<div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>
+        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>`}
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>
       <button class="btn btn-pale btn-sm" style="margin-top:2px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>

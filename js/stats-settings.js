@@ -169,10 +169,41 @@ async function loadStats() {
   // A/B-correctie: wie op een dag geselecteerd was, mag die dag niet als afwezig tellen. Op BEIDE
   // sleutels indexeren (rosterId én naam), zodat het ook klopt als het ene record wél een rosterId
   // heeft en het andere niet (oude string-absents / losse spelers) — anders miste die match.
-  const selKeyR = (rosterId, date) => rosterId ? ('r:' + rosterId + '|' + (date || '')) : null;
-  const selKeyN = (name, date) => 'n:' + (name || '').trim().toLowerCase() + '|' + (date || '');
-  const selectedOnDate = new Set();
-  for (const m of sortedList) for (const p of (m.players || [])) { const kr = selKeyR(p.rosterId, m.date); if (kr) selectedOnDate.add(kr); selectedOnDate.add(selKeyN(p.name, m.date)); }
+  // DE SPEELDAG-REGEL (Tims keuze, 25-08-2026). De oude correctie keek enkel naar dezelfde DATUM en
+  // enkel binnen deze lijst (dus deze ploeg, dit seizoen, deze soort). Drie gevallen vielen er
+  // buiten: de helft van de spelers in ploeglabel A en de andere helft in B, diezelfde verdeling met
+  // A op zaterdag en B op zondag, en een speler die meedoet bij een ándere ploeg. Nu geldt: wie
+  // binnen één dag ervoor of erna in de selectie van eender welke wedstrijd stond, was die speeldag
+  // opgesteld en mist deze wedstrijd niet. Zo hoeft er nergens een speeldag ingevuld te worden.
+  const spelerSleutels = (rosterId, name) => [rosterId ? 'r:' + rosterId : null, 'n:' + (name || '').trim().toLowerCase()].filter(Boolean);
+  const selDatums = new Map();
+  for (const m2 of all) {
+    if (!m2.date || (typeof matchCancelled === 'function' && matchCancelled(m2))) continue;
+    for (const p of (m2.players || [])) {
+      if (p.absent) continue;   // in de selectie maar niet komen opdagen is geen speeldag elders
+      for (const k of spelerSleutels(p.rosterId, p.name)) {
+        if (!selDatums.has(k)) selDatums.set(k, new Set());
+        selDatums.get(k).add(m2.date);
+      }
+    }
+  }
+  const DAG_MS = 86400000;
+  const opDezelfdeSpeeldagElders = (rosterId, name, datum) => {
+    if (!datum) return false;
+    // In UTC rekenen, niet in lokale tijd: `new Date('2026-09-12T00:00:00')` is middernacht híer, en
+    // daar een dag bij optellen en dan via toISOString terug naar een datum gaf in de zomertijd
+    // opnieuw 2026-09-12 (twee uur eerder in UTC). De zondagwedstrijd viel zo buiten de marge.
+    const t = Date.parse(datum + 'T00:00:00Z');
+    if (isNaN(t)) return false;
+    for (const k of spelerSleutels(rosterId, name)) {
+      const set = selDatums.get(k);
+      if (!set) continue;
+      for (const off of [-DAG_MS, 0, DAG_MS]) {
+        if (set.has(new Date(t + off).toISOString().split('T')[0])) return true;
+      }
+    }
+    return false;
+  };
   for (const m of sortedList) {
     gf += m.scoreUs; ga += m.scoreThem;
     // Een gewonnen strafschoppenreeks telt als winst (matchResultaat in core.js). De doelpunten
@@ -216,8 +247,7 @@ async function loadStats() {
     }
     for (const a of (m.absentPlayers || [])) {
       const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
-      const _kr = selKeyR(ab.rosterId, m.date);
-      if ((_kr && selectedOnDate.has(_kr)) || selectedOnDate.has(selKeyN(ab.name, m.date))) continue; // die dag elders geselecteerd → niet afwezig
+      if (opDezelfdeSpeeldagElders(ab.rosterId, ab.name, m.date)) continue; // die speeldag elders opgesteld → niet afwezig
       // Reden "speelt elders": de speler voetbalde wel, alleen bij een ploeg buiten deze
       // statistieken. Dat is dus geen gemiste wedstrijd — zelfde gedachte als de A/B-correctie
       // hierboven, maar dan handmatig aangegeven omdat die wedstrijd hier niet in de lijst zit.
@@ -262,7 +292,40 @@ async function loadStats() {
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
-  const attend = players.filter(p => (p.squad + p.absent) > 0).sort((a, b) => (b.squad / (b.squad + b.absent)) - (a.squad / (a.squad + a.absent)) || b.squad - a.squad);
+  // DE NOEMER VAN "GESELECTEERD" (Tims keuze, 25-08-2026). Was `squad + absent`, en dat zijn enkel de
+  // wedstrijden waarvoor er íets over hem ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet
+  // gekozen werd, stond zo op 5/5 = 100% — precies de speler die dit blok moet opsporen zag er
+  // perfect uit. Nu: alle wedstrijden van deze ploeg (binnen de filters) vanaf de eerste waarin hij
+  // voorkomt — iemand die in januari bij de ploeg kwam, krijgt september niet als gemist — en zonder
+  // de wedstrijden waarop hij die speeldag elders opgesteld stond of afgemeld was met "speelt elders".
+  // Wedstrijden zonder datum blijven buiten de noemer: zonder datum is er geen speeldag om tegen te
+  // vergelijken.
+  const spelerKey = (rosterId, name) => rosterId || (name || 'Speler').trim();
+  const eersteDatum = new Map();
+  for (const m of sortedList) {
+    if (!m.date) continue;
+    const noem = (rid, nm) => { const k = spelerKey(rid, nm); const b = eersteDatum.get(k); if (!b || m.date < b) eersteDatum.set(k, m.date); };
+    for (const p of (m.players || [])) noem(p.rosterId, p.name);
+    for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; noem(ab.rosterId, ab.name); }
+  }
+  for (const r of players) {
+    const k = spelerKey(r.rosterId, r.name);
+    const vanaf = eersteDatum.get(k);
+    if (!vanaf) { r.gemist = r.absent; continue; }
+    let gemist = 0;
+    for (const m of sortedList) {
+      if (!m.date || m.date < vanaf) continue;
+      if ((m.players || []).some(p => spelerKey(p.rosterId, p.name) === k && !p.absent)) continue;   // stond in de selectie
+      if (opDezelfdeSpeeldagElders(r.rosterId, r.name, m.date)) continue;                            // die speeldag elders
+      const abRec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
+        .find(a => spelerKey(a.rosterId, a.name) === k);
+      if (abRec && abRec.reason === 'elders') continue;
+      gemist++;
+    }
+    r.gemist = gemist;
+  }
+  const attendTot = p => p.squad + (p.gemist != null ? p.gemist : p.absent);
+  const attend = players.filter(p => attendTot(p) > 0).sort((a, b) => (b.squad / attendTot(b)) - (a.squad / attendTot(a)) || b.squad - a.squad);
   el.innerHTML = filterBar
     + `<div class="card">
       <div class="stat-big" style="margin-bottom:10px">
@@ -304,7 +367,7 @@ async function loadStats() {
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${plekken && linies ? `<small style="color:var(--txt2);display:block">${linies}</small>` : ''}</span>`
         + `<span style="color:var(--txt2);font-size:13px">${plekken || linies}</span></div>`;
     }).join('')) : '')
-    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / totaal)</span>`, attend.map(p=>{const tot=p.squad+p.absent;const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
+    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / wedstrijden sinds hij erbij is)</span>`, attend.map(p=>{const tot=attendTot(p);const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
     + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '');
 }
 

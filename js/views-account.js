@@ -2501,7 +2501,9 @@ function beep() {
 }
 function countdownOn() { return localStorage.getItem('voetbal_countdown') === '1'; }
 function toggleCountdown() { localStorage.setItem('voetbal_countdown', countdownOn() ? '0' : '1'); render(); }
-// Eenvoudige modus: toont enkel de meest gebruikte eventknoppen (Goal, Wissel, Kaart, Blessure).
+// Eenvoudige modus: toont enkel de meest gebruikte eventknoppen — Goal, Wissel, Opstelling, Gele
+// kaart, Blessure en Meer. Rode kaart en Penalty zitten onder "Meer". Deze regel beschreef tot
+// 25-08-2026 een rij waarin Blessure NIET stond; Tim koos ervoor hem er echt bij te zetten.
 // Standaard AAN — minder drempel voor een ouder/afgevaardigde die niet elke actie kent.
 function simpleEventsOn() { return localStorage.getItem('voetbal_simple_events') !== '0'; }
 function toggleSimpleEvents() { localStorage.setItem('voetbal_simple_events', simpleEventsOn() ? '0' : '1'); render(); }

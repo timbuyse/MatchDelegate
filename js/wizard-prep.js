@@ -839,6 +839,13 @@ function playersAtPeriodStart(m, qNum) {
     m.players.forEach(p => { on[p.id] = false; });
     m.startLineup.forEach(s => { on[s.id] = true; });
   } else m.players.forEach(p => { on[p.id] = p.starting; });
+  // WIE NIET KWAM OPDAGEN, STAAT NERGENS (Tims keuze, 25-08-2026). Meld je iemand tijdens de
+  // wedstrijd als "toch niet aanwezig", dan wist de app zijn speelminuten — maar hij bleef wél in de
+  // opstelling en op het velddiagram van blok 1 staan, want die komen uit startLineup (vastgelegd bij
+  // de aftrap). Gemeten: 0 minuten en toch op het veld. Normaal pas je de opstelling meteen aan; dit
+  // is voor de keer dat je dat vergeet. Wie de wedstrijd VERLIET blijft staan — dat is een feit met
+  // minuten, en die valt hieronder al weg via het injury-event op het juiste moment.
+  m.players.forEach(p => { if (p.absent) on[p.id] = false; });
   const fallback = {};
   const relevant = m.events.filter(e => e.quarterNum != null && (e.quarterNum < qNum || (e.atBreak && e.quarterNum === qNum)))
     .sort((a, b) => a.gameTimeMs - b.gameTimeMs);

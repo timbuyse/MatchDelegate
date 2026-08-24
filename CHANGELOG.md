@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.0
+### Vier keuzes van Tim, en "Geselecteerd" meet nu wat het belooft
+- **Kaarten kunnen nu ook bij 3v3 en 5v5.** Bij die spelvormen kon je live géén gele kaart geven, maar wél een rode via "Meer" — en achteraf allebei. De beperking gold dus enkel op het hoofdscherm en was daardoor vooral verwarrend.
+- **Blessure staat in de eenvoudige knoppenrij.** "Blessure en dan wissel" is aan de zijlijn een van de meest voorkomende handelingen; die hoort niet achter "Meer". De uitleg bij die instelling beweerde trouwens al dat Blessure erin zat.
+- **"Geselecteerd — X%" rekende het omgekeerde van wat het beloofde.** Het percentage keek alleen naar de wedstrijden waarvoor iets over een speler ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet gekozen werd, stond op **100%** — precies de speler die dat blok moet opsporen, zag er perfect uit. Nu is de noemer: alle wedstrijden van de ploeg **vanaf de eerste waarin hij voorkomt**. Wie in januari bij de ploeg komt, krijgt september niet als gemiste wedstrijd.
+- **En dat houdt rekening met één speeldag over twee dagen.** Speelt de ene helft van je spelers bij ploeglabel A en de andere helft bij B — ook als dat de ene op zaterdag en de andere op zondag is — dan mist niemand een wedstrijd. Dezelfde regel geldt wanneer een speler meedoet bij een andere ploeg. Je hoeft daarvoor nergens een speeldag in te vullen: wie binnen één dag ervoor of erna in een selectie stond, was die speeldag opgesteld.
+- **Wie niet komt opdagen, staat niet meer op het veld in het verslag.** Meld je iemand tijdens de wedstrijd als "toch niet aanwezig" (dat wist zijn speelminuten), dan bleef hij toch in de opstelling en op het velddiagram van het eerste kwart staan. Normaal pas je de opstelling meteen aan; dit is voor de keer dat je dat vergeet. Wie de wedstrijd **verliet** blijft wel staan — dat is een feit met minuten.
+
+---
+
 ## v1.2.5
 ### Eén regel voor wie wat mag, en je notities blijven ook zonder verbinding
 - **Kijkmodus werkte niet op een wedstrijd die niet in de cloud staat.** Op het livescherm, het verslag en het verloop bleven dan alle knoppen staan. Een deel weigerde stil, maar een ander deel deed het echt: de opstelling, de wissels, de kapitein en het afwezig melden. Nu geldt overal dezelfde regel als op het voorbereidingsscherm: geen gast, geen kijkmodus, en zonder verbinding mag alles wat live kan gebeuren.
