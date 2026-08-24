@@ -127,6 +127,15 @@ function renderDetail() {
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     ${!statSectionVisible('minutes') ? '' : `
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
+    ${/* MET EEN MAN MINDER (Tims keuze, 24-08-2026). Na een rode kaart of een eenzijdige wissel
+         klopten de minuten wel, maar nergens stond dát je een tijd met minder spelers speelde —
+         terwijl dat de eerste vraag is als iemand de percentages nakijkt. Berekend uit de cijfers
+         van de app zelf (calcMinutes), niet uit een eigen reconstructie van het veld. */ ''}
+    ${(() => {
+      const ms = minutenMetMinderMs(match);
+      if (ms < 60000) return '';
+      return `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.warn)} Ongeveer <b>${Math.round(ms / 60000)} min</b> speelde je met minder spelers op het veld dan er plaatsen zijn.</p>`;
+    })()}
     <div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
         ${/* Lege plaatshouder voor het rugnummerbolletje — enkel als er in deze wedstrijd effectief
@@ -1126,7 +1135,11 @@ async function pdfMatchBody(doc, L, m) {
   // statsPublic-keuze als de sectie Speelminuten op het scherm — een kijker kan deze PDF downloaden.
   if (statSectionVisible('minutes')) tableBlock('Spelers', { head: [playerHead], body: playerRows,
     styles: { fontSize: 9.5, cellPadding: 4 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
-    didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } });
+    didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } },
+    24,
+    // Zelfde melding als op het scherm: na een rode kaart of een eenzijdige wissel kloppen de
+    // minuten wel, maar zonder dit regeltje zie je niet waaróm de percentages lager liggen.
+    (() => { const ms = minutenMetMinderMs(m); return ms >= 60000 ? `Ongeveer ${Math.round(ms / 60000)} min met minder spelers op het veld dan er plaatsen zijn.` : ''; })());
 
   // ---- Foto's ----
   const photos = [m.photo1, m.photo2].filter(Boolean);
@@ -1405,6 +1418,30 @@ async function exportWedstrijdplanPDF() {
       doc.text('Geen wissels gepland voor dit deel.', MG + CW / 2, by + Math.max(1, bankL.length) * 10 + 8, { align: 'center' });
     }
     L.y = by + bankH + (na ? 10 : 20);
+  }
+
+  // ---- Speeltijd volgens dit plan (v1.4.0) ----
+  // Dezelfde tabel als op het planscherm, met dezelfde berekening (planSpeeltijdRijen), zodat het
+  // blad dat je meeneemt naar het veld niet iets anders zegt dan de app. Enkel zinvol bij meer dan
+  // één blok: bij één blok speelt iedereen op het veld gewoon dat ene blok.
+  if (totaal > 1) {
+    const rijen = planSpeeltijdRijen(m);
+    if (rijen.length) {
+      const duur = m.quarterDuration || 0;
+      const laagst = rijen[rijen.length - 1].blokken, hoogst = rijen[0].blokken;
+      L.tableBlock('Speeltijd volgens dit plan', {
+        head: [['Speler', pPlural(m), duur ? 'Minuten' : '']],
+        body: rijen.map(r => [r.naam, `${r.blokken} van ${totaal}`, duur ? `${r.min}'` : '']),
+        styles: { fontSize: 9.5, cellPadding: 4 },
+        headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+        // Wie het minst speelt, kleurt op — zelfde signaal als op het scherm, zonder oordeel.
+        didParseCell: data => {
+          if (data.section === 'body' && hoogst !== laagst && rijen[data.row.index] && rijen[data.row.index].blokken === laagst) {
+            data.cell.styles.textColor = [180, 83, 9];
+          }
+        }
+      }, 24, `Hoeveel ${pPlural(m)} elke speler aan de start staat. Wissels binnen een ${pSingLow(m)} gaan niet vanzelf af en tellen pas mee vanaf het volgende ${pSingLow(m)}.`);
+    }
   }
 
   L.footer(voetLogo);

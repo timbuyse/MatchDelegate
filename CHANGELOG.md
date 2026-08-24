@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.4.0
+### De zijlijnketen: twee gaten gedicht
+Uit de ketentest van 24-08-2026, waarin de volledige stroom van een afgevaardigde is nagespeeld — plan klaarzetten, live bijhouden, pauzes, strafschoppen, verslag en PDF — over twaalf wedstrijden in alle spelvormen en blokindelingen. De cijfers klopten overal tot op de minuut; deze twee punten zaten in het verloop.
+
+- **Een speler die geblesseerd van het veld ging, stond het volgende blok zwijgend weer op het veld.** Stond hij in het plan van de trainer, dan zette de app hem er gewoon terug op — het plan is immers van vóór de wedstrijd. Nu vraagt de app bij een **ernstige** blessure waarbij hij het veld verlaat meteen of hij nog terugkomt. Antwoord je "nee", dan wordt hij nergens meer opgesteld of ingewisseld, precies zoals bij een speler die de wedstrijd verlaat. Bij kramp of een lichte blessure wordt er niets gevraagd: daar meldt de **pauze** het gewoon wanneer zo iemand weer in de opstelling staat ("Cas ging in kwart 2 geblesseerd van het veld en staat nu weer in de opstelling. Kan hij verder?"). Achteraf recht te zetten via het potloodje bij de gebeurtenis. Bijkomend: bij "Ernstig" staat **Speler verlaat het veld** nu standaard aan, en *Volgens plan* kondigt geen spelers meer aan die daarna toch overgeslagen worden.
+- **Een stilgezette klok zag eruit als een lopende klok.** Zelfde cijfers, zelfde kleur; het enige verschil was de knop die "Hervatten" zei. Wie na een blessure vergat te hervatten, merkte dat pas veel later — en dan klopte de speeltijd van iedereen op het veld niet meer. De klok kleurt nu op en er staat **PAUZE** onder.
+- **Een klaargezette wissel kan nu een richtminuut krijgen.** Trainers zeggen "wissel Bas na acht minuten", en daar was niets voor. Je vult optioneel een minuut in; zodra die voorbij is, krijg je een piep en een melding, en de knop *Geplande wissels* springt eruit met "· nu". De wissel gaat nog altijd **niet** vanzelf af — jij kiest het moment.
+- **Het opstellingsscherm in de pauze is korter.** Speeltijden, bank en planning zitten nu achter één regel die je opentikt. In de pauze zie je dus het veld en wat er verandert; tijdens het spel blijft alles gewoon openstaan.
+- **Een vertrokken of definitief geblesseerde speler werd nog aangeboden als invaller** in het venster *Wissel klaarzetten*. De andere lijsten pasten die regel al toe sinds v1.0.3; dit venster was toen vergeten.
+- **Nieuw: "Speeltijd volgens dit plan".** Op het wedstrijdscherm en in het wedstrijdplan-PDF staat nu per speler in hoeveel blokken hij aan de start staat en wat dat in minuten is, met de minst spelende speler opgelicht. Zo zie je vóór de aftrap hoe het plan de speeltijd verdeelt.
+- **Twee snelknoppen bij de selectie:** *Allemaal mee* zet iedereen ineens in de selectie, *Vorige selectie* neemt die van de vorige wedstrijd van deze ploeg over. Wie je op NB zette, blijft NB.
+- **Een kaart kan nu ook voor een bankspeler.** De blessuremodal bood de bank al aan, de kaartmodal niet — terwijl geel voor protest vanaf de bank gewoon bestaat.
+- **Het verslag zegt nu dat je met een man minder speelde.** Na een rode kaart of een eenzijdige wissel klopten de minuten wel, maar nergens stond waaróm de percentages lager lagen. Er staat nu één regel bij de speelminuten, ook in de PDF.
+- **Kleinere punten:** het bolletje ● bij de banklijsten wordt uitgelegd waar het staat ("minst gespeeld eerst (●)"), en de melding bij een onvolledige wissel zegt nu precies wat er ontbreekt in plaats van altijd "kies wie eraf gaat en wie erin komt".
+- **Een per ongeluk gestart blok kon je niet terugnemen.** Tikte je te vroeg op "Start kwart 2", dan liep de klok en was de enige weg terug *Opnieuw beginnen* — de hele wedstrijd naar nul. Er staat nu, net als bij "Te vroeg gestopt", een knop **Toch nog niet gestart** onder de klok. Hij verschijnt in de eerste twee minuten van een blok en verdwijnt zodra je iets logt. Je komt terug in de pauze **met de opstelling die je klaarzette nog klaar**, dus je hoeft niets opnieuw in te tikken. Bij de aftrap zet hij de wedstrijd terug op "gepland".
+
+---
+
 ## v1.3.7
 ### De laatste drie punten van de audit
 - **Een speler die zich alleen maar afmeldde, kreeg een leeg scherm.** Zijn detail zei "nog geen gespeelde wedstrijden", terwijl de statistiekenpagina hem wél toonde. Nu staat er voor welke wedstrijden hij afgemeld was, met de datums.

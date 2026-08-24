@@ -2339,7 +2339,7 @@ function evtLabel(e, m) {
     // dat staat al in het woord zelf.
     // Een vertrek is geen blessure, dus ook niet het blessure-icoon: een kruisje, hetzelfde teken
     // als op de knop waarmee je het registreert.
-    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.close)} Verliet de wedstrijd · ${pn(e.playerId)}${e.reason ? ` <span style="color:var(--txt2)">(${esc(e.reason)})</span>` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `${icI(IC.close)} Verliet de wedstrijd · ${pn(e.playerId)}${e.reason ? ` <span style="color:var(--txt2)">(${esc(e.reason)})</span>` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${icI(IC.injury)} ${it} · ${pn(e.playerId)}${e.leavesField?' — verlaat veld':''}${e.notReturning?' <span style="color:var(--txt2)">(komt niet meer terug)</span>':''}`; }
     case 'shot_us': return `${icI(IC.shot)} Schot voor ${esc(tName(m))}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `${icI(IC.shot)} Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return `${icI(IC.save)} Redding (onze keeper)`;
@@ -2378,7 +2378,7 @@ function evtLabelPlain(e, m) {
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
     case 'freekick_them': return 'Vrije trap tegen';
-    case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}`; }
+    case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}${e.notReturning?' (komt niet meer terug)':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
     case 'save_us': return 'Redding (onze keeper)';
@@ -2569,7 +2569,7 @@ function startTimer() {
   // checkOvertimeAlert draait ongeacht subtab (Wedstrijd/Opstelling/Verloop) — voorheen zat
   // de piep/trilling verstopt in updateTimerDisplay(), die meteen stopt zonder het
   // #timer-time-element (enkel aanwezig op de Wedstrijd-tab).
-  timerInt = setInterval(() => { if (view === 'live') { checkOvertimeAlert(); updateTimerDisplay(); } }, 500);
+  timerInt = setInterval(() => { if (view === 'live') { checkOvertimeAlert(); checkPlannedSubAlert(); updateTimerDisplay(); } }, 500);
 }
 function stopTimer() { if (timerInt) { clearInterval(timerInt); timerInt = null; } }
 // Scherm wakker houden tijdens een lopend deel
@@ -2617,6 +2617,23 @@ function checkOvertimeAlert() {
   const key = match.id + ':' + q.num;
   if (isRunning && durMs && elapsed >= durMs && !_overtimeAlerted.has(key)) { _overtimeAlerted.add(key); beep(); }
 }
+// ---- Seintje bij een klaargezette wissel met richtminuut (v1.4.0) ----
+// Eén keer per wissel, en enkel lokaal: net als het eindsignaal wordt er niets op de gedeelde
+// wedstrijd geschreven, anders overschrijven twee beheerderstoestellen elkaars wijzigingen.
+// Bewust GEEN render() hier: dit draait elke halve seconde en zou een openstaand venster onder de
+// vingers van de gebruiker weg kunnen tekenen. De toast is het signaal; de knop "Geplande wissels"
+// kleurt mee bij de eerstvolgende hertekening.
+const _planSubAlerted = new Set();
+function checkPlannedSubAlert() {
+  if (!match) return;
+  for (const s of plannedSubsDue(match)) {
+    const key = match.id + ':' + s.id;
+    if (_planSubAlerted.has(key)) continue;
+    _planSubAlerted.add(key);
+    beep();
+    showToast(`${s.vanafMin}' voorbij: ${pName(match, s.inId)} voor ${pName(match, s.outId)} staat klaar.`, 'ok');
+  }
+}
 function updateTimerDisplay() {
   const el = document.getElementById('timer-time');
   if (!el || !match) return;
@@ -2625,8 +2642,14 @@ function updateTimerDisplay() {
   const durMs = (match.quarterDuration || 0) * 60000;
   const isRunning = q && q.startTime && !q.pausedAt && !q.endTime;
   const overtime = isRunning && durMs && elapsed >= durMs;
+  // Stilgezet = gedempt én met het opschrift PAUZE eronder (Tims keuze, 24-08-2026). De kleur hoort
+  // hier en niet enkel in de render: deze functie tikt elke seconde en zette ze anders weer terug.
+  const gepauzeerd = !!(q && q.startTime && q.pausedAt && !q.endTime);
   el.textContent = timerText(match);
-  el.style.color = overtime ? 'var(--org)' : '';
+  el.style.color = overtime ? 'var(--org)' : (gepauzeerd ? 'var(--org)' : '');
+  el.style.opacity = gepauzeerd ? '.6' : '';
+  const pz = document.getElementById('timer-pauze');
+  if (pz) pz.style.display = gepauzeerd ? '' : 'none';
   const bar = document.getElementById('timer-progress-bar');
   if (bar && durMs) {
     const pct = Math.min(100, (elapsed / durMs) * 100).toFixed(1);

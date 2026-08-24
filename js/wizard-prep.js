@@ -362,6 +362,43 @@ function setSel(pid, val) {
   if (p.sel !== 'absent') p.absentReason = '';
   render();
 }
+// ---- Snelknoppen bij de selectie (v1.4.0) ----
+// Raken alleen `sel` en laten alles wat je al ingaf met rust waar dat kan: wie je op NB zette,
+// blijft NB (dat heb je bewust aangeduid), en wie al op het veld stond ('basis') blijft daar staan.
+function selAllemaalMee() {
+  wiz.pool.forEach(p => { if (p.sel !== 'absent' && p.sel !== 'basis') p.sel = 'bank'; });
+  render();
+  showToast('Iedereen staat in de selectie. Duid aan wie er niet bij is met NB.', 'ok');
+}
+// De vorige wedstrijd van dezelfde ploeg — de laatst gespeelde of geplande vóór deze. Spelers
+// worden op hun globalId gezocht en anders op naam, zodat een kern die intussen bijgewerkt is niet
+// stilzwijgend de helft laat vallen. Wie in die wedstrijd niet beschikbaar was, komt hier NIET als
+// NB terug: dat was toen zo, niet vandaag.
+async function selVorigeOvernemen() {
+  const alle = await dbAll();
+  const vorige = alle
+    .filter(x => x.teamId === wiz.teamId && x.id !== (match && match.id) && (x.players || []).length)
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.id).localeCompare(String(a.id)))[0];
+  if (!vorige) { showToast('Geen eerdere wedstrijd van deze ploeg gevonden.', 'err'); return; }
+  const mee = new Set(), meeNamen = new Set();
+  (vorige.players || []).forEach(p => {
+    if (p.absent) return;
+    if (p.globalId) mee.add(p.globalId);
+    if (p.name) meeNamen.add(p.name.trim().toLowerCase());
+  });
+  let n = 0;
+  wiz.pool.forEach(p => {
+    // De pool draagt srcGlobalId (zie buildPool), de wedstrijdspelers globalId — daarom allebei,
+    // met de naam als vangnet voor kernen van vóór de globalId's.
+    const hoort = (p.srcGlobalId && mee.has(p.srcGlobalId)) || meeNamen.has((p.name || '').trim().toLowerCase());
+    if (!hoort) return;
+    if (p.sel !== 'basis') p.sel = 'bank';
+    p.absentReason = '';
+    n++;
+  });
+  render();
+  showToast(n ? `${n} ${n === 1 ? 'speler' : 'spelers'} overgenomen uit ${esc(vorige.opponent || 'de vorige wedstrijd')}.` : 'Niemand uit die selectie zit nog in deze kern.', n ? 'ok' : 'err');
+}
 // Rugnummers zijn positief (audit 23-08-2026): het veld liet "-5" en "0" door. En na een wijziging
 // meteen hertekenen, want de rode balk over dubbele nummers hing aan de volgende render — die kwam
 // pas bij een tik op Mee of NB, dus de waarschuwing liep een handeling achter.
@@ -418,6 +455,15 @@ function wizStep2() {
     ${/* Eén regel die zegt wat je hier moet doen; de rest onder een uitklapper. Dat blok stond
          voordien volledig open en besloeg een halve telefoonhoogte vóór je de eerste speler zag.
          Zelfde patroon (.more-details + "Hoe werkt dit?") als in de planner, zie modalPlannedLineups. */ ''}
+    ${/* SNELKNOPPEN (Tims keuze, 24-08-2026). Meestal gaat iedereen mee, en dan tikte je veertien
+         keer "Mee" — elke wedstrijd opnieuw. Twee knoppen: iedereen ineens, en de selectie van de
+         vorige wedstrijd van deze ploeg overnemen. Allebei zetten enkel de keuze; wie er niet bij
+         is, duid je daarna aan als NB. In tornooimodus staat "Vorige overnemen" er niet: daar komt
+         de selectie uit het tornooi zelf. */ ''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 2px 0">
+      <button class="btn btn-pale btn-sm" style="flex:1;min-width:140px" onclick="selAllemaalMee()">${icI(IC.check)} Allemaal mee</button>
+      ${wiz.trnMode ? '' : `<button class="btn btn-pale btn-sm" style="flex:1;min-width:140px" onclick="selVorigeOvernemen()">${icI(IC.clipboard)} Vorige selectie</button>`}
+    </div>
     <div style="font-size:12px;color:var(--txt2);padding:6px 2px 0"><b>Duid aan wie je meeneemt.</b> Niets aanduiden = niet geselecteerd.</div>
     <details class="more-details" style="margin:0 2px 4px">
       <summary>Hoe werkt dit?</summary>
@@ -1444,12 +1490,14 @@ function prepPlanningHtml(m, ro) {
   return `<div class="card"><div class="lc-wrap" id="pp-wrap">
     <div class="lc-nav">
       <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${_prepPlanQ === 1 ? 'disabled' : ''}>‹</button>
+      ${'' /* speeltijdblok staat onder de kaart — zie het einde van deze functie */}
       <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center" title="● = dit deel heeft een eigen opstelling">${pSing(m)} ${_prepPlanQ} / ${total}${prepPlanEigen(m, _prepPlanQ) ? ' ●' : ''}</span>
       <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${_prepPlanQ === total ? 'disabled' : ''}>›</button>
       ${potlood}
     </div>
     ${Array.from({ length: total }, (_, i) => slide(i + 1)).join('')}
-  </div></div>`;
+  </div></div>
+  ${planSpeeltijdHtml(m)}`;
 }
 function renderPrep() {
   const m = match;
@@ -1770,6 +1818,44 @@ function _planBasis(m, q, eff, startEntries) {
 function plannedLineupBase(m, q) {
   return _planBasis(m, q, (m && m.plannedLineups) || {}, _planStartEntries(m));
 }
+// ---- Speeltijd volgens het plan (v1.4.0) ----
+// Vóór de aftrap zag je nergens hoe het plan de speeltijd verdeelt — terwijl dat precies is waar
+// ouders je op aanspreken. Dit telt per speler in hoeveel blokken hij AAN DE START staat, met
+// dezelfde basis als de planningskaart zelf (plannedLineupBase), zodat het scherm en dit getal
+// nooit uit elkaar kunnen lopen. Een wissel die je BINNEN een blok klaarzet, telt mee vanaf het
+// volgende blok — dat is ook hoe _planBasis het doorrekent. Het blijft dus een voorspelling van
+// het plan, niet van de wedstrijd: geplande wissels gaan nooit vanzelf af.
+function planSpeeltijd(m) {
+  const totaal = plannedPartsCount(m);
+  const perSpeler = {};
+  for (let q = 1; q <= totaal; q++) {
+    plannedLineupBase(m, q).forEach(e => { perSpeler[e.id] = (perSpeler[e.id] || 0) + 1; });
+  }
+  return { totaal, perSpeler, duur: (m && m.quarterDuration) || 0 };
+}
+// De lijst zoals ze op het scherm en in de PDF staat: iedereen uit de selectie, meest spelend eerst.
+function planSpeeltijdRijen(m) {
+  const { totaal, perSpeler, duur } = planSpeeltijd(m);
+  return (m.players || [])
+    .filter(p => magOpHetVeld(m, p))
+    .map(p => ({ id: p.id, naam: fieldName(m, p.id), speler: p, blokken: perSpeler[p.id] || 0, totaal, min: (perSpeler[p.id] || 0) * duur }))
+    .sort((a, b) => b.blokken - a.blokken || a.naam.localeCompare(b.naam));
+}
+function planSpeeltijdHtml(m) {
+  const rijen = planSpeeltijdRijen(m);
+  if (!rijen.length) return '';
+  const { totaal, duur } = planSpeeltijd(m);
+  if (totaal < 2) return '';
+  const laagst = rijen[rijen.length - 1].blokken, hoogst = rijen[0].blokken;
+  // Enkel de kleur verschilt: wie het minst speelt licht op, zodat je het in één oogopslag ziet
+  // zonder dat er een oordeel bij staat — de verdeling is de keuze van de trainer.
+  const kleur = r => r.blokken === laagst && hoogst !== laagst ? 'color:var(--org2,#b45309);font-weight:700' : '';
+  return `<details class="card" style="padding:12px">
+    <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijd volgens dit plan</summary>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 6px">Hoeveel ${pPlural(m)} elke speler aan de start staat. Wissels die je bínnen een ${pSingLow(m)} klaarzet, gaan niet vanzelf af en tellen hier pas mee vanaf het volgende ${pSingLow(m)}.</p>
+    ${rijen.map(r => `<div class="prow" style="padding:5px 0;align-items:center">${numDot(r.speler, 'pnum')}<div style="flex:1;font-size:14px">${esc(r.naam)}</div><div style="font-size:13px;${kleur(r)}">${r.blokken} van ${totaal}${duur ? ` · ${r.min}'` : ''}</div></div>`).join('')}
+  </details>`;
+}
 // De plan-entries dragen enkel id + plaats; voor het tekenen hebben we ook naam en rugnummer nodig.
 function plannedLineupPlayers(m, lijst) {
   return lijst.map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || { id: e.id, name: '?' }, e));
@@ -1808,7 +1894,7 @@ function knipPlanBovenAantal(m) {
 function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
   const regels = [
     ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
-      .map(s => ({ id: s.id, soort: 'sub', tekst: `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}` })),
+      .map(s => ({ id: s.id, soort: 'sub', tekst: `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}${vanafMinChip(s)}` })),
     ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q)
       .map(s => ({ id: s.id, soort: 'swap', tekst: `${icI(IC.compass)} ${plannedSwapTekst(m, s)}` })),
   ];

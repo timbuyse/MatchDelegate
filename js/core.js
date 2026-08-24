@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.3.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.4.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1246,10 +1246,19 @@ function veldPlaatsenNu(m) {
 // `voorDeel` = enkel wie al weg was bij de START van dat blok; zelfde tijdvenster als
 // playersAtPeriodStart (een pauzegebeurtenis van dat blok hoort erbij). Zonder `voorDeel`: iedereen
 // die ooit vertrok.
+// `notReturning` (v1.4.0) hoort hier ook thuis: een ernstige blessure waarbij de afgevaardigde
+// antwoordde dat de speler NIET meer terugkomt, is voor de rest van de wedstrijd hetzelfde feit als
+// een vertrek — hij mag nergens meer opgesteld of ingewisseld worden. Bewust een apart veldje op het
+// blessure-event en geen tweede event: in het verslag hoort er één regel te staan ("Ernstige
+// blessure · X — komt niet meer terug"), niet twee. Bestaande wedstrijden kennen het veld niet en
+// gedragen zich dus exact zoals voordien. Gemeten geval (24-08-2026): een speler ging in kwart 2
+// geblesseerd van het veld en stond in kwart 3 zonder één woord weer opgesteld, omdat hij in het
+// plan van de trainer stond.
 function vertrokkenIds(m, voorDeel) {
   const uit = new Set();
   for (const e of (m && m.events) || []) {
-    if (e.type !== 'injury' || e.injuryType !== 'vertrokken' || !e.playerId) continue;
+    if (e.type !== 'injury' || !e.playerId) continue;
+    if (e.injuryType !== 'vertrokken' && !e.notReturning) continue;
     if (voorDeel != null) {
       if (e.quarterNum == null) continue;
       if (!(e.quarterNum < voorDeel || (e.atBreak && e.quarterNum === voorDeel))) continue;
@@ -1259,6 +1268,35 @@ function vertrokkenIds(m, voorDeel) {
   return uit;
 }
 function isVertrokken(m, pid) { return vertrokkenIds(m).has(pid); }
+// Hoeveel speeltijd de ploeg met minder spelers op het veld stond dan er plaatsen zijn (v1.4.0).
+// Bewust géén eigen reconstructie van het veld: dat is precies het soort nabouw dat later stil uit
+// de pas gaat lopen met de app. In plaats daarvan het verschil tussen wat er MOEST gespeeld worden
+// (plaatsen × speeltijd) en wat de app zelf optelt aan speelminuten. Speelde je met méér spelers
+// dan plaatsen — dat mag, met waarschuwing — dan is het verschil negatief en geven we 0 terug.
+function minutenMetMinderMs(m) {
+  const veldN = ((MATCH_TYPES[m && m.matchType] || {}).field) || 0;
+  const tot = (m && m.quarters && m.quarters.length) ? getGameTimeMs(m) : 0;
+  if (!veldN || !tot) return 0;
+  try {
+    const mins = calcMinutes(m);
+    const som = Object.keys(mins).reduce((a, k) => a + ((mins[k] && mins[k].ms) || 0), 0);
+    return Math.max(0, veldN * tot - som);
+  } catch (e) { return 0; }
+}
+// ---- Richtminuut bij een klaargezette wissel (v1.4.0) ----
+// `vanafMin` is optioneel en betekent: geef me een seintje zodra dit blok zover is. Het is een
+// HERINNERING, geen automaat — de wissel gaat nog altijd pas af wanneer je hem zelf doorvoert.
+// Wissels zonder dit veld (alle bestaande) gedragen zich exact zoals voordien.
+function vanafMinChip(s) {
+  return (s && s.vanafMin) ? ` <span style="font-size:11px;font-weight:700;color:var(--org)">vanaf ${s.vanafMin}'</span>` : '';
+}
+// Welke klaargezette wissels van het LOPENDE blok hun richtminuut bereikt hebben. Enkel tijdens het
+// spel: in de pauze staat de klok stil en is een herinnering zinloos.
+function plannedSubsDue(m) {
+  if (!m || m.quarterStatus !== 'running') return [];
+  const min = getQElapsed(m) / 60000;
+  return (m.plannedSubs || []).filter(s => s.vanafMin && s.quarterNum === m.currentQuarter && min >= s.vanafMin);
+}
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
 // Kan je deze speler NOG opstellen of inwisselen? Bovenop magOpHetVeld: wie de wedstrijd verlaten

@@ -51,6 +51,12 @@ function renderLive() {
       </div>
       <div class="timer-card">
         <div class="timer-time" id="timer-time">${timerText(match)}</div>
+        ${/* EEN STILGEZETTE KLOK MOET ERUITZIEN ALS EEN STILGEZETTE KLOK (Tims keuze, 24-08-2026).
+             De cijfers waren identiek aan een lopende klok; het enige verschil zat in de knop, die
+             "Hervatten" zei. Wie na een blessure vergeet te hervatten, merkt dat pas veel later —
+             en dan klopt de speeltijd van iedereen op het veld niet meer. Zelfde mechaniek als de
+             oranje klok bij overtijd: updateTimerDisplay houdt de kleur bij, dit is het opschrift. */ ''}
+        <div id="timer-pauze" style="${isPaused ? '' : 'display:none;'}font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--org);margin-top:2px">PAUZE</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
         <div class="qdots">${dots}</div>
         ${/* Twee dingen rechtgezet op 24-08-2026: (1) het opschrift was de HUIDIGE stand ("Optellen
@@ -85,6 +91,12 @@ function renderLive() {
       ${(!ro && hervatBaarDeel(match))
         ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmHervatDeel()">${icI(IC.undo)} Te vroeg gestopt — verder in ${pSingLow(match)} ${hervatBaarDeel(match)}</button>`
         : ''}
+      ${/* Mistik op "Start kwart X" ongedaan maken (v1.4.0) — de spiegel van de knop hierboven.
+            Zelfde plaats en toon: een uitzondering, geen dagelijkse handeling. Verdwijnt vanzelf na
+            twee minuten of zodra je iets logt; zie terugNaarPauzeDeel. */ ''}
+      ${(!ro && terugNaarPauzeDeel(match))
+        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarPauze()">${icI(IC.undo)} Toch nog niet gestart — terug naar ${terugNaarPauzeDeel(match) === 1 ? 'gepland' : 'de pauze'}</button>`
+        : ''}
       ${/* HET PAUZEKAARTJE (herontwerp 22-08-2026, op Tims aanwijzing). Hier stond de lijst met
            AFGELEIDE wissels ("Klaar voor kwart 2") — verwarrend, want die heeft niemand ingegeven:
            het veld op het tabblad Opstelling is de waarheid, en de wissels zijn daar een gevolg van.
@@ -108,6 +120,23 @@ function renderLive() {
           const verschil = Math.abs(doel - plaatsen);
           const hoeveel = verschil === 1 ? 'een man' : verschil + ' spelers';
           return `<p style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px">${icI(IC.warn)} Er ${doel === 1 ? 'staat' : 'staan'} nu <b>${doel}</b> ${doel === 1 ? 'speler' : 'spelers'} op het veld voor <b>${plaatsen}</b> ${plaatsen === 1 ? 'plaats' : 'plaatsen'} — je begint met ${hoeveel} ${doel > plaatsen ? 'te veel' : 'minder'}.</p>`;
+        })()}
+        ${/* WIE ER NET GEBLESSEERD AFGING, STAAT WEER OP HET VELD (Tims keuze, 24-08-2026). Het plan
+             van de trainer is van vóór de wedstrijd en weet niets van wat er net gebeurd is. Enkel
+             over het blok dat NET afgelopen is, en enkel voor blessures waar de terugkeervraag niet
+             gesteld werd (kramp, licht) — bij een ernstige blessure heb je zelf al geantwoord, en
+             dan is dit gezeur. Bewust een melding en geen blokkade: soms is een speler na twee
+             minuten weer in orde, en dan mag hij gewoon spelen. */ ''}
+        ${(() => {
+          const netAf = new Set((match.events || [])
+            .filter(e => e.type === 'injury' && e.leavesField && e.playerId && e.quarterNum === qNum
+                      && e.injuryType !== 'vertrokken' && e.notReturning === undefined)
+            .map(e => e.playerId));
+          if (!netAf.size) return '';
+          const namen = nextLineupOf(match).filter(e => netAf.has(e.id)).map(e => pName(match, e.id));
+          if (!namen.length) return '';
+          const meer = namen.length > 1;
+          return `<p style="font-size:13px;color:#b45309;background:var(--org-pale,#fff3e0);border:1px solid #fbbf24;border-radius:10px;padding:8px 10px;margin-bottom:10px">${icI(IC.warn)} <b>${namen.map(esc).join(', ')}</b> ${meer ? 'gingen' : 'ging'} in ${pSingLow(match)} ${qNum} geblesseerd van het veld en ${meer ? 'staan' : 'staat'} nu weer in de opstelling. Kan ${meer ? 'dat' : 'hij'} verder?</p>`;
         })()}
         <button class="btn btn-orn" style="width:100%" onclick="setTab('opstelling')">${icI(IC.shirt)} Opstelling nakijken of wijzigen</button>
         <div class="evtbtns" style="margin:8px 0 0;grid-template-columns:repeat(${heeftPlan ? 3 : 2},1fr)">
@@ -141,7 +170,10 @@ function renderLive() {
       ${/* Klaargezette wissels: altijd bereikbaar, met een telletje zodat je ziet dat er iets
            wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). Het telletje toont enkel wat je
            in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
-      <button class="btn btn-orgpale btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}</button>`; })()}
+      ${/* Is de richtminuut van een klaargezette wissel voorbij, dan springt deze knop eruit — het
+           seintje zelf (piep + melding) komt van checkPlannedSubAlert, dit is wat er blijft staan
+           zolang je hem niet doorgevoerd hebt (v1.4.0). */ ''}
+      <button class="btn ${plannedSubsDue(match).length ? 'btn-orn' : 'btn-orgpale'} btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}${plannedSubsDue(match).length ? ' · nu' : ''}</button>`; })()}
       ${/* OOK IN DE PAUZE (audit 25-08-2026). Deze knop hing aan canEvent, en dat is false zodra de
            pauze begint — net het moment waarop een delegé nakijkt wat hij ingetikt heeft.
            undoKandidaat vindt op dat moment nog netjes de laatste gebeurtenis van het deel dat pas
@@ -177,17 +209,12 @@ function renderLive() {
       const gespeeld = Math.round((((mins[pid] || {}).ms) || 0) / 60000);
       return `<button class="evt-del" style="margin-left:6px;flex-shrink:0" onclick="modalMarkAbsent('${pid}')" title="${gespeeld > 0 ? 'Van het veld' : 'Niet aanwezig'}">×</button>`;
     };
-    tabContent = `
-      ${miniScore}
-      ${/* 'paused' erbij (audit 24-08-2026): tijdens een klokpauze viel dit terug op een veld waar je
-           niet op kon tikken — gemeten: 26 aantikbare plekken tijdens het spel, 0 tijdens een pauze —
-           terwijl de knoppen voor doelpunt, kaart en wissel gewoon bleven werken. Een stilgelegd spel
-           is juist wanneer je wisselt. */ ''}
-      ${canStartNext ? pauseLineupHtml(match)
-        : ((!ro && !isDone && (match.quarterStatus === 'running' || match.quarterStatus === 'paused'))
-          ? liveLineupHtml(match)
-          : `<div class="card">${renderPitch(match, on)}</div>`)}
-      <div class="card">
+    // DE LIJST ONDER HET VELD (Tims keuze, 24-08-2026). In de pauze stond hieronder nog de volledige
+    // spelerslijst van het blok dat net gespeeld is, mét een kruisje per speler, en daaronder de
+    // planning. Op een gsm betekende dat veel scrollen op het drukste moment van de wedstrijd. In de
+    // pauze gaat dat nu dicht achter één regel; tijdens het spel blijft alles openstaan, want daar
+    // heb je de tijd — en daar is dit de enige plek waar je de speeltijden ziet.
+    const spelerslijstHtml = `
         ${/* In de pauze staat hierboven al de opstelling VAN HET VOLGENDE deel. Deze lijst is die van
              het deel dat net gespeeld is; zonder dat erbij te zeggen stonden er twee opstellingen
              onder elkaar zonder onderscheid (audit 24-08-2026). */ ''}
@@ -198,9 +225,23 @@ function renderLive() {
         ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${(ro || isDone) ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
         ${/* Zie modalAddPlayerLive: de selectie lag vast vanaf de aftrap, en dat botst met de
              laatkomer en met de speler die van het tweede veld komt bijspringen. */ ''}
-        ${(ro || isDone) ? '' : `<hr><button class="btn btn-pale btn-sm" style="width:100%" onclick="modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>`}
-      </div>
-      ${planningTijdensMatchHtml(match)}`;
+        ${(ro || isDone) ? '' : `<hr><button class="btn btn-pale btn-sm" style="width:100%" onclick="modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>`}`;
+    tabContent = `
+      ${miniScore}
+      ${/* 'paused' erbij (audit 24-08-2026): tijdens een klokpauze viel dit terug op een veld waar je
+           niet op kon tikken — gemeten: 26 aantikbare plekken tijdens het spel, 0 tijdens een pauze —
+           terwijl de knoppen voor doelpunt, kaart en wissel gewoon bleven werken. Een stilgelegd spel
+           is juist wanneer je wisselt. */ ''}
+      ${canStartNext ? pauseLineupHtml(match)
+        : ((!ro && !isDone && (match.quarterStatus === 'running' || match.quarterStatus === 'paused'))
+          ? liveLineupHtml(match)
+          : `<div class="card">${renderPitch(match, on)}</div>`)}
+      ${canStartNext
+        ? `<details class="card" style="padding:12px">
+             <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijden, bank en planning</summary>
+             <div style="margin-top:10px">${spelerslijstHtml}${planningTijdensMatchHtml(match)}</div>
+           </details>`
+        : `<div class="card">${spelerslijstHtml}</div>${planningTijdensMatchHtml(match)}`}`;
   } else {
     tabContent = miniScore + (match.events.length
       ? `<div class="card">${renderEventLog(match)}</div>`
@@ -687,6 +728,91 @@ function confirmHervatDeel() {
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Dit ${label} staat afgesloten op <b>${gespeeld} min</b>. Hervatten zet de klok terug op dat punt en laat ze weer lopen, alsof je nooit gestopt was. De tijd sinds het afsluiten telt niet mee als speeltijd.</p>
     <button class="btn btn-green" onclick="doResumeLastPeriod()">${icI(IC.live)} Ja, verder in ${label} ${nr}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// ---- Een net gestart blok terugnemen (v1.4.0) ----
+// De spiegel van "Te vroeg gestopt". Tikte je in de pauze te vroeg op "Start kwart 2" — de scheids
+// staat nog te praten, of het was gewoon een mistik op een gsm — dan liep de klok en was de énige
+// weg terug "Opnieuw beginnen": de hele wedstrijd naar nul. Gemeten in de ketentest van 24-08-2026.
+// Twee minuten, want daarna is het geen mistik meer maar een beslissing, en dan hoort de weg terug
+// door "Einde blok" met een duurcorrectie te lopen (die bestaat al).
+const TERUG_NAAR_PAUZE_MS = 2 * 60000;
+function terugNaarPauzeDeel(m) {
+  if (!m || m.status === 'done') return null;
+  if (m.quarterStatus !== 'running' && m.quarterStatus !== 'paused') return null;
+  const q = (m.quarters || [])[(m.quarters || []).length - 1];
+  if (!q || !q.startTime || q.endTime) return null;
+  if (getQElapsed(m) > TERUG_NAAR_PAUZE_MS) return null;
+  // Enkel zolang er in dít blok nog niets van jezelf in staat. quarter_start hoort erbij, en de
+  // atBreak-events zijn de klaargezette wissels die de start zelf uitvoerde — die komen straks
+  // gewoon weer als klaargezette opstelling terug. Een doelpunt of kaart mag hier niet ongemerkt
+  // sneuvelen: dan verdwijnt de knop en blijft "Einde blok" de juiste weg.
+  const eigen = (m.events || []).filter(e => e.quarterNum === q.num && e.type !== 'quarter_start' && !e.atBreak);
+  if (eigen.length) return null;
+  return q.num;
+}
+function confirmTerugNaarPauze() {
+  if (!canLive() || !match) return;
+  const nr = terugNaarPauzeDeel(match);
+  // De klok tikt zonder het scherm te hertekenen, dus de knop kan nog even blijven staan nadat het
+  // venster van twee minuten dicht is. Dan hoort er uitleg te komen, geen dode tik.
+  if (!nr) { showToast(`Dit ${pSingLow(match)} loopt al te lang — sluit het af en corrigeer de duur.`, 'err'); render(); return; }
+  const label = pSingLow(match);
+  const uitleg = nr === 1
+    ? `De aftrap wordt teruggenomen: de wedstrijd staat weer op <b>gepland</b> en is niet langer live zichtbaar voor kijkers.`
+    : `${pSing(match)} ${nr} wordt teruggenomen en je staat weer in de pauze na ${label} ${nr - 1}. <b>De opstelling die je klaarzette blijft klaarstaan.</b>`;
+  openModal(`<h3>${icI(IC.undo)} Toch nog niet gestart?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${uitleg} Er is in dit ${label} nog niets bijgehouden, dus er gaat niets verloren.</p>
+    <button class="btn btn-green" onclick="doTerugNaarPauze()">${icI(IC.check)} Ja, terugnemen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doTerugNaarPauze() {
+  if (!canLive() || !match) return;
+  const nr = terugNaarPauzeDeel(match);
+  if (!nr) { closeModal(); return; }   // dubbeltik of intussen toch iets gelogd
+  // De opstelling waarmee dit blok net startte, ís wat het pauzeveld beloofde. Ze nu vastpakken en
+  // straks weer klaarzetten, zodat je niet opnieuw hoeft in te tikken wat de trainer doorgaf.
+  const doel = match.players
+    .filter(p => p.onField && typeof p.x === 'number')
+    .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: spelerGridCode(p) || null }));
+  // Alles wat bij dit blok hoort weg, mét tombstone — anders brengt de merge met een medebeheerder
+  // het van een ander toestel terug (zelfde reden als bij doResumeLastPeriod).
+  for (let i = match.events.length - 1; i >= 0; i--) {
+    const e = match.events[i];
+    if (e.quarterNum === nr) { tombstoneEvent(match, e.id); match.events.splice(i, 1); }
+  }
+  match.quarters.pop();
+  if (match.keeperByQ) delete match.keeperByQ[nr];
+  match.currentQuarter = nr - 1;
+  match.pendingSubs = []; match.pendingPosSwaps = [];
+  releaseWake();
+  if (nr === 1) {
+    // Geen vorig blok om naar terug te keren: dan is "gepland" de juiste toestand, precies zoals
+    // terugNaarGepland() doet voor een wedstrijd die nog geen seconde liep.
+    match.status = 'planned';
+    match.quarterStatus = 'not_started';
+    delete match.startLineup;   // hoort bij een aftrap die er niet meer is (zie startQuarter)
+    delete match.nextLineup;
+    recomputeOnField(match); recomputeScore(match);
+    await dbSave(match);
+    closeModal();
+    showToast('Terug naar gepland.', 'ok');
+    await go('prep', match.id);
+    return;
+  }
+  match.quarterStatus = 'between';
+  // Het veld terugzetten op het einde van het vorige blok. Bewust NIET met de hand terugrekenen:
+  // dit is dezelfde weg die het verslag en de PDF gebruiken om een blok te tekenen, dus wat hier
+  // uitkomt is per definitie wat het verslag straks toont.
+  recomputeOnField(match);
+  rebuildPositions(match, playersAtPeriodStart(match, 1));
+  recomputeScore(match);
+  // En dan de opstelling weer klaarzetten. _pasNextLineupAan leidt de wissels opnieuw af uit het
+  // verschil met het veld zoals het nu staat — dat is precies wat de pauze hoort te doen.
+  _pasNextLineupAan(match, doel);
+  await dbSave(match);
+  closeModal();
+  showToast(`${pSing(match)} ${nr} teruggenomen — je staat weer in de pauze.`, 'ok');
+  render();
 }
 // Beëindig het huidige deel handmatig -> pauze tussen de delen (klok staat stil tot de volgende start).
 // Vergeten af te sluiten? Bij fors overtime (zie overtimeNudgeMin) waarschuwen en de mogelijkheid
@@ -2137,7 +2263,7 @@ function modalEditEvent(id) {
       .map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('');
     fields = `<div class="fg"><label>Eerste speler</label><select id="ee-swap-a">${swapOpts(e.pA)}</select></div><div class="fg"><label>Tweede speler</label><select id="ee-swap-b">${swapOpts(e.pB)}</select></div>`;
   }
-  else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option><option value="vertrokken" ${e.injuryType === 'vertrokken' ? 'selected' : ''}>Vertrokken</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div>`;
+  else if (t === 'injury') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Type</label><select id="ee-itype"><option value="kramp" ${e.injuryType === 'kramp' ? 'selected' : ''}>Kramp</option><option value="licht" ${e.injuryType === 'licht' ? 'selected' : ''}>Licht</option><option value="ernstig" ${e.injuryType === 'ernstig' ? 'selected' : ''}>Ernstig</option><option value="vertrokken" ${e.injuryType === 'vertrokken' ? 'selected' : ''}>Vertrokken</option></select></div><div class="chkrow"><input type="checkbox" id="ee-leaves" ${e.leavesField ? 'checked' : ''}> Verlaat het veld</div><div class="chkrow"><input type="checkbox" id="ee-notback" ${e.notReturning ? 'checked' : ''}> Komt niet meer terug deze wedstrijd</div>`;
   else if (t === 'disallowed_us' || t === 'disallowed_them') fields = `<div class="fg"><label>Reden</label><input id="ee-reason" type="text" value="${esc(e.reason || '')}" placeholder="bv. buitenspel"></div>`;
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
@@ -2304,6 +2430,13 @@ async function saveEditEvent(id) {
   if (has('ee-swap-b')) e.pB = val('ee-swap-b');
   if (has('ee-itype')) e.injuryType = val('ee-itype');
   if (has('ee-leaves')) e.leavesField = has('ee-leaves').checked;
+  // De terugkeervraag achteraf rechtzetten (v1.4.0). Zonder deze weg zat je vast aan een verkeerd
+  // "Nee": de speler bleef de hele wedstrijd onkiesbaar en de enige uitweg was het hele
+  // blessure-event wissen. Blijft hij op het veld, dan gaat de vraag nergens over.
+  if (has('ee-notback')) {
+    const nietTerug = has('ee-notback').checked && e.leavesField;
+    if (nietTerug) e.notReturning = true; else delete e.notReturning;
+  }
   if (has('ee-reason')) e.reason = val('ee-reason');
   // Gepaarde 2e gele die naar een andere speler verhuist: de automatische rode blijft bij de
   // oorspronkelijke speler staan — dat kan juist zijn (die heeft misschien nog 2 gele) of niet;
@@ -2480,7 +2613,11 @@ function vertrokkenChip(p) {
   if (!p || !match || !isVertrokken(match, p.id)) return '';
   const ev = (match.events || []).find(e => e.type === 'injury' && e.injuryType === 'vertrokken' && e.playerId === p.id);
   const reden = ev && ev.reason ? ev.reason : '';
-  return ` <span title="${esc(reden || 'Verliet de wedstrijd')}" style="font-size:10px;font-weight:700;color:var(--org2,#b45309);border:1px solid #fbbf24;background:var(--org-pale,#fff3e0);border-radius:6px;padding:1px 5px;white-space:nowrap">vertrokken${reden ? ' · ' + esc(reden) : ''}</span>`;
+  // Wie er GEBLESSEERD af ging en niet meer terugkomt, staat sinds v1.4.0 ook in deze groep. Hem
+  // "vertrokken" noemen klopt niet — hij is niet naar huis, hij kan gewoon niet meer meespelen.
+  const blessure = !ev && (match.events || []).some(e => e.type === 'injury' && e.notReturning && e.playerId === p.id);
+  const woord = blessure ? 'geblesseerd' : 'vertrokken';
+  return ` <span title="${esc(reden || (blessure ? 'Geblesseerd — komt niet meer terug' : 'Verliet de wedstrijd'))}" style="font-size:10px;font-weight:700;color:var(--org2,#b45309);border:1px solid #fbbf24;background:var(--org-pale,#fff3e0);border-radius:6px;padding:1px 5px;white-space:nowrap">${woord}${reden ? ' · ' + esc(reden) : ''}</span>`;
 }
 // "Herstel" bij de groep "Weg uit de wedstrijd" (audit 24-08-2026). Tot dan was een mistik hier enkel
 // terug te draaien door het event op te zoeken in het tabblad Verloop. Het verwijderen loopt via
@@ -2734,11 +2871,19 @@ function showUndoToast(html) {
 // 'bank' — dezelfde oplossing als bij blessure/vertrek (v0.51.0), en bewust géén lijst die met de
 // ingetikte minuut meebeweegt: twee berekeningen voor één waarheid is precies wat deze week brak.
 // Tijdens het spel blijft de lijst gewoon het veld van dit moment.
-function spelersVoorEventKeuze(m) {
+// `altijdBank` = ook tijdens het spel de bank aanbieden. Standaard staat die er enkel bij een event
+// dat je ACHTERAF aan een eerder blok hangt. Voor een kaart is dat te streng (Tims keuze,
+// 24-08-2026): een bankspeler kan geel krijgen voor protest, en de blessuremodal bood de bank al
+// wél aan — dus de app was hier ook niet consequent. Voor een doelpunt blijft het veld de lijst:
+// wie op de bank zit, kan niet scoren.
+function spelersVoorEventKeuze(m, altijdBank) {
   const veld = playersOnFieldForEvent(m);
-  if (_postEventQuarter == null) return { lijst: veld, bank: new Set() };
+  if (_postEventQuarter == null && !altijdBank) return { lijst: veld, bank: new Set() };
   const veldIds = new Set(veld.map(p => p.id));
-  const rest = sortedByName((m.players || []).filter(p => !veldIds.has(p.id) && !p.absent));
+  // Bij een retro-event blijft de oude, ruimere regel gelden (toen speelde hij misschien nog mee);
+  // tijdens het spel mag wie de wedstrijd verlaten heeft er niet meer bij.
+  const rest = sortedByName((m.players || []).filter(p => !veldIds.has(p.id) &&
+    (_postEventQuarter != null ? !p.absent : magNogMeedoen(m, p))));
   return { lijst: [...veld, ...rest], bank: new Set(rest.map(p => p.id)) };
 }
 // Het merkje op zo'n bankspeler in de keuzeknoppen.
@@ -2939,7 +3084,7 @@ function modalSub(behoud) {
   openModal(`<h3>${title}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler op het veld die <b>eraf</b> gaat, en dan wie er van de bank <b>in</b> komt.${between ? ' Wordt doorgevoerd bij de start van het volgende deel.' : ''}</p>
     ${renderPitch(match, on, captainAtStartOfQuarter(match, qNum), null, { fn: 'subVeldTap', selId: subOut })}
-    <div class="sec">Bank (${off.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+    <div class="sec">Bank (${off.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst (●)</span></div>
     <div class="place-chips">${off.length
       ? off.map(p => { const low = (mins[p.id]?.ms || 0) === minMs; return `<span class="place-chip ${subIn === p.id ? 'sel' : ''}" onclick="subVeldTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))} <small style="opacity:.7;margin-left:4px;color:${low ? 'var(--org)' : 'inherit'}">${mm(p.id)}'${low ? ' ●' : ''}</small></span>`; }).join('')
       : '<span style="color:var(--txt2);font-size:14px">Geen spelers op de bank.</span>'}</div>
@@ -2956,7 +3101,12 @@ function subVeldTap(kind, id) {
 }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
-  if (!subOut || !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
+  // De melding volgt wat er ONTBREEKT (24-08-2026). Na een blessure staat de speler die eraf gaat
+  // al vast en vraagt het venster enkel nog wie erin komt; "kies wie eraf gaat en wie erin komt"
+  // las daar als een opdracht die je niet kón uitvoeren.
+  if (!subOut && !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
+  if (!subOut) { showToast('Kies wie eraf gaat.', 'err'); return; }
+  if (!subIn) { showToast('Kies wie erin komt.', 'err'); return; }
   // Een uitgesloten speler staat niet meer in de banklijst, maar een selectie die nog van vóór de
   // rode kaart dateert zou hier alsnog door kunnen. Hij mag niet meer op het veld — en niemand mag
   // in zijn plaats komen, dus de ploeg speelt met een man minder.
@@ -3359,7 +3509,7 @@ function pauseLineupHtml(m) {
     ${renderPitch(m, on, captainAtStartOfQuarter(m, deel), null, { fn: 'lineupTap', selId, plek: true })}
       ${selVeld ? `<button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="lineupVanHetVeld('${selVeld}')">${icI(IC.close)} ${esc(fieldName(m, selVeld))} van het veld halen</button>` : ''}
       ${telWarn}
-      <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+      <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst (●)</span></div>
       <div class="place-chips">${bench.length
         ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="lineupTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${mm(p.id)}'</small></span>`).join('')
         : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
@@ -3460,8 +3610,26 @@ function modalUsePlannedLineup(deel) {
   // opstelling die straks start; tijdens het spel is dat het veld zelf, en dan geeft nextLineupOf
   // hetzelfde antwoord als voorheen.
   const basis = nextLineupOf(m).map(e2 => ({ id: e2.id, x: e2.x, y: e2.y, line: e2.line, posNum: e2.posNum }));
-  const diff = lineupToPending(m, basis, plan);
+  // DEZELFDE FILTER ALS BIJ HET UITVOEREN (Tims keuze, 24-08-2026). Dit venster rekende met het RUWE
+  // plan, terwijl _pasNextLineupAan er straks iedereen uithaalt die niet meer mee mag. Gemeten: een
+  // speler die in blok 1 geblesseerd wegging, werd hier aangekondigd als "komt erbij zonder dat er
+  // iemand af gaat" en verscheen daarna nergens — de belofte klopte niet met wat er gebeurde.
+  const deelStraks = (m.currentQuarter || 0) + 1;
+  const geschrapt = [];
+  const bruikbaar = plan.filter(e2 => {
+    const p = m.players.find(x => x.id === e2.id);
+    if (p && magNogMeedoen(m, p, deelStraks)) return true;
+    if (p) geschrapt.push(p.name);
+    return false;
+  });
+  const diff = lineupToPending(m, basis, bruikbaar);
   const alGelijk = !diff.subs.length && !diff.swaps.length;
+  // Wie eruit valt, hoort bij de dingen die je moet weten — zelfde kader als de andere problemen.
+  if (geschrapt.length) {
+    const meer = geschrapt.length > 1;
+    diff.problemen = (diff.problemen || []).concat(
+      `${geschrapt.join(', ')} ${meer ? 'staan' : 'staat'} in je plan maar ${meer ? 'doen' : 'doet'} niet meer mee — ${meer ? 'ze worden' : 'hij wordt'} overgeslagen.`);
+  }
   openModal(`<h3>${icI(IC.clipboard)} ${pSing(m)} ${deel} volgens je plan?</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${alGelijk
       ? `De opstelling voor ${pSingLow(m)} ${deel} staat al klaar zoals in het wedstrijdplan.`
@@ -3728,7 +3896,7 @@ function modalPlannedSubs(tab) {
     </div>`;
   const lijst = [
     ...subs.map(s => rij(IC.swap,
-      `<b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}`,
+      `<b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}${vanafMinChip(s)}`,
       plannedSubProbleem(m, s), `runPlannedSub('${s.id}')`, `modalPlanSub('${s.id}')`, `removePlannedSub('${s.id}')`)),
     ...swaps.map(s => rij(IC.compass, plannedSwapTekst(m, s),
       plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`)),
@@ -3867,7 +4035,11 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
   // bewerken tot net vóór de wissel zelf.
   const veld = sortedByName(veldMetGeplandeWissels(m, deel, best ? { soort: 'sub', index: _plannedIndex(m, best, 'sub') } : { soort: 'swap', index: 0 }));
   const veldIds = new Set(veld.map(p => p.id));
-  const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !veldIds.has(p.id)));
+  // magNogMeedoen en niet magOpHetVeld (24-08-2026): wie de wedstrijd verlaten heeft — of er
+  // geblesseerd af ging zonder terug te komen — kan je niet meer inbrengen. Dezelfde regel als in
+  // de wisselmodal, het pauzeveld en het livescherm sinds v1.0.3; dit venster was daar toen bij
+  // vergeten, en bood zo iemand nog gewoon aan als invaller.
+  const bank = sortedByName((m.players || []).filter(p => magNogMeedoen(m, p) && !veldIds.has(p.id)));
   if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
   if (_planSel.b && veldIds.has(_planSel.b)) _planSel.b = null;
   openModal(`<h3>${icI(IC.swap)} Wissel klaarzetten</h3>
@@ -3877,6 +4049,16 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
     <div id="pl-a">${veld.length ? pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Niemand op het veld.</p>'}</div>
     <div class="sec">Wie komt ERIN?</div>
     <div id="pl-b">${bank.length ? pgGrid(bank.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
+    ${/* RICHTMINUUT (Tims keuze, 24-08-2026). Een trainer zegt "wissel Bas na acht minuten", en daar
+         was niets voor: een klaargezette wissel had geen tijdstip en gaf geen seintje. Bewust
+         OPTIONEEL en bewust een herinnering — de wissel gaat nog altijd niet vanzelf af, jij tikt
+         hem door op het moment dat het spel het toelaat. Nieuw, optioneel veld: een wissel zonder
+         richtminuut blijft exact hetzelfde object als voorheen. */ ''}
+    <div class="fg" style="margin-top:12px">
+      <label style="font-size:12px;color:var(--txt2)">Herinner me vanaf minuut <span style="font-weight:400">(optioneel)</span></label>
+      <input id="pl-min" type="number" inputmode="numeric" min="1" placeholder="bv. 8" value="${best && best.vanafMin ? best.vanafMin : ''}">
+      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">De minuut binnen het ${pSingLow(m)}. Je krijgt dan een seintje — de wissel gaat nooit vanzelf af.</p>
+    </div>
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanSub()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
@@ -3951,8 +4133,17 @@ async function savePlanSub() {
     const best = _planSel.editId ? match.plannedSubs.find(s => s.id === _planSel.editId) : null;
     // Zonder deel het veld niet wegschrijven i.p.v. er null in te zetten: zo blijft een wissel
     // zonder voorkeur exact hetzelfde object als vroeger.
-    if (best) { best.outId = _planSel.a; best.inId = _planSel.b; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
-    else match.plannedSubs.push(Object.assign({ id: uid(), outId: _planSel.a, inId: _planSel.b }, deel ? { quarterNum: deel } : {}));
+    // Richtminuut: enkel wegschrijven wanneer er echt een getal staat, zodat een wissel zonder
+    // herinnering hetzelfde object blijft als vroeger (en er niets extra naar de cloud gaat).
+    const ruw = parseInt((document.getElementById('pl-min') || {}).value, 10);
+    const vanafMin = (Number.isFinite(ruw) && ruw > 0) ? ruw : null;
+    if (best) {
+      best.outId = _planSel.a; best.inId = _planSel.b;
+      if (deel) best.quarterNum = deel; else delete best.quarterNum;
+      if (vanafMin) best.vanafMin = vanafMin; else delete best.vanafMin;
+    }
+    else match.plannedSubs.push(Object.assign({ id: uid(), outId: _planSel.a, inId: _planSel.b },
+      deel ? { quarterNum: deel } : {}, vanafMin ? { vanafMin } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg — zie savePlanPosSwap.
     await dbSave(match); render(); planSubTerug(deel || 0);
   } finally { _eventBusy = false; }
@@ -4180,7 +4371,7 @@ function liveLineupHtml(m) {
     <div class="field-legend" style="margin-bottom:10px">Tik een <b>bankspeler</b> en dan een <b>speler op het veld</b> om te wisselen. Tik <b>twee spelers op het veld</b> om ze van positie te wisselen. Je krijgt telkens eerst een bevestiging.</div>
     ${/* plek: true → tijdens het spel een speler naar een vrije plek kunnen zetten (zie liveFieldTap). */ ''}
     ${renderPitch(m, on, m.captainId, null, { fn: 'liveFieldTap', selId, plek: true })}
-    <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst</span></div>
+    <div class="sec">Bank (${bench.length}) <span style="color:var(--txt2);font-weight:400;text-transform:none">· minst gespeeld eerst (●)</span></div>
     <div class="place-chips">${bench.length
       ? bench.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="liveFieldTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))} <small style="opacity:.7;margin-left:4px">${playedMin(mins[p.id] ? mins[p.id].ms : 0)}'</small></span>`).join('')
       : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
@@ -4364,8 +4555,9 @@ async function confirmPosVerhuis() {
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {
-  // Bij een event-achteraf ook de bank kiesbaar (gemerkt) — zie spelersVoorEventKeuze.
-  const keuze = spelersVoorEventKeuze(match);
+  // Ook de bank kiesbaar (gemerkt) — een kaart voor protest vanaf de bank bestaat, en de
+  // blessuremodal bood de bank al aan. Zie spelersVoorEventKeuze.
+  const keuze = spelersVoorEventKeuze(match, true);
   const on = keuze.lijst;
   const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
@@ -4444,6 +4636,9 @@ async function logPenalty(scored) {
 
 // ===================== MODAL: INJURY =====================
 let injPlayerId = null, injType = 'kramp';
+// Antwoord op "komt hij nog terug?" bij een ernstige blessure: true/false, of null zolang er niets
+// gekozen is. Zie de uitleg bij vertrokkenIds in core.js.
+let injTerug = null;
 // preId: speler al aangeduid en "verlaat het veld" aangevinkt — gebruikt door de "Niet aanwezig"-
 // modal, die voor iemand die al gespeeld heeft naar deze flow doorverwijst (zie modalMarkAbsent).
 // `soort` = 'vertrokken' opent dit venster meteen voor een speler die de wedstrijd VERLAAT en niet
@@ -4465,6 +4660,7 @@ function modalInjury(preId, soort) {
   const lijst = [...opVeld, ...sortedByName(bank)];
   injPlayerId = (preId && lijst.some(p => p.id === preId)) ? preId : null;
   injType = soort === 'vertrokken' ? 'vertrokken' : 'kramp';
+  injTerug = null;
   const weg = injType === 'vertrokken';
   const tb = (t, label) => `<button class="${injType === t ? 'act' : ''}" onclick="tglInjType('${t}',this)">${label}</button>`;
   const merk = p => opVeldIds.has(p.id) ? '' : '<span style="font-size:10px;color:var(--txt2)">bank</span>';
@@ -4484,7 +4680,19 @@ function modalInjury(preId, soort) {
     </div>
     ${/* Bij "vertrokken" staat dit vinkje er niet: wie de wedstrijd verlaat, verlaat het veld — een
          vertrek zonder dat is een onmogelijke toestand, en die hoort niet aanklikbaar te zijn. */ ''}
-    <label class="chkrow" id="inj-off-rij" style="margin-bottom:16px;${weg ? 'display:none' : ''}"><input type="checkbox" id="inj-off"${(injPlayerId || weg) ? ' checked' : ''}> Speler verlaat het veld</label>
+    <label class="chkrow" id="inj-off-rij" style="margin-bottom:16px;${weg ? 'display:none' : ''}"><input type="checkbox" id="inj-off"${(injPlayerId || weg) ? ' checked' : ''} onchange="tglInjTerugZichtbaar()"> Speler verlaat het veld</label>
+    ${/* DE VRAAG DIE ONTBRAK (Tims keuze, 24-08-2026). Ging iemand er ERNSTIG geblesseerd af, dan
+         zette de opstelling van het volgende blok hem zwijgend weer op het veld zodra hij in het
+         plan van de trainer stond. Bewust hier en niet in een vervolgvenster: dit is het moment
+         waarop je het weet, en de wisselvraag die hierna komt mag niet onderbroken worden. Bij
+         kramp of een lichte blessure vragen we niets — daar staat een zachte melding in de pauze
+         tegenover. */ ''}
+    <div id="inj-terug-rij" style="margin-bottom:16px;display:none">
+      <div class="sec" style="margin-top:0">Komt hij nog terug deze wedstrijd?</div>
+      <div class="tgl" id="inj-terug">
+        <button onclick="tglInjTerug(true,this)">Ja, hij kan nog invallen</button><button onclick="tglInjTerug(false,this)">Nee, zijn wedstrijd zit erop</button>
+      </div>
+    </div>
     <button class="btn btn-green" onclick="confirmInjury()">${icI(IC.check)}Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   // Voorselectie zichtbaar maken: de keuze wordt met inline stijlen gemarkeerd (gpSel), niet met
@@ -4506,8 +4714,32 @@ function tglInjType(type, btn) {
   if (rij) rij.style.display = (type === 'vertrokken') ? '' : 'none';
   const off = document.getElementById('inj-off');
   if (off && type === 'vertrokken') off.checked = true;
+  // ERNSTIG BETEKENT BIJNA ALTIJD "HIJ GAAT ERAF" (Tims keuze, 24-08-2026). Het vinkje stond enkel
+  // vooraf aan wanneer de speler al aangeduid was bij het openen; koos je hem in dit venster zelf,
+  // dan stond het uit en bleef een ernstig geblesseerde speler gewoon op het veld staan. Enkel bij
+  // "Ernstig" aanzetten — bij kramp of een lichte blessure blijft iemand vaak gewoon doorspelen.
+  // Uitvinken kan altijd nog; dit is een standaardwaarde, geen dwang.
+  if (off && type === 'ernstig') off.checked = true;
   const offRij = document.getElementById('inj-off-rij');
   if (offRij) offRij.style.display = (type === 'vertrokken') ? 'none' : '';
+  // Van soort wisselen wist het antwoord: "nee, hij komt niet meer terug" hoort bij een ernstige
+  // blessure en mag niet blijven plakken wanneer je alsnog "kramp" aanduidt.
+  injTerug = null;
+  document.querySelectorAll('#inj-terug button').forEach(b => b.classList.remove('act'));
+  tglInjTerugZichtbaar();
+}
+// De terugkeervraag hoort er enkel te staan wanneer ze ergens over gaat: een ernstige blessure
+// waarbij de speler ook echt van het veld gaat. Blijft hij staan, dan is er niets te beslissen.
+function tglInjTerugZichtbaar() {
+  const rij = document.getElementById('inj-terug-rij');
+  if (!rij) return;
+  const off = document.getElementById('inj-off');
+  rij.style.display = (injType === 'ernstig' && off && off.checked) ? '' : 'none';
+}
+function tglInjTerug(waarde, btn) {
+  injTerug = waarde;
+  document.querySelectorAll('#inj-terug button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
 }
 async function confirmInjury() {
   if (!injPlayerId) { showToast('Kies een speler.', 'err'); return; }
@@ -4521,7 +4753,17 @@ async function confirmInjury() {
     const reden = (document.getElementById('inj-reden')?.value || '').trim();
     // `reason` enkel meegeven als er ook echt iets staat: een leeg veld hoort geen sleutel toe te
     // voegen aan het event (en dus ook niet naar de cloud te gaan).
+    // Ernstig én van het veld: dan moet er een antwoord staan op de terugkeervraag. Bewust een
+    // harde eis en geen stille standaardwaarde — dit is precies het punt waar de app tot nu iets
+    // aannam wat ze niet wist. Het gebeurt hooguit een paar keer per seizoen, dus die ene tik mag.
+    if (injType === 'ernstig' && leavesField && injTerug === null) {
+      showToast('Duid aan of hij nog terugkomt.', 'err'); return;
+    }
     const extra = { playerId: injPlayerId, injuryType: injType, leavesField };
+    // Allebei de antwoorden vastleggen, niet enkel "nee": een uitdrukkelijk "ja" is de reden om
+    // hem in de pauze NIET te melden wanneer hij weer in de opstelling staat. Enkel wie het nooit
+    // gevraagd kreeg (kramp, licht) verdient daar een herinnering.
+    if (injType === 'ernstig' && leavesField) extra.notReturning = (injTerug === false);
     if (injType === 'vertrokken' && reden) extra.reason = reden;
     // Stond hij op dat moment eigenlijk wél op het veld? Zit hij al op de bank (eerder gewisseld en
     // dan naar huis), dan komt er niemand in zijn plaats en hoort de wisselvraag er niet te staan.
@@ -4531,7 +4773,7 @@ async function confirmInjury() {
     // Vertrekt hij, dan hoort hij ook uit de getekende opstelling van het volgende blok — zelfde
     // regel als bij afwezig melden en bij een rode kaart. Vertrok hij tijdens de PAUZE, dan stond
     // die opstelling er al mét hem in, en zette de start hem alsnog het veld op.
-    if (injType === 'vertrokken' && Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === injPlayerId)) {
+    if ((injType === 'vertrokken' || extra.notReturning) && Array.isArray(match.nextLineup) && match.nextLineup.some(e => e.id === injPlayerId)) {
       _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== injPlayerId));
     }
     await dbSave(match);
@@ -4560,7 +4802,7 @@ function modalSubAfterInjury(outId, reden) {
   const mm = id => playedMin(mins[id]?.ms);
   openModal(`<h3>${icI(IC.swap)} Wissel na ${weg ? 'vertrek' : 'blessure'}</h3>
     <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">${weg ? icI(IC.close) : '🤕'} ${esc(outPlayer?.name||'?')} verlaat het veld</div>
-    <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan)</span></div>
+    <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan: ●)</span></div>
     <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${icI(IC.check)}Wissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Geen wissel</button>`);
