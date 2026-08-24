@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.3.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.3.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2040,6 +2040,14 @@ async function selectTeam(teamId) {
   // even zichtbaar zijn. Zelfde synchrone cache-hydratie als preloadTeamNames().
   try { const c = JSON.parse(localStorage.getItem('voetbal_teamNames') || '{}'); for (const k in c) if (!teamNames[k]) teamNames[k] = c[k]; } catch (e) {}
   activeTeamId = teamId;
+  // DE WEDSTRIJDFILTER HOORT BIJ ÉÉN PLOEG (Tim, 25-08-2026). Klik je op de melding "N wedstrijden
+  // zijn niet afgesloten", dan staat de lijst gefilterd op die toestand. Wissel je daarna van ploeg,
+  // dan bleef die filter staan en zag je bij de nieuwe ploeg een halve lijst zonder te weten waarom.
+  // Zelfde gedachte als het rooster en de clubgegevens hieronder: wat van de vorige ploeg is, gaat
+  // hier weg. De weergavekeuze (lijst of kalender) blijft wél staan — dat is een voorkeur, geen
+  // filter. MATCH_FILTER_LEEG staat in views-account.js, dat later laadt dan dit bestand; op het
+  // moment dat deze functie draait bestaat het wel, maar de wachter houdt het veilig.
+  if (typeof MATCH_FILTER_LEEG !== 'undefined') matchFilter = { ...MATCH_FILTER_LEEG };
   // Rooster: meteen het laatst gekende van DEZE ploeg neerzetten en als "nog niet geladen" markeren
   // tot de roster-listener antwoordt. Zonder dit rendert go('home') hieronder nog met het rooster
   // van de vorige ploeg (of met niets, wat als "geen spelers" gelezen werd).

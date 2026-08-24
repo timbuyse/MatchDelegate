@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.1
+### De oogjes gelden nu ook in het verslag, afwezigheden apart, en cijfers per ploeg
+- **Wat je voor kijkers verbergt, blijft nu ook verborgen in het verslag en de PDF.** Zet je Kaarten op onzichtbaar, dan verdwijnen de kaartentellers én de kaarten met naam uit de tijdlijn — voordien stonden die er altijd, ook al had je ze net verborgen. Zet je Speelminuten op onzichtbaar, dan verdwijnt ook het keeperblok; dat zijn immers speelminuten. Voor jou als beheerder verandert er niets.
+- **"Afgemeld" en "niet komen opdagen" staan nu apart** bij Geselecteerd: *"3× afgemeld · 1× niet komen opdagen"*. Tot nu telde dat als hetzelfde, terwijl het tornooiverslag die twee al apart hield.
+- **Nieuw: "Cijfers per ploeg" in Clubbeheer.** Eén regel per ploeg met winst-gelijk-verlies, doelpunten voor en tegen, en de gemiddelde speeltijd van een speler in een wedstrijd waarin hij meedeed — plus een regel voor de club samen. Zo zie je in de app of er ergens iets scheefloopt, zonder eerst een Excel-bestand te openen. Het staat achter een knop, want het haalt de wedstrijden van alle ploegen op.
+- **De wedstrijdfilter blijft niet meer hangen bij een andere ploeg.** Tikte je op de melding "N wedstrijden zijn niet afgesloten", dan stond de lijst gefilterd. Wisselde je daarna van ploeg, dan bleef die filter staan en zag je bij de nieuwe ploeg een halve lijst zonder te weten waarom. Nu gaat hij weg bij het wisselen — net als het rooster en de clubgegevens. De keuze tussen lijst en kalender blijft wel staan, dat is een voorkeur.
+- **"Annuleren" bij Rugnummers en Spelernotities annuleert nu echt.** Die twee vensters schreven meteen weg, dus Annuleren draaide niets terug — en het gevolg was wisselvallig: soms werd je wijziging stil ongedaan gemaakt, soms werd ze definitief. Nu werk je in een kopie, en pas bij Opslaan gaat het naar de wedstrijd. Ook na "Alle nummers wissen" is Annuleren een echte uitweg.
+- **De fair-playlijst zegt nu waarom iemand weinig minuten heeft.** Wie de wedstrijd verliet of pas onderweg bijkwam, kreeg een laag gemiddelde en klom daardoor naar de top van "minste speeltijd" — de lijst die juist toont wie meer kansen verdient. Die wedstrijden tellen nog steeds mee, maar er staat nu bij: *"1× vertrokken tijdens de wedstrijd"* of *"1× onderweg bijgekomen"*.
+- **Een eenzijdige wissel staat weer in het verslag.** Komt iemand erbij zonder dat er iemand af gaat (of omgekeerd), dan viel die uit het wisselkader onder het velddiagram — en dan kwam die speler in de hele opstellingssectie niet voor. Nu staat er "—" aan de kant die leeg is.
+- **Kleinere rechtzettingen.** Het afsluitvenster zei "corrigeer hieronder de werkelijke duur" ook wanneer er niets te corrigeren viel (het blok was al afgesloten); nu wijst het naar de juiste weg. Het getal bij "Events" telt wat er echt in de lijst staat. Een wedstrijd zonder locatie leest niet meer "undefined". Kom je op een livescherm van een wedstrijd die niet meer bestaat, dan staan er nu knoppen om weg te gaan. In de PDF kan de regel met de strafschopnemers weer netjes afbreken. En zes functies uit de vensters van vóór v0.57 zijn opgeruimd — die praatten tegen knoppen die niet meer bestaan.
+- **Bewust niet gewijzigd:** de kapitein wijzigen blijft onder "Meer" en dus buiten de pauze. Dat staat nu ook zo in de code, zodat het niet per ongeluk "gerepareerd" wordt.
+
+---
+
 ## v1.3.0
 ### Vier keuzes van Tim, en "Geselecteerd" meet nu wat het belooft
 - **Kaarten kunnen nu ook bij 3v3 en 5v5.** Bij die spelvormen kon je live géén gele kaart geven, maar wél een rode via "Meer" — en achteraf allebei. De beperking gold dus enkel op het hoofdscherm en was daardoor vooral verwarrend.

@@ -81,8 +81,14 @@ function renderDetail() {
         [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
         [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
+        // De kaartenregels volgen het oogje 'cards' (Tims keuze, 25-08-2026): stond dat op
+        // onzichtbaar, dan verdween het blok op de statistiekenpagina maar bleven de kaarten hier en
+        // in de PDF wél staan, mét naam in de tijdlijn. Dan betekent dat oogje voor de ouders niets.
+        // Voor een beheerder verandert er niets: statSectionVisible is dan altijd waar.
+        ...(statSectionVisible('cards') ? [
         [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), ''],
         [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    ''],
+        ] : []),
       ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
       if (!rows.length) return '';
       return `<div class="sec">Wedstrijdstatistieken</div><div class="card">
@@ -132,9 +138,16 @@ function renderDetail() {
       })()}
     </div>`}
     ${canLive() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
-    <div class="sec">Events (${match.events.length})</div>
+    ${/* Het getal telt nu wat er ECHT staat (audit 25-08-2026): match.events.length bevat ook de
+         begin- en eindmarkeringen van elk blok, die de tijdlijn niet toont — en voor een kijker
+         vallen er nog meer weg. "Events (24)" boven een lijst van 16 regels klopt niet. */ ''}
+    <div class="sec">Events (${eventsByQuarter(match).reduce((n, g) => n + (g.list || []).length, 0)})</div>
     <div class="card">${renderEventLog(match)}</div>
     ${(() => {
+      // Keeperminuten zijn speelminuten, dus ze volgen het oogje 'minutes' (Tims keuze, 25-08-2026).
+      // De sectie Speelminuten hierboven doet dat al; deze stond er voor een kijker altijd, met
+      // "Vincent: 40 min" erin terwijl de minuten net verborgen waren.
+      if (!statSectionVisible('minutes')) return '';
       const km = keeperMinutes(match);
       if (!km || !Object.keys(km).length) return '';
       const rows = Object.entries(km).sort((a, b) => b[1] - a[1])
@@ -1047,7 +1060,9 @@ async function pdfMatchBody(doc, L, m) {
     [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${vt('corner_us', 'corner_them')}`],
     [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${vt('freekick_us', 'freekick_them')}`],
     [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
-    [stat('yellow_card') + stat('red_card'), `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
+    // Zelfde oogje als op het scherm (Tims keuze, 25-08-2026): een kijker met kaarten op onzichtbaar
+    // krijgt ze ook niet in de PDF.
+    [statSectionVisible('cards') ? stat('yellow_card') + stat('red_card') : 0, `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
     heading('Wedstrijdstatistieken', 17);
@@ -1136,7 +1151,12 @@ async function pdfMatchBody(doc, L, m) {
   // Met dezelfde icoontjes als op het scherm: een lege smalle kolom houdt de plaats vrij, het icoon
   // zelf wordt in didDrawCell getekend (autoTable kan geen afbeelding in celtekst zetten).
   const evtIcons = await pdfEventIcons(m.events);
-  const timelineGroups = eventsByQuarter(m);
+  // Kaarten ook uit de PDF-tijdlijn wanneer het oogje 'cards' uit staat (Tims keuze, 25-08-2026):
+  // anders staat "Gele kaart · Jonas" er alsnog voluit, en dan heeft het verbergen geen zin.
+  const _kaartenUit = !statSectionVisible('cards');
+  const timelineGroups = eventsByQuarter(m).map(g => _kaartenUit
+    ? Object.assign({}, g, { list: (g.list || []).filter(e => e.type !== 'yellow_card' && e.type !== 'red_card') })
+    : g);
   timelineGroups.forEach((g, gi) => {
     // Tussenstand in dezelfde volgorde als overal elders: bij een uitwedstrijd staat de eigen
     // ploeg tweede (thuisploeg – uitploeg), zoals de eindscore en de tabel hierboven.
@@ -1442,7 +1462,9 @@ async function exportPDF() {
       .map(s => `${fieldName(m, s.playerId)} ${s.raak ? 'v' : 'x'}`).join(' · ');
     if (nemers) {
       doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(110, 110, 110);
-      for (const regel of doc.splitTextToSize(nemers, PW - 2 * L.M)) { doc.text(regel, PW / 2, L.y, { align: 'center' }); L.y += 11; }
+      // L.MG, niet L.M (audit 25-08-2026): createPdfLayout levert MG. `PW - 2 * undefined` is NaN, en
+      // dan kan splitTextToSize niet afbreken — bij veel nemers liep die regel over beide marges heen.
+      for (const regel of doc.splitTextToSize(nemers, PW - 2 * L.MG)) { doc.text(regel, PW / 2, L.y, { align: 'center' }); L.y += 11; }
       doc.setTextColor(23, 23, 23);
       L.y += 6;
     }

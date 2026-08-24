@@ -140,6 +140,7 @@ async function loadClubBeheerView() {
       </div>
       <div class="sec" style="margin-top:20px">Extra</div>
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
+      <button class="btn btn-pale" style="margin-top:8px" onclick="showClubCijfers('${clubId}')">${icI(IC.chart)} Cijfers per ploeg</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Clubexport (Excel)</button>
       ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
@@ -786,6 +787,58 @@ function clubExportOverzichtRijen(ploegen) {
 }
 // Eerst ophalen, dán kiezen: pas na het ophalen weet de app welke seizoenen er zijn. Zo hoeft er ook
 // niet per knop opnieuw opgehaald te worden.
+// ===================== CIJFERS PER PLOEG (CLUBBEHEER) =====================
+// Tims keuze 25-08-2026: er bestond in de app géén enkel clubbreed cijfer — Clubbeheer toonde
+// ploegnamen en verder niets, dus een clubbeheerder moest het exportbestand in Excel openen om te
+// zien of er ergens iets scheefloopt. Eén regel per ploeg volstaat.
+// Bewust achter een knop: dit haalt de wedstrijden van álle ploegen van de club op (dezelfde weg als
+// de clubexport, met dezelfde leesrechten). Dat automatisch doen bij het openen van Clubbeheer zou
+// dat scherm elke keer laten wachten op de databank.
+async function showClubCijfers(clubId) {
+  if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
+  openModal(`<h3>${icI(IC.chart)} Cijfers per ploeg</h3>
+    <p id="cc-melding" style="font-size:13px;color:var(--txt2);text-align:left">Gegevens van alle ploegen ophalen…</p>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Annuleren</button>`);
+  const meld = t => { const el = document.getElementById('cc-melding'); if (el) el.textContent = t; };
+  try {
+    const ploegen = await clubExportOphalen(clubId, meld);
+    if (!ploegen.length) { meld('Geen ploegen gevonden waarvan je de gegevens mag lezen.'); return; }
+    // Eén seizoen, zoals overal in de app: het meest recente met een gespeelde wedstrijd.
+    const seizoenen = ceSeizoenen(ploegen);
+    const sz = seizoenen[0] || 'alle';
+    const rijen = ploegen.map(pl => {
+      const ms = (pl.wedstrijden || []).filter(m => m && !m.tournamentId && m.status === 'done'
+        && (sz === 'alle' || seasonOf(m) === sz));
+      let w = 0, g = 0, v = 0, voor = 0, tegen = 0, minuten = 0, beurten = 0;
+      for (const m of ms) {
+        const r = matchResultaat(m);          // ENIGE bron voor W/G/V — rekent een gewonnen reeks als winst
+        if (r === 'W') w++; else if (r === 'V') v++; else g++;
+        voor += (m.scoreUs || 0); tegen += (m.scoreThem || 0);
+        const mins = calcMinutes(m);
+        for (const p of (m.players || [])) {
+          const pm = (mins[p.id] || {}).ms || 0;
+          if (pm > 0) { minuten += pm; beurten++; }
+        }
+      }
+      return { naam: pl.naam, aantal: ms.length, w, g, v, voor, tegen,
+        gem: beurten ? Math.round(minuten / beurten / 60000) : 0 };
+    }).sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+    const totaal = rijen.reduce((a, r) => ({ aantal: a.aantal + r.aantal, w: a.w + r.w, g: a.g + r.g, v: a.v + r.v }), { aantal: 0, w: 0, g: 0, v: 0 });
+    openModal(`<h3>${icI(IC.chart)} Cijfers per ploeg</h3>
+      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">Seizoen <b>${esc(sz)}</b> · gespeelde wedstrijden, zonder tornooien. "Gem." is de gemiddelde speeltijd van een speler in een wedstrijd waarin hij meedeed.</p>
+      <div style="text-align:left">
+        ${rijen.map(r => `<div class="stat-row"><span style="flex:1">${esc(r.naam)}${r.aantal ? '' : ' <small style="color:var(--txt2)">nog niets gespeeld</small>'}</span>
+          <span style="font-variant-numeric:tabular-nums;color:var(--txt2);font-size:13px;min-width:96px;text-align:right">${r.aantal ? `${r.w}-${r.g}-${r.v} · ${r.voor}:${r.tegen}` : '—'}</span>
+          <span style="font-variant-numeric:tabular-nums;font-weight:700;min-width:58px;text-align:right">${r.aantal ? r.gem + ' min' : ''}</span></div>`).join('')}
+        <div class="stat-row" style="border-top:1px solid var(--bdr);margin-top:6px;padding-top:8px">
+          <span style="flex:1;font-weight:700">Club samen</span>
+          <span style="font-variant-numeric:tabular-nums;color:var(--txt2);font-size:13px;min-width:96px;text-align:right">${totaal.aantal} wedstrijden</span>
+          <span style="font-variant-numeric:tabular-nums;font-weight:700;min-width:58px;text-align:right">${totaal.w}-${totaal.g}-${totaal.v}</span></div>
+      </div>
+      <button class="btn btn-pale" style="margin-top:12px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Alles in een Excel-bestand</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
+  } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
+}
 async function showClubExport(clubId) {
   if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
   openModal(`<h3>${icI(IC.download)} Clubexport</h3>
@@ -2430,7 +2483,11 @@ function renderEventLog(m) {
   const groups = eventsByQuarter(m);
   if (!groups.length) return '<p style="color:var(--txt2);font-size:14px">Geen events.</p>';
   const elog_ro = !canLive();   // zelfde maatstaf als het livescherm en het verslag (audit 25-08-2026)
-  const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']);
+  // Kaarten volgen het oogje 'cards' (Tims keuze, 25-08-2026): zonder dit stonden ze mét naam in de
+  // tijdlijn van elk verslag, ook wanneer je het kaartenblok voor kijkers verborgen had. Enkel voor
+  // wie alleen mag lezen — een beheerder ziet altijd alles.
+  const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']
+    .concat(statSectionVisible('cards') ? [] : ['yellow_card', 'red_card']));
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;
   const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;
@@ -2830,17 +2887,24 @@ function periodSubList(m, qNum) {
   if (!qNum) return [];
   const rijen = [];
   (m.events || [])
-    .filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && e.playerOutId && e.playerInId)
+    // EENZIJDIGE WISSELS HOREN ER OOK IN (audit 25-08-2026). De filter eiste playerOutId ÉN
+    // playerInId, maar sinds v0.49.0 kan iemand erbij komen zonder dat er iemand af gaat (en
+    // omgekeerd). Zo'n speler stond nergens in de opstellingssectie: niet op het diagram (dat toont
+    // de start), niet in dit kader en niet op de bankregel — enkel in de tijdlijn. Nu staat er "—"
+    // aan de kant die leeg is.
+    .filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && (e.playerOutId || e.playerInId))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
     .forEach(e => {
       const min = eventMinLocal(e, m);
+      const uitNaam = e.playerOutId ? fieldName(m, e.playerOutId) : '—';
+      const inNaam = e.playerInId ? fieldName(m, e.playerInId) : '—';
       // Gesorteerd op tijd, dus wissels met dezelfde minuut staan naast elkaar in de lijst.
       const laatste = rijen[rijen.length - 1];
       if (laatste && laatste.min === min) {
-        laatste.out.push(fieldName(m, e.playerOutId));
-        laatste.in.push(fieldName(m, e.playerInId));
+        laatste.out.push(uitNaam);
+        laatste.in.push(inNaam);
       } else {
-        rijen.push({ min, out: [fieldName(m, e.playerOutId)], in: [fieldName(m, e.playerInId)] });
+        rijen.push({ min, out: [uitNaam], in: [inNaam] });
       }
     });
   return rijen;
@@ -2980,6 +3044,11 @@ async function toonNietAfgesloten() {
   await go('matches');
 }
 function setHomeFilter(v) {
+  // Van ploeg wisselen wist de wedstrijdfilter (Tim, 25-08-2026 — zie selectTeam). In lokale modus
+  // wissel je van ploeg met déze keuzelijst en niet via selectTeam, dus hier hetzelfde: anders bleef
+  // bv. "Niet afgesloten" aan staan terwijl je naar een andere ploeg kijkt. Kies je "Alle ploegen",
+  // dan is dat ook een andere verzameling, dus ook dan opruimen.
+  if (v !== homeFilter) matchFilter = { ...MATCH_FILTER_LEEG };
   homeFilter = v;
   if (view === 'agenda') loadAgenda();
   else if (view === 'matches') loadMatches();

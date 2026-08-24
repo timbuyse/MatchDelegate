@@ -1,6 +1,13 @@
 // ===================== LIVE MATCH =====================
 function renderLive() {
-  if (!match) return '<div class="content"><p>Geen wedstrijd.</p></div>';
+  // Met een uitweg (audit 25-08-2026): dit was een scherm zonder hoofding, zonder tabbalk en zonder
+  // terugknop. Kan gebeuren wanneer een medebeheerder de wedstrijd verwijdert terwijl jij erin staat.
+  if (!match) return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>Wedstrijd</h1></div>
+    <div class="content"><div class="card">
+      <p style="margin:0 0 10px">Deze wedstrijd is niet meer te vinden op dit toestel. Mogelijk is ze verwijderd.</p>
+      <button class="btn btn-pale" onclick="go('matches')">${icI(IC.log)} Naar de wedstrijden</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="go('home')">${icI(IC.ball)} Naar het startscherm</button>
+    </div></div>`;
   // ÉÉN MAATSTAF (audit 25-08-2026). Stond hier: `match.fromCloud && (!isAdmin || viewerMode)`.
   // Twee gaten: (1) bij een wedstrijd die NIET uit de cloud komt was ro altijd false, ook met de
   // kijkmodus aan — en de helft van de handelingen op dit scherm heeft geen eigen wachter, dus daar
@@ -198,7 +205,10 @@ function renderLive() {
 
   return `
   <div class="hdr"><button class="back" onclick="confirmLeave()">‹</button>
-    <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
+    ${/* esc() en geen lege delen (audit 25-08-2026): bij een tornooiwedstrijd erft location een door
+         de gebruiker getypte tekst, en overal elders in dit bestand staat esc(). Zonder locatie las
+         de kop bovendien "undefined · …". */ ''}
+    <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${[match.location, matchWhen(match), match.matchType].filter(Boolean).map(esc).join(' · ')}</div></div>
     ${/* "Afsluiten" stond hier — pal naast de plek waar je duim de hele wedstrijd komt. Eén mistik
          en de wedstrijd is dicht. Nu staat hier het onschuldige "Info" (wedstrijdinfo bewerken) en
          is Afsluiten verhuisd naar onderaan het tabblad Verloop, bewust wat weggestoken. */ ''}
@@ -1005,10 +1015,20 @@ function endMatchModal() {
   // van dát deel hier recht te kunnen — ook bij een kleine afwijking.
   const laatste = match.quarters[match.quarters.length - 1];
   const nogBezig = !!laatste && !laatste.endTime;
-  const warn = (durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}</div>` : '';
+  // De waarschuwing hangt aan `nogBezig` (audit 25-08-2026). Sloot je het laatste deel eerst netjes af
+  // op 25 min (blok van 15) en tik je daarna in de pauze op "Wedstrijd afsluiten", dan las het venster
+  // "dit kwart LOOPT al 10 min langer dan gepland — corrigeer hieronder", terwijl er niets te
+  // corrigeren viel: het duurveld staat er enkel zolang het deel loopt, en het blok was al gesloten.
+  // Voor dat geval staat er nu een rustige regel die naar de juiste weg wijst (het pennetje bij de
+  // blokduur op het verslag).
+  const warn = (nogBezig && durMs && overtimeMin > overtimeNudgeMin(match)) ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Dit ${label} loopt al ${overtimeMin} min langer dan gepland (${match.quarterDuration} min voorzien). Ben je vergeten af te sluiten? Corrigeer hieronder de werkelijke duur.${vergeten ? ` <b>De klok liep veel langer dan verwacht, dus we stellen de voorziene ${match.quarterDuration} min voor</b> — pas aan als het anders was.` : ''}</div>` : '';
+  const duurTip = (!nogBezig && durMs && overtimeMin > overtimeNudgeMin(match))
+    ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:12px">${icI(IC.warn)} Dit ${label} staat afgesloten op ${Math.round(getQElapsed(match) / 60000)} min terwijl er ${match.quarterDuration} min voorzien was. Dat rechtzetten kan achteraf op het verslag, met het pennetje naast de duur van dat ${label}.</p>`
+    : '';
   const duurVeld = nogBezig ? `<div class="fg" style="margin-bottom:12px"><label style="font-size:12px;color:var(--txt2)">Werkelijke duur van dit ${label} (minuten)</label><input id="em-correct-min" type="number" inputmode="numeric" value="${prefill}" min="1"></div>` : '';
   openModal(`<h3>Wedstrijd afsluiten?</h3>
     ${warn}
+    ${duurTip}
     ${duurVeld}
     <div class="fg"><label>Notities (optioneel)</label>
       <textarea id="end-notes" rows="4" placeholder="Aanvullingen over de wedstrijd, bv. weer, blessures, opmerkingen...">${esc(match.notes||'')}</textarea></div>
@@ -2531,6 +2551,10 @@ async function doUnmarkAbsent(pid) {
   if (!(match.quarters || []).length && p.starting) p.onField = true;
   await dbSave(match); render();
 }
+// BEWUSTE KEUZE (Tim, 25-08-2026): dit blijft enkel bereikbaar via "Meer", en die tegel staat in de
+// PAUZE uit. Kapitein wijzigen kan dus pas als het volgende deel loopt. De audit stelde een eigen
+// tegel in het pauzekaartje voor (het pauzeveld tekent daar wél een ©, mogelijk op iemand die straks
+// niet speelt); Tim koos ervoor het te laten. Niet "repareren" zonder het hem te vragen.
 function modalSetCaptain() {
   const on = playersOnFieldForEvent(match);
   const cur = match.captainId;
@@ -2753,27 +2777,11 @@ function pgGrid(btns) { return `<div style="display:grid;grid-template-columns:r
 // speler A naartoe gaat, en wie daar staat neemt zijn plaats over. Dat is hoe een trainer het zegt
 // ("jij gaat naar de 9"), en je hoeft niet meer op te zoeken wie daar ook alweer stond. Wat er
 // opgeslagen wordt blijft een gewone posSwap met pA en pB — enkel de manier van kiezen verandert.
-// De knop draagt het positienummer en de code (zie POS_CODES), met de huidige speler eronder.
-// `sleutel` is het speler-id: dit raster kiest WIE er ruilt bij een positiewissel die je meteen
-// doorvoert. Een positiewissel die je KLAARZET kiest geen speler maar een plek op het veld: zo blijft
-// het plan geldig ook als er later iemand anders op die plek belandt (zie modalPlanPosSwap).
-function posDoelBtn(m, p, cls, onclick, sleutel) {
-  const nr = p.posNum || '';
-  const code = posCode(nr, m.matchType);
-  return `<button type="button" class="${cls}" data-id="${esc(String(sleutel))}" onclick="${onclick}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:1px">
-    <span style="font-weight:900;font-size:17px;line-height:1;color:var(--txt)">${esc(String(nr) || '–')}</span>
-    ${code ? `<span style="font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--txt2)">${esc(code)}</span>` : ''}
-    <span style="font-size:10px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${esc(fieldName(m, p.id))}</span>
-  </button>`;
-}
-// Op positienummer sorteren: zo staan de knoppen in de volgorde die een trainer in het hoofd heeft
-// (1 achteraan, 9 vooraan) i.p.v. alfabetisch op de naam van wie er nu staat.
-function posDoelGrid(m, spelers, clsPrefix, fnNaam) {
-  const gesorteerd = [...spelers].sort((a, b) => (parseInt(a.posNum, 10) || 99) - (parseInt(b.posNum, 10) || 99));
-  return pgGrid(gesorteerd.map(p => {
-    return posDoelBtn(m, p, clsPrefix, `${fnNaam}('${p.id}',this)`, p.id);
-  }).join(''));
-}
+// OPGERUIMD op 25-08-2026 (audit): hier stonden posDoelBtn, posDoelGrid, selectSubOut,
+// selectPosSwapA, selectPosSwapB en removePendingPosSwap. Dat waren restanten van de vensters van
+// vóór v0.57: ze praatten tegen id's (#psw-a, #psw-b, #psw-b-lbl, #psw-confirm, #sub-out) die niet
+// meer bestaan, en de wissellijst waar removePendingPosSwap bij hoorde is verdwenen. Gecontroleerd
+// met een grep over de hele repo: geen enkele aanroeper meer.
 function gpSel(el) {
   el.style.background = 'var(--grn)'; el.style.borderColor = 'var(--grn)';
   el.querySelectorAll('span').forEach(s => s.style.color = '#fff');
@@ -2879,7 +2887,6 @@ function subVeldTap(kind, id) {
   else subIn = (subIn === id) ? null : id;
   modalSub(true);
 }
-function selectSubOut(id, el) { subOut = id; gpSelIn('sub-out', el); }
 function selectSubIn(id, el) { subIn = id; gpSelIn('sub-in', el); }
 async function confirmSub() {
   if (!subOut || !subIn) { showToast('Kies wie eraf gaat en wie erin komt.', 'err'); return; }
@@ -4153,22 +4160,6 @@ function posSwapVeldTap(kind, id) {
   if (!posSwapA) zetPosSwapKeuze(id, null, null); else zetPosSwapKeuze(posSwapA, id, null);
   modalPosSwap(true);
 }
-function selectPosSwapA(id, el) {
-  posSwapA = id; posSwapB = null;
-  gpSelIn('psw-a', el);
-  const on = playersOnFieldForEvent(match).filter(p => p.id !== id);
-  const bDiv = document.getElementById('psw-b');
-  const bLbl = document.getElementById('psw-b-lbl');
-  const btn = document.getElementById('psw-confirm');
-  if (!bDiv || !bLbl || !btn) return;
-  bDiv.innerHTML = posDoelGrid(match, on, 'psw-bb', 'selectPosSwapB');
-  bLbl.style.display = ''; bDiv.style.display = ''; btn.style.display = 'none';
-}
-function selectPosSwapB(id, el) {
-  posSwapB = id;
-  gpSelIn('psw-b', el);
-  const btn = document.getElementById('psw-confirm'); if (btn) btn.style.display = '';
-}
 async function confirmPosSwap() {
   if (posSwapDoel) return confirmPosVerhuis();
   if (!posSwapA || !posSwapB) return;
@@ -4276,7 +4267,6 @@ async function confirmPosVerhuis() {
     await dbSave(match); closeModal(); render();
   } finally { _eventBusy = false; if (uitgevoerd) zetPosSwapKeuze(null, null, null); }
 }
-async function removePendingPosSwap(i) { if (_eventBusy) return; _eventBusy = true; try { if (match.pendingPosSwaps) match.pendingPosSwaps.splice(i, 1); await dbSave(match); render(); } finally { _eventBusy = false; } }
 
 // ===================== MODAL: CARD =====================
 function modalCard(color) {

@@ -2385,33 +2385,45 @@ async function saveQuickResult() {
 }
 
 // ===================== EDIT PLAYERS =====================
+// OOK DEZE TWEE VENSTERS OP EEN WERKKOPIE (Tims keuze, 25-08-2026). Ze schreven rechtstreeks in
+// match.players, dus "Annuleren" draaide niets terug — en het gevolg was wisselvallig: soms werd de
+// wijziging stil ongedaan gemaakt door een verse lezing uit de databank, soms maakte de volgende
+// bewaring ze definitief. Nu hetzelfde patroon als modalEditPlayers: wijzigen in de kopie, pas bij
+// Opslaan naar de wedstrijd. De kapitein moet mee in de kopie, want saveEditPlayers zet
+// match.captainId onvoorwaardelijk uit _spelersKopieKapitein — zonder dit zou opslaan hier de
+// kapitein wissen.
+function _spelersKopieStart() {
+  _spelersKopie = match.players.map(p => ({ ...p }));
+  _spelersKopieKapitein = match.captainId || null;
+}
 function modalPlayerNotes() {
-  _spelersKopieVallenLaten();   // zie daar: deze twee vensters schrijven rechtstreeks
+  _spelersKopieStart();
   // Alfabetisch op familienaam zoals elke spelerslijst, en het rugnummer enkel als de ploeg ze
-  // gebruikt. De index voor het onchange-pad moet wél die van match.players blijven.
-
+  // gebruikt. De index voor het onchange-pad is die van match.players — en dus ook die van de kopie.
   const rows = sortedByName(match.players).map(p => {
     const i = match.players.indexOf(p);
     return `
     <div style="margin-bottom:10px">
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(p.number ? '#' + p.number + ' ' : '')}${esc(p.name || 'Speler')}</div>
-      <input type="text" value="${esc(p.note||'')}" placeholder="Notitie (optioneel)" onchange="match.players[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px">
+      <input type="text" value="${esc(p.note||'')}" placeholder="Notitie (optioneel)" onchange="_spelersKopie[${i}].note=this.value" style="width:100%;padding:9px;border:2px solid var(--bdr);border-radius:8px;font-size:14px">
     </div>`; }).join('');
   openModal(`<h3>${icI(IC.edit)} Spelernotities</h3>
     <div>${rows}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveEditPlayers()">${icI(IC.check)} Opslaan</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_spelersKopieAnnuleer()">Annuleren</button>`);
 }
 // Enkel de rugnummers van deze wedstrijd, los van modalEditPlayers: daar kan je ook spelers
 // verwijderen of van lijn wisselen, en dat wil je op een afgewerkte wedstrijd niet — events en
 // statistieken hangen eraan. Een nummer is een label, dus dat is wél veilig aanpasbaar, ook
 // achteraf. "Alles wissen" is er voor de ploeg die overstapt naar spelen zonder vaste nummers.
-function modalMatchNumbers() {
-  _spelersKopieVallenLaten();   // zie daar: deze twee vensters schrijven rechtstreeks
+function modalMatchNumbers(_hertekenen) {
+  if (!_hertekenen || !_spelersKopie) _spelersKopieStart();   // zie _spelersKopieStart
+  const bron = _spelersKopie;
   const rows = sortedByName(match.players).map(p => {
     const i = match.players.indexOf(p);
+    const nr = (bron[i] || p).number || '';
     return `<div class="selrow">
-      <input type="number" class="pn-inp" value="${esc(p.number || '')}" placeholder="" inputmode="numeric" aria-label="Rugnummer van ${esc(p.name)}" onchange="match.players[${i}].number=this.value.trim()">
+      <input type="number" class="pn-inp" value="${esc(nr)}" placeholder="" inputmode="numeric" aria-label="Rugnummer van ${esc(p.name)}" onchange="_spelersKopie[${i}].number=this.value.trim()">
       <div class="nm">${esc(p.name || 'Speler')}<small>${esc(p.line || '')}</small></div>
     </div>`; }).join('');
   openModal(`<h3>${icI(IC.shirt)} Rugnummers</h3>
@@ -2420,13 +2432,21 @@ function modalMatchNumbers() {
     <div>${rows}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchNumbers()">${icI(IC.check)} Opslaan</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="clearMatchNumbers()">Alle nummers wissen</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_spelersKopieAnnuleer()">Annuleren</button>`);
 }
 function clearMatchNumbers() {
-  match.players.forEach(p => { p.number = ''; });
-  modalMatchNumbers(); // opnieuw tekenen met lege vakjes; opslaan blijft een aparte tik
+  // Wist in de KOPIE, niet in de wedstrijd: zo blijft "Annuleren" ook hierna een echte uitweg.
+  if (!_spelersKopie) _spelersKopieStart();
+  _spelersKopie.forEach(p => { p.number = ''; });
+  modalMatchNumbers(true); // opnieuw tekenen met lege vakjes; opslaan blijft een aparte tik
 }
 async function saveMatchNumbers() {
+  // Alleen de nummers doorvoeren — dit venster mag bewust niets anders wijzigen (zie de toelichting
+  // bij modalMatchNumbers: namen en lijnen aanpassen op een gespeelde wedstrijd is niet veilig).
+  if (_spelersKopie) {
+    _spelersKopie.forEach(d => { const p = match.players.find(x => x.id === d.id); if (p) p.number = d.number; });
+    _spelersKopieVallenLaten();
+  }
   await dbSave(match);
   closeModal(); render();
   showToast('Rugnummers van deze wedstrijd bijgewerkt.', 'ok');

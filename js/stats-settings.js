@@ -155,7 +155,10 @@ async function loadStats() {
   const getp = (rosterId, name, num) => {
     const nm = (name || 'Speler').trim();
     const k = rosterId || nm;
-    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, lines: {}, plekken: {} });
+    // `absent` blijft de som (het spelerdetail rekent erop); daarnaast apart geteld (Tims keuze,
+    // 25-08-2026): `nb` = vooraf afgemeld / niet beschikbaar, `noshow` = wél in de selectie maar niet
+    // komen opdagen. "3× afgemeld, 1× niet komen opdagen" is voor een trainer een ander gesprek.
+    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, nb: 0, noshow: 0, lines: {}, plekken: {} });
     if (name) r.name = nm;
     if (num) r.number = num;
     return r;
@@ -226,9 +229,15 @@ async function loadStats() {
       // anders staat hij bovenaan Fair-play met 0' alsof de trainer hem geen kansen gaf, terwijl
       // hij zelf niet kwam opdagen. (selectedOnDate hierboven bevat hem wél, zodat een ✗ bij een
       // A/B-tegenhanger op dezelfde dag niet dubbel als afwezig telt.)
-      if (p.absent) { r.absent++; continue; }
+      if (p.absent) { r.absent++; r.noshow++; continue; }
       r.squad++;
       if (gemeten) r.timed++;
+      // Vertrokken of onderweg bijgekomen (Tims keuze, 25-08-2026): die wedstrijd telt gewoon mee,
+      // maar het wordt bij zijn naam gezet. Zo'n speler heeft weinig minuten bij een volle wedstrijd
+      // en klom daardoor naar de top van "Fair-play · minste speeltijd" — de lijst die juist moet
+      // tonen wie meer kansen verdient. Nu zie je waarom zijn gemiddelde laag is.
+      if (typeof isVertrokken === 'function' && isVertrokken(m, p.id)) r.vertrok = (r.vertrok || 0) + 1;
+      if (p.addedDuringMatch) r.bijgekomen = (r.bijgekomen || 0) + 1;
       // Per PLEK bijhouden (CAM, RM, LCV …) en de linie erbij als samenvatting. "Middenveld 9×" zegt een
     // trainer niets; "CAM 5× · CM 3× · RM 1×" wel. Voor wedstrijden van vóór v0.34.0 bestaat de code
     // nog niet — spelerGridCode leidt ze dan af uit lijn + x/y, wat een benadering is op een rooster
@@ -252,7 +261,7 @@ async function loadStats() {
       // statistieken. Dat is dus geen gemiste wedstrijd — zelfde gedachte als de A/B-correctie
       // hierboven, maar dan handmatig aangegeven omdat die wedstrijd hier niet in de lijst zit.
       if (ab.reason === 'elders') continue;
-      const r = getp(ab.rosterId, ab.name); r.absent++;
+      const r = getp(ab.rosterId, ab.name); r.absent++; r.nb++;
     }
     for (const e of m.events) {
       let r;
@@ -354,7 +363,9 @@ async function loadStats() {
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd die je via "Snel resultaat" invoerde telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>{
+      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
+      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${list.length}</span></div>${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
@@ -367,7 +378,11 @@ async function loadStats() {
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${plekken && linies ? `<small style="color:var(--txt2);display:block">${linies}</small>` : ''}</span>`
         + `<span style="color:var(--txt2);font-size:13px">${plekken || linies}</span></div>`;
     }).join('')) : '')
-    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / wedstrijden sinds hij erbij is)</span>`, attend.map(p=>{const tot=attendTot(p);const pct=tot?Math.round(p.squad/tot*100):0;return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
+    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / wedstrijden sinds hij erbij is)</span>`, attend.map(p=>{const tot=attendTot(p);const pct=tot?Math.round(p.squad/tot*100):0;
+      // Afgemeld en niet-komen-opdagen apart onder de naam (Tims keuze, 25-08-2026) — enkel wanneer
+      // er iets te melden is, anders krijgt elke rij een lege tweede regel.
+      const redenen = [p.nb ? `${p.nb}× afgemeld` : '', p.noshow ? `${p.noshow}× niet komen opdagen` : ''].filter(Boolean).join(' · ');
+      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${redenen ? `<small style="color:var(--txt2);display:block">${redenen}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
     + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '');
 }
 
