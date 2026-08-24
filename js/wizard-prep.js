@@ -1504,14 +1504,28 @@ function renderPrep() {
          zonder verbinding wél kan, blijft staan: starten, de selectie en de opstelling ingeven, en
          het plan per blok. Eén regel zegt waar de grens ligt. */ ''}
     ${geenVerbinding ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-top:8px">${icI(IC.warn)} Geen verbinding — je kan de wedstrijd starten, volgen en de opstelling ingeven. De wedstrijdgegevens wijzigen, annuleren of verwijderen kan pas weer met verbinding.</div>` : ''}
-    ${heeftOpstelling(m)
-      ? (geenVerbinding ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`)
+    ${/* SNEL RESULTAAT NAAST "BEWERKEN" (Tim, 25-08-2026): het zat weggestopt in het bewerkmenu,
+         terwijl "deze wedstrijd niet live volgen, alleen de uitslag ingeven" een eigen handeling is.
+         Bewerken op 3/4, de uitslag op 1/4 — dus smal, met een kort opschrift en de volle uitleg in
+         de tooltip. Hij blijft ook in het bewerkmenu staan (Tims keuze), zodat wie hem daar zoekt
+         hem daar vindt. Zelfde verbindingsvoorwaarde als Bewerken: dit wijzigt de wedstrijdgegevens. */ ''}
+    ${/* ENKEL MET EEN SELECTIE (Tim, 25-08-2026): zonder selectie is de volgende stap die selectie, en
+         dan staat er gewoon "Bewerken" + "Selectie ingeven" zoals voorheen. Is de selectie er wél,
+         dan komt de uitslagknop naast Bewerken: 3/4 tegen 1/4. minmax(0, …) is nodig, anders wordt
+         een kolom nooit smaller dan de inhoud van de knop en werd de verhouding 1,9 (gemeten). */ ''}
+    ${geenVerbinding ? '' : (heeftSelectie(m)
+      ? `<div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:8px;margin-top:8px">
+        <button class="btn btn-pale" style="margin:0;min-width:0" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
+        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px" onclick="modalQuickResult()" title="Snel resultaat invoeren — de wedstrijd niet live volgen, enkel de uitslag ingeven" aria-label="Snel resultaat invoeren">${icI(IC.bolt)} Uitslag</button>
+      </div>`
       : `<div class="wiz-nav" style="margin-top:8px">
-      ${geenVerbinding ? '' : `<button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`}
-      ${heeftSelectie(m)
-        ? `<button class="btn btn-orgpale" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>`
-        : `<button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>`}
-    </div>`}
+        <button class="btn btn-pale" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
+        <button class="btn btn-orgpale" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>
+      </div>`)}
+    ${/* Zonder verbinding valt enkel "Bewerken" weg; de selectie ingeven kan wél (zie de regel
+         hierboven), dus die knop moet dan op zichzelf blijven staan. */ ''}
+    ${(geenVerbinding && !heeftSelectie(m)) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>` : ''}
+    ${(heeftSelectie(m) && !heeftOpstelling(m)) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>` : ''}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>

@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.3.4
+### Snel resultaat naast Bewerken, en de opstelling houdt haar plekken
+- **Nieuw: de knop "Uitslag" naast "Bewerken"** op het wedstrijdscherm, op een kwart van de breedte. Een uitslag invoeren zonder de wedstrijd live te volgen zat weggestopt in het bewerkmenu — daar staat hij nog steeds, maar nu ook meteen in zicht. Hij verschijnt zodra de selectie ingegeven is; daarvoor staat er "Bewerken" en "Selectie ingeven", zoals altijd.
+- **Twee spelers bijna op dezelfde plek kan niet meer ontstaan uit een oud plan.** De regel "één speler per plek" keek naar de coördinaten in plaats van naar de plek zelf. Bij opstellingen van vóór het positierooster konden twee spelers zo naast elkaar door de controle glippen en op het veld bijna op elkaar terechtkomen.
+- **"Geplande wissels" telde iets dat het venster niet toonde.** Stond je enige klaargezette wissel op "Altijd", dan las je "(1)" op de knop en "nog niets klaargezet voor kwart 2" in het venster. Nu opent het venster op het tabblad waar die wissel staat.
+- **"Herstel" bij een afwezige verdwijnt na het eindsignaal**, net als het kruisje ernaast — dat wist speelminuten, en dat op een afgesloten wedstrijd is nooit de bedoeling. Rechtzetten kan nog via het verslag.
+- **Een afwezig gemelde speler blokkeerde "Startopstelling herplaatsen".** Hij stond bij "Nog te plaatsen" en zolang hij daar stond, weigerde het opslaan — voor iemand die er niet was.
+
+---
+
 ## v1.3.3
 ### Gebeurtenissen: geen verzonnen minuten, en ongedaan maken kan in de pauze
 - **Een gebeurtenis zonder tijdstip stond in het verloop op 1'.** Kies je "Onbekend" als moment, dan bewaart de app bewust géén tijdstip — en toch las het verloop "1'". Datzelfde gold voor élk doelpunt uit "Snel resultaat": een 3-1 leek vier doelpunten in de eerste minuut. Nu staat er een streepje.

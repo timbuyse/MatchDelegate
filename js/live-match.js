@@ -195,7 +195,7 @@ function renderLive() {
         ${on.length ? on.map(p => playerRowHtml(p, mins[p.id], false, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('') : '<p style="color:var(--txt2);font-size:14px">Niemand op het veld.</p>'}
         ${off.length ? `<hr><div class="sec">Bank (${off.length})</div>${off.map(p => playerRowHtml(p, mins[p.id], true, getGameTimeMs(match), ro ? '' : absentBtn(p.id))).join('')}` : ''}
         ${vertrokken.length ? `<hr><div class="sec" style="color:var(--org2,#b45309)">Weg uit de wedstrijd (${vertrokken.length})</div>${vertrokken.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.6')}<div style="flex:1"><div class="pname">${esc(p.name)}${vertrokkenChip(p)}</div><div style="font-size:11px;color:var(--txt2)">Speelde ${Math.round((((mins[p.id]||{}).ms)||0)/60000)} min — die blijven staan</div></div>${(ro || isDone) ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="confirmHerstelVertrokken('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
-        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${ro ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
+        ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${(ro || isDone) ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
         ${/* Zie modalAddPlayerLive: de selectie lag vast vanaf de aftrap, en dat botst met de
              laatkomer en met de speler die van het tweede veld komt bijspringen. */ ''}
         ${(ro || isDone) ? '' : `<hr><button class="btn btn-pale btn-sm" style="width:100%" onclick="modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>`}
@@ -1391,7 +1391,10 @@ async function saveMatchInfo() {
 //      daar stil werd overschreven in een keuzelijst, zonder veld).
 // En: OPSLAAN WEIGERT zolang niet iedereen staat. Dit venster kan dus nooit meer een opstelling wissen.
 let _ep = null;   // { plaats: {playerId: code|null}, sel: {kind:'field'|'bench', id} | null }
-function _epStarters() { return (match.players || []).filter(p => p.starting); }
+// magOpHetVeld erbij (audit 25-08-2026): wie afwezig gemeld is of na een rode kaart uitgesloten,
+// stond hier bij "Nog te plaatsen" en blokkeerde daardoor het opslaan — voor iemand die er niet is.
+// startQuarter filtert bij het vastleggen van de startopstelling op dezelfde regel.
+function _epStarters() { return (match.players || []).filter(p => p.starting && magOpHetVeld(match, p)); }
 // Mag de startopstelling nog herplaatst worden? Zodra er wissels of positiewissels gelogd zijn, hangt
 // de reconstructie van de latere kwarten aan de oorspronkelijke posities (zie de snapshots in de
 // events en playersAtPeriodStart) — dan blokkeren we, met de weg die dan wél klopt.
@@ -3061,7 +3064,17 @@ function previewNextLineup(m) {
 // altijd al ging). pendingSubs/pendingPosSwaps blijven dus bestaan en bestaan enkel nog als AFGELEIDE
 // van de doelopstelling — dat houdt startQuarter, het verslag, de PDF's en een tweede toestel
 // ongewijzigd werkend. Nieuw, optioneel veld: een wedstrijd zonder nextLineup werkt gewoon door.
-function lineupPlekSleutel(p) { return typeof p.x === 'number' ? `${p.x},${p.y}` : `L:${p.line || ''}`; }
+// DE PLEKCODE IS DE IDENTITEIT VAN EEN PLEK (audit 25-08-2026), niet het coördinatenpaar. Twee
+// entries met verschillende x/y kunnen naar dezelfde roosterplek snappen — het patroon van
+// opstellingen van vóór v0.34.0, die nog in een oud plan kunnen zitten. Op x,y sleutelen liet die
+// twee samen door het ontdubbelen glippen, en dan staan er twee shirts bijna op elkaar (precies de
+// oude klacht). spelerGridCode doet het snappen; enkel wie helemaal geen plek heeft valt terug op
+// zijn lijn.
+function lineupPlekSleutel(p) {
+  const code = (typeof spelerGridCode === 'function') ? spelerGridCode(p) : null;
+  if (code) return `C:${code}`;
+  return typeof p.x === 'number' ? `${p.x},${p.y}` : `L:${p.line || ''}`;
+}
 function lineupEntry(p) { return { id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: p.posCodeVeld }; }
 function huidigVeldEntries(m) { return playersOnField(m).map(lineupEntry); }
 // De doelopstelling. Staat er nog geen (wedstrijd van vóór v0.49.0, of een pauze die al liep), dan
@@ -3664,7 +3677,18 @@ function modalPlannedSubs(tab) {
   const huidig = plannedHuidigDeel(m);
   if (_planDeelTabBasis !== huidig) { _planDeelTab = null; _planDeelTabBasis = huidig; }
   if (tab !== undefined && tab !== null) _planDeelTab = tab;
-  if (_planDeelTab === null) _planDeelTab = Math.min(Math.max(1, huidig || 1), totaal);
+  // OPEN WAAR ER IETS STAAT (audit 25-08-2026). Het telletje op de knop telt ook de wissels ZONDER
+  // vast deel mee — terecht, want die kan je altijd doorvoeren — maar dit venster opende altijd op het
+  // huidige deel. Stond je enige klaargezette wissel op "Altijd", dan las je "(1)" op de knop en
+  // "nog niets klaargezet voor kwart 2" in het venster. Nu: het huidige deel als daar iets staat,
+  // anders het tabblad "Altijd" wanneer dáár iets staat.
+  if (_planDeelTab === null) {
+    const deelNu = Math.min(Math.max(1, huidig || 1), totaal);
+    const alles = [...((m.plannedSubs) || []), ...((m.plannedPosSwaps) || [])];
+    const inDeel = alles.some(s => s.quarterNum === deelNu);
+    const zonderDeel = alles.some(s => !s.quarterNum);
+    _planDeelTab = (!inDeel && zonderDeel) ? 0 : deelNu;
+  }
   const actief = _planDeelTab;
   const hoort = s => (actief ? s.quarterNum === actief : !s.quarterNum);
   const subs = (m.plannedSubs || []).filter(hoort), swaps = (m.plannedPosSwaps || []).filter(hoort);
