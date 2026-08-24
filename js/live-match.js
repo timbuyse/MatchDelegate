@@ -3012,7 +3012,23 @@ async function bewaarNextLineup(m, entries, melding) {
 // het scherm dat te zeggen in plaats van stil iets klaar te zetten.
 function pauzeWisselInDoel(m, outId, inId) {
   const doel = nextLineupOf(m);
-  const plaats = doel.find(e => e.id === outId);
+  let plaats = doel.find(e => e.id === outId);
+  // HIJ IS ER NET AFGEHAALD (audit 25-08-2026). Meld je in de pauze iemand als vertrokken, dan haalt
+  // markLeftField hem meteen uit de doelopstelling en biedt de app daarna "Wissel na vertrek" aan.
+  // Die wissel liep dood: de speler stond er niet meer in, dus dit gaf false en je kreeg alleen
+  // "X staat niet in de opstelling van kwart N" — gemeten, er gebeurde niets, en de ploeg bleef op
+  // zeven. Terugvallen op de plek die hij net vrijmaakte (zijn x/y staan er nog, enkel onField is
+  // uitgezet) maakt de wissel precies wat de gebruiker bedoelt: de invaller neemt zijn plaats.
+  // Staat er in de doelopstelling intussen al iemand op die plek, dan is dit géén wissel meer en
+  // blijft het antwoord false — dan hoort het scherm dat te zeggen i.p.v. iemand te verdringen.
+  if (!plaats) {
+    const pOut = (m.players || []).find(p => p.id === outId);
+    if (pOut && typeof pOut.x === 'number') {
+      const code = spelerGridCode(pOut);
+      const bezet = doel.some(e => code ? spelerGridCode(e) === code : (e.x === pOut.x && e.y === pOut.y));
+      if (!bezet) plaats = { x: pOut.x, y: pOut.y, line: pOut.line, posNum: pOut.posNum, posCodeVeld: code || null };
+    }
+  }
   if (!plaats) return false;
   _pasNextLineupAan(m, doel.filter(e => e.id !== outId && e.id !== inId).concat([
     { id: inId, x: plaats.x, y: plaats.y, line: plaats.line, posNum: plaats.posNum, posCodeVeld: plaats.posCodeVeld },

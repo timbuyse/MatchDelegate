@@ -687,14 +687,26 @@ const CE_SPELER_KOP = ['Seizoen', 'Speler', 'Ploeg(en)', 'Rugnummer(s)', 'Gesele
 // laten spelen. Samenvoegen gebeurt op het blijvende spelersnummer — een speler die met de hand in de
 // nieuwe ploeg ingetikt is (i.p.v. via "Spelers doorschuiven") blijft dus twee personen, net zoals zijn
 // carrière-overzicht dan leeg blijft.
+// AUDIT 25-08-2026 — de terugval was `p.name`, ZONDER ploeg. Twee verschillende kinderen met dezelfde
+// naam in bv. U9 en U13 werden daardoor één regel, met hun minuten, doelpunten en selecties bij elkaar
+// opgeteld — in het bestand dat naar een bestuur gaat, en precies in de tabel die de vraag "heeft dit
+// kind genoeg gevoetbald?" moet beantwoorden. De bedoeling stond hierboven al goed beschreven
+// (samenvoegen op het blijvende spelersnummer, anders twee personen); de sleutel deed iets anders.
+// Nu: globalId als die er is, anders het spelersnummer uit de kern van die ploeg. Dat is per ploeg
+// uniek, dus naamgenoten blijven gescheiden en de kolom "Ploeg(en)" laat zien wie wie is.
+function ceSpelerSleutel(p, pl) {
+  if (p.globalId) return 'g:' + p.globalId;
+  if (p.id) return 'k:' + (pl && pl.naam ? pl.naam : '') + '|' + p.id;
+  return 'n:' + (pl && pl.naam ? pl.naam : '') + '|' + (p.name || '');
+}
 function clubExportSpelerRijen(ploegen) {
   return [CE_SPELER_KOP].concat(
-    ceSpelerTotalen(ploegen, (p, pl, seizoen) => seizoen + '|' + (p.globalId || p.name || '')).map(ceSpelerRij));
+    ceSpelerTotalen(ploegen, (p, pl, seizoen) => seizoen + '|' + ceSpelerSleutel(p, pl)).map(ceSpelerRij));
 }
 // En dezelfde speler per ploeg: dat is de vraag van de trainer van één ploeg.
 function clubExportSpelerPerPloegRijen(ploegen) {
   return [CE_SPELER_KOP].concat(
-    ceSpelerTotalen(ploegen, (p, pl, seizoen) => seizoen + '|' + pl.naam + '|' + (p.globalId || p.name || '')).map(ceSpelerRij));
+    ceSpelerTotalen(ploegen, (p, pl, seizoen) => seizoen + '|' + pl.naam + '|' + ceSpelerSleutel(p, pl)).map(ceSpelerRij));
 }
 function clubExportSpeeltijdRijen(ploegen, tornooi) {
   const rijen = [['Ploeg', 'Ploeg-label', 'Seizoen', 'Datum', 'Uur', 'Tegenstander', 'Thuis/uit', 'Soort',

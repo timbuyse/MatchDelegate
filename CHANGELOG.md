@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.2.3
+### Wisselen na een vertrek in de pauze, en naamgenoten in de clubexport
+- **Meld je in de pauze iemand als vertrokken, dan kan je nu ook echt iemand inbrengen.** De app bood die wissel al aan, maar er gebeurde niets: je kreeg "X staat niet in de opstelling van het volgende kwart" en je ploeg bleef met één speler minder staan. De invaller neemt nu de plek over die de vertrokken speler net vrijmaakte. Staat daar intussen al iemand anders, dan zegt de app dat — in plaats van twee spelers op één plek te zetten.
+- **De clubexport plakte naamgenoten uit verschillende ploegen samen.** Twee kinderen die allebei "Jonas Peeters" heten, één in U9 en één in U13, werden één regel met hun minuten, doelpunten en selecties bij elkaar opgeteld. In het tabblad dat juist de vraag "heeft dit kind genoeg gevoetbald?" moet beantwoorden, en in een bestand dat naar een bestuur gaat. Nu staan ze apart. Een speler die écht doorgeschoven is naar een andere ploeg (via "Spelers doorschuiven") blijft wél samengeteld, zoals bedoeld.
+
+---
+
 ## v1.2.2
 ### Wat je tekent is wat er gebeurt
 - **Het pauzeveld en de start liepen uit elkaar.** Je tekende de opstelling voor het volgende kwart, en toch stond er iemand anders op het veld na de start. Dat kon zodra het veld nog veranderde nadat je die opstelling getekend had — bijvoorbeeld: pauze, opstelling tekenen, dan "te vroeg gestopt" om het vorige kwart te hervatten, daarin nog wisselen, en dan starten. De app voerde dan een verouderd lijstje wissels uit in plaats van jouw opstelling. Het aantal spelers klopte wel, dus het viel niet op. Nu is de getekende opstelling altijd wat er gebeurt, en het pauzekaartje toont vanaf het begin van de pauze het juiste aantal wijzigingen.
