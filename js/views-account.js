@@ -2801,7 +2801,13 @@ function checkPlannedSubAlert() {
     beep();
     // "Minuut 8" en niet "8' voorbij" (v1.9.0): het seintje komt nu bij het BEGIN van de bedoelde
     // minuut, niet aan het einde ervan. "Voorbij" zou zeggen dat je te laat bent.
-    showToast(`Minuut ${s.vanafMin}: ${pName(match, s.inId)} voor ${pName(match, s.outId)} staat klaar.`, 'ok');
+    // Sinds v1.9.6 kan het ook een positiewissel zijn — plannedSubsDue merkt ze met `soort`, en
+    // plannedSwapTekst levert dezelfde zin als de lijst in "Wissels plannen" (één weergave, geen
+    // tweede die uit de pas kan lopen). De tekst bevat opmaak, dus die strippen we voor de melding.
+    const wat = s.soort === 'swap'
+      ? String(plannedSwapTekst(match, s)).replace(/<[^>]*>/g, '')
+      : `${pName(match, s.inId)} voor ${pName(match, s.outId)}`;
+    showToast(`Minuut ${s.vanafMin}: ${wat} staat klaar.`, 'ok');
   }
 }
 function updateTimerDisplay() {
@@ -3002,7 +3008,17 @@ function pitchDot(m, p, x, y, dn, captainId, tap) {
   const cap = (capId === p.id) ? ' ©' : '';
   const lbl = `${esc(dn || _firstName(p.name))}${cap}`;
   // tap = { fn, selId }: maakt de bol aantikbaar (pauze-opstelling in het livescherm).
-  const tapAttr = tap ? ` onclick="${tap.fn}('field','${p.id}')" style="cursor:pointer;` : ' style="';
+  // `tap.bolAlsPlek` (enkel het venster "Positiewissel klaarzetten", v1.9.6): daar gaat élke tik op
+  // het veld over een PLEK, ook op een bezette bol. Dat veld toont sinds v1.9.6 het resultaat van de
+  // verschuiving, en dan zou een speler-id naar zijn óude plek wijzen — tik je op de bol waar iemand
+  // nu staat, dan bedoel je díé plek op het scherm.
+  // NIET afgaan op `tap.plek`: de pauze-opstelling geeft dat óók mee (voor haar lege plekken), en
+  // lineupTap verwacht daar wel degelijk een speler-id — met 'plek' krijg je er "tik eerst de speler
+  // die je daar wil zetten" terwijl je net op een speler tikte. Gemeten en teruggedraaid, 25-08-2026.
+  const plekCode = (tap && tap.bolAlsPlek) ? spelerGridCode(p) : null;
+  const tapAttr = tap
+    ? ` onclick="${tap.fn}(${plekCode ? `'plek','${plekCode}'` : `'field','${p.id}'`})" style="cursor:pointer;`
+    : ' style="';
   // Het shirt is doorschijnend, dus een box-shadow zou een vierkante rand om het vakje zetten.
   // Met een ronde hoek leest het als een selectie rond de speler.
   const selRing = (tap && tap.selId === p.id) ? 'box-shadow:0 0 0 3px var(--org);border-radius:8px;' : '';

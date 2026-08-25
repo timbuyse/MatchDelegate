@@ -3793,20 +3793,25 @@ function _pasGeplandToe(m, veld, deel, tot) {
   }
   if (tot && tot.soort === 'sub') return veld;
   const nSwaps = (tot && tot.soort === 'swap') ? tot.index : swaps.length;
-  for (let i = 0; i < nSwaps; i++) {
-    const s = swaps[i];
-    const a = veld.find(p => p.id === s.pA);
-    const bId = plannedSwapDoelId(m, s, veld);
-    const b = bId ? veld.find(p => p.id === bId) : null;
-    if (!a) continue;
-    // Bestemming leeg: geen ruil maar een verhuizing. Enkel mogelijk bij een plan dat een roosterplek
-    // bewaart — een plan met een positienummer weet niet wélke plek het bedoelde als er niemand staat.
-    if (!b && s.naarPlek) { const plek = gridPlek(s.naarPlek); if (plek) zetOpGridPlek(a, plek, m); continue; }
-    if (!b || a === b) continue;
-    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
-    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
-    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
-  }
+  for (let i = 0; i < nSwaps; i++) _pasEenSwapToe(m, veld, swaps[i]);
+  return veld;
+}
+// ÉÉN positiewissel toepassen op een veldlijst (muteert die lijst). Stond tot v1.9.6 inline in
+// _pasGeplandToe; nu apart omdat het venster "Positiewissel klaarzetten" hem ook gebruikt om meteen
+// te tónen wat je plant. Eén implementatie voor de voorvertoning én de echte uitvoering, zodat het
+// veld dat je ziet per definitie niet kan verschillen van wat er straks gebeurt.
+function _pasEenSwapToe(m, veld, s) {
+  const a = veld.find(p => p.id === s.pA);
+  if (!a) return veld;
+  const bId = plannedSwapDoelId(m, s, veld);
+  const b = bId ? veld.find(p => p.id === bId) : null;
+  // Bestemming leeg: geen ruil maar een verhuizing. Enkel mogelijk bij een plan dat een roosterplek
+  // bewaart — een plan met een positienummer weet niet wélke plek het bedoelde als er niemand staat.
+  if (!b && s.naarPlek) { const plek = gridPlek(s.naarPlek); if (plek) zetOpGridPlek(a, plek, m); return veld; }
+  if (!b || a === b) return veld;
+  const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum };
+  a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum;
+  b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum;
   return veld;
 }
 function veldMetGeplandeWissels(m, deel, tot) {
@@ -3862,6 +3867,39 @@ function plannedSwapTekst(m, s) {
   }
   const code = posCode(s.naarPos, m.matchType);
   return `<b>${esc(pName(m, s.pA))}</b> <span style="color:var(--txt2)">naar positie</span> <b>${esc(String(s.naarPos))}</b>${code ? ` <span style="color:var(--txt2)">(${esc(code)})</span>` : ''}`;
+}
+// WAT ER NETTO VERANDERT DOOR DE GEPLANDE POSITIEWISSELS (Tim, 25-08-2026).
+// Twee klaargezette positiewissels kunnen drie spelers verplaatsen: ruil A met B, en daarna A met C.
+// A eindigt op C's plek, C op B's oude plek, B op A's oorspronkelijke — die derde verplaatsing staat
+// nergens als instructie, maar gebeurt wel. Wie enkel de twee regels leest, mist ze.
+// Dit rekent de reeks door en geeft per speler zijn EINDpunt, precies zoals posSwapReeksBewegingen
+// dat al deed voor uitgevoerde positiewissels. Vergelijkt de stand ná de gewone wissels met de stand
+// ná álles: het verschil zijn de verplaatsingen, en gewone wissels blijven er dus buiten.
+function plannedSwapNetto(m, deel) {
+  if (!m) return [];
+  const swaps = (m.plannedPosSwaps || []).filter(s => deel ? s.quarterNum === deel : !s.quarterNum);
+  if (!swaps.length) return [];
+  try {
+    // `{soort:'sub', index: …}` laat _pasGeplandToe stoppen ná de wissels — zie daar de tot-parameter.
+    const voor = veldMetGeplandeWissels(m, deel, { soort: 'sub', index: (m.plannedSubs || []).filter(s => deel ? s.quarterNum === deel : !s.quarterNum).length });
+    const na = veldMetGeplandeWissels(m, deel);
+    const plekVan = lijst => new Map(lijst.map(p => [p.id, spelerGridCode(p)]));
+    const pv = plekVan(voor), pn = plekVan(na);
+    const uit = [];
+    for (const [id, code] of pn) {
+      const oud = pv.get(id);
+      if (oud && code && oud !== code) uit.push({ id, naam: pName(m, id), plek: code, label: matchGridLabel(m, code) });
+    }
+    return uit;
+  } catch (e) { return []; }
+}
+// Dezelfde uitkomst als leesbare tekst, of '' als er niets te melden valt. `plat` voor de PDF, die
+// geen HTML aankan.
+function plannedSwapNettoTekst(m, deel, plat) {
+  const n = plannedSwapNetto(m, deel);
+  if (!n.length) return '';
+  const stuk = x => plat ? `${x.naam} → ${x.label}` : `<b>${esc(x.naam)}</b> <span style="color:var(--txt2)">→</span> ${esc(x.label)}`;
+  return n.map(stuk).join(plat ? ' · ' : ' <span style="color:var(--txt2)">·</span> ');
 }
 // Welk tabblad staat open in "Wissels plannen": een deelnummer, of 0 voor "Altijd" (wissels zonder
 // vast deel). Wordt bij het openen gezet op het deel dat nu aan de beurt is.
@@ -3927,7 +3965,7 @@ function modalPlannedSubs(tab) {
     ...subs.map(s => rij(IC.swap,
       `<b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}${vanafMinChip(s)}`,
       plannedSubProbleem(m, s), `runPlannedSub('${s.id}')`, `modalPlanSub('${s.id}')`, `removePlannedSub('${s.id}')`)),
-    ...swaps.map(s => rij(IC.compass, plannedSwapTekst(m, s),
+    ...swaps.map(s => rij(IC.compass, plannedSwapTekst(m, s) + vanafMinChip(s),
       plannedSwapProbleem(m, s), `runPlannedPosSwap('${s.id}')`, `modalPlanPosSwap('${s.id}')`, `removePlannedPosSwap('${s.id}')`)),
   ].join('');
   // De pauze-afgeleiden ("gaat automatisch bij de start") staan hier NIET meer: sinds het veld op
@@ -3944,11 +3982,15 @@ function modalPlannedSubs(tab) {
     ${/* Alles ineens: eerst de wissels, dan de positiewissels — zie runAllPlanned. Enkel zichtbaar
          als er meer dan één ding klaarstaat; voor één regel volstaat de knop "Nu" ernaast. */ ''}
     ${(kanDoorvoeren && nuAanDeBeurt && aantal > 1) ? `<button class="btn btn-green btn-sm" style="margin-top:10px" onclick="runAllPlanned(${actief})">${icI(IC.check)} Alle ${aantal} doorvoeren</button>` : ''}
-    ${/* Geen "+ Positiewissel" meer: wie er bij de START van een deel waar staat, teken je op het
-         veld (Planning/Opstelling), en de app rekent de verschuivingen uit. Een positiewissel apart
-         klaarzetten was gereedschap uit het oude model — Tims vaststelling van 22-08-2026. Bestaande
-         klaargezette positiewissels blijven hierboven gewoon zichtbaar, aanpasbaar en uitvoerbaar. */ ''}
+    ${/* "+ POSITIEWISSEL" IS TERUG (Tim, 25-08-2026). Hij ging weg op 22/23-08 met de redenering dat
+         je verschuivingen niet vooraf plant maar op het veld tekent. Dat klopt maar half, en Tim
+         merkte het in de praktijk: het veld tekenen legt vast waar iedereen bij de START van een blok
+         staat, terwijl een positiewissel iets zegt over wat er TÍJDENS dat blok verandert. Precies
+         hetzelfde onderscheid als bij een gewone wissel — en dáár is de knop wél blijven staan.
+         Trainers gebruiken dit, dus hij hoort terug. De machinerie eronder is al die tijd blijven
+         werken; enkel deze twee knoppen ontbraken. */ ''}
     <button class="btn btn-pale btn-sm" style="margin-top:10px" onclick="modalPlanSub(null,false,${actief})">${icI(IC.swap)} + Wissel klaarzetten</button>
+    <button class="btn btn-pale btn-sm" style="margin-top:6px" onclick="modalPlanPosSwap(null,false,${actief})">${icI(IC.compass)} + Positiewissel klaarzetten</button>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 // Kiezers voor het klaarzetten/aanpassen. Zonder id = nieuw, met id = bestaande aanpassen.
@@ -4129,13 +4171,41 @@ function modalPlanPosSwap(editId, behoud, deelVoorNieuw) {
   const veldIds = new Set(veld.map(p => p.id));
   if (_planSel.a && !veldIds.has(_planSel.a)) _planSel.a = null;
   if (_planSel.plek && !gridPlek(_planSel.plek)) _planSel.plek = null;
+  // HET VELD TOONT METEEN HET RESULTAAT (Tim, 25-08-2026). Tot nu bleef het veld staan zoals het was
+  // en kreeg de doelplek hooguit een oranje kader — bij een BEZETTE plek zelfs dat niet, want die ring
+  // wordt enkel op lege plekken getekend (zie pitchOpenPlekken). Het wérkte wel, maar je zag het niet,
+  // en dan lijkt het alsof je op een bezette plek niet kan tikken. Nu verschuift de speler
+  // daadwerkelijk zodra je een plek aantikt, of ruilen de twee van plaats — via dezelfde functie die
+  // de wissel straks echt uitvoert, dus wat je ziet ís wat er gebeurt.
+  const kiesKlaar = !!(_planSel.a && _planSel.plek);
+  const toonVeld = kiesKlaar
+    ? _pasEenSwapToe(m, veld.map(p => ({ ...p })), { pA: _planSel.a, naarPlek: _planSel.plek })
+    : veld;
   openModal(`<h3>${icI(IC.compass)} Positiewissel klaarzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies een speler en tik daarna op het veld de <b>plek</b> aan waar hij naartoe gaat. Staat daar op dat moment iemand, dan neemt die zijn plaats over — ook als dat door een eerdere wissel iemand anders geworden is. Is de plek dan leeg, dan verhuist hij er gewoon naartoe. ${planDeelUitleg(m, deel)}</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${kiesKlaar
+      ? 'Zo komt het veld eruit te zien. Tik een andere plek aan om het te wijzigen, of een andere speler om opnieuw te beginnen.'
+      : 'Kies een speler en tik daarna op het veld de <b>plek</b> aan waar hij naartoe gaat. Staat daar iemand, dan ruilen ze van plaats; is de plek leeg, dan verhuist hij er gewoon naartoe.'} ${planDeelUitleg(m, deel)}</p>
     ${planDeelSelHtml(m, deel, 'swap')}
     <div class="sec" style="margin-top:0">Welke speler verplaatst?</div>
     <div id="pl-a">${pgGrid(sortedByName(veld).map(p => pgBtn(p, 'pl-ab', `_planSpelerTap('${p.id}')`)).join(''))}</div>
-    <div class="sec">Naar welke plek?</div>
-    <div id="pl-plek">${renderPitch(m, veld, captainAtStartOfQuarter(m, deel || (m.currentQuarter + 1)), null, { fn: '_planDoelTap', selId: _planSel.a, plek: true, plekSel: _planSel.plek })}</div>
+    <div class="sec">${kiesKlaar ? 'Zo staat het veld erna' : 'Naar welke plek?'}</div>
+    <div id="pl-plek">${renderPitch(m, toonVeld, captainAtStartOfQuarter(m, deel || (m.currentQuarter + 1)), null, { fn: '_planDoelTap', selId: _planSel.a, plek: true, bolAlsPlek: true, plekSel: kiesKlaar ? null : _planSel.plek })}</div>
+    ${/* Dezelfde minuut en hetzelfde seintje als bij een gewone wissel (v1.9.6). Nu de twee naast
+         elkaar staan, zou het vreemd zijn dat de ene wél een tijdstip draagt en de andere niet — en
+         een trainer zegt evengoed "zet Finn na tien minuten door naar de tien". Zie de uitleg bij het
+         minuutveld in modalPlanSub: het is een minuutNUMMER (minuut 8 = vanaf 7:00). */ ''}
+    ${(() => {
+      const dur = m.quarterDuration || 0;
+      const standaard = dur ? Math.floor(dur / 2) + 1 : '';
+      const waarde = (best && best.vanafMin) ? best.vanafMin : standaard;
+      const seinAan = best ? !best.geenSein : true;
+      return `<div class="fg" style="margin-top:12px">
+      <label style="font-size:12px;color:var(--txt2)">In welke minuut van het ${pSingLow(m)}?</label>
+      <input id="pl-min" type="number" inputmode="numeric" min="1" ${dur ? `max="${dur}"` : ''} value="${waarde}">
+      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">Minuut ${waarde || 8} loopt van ${(waarde || 8) - 1}:00 tot ${waarde || 8}:00 — dezelfde telling als in het verslag.</p>
+      <label class="chkrow" style="margin-top:10px"><input type="checkbox" id="pl-sein"${seinAan ? ' checked' : ''}> Geef me een seintje bij het begin van die minuut</label>
+      <p style="font-size:11px;color:var(--txt2);margin:2px 0 0">Een herinnering tijdens het spel — de positiewissel gaat nooit vanzelf af.</p>
+    </div>`; })()}
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanPosSwap()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a);
@@ -4163,6 +4233,8 @@ function _planSpelerTap(id) {
 function _planDoelTap(kind, id) {
   const m = match; if (!m) return;
   let plek = null;
+  // Sinds v1.9.6 komt élke tik op dit veld als 'plek' binnen — ook op een bezette bol (zie pitchDot).
+  // De 'field'-tak blijft staan voor oudere aanroepen en voor de zekerheid.
   if (kind === 'plek') plek = id;
   else {
     if (id === _planSel.a) return;
@@ -4170,6 +4242,8 @@ function _planDoelTap(kind, id) {
     plek = p ? spelerGridCode(p) : null;
   }
   if (!plek) return;
+  // Tik je op de plek waar de verplaatste speler NU staat (in de voorvertoning), dan bedoel je "toch
+  // maar niet" — dan valt de keuze weg en staat het veld weer zoals het was.
   _planSel.plek = (_planSel.plek === plek) ? null : plek;
   modalPlanPosSwap(_planSel.editId, true);
 }
@@ -4215,8 +4289,21 @@ async function savePlanPosSwap() {
     // Een roostercode i.p.v. een positienummer of een vaste tegenspeler: wie er op die plek staat,
     // blijkt pas bij het doorvoeren, en een code duidt óók een lege plek eenduidig aan. De oudere
     // vormen worden bij het bewerken opgeruimd, anders zouden die voorrang houden.
-    if (best) { best.pA = _planSel.a; best.naarPlek = plek; delete best.pB; delete best.naarPos; if (deel) best.quarterNum = deel; else delete best.quarterNum; }
-    else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, naarPlek: plek }, deel ? { quarterNum: deel } : {}));
+    // Minuut en seintje, net als bij een gewone wissel (v1.9.6) — zelfde velden, zelfde regel: enkel
+    // wie het seintje UITzet krijgt `geenSein`, zodat een bestaande positiewissel hetzelfde object
+    // blijft als voorheen.
+    const ruw = parseInt((document.getElementById('pl-min') || {}).value, 10);
+    const vanafMin = (Number.isFinite(ruw) && ruw > 0) ? ruw : null;
+    const seinEl = document.getElementById('pl-sein');
+    const geenSein = seinEl ? !seinEl.checked : false;
+    if (best) {
+      best.pA = _planSel.a; best.naarPlek = plek; delete best.pB; delete best.naarPos;
+      if (deel) best.quarterNum = deel; else delete best.quarterNum;
+      if (vanafMin) best.vanafMin = vanafMin; else delete best.vanafMin;
+      if (geenSein) best.geenSein = true; else delete best.geenSein;
+    }
+    else match.plannedPosSwaps.push(Object.assign({ id: uid(), pA: _planSel.a, naarPlek: plek },
+      deel ? { quarterNum: deel } : {}, vanafMin ? { vanafMin } : {}, geenSein ? { geenSein: true } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg: wijzigde je het kwart in de
     // keuzelijst, dan stond je anders naar een lijst te kijken waar hij niet in staat.
     await dbSave(match); render(); planSubTerug(deel || 0);

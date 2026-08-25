@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.6
+### Een positiewissel kan weer op voorhand klaargezet worden
+- **De knop '+ Positiewissel' is terug**, naast '+ Wissel' — zowel onder elk blok in de planning als in het venster *Wissels plannen*. Hij verdween in augustus met de redenering dat je een verschuiving niet vooraf plant maar op het veld tekent. Dat klopt maar half: het veld tekenen legt vast waar iedereen bij de **start** van een blok staat, terwijl een positiewissel zegt wat er **tijdens** dat blok verandert. Precies hetzelfde onderscheid als bij een gewone wissel — en daar bleef de knop wél staan.
+- Alles eronder is al die tijd blijven werken: bestaande positiewissels waren zichtbaar, aanpasbaar en uitvoerbaar. Alleen kon je er geen nieuwe meer maken.
+- **Een positiewissel draagt nu ook een minuut en een seintje**, net als een gewone wissel. De minuut staat al ingevuld op het midden van het blok, en het vinkje *"Geef me een seintje bij het begin van die minuut"* staat standaard aan. Zo staan de twee soorten echt gelijkwaardig naast elkaar in dezelfde lijst — met dezelfde weergave en dezelfde herinnering tijdens het spel.
+- **Het veld toont meteen het resultaat.** Tik je een speler aan en daarna een plek, dan verschuift hij ter plekke op het veld — of ruilen de twee van plaats als die plek bezet is. Tot nu bleef het veld staan zoals het was en kreeg een lege plek hooguit een oranje kader; bij een **bezette** plek zag je zelfs dat niet. Het wérkte wel, maar je zag het niet, en dan lijkt het alsof je op een bezette plek niet kan tikken.
+- **De planning zegt wat er netto verandert.** Twee klaargezette positiewissels kunnen drie spelers verplaatsen: ruil A met B, daarna A met C — dan schuift ook B mee, zonder dat je dat apart klaarzette. Onder de wissels staat nu *"Zo staat het veld erna"* met per speler zijn eindpunt, plus hoeveel er meeschuiven. Die regel verschijnt alleen wanneer er méér spelers verschuiven dan je hebt aangeduid; bij één losse verplaatsing zou ze hetzelfde zeggen als de instructie erboven.
+- **Het wedstrijdplan-PDF toont dezelfde eindpunten** in plaats van de losse instructies — dat is het blad dat je aan de zijlijn leest.
+
+---
+
 ## v1.9.5
 ### Opslaan zonder selectie kan nu ook vanaf de selectiestap
 - **Twee knoppen leken te veel op elkaar.** Op de wedstrijdgegevens stond *"Plannen zonder selectie"*, op de selectiestap *"Opslaan zonder opstelling"* — twee schermen na elkaar, twee verschillende werkwoorden, en één woord verschil in wat je overslaat. Nu spiegelt elke knop de stap erboven: **Volgende → Selectie** / **Opslaan zonder selectie**, en **Volgende → Opstelling** / **Opslaan zonder opstelling**. Hetzelfde patroon, en het woord achter "zonder" zegt precies welk onderdeel je overslaat.

@@ -1117,8 +1117,26 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
         blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
         onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
-        een aan, met het <b>kruisje</b> haal je hem weg, en met <b>'+ Wissel'</b> zet je er een bij
-        voor precies dat kwart.</p>
+        een aan, met het <b>kruisje</b> haal je hem weg, en met <b>'+ Wissel'</b> of
+        <b>'+ Positiewissel'</b> zet je er een bij voor precies dat kwart.</p>
+      <div class="sec">Wissel of positiewissel?</div>
+      <p>Twee verschillende dingen, en het verschil zit in wie er verandert:</p>
+      <ul class="hdl-list">
+        <li><b>Wissel</b> — iemand van de bank komt erin, iemand van het veld gaat eraf.</li>
+        <li><b>Positiewissel</b> — een speler die al op het veld staat, gaat naar een andere plek. Je
+          kiest hem en tikt daarna op het veld de plek aan. Staat daar op dat moment iemand, dan neemt
+          die zijn plaats over; is de plek leeg, dan verhuist hij er gewoon naartoe. <b>Het veld toont
+          meteen hoe het er daarna uitziet</b>, dus je ziet wat je plant.</li>
+      </ul>
+      <p class="hdl-tip">Zet je er méér dan één klaar, dan kunnen er meer spelers verschuiven dan je
+        aanduidde: ruil je A met B en daarna A met C, dan schuift <b>B</b> ook mee. Onder de wissels
+        staat daarom <b>'Zo staat het veld erna'</b> met per speler waar hij belandt — en datzelfde
+        staat in het wedstrijdplan-PDF, want dat is het blad dat je aan de zijlijn leest.</p>
+      <p>Allebei krijgen ze een <b>minuut</b> en een <b>seintje</b>, en allebei gaan ze <b>nooit
+        vanzelf af</b> — jij kiest het moment waarop het spel het toelaat.</p>
+      <p class="hdl-tip">Verwar dit niet met de <b>opstelling van een deel</b>. Die zegt waar iedereen
+        bij de <b>start</b> van dat deel staat, en die teken je op het veld. Een wissel of
+        positiewissel gaat over wat er <b>tijdens</b> dat deel verandert.</p>
       <div class="sec">Nadien nog iets wijzigen?</div>
       <p>Bij een geplande wedstrijd zit alles achter de knop <b>'Bewerken'</b>. Daar kies je wat je
         wil aanpassen:</p>

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.9.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1372,10 +1372,17 @@ function vanafMinChip(s) {
 // Welke klaargezette wissels van het LOPENDE blok hun minuut bereikt hebben. Enkel tijdens het
 // spel: in de pauze staat de klok stil en is een herinnering zinloos. Wissels waarvan het seintje
 // uitgezet is, komen hier niet in — hun minuut telt enkel voor de speeltijdverdeling.
+// Sinds v1.9.6 dragen ook geplande POSITIEWISSELS een minuut en een seintje (Tim bracht die knop
+// terug). Ze staan naast elkaar in dezelfde lijsten, dus het zou vreemd zijn dat de ene wél een
+// herinnering geeft en de andere niet. `soort` laat de aanroeper zien wat er klaarstaat.
 function plannedSubsDue(m) {
   if (!m || m.quarterStatus !== 'running') return [];
   const min = getQElapsed(m) / 60000;
-  return (m.plannedSubs || []).filter(s => s.vanafMin && !s.geenSein && s.quarterNum === m.currentQuarter && min >= vanafMinStartMin(s));
+  const rijp = s => s.vanafMin && !s.geenSein && s.quarterNum === m.currentQuarter && min >= vanafMinStartMin(s);
+  return [
+    ...(m.plannedSubs || []).filter(rijp).map(s => Object.assign({ soort: 'sub' }, s)),
+    ...(m.plannedPosSwaps || []).filter(rijp).map(s => Object.assign({ soort: 'swap' }, s)),
+  ];
 }
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }

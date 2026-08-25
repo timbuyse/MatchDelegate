@@ -1257,7 +1257,17 @@ function planWisselsVanDeel(m, q) {
   return (m.plannedSubs || []).filter(s => s.quarterNum === q)
     .map(s => ({ uit: fieldName(m, s.outId), in: fieldName(m, s.inId) }));
 }
+// WAT ER NETTO VERSCHUIFT, NIET DE LOSSE INSTRUCTIES (Tim, 25-08-2026). Twee klaargezette
+// positiewissels kunnen drie spelers verplaatsen: ruil A met B, daarna A met C. A eindigt op C's
+// plek, C op B's oude plek, B op A's oorspronkelijke — en die derde staat nergens als instructie.
+// Wie het wedstrijdplan aan de zijlijn leest, moet zien wat er echt gebeurt, niet wat je intikte.
+// plannedSwapNetto rekent de reeks door en geeft per speler zijn eindpunt; bij één losse
+// verschuiving levert dat exact dezelfde regel op als vroeger, dus daar verandert niets.
 function planPosWisselsVanDeel(m, q) {
+  const netto = (typeof plannedSwapNetto === 'function') ? plannedSwapNetto(m, q) : [];
+  if (netto.length) return netto.map(x => `${fieldName(m, x.id)} naar ${x.label}`);
+  // Terugval voor de oudere vormen die plannedSwapNetto niet kan doorrekenen (een plan met een vaste
+  // tegenpartij of enkel een positienummer, van vóór v0.34.0).
   return (m.plannedPosSwaps || []).filter(s => s.quarterNum === q).map(s => {
     if (s.naarPlek) return `${fieldName(m, s.pA)} naar ${matchGridLabel(m, s.naarPlek)}`;
     if (s.naarPos) {

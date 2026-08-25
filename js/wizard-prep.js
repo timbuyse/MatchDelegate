@@ -2130,7 +2130,7 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
     ...(m.plannedSubs || []).filter(s => s.quarterNum === q)
       .map(s => ({ id: s.id, soort: 'sub', tekst: `${icI(IC.swap)} <b>${esc(pName(m, s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(pName(m, s.outId))}${vanafMinChip(s)}` })),
     ...(m.plannedPosSwaps || []).filter(s => s.quarterNum === q)
-      .map(s => ({ id: s.id, soort: 'swap', tekst: `${icI(IC.compass)} ${plannedSwapTekst(m, s)}` })),
+      .map(s => ({ id: s.id, soort: 'swap', tekst: `${icI(IC.compass)} ${plannedSwapTekst(m, s)}${vanafMinChip(s)}` })),
   ];
   if (!regels.length && !bewerkbaar) return '';
   const dit = pSingLow(m) === 'helft' ? 'deze' : 'dit';
@@ -2139,18 +2139,34 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
     ? `<button class="evt-edit" onclick="planSubBewerk('${r.id}','${r.soort}','${b}')" title="Aanpassen">${icI(IC.edit)}</button>
        <button class="evt-del" onclick="planSubWis('${r.id}','${r.soort}','${b}')" title="Verwijderen">×</button>`
     : '';
+  // Wat er NETTO verandert door de positiewissels (Tim, 25-08-2026). Twee klaargezette
+  // positiewissels kunnen drie spelers verplaatsen — die derde staat nergens als instructie maar
+  // gebeurt wel. Enkel tonen als het méér is dan wat je al leest: bij één losse verschuiving zegt
+  // die regel hetzelfde als de instructie erboven en is het ruis.
   return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${dit} ${pSingLow(m)}</div>
     ${regels.length
       ? regels.map(r => `<div class="prow" style="padding:6px 0;align-items:center"><div style="flex:1;font-size:14px">${r.tekst}</div>${knoppen(r)}</div>`).join('')
       : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${dit} ${pSingLow(m)}.</p>`}
-    ${/* Geen "+ Positiewissel" meer (Tim, 23-08-2026): een positiewissel plan je niet vooraf, die
-         gebeurt à la minute op het veld. Waar iedereen bij de START van een deel staat, teken je op
-         het veld hierboven — de app rekent de verschuivingen zelf uit. Echte wissels plan je bij de
-         jeugd wél vooraf, dus die knop blijft. Dezelfde opruiming gebeurde al in het scherm
-         'Wissels plannen' (zie modalPlannedSubs); deze kaart was vergeten. Bestaande klaargezette
-         positiewissels blijven hierboven zichtbaar, aanpasbaar en verwijderbaar. */ ''}
-    ${bewerkbaar ? `<div style="margin-top:4px">
-      <button class="btn btn-pale btn-sm" style="width:100%" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
+    ${(() => {
+      const swaps = (m.plannedPosSwaps || []).filter(s => s.quarterNum === q);
+      if (!swaps.length) return '';
+      const netto = plannedSwapNetto(m, q);
+      // De maatstaf is niet hoevéél instructies er staan, maar of er MEER spelers verschuiven dan je
+      // hebt aangeduid. Eén ruil is al zo'n geval: je tikt "Milan naar LV" en Jules verhuist mee.
+      // Twee losse verschuivingen naar lege plekken niet: daar zegt de regel hetzelfde als hierboven.
+      if (netto.length <= swaps.length) return '';
+      return `<p style="font-size:12px;color:var(--txt2);margin:4px 0 0;padding:6px 8px;background:var(--bg2,#f4f6f8);border-radius:8px">
+        ${icI(IC.compass)} <b>Zo staat het veld erna:</b> ${plannedSwapNettoTekst(m, q)}. <span style="color:var(--org2)">${netto.length - swaps.length === 1 ? 'Eén speler verschuift' : (netto.length - swaps.length) + ' spelers verschuiven'} mee zonder dat je dat apart klaarzette.</span></p>`;
+    })()}
+    ${/* "+ POSITIEWISSEL" IS TERUG (Tim, 25-08-2026). Hij ging weg op 23-08 met de redenering dat je
+         een verschuiving niet vooraf plant maar op het veld tekent. Dat klopt maar half: het veld
+         tekenen legt vast waar iedereen bij de START van dit blok staat, terwijl een positiewissel
+         zegt wat er TÍJDENS het blok verandert — hetzelfde onderscheid als bij een gewone wissel, en
+         daar bleef de knop wel staan. Trainers passen dit toe, dus hij hoort terug. Naast "+ Wissel"
+         omdat het verwante handelingen zijn en de lijst erboven ze ook door elkaar toont. */ ''}
+    ${bewerkbaar ? `<div style="margin-top:4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+      <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
+      <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planSubNieuw(${q},'swap','${b}')">${icI(IC.compass)} + Positiewissel</button>
     </div>` : ''}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
