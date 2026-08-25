@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.7.3
+### Nieuwe schermafbeeldingen in de handleiding
+- **Alle twintig beelden opnieuw genomen.** Ze waren van vóór v1.4.0 en toonden nog dingen die niet meer bestaan: de fotovakken in het verslag, de kijkmodusschakelaar op het beheerscherm, en de oude knopindeling op het wedstrijdscherm. Nu staan er ook de nieuwe zaken op: *Allemaal mee* en *Vorige selectie* bij de selectie, *Te vroeg gestopt* in de pauze, het potlood per kwart in het verslag, en het opengeklapte *Meer details* bij een nieuwe wedstrijd.
+- **De voorbeeldploeg heet nu U11IP** in plaats van *U11 Groen*. Die naam werd in de titelbalk afgekapt tot *"U11 Gr…"* zodra er een knop naast stond.
+- **Het beeld bij "Als kijker" klopte niet:** het toonde *Kijkmodus* in de titelbalk — de stand van een beheerder die zichzelf even als ouder bekeek. Die knop bestaat sinds v1.6.1 niet meer. Nu staat er *Kijken*, wat een echte kijker ook ziet, en dat is ook wat de tekst ernaast zegt.
+
+---
+
 ## v1.7.2
 ### De handleiding klopt weer
 - **Bijgewerkt met alles wat er sinds v1.4.0 bijkwam:** gespeeld zonder uitslag, de vraag "komt hij nog terug?" bij een ernstige blessure, *Toch nog niet gestart*, het PAUZE-opschrift op een stilstaande klok, het potlood om een gebeurtenis aan te passen, de richtminuut bij een geplande wissel, *Speeltijd volgens dit plan*, en de snelknoppen *Allemaal mee* en *Vorige selectie*.
