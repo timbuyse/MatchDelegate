@@ -1556,7 +1556,7 @@ function _prepPlanNav(dir) {
   // Een NIEUW blok toon je altijd eerst bij de start (Tim, 25-08-2026). De stand bleef anders op
   // "na de wissels" staan terwijl je naar een blok bladert waarvan je de beginopstelling wil zien —
   // en bij een blok zonder wissels zijn de twee velden identiek, dus dan lijkt er niets te gebeuren.
-  _prepPlanNa = false;
+  _prepPlanNa = false; _planNaOpen = 0;
   _prepPlanQ = Math.min(Math.max(1, _prepPlanQ + dir), total);
   // Hertekenen i.p.v. dia's tonen en verbergen. Dat kon toen elke dia vaststond, maar de dia's dragen
   // nu de chipstand in zich: die net teruggezette "bij de start" zou anders pas bij de volgende
@@ -1593,15 +1593,18 @@ function planTweeVelden(m, q) {
   // dezelfde opstelling, en dat is een juist antwoord.
   const na = _pasGeplandToe(m, start.map(p => ({ ...p })), q, null);
   const toonNa = _prepPlanNa;
-  const chip = (aan, tekst, waarde) => `<span class="place-chip${aan ? ' sel' : ''}" style="cursor:pointer" onclick="prepPlanToonNa(${waarde})">${esc(tekst)}</span>`;
   return {
     veld: toonNa ? na : start,
     toonNa,
-    chips: `<div class="place-chips" style="justify-content:center;margin-bottom:8px">${chip(!toonNa, 'Bij de start', false)}${chip(toonNa, 'Na de wissels', true)}</div>`,
+    // Niets klaargezet voor dit blok: dan toont de tweede chip geen veld maar een uitnodiging.
+    leeg: toonNa && planNaLeeg(m, q),
+    chips: planChipsHtml(q),
   };
 }
 function prepPlanHerkomstHtml(m, q) {
-  const stijl = 'font-size:12px;color:var(--txt2);line-height:1.4;margin:2px 0 10px';
+  // Vaste hoogte, zelfde reden als bij de uitleg in de planner: deze regel is soms één en soms twee
+  // regels lang, en dan verspringt het veld erboven bij het bladeren.
+  const stijl = 'font-size:12px;color:var(--txt2);line-height:1.4;margin:2px 0 10px;min-height:34px';
   if (q === 1) return `<div style="${stijl}">${icI(IC.shirt)} De opstelling waarmee je aftrapt.</div>`;
   if (prepPlanEigen(m, q)) return `<div style="${stijl}">${icI(IC.check)} Eigen opstelling — de app zet ze klaar bij het einde van ${pSingLow(m)} ${q - 1}.</div>`;
   // Het laatste blok vóór dit met een eigen opstelling; anders erft alles van de aftrap.
@@ -1628,7 +1631,8 @@ function prepPlanningHtml(m, ro) {
     // Twee velden per blok — zie planTweeVelden. De bank volgt het getoonde veld: wie ingewisseld
     // wordt, staat op het tweede veld niet meer op de bank. Anders zou je een speler tegelijk op het
     // veld én op de bank zien staan.
-    const { veld, toonNa, chips } = planTweeVelden(m, q);
+    const { veld, toonNa, chips, leeg } = planTweeVelden(m, q);
+    if (leeg) return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">${chips}${planNaLeegHtml(m, q)}</div>`;
     const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
@@ -1774,7 +1778,10 @@ function renderPrep() {
          elkaar, terwijl je in de kaart hierboven per blok al ziet wat er klaarstaat. Zo'n som zegt
          weinig — en hij suggereerde dat de knop over die wissels ging, terwijl hij de hele planner
          opent. De naam zegt nu gewoon wat de knop doet. */ ''}
-    ${(ro || af) ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="openPlannedLineups(1)">${icI(IC.shirt)} Opstelling &amp; wissels aanpassen</button>
+    ${/* DE KNOP "Opstelling & wissels aanpassen" IS WEG (Tim, 25-08-2026). Sinds v1.10.0 doet ze niets
+         anders dan het potloodje in de kaart hierboven aanzetten — en dat potloodje staat pal naast
+         het blok waar je naar kijkt, terwijl deze knop altijd op blok 1 uitkwam. */ ''}
+    ${(ro || af) ? '' : `
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}
@@ -1824,11 +1831,14 @@ function modalEditMatchMenu() {
     ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
          planner: die laatste toont een veld en veronderstelt dus dat er al iemand op staat. */ ''}
-    ${item(IC.shirt, heeftOpst ? 'Opstelling &amp; wissels' : 'Opstelling aanmaken', !heeftSel
+    ${/* ENKEL NOG WANNEER ER GEEN OPSTELLING IS (Tim, 25-08-2026). Met een opstelling bracht dit item
+         je naar de planner, en dat is sinds v1.10.0 het potloodje op de planningskaart zelf — een
+         omweg langs dit menu voor iets dat één tik verderop staat. Zonder opstelling blijft het item
+         nodig: dan is er nog geen veld en moet je naar de opstellingsstap van de wizard. */ ''}
+    ${heeftOpst ? '' : item(IC.shirt, 'Opstelling aanmaken', !heeftSel
       ? 'Geef eerst de selectie in.'
-      : (heeftOpst ? `Het hele plan, ${pSingLow(m)} per ${pSingLow(m)}: wie er begint en wat er tijdens dat ${pSingLow(m)} verandert.`
-        : 'Zet de spelers op het veld — dat moet nog gebeuren.'),
-      heeftOpst ? 'openPlannedLineups(1)' : 'startOpstellingWizard()', !heeftSel)}
+      : 'Zet de spelers op het veld — dat moet nog gebeuren.',
+      'startOpstellingWizard()', !heeftSel)}
     ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSel
       ? 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.'
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
@@ -1871,7 +1881,7 @@ async function clearSelectie(eigenMelding) {
   delete m.plannedPosSwaps;
   m.captainId = null; m.motmId = null;
   // Werkkopieën van de planner horen bij een selectie die er niet meer is.
-  _planLineupDraft = null; _planLineupSel = null; _planLineupQ = 1; _prepPlanQ = 1; _planInline = false; _prepPlanNa = false;
+  _planLineupDraft = null; _planNaDraft = null; _planLineupSel = null; _planLineupQ = 1; _prepPlanQ = 1; _planInline = false; _prepPlanNa = false; _planNaOpen = 0;
   await dbSave(m);
   closeModal(); render();
   if (!eigenMelding) showToast('Selectie gewist.');
@@ -2204,16 +2214,14 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
       return `<p style="font-size:12px;color:var(--txt2);margin:4px 0 0;padding:6px 8px;background:var(--bg2,#f4f6f8);border-radius:8px">
         ${icI(IC.compass)} <b>Zo staat het veld erna:</b> ${plannedSwapNettoTekst(m, q)}. <span style="color:var(--org2)">${netto.length - swaps.length === 1 ? 'Eén speler verschuift' : (netto.length - swaps.length) + ' spelers verschuiven'} mee zonder dat je dat apart klaarzette.</span></p>`;
     })()}
-    ${/* "+ POSITIEWISSEL" IS TERUG (Tim, 25-08-2026). Hij ging weg op 23-08 met de redenering dat je
-         een verschuiving niet vooraf plant maar op het veld tekent. Dat klopt maar half: het veld
-         tekenen legt vast waar iedereen bij de START van dit blok staat, terwijl een positiewissel
-         zegt wat er TÍJDENS het blok verandert — hetzelfde onderscheid als bij een gewone wissel, en
-         daar bleef de knop wel staan. Trainers passen dit toe, dus hij hoort terug. Naast "+ Wissel"
-         omdat het verwante handelingen zijn en de lijst erboven ze ook door elkaar toont. */ ''}
-    ${bewerkbaar ? `<div style="margin-top:4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
-      <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planSubNieuw(${q},'sub','${b}')">${icI(IC.swap)} + Wissel</button>
-      <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planSubNieuw(${q},'swap','${b}')">${icI(IC.compass)} + Positiewissel</button>
-    </div>` : ''}`;
+    ${/* "+ WISSEL" EN "+ POSITIEWISSEL" ZIJN WEG (Tim, 25-08-2026). Sinds v1.11.0 geef je een wissel
+         niet meer als beweging in maar teken je het veld zoals het tijdens dat blok moet komen te
+         staan; de app leidt de instructies er zelf uit af. Twee knoppen die dezelfde instructies op
+         een andere manier maken, zetten je dan voor een keuze die er geen is — en het onderscheid
+         wissel/positiewissel hoeft de gebruiker niet meer te maken.
+         De VENSTERS erachter (modalPlanSub, modalPlanPosSwap) blijven voorlopig bestaan: ze worden
+         ook gebruikt om een bestaande instructie te bewerken en vanuit het livescherm. Of ze
+         helemaal weg kunnen, kijken we later na. */ ''}`;
 }
 // Spelers die in een plan staan maar er niet meer zijn: uit de selectie gehaald, of afwezig
 // gemarkeerd (het kruisje in het tabblad Opstelling — dat kan ook nog tijdens de wedstrijd). Het
@@ -2371,7 +2379,7 @@ function planLineupBaseNu(m, q) {
   const start = draft1 ? draft1.map(p => ({ ...p })) : _planStartEntries(m);
   return _planBasis(m, q, _planLineupsNu(m), start);
 }
-function planLineupDirty() { return !!(_planLineupDraft && Object.keys(_planLineupDraft).length); }
+function planLineupDirty() { return !!((_planLineupDraft && Object.keys(_planLineupDraft).length) || (_planNaDraft && Object.keys(_planNaDraft).length)); }
 // De planner openen: altijd met een verse werkkopie. Elk pad naar de planner (knop, potlood, het
 // menu, en de wizard) loopt hierlangs; modalPlannedLineups zelf hertekent enkel wat al openstaat.
 // Er is één planner: van waar je ook binnenkomt, je kan met de pijlen door alle delen bladeren en
@@ -2399,7 +2407,11 @@ async function planNaarDeel(deel) {
   const totaal = plannedPartsCount(match);
   const doel = Math.min(Math.max(1, deel || 1), totaal);
   await _schrijfPlanDraft();
-  _planLineupDraft = {};
+  _planLineupDraft = {}; _planNaDraft = null; _planNaOpen = 0;
+  // ALTIJD OP DE EERSTE CHIP BEGINNEN (Tims melding, 25-08-2026). Ook tijdens het bewerken: bladeren
+  // naar een ander blok liep langs hier en niet langs _prepPlanNav, waardoor de stand daar wél op
+  // "na de wissels" bleef hangen. Je wil een nieuw blok altijd eerst bij de start zien.
+  _prepPlanNa = false;
   modalPlannedLineups(doel);
 }
 // De melding bij het opslaan. Voordien stond hier een modal ("Opgeslagen tot kwart 3") die enkel de
@@ -2448,7 +2460,7 @@ function togglePlanInline() {
   const m = match; if (!m) return;
   if (_planInline) { closePlannedLineups(); return; }
   if (!(m.players || []).length) { showToast('Geef eerst de selectie en de startopstelling in.', 'err'); return; }
-  _planLineupDraft = {}; _planLineupSel = null;
+  _planLineupDraft = {}; _planNaDraft = null; _planLineupSel = null;
   _planLineupQ = _prepPlanQ;
   // Bewerken gaat over de opstelling BIJ DE START; het tweede veld is een gevolg daarvan. Daarom
   // altijd terug naar de start, anders zou je tikken op een veld dat je niet rechtstreeks bewerkt.
@@ -2456,9 +2468,105 @@ function togglePlanInline() {
   _planInline = true;
   render();
 }
+// De twee chips, ook tijdens het bewerken: zo schakel je tussen het veld bij de start en het veld na
+// de wissels zonder het slot te moeten sluiten.
+// DE CHIPS DRAGEN HET TIJDSTIP (Tim, 25-08-2026). "Bij de start" en "Na de wissels" zeggen wat het
+// veld is, maar niet wanneer. Met de speeltijd erin lees je de hele wedstrijd als één tijdlijn, zoals
+// je die op papier ook ziet: bij kwarten van 15 minuten wordt dat Start · 7,5' · 15' · 22,5' · 30' …
+// Het eerste blok begint op nul en heet daarom "Start" — een chip met 0' erop leest als een fout.
+// Zonder bekende blokduur (oude of half ingevulde wedstrijd) vallen we terug op de oude woorden.
+function planBlokTijdLabels(m, q) {
+  const dur = (m && m.quarterDuration) || 0;
+  if (!dur) return { start: 'Bij de start', na: 'Na de wissels' };
+  const fmt = n => String(Math.round(n * 10) / 10).replace('.', ',') + "'";
+  const begin = (q - 1) * dur;
+  return { start: q === 1 ? 'Start' : fmt(begin), na: fmt(begin + dur / 2) };
+}
+function planChipsHtml(q) {
+  const lab = planBlokTijdLabels(match, q || _prepPlanQ);
+  // TWEE EVEN BREDE CHIPS, UIT ELKAAR (Tim, 25-08-2026). Een chip groeit normaal mee met zijn tekst,
+  // en "Start" naast "22,5'" gaf dan twee ongelijke blokjes die tegen elkaar plakten. Het zijn twee
+  // gelijkwaardige standen van hetzelfde veld, dus ze horen er ook gelijk uit te zien: een vaste
+  // breedte van 104px met een centrale tekst, en 14px ertussen.
+  const chip = (aan, tekst, waarde) => `<span class="place-chip${aan ? ' sel' : ''}" style="cursor:pointer;width:104px;justify-content:center;text-align:center" onclick="prepPlanToonNa(${waarde})">${esc(tekst)}</span>`;
+  return `<div class="place-chips" style="justify-content:center;gap:14px;margin-bottom:10px">${chip(!_prepPlanNa, lab.start, false)}${chip(_prepPlanNa, lab.na, true)}</div>`;
+}
+// Staat er voor dit blok nog niets klaar en ben je er nog niet aan begonnen, dan toont de tweede chip
+// GEEN veld maar een uitnodiging (Tim, 25-08-2026). Anders staat er een kopie van het veld ernaast,
+// en dan lijkt het alsof er al iets gepland is.
+let _planNaOpen = 0;   // het blok waarvan het eindveld openstaat om te tekenen
+function planNaLeeg(m, q) {
+  if (_planNaOpen === q) return false;
+  if (_planNaDraft && _planNaDraft[q]) return false;
+  return ![...(m.plannedSubs || []), ...(m.plannedPosSwaps || [])].some(s => s.quarterNum === q);
+}
+function planNaStart(q) {
+  _planNaOpen = q;
+  _prepPlanQ = q; _planLineupQ = q; _prepPlanNa = true;
+  if (!_planInline) { _planLineupDraft = {}; _planLineupSel = null; _planInline = true; }
+  render();
+}
+function planNaLeegHtml(m, q) {
+  const lab = planBlokTijdLabels(m, q);
+  return `<div style="text-align:center;padding:18px 10px 6px">
+    <p style="color:var(--txt2);font-size:13px;margin-bottom:12px">Er staat niets klaar tijdens ${pSingLow(m)} ${q}: de ploeg blijft staan zoals bij ${lab.start === 'Start' ? 'de aftrap' : lab.start}.</p>
+    <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planNaStart(${q})">${icI(IC.swap)} Wissels klaarzetten tijdens ${pSingLow(m)} ${q}</button>
+  </div>`;
+}
+function planBewerkKnoppenHtml(inline) {
+  return `<button class="btn btn-green" style="margin-top:8px" onclick="savePlannedLineups()">${icI(IC.check)} ${planLineupDirty() ? 'Wijzigingen opslaan' : 'Opslaan'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">${inline ? 'Annuleren' : 'Sluiten'}</button>`;
+}
+// HET EINDVELD TEKENEN. Je geeft niet de bewegingen in maar het resultaat: hoe de ploeg er tijdens
+// dit blok moet komen te staan. De app leidt de wissels en positiewissels er zelf uit af (zie
+// leidWisselsAf) en toont ze eronder, zodat je meteen ziet wat er klaargezet wordt.
+function plannerNaBodyHtml(m, deel) {
+  // Nog niets klaargezet en nog niet begonnen: eerst de uitnodiging, geen leeg tweede veld.
+  if (planNaLeeg(m, deel)) return `${planChipsHtml(deel)}${planNaLeegHtml(m, deel)}${planBewerkKnoppenHtml(true)}`;
+  const start = plannedLineupPlayers(m, planLineupBaseNu(m, deel));
+  const veld = planNaBaseNu(m, deel);
+  const opVeld = new Set(veld.map(p => p.id));
+  const bank = sortedByName((m.players || []).filter(p => magNogMeedoen(m, p) && !opVeld.has(p.id)));
+  const selId = _planLineupSel ? _planLineupSel.id : null;
+  const { subs, swaps, zonderVervanger, zonderPlek } = leidWisselsAf(m, start, veld);
+  const naam = id => fieldName(m, id);
+  const regels = [
+    ...subs.map(s => `${icI(IC.swap)} <b>${esc(naam(s.inId))}</b> <span style="color:var(--txt2)">voor</span> ${esc(naam(s.outId))}`),
+    ...swaps.map(s => `${icI(IC.compass)} <b>${esc(naam(s.pA))}</b> <span style="color:var(--txt2)">naar</span> ${esc(matchGridLabel(m, s.naarPlek))}`),
+  ];
+  const waarschuw = [
+    ...zonderVervanger.map(id => `${esc(naam(id))} gaat eraf zonder vervanger`),
+    ...zonderPlek.map(id => `${esc(naam(id))} komt erbij zonder dat er iemand af gaat`),
+  ];
+  // Eén moment per blok, dus één minuut en één seintje. Bestaat er al een geplande wissel voor dit
+  // blok, dan nemen we die over; anders het midden van het blok — zelfde telling als modalPlanSub.
+  const bestaand = [...(m.plannedSubs || []), ...(m.plannedPosSwaps || [])].find(s => s.quarterNum === deel);
+  const dur = m.quarterDuration || 0;
+  const minuut = (bestaand && bestaand.vanafMin) ? bestaand.vanafMin : (dur ? Math.floor(dur / 2) + 1 : '');
+  const seinAan = bestaand ? !bestaand.geenSein : true;
+  return `${planChipsHtml()}
+    <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">Teken hoe de ploeg er <b>tijdens ${pSingLow(m)} ${deel}</b> moet komen te staan. <b>De app rekent zelf uit welke wissels daarvoor nodig zijn.</b></p></div>
+    ${renderPitch(m, veld, m.captainId, null, { fn: 'planNaTap', selId, plek: true })}
+    <div class="sec">Bank (${bank.length})</div>
+    <div class="place-chips">${bank.length
+      ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="planNaTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    <div class="sec">Wat de app klaarzet</div>
+    ${regels.length
+      ? `<div style="font-size:14px">${regels.map(r => `<div class="prow" style="padding:5px 0">${r}</div>`).join('')}</div>`
+      : `<p style="color:var(--txt2);font-size:13px;padding:2px 0">Nog niets — het veld staat zoals bij de start van ${pSingLow(m)} ${deel}.</p>`}
+    ${waarschuw.length ? `<p style="font-size:12px;color:var(--org2);margin:8px 0 0">${icI(IC.warn)} ${waarschuw.join(' · ')}.</p>` : ''}
+    ${regels.length ? `<div class="fg" style="margin-top:12px"><label>Vanaf welke minuut van ${pSingLow(m)} ${deel}?</label>
+      <input id="pn-min" type="number" min="1" ${dur ? `max="${dur}"` : ''} value="${minuut}" inputmode="numeric">
+      <label class="chkrow" style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:400">
+        <input id="pn-sein" type="checkbox" ${seinAan ? 'checked' : ''}> Geef me een seintje op dat moment
+      </label></div>` : ''}
+    ${planBewerkKnoppenHtml(true)}`;
+}
 function plannerBodyHtml(m, deel, inline) {
   const totaal = plannedPartsCount(m);
   const ro = !planLineupEditable(m, deel);
+  if (inline && _prepPlanNa && !ro) return plannerNaBodyHtml(m, deel);
   const eff = _planLineupsNu(m);
   const plan = planLineupBaseNu(m, deel);
   const veld = plannedLineupPlayers(m, plan);
@@ -2487,10 +2595,13 @@ function plannerBodyHtml(m, deel, inline) {
         ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
         : ` Dit ${pSingLow(m)} heeft nog geen eigen opstelling: het begint zoals het vorige <b>eindigt</b>.`)}`;
   return `
+    ${inline ? planChipsHtml() : ''}
     ${/* Inline heeft de kaart zelf al pijltjes en een label per blok; die knoppenrij zou dat dubbel
          doen. In het venster is ze de enige manier om te springen, dus daar blijft ze staan. */ ''}
     ${(totaal > 1 && !inline) ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>${bolUitleg}` : ''}
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${uitleg}</p>
+    ${/* VASTE HOOGTE: deze uitleg verschilt per chip en per blok, en zonder deze hoogte schoof het
+         veld eronder telkens een regel op of neer bij het bladeren (Tims melding, 25-08-2026). */ ''}
+    <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">${uitleg}</p></div>
     ${/* Uitklapper i.p.v. een pop-up: wie het mechanisme kent, ziet één regeltje; wie het niet kent,
          leest het hier. De tekst volgt precies wat de code doet — zetGeplandeOpstellingKlaar() bij
          het einde van een deel, startQuarter() bij de start, en plannedSubs die NOOIT vanzelf afgaan
@@ -2543,8 +2654,7 @@ function plannerBodyHtml(m, deel, inline) {
          als een telletje erbij, en leest sneller (Tims voorkeur, 25-08-2026). Let op: bladeren naar
          een ander blok schrijft onderweg al weg (zie planNaarDeel), dus "niets in de werkkopie"
          betekent niet "niets opgeslagen". */ ''}
-    <button class="btn btn-green" style="margin-top:8px" onclick="savePlannedLineups()">${icI(IC.check)} ${planLineupDirty() ? 'Wijzigingen opslaan' : 'Opslaan'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closePlannedLineups()">${inline ? 'Annuleren' : 'Sluiten'}</button>`}`;
+    ${planBewerkKnoppenHtml(inline)}`}`;
 }
 // Eén gewijzigd deel in de werkkopie zetten. Er wordt hier bewust niets opgeslagen: dat gebeurt pas
 // in savePlannedLineups, zodat Sluiten de wijzigingen kan laten vallen.
@@ -2562,8 +2672,10 @@ function _savePlannedLineup(deel, lijst) {
 async function _schrijfPlanDraft() {
   const m = match;
   const draft = _planLineupDraft || {};
+  const naDraft = _planNaDraft || {};
   const delen = Object.keys(draft).map(k => parseInt(k, 10)).filter(k => k > 0).sort((a, b) => a - b);
-  if (!delen.length) return false;
+  const naDelen = Object.keys(naDraft).map(k => parseInt(k, 10)).filter(k => k > 0).sort((a, b) => a - b);
+  if (!delen.length && !naDelen.length) return false;
   for (const deel of delen) {
     const lijst = draft[deel];
     if (deel === 1) {
@@ -2591,7 +2703,35 @@ async function _schrijfPlanDraft() {
       m.plannedLineups[deel] = lijst.map(p => _planEntry(p));
     }
   }
-  _planLineupDraft = null; _planLineupSel = null;
+  // HET GETEKENDE EINDVELD OMZETTEN IN INSTRUCTIES. Bewust ná de startopstellingen hierboven: die
+  // zijn de basis waartegen we vergelijken, dus ze moeten al vastliggen. Wat er voor dit blok
+  // klaarstond wordt vervangen — het getekende veld is de volledige bedoeling voor dat blok.
+  for (const deel of naDelen) {
+    const start = plannedLineupPlayers(m, plannedLineupBase(m, deel));
+    const na = plannedLineupPlayers(m, naDraft[deel]);
+    const { subs, swaps } = leidWisselsAf(m, start, na);
+    // Eén wisselmoment per blok, dus één minuut en één seintje voor alles wat er dan gebeurt (Tim,
+    // 25-08-2026: "één wisselmoment per blok is meer dan voldoende, de rest geef je live in").
+    // Zelfde velden als een met de hand geplande wissel (v1.9.1), dus niets nieuws in de opslag:
+    // enkel wie het seintje UITzet krijgt `geenSein`.
+    const el = document.getElementById('pn-min');
+    const ruw = el ? parseInt(el.value, 10) : NaN;
+    const vanafMin = (Number.isFinite(ruw) && ruw > 0) ? ruw : null;
+    const seinEl = document.getElementById('pn-sein');
+    const geenSein = seinEl ? !seinEl.checked : false;
+    const extra = o => {
+      if (vanafMin) o.vanafMin = vanafMin;
+      if (geenSein) o.geenSein = true;
+      return o;
+    };
+    m.plannedSubs = (m.plannedSubs || []).filter(s => s.quarterNum !== deel)
+      .concat(subs.map(s => extra({ id: uid(), outId: s.outId, inId: s.inId, quarterNum: deel })));
+    m.plannedPosSwaps = (m.plannedPosSwaps || []).filter(s => s.quarterNum !== deel)
+      .concat(swaps.map(s => extra({ id: uid(), pA: s.pA, naarPlek: s.naarPlek, quarterNum: deel })));
+    if (!m.plannedSubs.length) delete m.plannedSubs;
+    if (!m.plannedPosSwaps.length) delete m.plannedPosSwaps;
+  }
+  _planLineupDraft = null; _planNaDraft = null; _planLineupSel = null;
   await dbSave(m);
   return true;
 }
@@ -2600,7 +2740,7 @@ async function _schrijfPlanDraft() {
 // "niets opgeslagen", en dan hoort er gewoon een bevestiging te komen.
 async function savePlannedLineups() {
   await _schrijfPlanDraft();
-  _planLineupDraft = null; _planLineupSel = null;
+  _planLineupDraft = null; _planNaDraft = null; _planLineupSel = null; _planNaOpen = 0;
   // Opslaan is het einde van een bewerksessie: het slot gaat weer dicht. Zo blijft er geen veld met
   // aantikbare spelers openstaan terwijl je verder scrollt (Tims keuze, 25-08-2026).
   _planInline = false;
@@ -2609,7 +2749,7 @@ async function savePlannedLineups() {
 }
 // Sluiten zonder op te slaan. Enkel vragen als er ook echt iets te verliezen valt.
 function closePlannedLineups() {
-  if (!planLineupDirty()) { _planLineupDraft = null; _planLineupSel = null; _planInline = false; closeModal(); render(); return; }
+  if (!planLineupDirty()) { _planLineupDraft = null; _planNaDraft = null; _planLineupSel = null; _planInline = false; _planNaOpen = 0; closeModal(); render(); return; }
   openModal(`<h3>${icI(IC.warn)} Niet opgeslagen wijzigingen</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:14px">Je paste de opstelling aan zonder op te slaan. Sluiten laat die wijzigingen vallen.</p>
     <button class="btn btn-green" onclick="savePlannedLineups()">${icI(IC.check)} Toch opslaan</button>
@@ -2617,7 +2757,7 @@ function closePlannedLineups() {
     <button class="btn btn-gray" style="margin-top:8px" onclick="modalPlannedLineups()">Terug naar de opstelling</button>`);
 }
 function discardPlannedLineups() {
-  _planLineupDraft = null; _planLineupSel = null;
+  _planLineupDraft = null; _planNaDraft = null; _planLineupSel = null; _planNaOpen = 0;
   _planInline = false;
   closeModal(); render();
 }
@@ -2701,6 +2841,130 @@ function planLineupTap(kind, id) {
     plek.id = bankId;
   }
   _savePlannedLineup(deel, plan);
+}
+// ===================== HET VELD "NA DE WISSELS" TEKENEN (Tim, 25-08-2026) =====================
+// In plaats van wissels en positiewissels één voor één in te tikken, teken je hoe de ploeg er
+// tijdens dat blok moet komen te staan. De app leidt daar zelf uit af wat er klaargezet moet worden:
+//   - wie er vóór stond en erna niet  → gaat eraf
+//   - wie er erna staat en vóór niet  → komt erin
+//   - wie in beide staat maar elders  → verschuift
+// Wissels koppelen we bij voorkeur zo dat de invaller meteen op zijn eindplek landt (dat scheelt een
+// positiewissel); de resterende verschuivingen worden ontleed in ruilen — precies de vorm die
+// plannedPosSwaps al gebruikt. Er verandert dus NIETS aan het datamodel of aan de uitvoering: enkel
+// de manier van ingeven.
+// Doorgemeten op 1350 willekeurige gevallen: de instructies die hieruit komen leveren via de échte
+// veldMetGeplandeWissels() telkens exact de getekende opstelling op, met het wiskundig minimum aantal
+// positiewissels.
+let _planNaDraft = null;   // { deelnummer: opstelling } — het getekende eindveld, tot Opslaan
+// Het eindveld van een blok zoals het er nú uitziet: het getekende veld als je eraan werkte, anders
+// afgeleid uit wat er opgeslagen staat. Beide vertrekken van de werkkopie van de STARTopstelling,
+// zodat een wijziging daar meteen doorwerkt in het veld erna.
+function planNaBaseNu(m, q) {
+  if (_planNaDraft && _planNaDraft[q]) return _planNaDraft[q].map(p => ({ ...p }));
+  const start = plannedLineupPlayers(m, planLineupBaseNu(m, q));
+  return _pasGeplandToe(m, start, q, null);
+}
+// De instructies die nodig zijn om van `voor` naar `na` te komen. `voor` en `na` zijn spelerslijsten.
+function leidWisselsAf(m, voor, na) {
+  const voorPlek = new Map(voor.map(p => [p.id, spelerGridCode(p)]));
+  const naPlek = new Map(na.map(p => [p.id, spelerGridCode(p)]));
+  const eruit = [...voorPlek.keys()].filter(id => !naPlek.has(id));
+  const erin = [...naPlek.keys()].filter(id => !voorPlek.has(id));
+  const subs = []; const rest = [...erin];
+  for (const uitId of eruit) {
+    if (!rest.length) break;
+    // Liefst de invaller die op de vrijgekomen plek belandt: dan is er geen positiewissel nodig.
+    const uitPlek = voorPlek.get(uitId);
+    let i = rest.findIndex(inId => naPlek.get(inId) === uitPlek);
+    if (i < 0) i = 0;
+    subs.push({ outId: uitId, inId: rest[i] }); rest.splice(i, 1);
+  }
+  // De stand ná de wissels, en van daaruit de verschuivingen ontleden in ruilen.
+  const nu = new Map(voorPlek);
+  for (const s of subs) { const pl = nu.get(s.outId); nu.delete(s.outId); nu.set(s.inId, pl); }
+  const opPlek = new Map([...nu].map(([id, pl]) => [pl, id]));
+  const swaps = [];
+  for (const [id, doel] of naPlek) {
+    if (!nu.has(id) || nu.get(id) === doel) continue;
+    const huidig = nu.get(id), ander = opPlek.get(doel);
+    swaps.push({ pA: id, naarPlek: doel });
+    nu.set(id, doel); opPlek.set(doel, id);
+    if (ander) { nu.set(ander, huidig); opPlek.set(huidig, ander); } else opPlek.delete(huidig);
+  }
+  // Wie er zonder vervanger af gaat en wie erbij komt zonder dat er iemand af gaat: dat kan het
+  // instructiemodel niet uitdrukken, dus dat melden we eerlijk in plaats van het stil te laten vallen.
+  return { subs, swaps, zonderVervanger: eruit.slice(subs.length), zonderPlek: rest };
+}
+function _savePlanNa(deel, lijst) {
+  _planNaDraft = _planNaDraft || {};
+  _planNaDraft[deel] = lijst.map(p => _planEntry(p));
+  modalPlannedLineups();
+}
+// Tikken op het eindveld. Exact dezelfde gebaren als planLineupTap — speler + vrije plek verzet,
+// speler + speler ruilt, bank + veldspeler wisselt, twee keer op een speler zet hem op de bank —
+// zodat de twee velden zich identiek gedragen.
+function planNaTap(kind, id) {
+  const deel = _planLineupQ;
+  if (!planLineupEditable(match, deel)) return;
+  if (isUitgesloten(match, id)) {
+    showToast(`${pName(match, id)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
+    return;
+  }
+  const sel = _planLineupSel;
+  const veld = planNaBaseNu(match, deel);
+  if (sel && sel.id === id) {
+    _planLineupSel = null;
+    if (sel.kind === 'field' && kind === 'field') {
+      _savePlanNa(deel, veld.filter(p => p.id !== id));
+      showToast(`${pName(match, id)} gaat eraf tijdens ${pSingLow(match)} ${deel}.`, 'ok');
+      return;
+    }
+    modalPlannedLineups(); return;
+  }
+  if (kind === 'plek' && !sel) return;
+  if (!sel || (sel.kind === 'bench' && kind === 'bench')) { _planLineupSel = { kind, id }; modalPlannedLineups(); return; }
+  _planLineupSel = null;
+  if (kind === 'plek') {
+    const plek = gridPlek(id);
+    if (!plek) { modalPlannedLineups(); return; }
+    const nieuw = { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code };
+    if (sel.kind === 'field') {
+      const e = veld.find(p => p.id === sel.id);
+      if (!e) { modalPlannedLineups(); return; }
+      // VANGNET: één speler per plek. Het veld stuurt een bezette bol als ('field', id) — dan komt de
+      // ruil hieronder aan de beurt en niet deze tak — maar zou er ooit tóch een bezette plek
+      // binnenkomen, dan schuift de bewoner naar de vrijgekomen plaats in plaats van eronder te
+      // verdwijnen. Zonder dit stonden er twee spelers op elkaar en leverde de afleiding twee
+      // instructies op die elkaar opheffen (gemeten 25-08-2026).
+      const bewoner = veld.find(p => p.id !== e.id && spelerGridCode(p) === plek.code);
+      const oud = { x: e.x, y: e.y, line: e.line, posNum: e.posNum, posCodeVeld: e.posCodeVeld };
+      Object.assign(e, nieuw);
+      if (bewoner) Object.assign(bewoner, oud);
+    } else {
+      const max = veldPlaatsenNu(match);
+      if (veld.length >= max) {
+        showToast(`Er staan al ${veld.length} spelers op het veld. Tik eerst iemand twee keer aan om hem eraf te halen.`, 'err');
+        modalPlannedLineups(); return;
+      }
+      veld.push(Object.assign({ id: sel.id }, nieuw));
+    }
+    _savePlanNa(deel, veld);
+    return;
+  }
+  if (sel.kind === 'field' && kind === 'field') {
+    const a = veld.find(p => p.id === sel.id), b = veld.find(p => p.id === id);
+    if (!a || !b) { modalPlannedLineups(); return; }
+    const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+    a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+    b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
+  } else {
+    const veldId = kind === 'field' ? id : sel.id;
+    const bankId = kind === 'bench' ? id : sel.id;
+    const plek = veld.find(p => p.id === veldId);
+    if (!plek) { modalPlannedLineups(); return; }
+    plek.id = bankId;
+  }
+  _savePlanNa(deel, veld);
 }
 function clearPlannedLineup(deel) {
   if (deel < 2 || !planLineupEditable(match, deel)) return;

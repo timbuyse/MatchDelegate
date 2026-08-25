@@ -9,6 +9,43 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.11.0
+
+**Je tekent het eindresultaat; de app bepaalt de wissels.** Kies je bij een blok de chip
+*Na de wissels* terwijl het potloodje aanstaat, dan teken je hoe de ploeg er tijdens dat blok moet
+komen te staan — speler en dan een plek, een bankspeler en dan iemand op het veld, of twee keer op
+een speler om hem eraf te halen. Onder het veld verschijnt meteen wat de app daarvoor klaarzet.
+
+Het onderscheid tussen een wissel en een positiewissel verdwijnt daarmee uit de invoer: de app leidt
+zelf af wie erin komt, wie eraf gaat en wie er verschuift, en kiest daarbij het kleinste aantal
+instructies. Aan de opslag en de uitvoering verandert niets — er komen dezelfde geplande wissels en
+positiewissels uit als wanneer je ze met de hand intikte.
+
+Eén wisselmoment per blok, dus één minuut en één seintje voor alles wat er dan gebeurt, standaard
+het midden van het blok. Wat je op het moment zelf beslist, geef je zoals altijd live in.
+
+**De chips dragen nu het tijdstip.** Bij kwarten van 15 minuten lees je de wedstrijd als één
+tijdlijn: *Start* · *7,5'* · *15'* · *22,5'* · *30'* … Bij 20 minuten wordt dat *Start* · *10'* ·
+*20'* · *30'*, bij helften van 45 minuten *Start* · *22,5'* · *45'* · *67,5'*. Het eerste blok heet
+"Start" — een chip met 0' erop leest als een fout.
+
+**De tweede chip begint leeg.** Staat er voor dat blok nog niets klaar, dan toont hij geen kopie van
+het veld ernaast (waardoor het lijkt alsof er al iets gepland is) maar één zin en een knop
+*Wissels klaarzetten tijdens dit kwart*.
+
+**Weg omdat ze niets meer toevoegden:** de knoppen "+ Wissel" en "+ Positiewissel" onder elk blok —
+je tekent nu het veld — en de knop "Opstelling & wissels aanpassen", die alleen nog het potloodje
+aanzette op de kaart erboven. In het Bewerken-menu blijft het item enkel staan zolang er nog géén
+opstelling is; dan is er nog geen veld om in te tekenen.
+
+**Het veld blijft op zijn plaats** bij het bladeren en bij het wisselen van chip. De tekst erboven is
+soms één en soms twee regels lang, en het veld schoof daardoor telkens mee.
+
+Nagemeten: 220 getekende opstellingen leveren via de echte app-functie exact het getekende veld op,
+en 60 keer eind-tot-eind (tekenen, opslaan, doorvoeren tijdens het spel) komt de ploeg precies zo te
+staan. Nooit twee spelers op één plek.
+
+---
 ## v1.10.0
 
 **De planning krijgt twee velden per blok, en je bewerkt ze ter plekke.**
