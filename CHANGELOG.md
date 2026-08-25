@@ -9,6 +9,11 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.7.1
+### Kleur zegt wat een knop doet
+- **"Afsluiten als gespeeld zonder uitslag" stond in het groen** en leek daardoor een gewone handeling zoals *Wedstrijd starten* of *Opstelling & wissels aanpassen*. Hij is nu grijs, net als *Wedstrijd annuleren*, met een neutraal streepje erboven naar het model van de rode lijn boven *Wedstrijd verwijderen*. Op het wedstrijdscherm lees je nu in één oogopslag: groen is de wedstrijd doen, grijs is ze afsluiten, rood is ze weggooien.
+
+---
 ## v1.7.0
 ### Twee toestellen kunnen elkaars werk niet meer stil wissen
 Uit een echte tweetoestellentest op 24-08-2026, met twee aanmeldingen op dezelfde ploeg. Wat al goed werkte: een wedstrijd aanmaken komt aan, twee doelpunten op exact hetzelfde moment blijven allebei staan, een toestel dat een half minuutje offline gaat verliest niets, en de klok loopt op beide toestellen gelijk.

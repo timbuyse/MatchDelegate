@@ -1630,7 +1630,12 @@ function renderPrep() {
          afgesloten" gevlagd zonder enige uitweg. Daarom hier, boven de omkeerbare uitweg
          (annuleren) en ruim boven de rode zone: dit is geen dagelijkse handeling, maar hij moet er
          wél staan. Niet bij een tornooiwedstrijd — zie modalQuickResult. */ ''}
-    ${(ro || m.tournamentId || af || m.status === 'done') ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="confirmZonderUitslag()">${icI(IC.done)} Afsluiten als gespeeld zonder uitslag</button>`}
+    ${/* GRIJS, MET EEN EIGEN SCHEIDING (Tim, 25-08-2026). Stond in het bleekgroen (btn-pale), en
+         daardoor leek het een van de gewone handelingen zoals "Wedstrijd starten" of "Opstelling en
+         wissels". Het is er geen: het sluit de wedstrijd af. Grijs zoals "Wedstrijd annuleren", met
+         een neutraal streepje erboven naar het model van de rode lijn boven verwijderen — zo zie je
+         meteen dat hieronder de afsluitende dingen staan. */ ''}
+    ${(ro || m.tournamentId || af || m.status === 'done') ? '' : `<div class="afsluitzone"><button class="btn btn-gray" style="margin:0" onclick="confirmZonderUitslag()">${icI(IC.done)} Afsluiten als gespeeld zonder uitslag</button></div>`}
     ${(ro || geenVerbinding) ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
