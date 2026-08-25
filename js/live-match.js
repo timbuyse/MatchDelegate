@@ -4091,15 +4091,22 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
          zoals voorheen — mét minuut betekende altijd al "geef een seintje". */ ''}
     ${(() => {
       const dur = m.quarterDuration || 0;
-      const standaard = dur ? Math.max(1, Math.round(dur / 2)) : '';
-      const waarde = best ? (best.vanafMin || '') : standaard;
+      // Het midden van het blok, uitgedrukt als minuutNUMMER: bij 20 min is 10:00 het midden en dat
+      // valt in minuut 11; bij 15 min is 7:30 het midden en dat valt in minuut 8. Zelfde telling als
+      // gameMin() en dus als het verslag (Tims voorbeelden, 25-08-2026).
+      const standaard = dur ? Math.floor(dur / 2) + 1 : '';
+      // ALTIJD INGEVULD (Tims keuze, 25-08-2026), ook bij het bewerken van een oude wissel die nog
+      // geen minuut heeft. Zo staat er nooit een aanname achter de schermen: wat er staat, is wat er
+      // gerekend wordt. Leeghalen mag nog — dan valt planSpeeltijd terug op de helft — maar dat hoeft
+      // niemand meer te weten, en de uitleg daarover is dus weg.
+      const waarde = (best && best.vanafMin) ? best.vanafMin : standaard;
       const seinAan = best ? !best.geenSein : true;
       return `<div class="fg" style="margin-top:12px">
-      <label style="font-size:12px;color:var(--txt2)">Minuut binnen het ${pSingLow(m)}</label>
-      <input id="pl-min" type="number" inputmode="numeric" min="1" ${dur ? `max="${dur}"` : ''} placeholder="bv. ${standaard || 8}" value="${waarde}">
-      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">Wanneer je deze wissel wil doorvoeren. Telt mee voor de speeltijdverdeling hierboven; leeg laten kan, dan rekenen we op de helft van het ${pSingLow(m)}.</p>
-      <label class="chkrow" style="margin-top:10px"><input type="checkbox" id="pl-sein"${seinAan ? ' checked' : ''}> Geef me een seintje op dat moment</label>
-      <p style="font-size:11px;color:var(--txt2);margin:2px 0 0">Een herinnering tijdens het spel — de wissel gaat nooit vanzelf af.</p>
+      <label style="font-size:12px;color:var(--txt2)">In welke minuut van het ${pSingLow(m)}?</label>
+      <input id="pl-min" type="number" inputmode="numeric" min="1" ${dur ? `max="${dur}"` : ''} value="${waarde}">
+      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">Minuut ${waarde || 8} loopt van ${(waarde || 8) - 1}:00 tot ${waarde || 8}:00 — dezelfde telling als in het verslag. Deze minuut bepaalt mee de speeltijdverdeling.</p>
+      <label class="chkrow" style="margin-top:10px"><input type="checkbox" id="pl-sein"${seinAan ? ' checked' : ''}> Geef me een seintje bij het begin van die minuut</label>
+      <p style="font-size:11px;color:var(--txt2);margin:2px 0 0">Een herinnering tijdens het spel, zodat je een spelonderbreking kan afwachten — de wissel gaat nooit vanzelf af.</p>
     </div>`; })()}
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanSub()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);

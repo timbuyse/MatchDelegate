@@ -1891,7 +1891,9 @@ function planSpeeltijd(m) {
     // eerste, dan zou dat een negatief stuk speeltijd opleveren.
     let loper = 0;
     const momenten = subs.map(s => {
-      const ruw = (s.vanafMin > 0 && s.vanafMin < duur) ? s.vanafMin : duur / 2;
+      // vanafMinStartMin: een minuutNUMMER omzetten naar verstreken tijd (minuut 8 begint op 7:00).
+      // Zie de uitleg bij die functie in core.js. Zonder minuut: de helft van het blok.
+      const ruw = (s.vanafMin > 0) ? vanafMinStartMin(s) : duur / 2;
       loper = Math.min(duur, Math.max(loper, ruw));
       return loper;
     });

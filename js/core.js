@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.9.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1352,20 +1352,30 @@ function minutenMetMinderMs(m) {
 // uitzet. Standaard is dus "wel een seintje", en bestaande wissels dragen `geenSein` niet — die
 // gedragen zich exact zoals voordien, want mét minuut betekende altijd al "geef een seintje".
 // Het blijft een HERINNERING, geen automaat: de wissel gaat pas af wanneer je hem zelf doorvoert.
+// DE MINUUT TELT ZOALS DE REST VAN DE APP (Tims keuze, 25-08-2026). `vanafMin` is een minuutNUMMER,
+// geen verstreken tijd: minuut 8 loopt van 7:00 tot 7:59 — precies wat gameMin() doet, en dus ook wat
+// er in het verslag staat bij een doelpunt op 7:30 ("8'").
+// TOT v1.9.0 BETEKENDE HET IETS ANDERS: de melding ging af op 8:00 verstreken, wat volgens de eigen
+// telling van de app het begin van minuut 9 is. Dezelfde app noemde hetzelfde moment dus op twee
+// plaatsen anders. Bijkomend voordeel van de rechtzetting: het seintje komt nu bij het BEGIN van de
+// bedoelde minuut, dus je hebt een volle minuut om een spelonderbreking af te wachten in plaats van
+// een melding op het moment dat de wissel al had moeten gebeuren.
+// Vertaling naar verstreken tijd staat op één plek: vanafMinStartMs.
+function vanafMinStartMin(s) { return Math.max(0, (s && s.vanafMin ? s.vanafMin : 1) - 1); }
 function vanafMinChip(s) {
   if (!s || !s.vanafMin) return '';
   // Grijs wanneer er geen seintje bij hoort: de minuut klopt dan wel (en telt mee voor de
   // speeltijd), maar er komt tijdens het spel geen melding. Oranje zou dat wél beloven.
   const kleur = s.geenSein ? 'var(--txt2)' : 'var(--org)';
-  return ` <span style="font-size:11px;font-weight:700;color:${kleur}">vanaf ${s.vanafMin}'</span>`;
+  return ` <span style="font-size:11px;font-weight:700;color:${kleur}">${s.vanafMin}'</span>`;
 }
-// Welke klaargezette wissels van het LOPENDE blok hun richtminuut bereikt hebben. Enkel tijdens het
+// Welke klaargezette wissels van het LOPENDE blok hun minuut bereikt hebben. Enkel tijdens het
 // spel: in de pauze staat de klok stil en is een herinnering zinloos. Wissels waarvan het seintje
 // uitgezet is, komen hier niet in — hun minuut telt enkel voor de speeltijdverdeling.
 function plannedSubsDue(m) {
   if (!m || m.quarterStatus !== 'running') return [];
   const min = getQElapsed(m) / 60000;
-  return (m.plannedSubs || []).filter(s => s.vanafMin && !s.geenSein && s.quarterNum === m.currentQuarter && min >= s.vanafMin);
+  return (m.plannedSubs || []).filter(s => s.vanafMin && !s.geenSein && s.quarterNum === m.currentQuarter && min >= vanafMinStartMin(s));
 }
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }

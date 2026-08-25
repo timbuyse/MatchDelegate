@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.1
+### De minuut van een geplande wissel telt zoals de rest van de app
+- **"Minuut 8" betekende twee verschillende dingen.** Overal in de app is *8'* de periode van 7:00 tot 7:59 — een doelpunt op 7:30 staat in het verslag als 8'. Maar bij een geplande wissel ging het seintje pas af op 8:00 verstreken, en dat is volgens diezelfde telling het begin van minuut 9. Nu geldt overal dezelfde regel: **minuut 8 loopt van 7:00 tot 8:00**.
+- **Het seintje komt daardoor bij het begín van de bedoelde minuut.** Bij minuut 8 krijg je de melding op 7:00 — een volle minuut om een spelonderbreking af te wachten, in plaats van een seintje op het moment dat de wissel al had moeten gebeuren. De melding zegt nu *"Minuut 8: Kobe voor Tibo staat klaar"* in plaats van *"8' voorbij"*.
+- **De minuut staat altijd ingevuld**, ook wanneer je een oudere wissel bewerkt die er nog geen had: het midden van het deel, dus minuut 8 bij een deel van 15 en minuut 11 bij een deel van 20. Er zit dus geen aanname meer achter de schermen — wat er staat, is waarmee gerekend wordt. Onder het veld staat in gewone taal welke tijd die minuut beslaat.
+
+---
+
 ## v1.9.0
 ### Vier dingen aan de zijlijn
 - **De duur van een blok rechtzetten kan nu in de pauze.** Vergat je de klok te stoppen op het einde van kwart 2, dan moest je de hele wedstrijd uitspelen met een scheve klok en scheve speelminuten in beeld — precies waar je in kwart 3 en 4 op stuurt. Het venster bestond al en werkt op elk afgesloten blok; alleen stond de knop enkel in het verslag van een afgelopen wedstrijd. Nu staat hij ook bij *Wat kan je doen in de pauze*, met de huidige duur erin.

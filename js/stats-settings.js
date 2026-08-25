@@ -1125,14 +1125,17 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Kies je bij een wissel <b>'geen voorkeur — altijd beschikbaar'</b>, dan hoort
         hij bij geen enkel kwart. Zulke wissels staan apart onder <b>'Wissels zonder vast kwart'</b>,
         een knop die enkel verschijnt als je er hebt.</p>
-      <p class="hdl-tip">Bij elke geplande wissel staat een <b>minuut</b>, standaard de helft van het
-        deel. Zegt de trainer "wissel hem na acht minuten", dan zet je die er gewoon in. Die minuut
-        bepaalt mee de speeltijdverdeling hierboven, dus laat ze staan ook als je ze niet nodig hebt.
-        Daarnaast staat een vinkje <b>'Geef me een seintje op dat moment'</b>, standaard aan: zodra de
-        minuut voorbij is geeft de app een melding en springt de knop <b>'Geplande wissels'</b> eruit.
-        Zet je dat vinkje uit, dan telt de minuut nog steeds mee maar blijft het stil — de minuut staat
-        dan grijs in plaats van oranje. De wissel gaat nooit vanzelf af: jij kiest het moment waarop
-        het spel het toelaat.</p>
+      <p class="hdl-tip">Bij elke geplande wissel staat een <b>minuut</b>, al ingevuld op het midden
+        van het deel — <b>minuut 8</b> bij een deel van 15, <b>minuut 11</b> bij een deel van 20.
+        Zegt de trainer "wissel hem rond de tiende minuut", dan zet je die er gewoon in. Het is
+        dezelfde telling als in het verslag: <b>minuut 8 loopt van 7:00 tot 8:00</b>. Die minuut
+        bepaalt mee de speeltijdverdeling hierboven, dus laat ze staan ook als je ze niet nodig hebt.</p>
+      <p class="hdl-tip">Daarnaast staat een vinkje <b>'Geef me een seintje bij het begin van die
+        minuut'</b>, standaard aan. Bij minuut 8 krijg je de melding dus op <b>7:00</b> — een volle
+        minuut om een spelonderbreking af te wachten. De knop <b>'Geplande wissels'</b> springt er dan
+        ook uit. Zet je het vinkje uit, dan telt de minuut nog steeds mee voor de speeltijd maar blijft
+        het stil; de minuut staat dan grijs in plaats van oranje. De wissel gaat nooit vanzelf af: jij
+        kiest het moment waarop het spel het toelaat.</p>
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>

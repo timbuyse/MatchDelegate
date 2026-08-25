@@ -2675,7 +2675,9 @@ function checkPlannedSubAlert() {
     if (_planSubAlerted.has(key)) continue;
     _planSubAlerted.add(key);
     beep();
-    showToast(`${s.vanafMin}' voorbij: ${pName(match, s.inId)} voor ${pName(match, s.outId)} staat klaar.`, 'ok');
+    // "Minuut 8" en niet "8' voorbij" (v1.9.0): het seintje komt nu bij het BEGIN van de bedoelde
+    // minuut, niet aan het einde ervan. "Voorbij" zou zeggen dat je te laat bent.
+    showToast(`Minuut ${s.vanafMin}: ${pName(match, s.inId)} voor ${pName(match, s.outId)} staat klaar.`, 'ok');
   }
 }
 function updateTimerDisplay() {
