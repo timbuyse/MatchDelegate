@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.1
+
+**Na het affluiten kom je meteen op het verslag.** Je bleef op het livescherm staan met een
+afgesloten wedstrijd erin: uitgegrijsd, zonder de dingen die je op dat moment wil. Pas wie wegging
+en terugkwam, zag het verslag. Daar staat nu ook **Wedstrijd heropenen** bovenaan, naast
+*Strafschoppenreeks toevoegen* — allebei dingen die je in de minuut na het affluiten doet. De knop
+onderaan blijft ook staan.
+
+**In de pauze keek de app naar een verouderd beeld.** Had het komende kwart geen eigen opstelling,
+dan viel de voorspelling terug op het laatste kwart dat je zelf invulde, en negeerde ze dus wat er
+intussen echt gebeurd was. Dat raakte alleen wat het scherm voorspelde en de controle "kan deze
+klaargezette wissel nog?" — nooit waar de spelers werkelijk terechtkwamen.
+
+Gevonden met een nieuw harnas dat volledige wedstrijden speelt: plan tekenen, spelen, doorvoeren
+tijdens het spel en in de pauze, en daarbovenop het onverwachte — een startopstelling die afwijkt
+van het plan, spelers afwezig gemeld, een geblesseerde die het veld verlaat terwijl hij in een
+geplande wissel zit, rode kaarten, losse wissels en positiewissels. Ruim 3.000 uitgespeelde
+wedstrijden zonder fout, waarvan 500 met echte wedstrijden en hun eigen plan.
+
+---
 ## v1.12.0
 
 **Iedereen krijgt één keer te zien wat er veranderd is aan het plannen van wissels.** De tekst is

@@ -75,6 +75,12 @@ function renderDetail() {
       // geenUitslag: zonder uitslag valt er niets met strafschoppen te beslissen (v1.6.0) — de 0-0
       // in de gegevens is daar geen gelijkspel maar "niet bijgehouden".
       : (ro || match.status !== 'done' || geenUitslag(match) ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
+    ${/* HEROPENEN HOORT HIER OOK (Tim, 26-08-2026). Het stond enkel helemaal onderaan, naast
+         "Wedstrijd verwijderen" — terwijl je het net gebruikt in de minuut ná het affluiten, als
+         blijkt dat je te vroeg stopte. Dat is exact hetzelfde moment waarop je een strafschoppenreeks
+         toevoegt, dus staan ze nu naast elkaar. De knop onderaan blijft ook staan: wie daar aan het
+         opruimen is, verwacht hem daar. Zonder uitslag staat heropenen al in de rij bovenaan. */ ''}
+    ${(ro || match.status !== 'done' || geenUitslag(match)) ? '' : `<button class="btn btn-orgpale btn-sm no-print" style="margin-top:8px" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>`}
     ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
          stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
          notities, de notities per speler en de reden van afwezigheid — precies wat het scherm voor een

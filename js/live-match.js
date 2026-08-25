@@ -1986,7 +1986,13 @@ async function forceEndMatch(correctMin) {
     }
   }
   match.status = 'done'; match.quarterStatus = 'done';
-  stopTimer(); releaseWake(); await dbSave(match); render();
+  stopTimer(); releaseWake(); await dbSave(match);
+  // METEEN NAAR HET VERSLAG (Tims melding, 26-08-2026). Hier stond enkel render(), dus je bleef op
+  // het LIVEscherm staan met een afgesloten wedstrijd erin: uitgegrijsd, zonder de dingen die je op
+  // dat moment wil (de uitslag nalezen, een strafschoppenreeks toevoegen, heropenen als je te vroeg
+  // affloot). Pas wie wegging en terugkwam, landde op het verslag.
+  // Met _histReplace, zodat de terugknop niet naar dat lege livescherm terugkeert.
+  await go('detail', match.id, true);
 }
 let _postEventQuarter = null; // null = gebruik match.currentQuarter (live), anders: kwart-override (detail)
 let _postEventMinute = null;  // null = einde van het deel, anders: minuut binnen het deel (1-based)
@@ -3742,7 +3748,16 @@ function veldBijStartVanDeel(m, q) {
   // 50 van de 100 gevallen mis; met deze regel plus die in _voerPlannedPosSwapUit: 450 op 450 goed.
   // Geen kans op een lus: met een echte nextLineup keert nextLineupOf meteen terug en raakt
   // previewNextLineup (dat hier weer zou kunnen uitkomen) niet aan.
-  if (m.quarterStatus === 'between' && q === (m.currentQuarter || 0) + 1 && Array.isArray(m.nextLineup)) {
+  // OOK ZONDER KLAARGEZETTE DOELOPSTELLING (gemeten 26-08-2026). Die wordt enkel geschreven wanneer
+  // er iets klaar te zetten viel — het volgende blok had een eigen opstelling, of je tikte zelf in
+  // het pauzeveld. Viel er niets klaar te zetten, dan liep de regel hieronder door naar "de
+  // dichtstbijzijnde geplande blokopstelling", en die kan van veel eerder zijn: heeft blok 4 er geen
+  // en blok 3 ook niet, dan kwam de voorspelling voor blok 4 uit op het plan van blok 2 — en negeerde
+  // ze dus alles wat er in blok 3 echt gebeurd was. Het doorvoeren zelf werkt wél op de
+  // doelopstelling, dus de spelers kwamen goed terecht; enkel wat het scherm voorspelde klopte niet.
+  // nextLineupOf valt in dat geval terug op previewNextLineup: het veld zoals het nu staat, met de
+  // pauzewissels erin. Geen lusrisico — previewNextLineup raakt deze functie niet aan.
+  if (m.quarterStatus === 'between' && q === (m.currentQuarter || 0) + 1) {
     return nextLineupOf(m).map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || {}, e));
   }
   // Toekomstig deel: het dichtstbijzijnde plan op of vóór dat deel (delen erven van elkaar, zie
