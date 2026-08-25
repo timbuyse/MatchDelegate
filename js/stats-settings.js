@@ -477,7 +477,13 @@ async function loadStats() {
       // er iets te melden is, anders krijgt elke rij een lege tweede regel.
       const redenen = [p.nb ? `${p.nb}× afgemeld` : '', p.noshow ? `${p.noshow}× niet komen opdagen` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${redenen ? `<small style="color:var(--txt2);display:block">${redenen}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
-    + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '');
+    + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '')
+    // SEIZOEN EXPORTEREN (Tims keuze, 25-08-2026). Dezelfde export als de clubexport, maar voor deze
+    // ene ploeg — die zat tot nu enkel bij Clubbeheer, waar een gewone ploegbeheerder niet komt. Voor
+    // hem bestond er alleen export per wedstrijd. Enkel voor wie de cijfers mag zien: een kijker
+    // krijgt op het scherm al maar een deel, en dan hoort hij het volledige bestand ook niet te
+    // kunnen downloaden. Onderaan, want het is geen dagelijkse handeling.
+    + (isMgr ? `<button class="btn btn-pale" style="margin-top:18px" onclick="showPloegExport()">${icI(IC.download)} Seizoen exporteren (Excel of CSV)</button>` : '');
 }
 
 // ===================== SPELERSDETAIL =====================
@@ -1069,6 +1075,11 @@ const HANDLEIDING_PAGINAS = [
       <p>De formatie is een <b>voorstel, geen keurslijf</b>: de plekken die erbij horen worden groter
         getekend, maar je mag iedereen op eender welke plek van het veld zetten. Kies je een andere
         formatie, dan verhuist er niemand — er lichten enkel andere plekken op.</p>
+      <p class="hdl-tip">Zet je de spelers heel anders dan de gekozen formatie — bijvoorbeeld drie
+        spitsen terwijl <b>Dubbele ruit</b> er één heeft — dan zegt de app dat één keer bij het
+        opslaan. Je kan gewoon doorgaan; het is enkel een spiegel. De reden: de <b>naam</b> van de
+        formatie komt in het verslag, het wedstrijdplan en de PDF, en die zou moeten kloppen met wat
+        er op het veld stond. Eén speler die een rij opschuift levert geen melding op.</p>
       <p>Die lijst onder het veld bevat je hele selectie behalve wie al op het veld staat. Zolang het
         veld niet vol is, heet ze <b>'Nog op het veld te zetten'</b>; zodra het vol is, is exact
         diezelfde lijst je <b>bank</b> — <b>wie je niet op het veld zet, staat automatisch op de
@@ -1308,6 +1319,16 @@ const HANDLEIDING_PAGINAS = [
       <p>Bij elke sectie staat voor jou als beheerder een <b>oog-icoontje</b>. Tik erop om die sectie vrij te geven aan kijkers, of ze weer privé te zetten. Standaard zijn Topschutters, Assists en Clean sheets publiek en de rest privé. Een kijker ziet onderaan de melding dat er meer statistieken bestaan voor ploegbeheerders. Het <b>individuele spelersdetail</b> blijft altijd voorbehouden aan ploegbeheerders.</p>
       <div class="sec">Per speler</div>
       <p>Tik op een speler voor zijn detailpagina: doelpunten, assists, speelminuten, kaarten, keeperbeurten en zijn aanwezigheid. Onderaan staat <b>'Carrière — eerder bij'</b>: wedstrijden bij een vorige ploeg, voor spelers die via <b>'Speler overzetten'</b> verhuisd zijn.</p>
+      <div class="sec">Seizoen exporteren</div>
+      <p>Onderaan staat <b>'Seizoen exporteren'</b>. Je kiest een seizoen en krijgt de cijfers van je
+        ploeg als <b>Excel</b> (zes tabbladen: Overzicht, Spelers, Spelers per ploeg, Wedstrijden,
+        Speeltijd en Tornooiwedstrijden) of los als <b>CSV</b> — de speeltijd per speler, of de
+        wedstrijdenlijst. Handig om de speeltijd van een heel seizoen mee te nemen naar een gesprek
+        met de TVJO of met een ouder.</p>
+      <p class="hdl-tip">Tornooiwedstrijden staan in een eigen tabblad en tellen niet mee in de
+        speeltijd: een tornooidag is vijf wedstrijdjes van tien minuten, en die zouden elk gemiddelde
+        vertekenen. Spelernotities en kwetsuurdetails zitten er bewust <b>niet</b> in — in een bestand
+        dat rondgestuurd wordt, horen die niet thuis.</p>
       <p class="hdl-tip"><b>Tornooiwedstrijden tellen niet mee</b> in deze statistieken — net zoals ze in een aparte lijst staan. Wel wordt geteld in hoeveel tornooien een speler in de selectie zat.</p>
     `
   },

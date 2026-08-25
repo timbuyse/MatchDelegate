@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.3
+### Je eigen seizoen exporteren
+- **Onderaan de statistieken staat nu 'Seizoen exporteren'.** Dezelfde Excel- en CSV-bestanden als de clubexport, maar voor jouw ploeg — zodat je de speeltijd van een heel seizoen kan meenemen naar een gesprek zonder dertig losse wedstrijdbestanden samen te voegen. Die export zat tot nu alleen bij Clubbeheer, waar een gewone ploegbeheerder niet komt.
+- Je kiest eerst het seizoen. Het Excel-bestand heeft dezelfde zes tabbladen; los kan je ook de speeltijd of de wedstrijdenlijst als CSV nemen. Tornooiwedstrijden staan apart en tellen niet mee in de speeltijd. Alleen zichtbaar voor wie de ploeg beheert.
+
+### De formatie is nu ook een spiegel
+- **Wijkt je opstelling sterk af van de gekozen formatie, dan zegt de app dat één keer bij het opslaan** — bijvoorbeeld *"je zet 3 spelers in de aanval, Dubbele ruit heeft er 1"*. Met de keuze om gewoon door te gaan of terug te keren naar het veld.
+- Geen blokkade: je bepaalt zelf waar je spelers staan, dat was de bedoeling van het positierooster. Maar de naam van de formatie belandt wél in het verslag, het wedstrijdplan en de PDF, en dan hoort ze te kloppen met wat er op het veld staat.
+- **Alleen bij een echt verschil** — twee spelers of meer in één linie. Eén speler die een rij opschuift is een accent, geen andere formatie, en daar krijg je dus niets voor te zien. Ook niet wanneer je met minder spelers dan plaatsen speelt.
+
+---
+
 ## v1.9.2
 ### Iemand verwijderen is nu blijvend
 - **Wie je uit de ploeg zette, kon zichzelf meteen weer toevoegen.** Om als kijker binnen te komen wordt niet gecontroleerd of je een geldige uitnodiging hebt — alleen of je het interne ploegnummer kent, en dat staat in élke uitnodigingslink. Wie er ooit een kreeg, kende het voorgoed. De uitnodiging intrekken hielp niet, want er werd niet naar gekeken.

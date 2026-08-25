@@ -906,20 +906,52 @@ async function showClubExport(clubId) {
     ceVenster();
   } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
 }
+// EXPORT VAN JE EIGEN PLOEG (Tims keuze, 25-08-2026). De clubexport hierboven zit bij Clubbeheer, en
+// daar komt een gewone ploegbeheerder niet. Voor hem bestond er enkel export PER WEDSTRIJD: wilde hij
+// de speeltijd van een heel seizoen in Excel, dan moest hij dertig bestanden samenvoegen of het aan
+// de clubbeheerder vragen. Dat is precies het cijfer dat een trainer meeneemt naar een gesprek.
+//
+// Hergebruikt het volledige apparaat van de clubexport (ceState, ceVenster, doClubExport en alle
+// clubExport*Rijen-functies) met één ploeg in de lijst. De gegevens komen hier NIET uit Firebase maar
+// uit wat er lokaal staat — een ploegbeheerder mag `clubs/{id}/teams` niet lezen, en zo werkt het
+// meteen ook zonder verbinding. De vorm is identiek aan wat clubExportOphalen oplevert.
+async function showPloegExport() {
+  if (!canSeeStats()) return;
+  const kern = (typeof getTeamsV2 === 'function' ? getTeamsV2() : [])[0] || null;
+  const naam = (kern && kern.name) || teamNames[activeTeamId] || 'Ploeg';
+  let wedstrijden = [];
+  try { wedstrijden = (await dbAll()).filter(Boolean); } catch (e) {}
+  // Enkel de wedstrijden van DEZE ploeg: de lokale opslag is niet per ploeg gescheiden (zie
+  // cleanupOrphanMatches), dus zonder deze filter zouden wedstrijden van een andere ploeg op
+  // hetzelfde toestel mee in het bestand belanden.
+  const eigen = wedstrijden.filter(m => (m.teamId && m.teamId === activeTeamId) || (!m.teamId && m.teamName === naam));
+  const tornooien = {};
+  try { (getTournaments() || []).forEach(t => { if (t && t.id) tornooien[t.id] = t; }); } catch (e) {}
+  const ploegen = [{ id: activeTeamId || 'lokaal', naam, spelers: (kern && kern.players) || [], tornooien, wedstrijden: eigen }];
+  const seizoenen = ceSeizoenen(ploegen);
+  ceState = { clubId: null, ploegen, seizoen: seizoenen[0] || 'alle', ploegModus: true };
+  ceVenster();
+}
 function ceZetSeizoen(v) { if (ceState) { ceState.seizoen = v; ceVenster(); } }
 function ceVenster() {
   const s = ceState; if (!s) return;
   const seizoenen = ceSeizoenen(s.ploegen);
   const w = s.ploegen.reduce((n, pl) => n + ceMatches(pl, false).length, 0);
   const t = s.ploegen.reduce((n, pl) => n + ceMatches(pl, true).length, 0);
-  openModal(`<h3>${icI(IC.download)} Clubexport</h3>
-    <p style="font-size:13px;color:var(--txt2);text-align:left;margin-bottom:10px">Alle ploegen van deze club, rechtstreeks uit de databank — dus ook ploegen die je op dit toestel nooit opende.</p>
+  // Eén venster voor twee gevallen: de clubexport (alle ploegen, uit de databank) en de export van je
+  // eigen ploeg (lokaal, sinds v1.9.3). Alleen de kop, de inleiding en de telregel verschillen — de
+  // knoppen en de bestanden zijn identiek, en dat hoort ook zo: het is dezelfde export.
+  const ploegModus = !!s.ploegModus;
+  openModal(`<h3>${icI(IC.download)} ${ploegModus ? 'Seizoen exporteren' : 'Clubexport'}</h3>
+    <p style="font-size:13px;color:var(--txt2);text-align:left;margin-bottom:10px">${ploegModus
+      ? `De cijfers van <b>${esc(s.ploegen[0].naam)}</b> in één bestand, om mee te nemen naar een gesprek of zelf mee te rekenen.`
+      : 'Alle ploegen van deze club, rechtstreeks uit de databank — dus ook ploegen die je op dit toestel nooit opende.'}</p>
     <div class="fg"><label>Seizoen</label>
       <select onchange="ceZetSeizoen(this.value)">
         ${seizoenen.map(z => `<option value="${esc(z)}" ${s.seizoen === z ? 'selected' : ''}>${esc(z)}</option>`).join('')}
         <option value="alle" ${s.seizoen === 'alle' ? 'selected' : ''}>Alle seizoenen</option>
       </select></div>
-    <p style="font-size:13px;text-align:left;margin:0 0 12px"><b>${s.ploegen.length}</b> ${s.ploegen.length === 1 ? 'ploeg' : 'ploegen'} · <b>${w}</b> ${w === 1 ? 'wedstrijd' : 'wedstrijden'}${t ? ` · <b>${t}</b> in tornooien` : ''}</p>
+    <p style="font-size:13px;text-align:left;margin:0 0 12px">${ploegModus ? '' : `<b>${s.ploegen.length}</b> ${s.ploegen.length === 1 ? 'ploeg' : 'ploegen'} · `}<b>${w}</b> ${w === 1 ? 'wedstrijd' : 'wedstrijden'}${t ? ` · <b>${t}</b> in tornooien` : ''}</p>
     <button class="btn btn-org" onclick="doClubExport('excel')">${icI(IC.table)} Excel — alles in één bestand</button>
     <p style="font-size:12px;color:var(--txt2);text-align:left;margin:6px 0 14px">Zes tabbladen: <b>Overzicht</b>, <b>Spelers</b> (per speler, over zijn ploegen samen), <b>Spelers per ploeg</b>, <b>Wedstrijden</b>, <b>Speeltijd</b> en <b>Tornooiwedstrijden</b>.</p>
     <div class="sec" style="margin-top:0">Of los, als CSV</div>
@@ -941,7 +973,9 @@ function doClubExport(soort) {
   const meld = t => { const el = document.getElementById('ce-melding'); if (el) el.textContent = t; };
   const dag = new Date().toISOString().slice(0, 10);
   const sz = s.seizoen === 'alle' ? 'alle-seizoenen' : s.seizoen.replace('/', '-');
-  const club = (activeClubName || 'club').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  // Bestandsnaam naar de ploeg in ploegmodus: "u11ip-export-2026-2027-…" zegt meer dan de clubnaam
+  // wanneer er maar één ploeg in zit.
+  const club = ((s.ploegModus ? (s.ploegen[0] || {}).naam : activeClubName) || 'club').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   try {
     if (soort === 'excel') {
       const bladen = [

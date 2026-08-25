@@ -1163,7 +1163,45 @@ function computePosNum(matchType, slotIdx, slots) {
 // v0.33.0 heeft zo'n wedstrijd dus ook geen `starting`-spelers meer: de selectie duidt er geen aan,
 // en iemand `starting` maken zonder plaats zou een basisspeler zijn die nergens staat. Ze draagt
 // `lineupPending` tot je de opstelling maakt — zie heeftOpstelling() in core.js.
-async function finishWizard(startNow, zonderOpstelling) {
+// ---- Wijkt de opstelling sterk af van de gekozen formatie? (v1.9.3) ----
+// Laatste stuk van het positierooster-ontwerp (Tims keuze van 19/20-08-2026: "de formatie blijft, als
+// vangrail zonder slot"). Je mag overal spelers zetten — de formatie licht enkel plekken op als
+// voorstel — maar de naam ervan belandt wél in het verslag, de PDF en het wedstrijdplan. Staat daar
+// "Dubbele ruit" terwijl je feitelijk met drie spitsen speelde, dan klopt juist het document dat een
+// trainer aan de TVJO laat zien niet.
+// Bewust een SPIEGEL en geen slot: één melding bij het opslaan, met de keuze om door te gaan.
+// Drempel: een verschil van twee of meer in één linie. Eén speler die een rij opschuift is geen
+// afwijking maar een accent, en daar wil niemand elke wedstrijd een venster voor wegtikken.
+const FORMATIE_AFWIJKING_DREMPEL = 2;
+function formatieAfwijking(form) {
+  if (!form || !Array.isArray(form.slots)) return null;
+  const telPerLinie = lijst => lijst.reduce((acc, l) => { if (l && l !== 'Doel') acc[l] = (acc[l] || 0) + 1; return acc; }, {});
+  const volgensFormatie = telPerLinie(form.slots.map(s => s.line));
+  const opHetVeld = telPerLinie(wiz.pool
+    .filter(p => p.sel === 'basis' && p.slot != null)
+    .map(p => (gridPlek(p.slot) || {}).line));
+  // Speel je met minder spelers dan er plaatsen zijn (te kleine selectie), dan klopt élke linie niet
+  // en zou de melding altijd komen. Enkel vergelijken bij een vol veld.
+  const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
+  if (geplaatst !== form.slots.length) return null;
+  const verschillen = [];
+  for (const linie of new Set([...Object.keys(volgensFormatie), ...Object.keys(opHetVeld)])) {
+    const a = opHetVeld[linie] || 0, b = volgensFormatie[linie] || 0;
+    if (Math.abs(a - b) >= FORMATIE_AFWIJKING_DREMPEL) verschillen.push({ linie, staat: a, verwacht: b });
+  }
+  return verschillen.length ? verschillen : null;
+}
+function _linieWoord(l) { return ({ Verdediging: 'de verdediging', Middenveld: 'het middenveld', Aanval: 'de aanval' })[l] || l.toLowerCase(); }
+function modalFormatieAfwijking(verschillen, form, startNow) {
+  const zinnen = verschillen.map(v =>
+    `je zet <b>${v.staat}</b> ${v.staat === 1 ? 'speler' : 'spelers'} in ${_linieWoord(v.linie)}, <b>${esc(form.name)}</b> heeft er ${v.verwacht}`);
+  openModal(`<h3>${icI(IC.shirt)} Opstelling wijkt af van ${esc(form.name)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:6px">${zinnen.join('; ')}.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:16px">Dat mag — je bepaalt zelf waar je spelers staan. Maar de naam <b>${esc(form.name)}</b> komt zo wel in het verslag, het wedstrijdplan en de PDF te staan.</p>
+    <button class="btn btn-green" onclick="closeModal();finishWizard(${startNow ? 'true' : 'false'},false,true)">${icI(IC.check)} Zo is het goed, opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Terug naar de opstelling</button>`);
+}
+async function finishWizard(startNow, zonderOpstelling, formatieBevestigd) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   if (!zonderOpstelling) {
     // Het veld moet vol. Enige uitzondering: er zijn gewoon niet genoeg spelers geselecteerd om
@@ -1176,6 +1214,13 @@ async function finishWizard(startNow, zonderOpstelling) {
     if (geplaatst < nodig) {
       showToast(`Zet ${nodig} spelers op het veld — er ${geplaatst === 1 ? 'staat er' : 'staan er'} nu ${geplaatst}.`, 'err');
       return;
+    }
+    // De spiegel op de formatie (zie formatieAfwijking). Ná de vulcontrole hierboven, zodat je niet
+    // twee vensters na elkaar krijgt, en vóór het wegschrijven — daarna is het te laat om nog terug
+    // te gaan naar het veld.
+    if (!formatieBevestigd) {
+      const afw = formatieAfwijking(form);
+      if (afw) { modalFormatieAfwijking(afw, form, startNow); return; }
     }
     // Wie na het vullen van het veld overblijft, hoort bij de bank. Zonder dit bleef iemand als
     // basisspeler zonder plaats achter, en die zou nergens meer opduiken.
