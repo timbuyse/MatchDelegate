@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.2
+### Iemand verwijderen is nu blijvend
+- **Wie je uit de ploeg zette, kon zichzelf meteen weer toevoegen.** Om als kijker binnen te komen wordt niet gecontroleerd of je een geldige uitnodiging hebt — alleen of je het interne ploegnummer kent, en dat staat in élke uitnodigingslink. Wie er ooit een kreeg, kende het voorgoed. De uitnodiging intrekken hielp niet, want er werd niet naar gekeken.
+- **Nu onthoudt de app wie je verwijderde.** Zolang iemand op die lijst staat, weigert Firebase dat hij zichzelf toevoegt. In de ledenlijst staat onderaan **'Eerder verwijderd'** met de namen en de datum, en één tik op **'Toegang herstellen'** haalt hem er weer af. Stel je hem later zelf aan als ploegbeheerder, dan verdwijnt de blokkade ook automatisch.
+- *Eerlijk gezegd:* de blokkade hangt aan het account. Maakt iemand een volledig nieuw account aan, dan is hij niet meer geblokkeerd. Dit houdt de gemakkelijke weg tegen — dezelfde persoon met dezelfde oude link — niet iemand die vastberaden is. De sluitende oplossing vraagt het betalende Firebase-plan.
+
+### Uitnodigingen verlopen na twee maanden
+- Een uitnodigingslink of code van vorig seizoen werkte vandaag nog gewoon. **Nu vervalt ze na twee maanden.** In het uitnodigingsvenster staat tot wanneer ze geldig is; daarna maak je met de bestaande knop een nieuwe code aan. Wie een verlopen link gebruikt, krijgt te horen dat hij een nieuwe moet vragen — geen vage foutmelding.
+- Uitnodigingen zonder aanmaakdatum (van heel oude ploegen) blijven werken: iemand buitensluiten op een gegeven dat er niet is, is de verkeerde kant om je te vergissen.
+
+### Opgeruimd
+- **De oude 'beheerdersaanvraag' hield nog een verbinding open.** Die aanvraag — systeembreed toestemming vragen om ploegen te mogen aanmaken — bestaat niet meer sinds het clubmodel, en de knop stond al lang niet meer in de app. Maar bij elke opstart als eigenaar werd er nog wel live meegeluisterd naar aanvragen die niemand nog kan indienen. Dat is nu uit.
+
+---
+
 ## v1.9.1
 ### De minuut van een geplande wissel telt zoals de rest van de app
 - **"Minuut 8" betekende twee verschillende dingen.** Overal in de app is *8'* de periode van 7:00 tot 7:59 — een doelpunt op 7:30 staat in het verslag als 8'. Maar bij een geplande wissel ging het seintje pas af op 8:00 verstreken, en dat is volgens diezelfde telling het begin van minuut 9. Nu geldt overal dezelfde regel: **minuut 8 loopt van 7:00 tot 8:00**.

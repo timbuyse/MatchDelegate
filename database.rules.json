@@ -34,7 +34,28 @@
             // Nieuw lid mag zichzelf toevoegen als viewer (via uitnodiging); een lid mag zijn
             // eigen lidmaatschap altijd weer verwijderen (account verwijderen/ploeg verlaten);
             // beheerder OF de clubbeheerder van de club mag de rol van elk lid aanpassen (promote/demote).
-            ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer') || ($memberId === auth.uid && !newData.exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
+            //
+            // VERWIJDERD BLIJFT VERWIJDERD (v1.9.2). Zelf-toevoegen controleert géén uitnodiging —
+            // enkel of je het ploeg-id kent, en dat staat in elke uitnodigingslink. Wie je uit de
+            // ploeg zette, kon zich daarmee dus meteen weer toevoegen, en het token intrekken hielp
+            // niet omdat er niet naar het token gekeken wordt. De extra voorwaarde hieronder geldt
+            // ALLEEN voor de zelf-toevoegtak: een beheerder mag iemand nog gewoon toevoegen (dat
+            // haalt hem ook van de lijst, zie herstelToegang/promoteMember in views-account.js), en
+            // zichzelf verwijderen blijft altijd mogelijk.
+            ".write": "auth != null && (($memberId === auth.uid && !data.exists() && newData.val() === 'viewer' && !root.child('teams/' + $teamId + '/removed/' + auth.uid).exists()) || ($memberId === auth.uid && !newData.exists()) || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
+          }
+        },
+
+        // Wie een beheerder bewust uit de ploeg zette. Bevat naam, e-mail en het tijdstip, zodat de
+        // ledenlijst kan tonen wie er geweerd is en de beheerder de toegang met één tik kan
+        // herstellen. Enkel beheerders (en de clubbeheerder/eigenaar) schrijven hier; de betrokkene
+        // mag zijn eigen entry lezen zodat de app een nette melding kan geven i.p.v. een kale
+        // rechtenfout — precies dezelfde opzet als members/$memberId hierboven.
+        "removed": {
+          ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+          ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+          "$removedId": {
+            ".read": "auth != null && $removedId === auth.uid"
           }
         },
 

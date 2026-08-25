@@ -494,6 +494,9 @@ async function doAppointTeamAdmin(tid) {
     if (!emailBevestigd(idx[uid])) { if (err) err.innerHTML = NIET_BEVESTIGD_MSG; return; }
     await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
     await fbdb.ref('users/' + uid + '/teams/' + tid).set('admin');
+    // Stond hij op de lijst van geweerde leden (v1.9.2), dan haalt deze aanstelling hem eraf: je
+    // maakt hem zonet zélf beheerder, dus de blokkade tegen zelf-toevoegen slaat nergens meer op.
+    fbdb.ref('teams/' + tid + '/removed/' + uid).remove().catch(() => {});
     // DE LEDENLIJST METEEN LATEN KLOPPEN (Tims vraag, 25-08-2026). Tot hier zette een aanstelling
     // enkel de rol. De ledeninformatie per ploeg — waar de ledenlijst naam, e-mail én "bevestigd"
     // uit leest — schrijft de persoon zélf, en pas wanneer hij díé ploeg opent. Tot dan viel de
@@ -1307,6 +1310,30 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
 }
 
 // ---- Ploeg vervoegen via uitnodigingscode ----
+// Twee maanden (Tims keuze, 25-08-2026). Lang genoeg dat een ouder de link rustig kan opvolgen,
+// kort genoeg dat een doorgestuurde link van vorig seizoen niet meer werkt.
+const INVITE_GELDIG_DAGEN = 60;
+const INVITE_GELDIG_MS = INVITE_GELDIG_DAGEN * 24 * 60 * 60 * 1000;
+function inviteVerlopen(inv) {
+  const c = inv && inv.createdAt;
+  if (!c) return false;   // geen datum bekend → laten werken, zie de toelichting bij joinTeamByToken
+  return (Date.now() - c) > INVITE_GELDIG_MS;
+}
+function inviteGeldigTot(inv) {
+  const c = inv && inv.createdAt;
+  if (!c) return '';
+  return new Date(c + INVITE_GELDIG_MS).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+// Eén tekst per uitkomst van joinTeamByToken, want ze wordt op vier plaatsen gelezen (de opstartflow
+// tweemaal, het codeveld op het gastscherm en het venster "Ploeg volgen via code"). Stond die tekst
+// op elke plek apart, dan kreeg je bij een nieuwe uitkomst — zoals 'verlopen' en 'geweerd' in
+// v1.9.2 — op drie van de vier plaatsen de verkeerde melding ("geen verbinding").
+function joinFoutTekst(result) {
+  if (result === 'not_found') return 'Code niet gevonden. Controleer de code en probeer opnieuw.';
+  if (result === 'verlopen') return 'Deze uitnodiging is verlopen. Vraag de ploegbeheerder om een nieuwe link of code.';
+  if (result === 'geweerd') return 'Je hebt geen toegang meer tot deze ploeg. Neem contact op met de ploegbeheerder.';
+  return 'Geen verbinding — controleer je internet en probeer opnieuw.';
+}
 async function joinTeamByToken(token) {
   if (!currentUser || !fbdb) return null;
   token = (token || '').trim().toUpperCase();
@@ -1318,7 +1345,16 @@ async function joinTeamByToken(token) {
   if (!snap.exists()) return 'not_found';
   const teamId = snap.val().teamId;
   if (!teamId) return 'not_found';
+  // UITNODIGINGEN VERLOPEN (Tims keuze, 25-08-2026: twee maanden). Een link van vorig seizoen werkte
+  // vandaag nog. Uitnodigingen van vóór deze versie dragen wél een createdAt — dat veld bestaat al
+  // sinds het begin — maar ontbreekt het toch, dan laten we de link werken: iemand buitensluiten op
+  // een gegeven dat er niet is, is de verkeerde kant om te vergissen.
+  if (inviteVerlopen(snap.val())) return 'verlopen';
   const uid = currentUser.uid;
+  // Bewust verwijderd door een beheerder? Dan niet opnieuw binnenlaten. De Firebase-regels weigeren
+  // de schrijfactie ook, maar zonder deze controle zou je enkel een kale foutmelding krijgen.
+  try { if ((await fbOnce(fbdb.ref('teams/' + teamId + '/removed/' + uid))).exists()) return 'geweerd'; }
+  catch (e) { /* geen leesrecht of offline: de regels vangen het alsnog op */ }
   let existing;
   try { existing = await fbOnce(fbdb.ref('teams/' + teamId + '/members/' + uid)); } catch (e) { return 'offline'; }
   if (!existing.exists()) {
@@ -1379,7 +1415,7 @@ async function showInviteModal(teamId) {
   }
 
   // Haal token op en zorg dat het ook in /invites/ staat
-  let info, token;
+  let info, token, inv = null;
   try {
     const infoSnap = await fbOnce(fbdb.ref('teams/' + tid + '/info'));
     info = infoSnap.val() || {};
@@ -1387,13 +1423,22 @@ async function showInviteModal(teamId) {
     // Zorg dat /invites/{token} bestaat (voor ploegen aangemaakt vóór deze fix)
     const invSnap = await fbOnce(fbdb.ref('invites/' + token));
     if (!invSnap.exists() && currentUser) {
-      await fbdb.ref('invites/' + token).set({ teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() });
-    }
+      inv = { teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() };
+      await fbdb.ref('invites/' + token).set(inv);
+    } else inv = invSnap.val();
   } catch (e) {
     showToast('Kon de uitnodiging niet laden (geen verbinding). Probeer het later opnieuw.', 'err');
     return;
   }
   const teamName = info.name || 'Ploeg';
+  // GELDIGHEID TONEN (v1.9.2). Een uitnodiging vervalt sinds deze versie na twee maanden. Dat moet
+  // je zien vóór je ze deelt, niet pas wanneer een ouder meldt dat de link niet werkt. Zonder datum
+  // in de uitnodiging (oude ploegen) zeggen we niets: dan vervalt ze ook niet.
+  const verlopenNu = inviteVerlopen(inv);
+  const geldigTot = inviteGeldigTot(inv);
+  const geldigRegel = verlopenNu
+    ? `<p style="text-align:center;font-size:12px;color:var(--org2);font-weight:600;margin:0 0 10px">${icI(IC.warn)} Deze uitnodiging is verlopen. Maak hieronder een nieuwe code aan.</p>`
+    : (geldigTot ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin:0 0 10px">Geldig tot <b>${esc(geldigTot)}</b>. Daarna maak je hieronder een nieuwe code aan.</p>` : '');
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
   const shareText = 'Volg ' + teamName + ' via Match Delegate. Open de link of gebruik code ' + token + '.';
@@ -1402,7 +1447,8 @@ async function showInviteModal(teamId) {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${qr ? 'Scan de QR-code of deel de link.' : 'Deel de link of de code hieronder.'} Werkt ook voor mensen zonder account.</p>
     ${qr ? `<div id="invite-qr-wrap" style="display:flex;justify-content:center;margin-bottom:12px">${qr}</div>`
          : `<p style="text-align:center;color:var(--org2);font-size:12px;margin-bottom:8px">${icI(IC.warn)} QR-code niet beschikbaar — gebruik de code of link hieronder.</p>`}
-    <div class="invite-code" style="margin-bottom:8px">${token}</div>
+    <div class="invite-code" style="margin-bottom:8px${verlopenNu ? ';opacity:.5' : ''}">${token}</div>
+    ${geldigRegel}
     <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
     ${isAdmin ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="confirmRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren (oude wordt ongeldig)</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
@@ -1522,11 +1568,29 @@ async function showMembersModal() {
         </div>
       </div>`;
     });
+    // GEWEERDE LEDEN (v1.9.2). Wie je verwijderde staat niet meer in de lijst hierboven, maar hij is
+    // wél geblokkeerd voor de self-join — zonder deze sectie zou je nergens meer kunnen zien wie dat
+    // zijn en zou iemand voorgoed buiten staan zonder dat je het kan terugdraaien.
+    let removed = {};
+    try { removed = (await fbOnce(fbdb.ref('teams/' + tid + '/removed'))).val() || {}; } catch (e) {}
+    const removedUids = Object.keys(removed).filter(u => !members[u]);
+    const removedRows = removedUids.map(uid => {
+      const r = removed[uid] || {};
+      const naam = r.name || (info[uid] || {}).name || '(naam niet bewaard)';
+      const email = r.email || (info[uid] || {}).email || '';
+      const wanneer = r.at ? new Date(r.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;opacity:.75">
+        <div><b>${esc(naam)}</b>${email ? `<br><small style="color:var(--txt2)">${esc(email)}</small>` : ''}${wanneer ? `<br><small style="color:var(--txt2)">verwijderd op ${esc(wanneer)}</small>` : ''}</div>
+        <div style="display:flex;gap:6px"><button class="btn btn-pale btn-sm" onclick="herstelToegang('${uid}')">Toegang herstellen</button></div>
+      </div>`;
+    });
     const viewers = uids.filter(u => members[u] !== 'admin').length;
     const el = document.getElementById('members-list');
     if (el) el.innerHTML =
       (reqRows.length ? `<p style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px">OPENSTAANDE AANVRAGEN</p>${reqRows.join('')}<hr style="margin:10px 0">` : '')
       + (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
+      + (removedRows.length ? `<hr style="margin:10px 0"><p style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:2px">EERDER VERWIJDERD (${removedRows.length})</p>
+        <p style="font-size:12px;color:var(--txt2);margin:0 0 6px">Deze mensen kunnen zichzelf niet opnieuw toevoegen, ook niet met een oude uitnodigingslink.</p>${removedRows.join('')}` : '')
       + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} ploegbeheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
   } catch (e) {
     console.error('Leden laden mislukt:', e);
@@ -1586,16 +1650,45 @@ async function promoteMember(uid, bevestigd) {
     } catch (e) { showToast('Promoveren mislukt, probeer opnieuw.', 'err'); }
   }, 'Promoveren', 'btn-green');
 }
+// VERWIJDEREN IS NU BLIJVEND (Tims keuze, 25-08-2026). De Firebase-regels laten elke aangemelde
+// gebruiker toe zichzelf als KIJKER aan een ploeg toe te voegen — er wordt niet gecontroleerd of hij
+// een geldige uitnodiging heeft, enkel of hij het ploeg-id kent. Dat id staat in elke
+// uitnodigingslink, dus wie er ooit een kreeg, kent het voorgoed. Gevolg: zette je iemand uit de
+// ploeg, dan kon hij zichzelf met diezelfde oude link meteen weer toevoegen, en de uitnodiging
+// intrekken hielp niet omdat er niet naar de uitnodiging gekeken wordt.
+// De nette oplossing (serverlogica die uitnodiging en lidmaatschap in één keer nakijkt) vraagt het
+// betalende Firebase-plan. Dit is de goedkope weg die het echte probleem oplost: wie je bewust
+// verwijdert, komt in `teams/{id}/removed/{uid}`, en de regels weigeren de self-join zolang hij daar
+// staat. De naam blijft mee bewaard zodat de beheerder in de ledenlijst ziet wie hij ooit weerde en
+// hem met één tik weer kan toelaten (zie herstelToegang) — anders zou iemand voorgoed buiten staan.
 async function removeMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg.', async () => {
+  showConfirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg en kunnen zichzelf niet opnieuw toevoegen met een oude uitnodigingslink.', async () => {
     try {
+      // Naam en e-mail eerst lezen: memberInfo gaat hieronder weg, en zonder die gegevens staat er
+      // straks een kale gebruikerscode in de lijst van geweerde leden.
+      let naam = '', email = '';
+      try { const mi = (await fbOnce(fbdb.ref('memberInfo/' + activeTeamId + '/' + uid))).val() || {};
+        naam = mi.name || ''; email = mi.email || ''; } catch (e) {}
       await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
+      // De blokkade zetten NA het verwijderen van het lidmaatschap: de rule op `removed` eist geen
+      // lidmaatschap, maar zo is de volgorde ook logisch als er iets halverwege misloopt.
+      await fbdb.ref('teams/' + activeTeamId + '/removed/' + uid).set({ name: naam, email: email, at: Date.now() });
       await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
       fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
       showMembersModal();
     } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
   }, 'Verwijderen');
+}
+// De blokkade weer opheffen. Hij wordt géén lid: hij mag zichzelf weer toevoegen met een geldige
+// uitnodiging, of jij nodigt hem opnieuw uit. Zo blijft "toelaten" en "lid maken" uit elkaar.
+async function herstelToegang(uid) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/removed/' + uid).remove();
+    showToast('Toegang hersteld — hij kan de ploeg weer volgen via een uitnodiging.', 'ok');
+    showMembersModal();
+  } catch (e) { showToast('Herstellen mislukt, probeer opnieuw.', 'err'); }
 }
 
 // ===================== AUTH VIEWS =====================
@@ -1735,9 +1828,7 @@ async function guestJoinWithCode() {
   if (err) err.textContent = 'Bezig...';
   const result = await joinTeamByToken(code);
   if (result === 'ok') { /* selectTeam navigeert automatisch */ }
-  else if (err) err.textContent = result === 'not_found'
-    ? 'Code niet gevonden. Controleer de code en probeer opnieuw.'
-    : 'Geen verbinding — controleer je internet en probeer opnieuw.';
+  else if (err) err.textContent = joinFoutTekst(result);
 }
 
 function renderGuestJoin() {
@@ -2017,8 +2108,7 @@ async function doJoinTeam() {
   if (err) err.textContent = 'Bezig...';
   try {
     const result = await joinTeamByToken(token);
-    if (result === 'not_found') { if (err) err.textContent = 'Code niet gevonden. Controleer de code en probeer opnieuw.'; return; }
-    if (result !== 'ok') { if (err) err.textContent = 'Geen verbinding — controleer je internet en probeer opnieuw.'; return; }
+    if (result !== 'ok') { if (err) err.textContent = joinFoutTekst(result); return; }
     closeModal();
   } catch (e) {
     console.error('joinTeam fout:', e);

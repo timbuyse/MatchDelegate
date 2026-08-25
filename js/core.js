@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.9.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1720,8 +1720,7 @@ async function onAuthChanged(user) {
       localStorage.removeItem('voetbal_pending_join');
       const result = await joinTeamByToken(pendingJoin);
       if (result === 'ok') return;
-      if (result === 'not_found') showToast('Code niet gevonden. Voer de code hieronder handmatig in.', 'err');
-      if (result === 'offline') showToast('Kon de uitnodiging niet controleren (geen verbinding). Probeer het later opnieuw.', 'err');
+      if (result) showToast(joinFoutTekst(result), 'err');
     }
     await loadUserTeams(user.uid);
     const teamIds = Object.keys(userTeams);
@@ -1773,8 +1772,7 @@ async function onAuthChanged(user) {
     localStorage.removeItem('voetbal_pending_join');
     const result = await joinTeamByToken(pendingJoin);
     if (result === 'ok') return;
-    if (result === 'not_found') showToast('Code niet gevonden. Voer de code hieronder handmatig in.', 'err');
-    if (result === 'offline') showToast('Kon de uitnodiging niet controleren (geen verbinding). Probeer het later opnieuw.', 'err');
+    if (result) showToast(joinFoutTekst(result), 'err');
     // val door naar de normale ploeg-laadflow hieronder i.p.v. hier vast te blijven zitten
   }
   const teamIds = Object.keys(userTeams);
@@ -1820,11 +1818,18 @@ function onAdminReqValue(s) {
   const b = document.getElementById('owner-req-btn');
   if (b) b.innerHTML = `${icI(IC.shield)} Beheerdersaanvragen` + (pendingAdminCount ? ` (${pendingAdminCount})` : '');
 }
+// DE LUISTERAAR STAAT UIT SINDS v1.9.2 (Tims keuze, 25-08-2026). De oude "beheerdersaanvraag" —
+// systeembreed toestemming vragen om ploegen te mogen aanmaken — bestaat niet meer sinds het
+// clubmodel: ploegen maak je aan via Clubbeheer en trainers worden uitgenodigd. De knop die het
+// venster opende staat al sinds v0.5.12 niet meer in de pagina, maar dit hield bij elke opstart van
+// de eigenaar nog wél een live verbinding open naar `adminRequests` — verkeer voor iets wat niemand
+// nog kan indienen. Het afmelden blijft staan voor wie de luisteraar nog van een oude sessie heeft.
+// De rest van de code (showAdminRequestsModal, de tellers, de rules) blijft bewust staan: die doet
+// niets en breekt dus niets, en opruimen is hier ooit al eens stil de app gaan kosten.
 function listenAdminRequests() {
   if (!fbdb) return;
   try { fbdb.ref('adminRequests').off('value', onAdminReqValue); } catch (e) {}
   pendingAdminCount = 0;
-  if (isOwner) { try { fbdb.ref('adminRequests').on('value', onAdminReqValue); } catch (e) {} }
 }
 
 function onCoAdminReqValue(s) {

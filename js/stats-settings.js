@@ -942,6 +942,8 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Via QR-code:</b> scan de code — verder hetzelfde als bij een link.</li>
         <li><b>Via code:</b> tik op <b>'Ploeg volgen via code'</b> → voer de code van 6 tekens in.</li>
       </ul>
+      <p class="hdl-tip">Een uitnodiging is <b>twee maanden geldig</b>. Werkt een link niet meer, vraag
+        de ploegbeheerder dan om een nieuwe — hij maakt er in één tik een aan.</p>
       <div class="sec">Live wedstrijd bekijken</div>
       <ol class="hdl-list">
         <li>Ga naar <b>'Wedstrijden'</b> en tik op een lopende wedstrijd.</li>
@@ -1353,6 +1355,13 @@ const HANDLEIDING_PAGINAS = [
         <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
         <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, de <b>ploegnaam</b> wijzigen en de <b>Prullenmand</b>.</li>
       </ul>
+      <p class="hdl-tip">Een <b>uitnodiging vervalt na twee maanden</b>. In het uitnodigingsvenster staat
+        tot wanneer ze geldig is; daarna maak je er met <b>'Nieuwe code'</b> een verse aan. De oude werkt
+        dan niet meer.</p>
+      <p class="hdl-tip">Verwijder je iemand bij <b>'Leden'</b>, dan is dat <b>blijvend</b>: hij kan
+        zichzelf niet opnieuw toevoegen, ook niet met een oude uitnodigingslink. Onderaan de ledenlijst
+        staat <b>'Eerder verwijderd'</b> met wie je weerde en wanneer — daar zet je met één tik de
+        toegang weer open als je je bedenkt.</p>
       {{img2}}
       <p>Onderaan elk van de twee staat de knop naar het andere, dus je hoeft niet eerst terug naar het startscherm.</p>
       <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
