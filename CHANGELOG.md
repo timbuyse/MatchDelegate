@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.10.0
+
+**De planning krijgt twee velden per blok, en je bewerkt ze ter plekke.**
+
+*Bij de start / Na de wissels.* Het wedstrijdplan-PDF toont per blok al twee velden naast elkaar;
+op het scherm zag je er maar één. Nu staan er twee chips boven het veld die het ter plekke
+omwisselen. De tweede verschijnt alleen als er voor dat blok iets klaarstaat — anders zou er twee
+keer hetzelfde staan, precies de regel die de PDF al hanteert. De bank volgt het getoonde veld,
+zodat een invaller niet tegelijk op het veld en op de bank staat. Dezelfde chips in het
+voorbereidingsscherm en in de planningskaart tijdens de wedstrijd, uit één gedeelde berekening die
+hetzelfde recept gebruikt als de PDF. Nagemeten: scherm en papier geven exact dezelfde opstelling.
+
+*Het potloodje is een slot geworden.* Vroeger opende het een venster met een eigen veld, eigen bank
+en eigen pijltjes — allemaal dingen die de kaart eronder al had. Nu wordt het veld in de kaart zelf
+aantikbaar: uit is kijken en bladeren, aan is bewerken. Onderaan staat *Wijzigingen opslaan* zodra
+er iets openstaat, anders gewoon *Opslaan*; opslaan sluit het slot weer. Bladeren naar een ander
+blok werkt zoals voorheen en schrijft onderweg weg, want het volgende blok erft van dit blok.
+
+Er is nog steeds één planner met dezelfde inhoud, alleen niet langer in een venster. Kom je er
+meteen na de wizard terecht — waar die kaart nog niet getekend is — dan opent ze zoals vroeger.
+
+---
 ## v1.9.8
 
 **In de pauze deed de app iets anders dan wat ze toonde.** Zette je meerdere dingen klaar voor

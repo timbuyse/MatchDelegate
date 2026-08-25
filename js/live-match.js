@@ -3579,11 +3579,15 @@ function planningTijdensMatchHtml(m) {
   if (_planLiveVanaf !== vanaf) { _planLiveVanaf = vanaf; _planLiveQ = vanaf; }
   _planLiveQ = Math.min(Math.max(_planLiveQ, vanaf), totaal);
   const slide = q => {
-    const lijst = plannedLineupBase(m, q);
-    const opVeld = new Set(lijst.map(p => p.id));
+    // Dezelfde twee velden als in het voorbereidingsscherm (planTweeVelden in wizard-prep.js): bij de
+    // start van het blok en na de geplande wissels. Beide kaarten toonden altijd hetzelfde, dus ze
+    // delen die helper — anders zou de ene straks iets anders zeggen dan de andere.
+    const { veld, chips } = planTweeVelden(m, q);
+    const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
-      ${renderPitch(m, plannedLineupPlayers(m, lijst), captainAtStartOfQuarter(m, q))}
+      ${chips}
+      ${renderPitch(m, veld, captainAtStartOfQuarter(m, q))}
       <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
       <div class="place-chips">${bank.length
         ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
