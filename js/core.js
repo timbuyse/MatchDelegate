@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.9.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1362,6 +1362,14 @@ function minutenMetMinderMs(m) {
 // een melding op het moment dat de wissel al had moeten gebeuren.
 // Vertaling naar verstreken tijd staat op één plek: vanafMinStartMs.
 function vanafMinStartMin(s) { return Math.max(0, (s && s.vanafMin ? s.vanafMin : 1) - 1); }
+// VOOR DE SPEELTIJD: HET MIDDEN VAN DIE MINUUT, NIET HET BEGIN (Tims vaststelling, 25-08-2026).
+// Minuut 8 is een interval van 7:00 tot 8:00. Voor het SEINTJE nemen we het begin — dan heb je een
+// volle minuut om een spelonderbreking af te wachten. Maar voor de speeltijdverdeling is dat scheef:
+// bij een blok van 15 kreeg wie eraf ging 7 minuten en de invaller 8, terwijl je alleen weet dat de
+// wissel érgens in minuut 8 valt. Het midden verdeelt dat eerlijk: 7,5 om 7,5.
+// Zelfde redenering als bij een wissel zónder minuut, waar we de helft van het blok nemen: als je
+// het exacte moment niet weet, is het midden de eerlijkste aanname.
+function vanafMinSpeeltijd(s) { return Math.max(0, (s && s.vanafMin ? s.vanafMin : 1) - 0.5); }
 function vanafMinChip(s) {
   if (!s || !s.vanafMin) return '';
   // Grijs wanneer er geen seintje bij hoort: de minuut klopt dan wel (en telt mee voor de

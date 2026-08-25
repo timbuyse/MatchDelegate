@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.7
+
+**Speeltijd volgens het plan: een wissel valt in het MIDDEN van de gekozen minuut.**
+Tim merkte op dat een wissel op minuut 8 van een blok van 15 aan de ene speler 8 minuten
+gaf en aan de andere 7, terwijl je alleen weet dat de wissel érgens in die minuut valt.
+Nu krijgen ze allebei 7,5.
+
+Waar het vandaan kwam: vóór v1.9.1 droeg een geplande wissel geen minuut, en rekende de
+app met "de helft van het blok" — precies die 7,5 om 7,5. In v1.9.1 kwam de minuut erbij,
+standaard ingevuld op het midden, en die werd letterlijk als het begin van de minuut
+gelezen (minuut 8 = 7:00). Dezelfde wissel liep daardoor plots door een andere rekenweg.
+
+Het SEINTJE blijft wél op het begin van de minuut staan: dan heb je een volle minuut om
+een spelonderbreking af te wachten. Enkel de speeltijdverdeling gebruikt het midden.
+
+---
 ## v1.9.6
 ### Een positiewissel kan weer op voorhand klaargezet worden
 - **De knop '+ Positiewissel' is terug**, naast '+ Wissel' — zowel onder elk blok in de planning als in het venster *Wissels plannen*. Hij verdween in augustus met de redenering dat je een verschuiving niet vooraf plant maar op het veld tekent. Dat klopt maar half: het veld tekenen legt vast waar iedereen bij de **start** van een blok staat, terwijl een positiewissel zegt wat er **tijdens** dat blok verandert. Precies hetzelfde onderscheid als bij een gewone wissel — en daar bleef de knop wél staan.

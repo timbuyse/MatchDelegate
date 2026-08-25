@@ -2008,9 +2008,10 @@ function planSpeeltijd(m) {
     // eerste, dan zou dat een negatief stuk speeltijd opleveren.
     let loper = 0;
     const momenten = subs.map(s => {
-      // vanafMinStartMin: een minuutNUMMER omzetten naar verstreken tijd (minuut 8 begint op 7:00).
-      // Zie de uitleg bij die functie in core.js. Zonder minuut: de helft van het blok.
-      const ruw = (s.vanafMin > 0) ? vanafMinStartMin(s) : duur / 2;
+      // vanafMinSpeeltijd: het MIDDEN van die minuut (minuut 8 → 7,5), niet het begin. Zie de uitleg
+      // bij die functie in core.js: je weet enkel dat de wissel érgens in minuut 8 valt, en dan is
+      // 7,5 om 7,5 eerlijker dan 7 om 8. Zonder minuut: de helft van het blok, zelfde redenering.
+      const ruw = (s.vanafMin > 0) ? vanafMinSpeeltijd(s) : duur / 2;
       loper = Math.min(duur, Math.max(loper, ruw));
       return loper;
     });
