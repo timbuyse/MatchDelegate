@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.4
+### "Je bent offline" verscheen veel te vaak
+- Sinds v1.9.0 volgt de balk op het startscherm de échte verbinding met de databank in plaats van alleen de netwerkstatus van je toestel. Dat was de bedoeling — maar die verbinding valt ook weg bij een onderbreking van **één seconde**, waarna ze zichzelf meteen herstelt. Gevolg: de balk flitste voorbij bij elke hik, ook als er niets aan de hand was.
+- **Nu wacht de app een aantal seconden** voor ze het meldt. Een korte onderbreking zie je niet meer; een echte wel. Zodra de verbinding terug is, verdwijnt de melding meteen — daar valt niets op te wachten.
+- Zegt je toestel zelf dat er geen netwerk is (vliegtuigmodus, wifi uit), dan staat de melding er wél onmiddellijk: dan valt er niets te bevestigen.
+- Het **bolletje op het wedstrijdscherm** blijft wel meteen reageren. Dat is een klein signaal dat mag flikkeren, en aan de zijlijn wil je juist direct zien of je werk aankomt.
+
+---
+
 ## v1.9.3
 ### Je eigen seizoen exporteren
 - **Onderaan de statistieken staat nu 'Seizoen exporteren'.** Dezelfde Excel- en CSV-bestanden als de clubexport, maar voor jouw ploeg — zodat je de speeltijd van een heel seizoen kan meenemen naar een gesprek zonder dertig losse wedstrijdbestanden samen te voegen. Die export zat tot nu alleen bij Clubbeheer, waar een gewone ploegbeheerder niet komt.

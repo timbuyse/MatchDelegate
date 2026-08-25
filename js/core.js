@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.9.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1610,6 +1610,22 @@ function notesRef(path) {
 }
 
 let fbConnected = null; // null = nog onbekend, true/false = echte verbindingsstatus
+// PAS NA EEN TIJDJE "OFFLINE" ZEGGEN (v1.9.4). `.info/connected` gaat bij Firebase op false bij ELKE
+// onderbreking van de verbinding — ook bij een hik van een seconde, en daarna herstelt hij zichzelf.
+// Voor het bolletje op het wedstrijdscherm is dat prima: dat is een klein signaal dat mag flikkeren.
+// Maar sinds v1.9.0 hangt ook de oranje balk op het startscherm eraan, en die verscheen daardoor bij
+// elke korte hik. Tim meldde terecht dat hij "nogal veel" offline te zien kreeg.
+// De banner volgt daarom een BEVESTIGDE toestand: de verbinding moet een aantal seconden weg blijven.
+// Zegt het toestel zelf dat er geen netwerk is (navigator.onLine), dan is er niets te bevestigen —
+// dat is meteen waar.
+let fbOfflineBevestigd = false;
+let _fbOfflineTimer = null;
+const FB_OFFLINE_DREMPEL_MS = 8000;
+function _zetOfflineBevestigd(v) {
+  if (fbOfflineBevestigd === v) return;
+  fbOfflineBevestigd = v;
+  if (view === 'home') render();
+}
 // Laatste wijziging van een ánder toestel op een lopende wedstrijd: {matchId, when}. Gevuld door
 // applyCloudMatch, uitgelezen door het livescherm (andereBeheerderActief). Bewust niet bewaard —
 // het gaat over "nu, tijdens deze wedstrijd", niet over de geschiedenis.
@@ -1633,17 +1649,19 @@ function cloudInit() {
     // Verbindingsstatus voor het sync-dotje op het live-scherm (SDK is lokaal, dus
     // "SDK geladen" zegt niets meer over echte connectiviteit).
     fbdb.ref('.info/connected').on('value', s => {
-      const vorige = fbConnected;
       fbConnected = !!s.val();
       const d = document.getElementById('sync-dot');
       if (d) {
         d.className = 'sync-dot ' + (fbConnected ? 'on' : 'off');
         d.title = fbConnected ? 'Gesynchroniseerd met de cloud' : 'Offline — wijzigingen syncen zodra er verbinding is';
       }
-      // Sinds v1.9.0 hangt de offline-banner op het startscherm óók aan deze waarde (zie renderHome:
-      // één eerlijke status i.p.v. twee metingen die elkaar kunnen tegenspreken). Zonder deze
-      // hertekening zou de banner pas verschijnen bij de volgende navigatie — precies te laat.
-      if (vorige !== fbConnected && view === 'home') render();
+      // De banner op het startscherm volgt de BEVESTIGDE toestand, niet elke hik — zie
+      // fbOfflineBevestigd hierboven. Terug verbonden: meteen weg, want dan is er goed nieuws te
+      // melden en hoeft niemand daarop te wachten.
+      if (fbConnected) { clearTimeout(_fbOfflineTimer); _fbOfflineTimer = null; _zetOfflineBevestigd(false); }
+      else if (!_fbOfflineTimer) {
+        _fbOfflineTimer = setTimeout(() => { _fbOfflineTimer = null; if (!fbConnected) _zetOfflineBevestigd(true); }, FB_OFFLINE_DREMPEL_MS);
+      }
     });
   } catch (e) { cloudReady = false; }
 }

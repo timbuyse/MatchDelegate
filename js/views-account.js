@@ -3378,10 +3378,13 @@ async function loadHome() {
   // wifi van een kantine die je niet doorlaat, of op 4G die wegvalt, zeggen die twee iets anders:
   // het startscherm bleef stil terwijl het bolletje al op grijs stond. Nu telt élk signaal dat er
   // iets mis is — dat is de kant waarnaar je in twijfel moet afronden.
-  // fbConnected is null zolang het nog onbekend is (vlak na het opstarten); die stand telt bewust
-  // niet als offline, anders flitst de banner bij elke start even voorbij.
+  // MAAR NIET BIJ ELKE HIK (v1.9.4, Tim meldde dat hij "nogal veel" offline te zien kreeg).
+  // `.info/connected` valt ook weg bij een onderbreking van één seconde, waarna Firebase zichzelf
+  // herstelt — en dan stond deze balk er telkens even. Daarom `fbOfflineBevestigd`: die gaat pas aan
+  // als de verbinding een aantal seconden wég blijft (zie FB_OFFLINE_DREMPEL_MS in core.js). Zegt het
+  // toestel zelf dat er geen netwerk is, dan valt er niets te bevestigen en is het meteen waar.
   const isOffline = offlineWithKnownCloudTeam()
-    || (cloudReady && !!activeTeamId && (!navigator.onLine || fbConnected === false));
+    || (cloudReady && !!activeTeamId && (!navigator.onLine || fbOfflineBevestigd));
   const offlineBanner = !isOffline ? '' : (canManage()
     ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je kan gewoon verder werken — wijzigingen worden gesynchroniseerd zodra er terug verbinding is.</div>`
     : `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens tot de verbinding terugkeert.</div>`);
