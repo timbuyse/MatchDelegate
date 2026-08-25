@@ -1548,19 +1548,27 @@ async function startOpstellingWizard() {
 // startopstelling, de volgende delen komen uit plannedLineups (of erven van het vorige deel — zie
 // plannedLineupBase). Het potlood opent voor elk deel dezelfde planner.
 let _prepPlanQ = 1;
+// DE PIJLTJES LOPEN DOOR DE TIJDLIJN, NIET DOOR DE BLOKKEN (Tims voorstel, 26-08-2026). Eén tik naar
+// rechts brengt je naar het volgende MOMENT: van "Start" naar "7,5'", en van daaruit naar "15'" —
+// dat is meteen de start van het volgende kwart. Zo lees je de hele wedstrijd als één reeks, terwijl
+// de kop erboven blijft zeggen in welk blok je zit. Dit vervangt de regel dat een sprong naar een
+// ander blok de chip terugzette: stap voor stap is er geen sprong meer om te herstellen.
 function _prepPlanNav(dir) {
   const total = plannedPartsCount(match);
-  // Bewerken staat aan: bladeren loopt dan via planNaarDeel, want dat schrijft de werkkopie eerst weg
-  // (het volgende blok erft van dit blok, dus dat moet vastliggen vóór het getekend wordt).
-  if (_planInline) { planNaarDeel(Math.min(Math.max(1, _prepPlanQ + dir), total)); return; }
-  // Een NIEUW blok toon je altijd eerst bij de start (Tim, 25-08-2026). De stand bleef anders op
-  // "na de wissels" staan terwijl je naar een blok bladert waarvan je de beginopstelling wil zien —
-  // en bij een blok zonder wissels zijn de twee velden identiek, dus dan lijkt er niets te gebeuren.
-  _prepPlanNa = false; _planNaOpen = 0;
-  _prepPlanQ = Math.min(Math.max(1, _prepPlanQ + dir), total);
-  // Hertekenen i.p.v. dia's tonen en verbergen. Dat kon toen elke dia vaststond, maar de dia's dragen
-  // nu de chipstand in zich: die net teruggezette "bij de start" zou anders pas bij de volgende
-  // tekening zichtbaar worden, en dan wijst de chip iets anders aan dan het veld toont.
+  // Binnen hetzelfde blok van het ene moment naar het andere: geen blokwissel, dus niets weg te
+  // schrijven — ook niet tijdens het bewerken.
+  if (dir > 0 && !_prepPlanNa) { _prepPlanNa = true; render(); return; }
+  if (dir < 0 && _prepPlanNa) { _prepPlanNa = false; _planNaOpen = 0; render(); return; }
+  const doel = Math.min(Math.max(1, _prepPlanQ + dir), total);
+  if (doel === _prepPlanQ) return;   // aan het begin of het einde van de wedstrijd
+  // Vooruit landen we op de START van het volgende blok, achteruit op het LAATSTE moment van het
+  // vorige — dan loopt de reeks in beide richtingen even ver door.
+  const naChip = dir < 0;
+  // Bewerken staat aan: de blokwissel loopt via planNaarDeel, want dat schrijft de werkkopie eerst
+  // weg (het volgende blok erft van dit blok, dus dat moet vastliggen vóór het getekend wordt).
+  if (_planInline) { planNaarDeel(doel, naChip); return; }
+  _prepPlanQ = doel; _prepPlanNa = naChip; _planNaOpen = 0;
+  // Hertekenen i.p.v. dia's tonen en verbergen: de dia's dragen de chipstand in zich.
   render();
 }
 // WAAR KOMT DIT VELD VANDAAN? (audit 23-08-2026 — enkel weergave, niets aan de berekening gewijzigd.)
@@ -1577,6 +1585,14 @@ function prepPlanEigen(m, q) { return (((m && m.plannedLineups) || {})[q] || [])
 // de start, ongeacht deze stand.
 let _prepPlanNa = false;
 function prepPlanToonNa(v) { _prepPlanNa = !!v; render(); }
+// Alles wat de planningskaart onthoudt terug op nul. Aangeroepen door go() zodra je een ándere
+// wedstrijd opent — zie de uitleg daar: de kaart hoort te openen op de startopstelling, en een
+// werkkopie hoort bij de wedstrijd waarin ze gemaakt is.
+function resetPlanKaart() {
+  _prepPlanQ = 1; _prepPlanNa = false; _planNaOpen = 0;
+  _planInline = false; _planLineupQ = 1; _planLineupSel = null;
+  _planLineupDraft = null; _planNaDraft = null;
+}
 // De twee velden van één blok, plus de chips om te wisselen. ÉÉN helper voor de twee
 // planningskaarten (het voorbereidingsscherm en de kaart tijdens de wedstrijd): die toonden altijd
 // hetzelfde en mogen dus niet uit elkaar kunnen lopen.
@@ -1651,12 +1667,15 @@ function prepPlanningHtml(m, ro) {
   }
   return `<div class="card"><div class="lc-wrap" id="pp-wrap">
     <div class="lc-nav">
-      <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${_prepPlanQ === 1 ? 'disabled' : ''}>‹</button>
+      ${/* De pijltjes lopen door de MOMENTEN (zie _prepPlanNav): vorige is pas uit op het allereerste
+           moment van de wedstrijd, volgende pas op het allerlaatste. */ ''}
+      <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${(_prepPlanQ === 1 && !_prepPlanNa) ? 'disabled' : ''}>‹</button>
       ${'' /* speeltijdblok staat onder de kaart — zie het einde van deze functie */}
       <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center" title="● = dit deel heeft een eigen opstelling">${pSing(m)} ${_prepPlanQ} / ${total}${prepPlanEigen(m, _prepPlanQ) ? ' ●' : ''}</span>
-      <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${_prepPlanQ === total ? 'disabled' : ''}>›</button>
+      <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${(_prepPlanQ === total && _prepPlanNa) ? 'disabled' : ''}>›</button>
       ${potlood}
     </div>
+    ${planStipjesHtml(total, _prepPlanQ, _prepPlanNa)}
     ${Array.from({ length: total }, (_, i) => slide(i + 1)).join('')}
   </div></div>
   ${planSpeeltijdHtml(m)}`;
@@ -2403,15 +2422,15 @@ function openPlannedLineups(q) {
 // Naar een ander deel. De werkkopie wordt eerst weggeschreven: de wissels die je eronder plant
 // schrijven meteen weg (dus een openstaande werkkopie zou achterlopen), en het volgende deel erft
 // van dit deel — dat moet dus vastliggen vóór we het tekenen.
-async function planNaarDeel(deel) {
+async function planNaarDeel(deel, naChip) {
   const totaal = plannedPartsCount(match);
   const doel = Math.min(Math.max(1, deel || 1), totaal);
   await _schrijfPlanDraft();
   _planLineupDraft = {}; _planNaDraft = null; _planNaOpen = 0;
-  // ALTIJD OP DE EERSTE CHIP BEGINNEN (Tims melding, 25-08-2026). Ook tijdens het bewerken: bladeren
-  // naar een ander blok liep langs hier en niet langs _prepPlanNav, waardoor de stand daar wél op
-  // "na de wissels" bleef hangen. Je wil een nieuw blok altijd eerst bij de start zien.
-  _prepPlanNa = false;
+  // Op welk moment van het nieuwe blok je landt, bepaalt de aanroeper: vooruit bladeren komt uit bij
+  // de start, achteruit bij het laatste moment (zie _prepPlanNav). Wie rechtstreeks naar een blok
+  // springt — de knoppenrij in het venster — begint bij de start.
+  _prepPlanNa = !!naChip;
   modalPlannedLineups(doel);
 }
 // De melding bij het opslaan. Voordien stond hier een modal ("Opgeslagen tot kwart 3") die enkel de
@@ -2482,6 +2501,20 @@ function planBlokTijdLabels(m, q) {
   const begin = (q - 1) * dur;
   return { start: q === 1 ? 'Start' : fmt(begin), na: fmt(begin + dur / 2) };
 }
+// WAAR ZIT IK IN DE WEDSTRIJD? (Tim, 26-08-2026) Een rij bolletjes, één per moment: twee per blok,
+// dus acht bij vier kwarten. Het gevulde bolletje is waar je staat. Bewust géén knoppen — daarvoor
+// zijn de pijltjes en de chips er al, en op een telefoon is een bolletje te klein om betrouwbaar aan
+// te tikken. Dit is enkel oriëntatie, en het kost geen leesbaarheid zoals acht chips dat wel zouden.
+// `vanaf` is het eerste blok dat nog getoond wordt (tijdens de wedstrijd tellen de gespeelde blokken
+// niet mee).
+function planStipjesHtml(totaal, q, na, vanaf) {
+  const start = vanaf || 1;
+  const n = (totaal - start + 1) * 2;
+  if (n < 3) return '';
+  const hier = (q - start) * 2 + (na ? 1 : 0);
+  const stip = i => `<span style="width:6px;height:6px;border-radius:50%;background:${i === hier ? 'var(--grn)' : 'var(--bdr)'};display:inline-block"></span>`;
+  return `<div style="display:flex;justify-content:center;gap:5px;margin:-2px 0 8px">${Array.from({ length: n }, (_, i) => stip(i)).join('')}</div>`;
+}
 function planChipsHtml(q) {
   const lab = planBlokTijdLabels(match, q || _prepPlanQ);
   // TWEE EVEN BREDE CHIPS, UIT ELKAAR (Tim, 25-08-2026). Een chip groeit normaal mee met zijn tekst,
@@ -2540,10 +2573,7 @@ function plannerNaBodyHtml(m, deel) {
   ];
   // Eén moment per blok, dus één minuut en één seintje. Bestaat er al een geplande wissel voor dit
   // blok, dan nemen we die over; anders het midden van het blok — zelfde telling als modalPlanSub.
-  const bestaand = [...(m.plannedSubs || []), ...(m.plannedPosSwaps || [])].find(s => s.quarterNum === deel);
-  const dur = m.quarterDuration || 0;
-  const minuut = (bestaand && bestaand.vanafMin) ? bestaand.vanafMin : (dur ? Math.floor(dur / 2) + 1 : '');
-  const seinAan = bestaand ? !bestaand.geenSein : true;
+
   return `${planChipsHtml()}
     <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">Teken hoe de ploeg er <b>tijdens ${pSingLow(m)} ${deel}</b> moet komen te staan. <b>De app rekent zelf uit welke wissels daarvoor nodig zijn.</b></p></div>
     ${renderPitch(m, veld, m.captainId, null, { fn: 'planNaTap', selId, plek: true })}
@@ -2556,11 +2586,11 @@ function plannerNaBodyHtml(m, deel) {
       ? `<div style="font-size:14px">${regels.map(r => `<div class="prow" style="padding:5px 0">${r}</div>`).join('')}</div>`
       : `<p style="color:var(--txt2);font-size:13px;padding:2px 0">Nog niets — het veld staat zoals bij de start van ${pSingLow(m)} ${deel}.</p>`}
     ${waarschuw.length ? `<p style="font-size:12px;color:var(--org2);margin:8px 0 0">${icI(IC.warn)} ${waarschuw.join(' · ')}.</p>` : ''}
-    ${regels.length ? `<div class="fg" style="margin-top:12px"><label>Vanaf welke minuut van ${pSingLow(m)} ${deel}?</label>
-      <input id="pn-min" type="number" min="1" ${dur ? `max="${dur}"` : ''} value="${minuut}" inputmode="numeric">
-      <label class="chkrow" style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:400">
-        <input id="pn-sein" type="checkbox" ${seinAan ? 'checked' : ''}> Geef me een seintje op dat moment
-      </label></div>` : ''}
+    ${/* GEEN MINUUTVELD MEER (Tim, 26-08-2026). De chip zegt het moment al — "7,5'" bij een blok van
+         15 minuten — dus een veld dat hetzelfde nog eens vraagt is dubbelop. Erger: het gold voor
+         álle wissels van dat blok samen, terwijl je een afwijkende minuut net per wissel wil kunnen
+         zetten. De afgeleide wissels krijgen automatisch de minuut van de chip (zie _schrijfPlanDraft)
+         met het seintje aan; wil je er één anders, dan pas je díé aan met het potloodje in de lijst. */ ''}
     ${planBewerkKnoppenHtml(true)}`;
 }
 function plannerBodyHtml(m, deel, inline) {
@@ -2710,18 +2740,18 @@ async function _schrijfPlanDraft() {
     const start = plannedLineupPlayers(m, plannedLineupBase(m, deel));
     const na = plannedLineupPlayers(m, naDraft[deel]);
     const { subs, swaps } = leidWisselsAf(m, start, na);
-    // Eén wisselmoment per blok, dus één minuut en één seintje voor alles wat er dan gebeurt (Tim,
-    // 25-08-2026: "één wisselmoment per blok is meer dan voldoende, de rest geef je live in").
-    // Zelfde velden als een met de hand geplande wissel (v1.9.1), dus niets nieuws in de opslag:
-    // enkel wie het seintje UITzet krijgt `geenSein`.
-    const el = document.getElementById('pn-min');
-    const ruw = el ? parseInt(el.value, 10) : NaN;
-    const vanafMin = (Number.isFinite(ruw) && ruw > 0) ? ruw : null;
-    const seinEl = document.getElementById('pn-sein');
-    const geenSein = seinEl ? !seinEl.checked : false;
+    // DE MINUUT KOMT VAN DE CHIP, ER WORDT NIETS GEVRAAGD (Tim, 26-08-2026). Eén wisselmoment per
+    // blok, en dat moment staat al op de chip waarop je tekent: bij een blok van 15 minuten is "7,5'"
+    // precies minuut 8 (die loopt van 7:00 tot 8:00) — hetzelfde getal dat de app altijd al voorstelde
+    // in modalPlanSub. Een veld dat ernaar vraagt is dubbelop, en het zou bovendien voor álle wissels
+    // van dat blok tegelijk gelden terwijl je een afwijking net per wissel wil kunnen zetten. Dat kan
+    // achteraf, met het potloodje bij die ene wissel.
+    // Zelfde velden als een met de hand geplande wissel (v1.9.1), dus niets nieuws in de opslag; het
+    // seintje staat aan, en enkel wie het UITzet krijgt `geenSein`.
+    const dur = m.quarterDuration || 0;
+    const vanafMin = dur ? Math.floor(dur / 2) + 1 : null;
     const extra = o => {
       if (vanafMin) o.vanafMin = vanafMin;
-      if (geenSein) o.geenSein = true;
       return o;
     };
     m.plannedSubs = (m.plannedSubs || []).filter(s => s.quarterNum !== deel)

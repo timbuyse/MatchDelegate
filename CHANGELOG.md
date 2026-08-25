@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.11.1
+
+**Een wedstrijd opent weer op de startopstelling.** De planningskaart onthield waar je de vorige
+keer gebleven was, dus een wedstrijd waar je op kwart 4 gestopt was ging daar opnieuw open —
+terwijl je bij het openen net wil zien waarmee er begonnen wordt. Nu altijd blok 1, eerste chip.
+
+**Geen vraag meer naar de minuut bij het tekenen.** De chip zegt het moment al — bij een blok van
+15 minuten is *7,5'* precies minuut 8 — dus een veld dat er nog eens naar vroeg was dubbelop. Het
+gold bovendien voor alle wissels van dat blok samen, terwijl je een afwijking net per wissel wil
+kunnen zetten. De afgeleide wissels krijgen nu automatisch die minuut, met het seintje aan; wil je
+er één anders, dan pas je die ene aan met het potloodje in de lijst.
+
+**De pijltjes lopen door de tijdlijn, niet door de blokken.** Eén tik naar rechts brengt je naar het
+volgende moment: van *Start* naar *7,5'*, en van daaruit naar *15'* — meteen de start van kwart 2. Zo
+lees je de hele wedstrijd als één reeks, terwijl de kop blijft zeggen in welk blok je zit. Onder die
+kop staat een rij bolletjes, één per moment, met het gevulde bolletje waar je staat. Dezelfde
+bediening in het voorbereidingsscherm en in de planningskaart tijdens de wedstrijd.
+
+Meteen ook een vangnet dat er nog niet was: een openstaande werkkopie van de planner hoort bij de
+wedstrijd waarin je ze maakte. Bleef die staan bij het wisselen van wedstrijd, dan werd ze bij het
+volgende opslaan op de verkeerde wedstrijd toegepast.
+
+---
 ## v1.11.0
 
 **Je tekent het eindresultaat; de app bepaalt de wissels.** Kies je bij een blok de chip

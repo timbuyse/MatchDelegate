@@ -3598,28 +3598,33 @@ function planningTijdensMatchHtml(m) {
   return `<div class="sec">Planning${delen.length > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(nog te spelen)</span>` : ''}</div>
     <div class="card"><div class="lc-wrap" id="pl-wrap">
       ${delen.length > 1 ? `<div class="lc-nav">
-        <button class="lc-btn" id="pl-prev" onclick="_planLiveNav(-1)" ${_planLiveQ === vanaf ? 'disabled' : ''}>‹</button>
+        <button class="lc-btn" id="pl-prev" onclick="_planLiveNav(-1)" ${(_planLiveQ === vanaf && !_prepPlanNa) ? 'disabled' : ''}>‹</button>
         <span class="lc-nav-lbl" id="pl-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ} van ${totaal}</span>
-        <button class="lc-btn" id="pl-next" onclick="_planLiveNav(1)" ${_planLiveQ === totaal ? 'disabled' : ''}>›</button>
+        <button class="lc-btn" id="pl-next" onclick="_planLiveNav(1)" ${(_planLiveQ === totaal && _prepPlanNa) ? 'disabled' : ''}>›</button>
       </div>` : `<div class="lc-nav"><span class="lc-nav-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ}</span></div>`}
+      ${/* Dezelfde bolletjes als in het voorbereidingsscherm, maar enkel voor de blokken die hier
+           getoond worden: wat al gespeeld is, staat in het verslag en telt hier niet mee. */ ''}
+      ${planStipjesHtml(totaal, _planLiveQ, _prepPlanNa, vanaf)}
       ${delen.map(slide).join('')}
     </div></div>
     ${canLive() ? `<button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>` : ''}`;
 }
 let _planLiveQ = 1;
 let _planLiveVanaf = 0;
+// Dezelfde tijdlijn als in het voorbereidingsscherm (zie _prepPlanNav): een tik brengt je naar het
+// volgende MOMENT, niet naar het volgende blok. Deze kaart en die daar toonden altijd hetzelfde, dus
+// ze horen zich ook hetzelfde te bedienen — anders doet dezelfde pijl op twee schermen iets anders.
+// Hertekenen i.p.v. dia's tonen en verbergen: de dia's dragen de chipstand in zich.
 function _planLiveNav(dir) {
   const m = match;
   const totaal = plannedPartsCount(m);
   const vanaf = plannedHuidigDeel(m) + (m.quarterStatus === 'between' ? 0 : 1);
-  const wrap = document.getElementById('pl-wrap');
-  if (!wrap) return;
-  const slides = wrap.querySelectorAll('.lc-slide');
-  _planLiveQ = Math.min(Math.max(vanaf, _planLiveQ + dir), totaal);
-  slides.forEach((s, i) => s.style.display = (vanaf + i === _planLiveQ) ? '' : 'none');
-  document.getElementById('pl-lbl').textContent = `${pSing(m)} ${_planLiveQ} van ${totaal}`;
-  document.getElementById('pl-prev').disabled = _planLiveQ === vanaf;
-  document.getElementById('pl-next').disabled = _planLiveQ === totaal;
+  if (dir > 0 && !_prepPlanNa) { _prepPlanNa = true; render(); return; }
+  if (dir < 0 && _prepPlanNa) { _prepPlanNa = false; render(); return; }
+  const doel = Math.min(Math.max(vanaf, _planLiveQ + dir), totaal);
+  if (doel === _planLiveQ) return;
+  _planLiveQ = doel; _prepPlanNa = dir < 0;
+  render();
 }
 
 // ===================== GEPLANDE OPSTELLING GEBRUIKEN =====================

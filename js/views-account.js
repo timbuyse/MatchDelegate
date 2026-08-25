@@ -2905,7 +2905,17 @@ async function go(v, id, _histReplace) {
   if (!currentUser && !isGuest && cloudReady && !['auth', 'handleiding', 'maintenance'].includes(v)) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   view = v; tab = 'wedstrijd';
-  if (id) match = await dbGet(id);
+  if (id) {
+    // ELKE WEDSTRIJD OPENT OP DE STARTOPSTELLING (Tims melding, 26-08-2026). De planningskaart hield
+    // onthouden waar je de vorige keer gebleven was, dus een wedstrijd waar je op kwart 4 gestopt was
+    // ging daar weer open — terwijl je bij het openen net wil zien waarmee er begonnen wordt.
+    // Meteen ook een vangnet: een openstaande werkkopie van de planner hoort bij de wedstrijd waarin
+    // je ze maakte. Bleef ze staan bij het wisselen van wedstrijd, dan werd ze bij de volgende
+    // Opslaan op de VERKEERDE wedstrijd toegepast.
+    const andereWedstrijd = !match || match.id !== id;
+    match = await dbGet(id);
+    if (andereWedstrijd && typeof resetPlanKaart === 'function') resetPlanKaart();
+  }
   if (v === 'live') {
     startTimer();
     // Wake lock hierboven altijd losgelaten bij navigatie — bij terugkeer naar 'live' met een
