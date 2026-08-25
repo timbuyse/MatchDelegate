@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.7.2
+### De handleiding klopt weer
+- **Bijgewerkt met alles wat er sinds v1.4.0 bijkwam:** gespeeld zonder uitslag, de vraag "komt hij nog terug?" bij een ernstige blessure, *Toch nog niet gestart*, het PAUZE-opschrift op een stilstaande klok, het potlood om een gebeurtenis aan te passen, de richtminuut bij een geplande wissel, *Speeltijd volgens dit plan*, en de snelknoppen *Allemaal mee* en *Vorige selectie*.
+- **Twee zinnen die niet meer klopten, rechtgezet:** de kijkmodus stond er nog in (die knop bestaat sinds v1.6.1 niet meer), en de waarschuwing dat twee beheerders elkaars werk konden overschrijven — sinds v1.7.0 blijven gelijktijdige doelpunten en wissels allebei bewaard.
+- **Een schermafbeelding kan nu bij zijn eigen uitleg staan.** Op pagina's met twee beelden stonden ze allebei bovenaan, dus las je eerst twee beelden en pas daarna waar ze over gingen. Het tweede beeld staat nu telkens bij het onderdeel waar het over gaat — op het scherm en in de handleiding-PDF.
+- Nog niet gedaan: de schermafbeeldingen zelf dateren van vóór de wijzigingen van gisteren.
+
+---
+
 ## v1.7.1
 ### Kleur zegt wat een knop doet
 - **"Afsluiten als gespeeld zonder uitslag" stond in het groen** en leek daardoor een gewone handeling zoals *Wedstrijd starten* of *Opstelling & wissels aanpassen*. Hij is nu grijs, net als *Wedstrijd annuleren*, met een neutraal streepje erboven naar het model van de rode lijn boven *Wedstrijd verwijderen*. Op het wedstrijdscherm lees je nu in één oogopslag: groen is de wedstrijd doen, grijs is ze afsluiten, rood is ze weggooien.

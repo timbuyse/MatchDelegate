@@ -594,6 +594,11 @@
        afbeelding haar eigen breedte (430 px) — twee daarvan passen niet in de kolom, waardoor ze
        altijd onder elkaar sprongen i.p.v. naast elkaar. */
     .hdl-shots .hdl-img{flex:1 1 240px;min-width:0}
+    /* Een beeld dat MIDDEN in de uitleg staat (zie {{img2}} in renderHandleiding): het hoort bij de
+       tekst eromheen, dus het krijgt lucht boven en onder en blijft op zijn eigen breedte staan
+       i.p.v. uit te rekken zoals wanneer er twee naast elkaar staan. */
+    .hdl-shots-inline{margin:12px 0 16px}
+    .hdl-shots-inline .hdl-img{flex:0 1 300px}
     .hdl-list{padding-left:20px;margin:8px 0;line-height:1.8;font-size:14px;color:var(--txt)}
     .hdl-list li{margin-bottom:4px}
     .hdl-rol{display:flex;flex-direction:column;background:var(--card);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px}

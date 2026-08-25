@@ -888,6 +888,7 @@ const HANDLEIDING_PAGINAS = [
       </ol>
       <p class="hdl-tip">Wachtwoord vergeten? Tik op <b>'Wachtwoord vergeten?'</b> en volg de instructies per e-mail.</p>
       <div class="sec">Waar je terechtkomt</div>
+      {{img2}}
       <p>Volg je meer dan één ploeg, dan land je op <b>'Jouw ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
       <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Jouw ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account.</p>
     `
@@ -1033,6 +1034,9 @@ const HANDLEIDING_PAGINAS = [
           kiezen; koos je <b>'speelt elders'</b>, dan telt die wedstrijd niet als gemist — de speler
           voetbalde immers, alleen bij een andere ploeg.</li>
       </ul>
+      <p>Gaat er meestal toch iedereen mee? Bovenaan staan twee snelknoppen: <b>'Allemaal mee'</b> zet
+        je hele kern in de selectie, en <b>'Vorige selectie'</b> neemt over wie er de vorige keer bij
+        was. Daarna duid je enkel nog de afwezigen aan met <b>NB</b>.</p>
       <p>Niet in de lijst? Voeg toe via <b>'+ Losse speler'</b> of <b>'+ Speler van andere ploeg'</b>.</p>
       <p>Onderaan kies je zelf hoe ver je gaat: <b>'Opslaan zonder opstelling'</b> bewaart enkel wie
         er meespeelt — handig als je de ploeg al kent maar nog niet wie waar begint. De wedstrijd
@@ -1041,6 +1045,7 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Zolang er geen opstelling is, blijft het blok <b>Planning</b> weg en kan je
         de wedstrijd niet starten — er is dan immers nog niemand op het veld gezet.</p>
       <div class="sec">Stap 3 — Opstelling</div>
+      {{img2}}
       <p>Kies bovenaan een <b>formatie</b>. Het veld begint leeg: tik een speler aan uit de lijst
         eronder, dan een vrije positie op het veld.</p>
       <p>De formatie is een <b>voorstel, geen keurslijf</b>: de plekken die erbij horen worden groter
@@ -1065,6 +1070,10 @@ const HANDLEIDING_PAGINAS = [
         wedstrijdscherm.</p>
       <p>De wedstrijd is in beide gevallen al ingepland; <b>starten</b> doe je later in het
         wedstrijdscherm.</p>
+      <p>Onder de planning staat <b>'Speeltijd volgens dit plan'</b>: per speler in hoeveel delen hij
+        aan de start staat en wat dat in minuten is, met de minst spelende speler opgelicht. Zo zie je
+        vóór de aftrap of de verdeling klopt. Het staat ook in het <b>wedstrijdplan (PDF)</b>, dat je
+        bovenaan naast de kop <b>Planning</b> vindt.</p>
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
         blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
         onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
@@ -1098,6 +1107,10 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Kies je bij een wissel <b>'geen voorkeur — altijd beschikbaar'</b>, dan hoort
         hij bij geen enkel kwart. Zulke wissels staan apart onder <b>'Wissels zonder vast kwart'</b>,
         een knop die enkel verschijnt als je er hebt.</p>
+      <p class="hdl-tip">Zegt de trainer "wissel hem na acht minuten"? Vul dan bij die wissel een
+        <b>richtminuut</b> in. Zodra die voorbij is, geeft de app een seintje en springt de knop
+        <b>'Geplande wissels'</b> eruit. De wissel gaat nooit vanzelf af — jij kiest het moment
+        waarop het spel het toelaat.</p>
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>
@@ -1110,6 +1123,16 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Annuleren is omkeerbaar: je selectie en je hele plan blijven bewaard, en met
         <b>'Annulering ongedaan maken'</b> staat de wedstrijd weer op gepland zoals ze was. Gaat ze
         echt nooit door, dan is <b>'Wedstrijd verwijderen'</b> nog altijd de definitieve weg.</p>
+      <div class="sec">Wel gespeeld, maar niets bijgehouden</div>
+      <p>Bij een vriendschappelijke noteert soms niemand de score. Zo'n wedstrijd blijft anders voor
+        altijd als <b>'niet afgesloten'</b> op je startscherm staan. Onderaan het wedstrijdscherm
+        staat daarom <b>'Afsluiten als gespeeld zonder uitslag'</b> — ook als je nooit een selectie
+        ingaf.</p>
+      <p>De wedstrijd staat dan als <b>gespeeld</b> met <b>– . –</b> in plaats van een score. Ze telt
+        mee in je <b>aantal wedstrijden</b>, maar niet bij winst, gelijk, verlies, doelpunten of nul
+        gehouden. Zo vertekent ze je cijfers niet.</p>
+      <p class="hdl-tip">Bedenk je je later? Op het verslag van zo'n wedstrijd staat <b>'Alsnog een
+        uitslag ingeven'</b>. En omgekeerd kan ook: een ingegeven uitslag terug op – . – zetten.</p>
     `
   },
   {
@@ -1151,10 +1174,27 @@ const HANDLEIDING_PAGINAS = [
           wordt meteen doorgevoerd. Het kan ook via de knoppen <b>'Wissel'</b> en <b>'Meer'</b> →
           <b>'Positiewissel'</b>; daar tik je op het veld de <b>plek</b> aan waar de speler naartoe
           gaat, ook als die leeg is.</li>
+        <li>Gaat een speler er <b>ernstig geblesseerd</b> af, dan vraagt de app of hij nog terugkomt.
+          Antwoord je <b>nee</b>, dan wordt hij nergens meer opgesteld of ingewisseld — ook niet
+          wanneer hij in het plan van de trainer staat voor een volgend deel. Bij kramp of een lichte
+          blessure wordt er niets gevraagd; staat zo iemand later toch weer in de opstelling, dan
+          meldt de pauze dat.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
-      <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>.</p>
-      <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Laat best 1 persoon tegelijk events registreren voor een wedstrijd — gelijktijdig invoeren op verschillende toestellen kan elkaars wijzigingen overschrijven.</p>
+      {{img2}}
+      <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>, of tik
+        op het <b>potlood</b> naast een gebeurtenis om de speler of de minuut aan te passen.</p>
+      <p class="hdl-tip">Te vroeg op <b>'Start'</b> getikt? De eerste twee minuten van een deel staat
+        er <b>'Toch nog niet gestart'</b> onder de klok. Je komt terug in de pauze, met de opstelling
+        die je klaarzette nog klaar. Te vroeg <b>afgefloten</b>? Dan staat er <b>'Te vroeg gestopt —
+        verder in deel X'</b>.</p>
+      <p class="hdl-tip">Staat de klok stil, dan kleurt ze op en staat er <b>PAUZE</b> onder — zo zie
+        je in één blik dat er geen tijd loopt.</p>
+      <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Dat kan: registreren twee mensen op
+        hetzelfde moment elk een doelpunt of een wissel, dan blijven ze allebei bewaard, en een
+        toestel dat even zonder verbinding zat verliest niets. Wat één persoon best doet, is
+        dezelfde gebeurtenis <b>aanpassen of wissen</b> — daar wint nog altijd wie het laatst
+        opslaat.</p>
       <div class="sec">Twee wedstrijden op hetzelfde uur</div>
       <p>Bij de jongste reeksen speelt dezelfde ploeg vaak twee wedstrijden tegelijk, met twee groepjes
         op twee terreinen. Dat kan gewoon: elke wedstrijd wordt apart bijgehouden, ook wanneer beide
@@ -1184,6 +1224,7 @@ const HANDLEIDING_PAGINAS = [
       </ul>
       <p class="hdl-tip"><b>'Posities herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
       <div class="sec">Wat staat er in het verslag?</div>
+      {{img2}}
       <ul class="hdl-list">
         <li><b>Selectie</b> in vier groepen: wie in de selectie zat, wie <b>niet beschikbaar</b> was (met de reden erbij), wie <b>geselecteerd was maar niet aanwezig</b>, en wie <b>niet geselecteerd</b> was. Kwam iemand pas tijdens de wedstrijd bij de selectie, dan staat <b>bijgekomen</b> achter zijn naam; vertrok hij naar een ander veld, dan staat er <b>speelt elders</b>.</li>
         <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de start. Onder elk veld staat de bank van dat deel; bij een speler die gewisseld werd staat zijn vervanger met een wisselicoon, en gele of rode kaarten staan als kaartje achter zijn naam.</li>
@@ -1251,12 +1292,13 @@ const HANDLEIDING_PAGINAS = [
       <p>Eén ploeg heeft <b>twee schermen</b>, en de knop waarmee je erin gaat bepaalt welk:</p>
       <ul class="hdl-list">
         <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
-        <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, de <b>ploegnaam</b> wijzigen, de <b>kijkmodus</b> (bekijk de ploeg zoals een ouder ze ziet) en de <b>Prullenmand</b>.</li>
+        <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, de <b>ploegnaam</b> wijzigen en de <b>Prullenmand</b>.</li>
       </ul>
+      {{img2}}
       <p>Onderaan elk van de twee staat de knop naar het andere, dus je hoeft niet eerst terug naar het startscherm.</p>
       <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
       <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
-      <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden.</p>
+      <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden. Het blok staat dichtgeklapt met het aantal erin; tik het open om te zien wat je ermee kan doen.</p>
       <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
     `
   },
@@ -1314,8 +1356,18 @@ function renderHandleiding(p) {
     `<button class="hdl-tab${i === p ? ' active' : ''}" onclick="hdlGo(${i})">${pg.titel}</button>`
   ).join('');
   const shot = src => `<img src="${src}" class="hdl-img" onerror="this.style.display='none'">`;
-  const imgList = (pagina.img ? shot(pagina.img) : '') + (pagina.img2 ? shot(pagina.img2) : '');
-  const imgs = imgList ? `<div class="hdl-shots">${imgList}</div>` : '';
+  // EEN BEELD BIJ ZIJN EIGEN UITLEG (Tim, 25-08-2026). Alle beelden stonden in één rij bovenaan, ook
+  // op pagina's met twee — dus las je eerst twee schermafbeeldingen en pas daarna waar ze over gaan.
+  // Zet je ergens in de tekst `{{img2}}` (of `{{img}}`), dan verhuist dat beeld naar precies die
+  // plek en valt het bovenaan weg. Zonder zo'n aanduiding verandert er niets.
+  const inhoudRuw = pagina.inhoud || '';
+  const inline = sleutel => inhoudRuw.indexOf('{{' + sleutel + '}}') >= 0;
+  const bovenaan = (pagina.img && !inline('img') ? shot(pagina.img) : '')
+    + (pagina.img2 && !inline('img2') ? shot(pagina.img2) : '');
+  const imgs = bovenaan ? `<div class="hdl-shots">${bovenaan}</div>` : '';
+  const inhoud = inhoudRuw
+    .replace('{{img}}', pagina.img ? `<div class="hdl-shots hdl-shots-inline">${shot(pagina.img)}</div>` : '')
+    .replace('{{img2}}', pagina.img2 ? `<div class="hdl-shots hdl-shots-inline">${shot(pagina.img2)}</div>` : '');
   const pdfKnop = p === 0 ? `<button class="btn btn-pale" style="margin-bottom:16px;width:100%" onclick="exportHandleidingPDF()">${icI(IC.clipboard)} Download handleiding als PDF</button>` : '';
   return `
     <div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.clipboard)} Handleiding</h1></div>
@@ -1325,7 +1377,7 @@ function renderHandleiding(p) {
         ${pdfKnop}
         <h2 class="hdl-titel">${pagina.titel}</h2>
         ${imgs}
-        ${pagina.inhoud}
+        ${inhoud}
         <div class="hdl-nav">
           ${p > 0 ? `<button class="btn btn-pale" onclick="hdlGo(${p-1})">‹ Vorige</button>` : '<span></span>'}
           <span style="font-size:13px;color:var(--txt2)">${p+1} / ${totaal}</span>
@@ -1392,12 +1444,19 @@ async function exportHandleidingPDF() {
   }
 
   const secties = HANDLEIDING_PAGINAS.map((pg, i) => {
-    const imgs = (pg.img ? imgTag(pg.img) : '') + (pg.img2 ? imgTag(pg.img2) : '');
+    // Zelfde regel als op het scherm: een beeld dat in de tekst aangeduid staat met {{img2}} komt
+    // daar te staan en niet bovenaan (zie renderHandleiding).
+    const ruw = pg.inhoud || '';
+    const inline = s => ruw.indexOf('{{' + s + '}}') >= 0;
+    const imgs = (pg.img && !inline('img') ? imgTag(pg.img) : '') + (pg.img2 && !inline('img2') ? imgTag(pg.img2) : '');
+    const inhoud = ruw
+      .replace('{{img}}', pg.img ? `<div class="shots">${imgTag(pg.img)}</div>` : '')
+      .replace('{{img2}}', pg.img2 ? `<div class="shots">${imgTag(pg.img2)}</div>` : '');
     return `
       <div class="sectie${i < HANDLEIDING_PAGINAS.length - 1 ? ' page-break' : ''}">
         <h2>${i + 1}. ${pg.titel}</h2>
         ${imgs ? `<div class="shots">${imgs}</div>` : ''}
-        ${pg.inhoud}
+        ${inhoud}
       </div>`;
   }).join('');
 
