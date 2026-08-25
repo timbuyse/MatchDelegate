@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.5
+### Opslaan zonder selectie kan nu ook vanaf de selectiestap
+- **Twee knoppen leken te veel op elkaar.** Op de wedstrijdgegevens stond *"Plannen zonder selectie"*, op de selectiestap *"Opslaan zonder opstelling"* — twee schermen na elkaar, twee verschillende werkwoorden, en één woord verschil in wat je overslaat. Nu spiegelt elke knop de stap erboven: **Volgende → Selectie** / **Opslaan zonder selectie**, en **Volgende → Opstelling** / **Opslaan zonder opstelling**. Hetzelfde patroon, en het woord achter "zonder" zegt precies welk onderdeel je overslaat.
+- **Met niemand aangeduid werkt opslaan nu gewoon.** Twijfel je bij het samenstellen, of haal je bij een bestaande wedstrijd iedereen uit de selectie, dan kreeg je *"duid minstens één speler aan"* — een melding zonder uitweg. Je moest terug met het pijltje naar de vorige stap om daar op *zonder selectie* te tikken, en dat vindt niemand. Nu vraagt de app: *"Je hebt geen spelers aangeduid. Wil je de wedstrijd opslaan zonder selectie en die later invullen?"*
+- Had die wedstrijd al een opstelling per blok of klaargezette wissels, dan staat erbij dat die mee verdwijnen — die horen bij spelers die er straks niet meer zijn.
+- Bij een **lopende** wedstrijd kan het niet: daar hangen speelminuten en gebeurtenissen aan de spelers. Wie iemand kwijt wil, gebruikt *Niet aanwezig* — dat bewaart wat er al gebeurd is.
+- *Volgende → Opstelling* blijft wél weigeren met nul spelers: een opstelling zonder spelers heeft geen zin.
+
+### Het vinkje bij een geplande wissel was onzichtbaar
+- **"Geef me een seintje" leek niet te werken.** Het vinkje stond in hetzelfde kader als het minuutveld, en de opmaak van zo'n kader is gemaakt voor tekstvelden: een rand, wat ruimte eromheen, en de eigen tekening van de browser uitgezet. Een aanvinkvakje wordt daardoor een leeg vierkant van 36 bij 36 **zonder vinkje erin**. Je kon er wél op tikken, maar je zag nooit of het aan of uit stond.
+- Nu is het weer een gewoon vinkje. Dat geldt meteen voor élk aanvinkvakje in de app, ook de vinkjes bij een blessure en bij de rugnummers — dezelfde valkuil was daar eerder al eens apart opgelost, nu is ze in één keer voor alles weg.
+
+---
+
 ## v1.9.4
 ### "Je bent offline" verscheen veel te vaak
 - Sinds v1.9.0 volgt de balk op het startscherm de échte verbinding met de databank in plaats van alleen de netwerkstatus van je toestel. Dat was de bedoeling — maar die verbinding valt ook weg bij een onderbreking van **één seconde**, waarna ze zichzelf meteen herstelt. Gevolg: de balk flitste voorbij bij elke hik, ook als er niets aan de hand was.

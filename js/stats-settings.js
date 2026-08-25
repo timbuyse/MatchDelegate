@@ -1001,7 +1001,10 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Duur van een blok</b>: speelduur in minuten.</li>
         <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, trainer(s), ploegverantwoordelijke(n), enz. Bij de trainers en de ploegverantwoordelijken vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
       </ul>
-      <p class="hdl-tip">Wil je plannen zonder opstelling? Tik op <b>'Plannen zonder selectie'</b>.</p>
+      <p class="hdl-tip">Wil je de wedstrijd alvast inplannen en de selectie later invullen? Tik op
+        <b>'Opslaan zonder selectie'</b>. Elke stap van de wizard heeft zo'n knop: bovenaan gaat het
+        naar de volgende stap, eronder sla je op en vul je dát onderdeel later in. Op de selectiestap
+        heet die knop dus <b>'Opslaan zonder opstelling'</b>.</p>
     `
   },
   {
@@ -1066,6 +1069,12 @@ const HANDLEIDING_PAGINAS = [
         er meespeelt — handig als je de ploeg al kent maar nog niet wie waar begint. De wedstrijd
         staat dan ingepland en toont een knop <b>'Opstelling aanmaken'</b> voor later. Wil je meteen
         verder, tik dan op <b>'Volgende → Opstelling'</b>.</p>
+      <p class="hdl-tip">Twijfel je nog over de selectie, of wil je ze helemaal opnieuw doen? Duid
+        niemand aan (of haal iedereen weg) en tik op <b>'Opslaan zonder opstelling'</b>. De app vraagt
+        dan of je de wedstrijd wil bewaren <b>zonder selectie</b> om die later in te vullen. Stond er
+        al een opstelling per blok of klaargezette wissels, dan zegt ze erbij dat die mee verdwijnen —
+        die horen immers bij spelers die er dan niet meer zijn. Bij een <b>lopende</b> wedstrijd kan
+        dit niet: gebruik daar <b>'Niet aanwezig'</b>, zo blijven de gespeelde minuten bewaard.</p>
       <p class="hdl-tip">Zolang er geen opstelling is, blijft het blok <b>Planning</b> weg en kan je
         de wedstrijd niet starten — er is dan immers nog niemand op het veld gezet.</p>
       <div class="sec">Stap 3 — Opstelling</div>

@@ -221,11 +221,17 @@ function wizStep1() {
     ${/* Bij "Bewerken" op een bestaande wedstrijd is dit scherm precies één ding: de wedstrijdinfo.
          De hele wizard opnieuw doorlopen hoeft dan niet — de selectie zit achter de knop
          'Selectie' en de opstelling achter het potlood in de planning. Enkel een NIEUWE wedstrijd
-         loopt hier door naar de volgende stap. */ ''}
+         loopt hier door naar de volgende stap.
+         "Opslaan zonder selectie" en niet "Plannen zonder selectie" (Tims keuze, 25-08-2026): twee
+         stappen na elkaar hebben allebei zo'n knop, en met twee verschillende werkwoorden waren ze
+         door elkaar te halen — Tim liep er zelf in. Nu spiegelt elke knop de stap erboven:
+         "Volgende → Selectie" / "Opslaan zonder selectie" hier, "Volgende → Opstelling" /
+         "Opslaan zonder opstelling" op stap 2. Het woord achter "zonder" zegt dan precies welk
+         onderdeel je overslaat. */ ''}
     ${wiz.editId
       ? `<button class="btn btn-green" onclick="finishStep1Only()">${icI(IC.check)} Opslaan</button>`
       : `<button class="btn btn-green" onclick="wizNext()">Volgende → Selectie</button>
-    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Plannen zonder selectie</button>`}`;
+    <button class="btn btn-orgpale" onclick="finishStep1Only()" style="margin-top:8px">${icI(IC.calendar)} Opslaan zonder selectie</button>`}`;
 }
 function captureStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
@@ -503,6 +509,13 @@ function wizStep2() {
          wie je nu toevoegt gewoon op de bank — plaatsen doe je bij de opstelling. */ ''}
     ${(() => {
       const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
+      // De knop houdt ALTIJD dezelfde naam, ook met niemand aangeduid (Tims keuze, 25-08-2026).
+      // "Opslaan zonder opstelling" spiegelt de knop erboven ("Volgende → Opstelling"), net zoals
+      // stap 1 "Opslaan zonder selectie" tegenover "Volgende → Selectie" zet. Twee stappen, hetzelfde
+      // patroon: doorgaan, of nu al opslaan en dit onderdeel later invullen.
+      // Vinkte je iedereen af, dan weigerde deze knop met "duid minstens één speler aan" — een
+      // melding zonder uitweg, terwijl een wedstrijd zonder selectie een gewone toestand is (dat is
+      // precies wat stap 1 aanbiedt). Nu vraagt saveSelectionOnly of je ze later wil invullen.
       const opslaan = `<button class="btn btn-pale" style="margin-top:8px" onclick="saveSelectionOnly()">${icI(IC.check)} ${alOpstelling ? 'Selectie opslaan' : 'Opslaan zonder opstelling'}</button>`;
       const verder = `<button class="btn btn-green" onclick="wizNext()">${icI(IC.shirt)} ${wiz.editId ? 'Opstelling ingeven →' : 'Volgende → Opstelling'}</button>`;
       return wiz.editId
@@ -518,7 +531,8 @@ function wizStep2() {
 // een plek gaf; die toestand kan sinds v0.33.0 niet meer bestaan (op het veld staan ÍS een plaats
 // hebben), dus die functie is weg.
 function saveSelectionOnly() {
-  if (selectedCount() === 0) { showToast('Duid minstens één speler aan die meegaat.', 'err'); return; }
+  // Niemand aangeduid: geen fout maar "ik vul de selectie later in" — zie bevestigZonderSelectie.
+  if (selectedCount() === 0) { bevestigZonderSelectie(); return; }
   const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
   if (!alOpstelling) { finishWizard(false, true); return; }
   // Blijft het veld half leeg — omdat je iemand uit de selectie haalde die op het veld stond, of
@@ -534,6 +548,55 @@ function saveSelectionOnly() {
     return;
   }
   finishWizard(false);
+}
+// OPSLAAN MET NIEMAND AANGEDUID (Tims keuze, 25-08-2026). Twee situaties waarin dit gebeurt, en het
+// is allebei hetzelfde: "ik weet het nog niet, ik vul de selectie later in."
+//   1. Je twijfelt bij het samenstellen en wil de wedstrijd toch al inplannen. Tot nu moest je
+//      daarvoor met het pijltje terug naar stap 1 en daar op "zonder selectie" tikken — dat vindt
+//      niemand.
+//   2. Je bewerkt een bestaande selectie, haalt iedereen eruit, en wil opslaan. Dat weigerde met
+//      "duid minstens één speler aan".
+// Daarom eerst de vraag, met Tims woorden, en dan gebeurt precies wat stap 1 ook doet.
+function bevestigZonderSelectie() {
+  // Een LOPENDE wedstrijd kan niet zonder selectie: daar hangen speelminuten en gebeurtenissen aan
+  // de spelers. Wie iemand kwijt wil, gebruikt "Niet aanwezig" — dat bewaart wat er al gebeurd is.
+  if (wiz.editStatus === 'live') {
+    showToast('Deze wedstrijd loopt al — de selectie kan niet leeg. Haal er spelers uit via "Niet aanwezig".', 'err');
+    return;
+  }
+  const m = wiz.editId && match && match.id === wiz.editId ? match : null;
+  // Wat er méé verdwijnt, hoort in de vraag te staan: een opstelling per blok en klaargezette
+  // wissels horen bij spelers die er straks niet meer zijn, dus die gaan mee. Niet terug te draaien.
+  const nWissels = m ? plannedCount(m) : 0;
+  const stukken = m ? [
+    plannedLineupCount(m) ? { tekst: `de opstelling per ${pSingLow(m)}`, meervoud: false } : null,
+    nWissels ? { tekst: `${nWissels} klaargezette wissel${nWissels === 1 ? '' : 's'}`, meervoud: nWissels > 1 } : null,
+  ].filter(Boolean) : [];
+  const extra = stukken.map(s => s.tekst);
+  // "verdwijnt" of "verdwijnen": meervoud zodra er twee stukken zijn, of als het ene stuk zelf
+  // meervoud is ("3 klaargezette wissels").
+  const werkwoord = (stukken.length > 1 || (stukken[0] && stukken[0].meervoud)) ? 'verdwijnen' : 'verdwijnt';
+  openModal(`<h3>${icI(IC.players)} Geen selectie ingegeven</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:${extra.length ? '10' : '16'}px">Je hebt geen spelers aangeduid. Wil je de wedstrijd opslaan <b>zonder selectie</b> en die later invullen?</p>
+    ${extra.length ? `<p style="text-align:center;color:var(--org2);font-size:13px;margin-bottom:16px">${icI(IC.warn)} Dan ${werkwoord} ook ${extra.join(' en ')}.</p>` : ''}
+    <button class="btn btn-green" onclick="doZonderSelectie()">${icI(IC.check)} Ja, selectie later invullen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Terug naar de selectie</button>`);
+}
+async function doZonderSelectie() {
+  closeModal();
+  // Bestaande wedstrijd: de selectie én alles wat eraan hangt weg. clearSelectie() doet dat al —
+  // hergebruiken in plaats van hier na te bouwen, want een tweede versie gaat stil uit de pas lopen.
+  if (wiz.editId && match && match.id === wiz.editId) {
+    const extra = [plannedLineupCount(match) ? `de opstelling per ${pSingLow(match)}` : '',
+      plannedCount(match) ? 'de klaargezette wissels' : ''].filter(Boolean);
+    await clearSelectie(true);   // wij melden zelf
+    showToast(extra.length ? `Opgeslagen zonder selectie — ook ${extra.join(' en ')} zijn weg.` : 'Opgeslagen zonder selectie.', 'ok');
+    return;
+  }
+  // Nieuwe wedstrijd: exact wat stap 1 doet. `true` = de stap-1-velden niet uit het scherm lezen,
+  // want die staan er hier niet meer — de waarden zitten al in `wiz` sinds captureStep1() bij het
+  // doorklikken. Zonder dat maakte finishStep1Only er "vul de tegenstander in" van.
+  finishStep1Only(true);
 }
 // ----- Gastspelers -----
 // Deze picker dient twee wizards: de wedstrijdwizard (wiz — een gast belandt op de bank) en de
@@ -1751,7 +1814,9 @@ function confirmClearSelectie() {
     <button class="btn btn-red" onclick="clearSelectie()">${icI(IC.trash)} Ja, selectie wissen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
-async function clearSelectie() {
+// `eigenMelding`: de aanroeper toont zelf een melding. Gebruikt door selectieLeegmaken, dat er ook
+// bij zegt wat er méé verdween — anders stonden er twee meldingen achter elkaar.
+async function clearSelectie(eigenMelding) {
   const m = match; if (!m || !canManage() || (m.status || 'planned') !== 'planned') return;
   m.players = [];
   m.absentPlayers = [];
@@ -1764,7 +1829,7 @@ async function clearSelectie() {
   _planLineupDraft = null; _planLineupSel = null; _planLineupQ = 1; _prepPlanQ = 1;
   await dbSave(m);
   closeModal(); render();
-  showToast('Selectie gewist.');
+  if (!eigenMelding) showToast('Selectie gewist.');
 }
 // ----- Een wedstrijd die niet doorgaat -----
 // Annuleren i.p.v. verwijderen: de wedstrijd blijft in de agenda en het overzicht staan, maar als
@@ -1808,8 +1873,15 @@ async function doUncancelMatch() {
   closeModal(); render();
   showToast('Wedstrijd staat weer op gepland.');
 }
-async function finishStep1Only() {
-  if (wiz.trnMode) {
+// `alGelezen`: de stap-1-velden staan niet (meer) op het scherm, dus niet uit de DOM lezen. Gebruikt
+// door doZonderSelectie, dat deze functie vanaf STAP 2 aanroept — daar bestaan `n-opp` en de rest
+// niet, en captureStep1() maakte `wiz.opponent` dan leeg met "vul de tegenstander in" tot gevolg.
+// De waarden zitten op dat moment al in `wiz`, gezet door captureStep1() bij het doorklikken.
+async function finishStep1Only(alGelezen) {
+  if (alGelezen) {
+    if (!wiz.teamId) { showToast('Kies of maak eerst een ploeg aan.', 'err'); return; }
+    if (!wiz.opponent) { showToast('Vul de tegenstander in.', 'err'); return; }
+  } else if (wiz.trnMode) {
     wiz.opponent = (document.getElementById('n-opp')?.value || '').trim();
     wiz.date = document.getElementById('n-date')?.value || wiz.date;
     wiz.time = document.getElementById('n-time')?.value || wiz.time;

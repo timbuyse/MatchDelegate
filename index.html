@@ -77,6 +77,13 @@
     body.dark .pwd-eye{color:#e8eaed}
     .chkrow{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;font-weight:600;color:var(--txt2);text-transform:none;letter-spacing:0}
     .chkrow input{width:auto;transform:scale(1.3)}
+    /* Een aanvinkvakje BINNEN een .fg (v1.9.5). `.fg input` zet -webkit-appearance:none plus een
+       rand en padding — bedoeld voor tekstvelden — en een checkbox wordt daardoor een leeg vierkant
+       van 36x36 zonder vinkje: je kan hem wél aanklikken, maar je ziet nooit of hij aan of uit staat.
+       Dat gebeurde met "Geef me een seintje" bij een geplande wissel (v1.9.1), en dezelfde valkuil
+       was eerder al opgelost voor .trn-pick hieronder. Nu generiek voor elke .chkrow, zodat het niet
+       een derde keer misloopt. [type=checkbox] maakt dit specifieker dan `.fg input`. */
+    .chkrow input[type=checkbox]{-webkit-appearance:auto;appearance:auto;padding:0;border:0;accent-color:var(--grn)}
     /* Aanvinklijst van trainers binnen een .fg: die zet -webkit-appearance op none, waardoor een
        vinkvakje onzichtbaar zou worden. */
     .trn-pick{margin-bottom:2px}
