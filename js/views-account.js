@@ -494,6 +494,25 @@ async function doAppointTeamAdmin(tid) {
     if (!emailBevestigd(idx[uid])) { if (err) err.innerHTML = NIET_BEVESTIGD_MSG; return; }
     await fbdb.ref('teams/' + tid + '/members/' + uid).set('admin');
     await fbdb.ref('users/' + uid + '/teams/' + tid).set('admin');
+    // DE LEDENLIJST METEEN LATEN KLOPPEN (Tims vraag, 25-08-2026). Tot hier zette een aanstelling
+    // enkel de rol. De ledeninformatie per ploeg — waar de ledenlijst naam, e-mail én "bevestigd"
+    // uit leest — schrijft de persoon zélf, en pas wanneer hij díé ploeg opent. Tot dan viel de
+    // lijst terug op zijn accountgegevens: die leveren wel een naam en een adres, maar geen
+    // bevestigingsvinkje. Gevolg: "e-mailadres niet bevestigd" bij iemand die je net aanstelde —
+    // terwijl dat onmogelijk is, want de controle hierboven laat een onbevestigd adres niet door.
+    // "Weet ik nog niet" werd dus als "niet bevestigd" getoond, precies bij de knop waar je op die
+    // melding zou aarzelen. We vullen het nu meteen in uit de e-mailindex, waar het al klopt.
+    // De rules laten dit toe: de eigenaar mag op memberInfo/$teamId schrijven, en `verified` is
+    // enkel aan het token gebonden wanneer je je EIGEN entry schrijft (zie database.rules.json).
+    // update() en niet set(): stond hij er al in als kijker, dan blijft joinedAt bewaard.
+    try {
+      const bron = idx[uid] || {};
+      const miRef = fbdb.ref('memberInfo/' + tid + '/' + uid);
+      const bestaand = (await fbOnce(miRef)).val();
+      const velden = { email: bron.email || '', name: bron.name || '', role: 'admin', verified: !!bron.verified };
+      if (!bestaand) velden.joinedAt = Date.now();
+      await miRef.update(velden);
+    } catch (e) { /* de aanstelling zelf is gelukt; een mislukte ledenlijst-aanvulling mag dat niet terugdraaien */ }
     closeModal();
     showToast('Ploegbeheerder aangesteld.', 'ok');
     loadClubsAdminView();
@@ -3227,7 +3246,16 @@ async function loadHome() {
           de enige plek waar wedstrijden en tornooien samen op één kalender staan. */ ''}
     <button class="tile tile-breed" style="grid-column:1/-1" onclick="go('agenda')"><span class="tile-fi ic-i" aria-hidden="true">${IC.calendar}</span><span class="tl">Agenda</span></button>
   </div>`;
-  const isOffline = offlineWithKnownCloudTeam() || (!navigator.onLine && cloudReady && !!activeTeamId);
+  // EEN EERLIJKE STATUS (Tims keuze, 25-08-2026). Deze banner keek enkel naar navigator.onLine —
+  // "heeft dit toestel een netwerkverbinding?" — terwijl het bolletje op het wedstrijdscherm de
+  // échte vraag stelt: komt mijn werk aan bij de databank (fbConnected, uit .info/connected). Op de
+  // wifi van een kantine die je niet doorlaat, of op 4G die wegvalt, zeggen die twee iets anders:
+  // het startscherm bleef stil terwijl het bolletje al op grijs stond. Nu telt élk signaal dat er
+  // iets mis is — dat is de kant waarnaar je in twijfel moet afronden.
+  // fbConnected is null zolang het nog onbekend is (vlak na het opstarten); die stand telt bewust
+  // niet als offline, anders flitst de banner bij elke start even voorbij.
+  const isOffline = offlineWithKnownCloudTeam()
+    || (cloudReady && !!activeTeamId && (!navigator.onLine || fbConnected === false));
   const offlineBanner = !isOffline ? '' : (canManage()
     ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je kan gewoon verder werken — wijzigingen worden gesynchroniseerd zodra er terug verbinding is.</div>`
     : `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens tot de verbinding terugkeert.</div>`);

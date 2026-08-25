@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.0
+### Vier dingen aan de zijlijn
+- **De duur van een blok rechtzetten kan nu in de pauze.** Vergat je de klok te stoppen op het einde van kwart 2, dan moest je de hele wedstrijd uitspelen met een scheve klok en scheve speelminuten in beeld — precies waar je in kwart 3 en 4 op stuurt. Het venster bestond al en werkt op elk afgesloten blok; alleen stond de knop enkel in het verslag van een afgelopen wedstrijd. Nu staat hij ook bij *Wat kan je doen in de pauze*, met de huidige duur erin.
+- **De app zegt het als er nog iemand met dezelfde wedstrijd bezig is.** Doelpunten, wissels en blokken worden netjes samengevoegd, maar de klok en de wissels die je klaarzet komen van wie het laatst schreef. Twee mensen die tegelijk bijhouden, konden elkaar dus stil overschrijven. Er staat nu een balk: *"Er is nog iemand met deze wedstrijd bezig — spreek af wie ze bijhoudt."* Geen blokkade; aan de zijlijn los je dat op door het even tegen elkaar te zeggen. De melding verdwijnt vanzelf vijf minuten na de laatste wijziging van de ander.
+- **Eén eerlijk antwoord op "ben ik offline?"** Het startscherm keek naar de netwerkverbinding van je toestel, het bolletje op het wedstrijdscherm naar de échte verbinding met de databank. Op de wifi van een kantine die je niet doorlaat, zeiden die twee iets anders. Nu telt elk signaal dat er iets mis is — je ziet dus meteen dat je werk niet aankomt, in plaats van het pas achteraf te merken.
+- **Het tornooivinkje staat nu op alle drie de wegen.** *"Ook niet beschikbaar voor de rest van het tornooi"* zat alleen bij het ×-knopje naast een spelersnaam. Ging je via *Meer* of *Event toevoegen* naar *Speler verlaat de wedstrijd*, dan stond dat kind gewoon weer in de selectie van de volgende wedstrijd van de dag.
+
+### De geplande wissels tellen eindelijk mee in de speeltijd
+- **`Speeltijd volgens dit plan` telde hele blokken.** Zette je een wissel klaar bínnen kwart 2, dan kreeg de speler die eraf ging dat hele kwart toegeschreven en de invaller nul — terwijl ze elk ongeveer de helft spelen. Precies de invallers werden dus onzichtbaar in de verdeling waar ouders je op aanspreken. Sinds v1.8.0 liep diezelfde berekening ook door in de seizoenscijfers van een wedstrijd die je enkel afsluit.
+- **Nu bouwt de app per blok een kleine tijdlijn:** wie staat er aan de start, en op welk moment gaat elke wissel af. In de demoploeg betekent dat bijvoorbeeld *2,5 van 4 · 38'* in plaats van *3 van 4 · 45'* — een halve blok is nu gewoon een halve blok.
+- **De minuut van een geplande wissel staat voortaan standaard ingevuld** op de helft van het blok. Je kan ze aanpassen of leeghalen; laat je ze leeg, dan rekent de app alsnog met de helft.
+- **Het seintje is losgekoppeld van die minuut.** Tot nu deed één veld twee dingen: wie geen melding wou, liet de minuut leeg — en dan wist de app ook het moment niet meer. Er staat nu een apart vinkje *"Geef me een seintje op dat moment"*, standaard aan. Zet je het uit, dan telt de minuut nog steeds mee voor de speeltijd maar krijg je geen melding; de minuut staat dan grijs in plaats van oranje.
+- Zowel het scherm als het wedstrijdplan-PDF gebruiken dezelfde berekening.
+
+### Rechtgezet
+- **"E-mailadres niet bevestigd" bij iemand die je net had aangesteld.** Stelde je als eigenaar een ploegbeheerder aan op e-mailadres, dan stond hij in de ledenlijst van die ploeg meteen met een waarschuwing dat zijn adres niet bevestigd was — terwijl dat onmogelijk is: het aanstelvenster laat een onbevestigd adres niet door. De oorzaak: de ledeninformatie van een ploeg wordt door de persoon zélf geschreven, wanneer hij die ploeg opent. Tot dan viel de lijst terug op zijn accountgegevens, en die dragen wel een naam en een adres maar geen bevestigingsvinkje — "weet ik nog niet" werd getoond als "niet bevestigd", precies naast de knop waar je op die melding zou aarzelen. Bij het aanstellen wordt dat nu meteen ingevuld.
+
+---
+
 ## v1.8.0
 ### Een wedstrijd afsluiten die je niet gevolgd hebt
 - **Eén venster voor beide uitkomsten.** De knop onderaan het wedstrijdscherm heette *Afsluiten als gespeeld zonder uitslag* en deed precies dat — wie de score wél kende, moest langs *Bewerken → Uitslag ingeven*. De knop heet nu **Afsluiten met of zonder uitslag** en opent hetzelfde venster, waar je kiest.

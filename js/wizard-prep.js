@@ -1856,20 +1856,58 @@ function _planBasis(m, q, eff, startEntries) {
 function plannedLineupBase(m, q) {
   return _planBasis(m, q, (m && m.plannedLineups) || {}, _planStartEntries(m));
 }
-// ---- Speeltijd volgens het plan (v1.4.0) ----
+// ---- Speeltijd volgens het plan (v1.4.0, herrekend in v1.9.0) ----
 // Vóór de aftrap zag je nergens hoe het plan de speeltijd verdeelt — terwijl dat precies is waar
-// ouders je op aanspreken. Dit telt per speler in hoeveel blokken hij AAN DE START staat, met
-// dezelfde basis als de planningskaart zelf (plannedLineupBase), zodat het scherm en dit getal
-// nooit uit elkaar kunnen lopen. Een wissel die je BINNEN een blok klaarzet, telt mee vanaf het
-// volgende blok — dat is ook hoe _planBasis het doorrekent. Het blijft dus een voorspelling van
-// het plan, niet van de wedstrijd: geplande wissels gaan nooit vanzelf af.
+// ouders je op aanspreken.
+//
+// TOT v1.9.0 TELDE DIT HELE BLOKKEN, en dat was fout (Tim merkte het op, 25-08-2026). Er werd enkel
+// gekeken wie er per blok AAN DE START stond; een wissel die je BINNEN een blok klaarzette, werd pas
+// bij de overgang naar het volgende blok verwerkt. Zette je een wissel klaar in kwart 2, dan kreeg
+// de speler die eraf ging het volledige kwart en de invaller nul — terwijl ze elk ongeveer de helft
+// spelen. Precies de invallers werden dus onzichtbaar. Sinds v1.8.0 telde diezelfde berekening ook
+// mee in de statistieken van een wedstrijd die je enkel afsluit, dus de fout liep door tot in de
+// seizoenscijfers.
+//
+// Nu bouwt dit per blok een kleine tijdlijn: wie staat er aan de start, en op welk moment gaat elke
+// wissel af. Het moment is de richtminuut van die wissel; staat er geen (alle wissels van vóór
+// v1.9.0), dan rekenen we op de HELFT van het blok — de eerlijkste aanname als je niets weet.
+// De veldbezetting per stap komt uit _pasGeplandToe, dezelfde functie waarmee de planningskaart het
+// veld tekent, zodat kaart en cijfers per definitie niet uit elkaar kunnen lopen: een invaller die
+// al op het veld staat of niet meer mag meedoen, wordt daar al overgeslagen.
+// Het blijft een voorspelling van het plan, niet van de wedstrijd: geplande wissels gaan nooit
+// vanzelf af.
+//
+// `perSpeler` bevat sinds v1.9.0 MINUTEN, niet langer een aantal blokken.
 function planSpeeltijd(m) {
   const totaal = plannedPartsCount(m);
+  const duur = (m && m.quarterDuration) || 0;
   const perSpeler = {};
+  if (!duur) return { totaal, perSpeler, duur };
   for (let q = 1; q <= totaal; q++) {
-    plannedLineupBase(m, q).forEach(e => { perSpeler[e.id] = (perSpeler[e.id] || 0) + 1; });
+    const basis = plannedLineupBase(m, q);
+    const subs = (m.plannedSubs || []).filter(s => s.quarterNum === q);
+    // De momenten in dezelfde volgorde als _pasGeplandToe de wissels toepast (array-volgorde), en
+    // niet-dalend gemaakt: vult iemand voor de tweede wissel een vroeger tijdstip in dan voor de
+    // eerste, dan zou dat een negatief stuk speeltijd opleveren.
+    let loper = 0;
+    const momenten = subs.map(s => {
+      const ruw = (s.vanafMin > 0 && s.vanafMin < duur) ? s.vanafMin : duur / 2;
+      loper = Math.min(duur, Math.max(loper, ruw));
+      return loper;
+    });
+    let start = 0;
+    for (let i = 0; i <= subs.length; i++) {
+      const eind = i < subs.length ? momenten[i] : duur;
+      const stuk = eind - start;
+      if (stuk > 0) {
+        // Verse objecten per stap: _pasGeplandToe muteert de lijst die het krijgt.
+        const veld = _pasGeplandToe(m, plannedLineupPlayers(m, basis), q, { soort: 'sub', index: i });
+        veld.forEach(p => { perSpeler[p.id] = (perSpeler[p.id] || 0) + stuk; });
+      }
+      start = eind;
+    }
   }
-  return { totaal, perSpeler, duur: (m && m.quarterDuration) || 0 };
+  return { totaal, perSpeler, duur };
 }
 // ---- Speelminuten uit het plan halen bij het afsluiten (v1.8.0) ----
 // Tims regel van 25-08-2026: een wedstrijd die je enkel afsluit (met of zonder uitslag) levert geen
@@ -1894,16 +1932,24 @@ function planMinutenMs(m) {
   if (!duur) return out;
   for (const p of (m.players || [])) {
     if (!magOpHetVeld(m, p)) continue;
-    out[p.id] = (perSpeler[p.id] || 0) * duur * 60000;
+    // perSpeler is sinds v1.9.0 al in MINUTEN (was: aantal blokken), dus enkel nog naar ms.
+    out[p.id] = Math.round((perSpeler[p.id] || 0) * 60000);
   }
   return out;
+}
+// Een halve blok leesbaar houden: 3 blijft "3", 3,5 wordt "3,5". Sinds v1.9.0 kan een speler een
+// halve blok halen — hij valt in of gaat eruit midden in een blok.
+function planBlokTekst(n) {
+  const afg = Math.round(n * 10) / 10;
+  return Number.isInteger(afg) ? String(afg) : String(afg).replace('.', ',');
 }
 // De lijst zoals ze op het scherm en in de PDF staat: iedereen uit de selectie, meest spelend eerst.
 function planSpeeltijdRijen(m) {
   const { totaal, perSpeler, duur } = planSpeeltijd(m);
   return (m.players || [])
     .filter(p => magOpHetVeld(m, p))
-    .map(p => ({ id: p.id, naam: fieldName(m, p.id), speler: p, blokken: perSpeler[p.id] || 0, totaal, min: (perSpeler[p.id] || 0) * duur }))
+    .map(p => { const min = perSpeler[p.id] || 0;
+      return { id: p.id, naam: fieldName(m, p.id), speler: p, blokken: duur ? min / duur : 0, totaal, min: Math.round(min) }; })
     .sort((a, b) => b.blokken - a.blokken || a.naam.localeCompare(b.naam));
 }
 function planSpeeltijdHtml(m) {
@@ -1915,10 +1961,14 @@ function planSpeeltijdHtml(m) {
   // Enkel de kleur verschilt: wie het minst speelt licht op, zodat je het in één oogopslag ziet
   // zonder dat er een oordeel bij staat — de verdeling is de keuze van de trainer.
   const kleur = r => r.blokken === laagst && hoogst !== laagst ? 'color:var(--org2,#b45309);font-weight:700' : '';
+  // Staat er een wissel zonder eigen minuut in het plan (alles van vóór v1.9.0), dan is de halve blok
+  // een AANNAME en hoort dat erbij te staan. Zijn alle wissels van een minuut voorzien, dan is er
+  // niets aangenomen en zou die zin enkel ruis zijn.
+  const geschat = (m.plannedSubs || []).some(s => s.quarterNum && !(s.vanafMin > 0));
   return `<details class="card" style="padding:12px">
     <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijd volgens dit plan</summary>
-    <p style="font-size:12px;color:var(--txt2);margin:8px 0 6px">Hoeveel ${pPlural(m)} elke speler aan de start staat. Wissels die je bínnen een ${pSingLow(m)} klaarzet, gaan niet vanzelf af en tellen hier pas mee vanaf het volgende ${pSingLow(m)}.</p>
-    ${rijen.map(r => `<div class="prow" style="padding:5px 0;align-items:center">${numDot(r.speler, 'pnum')}<div style="flex:1;font-size:14px">${esc(r.naam)}</div><div style="font-size:13px;${kleur(r)}">${r.blokken} van ${totaal}${duur ? ` · ${r.min}'` : ''}</div></div>`).join('')}
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 6px">Hoeveel elke speler volgens dit plan zou spelen, met de geplande wissels meegerekend op hun minuut.${geschat ? ` Voor een wissel zonder eigen minuut rekenen we op de helft van het ${pSingLow(m)}.` : ''} Geplande wissels gaan nooit vanzelf af — dit is het plan, niet de wedstrijd.</p>
+    ${rijen.map(r => `<div class="prow" style="padding:5px 0;align-items:center">${numDot(r.speler, 'pnum')}<div style="flex:1;font-size:14px">${esc(r.naam)}</div><div style="font-size:13px;${kleur(r)}">${planBlokTekst(r.blokken)} van ${totaal}${duur ? ` · ${r.min}'` : ''}</div></div>`).join('')}
   </details>`;
 }
 // De plan-entries dragen enkel id + plaats; voor het tekenen hebben we ook naam en rugnummer nodig.

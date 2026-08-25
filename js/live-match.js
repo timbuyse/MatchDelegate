@@ -144,6 +144,18 @@ function renderLive() {
           <div class="evtbtn" onclick="confirmNextLineupLeeg()"><span class="ei">${IC.eraser}</span><span class="el">Leeg veld</span></div>
           <div class="evtbtn" onclick="modalAddPostEvent()"><span class="ei">${IC.log}</span><span class="el">Event in ${pSingLow(match)} ${qNum}</span></div>
         </div>
+        ${/* DE DUUR RECHTZETTEN OP HET MOMENT DAT JE HET MERKT (Tims keuze, 25-08-2026). modalKwartDuur
+             bestond al en werkt op elk afgesloten blok — ook midden in een lopende wedstrijd — maar het
+             potloodje stond enkel in het verslag van een afgelopen wedstrijd. Vergat je de klok te
+             stoppen op het einde van blok 2, dan moest je de rest van de wedstrijd uitspelen met een
+             scheve klok en scheve speelminuten in beeld, precies waar je in blok 3 en 4 op stuurt.
+             Bescheiden vormgegeven: het is geen dagelijkse handeling, maar ze moet er staan. */ ''}
+        ${(() => {
+          const q = (match.quarters || []).find(x => x.num === qNum);
+          if (!q || !q.endTime) return '';
+          const min = Math.round((q.endTime - q.startTime - (q.totalPaused || 0)) / 60000);
+          return `<button class="btn btn-pale btn-sm" style="width:100%;margin-top:8px" onclick="modalKwartDuur(${qNum})">${icI(IC.edit)} Duur van ${pSingLow(match)} ${qNum} aanpassen (${min} min)</button>`;
+        })()}
       </div>`; })() : ''}
       ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
@@ -260,7 +272,13 @@ function renderLive() {
          is Afsluiten verhuisd naar onderaan het tabblad Verloop, bewust wat weggestoken. */ ''}
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
-  <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${tabContent}</div>
+  ${/* ER IS NOG IEMAND BEZIG (Tims keuze, 25-08-2026). Zie andereBeheerderActief in core.js: er kwam
+       net een wijziging binnen van een ánder toestel op deze lopende wedstrijd. De klok en de
+       wissels die je klaarzet worden niet samengevoegd — die komen van wie het laatst schreef — dus
+       twee mensen die tegelijk bijhouden kunnen elkaar stil overschrijven. Bewust een melding en
+       geen blokkade: aan de zijlijn lost dat zich op door het even tegen elkaar te zeggen. Ze
+       verdwijnt vanzelf vijf minuten na de laatste vreemde wijziging. */ ''}
+  <div class="content">${ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — dit scherm wordt live bijgewerkt</div>` : ''}${(!ro && typeof andereBeheerderActief === 'function' && andereBeheerderActief(match)) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} <b>Er is nog iemand met deze wedstrijd bezig.</b> Spreek af wie ze bijhoudt — de klok en de wissels die je klaarzet, kunnen elkaar overschrijven.</div>` : ''}${tabContent}</div>
   ${/* Stonden tot 24-08-2026 niet in de pauze (`!isBetween`), net het moment waarop je iets wil
        opschrijven: wat er in het vorige deel gebeurde, of een afspraak voor het volgende. Ná het
        afsluiten bleven ze wél staan, dus het was ook niet consequent. */ ''}
@@ -4060,16 +4078,29 @@ function modalPlanSub(editId, behoud, deelVoorNieuw) {
     <div id="pl-a">${veld.length ? pgGrid(veld.map(p => pgBtn(p, 'pl-ab', `selPlan('a','${p.id}',this,'pl-a')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Niemand op het veld.</p>'}</div>
     <div class="sec">Wie komt ERIN?</div>
     <div id="pl-b">${bank.length ? pgGrid(bank.map(p => pgBtn(p, 'pl-bb', `selPlan('b','${p.id}',this,'pl-b')`)).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen spelers op de bank.</p>'}</div>
-    ${/* RICHTMINUUT (Tims keuze, 24-08-2026). Een trainer zegt "wissel Bas na acht minuten", en daar
-         was niets voor: een klaargezette wissel had geen tijdstip en gaf geen seintje. Bewust
-         OPTIONEEL en bewust een herinnering — de wissel gaat nog altijd niet vanzelf af, jij tikt
-         hem door op het moment dat het spel het toelaat. Nieuw, optioneel veld: een wissel zonder
-         richtminuut blijft exact hetzelfde object als voorheen. */ ''}
-    <div class="fg" style="margin-top:12px">
-      <label style="font-size:12px;color:var(--txt2)">Herinner me vanaf minuut <span style="font-weight:400">(optioneel)</span></label>
-      <input id="pl-min" type="number" inputmode="numeric" min="1" placeholder="bv. 8" value="${best && best.vanafMin ? best.vanafMin : ''}">
-      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">De minuut binnen het ${pSingLow(m)}. Je krijgt dan een seintje — de wissel gaat nooit vanzelf af.</p>
-    </div>
+    ${/* RICHTMINUUT (Tims keuze, 24-08-2026; herzien 25-08-2026). Een trainer zegt "wissel Bas na acht
+         minuten", en daar was niets voor.
+         TOT v1.9.0 DEED DIT VELD TWEE DINGEN TEGELIJK: het legde vast wannéér de wissel bedoeld was,
+         én het bepaalde of je er een seintje bij kreeg. Wie geen melding wou, liet het leeg — en dan
+         wist de app ook het moment niet. Daardoor telde de speeltijdberekening zo'n wissel als een
+         heel blok voor wie eraf ging en nul voor de invaller (zie planSpeeltijd).
+         Nu staan de twee los van elkaar: de minuut staat standaard ingevuld op de helft van het blok,
+         zodat de speeltijd altijd klopt, en een apart vinkje bepaalt of er een seintje bij hoort.
+         Datamodel: `vanafMin` blijft wat het was (het moment), en enkel wie het seintje UITzet krijgt
+         het nieuwe veld `geenSein`. Bestaande wissels dragen dat veld niet en gedragen zich dus exact
+         zoals voorheen — mét minuut betekende altijd al "geef een seintje". */ ''}
+    ${(() => {
+      const dur = m.quarterDuration || 0;
+      const standaard = dur ? Math.max(1, Math.round(dur / 2)) : '';
+      const waarde = best ? (best.vanafMin || '') : standaard;
+      const seinAan = best ? !best.geenSein : true;
+      return `<div class="fg" style="margin-top:12px">
+      <label style="font-size:12px;color:var(--txt2)">Minuut binnen het ${pSingLow(m)}</label>
+      <input id="pl-min" type="number" inputmode="numeric" min="1" ${dur ? `max="${dur}"` : ''} placeholder="bv. ${standaard || 8}" value="${waarde}">
+      <p style="font-size:11px;color:var(--txt2);margin:4px 0 0">Wanneer je deze wissel wil doorvoeren. Telt mee voor de speeltijdverdeling hierboven; leeg laten kan, dan rekenen we op de helft van het ${pSingLow(m)}.</p>
+      <label class="chkrow" style="margin-top:10px"><input type="checkbox" id="pl-sein"${seinAan ? ' checked' : ''}> Geef me een seintje op dat moment</label>
+      <p style="font-size:11px;color:var(--txt2);margin:2px 0 0">Een herinnering tijdens het spel — de wissel gaat nooit vanzelf af.</p>
+    </div>`; })()}
     <button class="btn btn-green" style="margin-top:12px" onclick="savePlanSub()">${icI(IC.check)} ${editId ? 'Aanpassen' : 'Klaarzetten'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="planSubTerug()">Annuleren</button>`);
   _preselect('pl-a', _planSel.a); _preselect('pl-b', _planSel.b);
@@ -4148,13 +4179,19 @@ async function savePlanSub() {
     // herinnering hetzelfde object blijft als vroeger (en er niets extra naar de cloud gaat).
     const ruw = parseInt((document.getElementById('pl-min') || {}).value, 10);
     const vanafMin = (Number.isFinite(ruw) && ruw > 0) ? ruw : null;
+    // Het seintje staat sinds v1.9.0 los van de minuut. Enkel het AFWIJKENDE geval krijgt een veld:
+    // standaard is "wel een seintje", dus alleen wie het uitzet krijgt `geenSein`. Zo blijft een
+    // gewone wissel hetzelfde object als vroeger en gaat er niets extra naar de cloud.
+    const seinEl = document.getElementById('pl-sein');
+    const geenSein = seinEl ? !seinEl.checked : false;
     if (best) {
       best.outId = _planSel.a; best.inId = _planSel.b;
       if (deel) best.quarterNum = deel; else delete best.quarterNum;
       if (vanafMin) best.vanafMin = vanafMin; else delete best.vanafMin;
+      if (geenSein) best.geenSein = true; else delete best.geenSein;
     }
     else match.plannedSubs.push(Object.assign({ id: uid(), outId: _planSel.a, inId: _planSel.b },
-      deel ? { quarterNum: deel } : {}, vanafMin ? { vanafMin } : {}));
+      deel ? { quarterNum: deel } : {}, vanafMin ? { vanafMin } : {}, geenSein ? { geenSein: true } : {}));
     // Terug naar het tabblad van het deel waarvoor je zonet opsloeg — zie savePlanPosSwap.
     await dbSave(match); render(); planSubTerug(deel || 0);
   } finally { _eventBusy = false; }
@@ -4704,6 +4741,21 @@ function modalInjury(preId, soort) {
         <button onclick="tglInjTerug(true,this)">Ja, hij kan nog invallen</button><button onclick="tglInjTerug(false,this)">Nee, zijn wedstrijd zit erop</button>
       </div>
     </div>
+    ${/* OOK HIER HET TORNOOIVINKJE (Tims keuze, 25-08-2026). Er zijn drie wegen naar "speler weg uit
+         de wedstrijd": het ×-knopje bij zijn naam (modalMarkAbsent), "Meer" en "Event toevoegen".
+         Alleen de eerste bood aan hem meteen voor de rest van de dag af te melden — precies op een
+         tornooidag met vijf wedstrijden is dat het moment waarop een kind naar huis gaat. Kwam je
+         langs een van de andere twee, dan stond hij gewoon weer in de selectie van de volgende
+         wedstrijd. Zelfde id `ma-trn`, zodat _trnAbsentAangevinkt() ongewijzigd werkt; deze modal
+         handelt het zelf af in confirmInjury (markLeftField/markAbsentViaInjury doen dat al vóór ze
+         hier belanden, dus daar staat het vinkje er niet meer bij). */ ''}
+    ${(() => {
+      const trn = match.tournamentId ? tournamentById(match.tournamentId) : null;
+      if (!trn) return '';
+      // Al afgehandeld door de vorige modal? Dan niet nog eens vragen.
+      if (document.getElementById('ma-trn')) return '';
+      return `<label class="chkrow" style="margin-bottom:16px"><input type="checkbox" id="inj-trn"> Ook <b>niet beschikbaar</b> voor de rest van het tornooi</label>`;
+    })()}
     <button class="btn btn-green" onclick="confirmInjury()">${icI(IC.check)}Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   // Voorselectie zichtbaar maken: de keuze wordt met inline stijlen gemarkeerd (gpSel), niet met
@@ -4776,6 +4828,14 @@ async function confirmInjury() {
     // gevraagd kreeg (kramp, licht) verdient daar een herinnering.
     if (injType === 'ernstig' && leavesField) extra.notReturning = (injTerug === false);
     if (injType === 'vertrokken' && reden) extra.reason = reden;
+    // Het tornooivinkje uit dit venster (v1.9.0, zie de uitleg bij modalInjury). Zelfde eerlijke
+    // melding als in doMarkAbsent: staat hij niet in de tornooiselectie (gastspeler, of iemand die
+    // de ploeg intussen verliet), dan geldt de afmelding enkel voor deze wedstrijd — en dat moet je
+    // weten, anders denk je hem voor de hele dag afgemeld te hebben.
+    if ((document.getElementById('inj-trn') || {}).checked && !markTournamentUnavailable(injPlayerId)) {
+      const pl = (match.players || []).find(x => x.id === injPlayerId);
+      showToast(`${(pl || {}).name || 'Deze speler'} staat niet in de tornooiselectie — enkel voor deze wedstrijd afgemeld.`, 'err');
+    }
     // Stond hij op dat moment eigenlijk wél op het veld? Zit hij al op de bank (eerder gewisseld en
     // dan naar huis), dan komt er niemand in zijn plaats en hoort de wisselvraag er niet te staan.
     const stondOpHetVeld = playersOnFieldForEvent(match).some(p => p.id === injPlayerId);

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.8.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.9.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1344,19 +1344,28 @@ function minutenMetMinderMs(m) {
     return Math.max(0, veldN * tot - som);
   } catch (e) { return 0; }
 }
-// ---- Richtminuut bij een klaargezette wissel (v1.4.0) ----
-// `vanafMin` is optioneel en betekent: geef me een seintje zodra dit blok zover is. Het is een
-// HERINNERING, geen automaat — de wissel gaat nog altijd pas af wanneer je hem zelf doorvoert.
-// Wissels zonder dit veld (alle bestaande) gedragen zich exact zoals voordien.
+// ---- Minuut en seintje bij een klaargezette wissel (v1.4.0, gesplitst in v1.9.0) ----
+// `vanafMin` = het moment binnen het blok waarop de wissel bedoeld is. Tot v1.9.0 deed dat veld twee
+// dingen tegelijk: het legde het moment vast én het bepaalde of je een seintje kreeg. Wie geen
+// melding wou, liet het leeg — en dan wist ook de speeltijdberekening het moment niet meer (zie
+// planSpeeltijd). Sinds v1.9.0 staat het seintje in een eigen veld: `geenSein: true` voor wie het
+// uitzet. Standaard is dus "wel een seintje", en bestaande wissels dragen `geenSein` niet — die
+// gedragen zich exact zoals voordien, want mét minuut betekende altijd al "geef een seintje".
+// Het blijft een HERINNERING, geen automaat: de wissel gaat pas af wanneer je hem zelf doorvoert.
 function vanafMinChip(s) {
-  return (s && s.vanafMin) ? ` <span style="font-size:11px;font-weight:700;color:var(--org)">vanaf ${s.vanafMin}'</span>` : '';
+  if (!s || !s.vanafMin) return '';
+  // Grijs wanneer er geen seintje bij hoort: de minuut klopt dan wel (en telt mee voor de
+  // speeltijd), maar er komt tijdens het spel geen melding. Oranje zou dat wél beloven.
+  const kleur = s.geenSein ? 'var(--txt2)' : 'var(--org)';
+  return ` <span style="font-size:11px;font-weight:700;color:${kleur}">vanaf ${s.vanafMin}'</span>`;
 }
 // Welke klaargezette wissels van het LOPENDE blok hun richtminuut bereikt hebben. Enkel tijdens het
-// spel: in de pauze staat de klok stil en is een herinnering zinloos.
+// spel: in de pauze staat de klok stil en is een herinnering zinloos. Wissels waarvan het seintje
+// uitgezet is, komen hier niet in — hun minuut telt enkel voor de speeltijdverdeling.
 function plannedSubsDue(m) {
   if (!m || m.quarterStatus !== 'running') return [];
   const min = getQElapsed(m) / 60000;
-  return (m.plannedSubs || []).filter(s => s.vanafMin && s.quarterNum === m.currentQuarter && min >= s.vanafMin);
+  return (m.plannedSubs || []).filter(s => s.vanafMin && !s.geenSein && s.quarterNum === m.currentQuarter && min >= s.vanafMin);
 }
 // Mag deze speler nu op het veld staan? Afwezig gemarkeerd of uitgesloten: nee.
 function magOpHetVeld(m, p) { return !!p && !p.absent && !isUitgesloten(m, p.id); }
@@ -1435,6 +1444,12 @@ function dbGet(id) {
 }
 function dbSave(m) {
   m.updatedAt = Date.now();
+  // WIE ER HET LAATST SCHREEF (v1.9.0). Nodig voor de waarschuwing "er is nog iemand met deze
+  // wedstrijd bezig" — zie _andereBeheerder in applyCloudMatch. Bewust een gewoon veld op de
+  // wedstrijd en geen aparte aanwezigheidsknoop: dat zou een nieuwe plek in de databank vragen
+  // mét eigen rechtenregels, terwijl dit meelift op de schrijfweg die er al is. Oude wedstrijden
+  // hebben het veld niet; dan gebeurt er simpelweg niets.
+  if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) m.updatedBy = currentUser.uid;
   return new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').put(m);
     r.onsuccess = () => { cloudOnLocalMatchSave(m); res(); };
@@ -1585,6 +1600,18 @@ function notesRef(path) {
 }
 
 let fbConnected = null; // null = nog onbekend, true/false = echte verbindingsstatus
+// Laatste wijziging van een ánder toestel op een lopende wedstrijd: {matchId, when}. Gevuld door
+// applyCloudMatch, uitgelezen door het livescherm (andereBeheerderActief). Bewust niet bewaard —
+// het gaat over "nu, tijdens deze wedstrijd", niet over de geschiedenis.
+let _andereBeheerder = null;
+// Hoe lang na de laatste vreemde wijziging de melding blijft staan. Vijf minuten: lang genoeg om
+// een blok te overbruggen waarin de ander even niets doet, kort genoeg om vanzelf te verdwijnen
+// zodra hij gestopt is — zonder dat er iets weg te klikken valt.
+const ANDERE_BEHEERDER_MS = 5 * 60000;
+function andereBeheerderActief(m) {
+  if (!m || !_andereBeheerder || _andereBeheerder.matchId !== m.id) return false;
+  return (Date.now() - _andereBeheerder.when) < ANDERE_BEHEERDER_MS;
+}
 function cloudInit() {
   if (!cloudAvailable()) return;
   try {
@@ -1596,12 +1623,17 @@ function cloudInit() {
     // Verbindingsstatus voor het sync-dotje op het live-scherm (SDK is lokaal, dus
     // "SDK geladen" zegt niets meer over echte connectiviteit).
     fbdb.ref('.info/connected').on('value', s => {
+      const vorige = fbConnected;
       fbConnected = !!s.val();
       const d = document.getElementById('sync-dot');
       if (d) {
         d.className = 'sync-dot ' + (fbConnected ? 'on' : 'off');
         d.title = fbConnected ? 'Gesynchroniseerd met de cloud' : 'Offline — wijzigingen syncen zodra er verbinding is';
       }
+      // Sinds v1.9.0 hangt de offline-banner op het startscherm óók aan deze waarde (zie renderHome:
+      // één eerlijke status i.p.v. twee metingen die elkaar kunnen tegenspreken). Zonder deze
+      // hertekening zou de banner pas verschijnen bij de volgende navigatie — precies te laat.
+      if (vorige !== fbConnected && view === 'home') render();
     });
   } catch (e) { cloudReady = false; }
 }
@@ -2659,6 +2691,18 @@ async function applyCloudMatch(id, m) {
     // vernietigen zonder dat hij erom vroeg — ze zijn onzichtbaar geworden, niet weggegooid.
     if (existing.photo1 && m.photo1 === undefined) m.photo1 = existing.photo1;
     if (existing.photo2 && m.photo2 === undefined) m.photo2 = existing.photo2;
+  }
+  // ER IS NOG IEMAND MET DEZE WEDSTRIJD BEZIG (Tims keuze, 25-08-2026). Gebeurtenissen, blokken en
+  // plaatsen worden netjes samengevoegd, maar alles wat NIET uit gebeurtenissen af te leiden is —
+  // de klokstand en de wissels die je klaarzet — komt integraal van wie het laatst schreef. Twee
+  // mensen die tegelijk bijhouden, kunnen elkaars pauze of klaargezette wissels dus stil wissen.
+  // Tim koos ervoor dat niet technisch op te lossen maar zichtbaar te maken: aan de zijlijn is het
+  // toch één iemand die het doet, en de verrassing is het echte probleem.
+  // Enkel bij een LOPENDE wedstrijd, en enkel voor wie ze zelf mag bijhouden — een kijker kan niets
+  // overschrijven. De echo van je eigen schrijfactie draagt jouw eigen uid en telt dus niet mee.
+  if (m.status === 'live' && m.updatedBy && typeof currentUser !== 'undefined' && currentUser
+      && m.updatedBy !== currentUser.uid && typeof canLive === 'function' && canLive()) {
+    _andereBeheerder = { matchId: id, when: Date.now() };
   }
   await dbPutLocal(m);
   // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat

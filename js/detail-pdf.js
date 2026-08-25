@@ -1419,7 +1419,9 @@ async function exportWedstrijdplanPDF() {
       const laagst = rijen[rijen.length - 1].blokken, hoogst = rijen[0].blokken;
       L.tableBlock('Speeltijd volgens dit plan', {
         head: [['Speler', pPlural(m), duur ? 'Minuten' : '']],
-        body: rijen.map(r => [r.naam, `${r.blokken} van ${totaal}`, duur ? `${r.min}'` : '']),
+        // planBlokTekst: sinds v1.9.0 kan een speler een halve blok halen (hij valt in of gaat eruit
+        // midden in een blok), en die schrijven we met een komma — zoals op het scherm.
+        body: rijen.map(r => [r.naam, `${planBlokTekst(r.blokken)} van ${totaal}`, duur ? `${r.min}'` : '']),
         styles: { fontSize: 9.5, cellPadding: 4 },
         headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
         // Wie het minst speelt, kleurt op — zelfde signaal als op het scherm, zonder oordeel.
@@ -1428,7 +1430,10 @@ async function exportWedstrijdplanPDF() {
             data.cell.styles.textColor = [180, 83, 9];
           }
         }
-      }, 24, `Hoeveel ${pPlural(m)} elke speler aan de start staat. Wissels binnen een ${pSingLow(m)} gaan niet vanzelf af en tellen pas mee vanaf het volgende ${pSingLow(m)}.`);
+      }, 24, `Hoeveel elke speler volgens dit plan zou spelen, met de geplande wissels meegerekend op hun minuut.`
+        + ((m.plannedSubs || []).some(s => s.quarterNum && !(s.vanafMin > 0))
+          ? ` Voor een wissel zonder eigen minuut rekenen we op de helft van het ${pSingLow(m)}.` : '')
+        + ` Geplande wissels gaan nooit vanzelf af — dit is het plan, niet de wedstrijd.`);
     }
   }
 

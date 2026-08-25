@@ -1086,10 +1086,12 @@ const HANDLEIDING_PAGINAS = [
         wedstrijdscherm.</p>
       <p>De wedstrijd is in beide gevallen al ingepland; <b>starten</b> doe je later in het
         wedstrijdscherm.</p>
-      <p>Onder de planning staat <b>'Speeltijd volgens dit plan'</b>: per speler in hoeveel delen hij
-        aan de start staat en wat dat in minuten is, met de minst spelende speler opgelicht. Zo zie je
-        vóór de aftrap of de verdeling klopt. Het staat ook in het <b>wedstrijdplan (PDF)</b>, dat je
-        bovenaan naast de kop <b>Planning</b> vindt.</p>
+      <p>Onder de planning staat <b>'Speeltijd volgens dit plan'</b>: per speler hoeveel hij volgens
+        het plan zou spelen, in delen en in minuten, met de minst spelende speler opgelicht. Zo zie je
+        vóór de aftrap of de verdeling klopt. De <b>geplande wissels tellen mee op hun minuut</b>, dus
+        wie halverwege een deel invalt krijgt een half deel — vandaar dat er <b>2,5 van 4</b> kan
+        staan. Het staat ook in het <b>wedstrijdplan (PDF)</b>, dat je bovenaan naast de kop
+        <b>Planning</b> vindt.</p>
       <p class="hdl-tip">De opstelling van elk deel pas je nadien nog aan met het <b>potlood</b> in het
         blok <b>Planning</b> van de geplande wedstrijd — ook die van kwart 1. In datzelfde blok staan
         onder het veld de wissels die je voor dat kwart klaarzette: met het <b>potlood</b> pas je er
@@ -1123,10 +1125,14 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Kies je bij een wissel <b>'geen voorkeur — altijd beschikbaar'</b>, dan hoort
         hij bij geen enkel kwart. Zulke wissels staan apart onder <b>'Wissels zonder vast kwart'</b>,
         een knop die enkel verschijnt als je er hebt.</p>
-      <p class="hdl-tip">Zegt de trainer "wissel hem na acht minuten"? Vul dan bij die wissel een
-        <b>richtminuut</b> in. Zodra die voorbij is, geeft de app een seintje en springt de knop
-        <b>'Geplande wissels'</b> eruit. De wissel gaat nooit vanzelf af — jij kiest het moment
-        waarop het spel het toelaat.</p>
+      <p class="hdl-tip">Bij elke geplande wissel staat een <b>minuut</b>, standaard de helft van het
+        deel. Zegt de trainer "wissel hem na acht minuten", dan zet je die er gewoon in. Die minuut
+        bepaalt mee de speeltijdverdeling hierboven, dus laat ze staan ook als je ze niet nodig hebt.
+        Daarnaast staat een vinkje <b>'Geef me een seintje op dat moment'</b>, standaard aan: zodra de
+        minuut voorbij is geeft de app een melding en springt de knop <b>'Geplande wissels'</b> eruit.
+        Zet je dat vinkje uit, dan telt de minuut nog steeds mee maar blijft het stil — de minuut staat
+        dan grijs in plaats van oranje. De wissel gaat nooit vanzelf af: jij kiest het moment waarop
+        het spel het toelaat.</p>
       <p class="hdl-tip">Tijdens de wedstrijd vind je die planning terug onderaan het tabblad
         <b>Opstelling</b>: per nog te spelen deel het veld, de bank en de wissels die je voor dat
         deel klaarzette.</p>
@@ -1223,11 +1229,21 @@ const HANDLEIDING_PAGINAS = [
         verder in deel X'</b>.</p>
       <p class="hdl-tip">Staat de klok stil, dan kleurt ze op en staat er <b>PAUZE</b> onder — zo zie
         je in één blik dat er geen tijd loopt.</p>
+      <p class="hdl-tip">Vergat je de klok te stoppen op het einde van een blok? In de pauze staat
+        <b>'Duur van [blok] aanpassen'</b> met de gelopen tijd erin. Zet je die recht, dan schuiven de
+        gebeurtenissen van de latere blokken netjes mee. Achteraf kan het ook nog, via het potlood
+        naast de blokduur in het verslag.</p>
       <p class="hdl-tip">Zijn er meerdere ploegbeheerders? Dat kan: registreren twee mensen op
         hetzelfde moment elk een doelpunt of een wissel, dan blijven ze allebei bewaard, en een
-        toestel dat even zonder verbinding zat verliest niets. Wat één persoon best doet, is
-        dezelfde gebeurtenis <b>aanpassen of wissen</b> — daar wint nog altijd wie het laatst
-        opslaat.</p>
+        toestel dat even zonder verbinding zat verliest niets. Wat wél één persoon moet doen, is de
+        <b>klok bedienen</b> en de <b>wissels klaarzetten</b> — die worden niet samengevoegd, dus daar
+        wint wie het laatst opslaat. Datzelfde geldt voor dezelfde gebeurtenis <b>aanpassen of
+        wissen</b>. Merkt de app dat er nog iemand met deze wedstrijd bezig is, dan zegt ze het
+        bovenaan het scherm; spreek dan even af wie ze bijhoudt.</p>
+      <p class="hdl-tip">Bovenaan het startscherm staat een melding zodra je <b>offline</b> bent —
+        ook wanneer je toestel wél verbinding lijkt te hebben maar er niets doorkomt, zoals op de
+        wifi van een kantine. Je kan gewoon verder werken: alles wordt bewaard en gaat weg zodra er
+        weer verbinding is.</p>
       <div class="sec">Twee wedstrijden op hetzelfde uur</div>
       <p>Bij de jongste reeksen speelt dezelfde ploeg vaak twee wedstrijden tegelijk, met twee groepjes
         op twee terreinen. Dat kan gewoon: elke wedstrijd wordt apart bijgehouden, ook wanneer beide
@@ -1312,6 +1328,13 @@ const HANDLEIDING_PAGINAS = [
         <li>Kies uit je tornooiselectie wie <b>mee</b> doet aan deze wedstrijd en zet de opstelling; wie je niet op het veld zet, begint op de bank. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
       </ol>
       <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
+      <div class="sec">Iemand gaat vroeger naar huis</div>
+      <p>Gaat een speler tijdens de dag weg — naar huis, of geblesseerd — meld hem dan meteen af voor
+        de <b>rest van het tornooi</b>. Waar je hem ook van het veld haalt (het <b>×</b> naast zijn
+        naam, <b>Meer</b>, of <b>Event toevoegen</b>), er staat telkens een vinkje
+        <b>'Ook niet beschikbaar voor de rest van het tornooi'</b>. Zonder dat vinkje geldt de
+        afmelding enkel voor die ene wedstrijd en staat hij bij de volgende gewoon weer in de
+        selectie.</p>
       <div class="sec">Overzicht</div>
       <p>Bovenaan het tornooi zie je de info en het aantal geselecteerde spelers; zodra er wedstrijden gespeeld zijn, komt daar de balans (gewonnen, gelijk, verloren, doelpunten) bij. Onderaan kan je het hele tornooi verwijderen; het blijft bewaard in de <b>Prullenmand</b> op het ploegscherm.</p>
       <p class="hdl-tip">Tornooiwedstrijden staan apart: ze verschijnen niet in de gewone wedstrijdenlijst en tellen niet mee in de seizoensstatistieken. Wel wordt bijgehouden in hoeveel tornooien een speler in de selectie zat.</p>
