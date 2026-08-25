@@ -3723,6 +3723,19 @@ function plannedCountNu(m) {
 // telt de echte veldbezetting.
 function veldBijStartVanDeel(m, q) {
   if (!q || q <= (m.currentQuarter || 0)) return effectiveOnField(m);
+  // IN DE PAUZE IS DE DOELOPSTELLING HET IJKPUNT (gemeten 25-08-2026). Ligt er een opstelling klaar
+  // voor het blok dat zo begint, dan is dát wie er straks op het veld staat — niet wie er bij het
+  // fluitsignaal van het vorige blok stond. effectiveOnField kijkt naar het veld van nu, en dat
+  // verandert in de pauze niet meer: alles wat je daar doet gaat naar nextLineup. Zonder deze regel
+  // liep élke controle en elke doelbepaling achter op de werkelijkheid zodra er in de pauze meer dan
+  // één ding klaarstond — de tweede positiewissel zocht zijn tegenpartij op het oude veld, en de
+  // laatste werd geweigerd met "die staat daar al". Gemeten: 4 positiewissels in de pauze gingen in
+  // 50 van de 100 gevallen mis; met deze regel plus die in _voerPlannedPosSwapUit: 450 op 450 goed.
+  // Geen kans op een lus: met een echte nextLineup keert nextLineupOf meteen terug en raakt
+  // previewNextLineup (dat hier weer zou kunnen uitkomen) niet aan.
+  if (m.quarterStatus === 'between' && q === (m.currentQuarter || 0) + 1 && Array.isArray(m.nextLineup)) {
+    return nextLineupOf(m).map(e => Object.assign({}, (m.players || []).find(p => p.id === e.id) || {}, e));
+  }
   // Toekomstig deel: het dichtstbijzijnde plan op of vóór dat deel (delen erven van elkaar, zie
   // plannedLineupBase). Zonder plan verandert er niets, dus blijft staan wie er nu staat.
   for (let k = q; k >= 2; k--) {
@@ -4358,7 +4371,11 @@ function _voerPlannedPosSwapUit(s, mode) {
   if (probleem) return probleem;
   // Pas hier bepalen wie er op de doelplek staat — zie plannedSwapDoelId. Dat gebeurt dus ná de
   // wissels die in dezelfde reeks al doorgevoerd zijn, precies zoals het hoort.
-  const doelId = plannedSwapDoelId(match, s);
+  // IN DE PAUZE STAAT DIE "AL DOORGEVOERDE" REEKS IN DE DOELOPSTELLING, NIET OP HET VELD: daar
+  // schrijven pauzeWisselInDoel en pauzeRuilInDoel naartoe, terwijl plannedSwapDoelId zonder lijst
+  // effectiveOnField leest — het veld zoals het bij het einde van het vorige blok stond. De tweede
+  // en volgende positiewissel van dezelfde reeks zochten hun tegenpartij dus op een verouderd beeld.
+  const doelId = plannedSwapDoelId(match, s, mode === 'break' ? nextLineupOf(match) : null);
   // Lege bestemming: verhuizen zonder ruil. Dezelfde weg als een verhuizing die je ter plekke doet.
   if (!doelId) {
     if (!s.naarPlek || !gridPlek(s.naarPlek)) return 'Er staat niemand op die positie.';

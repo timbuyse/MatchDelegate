@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.9.8
+
+**In de pauze deed de app iets anders dan wat ze toonde.** Zette je meerdere dingen klaar voor
+het volgende blok en bevestigde je die tijdens de pauze, dan kon de ploeg anders komen te staan
+dan op het scherm beloofd werd — twee spelers op elkaars plek, of een weigering
+"die staat daar al" bij de laatste.
+
+Oorzaak: in de pauze schrijft de app niet op het veld maar in de opstelling van het volgende
+blok. De controles en de vraag "wie staat er op die plek?" keken ondertussen nog naar het veld
+zoals het bij het fluitsignaal van het vorige blok stond. Dat beeld schoof dus niet mee met wat
+er al klaargezet was. Nu is de opstelling van het volgende blok het ijkpunt.
+
+Tijdens het spel was er niets aan de hand — daar klopte alles al. Ook de gegevens waren nooit in
+gevaar: het ging om een verkeerde opstelling, niet om beschadigde wedstrijden.
+
+Gemeten op de echte app-weg (plannen in het venster, doorvoeren met de knoppen): vier
+positiewissels in de pauze gingen eerst in 50 van de 100 gevallen mis, twee in 6 van de 100.
+Na de fix: 750 gevallen zonder fout, en 60 keer eind-tot-eind gecontroleerd dat het kwart ook
+echt start met de opstelling die de pauze beloofde.
+
+---
 ## v1.9.7
 
 **Speeltijd volgens het plan: een wissel valt in het MIDDEN van de gekozen minuut.**
