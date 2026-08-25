@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.0
+
+**Iedereen krijgt één keer te zien wat er veranderd is aan het plannen van wissels.** De tekst is
+door Tim geschreven en goedgekeurd; het venster verschijnt eenmalig bij wie de app al gebruikte.
+
+Het "wat is er nieuw"-venster ging tot nu enkel af bij een major-sprong (1 → 2). Een verandering van
+dit formaat had dan pas bij versie 2 verteld kunnen worden, dus de sleutel is nu MAJOR.MINOR. Er
+gebeurt nog steeds alleen iets voor een versie die in de tabel staat — dus enkel wanneer er een
+goedgekeurde tekst voor bestaat. Wie de app voor het eerst installeert, krijgt niets.
+
+---
 ## v1.11.1
 
 **Een wedstrijd opent weer op de startopstelling.** De planningskaart onthield waar je de vorige

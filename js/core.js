@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.11.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.12.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -720,11 +720,25 @@ function fileToClubLogoDataUri(file, size = CLUB_LOGO_MAX_PX) {
   });
 }
 function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
-// ===================== "WAT IS ER NIEUW" BIJ EEN MAJOR-VERSIE =====================
-// Bij een MAJOR-bump (1.x → 2.x) krijgt iedereen één keer te zien wat er nieuw is. Bewust enkel bij
-// major: een melding bij elke patch went, en wat went wordt weggeklikt zonder lezen.
-// De tekst is per major uitgeschreven en wordt door Tim goedgekeurd vóór de release.
+// ===================== "WAT IS ER NIEUW" =====================
+// Wie de app al gebruikte, krijgt één keer te zien wat er veranderd is. Bewust NIET bij elke versie:
+// een melding die went, wordt weggeklikt zonder lezen. De sleutel hieronder is MAJOR.MINOR, en er
+// gebeurt alleen iets voor een versie die in deze tabel staat — dus enkel wanneer Tim er een tekst
+// voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
+// een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  '1.12': {
+    titel: 'Wissels plannen werkt nu anders',
+    kop: 'Je tekent de opstelling, de app bepaalt de wissels',
+    intro: 'Wil je een wissel klaarzetten voor tijdens een kwart, dan geef je niet langer in wie eraf gaat en wie erin komt. Je tikt op het veld hoe de ploeg er tijdens dat kwart moet komen te staan — een speler naar een vrije plek, twee spelers die ruilen, iemand van de bank erin — en de app rekent zelf uit welke wissels en positiewissels daarvoor nodig zijn. Ze zet ze klaar en geeft een seintje op het moment zelf. Elk blok heeft daarvoor twee velden, met het tijdstip erop: Start, 7,5′, 15′, 22,5′ …',
+    kopPunten: 'Ook goed om te weten',
+    punten: [
+      'De fouten bij het doorvoeren van wissels tijdens de pauze zijn eruit. Zette je er meerdere tegelijk klaar, dan kon de ploeg anders komen te staan dan het scherm beloofde',
+      'Het wedstrijdplan toont ook wie er meeschuift door de wissel van iemand anders — op papier en op het scherm hetzelfde',
+      'Onder de planning staat "Speeltijd volgens dit plan": per speler hoeveel hij volgens jouw plan zou spelen, ook in de PDF',
+      'Eindigt een wedstrijd gelijk, dan vraagt de app of er strafschoppen volgden. Je duidt per schot aan wie neemt en of hij scoort; wie de reeks wint heeft gewonnen, en dat telt mee in de statistieken, de tornooistand, het verslag en de PDF',
+    ],
+  },
   '1': {
     titel: 'Versie 1.0 is er',
     kop: 'Strafschoppenreeks',
@@ -738,7 +752,15 @@ const RELEASE_NOTES = {
     ],
   },
 };
+// De sleutel van een versie in RELEASE_NOTES: eerst MAJOR.MINOR ('1.12'), en anders de major alleen
+// ('1') — zo blijft de tekst van 1.0 gelden voor wie die nog niet zag.
 function majorVan(v) { return String(v || '').split('.')[0]; }
+function notesSleutel(v) {
+  const d = String(v || '').split('.');
+  const mm = d[0] + '.' + (d[1] || '0');
+  if (RELEASE_NOTES[mm]) return mm;
+  return d[0];
+}
 const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
 // Eén keer per major tonen. Wie de app voor het ÉÉRST installeert krijgt niets: "nieuw sinds vorige
 // keer" slaat dan nergens op. Dat herkennen we aan het ontbreken van eerdere gegevens — bij de
@@ -746,7 +768,7 @@ const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
 // niemand ze zien.
 async function toonNieuwAlsNodig() {
   try {
-    const huidig = majorVan(APP_VERSION);
+    const huidig = notesSleutel(APP_VERSION);
     const gezien = localStorage.getItem(MAJOR_GEZIEN_KEY);
     if (gezien === huidig) return;
     const notes = RELEASE_NOTES[huidig];
@@ -761,7 +783,7 @@ async function toonNieuwAlsNodig() {
         <div style="font-weight:800;font-size:15px;margin-bottom:4px">${esc(notes.kop)}</div>
         <p style="font-size:14px;color:var(--txt2);margin:0">${esc(notes.intro)}</p>
       </div>
-      ${(notes.punten || []).length ? `<div class="sec" style="margin-top:0">Ook nieuw</div>
+      ${(notes.punten || []).length ? `<div class="sec" style="margin-top:0">${esc(notes.kopPunten || 'Ook nieuw')}</div>
         <ul style="margin:0 0 14px;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.7">
           ${notes.punten.map(p => `<li>${esc(p)}</li>`).join('')}
         </ul>` : ''}
