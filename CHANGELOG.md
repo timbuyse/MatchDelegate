@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.8.0
+### Een wedstrijd afsluiten die je niet gevolgd hebt
+- **Eén venster voor beide uitkomsten.** De knop onderaan het wedstrijdscherm heette *Afsluiten als gespeeld zonder uitslag* en deed precies dat — wie de score wél kende, moest langs *Bewerken → Uitslag ingeven*. De knop heet nu **Afsluiten met of zonder uitslag** en opent hetzelfde venster, waar je kiest.
+- **Ook zonder selectie staat de uitslagknop bovenaan.** Daar stonden twee knoppen (*Bewerken* en *Selectie ingeven*); het zijn er nu drie: **Bewerken · Selectie · Uitslag**. Juist een wedstrijd zonder selectie is er vaak een die niemand gevolgd heeft.
+- **Doelpuntenmakers:** de lijst toont enkel wie meeging — de niet-beschikbare spelers stonden er ook tussen, dus je kon een doelpunt geven aan iemand die er niet was. Zonder selectie valt de lijst helemaal weg.
+
+### Speelminuten uit het wedstrijdplan
+- **Stond er een opstelling per blok klaar, dan tellen die minuten mee.** Tot nu leverde een afgesloten wedstrijd nooit speeltijd op, ook al lag het hele plan er. Nu rekent de app uit wie hoeveel speelde en gebruikt dat in *Meeste speelminuten*, *Fair-play* en het verslag.
+- **Alleen bij een echte verdeling over de blokken.** Staat er enkel een startopstelling, dan komen er geen minuten bij: daaruit zou volgen dat de basis alles speelde en de bank niets, en dat is een sterke bewering over een wedstrijd die niemand volgde.
+- **Het venster zegt vooraf wat er gaat gebeuren** — of de minuten meetellen of niet — zodat je het niet pas achteraf in de statistieken ontdekt.
+- **Zichtbaar waar het getal vandaan komt:** in het verslag en de PDF staat dat de wedstrijd niet live gevolgd is, en bij Fair-play staat *"1× speeltijd volgens het wedstrijdplan"* bij de speler.
+- Heropen je de wedstrijd, dan verdwijnen die geplande minuten weer: je gaat ze alsnog volgen, en dan telt de klok.
+
+### Rechtgezet
+- **Een wedstrijd zonder uitslag gaf de doelman een clean sheet.** De stand *– . –* wordt intern als 0 bewaard, en dat las de app als "geen tegendoel" — terwijl je juist níét weet of er tegengescoord is. Op dezelfde kaart stond dan *Ploeg 0/0* met een keeper op 1. Nu telt zo'n wedstrijd nergens mee bij clean sheets, ook niet in het spelersdetail.
+
+---
+
 ## v1.7.3
 ### Nieuwe schermafbeeldingen in de handleiding
 - **Alle twintig beelden opnieuw genomen.** Ze waren van vóór v1.4.0 en toonden nog dingen die niet meer bestaan: de fotovakken in het verslag, de kijkmodusschakelaar op het beheerscherm, en de oude knopindeling op het wedstrijdscherm. Nu staan er ook de nieuwe zaken op: *Allemaal mee* en *Vorige selectie* bij de selectie, *Te vroeg gestopt* in de pauze, het potlood per kwart in het verslag, en het opengeklapte *Meer details* bij een nieuwe wedstrijd.

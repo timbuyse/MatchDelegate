@@ -272,12 +272,19 @@ async function loadStats() {
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
     const gemeten = getGameTimeMs(m) > 0;
+    // SPEELMINUTEN UIT HET PLAN (v1.8.0). Een afgesloten wedstrijd met een echte kwartverdeling
+    // levert wél minuten (zie minutenUitPlan in views-account.js), dus die telt mee als noemer voor
+    // de fair-play-gemiddelden. Clean sheets blijven bewust op `gemeten`: die gaan over de doelman
+    // en over wat er op het veld gebeurde, niet over een verdeling die vooraf op papier stond.
+    const uitPlan = typeof minutenUitPlan === 'function' && minutenUitPlan(m);
+    const heeftMinuten = gemeten || uitPlan;
     // ALLEEN GEMETEN WEDSTRIJDEN (audit 25-08-2026). De ploegteller nam élke wedstrijd zonder
     // tegendoel mee, ook een "Snel resultaat" — maar de keeperregels eisen ms > 0, wat bij een
     // snelinvoer nooit waar is. Op dezelfde kaart stond dan "Ploeg 3/8" met keeperrijen die samen op
     // 2 kwamen, zonder uitleg. Nu dezelfde grens voor beide, en de noemer is het aantal wedstrijden
     // waarin er speeltijd bijgehouden is (`gemetenAantal`).
-    if (gemeten) { gemetenAantal++; if (m.scoreThem === 0) cleanSheets++; }
+    // Ook hier telt een wedstrijd zonder uitslag niet mee — noch in de teller, noch in de noemer.
+    if (gemeten && !geenUitslag(m)) { gemetenAantal++; if (m.scoreThem === 0) cleanSheets++; }
     for (const p of (m.players || [])) {
       // Reden "speelt elders" (weggeroepen naar de tweede wedstrijd van dezelfde ploeg, die op
       // hetzelfde uur loopt): hij voetbalde wel degelijk, alleen niet hier. Dus geen gemiste
@@ -291,7 +298,8 @@ async function loadStats() {
       // A/B-tegenhanger op dezelfde dag niet dubbel als afwezig telt.)
       if (p.absent) { r.absent++; r.noshow++; continue; }
       r.squad++;
-      if (gemeten) r.timed++;
+      if (heeftMinuten) r.timed++;
+      if (uitPlan) r.volgensPlan = (r.volgensPlan || 0) + 1;
       // Vertrokken of onderweg bijgekomen (Tims keuze, 25-08-2026): die wedstrijd telt gewoon mee,
       // maar het wordt bij zijn naam gezet. Zo'n speler heeft weinig minuten bij een volle wedstrijd
       // en klom daardoor naar de top van "Fair-play · minste speeltijd" — de lijst die juist moet
@@ -330,7 +338,11 @@ async function loadStats() {
       // keeperByQ (per-kwart bijgehouden, zie syncKeeper()) i.p.v. de eind-positie: anders krijgt
       // bij een keeperwissel tijdens de wedstrijd de verkeerde speler het clean-sheet-krediet.
       const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, p.id) : p.line === 'Doel';
-      if (ms > 0 && wasKeeper && m.scoreThem === 0) r.cs++;  // clean sheet voor de keeper
+      // GEEN CLEAN SHEET ZONDER UITSLAG (v1.8.0). `scoreThem` staat bij zo'n wedstrijd op 0 omdat er
+      // niets ingevuld is, niet omdat er niets tegen viel — je wéét eenvoudigweg niet of er
+      // tegengescoord is. Zonder deze controle kreeg de keeper er een clean sheet bij terwijl de
+      // ploegteller eronder op 0/0 bleef staan, want die telt alleen gemeten wedstrijden.
+      if (ms > 0 && wasKeeper && m.scoreThem === 0 && !geenUitslag(m)) r.cs++;  // clean sheet voor de keeper
     }
     for (const a of (m.absentPlayers || [])) {
       const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
@@ -442,10 +454,13 @@ async function loadStats() {
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: daar is geen speeltijd bijgehouden.</p>${fairplay.length ? fairplay.map(p=>{
-      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee — tenzij er een opstelling per blok in stond: dan komen de minuten uit dat plan, en staat dat bij de speler vermeld.</p>${fairplay.length ? fairplay.map(p=>{
+      // "Volgens plan" erbij (v1.8.0): bij een wedstrijd die enkel afgesloten is, komen de minuten uit
+      // het wedstrijdplan en niet van een gelopen klok. Dat hoort zichtbaar te zijn — zoals bij een
+      // speler die vertrok — want anders lees je een gemiddelde zonder te weten waar het op steunt.
+      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : '', p.volgensPlan ? `${p.volgensPlan}× speeltijd volgens het wedstrijdplan` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
-    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven, dus er is geen speeltijd bijgehouden.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
+    + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven of helemaal geen uitslag, dus er valt niet uit af te leiden of er tegengescoord is.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
       // Per PLEK, aflopend: "CAM×5 · CM×3 · RM×1". De linie staat eronder als samenvatting, want dat is
@@ -592,7 +607,8 @@ async function loadPlayerDetail() {
     squad++;
     // keeperByQ i.p.v. eind-positie — zie toelichting bij wasKeeperAtAll().
     const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, pl.id) : pl.line === 'Doel';
-    if (pms > 0) { mp++; ms += pms; if (wasKeeper) { keeperApps++; if (m.scoreThem === 0) cs++; } }
+    // Zelfde regel als op de statistiekenpagina: zonder uitslag geen clean sheet (zie daar).
+    if (pms > 0) { mp++; ms += pms; if (wasKeeper) { keeperApps++; if (m.scoreThem === 0 && !geenUitslag(m)) cs++; } }
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
@@ -1123,14 +1139,31 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Annuleren is omkeerbaar: je selectie en je hele plan blijven bewaard, en met
         <b>'Annulering ongedaan maken'</b> staat de wedstrijd weer op gepland zoals ze was. Gaat ze
         echt nooit door, dan is <b>'Wedstrijd verwijderen'</b> nog altijd de definitieve weg.</p>
-      <div class="sec">Wel gespeeld, maar niets bijgehouden</div>
-      <p>Bij een vriendschappelijke noteert soms niemand de score. Zo'n wedstrijd blijft anders voor
-        altijd als <b>'niet afgesloten'</b> op je startscherm staan. Onderaan het wedstrijdscherm
-        staat daarom <b>'Afsluiten als gespeeld zonder uitslag'</b> — ook als je nooit een selectie
-        ingaf.</p>
-      <p>De wedstrijd staat dan als <b>gespeeld</b> met <b>– . –</b> in plaats van een score. Ze telt
-        mee in je <b>aantal wedstrijden</b>, maar niet bij winst, gelijk, verlies, doelpunten of nul
-        gehouden. Zo vertekent ze je cijfers niet.</p>
+      <div class="sec">Wel gespeeld, maar niet gevolgd</div>
+      <p>Bij een vriendschappelijke volgt soms niemand de wedstrijd in de app. Zo'n wedstrijd blijft
+        anders voor altijd als <b>'niet afgesloten'</b> op je startscherm staan. Onderaan het
+        wedstrijdscherm staat daarom <b>'Afsluiten met of zonder uitslag'</b> — ook als je nooit een
+        selectie ingaf. Bovenaan kan het ook, met de knop <b>'Uitslag'</b>.</p>
+      <p>In dat venster kies je zelf:</p>
+      <ul class="hdl-list">
+        <li><b>Met uitslag:</b> vul de eindstand in. De wedstrijd telt volledig mee — winst, gelijk of
+          verlies, en het doelpuntenverschil.</li>
+        <li><b>Zonder uitslag:</b> de wedstrijd staat als <b>gespeeld</b> met <b>– . –</b> in plaats van
+          een score. Ze telt mee in je <b>aantal wedstrijden</b>, maar niet bij winst, gelijk, verlies,
+          doelpunten of nul gehouden. Zo vertekent ze je cijfers niet.</li>
+      </ul>
+      <p>Gaf je een selectie in, dan kan je onder <b>'Doelpuntenmakers aanduiden'</b> ook zeggen wie
+        scoorde; die doelpunten tellen dan mee bij de spelers. Zonder selectie staat die lijst er niet,
+        want er valt niemand aan te duiden.</p>
+      <div class="sec">En de speelminuten?</div>
+      <p>Dat hangt af van hoever je plan stond, en het venster zegt vooraf wat er gaat gebeuren:</p>
+      <ul class="hdl-list">
+        <li><b>Alleen een selectie:</b> er komen geen speelminuten bij. Wie meeging zegt niet wie hoe
+          lang speelde.</li>
+        <li><b>Een opstelling per blok</b> (of geplande wissels): de app rekent uit wie hoeveel speelde
+          en telt dat mee. In het verslag en bij <b>Fair-play</b> staat erbij dat die minuten uit het
+          wedstrijdplan komen, zodat je weet waar het getal op steunt.</li>
+      </ul>
       <p class="hdl-tip">Bedenk je je later? Op het verslag van zo'n wedstrijd staat <b>'Alsnog een
         uitslag ingeven'</b>. En omgekeerd kan ook: een ingegeven uitslag terug op – . – zetten.</p>
     `

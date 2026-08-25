@@ -139,6 +139,12 @@ function renderDetail() {
          klopten de minuten wel, maar nergens stond dát je een tijd met minder spelers speelde —
          terwijl dat de eerste vraag is als iemand de percentages nakijkt. Berekend uit de cijfers
          van de app zelf (calcMinutes), niet uit een eigen reconstructie van het veld. */ ''}
+    ${/* VOLGENS HET PLAN (v1.8.0). Deze wedstrijd is niet live gevolgd; de minuten komen uit de
+         opstelling per blok die vooraf klaarstond. Dat moet erbij staan, anders leest dit als een
+         gemeten uitslag terwijl er geen klok gelopen heeft. Staat vóór de man-minder-noot, want het
+         zegt iets over álle cijfers eronder. */ ''}
+    ${(typeof minutenUitPlan === 'function' && minutenUitPlan(match))
+      ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} Deze wedstrijd is <b>niet live gevolgd</b>. De minuten hieronder komen uit het wedstrijdplan: de opstelling die per ${pSingLow(match)} klaarstond.</p>` : ''}
     ${(() => {
       const ms = minutenMetMinderMs(match);
       if (ms < 60000) return '';
@@ -1126,9 +1132,15 @@ async function pdfMatchBody(doc, L, m) {
     styles: { fontSize: 9.5, cellPadding: 4 }, headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
     didParseCell: data => { if (data.section === 'body' && absentRowIdx.has(data.row.index)) data.cell.styles.textColor = [156, 163, 175]; } },
     24,
-    // Zelfde melding als op het scherm: na een rode kaart of een eenzijdige wissel kloppen de
-    // minuten wel, maar zonder dit regeltje zie je niet waaróm de percentages lager liggen.
-    (() => { const ms = minutenMetMinderMs(m); return ms >= 60000 ? `Ongeveer ${Math.round(ms / 60000)} min met minder spelers op het veld dan er plaatsen zijn.` : ''; })());
+    // Zelfde meldingen als op het scherm. Eerst dat de minuten uit het plan komen (dat geldt voor de
+    // hele tabel), dan de man-minder-noot; de tabel neemt één notitieregel, dus ze staan samen.
+    (() => {
+      const uitPlan = (typeof minutenUitPlan === 'function' && minutenUitPlan(m))
+        ? `Niet live gevolgd — de minuten komen uit het wedstrijdplan (de opstelling per ${pSingLow(m)}).` : '';
+      const ms = minutenMetMinderMs(m);
+      const minder = ms >= 60000 ? `Ongeveer ${Math.round(ms / 60000)} min met minder spelers op het veld dan er plaatsen zijn.` : '';
+      return [uitPlan, minder].filter(Boolean).join(' ');
+    })());
 
   // (De fotosectie is eruit — zie de uitleg bovenaan dit bestand bij het weggehaalde photoSectionHtml.)
 

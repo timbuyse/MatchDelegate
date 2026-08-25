@@ -2118,7 +2118,24 @@ function effectiveOnField(m) {
   return m.players.filter(p => on.has(p.id) && !p.absent);
 }
 
+// SPEELMINUTEN VOLGENS HET PLAN (v1.8.0, Tims regel van 25-08-2026). Een wedstrijd die enkel
+// afgesloten is (met of zonder uitslag) heeft geen gelopen klok, dus hieronder komt iedereen op nul.
+// Stond er een echte verdeling over de blokken in het plan, dan zijn die minuten bij het afsluiten
+// vastgelegd in m.planMinuten en gelden ze als de speeltijd van die wedstrijd.
+// BEWUST VASTGELEGD EN NIET TELKENS HERREKEND: het plan van een afgesloten wedstrijd kan nadien nog
+// wijzigen, en dan zouden de "gespeelde" minuten van een afgeronde wedstrijd met terugwerkende kracht
+// veranderen. Wat hier staat, is wat je bij het afsluiten bevestigd hebt.
+// Oudere wedstrijden hebben het veld niet en gedragen zich exact zoals voorheen.
+function minutenUitPlan(m) {
+  return !!(m && m.minutenVolgensPlan && m.planMinuten && getGameTimeMs(m) === 0);
+}
 function calcMinutes(m) {
+  if (minutenUitPlan(m)) {
+    const uitPlan = {};
+    for (const p of m.players) uitPlan[p.id] = { ms: (m.planMinuten[p.id] || 0), absent: !!p.absent, volgensPlan: true };
+    for (const p of m.players) if (p.absent && uitPlan[p.id]) uitPlan[p.id].ms = 0;
+    return uitPlan;
+  }
   const mins = {}, totalMs = getGameTimeMs(m), entry = {};
   for (const p of m.players) mins[p.id] = { ms: 0, absent: !!p.absent };
   for (const p of m.players) if (p.starting && !p.absent) entry[p.id] = 0;

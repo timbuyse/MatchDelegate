@@ -1112,6 +1112,11 @@ async function doReopenMatch() {
   match.status = 'live';
   match.quarterStatus = 'between';
   match.numQuarters = Math.max(match.numQuarters || 0, match.quarters.length) + 1;
+  // SPEELMINUTEN UIT HET PLAN OPRUIMEN (v1.8.0). Ze zijn vastgelegd bij het afsluiten; wie de
+  // wedstrijd heropent gaat ze alsnog volgen, en dan telt de klok. Nu al wissen in plaats van erop
+  // te vertrouwen dat minutenUitPlan ze negeert zodra er tijd gelopen heeft — anders blijft een
+  // heropende maar nooit gespeelde wedstrijd op geplande minuten staan.
+  delete match.planMinuten; delete match.minutenVolgensPlan;
   closeModal();
   await dbSave(match);
   go('live', match.id);
