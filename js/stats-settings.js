@@ -149,6 +149,58 @@ function spelerSoortKnopHtml() {
   </div>`;
 }
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
+// ALLE PLEKKEN DIE IEMAND IN ÉÉN BLOK INGENOMEN HEEFT (Tim, 27-08-2026).
+// De statistiek "Posities" telt per blok, niet per wedstrijd — anders zou wie drie kwarten centraal
+// achterin stond en het laatste kwart spits speelde, hier als spits staan en verder niets. Dit
+// vertrekt van de opstelling bij de START van het blok (playersAtPeriodStart, dezelfde bron als het
+// velddiagram) en speelt daarna de wissels en positiewissels van dát blok af, zodat ook een invaller
+// zijn plek krijgt. Per speler een verzameling codes: twee keer dezelfde plek in één blok telt één
+// keer, twee verschillende plekken tellen allebei.
+// Pauzewissels (atBreak) horen bij de overgang en zitten al in de start van het volgende blok.
+const _plekkenCache = new WeakMap();
+function plekkenInBlok(m, qNum) {
+  let perMatch = _plekkenCache.get(m);
+  if (!perMatch) { perMatch = new Map(); _plekkenCache.set(m, perMatch); }
+  if (perMatch.has(qNum)) return perMatch.get(qNum);
+  const uit = new Map();
+  perMatch.set(qNum, uit);
+  if (typeof playersAtPeriodStart !== 'function') return uit;
+  const veld = playersAtPeriodStart(m, qNum).map(p => ({ ...p }));
+  const noteer = p => {
+    const c = p && spelerGridCode(p);
+    if (!c) return;
+    if (!uit.has(p.id)) uit.set(p.id, new Set());
+    uit.get(p.id).add(c);
+  };
+  veld.forEach(noteer);
+  const inBlok = (m.events || [])
+    .filter(e => e.quarterNum === qNum && !e.atBreak && (e.type === 'substitution' || e.type === 'posSwap'))
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  for (const e of inBlok) {
+    if (e.type === 'substitution') {
+      const idx = veld.findIndex(x => x.id === e.playerOutId);
+      const inn = e.playerInId ? (m.players || []).find(x => x.id === e.playerInId) : null;
+      if (idx < 0) continue;                       // eenzijdig erbij: geen plek om over te nemen
+      if (!inn) { veld.splice(idx, 1); continue; }  // eraf zonder vervanger
+      veld[idx] = Object.assign({}, inn, { x: veld[idx].x, y: veld[idx].y, line: veld[idx].line, posNum: veld[idx].posNum, posCodeVeld: veld[idx].posCodeVeld });
+      noteer(veld[idx]);
+    } else {
+      const a = veld.find(x => x.id === e.pA);
+      if (!a) continue;
+      const b = e.pB ? veld.find(x => x.id === e.pB) : null;
+      if (b) {
+        const t = { x: a.x, y: a.y, line: a.line, posNum: a.posNum, posCodeVeld: a.posCodeVeld };
+        a.x = b.x; a.y = b.y; a.line = b.line; a.posNum = b.posNum; a.posCodeVeld = b.posCodeVeld;
+        b.x = t.x; b.y = t.y; b.line = t.line; b.posNum = t.posNum; b.posCodeVeld = t.posCodeVeld;
+        noteer(a); noteer(b);
+      } else if (e.naarPlek && gridPlek(e.naarPlek)) {
+        zetOpGridPlek(a, gridPlek(e.naarPlek), m);
+        noteer(a);
+      }
+    }
+  }
+  return uit;
+}
 function seasonOf(m) {
   const d = m.date ? new Date(m.date + 'T00:00:00') : (m.createdAt ? new Date(m.createdAt) : null);
   if (!d || isNaN(d.getTime())) return 'Onbekend';   // geen/ongeldige datum → geen "NaN/NaN"-seizoen
@@ -318,15 +370,22 @@ async function loadStats() {
       // keer. Het opschrift belooft "hoe vaak per plek", en die gegevens bestaan: playersAtPeriodStart
       // geeft per blok wie waar begon. Lukt dat niet (oude wedstrijd zonder blokken), dan valt het
       // terug op de eindpositie zoals voorheen.
+      // OOK WIE TIJDENS EEN BLOK INVALT (Tims vraag, 27-08-2026). Tot nu keek dit enkel naar de
+      // opstelling bij de START van elk blok. Wie er tijdens een kwart inkwam, telde voor dat kwart
+      // niet mee — en dat is net de speler die het minst speelt en het minst zichtbaar is. Nu levert
+      // plekkenInBlok álle plekken die iemand in dat blok ingenomen heeft, één keer per plek: stond
+      // hij aan de aftrap op CAM en schoof hij later naar CM, dan telt dat blok voor allebei.
       let geteld = false;
       for (const q of (m.quarters || [])) {
-        if (!q || !q.num || typeof playersAtPeriodStart !== 'function') continue;
-        const toen = playersAtPeriodStart(m, q.num).find(x => x.id === p.id);
-        if (!toen) continue;
-        const c = spelerGridCode(toen);
-        if (c) { r.plekken[c] = (r.plekken[c] || 0) + 1; geteld = true; }
-        const lijn = toen.line || p.line;
-        if (lijn) { r.lines[lijn] = (r.lines[lijn] || 0) + 1; geteld = true; }
+        if (!q || !q.num) continue;
+        const codes = plekkenInBlok(m, q.num).get(p.id);
+        if (!codes || !codes.size) continue;
+        for (const c of codes) {
+          r.plekken[c] = (r.plekken[c] || 0) + 1;
+          const lijn = (gridPlek(c) || {}).line;
+          if (lijn) r.lines[lijn] = (r.lines[lijn] || 0) + 1;
+          geteld = true;
+        }
       }
       if (geteld) { /* per blok geteld */ } else {
       r.lines[p.line] = (r.lines[p.line] || 0) + 1;
@@ -462,7 +521,11 @@ async function loadStats() {
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven of helemaal geen uitslag, dus er valt niet uit af te leiden of er tegengescoord is.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
-    + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`, posList.map(p=>{
+    + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`,
+      // ZEG ERBIJ HOE ER GETELD WORDT (Tim, 27-08-2026). Bij één wedstrijd stond er "GK×4" en dat
+      // leest als een fout, tot je weet dat er per blok geteld wordt. Nu staat het er.
+      `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Geteld <b>per kwart of helft</b>, niet per wedstrijd: wie een hele wedstrijd van vier kwarten in doel stond, staat hier als <b>GK×4</b>. Wie tijdens een blok invalt of van plek verandert, telt voor dat blok mee op elke plek waar hij gestaan heeft.</p>`
+      + posList.map(p=>{
       // Per PLEK, aflopend: "CAM×5 · CM×3 · RM×1". De linie staat eronder als samenvatting, want dat is
       // waar je in één oogopslag ziet of iemand vooral verdedigt of aanvalt. Heeft een speler nog geen
       // plekken (enkel oude wedstrijden waarvan de plaats niet te herleiden was), dan valt de rij terug

@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.9
+
+**Bij Posities staat nu hoe er geteld wordt.** Eén wedstrijd en toch "GK×4" leest als een fout, tot
+je weet dat er per kwart geteld wordt. Dat staat er nu bij: geteld per kwart of helft, niet per
+wedstrijd.
+
+**En wie tijdens een blok invalt, telt voortaan mee.** Tot nu keek de telling enkel naar de
+opstelling bij de start van elk blok. Wie er tijdens een kwart inkwam, bleef voor dat kwart
+onzichtbaar — net de speler die het minst speelt. Nu telt elke plek waar iemand in dat blok gestaan
+heeft, één keer per plek: schuif je halverwege van RM naar CA, dan telt dat blok voor allebei.
+
+---
 ## v1.12.8
 - **Je ziet nu waar de naam uit twee delen bestaat.** Er stond MATCHDELEGATE in
   volle hoofdletters; nu zijn de **M** en de **D** vol en staat de rest in klein kapitaal. De
