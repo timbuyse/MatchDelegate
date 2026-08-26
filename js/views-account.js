@@ -918,13 +918,22 @@ async function showClubExport(clubId) {
 async function showPloegExport() {
   if (!canSeeStats()) return;
   const kern = (typeof getTeamsV2 === 'function' ? getTeamsV2() : [])[0] || null;
-  const naam = (kern && kern.name) || teamNames[activeTeamId] || 'Ploeg';
+  // DE NAAM EERST, HET ID NIET (Tims melding, 27-08-2026). Hier stond een filter op
+  // `m.teamId === activeTeamId`, en die gaf ALTIJD NUL: `activeTeamId` is het id van de PLOEG
+  // (een push-key als `-OvsVr0sXAIrjQ9fMBlo`), terwijl een wedstrijd het id van haar SPELERSKERN
+  // draagt (`mqoa89dwfqp61w65js`). Die twee worden milliseconden na elkaar aangemaakt en lijken op
+  // elkaar, maar ze zijn niet uitwisselbaar — zie het incident van 21-08-2026, waar dezelfde
+  // verwarring me al eens op een verkeerd spoor zette.
+  // De statistiekenpagina lost dit al jaren op met de NAAM (`teamNames[activeTeamId]`), en dat is
+  // meteen de juiste bron: het is exact het veld dat op elke wedstrijd staat. Het id blijft als
+  // tweede kans staan voor wedstrijden zonder naam.
+  const naam = teamNames[activeTeamId] || (kern && kern.name) || 'Ploeg';
   let wedstrijden = [];
   try { wedstrijden = (await dbAll()).filter(Boolean); } catch (e) {}
   // Enkel de wedstrijden van DEZE ploeg: de lokale opslag is niet per ploeg gescheiden (zie
   // cleanupOrphanMatches), dus zonder deze filter zouden wedstrijden van een andere ploeg op
   // hetzelfde toestel mee in het bestand belanden.
-  const eigen = wedstrijden.filter(m => (m.teamId && m.teamId === activeTeamId) || (!m.teamId && m.teamName === naam));
+  const eigen = wedstrijden.filter(m => (m.teamName && m.teamName === naam) || (!m.teamName && m.teamId && m.teamId === activeTeamId));
   const tornooien = {};
   try { (getTournaments() || []).forEach(t => { if (t && t.id) tornooien[t.id] = t; }); } catch (e) {}
   const ploegen = [{ id: activeTeamId || 'lokaal', naam, spelers: (kern && kern.players) || [], tornooien, wedstrijden: eigen }];

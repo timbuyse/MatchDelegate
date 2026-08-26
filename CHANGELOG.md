@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.2
+
+**De seizoensexport van je ploeg gaf een leeg bestand.** Bij Statistieken → exporteren stond er
+nul wedstrijden terwijl er tientallen zijn.
+
+De filter vergeleek het id van de wedstrijd met dat van de actieve ploeg — maar dat zijn twee
+verschillende dingen: een wedstrijd draagt het id van de spelerskern, niet dat van de ploeg. Die
+twee worden vlak na elkaar aangemaakt en lijken op elkaar, maar ze komen nooit overeen, dus vond de
+filter altijd niets. De statistiekenpagina gebruikt hiervoor al jaren de ploegNAAM, en dat is meteen
+het veld dat op elke wedstrijd staat. De export doet nu hetzelfde.
+
+Nagemeten op een echte ploeg met 107 wedstrijden op het toestel: 36 van de eigen ploeg gevonden,
+de andere 71 van andere ploegen blijven er netjes buiten.
+
+---
 ## v1.12.1
 
 **Na het affluiten kom je meteen op het verslag.** Je bleef op het livescherm staan met een
