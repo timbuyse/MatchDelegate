@@ -4057,9 +4057,13 @@ function modalPlannedSubs(tab) {
     ${tabs}
     <div class="sec" style="margin-top:0">${actief ? `Klaargezet voor ${pSingLow(m)} ${actief}` : 'Zonder vast deel'} <span style="color:var(--txt2);font-weight:400;text-transform:none">(jij kiest wanneer)</span></div>
     <div id="gw-lijst">${lijst || `<p style="color:var(--txt2);font-size:13px;padding:4px 0">Nog niets klaargezet${actief ? ` voor ${pSingLow(m)} ${actief}` : ''}.</p>`}</div>
-    ${/* Alles ineens: eerst de wissels, dan de positiewissels — zie runAllPlanned. Enkel zichtbaar
-         als er meer dan één ding klaarstaat; voor één regel volstaat de knop "Nu" ernaast. */ ''}
-    ${(kanDoorvoeren && nuAanDeBeurt && aantal > 1) ? `<button class="btn btn-green btn-sm" style="margin-top:10px" onclick="runAllPlanned(${actief})">${icI(IC.check)} Alle ${aantal} doorvoeren</button>` : ''}
+    ${/* Alles ineens: eerst de wissels, dan de positiewissels — zie runAllPlanned.
+         ALTIJD ZICHTBAAR (Tim, 26-08-2026). Hij stond er enkel bij meer dan één regel, met de
+         redenering dat "Nu" ernaast volstaat voor één wissel. Aan de zijlijn werkt dat niet: je zoekt
+         de knop waar je hem de vorige keer vond, en die was er dan niet. Nu staat hij er altijd —
+         uitgegrijsd wanneer er niets klaarstaat, zodat de plek herkenbaar blijft en je meteen ziet
+         dát er niets is. */ ''}
+    ${(kanDoorvoeren && nuAanDeBeurt) ? `<button class="btn btn-green btn-sm" style="margin-top:10px" onclick="runAllPlanned(${actief})"${aantal ? '' : ' disabled'}>${icI(IC.check)} ${aantal > 1 ? `Alle ${aantal} doorvoeren` : 'Alles doorvoeren'}</button>` : ''}
     ${/* "+ POSITIEWISSEL" IS TERUG (Tim, 25-08-2026). Hij ging weg op 22/23-08 met de redenering dat
          je verschuivingen niet vooraf plant maar op het veld tekent. Dat klopt maar half, en Tim
          merkte het in de praktijk: het veld tekenen legt vast waar iedereen bij de START van een blok

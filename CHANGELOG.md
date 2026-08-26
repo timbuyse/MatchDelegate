@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.13.1
+
+**"Alles doorvoeren" staat er nu altijd.** De knop verscheen enkel wanneer er meer dan één ding
+klaarstond — bij één wissel volstond volgens de opbouw de knop *Nu* ernaast. Aan de zijlijn werkt dat
+niet: je zoekt de knop waar je hem de vorige keer vond. Nu staat hij er altijd, en uitgegrijsd
+wanneer er niets klaarstaat, zodat de plek herkenbaar blijft en je meteen ziet dát er niets is.
+
+De knop bij elke wissel apart verandert niet.
+
+---
 ## v1.13.0
 
 **De positiewissels staan nu ook onder het velddiagram**, in het verslag én in de PDF. Ze stonden

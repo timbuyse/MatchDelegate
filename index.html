@@ -239,6 +239,9 @@
     .qbtn-end{background:var(--rdp);color:var(--rd)}
     .qbtn-resume{background:var(--blp);color:var(--bl)}
     .qbtn:disabled{opacity:.35;pointer-events:none}
+  /* Een uitgeschakelde gewone knop: zichtbaar blijven zodat je weet dát hij bestaat, maar duidelijk
+     niet aanklikbaar. Zelfde behandeling als de kwartknoppen hierboven. */
+  .btn:disabled{opacity:.4;pointer-events:none}
     /* Event buttons */
     .evtbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:16px}
     .evtbtn{border:2px solid var(--bdr);border-radius:12px;padding:12px 4px;text-align:center;cursor:pointer;background:var(--card);transition:transform .1s}
