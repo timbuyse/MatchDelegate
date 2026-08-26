@@ -2947,7 +2947,9 @@ window.addEventListener('popstate', async e => {
   // Navigeer intern zonder opnieuw een history-entry te maken.
   await go(s.v, s.id || undefined, true);
 });
-function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit">Match Delegate · App created by <b>Tim Buyse</b></div>'; }
+// De naam onderaan is een link naar de website. Bewust in een nieuw tabblad: de app is een PWA en
+// wie hier per ongeluk op tikt, mag zijn lopende wedstrijd niet kwijtspelen.
+function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit"><a href="https://matchdelegate.be" target="_blank" rel="noopener">Match Delegate</a> · App created by <b>Tim Buyse</b></div>'; }
 
 // ===================== VISUAL PITCH =====================
 // Achternaam = alles na het eerste woord (voornaam), incl. tussenvoegsel (De, Van, ...).

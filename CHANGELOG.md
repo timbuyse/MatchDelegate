@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.6
+- **De naam onderaan verwijst nu naar de website.** *Match Delegate · App created by Tim Buyse* stond
+  er als gewone tekst; de naam is nu een link naar `matchdelegate.be`, die in een nieuw tabblad
+  opengaat — wie er per ongeluk op tikt, mag zijn lopende wedstrijd niet kwijtspelen. Reden: de
+  website is nieuw en er wees nog geen enkele verwijzing naartoe, wat het voor een zoekmachine
+  onmogelijk maakt haar te vinden.
+
 ## v1.12.5
 
 **Het "wat is er nieuw"-venster is enkel nog voor wie ergens beheert.** Een ouder die alleen
