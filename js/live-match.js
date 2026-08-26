@@ -78,6 +78,11 @@ function renderLive() {
       ${/* Geen enkele knop bruikbaar? Dan hoort hier de uitweg te staan, niet niets. Zie
             vastgelopenLive(): dat overkwam de veldtest van 22-08-2026. */ ''}
       ${(!ro && vastgelopenLive(match)) ? vastgelopenHtml(match) : ''}
+      ${/* De tegenhanger: de klok LOOPT, maar al veel te lang. Zie absurdeKlokMs — dit is de
+            wedstrijd die ooit per ongeluk gestart werd en waar je dagen later niet meer aan kan
+            beginnen. Nooit allebei tegelijk: het ene vraagt een stilstaande klok, het andere een
+            lopende. */ ''}
+      ${(!ro && !isDone && absurdeKlokMs(match)) ? absurdeKlokHtml(match) : ''}
       ${/* Misklik op "Wedstrijd starten" ongedaan maken. Enkel zolang er echt niets gebeurd is:
             geen enkel deel gelopen en geen enkele gebeurtenis gelogd. Bewust een bescheiden knop
             onder de startknop — het is een uitzondering, geen dagelijkse handeling. */ ''}
@@ -392,6 +397,42 @@ async function terugNaarGepland() {
 // hersteld, maar een livescherm hoort NOOIT een doodlopend eind te zijn: welke toestand er ook in de
 // gegevens staat, er moet een weg vooruit zichtbaar zijn. Vandaar deze vaststelling én de twee
 // uitwegen eronder.
+// DE KLOK LOOPT ONMOGELIJK LANG (Tims melding, 27-08-2026). Hij wilde een geplande wedstrijd starten
+// en kon niet: volgens de app liep ze al lang. Dat klopte ook — ze was ooit per ongeluk gestart, en
+// sindsdien telde de klok gewoon door. De app zei daar niets over: je zag een lopende tijd met een
+// gigantisch "+ extra tijd" en geen startknop, zonder enige aanwijzing wat je dan wél moest doen.
+// vastgelopenLive dekt dit niet: dat kader verschijnt juist wanneer de klok STIL staat.
+//
+// De grens is bewust ruim, zodat een echte verlenging of een vergeten fluitsignaal er niet onder
+// valt: drie keer de blokduur, en minstens een uur boven op die duur. Zonder bekende blokduur drie
+// uur. Alles daarboven is geen wedstrijd meer maar een vergissing.
+function absurdeKlokMs(m) {
+  if (!m || m.status !== 'live') return 0;
+  const q = laatsteQuarter(m);
+  if (!q || !q.startTime || q.endTime) return 0;
+  const verstreken = getQElapsed(m);
+  const dur = (m.quarterDuration || 0) * 60000;
+  const grens = dur ? Math.max(dur * 3, dur + 60 * 60000) : 3 * 60 * 60000;
+  return verstreken > grens ? verstreken : 0;
+}
+// "3 uur" / "6 dagen" — de exacte minuten zeggen hier niets meer, de orde van grootte wel.
+function grofDuurTekst(ms) {
+  const min = Math.floor(ms / 60000), uur = Math.floor(min / 60), dagen = Math.floor(uur / 24);
+  if (dagen >= 1) return dagen === 1 ? 'meer dan een dag' : `meer dan ${dagen} dagen`;
+  if (uur >= 1) return uur === 1 ? 'meer dan een uur' : `meer dan ${uur} uur`;
+  return `${min} minuten`;
+}
+function absurdeKlokHtml(m) {
+  const label = pSingLow(m);
+  return `<div class="card" style="border-left:4px solid var(--rd)">
+    <div class="sec" style="margin-top:0">${icI(IC.warn)} Deze wedstrijd loopt al ${esc(grofDuurTekst(absurdeKlokMs(m)))}</div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">De klok van ${label} ${m.currentQuarter || 1} loopt sinds ${esc(new Date(laatsteQuarter(m).startTime).toLocaleString('nl-BE', { weekday: 'long', hour: '2-digit', minute: '2-digit' }))}. Waarschijnlijk is de wedstrijd ooit per ongeluk gestart. Kies wat er moet gebeuren:</p>
+    ${/* "Opnieuw beginnen" staat eerst: dat is bij een per ongeluk gestarte wedstrijd het antwoord,
+         en het is omkeerbaar (doResetMatch bewaart eerst een veiligheidskopie). */ ''}
+    <button class="btn btn-green" onclick="confirmResetMatch()">${icI(IC.undo)} Opnieuw beginnen — de wedstrijd staat weer klaar om te starten</button>
+    <button class="btn btn-pale" style="margin-top:8px" onclick="endPeriod()">${icI(IC.stopFilled)} Nee, ${label} ${m.currentQuarter || 1} is echt gespeeld — beëindig het</button>
+  </div>`;
+}
 function vastgelopenLive(m) {
   if (!m || m.status !== 'live') return false;
   const q = laatsteQuarter(m);

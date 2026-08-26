@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.3
+
+**Een wedstrijd die al dagen "loopt" zegt dat nu zelf.** Tim wilde een geplande wedstrijd starten en
+kon niet: volgens de app liep ze al lang. Dat klopte ook — ze was ooit per ongeluk gestart en de klok
+telde sindsdien door. Je zag een lopende tijd met een gigantisch "+ extra tijd", geen startknop, en
+nergens een aanwijzing wat je dan wél moest doen.
+
+Nu verschijnt bovenaan het livescherm een rood kader met hoelang de klok al loopt en sinds wanneer,
+plus de twee uitwegen: *Opnieuw beginnen* (de wedstrijd staat weer klaar om te starten, en dat is
+omkeerbaar) of het blok alsnog beëindigen als het echt gespeeld is.
+
+De grens ligt ruim — drie keer de blokduur, en minstens een uur daarboven — zodat een verlenging of
+een vergeten fluitsignaal er niet onder valt. Bij een blok van 15 minuten slaat het pas aan na 75.
+
+---
 ## v1.12.2
 
 **De seizoensexport van je ploeg gaf een leeg bestand.** Bij Statistieken → exporteren stond er
