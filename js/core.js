@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.12.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.12.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -766,11 +766,27 @@ const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
 // keer" slaat dan nergens op. Dat herkennen we aan het ontbreken van eerdere gegevens — bij de
 // allereerste versie met deze melding (1.0) heeft nog niemand een opgeslagen major, dus zou anders
 // niemand ze zien.
+// ENKEL VOOR WIE ERGENS BEHEERT (Tims vraag, 27-08-2026). De melding gaat over wat je met de app
+// kán doen — een wedstrijd plannen, wissels klaarzetten, afsluiten. Een ouder die enkel meekijkt,
+// leest daar een lijst dingen die hij niet kan, en dat is precies de melding die je wegklikt zonder
+// te lezen. Beheert hij érgens een ploeg of een club, dan hoort hij ze wel te zien: het gaat om zijn
+// gereedschap, ook al kijkt hij bij deze ploeg enkel mee.
+// viewerMode telt hier bewust niet mee: dat is een beheerder die tijdelijk als kijker kijkt, en die
+// zou zijn enige kans op de melding verliezen.
+function magNieuwsZien() {
+  if (isGuest) return false;
+  if (!cloudReady) return true;                                  // lokaal, zonder rollen: één gebruiker
+  if (isOwner || Object.keys(myClubs || {}).length) return true;  // eigenaar of clubbeheerder
+  return Object.values(userTeams || {}).some(r => r === 'admin'); // beheerder van eender welke ploeg
+}
 async function toonNieuwAlsNodig() {
   try {
     const huidig = notesSleutel(APP_VERSION);
     const gezien = localStorage.getItem(MAJOR_GEZIEN_KEY);
     if (gezien === huidig) return;
+    // BEWUST ZONDER DE SLEUTEL WEG TE SCHRIJVEN. Wordt een kijker later ploegbeheerder, dan hoort hij
+    // de melding alsnog te krijgen; had hij ze hier "gezien", dan kwam ze nooit meer.
+    if (!magNieuwsZien()) return;
     const notes = RELEASE_NOTES[huidig];
     if (!notes) { localStorage.setItem(MAJOR_GEZIEN_KEY, huidig); return; }
     // Bestaande gebruiker? Dan is er al iets ingesteld of gespeeld.

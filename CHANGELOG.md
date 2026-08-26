@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.5
+
+**Het "wat is er nieuw"-venster is enkel nog voor wie ergens beheert.** Een ouder die alleen
+meekijkt, kreeg een lijst met dingen die hij niet kan doen — precies de melding die je wegklikt
+zonder te lezen. Beheer je érgens een ploeg of een club, dan zie je ze wel, ook als je bij díe ploeg
+enkel meekijkt.
+
+Een kijker krijgt daarbij geen "gezien"-stempel: wordt hij later trainer, dan komt de melding alsnog.
+
+---
 ## v1.12.4
 
 **De handleiding heeft een hoofdstuk 'Gegevens en privacy'.** Het gaat om gegevens van kinderen, dus
