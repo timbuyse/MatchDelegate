@@ -518,7 +518,7 @@
     #splash img{width:140px;height:140px;object-fit:contain;position:relative}
     #splash-bar{width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;position:relative;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
     #splash-titles{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;opacity:0;animation:splashFade .5s .7s ease forwards}
-    #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+    #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;font-variant:small-caps}
     #splash-name{color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
     #splash-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;position:relative;display:none;animation:splashSpin .8s linear infinite}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
@@ -545,7 +545,10 @@
     .auth-hero-dot2{display:none}
     .auth-logo{font-size:52px;margin-bottom:8px}
     .auth-logo-img{height:128px;width:128px;object-fit:contain;border-radius:0}
-    .auth-title{font-size:20px;font-weight:900;color:#fff;margin:4px 0 2px;letter-spacing:2px;text-transform:uppercase;font-variant:small-caps}
+    /* GEEN text-transform:uppercase erbij: dat maakt van elke letter een echte hoofdletter, en klein
+       kapitaal werkt enkel op kleine letters. De twee samen hieven elkaar op. Zo blijven de M en de D
+       volle hoofdletters en worden de rest kleine kapitalen. */
+    .auth-title{font-size:20px;font-weight:900;color:#fff;margin:4px 0 2px;letter-spacing:2px;font-variant:small-caps}
     .auth-sub{font-size:12px;color:rgba(255,255,255,.5);letter-spacing:1.2px;text-transform:uppercase}
     .auth-box{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:400px}
     .auth-welcome{font-size:16px;font-weight:800;color:var(--txt);margin-bottom:2px}
@@ -561,7 +564,7 @@
     .ts-hdr h1{font-size:20px;font-weight:900}
     .ts-logo{height:52px;width:auto;object-fit:contain;flex-shrink:0}
     .ts-hdr-text{display:flex;flex-direction:column;text-align:left;flex:1}
-    .ts-hdr-name{font-size:18px;font-weight:900;color:#fff;letter-spacing:1.5px;text-transform:uppercase;font-variant:small-caps;line-height:1.1}
+    .ts-hdr-name{font-size:18px;font-weight:900;color:#fff;letter-spacing:1.5px;font-variant:small-caps;line-height:1.1}
     .ts-hdr p{font-size:12px;color:rgba(255,255,255,.6);margin:2px 0 0}
     .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
     .ts-team-row{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:14px;border-left:5px solid var(--grn);transition:transform .1s}

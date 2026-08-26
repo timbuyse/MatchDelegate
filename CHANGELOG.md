@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.8
+- **Je ziet nu waar de naam uit twee delen bestaat.** Er stond MATCHDELEGATE in
+  volle hoofdletters; nu zijn de **M** en de **D** vol en staat de rest in klein kapitaal. De
+  bedoeling stond er eigenlijk al — er was zowel "alles in hoofdletters" als
+  "klein kapitaal" opgegeven — maar die twee heffen elkaar op: het eerste maakt van élke
+  letter een echte hoofdletter, en klein kapitaal werkt alleen op kleine letters. De hoofdletterregel is nu weg.
+- Op drie plaatsen doorgevoerd: het **opstartscherm**, het **aanmeldscherm** en de kop van het
+  **ploegkeuzescherm**. De website kopieert het opstartscherm van de app en is meegetrokken.
+
 ## v1.12.7
 - **De naam wordt overal aan elkaar geschreven: MatchDelegate.** Op de website stond het al zo, in de
   app op dertig plaatsen met een spatie — het opstartscherm, de paginatitel, de naam onder het
