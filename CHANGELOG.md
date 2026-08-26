@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.7
+- **De naam wordt overal aan elkaar geschreven: MatchDelegate.** Op de website stond het al zo, in de
+  app op dertig plaatsen met een spatie — het opstartscherm, de paginatitel, de naam onder het
+  pictogram op je beginscherm, het aanmeldscherm, het deelbericht bij een uitnodiging, de handleiding
+  en de voettekst van elke PDF. Nu is dat overal gelijk.
+- Het pictogram op je beginscherm draagt de nieuwe naam pas nadat je de app opnieuw installeert; wie
+  ze al staan heeft, ziet de oude naam. Dat is hoe een telefoon met zo'n snelkoppeling omgaat.
 ## v1.12.6
 - **De naam onderaan verwijst nu naar de website.** *Match Delegate · App created by Tim Buyse* stond
   er als gewone tekst; de naam is nu een link naar `matchdelegate.be`, die in een nieuw tabblad

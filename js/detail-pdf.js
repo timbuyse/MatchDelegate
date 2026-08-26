@@ -830,7 +830,7 @@ function createPdfLayout(doc) {
       }
       doc.setFont(undefined, 'bold'); doc.setFontSize(8); doc.setTextColor(120, 128, 138);
       if (doc.setCharSpace) doc.setCharSpace(0.7);
-      doc.text('MATCH DELEGATE', x, basis);
+      doc.text('MATCHDELEGATE', x, basis);
       if (doc.setCharSpace) doc.setCharSpace(0);
       doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(156, 163, 175);
       const club = activeClubName || getClubName();

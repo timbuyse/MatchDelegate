@@ -404,7 +404,7 @@ function clubLogoCardHtml(cid, logo, reloadCall) {
 }
 function showAppointClubAdmin(cid) {
   openModal(`<h3>${icI(IC.shield)} Clubbeheerder aanstellen</h3>
-    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Vul het e-mailadres in van de persoon. Die moet zich al minstens één keer aangemeld hebben in Match Delegate met dat e-mailadres, zodat we het account kennen.</p>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Vul het e-mailadres in van de persoon. Die moet zich al minstens één keer aangemeld hebben in MatchDelegate met dat e-mailadres, zodat we het account kennen.</p>
     <div class="fg"><label>E-mailadres</label><input id="appoint-email" type="email" placeholder="naam@voorbeeld.be" autocomplete="off" autofocus></div>
     <div class="auth-err" id="ap-err"></div>
     <button class="btn btn-green" onclick="doAppointClubAdmin('${cid}')">Aanstellen</button>
@@ -475,7 +475,7 @@ function deleteClub(cid, naam) {
 // ploegbeheerder (lid) van de ploeg + de omgekeerde index, zodat de ploeg meteen bij hem verschijnt.
 function showAppointTeamAdmin(tid, teamNaam) {
   openModal(`<h3>${icI(IC.shield)} Ploegbeheerder aanstellen</h3>
-    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Voor <b>${esc(teamNaam || 'deze ploeg')}</b>. Vul het e-mailadres in van de persoon; die moet zich al minstens één keer aangemeld hebben in Match Delegate.</p>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Voor <b>${esc(teamNaam || 'deze ploeg')}</b>. Vul het e-mailadres in van de persoon; die moet zich al minstens één keer aangemeld hebben in MatchDelegate.</p>
     <div class="fg"><label>E-mailadres</label><input id="appoint-team-email" type="email" placeholder="naam@voorbeeld.be" autocomplete="off" autofocus></div>
     <div class="auth-err" id="apt-err"></div>
     <button class="btn btn-green" onclick="doAppointTeamAdmin('${tid}')">Aanstellen</button>
@@ -1484,7 +1484,7 @@ async function showInviteModal(teamId) {
     : (geldigTot ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin:0 0 10px">Geldig tot <b>${esc(geldigTot)}</b>. Daarna maak je hieronder een nieuwe code aan.</p>` : '');
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
-  const shareText = 'Volg ' + teamName + ' via Match Delegate. Open de link of gebruik code ' + token + '.';
+  const shareText = 'Volg ' + teamName + ' via MatchDelegate. Open de link of gebruik code ' + token + '.';
   const qr = qrSvg(joinUrl);
   openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(teamName)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${qr ? 'Scan de QR-code of deel de link.' : 'Deel de link of de code hieronder.'} Werkt ook voor mensen zonder account.</p>
@@ -1492,7 +1492,7 @@ async function showInviteModal(teamId) {
          : `<p style="text-align:center;color:var(--org2);font-size:12px;margin-bottom:8px">${icI(IC.warn)} QR-code niet beschikbaar — gebruik de code of link hieronder.</p>`}
     <div class="invite-code" style="margin-bottom:8px${verlopenNu ? ';opacity:.5' : ''}">${token}</div>
     ${geldigRegel}
-    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'Match Delegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${joinUrl}',text:'${shareText.replace(/'/g,"\\'")}'}):navigator.clipboard.writeText('${joinUrl}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
     ${isAdmin ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="confirmRegenerateInviteToken('${tid}')">${icI(IC.warn)} Nieuwe code genereren (oude wordt ongeldig)</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
 }
@@ -1740,8 +1740,8 @@ function renderAuth() {
     <div class="auth-hero">
       <div class="auth-hero-dot1"></div>
       <div class="auth-hero-dot2"></div>
-      <img src="logo_no_background.png" alt="Match Delegate" class="auth-logo-img">
-      <div class="auth-title">Match Delegate</div>
+      <img src="logo_no_background.png" alt="MatchDelegate" class="auth-logo-img">
+      <div class="auth-title">MatchDelegate</div>
       <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     </div>
     <div class="auth-box" style="max-width:400px;width:100%">
@@ -1884,8 +1884,8 @@ function renderGuestJoin() {
     <div class="auth-hero">
       <div class="auth-hero-dot1"></div>
       <div class="auth-hero-dot2"></div>
-      <img src="${APP_LOGO_TRANSPARANT}" alt="Match Delegate" class="auth-logo-img">
-      <div class="auth-title">Match Delegate</div>
+      <img src="${APP_LOGO_TRANSPARANT}" alt="MatchDelegate" class="auth-logo-img">
+      <div class="auth-title">MatchDelegate</div>
       <div class="auth-sub">Manage &nbsp;·&nbsp; Track &nbsp;·&nbsp; Share</div>
     </div>
     <div class="auth-box">
@@ -1998,9 +1998,9 @@ function renderTeamSelect() {
 
   return `<div class="ts-wrap">
     <div class="ts-hdr">
-      <img src="logo_no_background.png" alt="Match Delegate" class="ts-logo">
+      <img src="logo_no_background.png" alt="MatchDelegate" class="ts-logo">
       <div class="ts-hdr-text">
-        <div class="ts-hdr-name">Match Delegate</div>
+        <div class="ts-hdr-name">MatchDelegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
@@ -2949,7 +2949,7 @@ window.addEventListener('popstate', async e => {
 });
 // De naam onderaan is een link naar de website. Bewust in een nieuw tabblad: de app is een PWA en
 // wie hier per ongeluk op tikt, mag zijn lopende wedstrijd niet kwijtspelen.
-function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit"><a href="https://matchdelegate.be" target="_blank" rel="noopener">Match Delegate</a> · App created by <b>Tim Buyse</b></div>'; }
+function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit"><a href="https://matchdelegate.be" target="_blank" rel="noopener">MatchDelegate</a> · App created by <b>Tim Buyse</b></div>'; }
 
 // ===================== VISUAL PITCH =====================
 // Achternaam = alles na het eerste woord (voornaam), incl. tussenvoegsel (De, Van, ...).
@@ -3196,7 +3196,7 @@ function renderMaintenance() {
       <img src="logo_no_background.png" style="width:140px;height:140px;object-fit:contain">
       <div style="width:150px;height:3px;background:#2f9e57;border-radius:2px"></div>
       <div>
-        <div style="color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase">Match Delegate</div>
+        <div style="color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;text-transform:uppercase">MatchDelegate</div>
         <div style="color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-top:6px">Manage &nbsp;•&nbsp; Track &nbsp;•&nbsp; Share</div>
       </div>
       <div style="margin-top:16px;color:rgba(255,255,255,0.65);font-size:14px;line-height:1.7;max-width:280px">We werken aan de app om jullie nog een betere gebruikservaring te garanderen.</div>
@@ -3248,7 +3248,7 @@ const views = {
       : '';
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
-        <img src="logo_no_background.png" class="hdr-crest" alt="Match Delegate">
+        <img src="logo_no_background.png" class="hdr-crest" alt="MatchDelegate">
         ${teamName ? `<div style="flex:1 1 auto;min-width:0;overflow:hidden">
           <div class="hdr-club-name">${teamName}</div>
           ${clubName ? `<div class="hdr-club-sub">${clubName}</div>` : ''}

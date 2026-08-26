@@ -838,7 +838,7 @@ function showPrivacyModal() {
       <a href="mailto:${FEEDBACK_EMAIL}" style="color:var(--grn)">Contacteer ons via e-mail</a></p>
 
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Doel van de app</b><br>
-      Match Delegate is een interne beheersapp voor sportploegen. Ze laat beheerders toe wedstrijden op te volgen, speelminuten bij te houden en spelersgegevens te beheren. De app is uitsluitend bedoeld voor intern gebruik.</p>
+      MatchDelegate is een interne beheersapp voor sportploegen. Ze laat beheerders toe wedstrijden op te volgen, speelminuten bij te houden en spelersgegevens te beheren. De app is uitsluitend bedoeld voor intern gebruik.</p>
 
       <p style="margin-bottom:10px"><b style="color:var(--txt)">Welke gegevens verwerken we?</b><br>
       • E-mailadres en naam van gebruikers (accounts)<br>
@@ -893,7 +893,7 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <div class="sec">Account aanmaken</div>
       <ol class="hdl-list">
-        <li>Open Match Delegate en tik op het tabblad <b>'Registreren'</b>.</li>
+        <li>Open MatchDelegate en tik op het tabblad <b>'Registreren'</b>.</li>
         <li>Vul je <b>e-mailadres</b> en een <b>wachtwoord</b> in.</li>
         <li>Tik op <b>'Registreren'</b>.</li>
         <li>Je bent meteen aangemeld.</li>
@@ -904,7 +904,7 @@ const HANDLEIDING_PAGINAS = [
       </ol>
       <div class="sec">Aanmelden</div>
       <ol class="hdl-list">
-        <li>Open Match Delegate — het <b>'Aanmelden'</b>-tabblad is standaard actief.</li>
+        <li>Open MatchDelegate — het <b>'Aanmelden'</b>-tabblad is standaard actief.</li>
         <li>Vul je <b>e-mailadres</b> en <b>wachtwoord</b> in.</li>
         <li>Tik op <b>'Aanmelden'</b>.</li>
       </ol>
@@ -919,7 +919,7 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Rollen in de app',
     img: 'handleiding/screenshots/26_jouw_ploegen.png',
     inhoud: `
-      <p>Match Delegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Jouw ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
+      <p>MatchDelegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Jouw ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
       <div class="hdl-rol"><b>Ploegbeheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
       <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen en het clublogo instellen</span></div>
@@ -955,7 +955,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Ga naar <b>'Wedstrijden'</b> en tik op een lopende wedstrijd.</li>
         <li>Je ziet de score en alle events in real time.</li>
       </ol>
-      <p class="hdl-tip">Match Delegate stuurt momenteel geen pushmeldingen als de app gesloten is. Houd de app open tijdens de wedstrijd om alles live mee te volgen.</p>
+      <p class="hdl-tip">MatchDelegate stuurt momenteel geen pushmeldingen als de app gesloten is. Houd de app open tijdens de wedstrijd om alles live mee te volgen.</p>
     `
   },
   {
@@ -1610,7 +1610,7 @@ async function exportHandleidingPDF() {
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8">
-    <title>Match Delegate — Handleiding</title>
+    <title>MatchDelegate — Handleiding</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,sans-serif;color:#171717;padding:32px;max-width:780px;margin:0 auto;font-size:14px;line-height:1.6}
@@ -1648,11 +1648,11 @@ async function exportHandleidingPDF() {
     ${/* Het merkje bevat pictogram, naam én baseline, dus die twee tekstregels staan hier niet meer
           apart. Absolute URL: deze HTML wordt in een leeg venster geschreven en heeft daar geen
           eigen basispad om een relatieve verwijzing tegen af te zetten. */ ''}
-    <img src="${new URL(APP_LOGO_HOOG, location.href).href}" alt="Match Delegate" style="width:190px;height:auto;margin:0 auto 28px;display:block">
+    <img src="${new URL(APP_LOGO_HOOG, location.href).href}" alt="MatchDelegate" style="width:190px;height:auto;margin:0 auto 28px;display:block">
     <h1 style="font-size:22px;margin-bottom:32px">Gebruikershandleiding</h1>
     ${!heeftScreenshots ? '<p style="color:#ef4444;margin-bottom:24px">⚠ Screenshots niet beschikbaar. Draai eerst <code>node handleiding/generate-b64.js</code> om ze toe te voegen.</p>' : ''}
     ${secties}
-    <p style="margin-top:40px;font-size:12px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:16px">Match Delegate · App created by Tim Buyse</p>
+    <p style="margin-top:40px;font-size:12px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:16px">MatchDelegate · App created by Tim Buyse</p>
   </body></html>`;
 
   const w = window.open('', '_blank');
@@ -2093,7 +2093,7 @@ async function doRestore(mode) {
 function reportProblem() {
   const role = isOwner ? 'Eigenaar' : isClubAdmin ? 'Clubbeheerder' : isAdmin ? 'Ploegbeheerder' : isGuest ? 'Gast' : currentUser ? 'Kijker' : 'Niet aangemeld';
   const club = getClubName() || '';
-  const subject = `Match Delegate v${APP_VERSION} — probleem melden`;
+  const subject = `MatchDelegate v${APP_VERSION} — probleem melden`;
   const infoLines = [`Versie: ${APP_VERSION}`, `Rol: ${role}`];
   if (club) infoLines.push(`Ploeg: ${club}`);
   infoLines.push(`Toestel: ${navigator.userAgent}`);

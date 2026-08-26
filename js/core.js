@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.12.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.12.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1926,7 +1926,7 @@ async function claimOwner() {
     listenAdminRequests();
     closeModal();
     if (view === 'beheer') render();
-    showToast('Je bent nu ingesteld als eigenaar van Match Delegate.', 'ok');
+    showToast('Je bent nu ingesteld als eigenaar van MatchDelegate.', 'ok');
   } catch (e) {
     showToast('Eigenaar instellen mislukt, probeer opnieuw.', 'err');
   }

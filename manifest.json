@@ -1,6 +1,6 @@
 {
-  "name": "Match Delegate",
-  "short_name": "Match Delegate",
+  "name": "MatchDelegate",
+  "short_name": "MatchDelegate",
   "description": "Beheer je ploeg, volg wedstrijden live",
   "start_url": ".",
   "display": "standalone",
