@@ -1648,18 +1648,29 @@ function prepPlanningHtml(m, ro) {
     // wordt, staat op het tweede veld niet meer op de bank. Anders zou je een speler tegelijk op het
     // veld én op de bank zien staan.
     const { veld, toonNa, chips, leeg } = planTweeVelden(m, q);
-    if (leeg) return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">${chips}${planNaLeegHtml(m, q)}</div>`;
+    // HET KADER (Tim, 26-08-2026): chips + veld + bank horen bij het MOMENT en wisselen samen mee; de
+    // geplande wissels eronder gelden voor het hele blok en blijven daarom staan. Zonder die rand las
+    // dat als één geheel en leek de wissellijst bij de getoonde opstelling te horen.
+    // Ook in het lege geval staat de wissellijst er nu onder: verdween ze zodra je naar de tweede chip
+    // ging, dan versprong net dat stuk dat juist stil moet blijven.
+    const onder = plannedSubsVoorDeelHtml(m, q, !ro && canManage());
+    if (leeg) return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
+      <div class="planmoment">${chips}${planNaLeegHtml(m, q)}</div>
+      ${onder}
+    </div>`;
     const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
-      ${chips}
-      ${renderPitch(m, veld, m.captainId)}
-      ${toonNa ? '' : prepPlanHerkomstHtml(m, q)}
-      <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
-      <div class="place-chips">${bank.length
-        ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
-        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
-      ${plannedSubsVoorDeelHtml(m, q, !ro && canManage())}
+      <div class="planmoment">
+        ${chips}
+        ${renderPitch(m, veld, m.captainId)}
+        ${toonNa ? '' : prepPlanHerkomstHtml(m, q)}
+        <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
+        <div class="place-chips">${bank.length
+          ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+          : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      </div>
+      ${onder}
     </div>`;
   };
   if (total < 2) {
@@ -2208,7 +2219,10 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
       .map(s => ({ id: s.id, soort: 'swap', tekst: `${icI(IC.compass)} ${plannedSwapTekst(m, s)}${vanafMinChip(s)}` })),
   ];
   if (!regels.length && !bewerkbaar) return '';
-  const dit = pSingLow(m) === 'helft' ? 'deze' : 'dit';
+  // HET BLOK BIJ NAAM NOEMEN (Tim, 26-08-2026). Er stond "tijdens dit kwart", en "dit" verwees naar
+  // het kwart waar de kaart op stond — maar precies dát is wat de twee chips erboven laten schuiven.
+  // Met het nummer erin staat het er los van: dit blok gaat over kwart 1, wat je erboven ook bekijkt.
+  const blok = `${pSingLow(m)} ${q}`;
   const b = bron === 'planner' ? 'planner' : 'prep';
   const knoppen = r => bewerkbaar
     ? `<button class="evt-edit" onclick="planSubBewerk('${r.id}','${r.soort}','${b}')" title="Aanpassen">${icI(IC.edit)}</button>
@@ -2218,10 +2232,10 @@ function plannedSubsVoorDeelHtml(m, q, bewerkbaar, bron) {
   // positiewissels kunnen drie spelers verplaatsen — die derde staat nergens als instructie maar
   // gebeurt wel. Enkel tonen als het méér is dan wat je al leest: bij één losse verschuiving zegt
   // die regel hetzelfde als de instructie erboven en is het ruis.
-  return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${dit} ${pSingLow(m)}</div>
+  return `<div class="sec" style="margin-bottom:6px">Geplande wissels tijdens ${blok}</div>
     ${regels.length
       ? regels.map(r => `<div class="prow" style="padding:6px 0;align-items:center"><div style="flex:1;font-size:14px">${r.tekst}</div>${knoppen(r)}</div>`).join('')
-      : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${dit} ${pSingLow(m)}.</p>`}
+      : `<p style="color:var(--txt2);font-size:13px;padding:2px 0 4px">Nog geen wissels klaargezet voor ${blok}.</p>`}
     ${(() => {
       const swaps = (m.plannedPosSwaps || []).filter(s => s.quarterNum === q);
       if (!swaps.length) return '';
@@ -2539,11 +2553,15 @@ function planNaStart(q) {
   if (!_planInline) { _planLineupDraft = {}; _planLineupSel = null; _planInline = true; }
   render();
 }
+// DE VRAAG STAAT IN DE ZIN, DE HANDELING OP DE KNOP (Tim, 26-08-2026). Er stond "Wissels klaarzetten
+// tijdens kwart 1" op de knop, wat hetzelfde kwart nog eens noemde als de zin erboven. En dat het blok
+// eronder al zegt dat er niets klaarstaat, maakte de eerste helft van die zin dubbelop. Nu zegt de zin
+// wat er gebeurt als je niets doet en stelt ze de vraag; de knop is kort en doet één ding.
 function planNaLeegHtml(m, q) {
   const lab = planBlokTijdLabels(m, q);
   return `<div style="text-align:center;padding:18px 10px 6px">
-    <p style="color:var(--txt2);font-size:13px;margin-bottom:12px">Er staat niets klaar tijdens ${pSingLow(m)} ${q}: de ploeg blijft staan zoals bij ${lab.start === 'Start' ? 'de aftrap' : lab.start}.</p>
-    <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planNaStart(${q})">${icI(IC.swap)} Wissels klaarzetten tijdens ${pSingLow(m)} ${q}</button>
+    <p style="color:var(--txt2);font-size:13px;margin-bottom:12px">De ploeg blijft staan zoals bij ${lab.start === 'Start' ? 'de aftrap' : lab.start}. Wil je tijdens ${pSingLow(m)} ${q} wisselen?</p>
+    <button class="btn btn-pale btn-sm" style="width:100%;margin:0" onclick="planNaStart(${q})">${icI(IC.swap)} Wissels klaarzetten</button>
   </div>`;
 }
 function planBewerkKnoppenHtml(inline) {
@@ -2555,7 +2573,7 @@ function planBewerkKnoppenHtml(inline) {
 // leidWisselsAf) en toont ze eronder, zodat je meteen ziet wat er klaargezet wordt.
 function plannerNaBodyHtml(m, deel) {
   // Nog niets klaargezet en nog niet begonnen: eerst de uitnodiging, geen leeg tweede veld.
-  if (planNaLeeg(m, deel)) return `${planChipsHtml(deel)}${planNaLeegHtml(m, deel)}${planBewerkKnoppenHtml(true)}`;
+  if (planNaLeeg(m, deel)) return `<div class="planmoment">${planChipsHtml(deel)}${planNaLeegHtml(m, deel)}</div>${planBewerkKnoppenHtml(true)}`;
   const start = plannedLineupPlayers(m, planLineupBaseNu(m, deel));
   const veld = planNaBaseNu(m, deel);
   const opVeld = new Set(veld.map(p => p.id));
@@ -2574,13 +2592,17 @@ function plannerNaBodyHtml(m, deel) {
   // Eén moment per blok, dus één minuut en één seintje. Bestaat er al een geplande wissel voor dit
   // blok, dan nemen we die over; anders het midden van het blok — zelfde telling als modalPlanSub.
 
-  return `${planChipsHtml()}
-    <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">Teken hoe de ploeg er <b>tijdens ${pSingLow(m)} ${deel}</b> moet komen te staan. <b>De app rekent zelf uit welke wissels daarvoor nodig zijn.</b></p></div>
-    ${renderPitch(m, veld, m.captainId, null, { fn: 'planNaTap', selId, plek: true })}
-    <div class="sec">Bank (${bank.length})</div>
-    <div class="place-chips">${bank.length
-      ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="planNaTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
-      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+  return `<div class="planmoment">
+      ${planChipsHtml()}
+      <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">Teken hoe de ploeg er <b>tijdens ${pSingLow(m)} ${deel}</b> moet komen te staan. <b>De app rekent zelf uit welke wissels daarvoor nodig zijn.</b></p></div>
+      ${renderPitch(m, veld, m.captainId, null, { fn: 'planNaTap', selId, plek: true })}
+      <div class="sec">Bank (${bank.length})</div>
+      <div class="place-chips">${bank.length
+        ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="planNaTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    </div>
+    ${/* "Wat de app klaarzet" is het resultaat voor het hele blok en staat daarom BUITEN het kader,
+         op dezelfde plek als de wissellijst in de kijkstand. */ ''}
     <div class="sec">Wat de app klaarzet</div>
     ${regels.length
       ? `<div style="font-size:14px">${regels.map(r => `<div class="prow" style="padding:5px 0">${r}</div>`).join('')}</div>`
@@ -2624,7 +2646,12 @@ function plannerBodyHtml(m, deel, inline) {
       : (eigen
         ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
         : ` Dit ${pSingLow(m)} heeft nog geen eigen opstelling: het begint zoals het vorige <b>eindigt</b>.`)}`;
-  return `
+  // Hetzelfde kader als in de kijkstand, maar enkel inline: daar staan de twee chips van het blok en
+  // moet zichtbaar zijn dat het veld bij ÉÉN moment hoort. In het losse venster zijn er geen
+  // momentchips, dus daar zou een rand enkel ruis zijn.
+  const kader = inline ? '<div class="planmoment">' : '';
+  const kaderDicht = inline ? '</div>' : '';
+  return `${kader}
     ${inline ? planChipsHtml() : ''}
     ${/* Inline heeft de kaart zelf al pijltjes en een label per blok; die knoppenrij zou dat dubbel
          doen. In het venster is ze de enige manier om te springen, dus daar blijft ze staan. */ ''}
@@ -2661,6 +2688,7 @@ function plannerBodyHtml(m, deel, inline) {
     ${(!ro && deel === 1 && (FORMATIONS[m.matchType] || []).length > 1)
       ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin-top:10px">Formatie: <b>${esc(m.formation || '')}</b> · <a onclick="planLineupNaarFormatie()" style="color:var(--grn);font-weight:700;cursor:pointer">wijzigen</a></p>` : ''}
     ${(!ro && eigen) ? `<button class="btn btn-pale btn-sm" style="margin-top:12px" onclick="clearPlannedLineup(${deel})">${icI(IC.undo)} Plan voor ${pSingLow(m)} ${deel} wissen</button>` : ''}
+    ${kaderDicht}
     ${/* Het veld hierboven toont hoe dit deel BEGINT; hieronder staat wat er tijdens dat deel nog
          verandert. Die twee horen bij elkaar, dus ze staan altijd samen — ook wanneer je via het
          potloodje op de planningskaart binnenkomt. Voordien stond dit blok enkel bij het doorlopen

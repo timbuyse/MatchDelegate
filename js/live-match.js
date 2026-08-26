@@ -3632,13 +3632,17 @@ function planningTijdensMatchHtml(m) {
     const { veld, chips } = planTweeVelden(m, q);
     const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
+    // Zelfde kader als in het voorbereidingsscherm (zie .planmoment): chips + veld + bank horen bij het
+    // moment, de geplande wissels eronder bij het hele blok.
     return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
-      ${chips}
-      ${renderPitch(m, veld, captainAtStartOfQuarter(m, q))}
-      <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
-      <div class="place-chips">${bank.length
-        ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
-        : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      <div class="planmoment">
+        ${chips}
+        ${renderPitch(m, veld, captainAtStartOfQuarter(m, q))}
+        <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
+        <div class="place-chips">${bank.length
+          ? bank.map(p => `<span class="place-chip">${numSpan(p, 'pcn')}${esc(fieldName(m, p.id))}</span>`).join('')
+          : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+      </div>
       ${plannedSubsVoorDeelHtml(m, q)}
     </div>`;
   };

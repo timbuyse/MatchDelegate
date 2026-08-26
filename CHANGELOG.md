@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.13.2
+
+**De opstelling staat nu in een kader, de wissels eronder erbuiten.** De twee chips, het veld en de
+bank horen bij één moment in het blok en wisselen samen mee; "Geplande wissels tijdens kwart 1" geldt
+voor het hele kwart en blijft daarom staan. Zonder scheiding las dat als één geheel, alsof de
+wissellijst bij de getoonde opstelling hoorde. Nu staat het moment in een licht omrand vak en de
+wissels eronder. Ook op het livescherm en tijdens het bewerken, zodat het kader niet verschijnt en
+verdwijnt als je van chip wisselt.
+
+**"Geplande wissels tijdens dit kwart" heet nu "tijdens kwart 1".** Dat "dit" verwees naar het kwart
+waar de kaart op stond, en net dat is wat de chips laten schuiven. Met het nummer erin staat het
+er los van.
+
+**Staat er niets klaar, dan vraagt het scherm het gewoon.** "Er staat niets klaar tijdens kwart 1: de
+ploeg blijft staan zoals bij de aftrap" met een knop "Wissels klaarzetten tijdens kwart 1" werd:
+*De ploeg blijft staan zoals bij de aftrap. Wil je tijdens kwart 1 wisselen?* met daaronder de korte
+knop **Wissels klaarzetten**. En de wissellijst blijft ook in dat geval onder het kader staan, in
+plaats van te verdwijnen zodra je naar de tweede chip gaat.
+
+---
 ## v1.13.1
 
 **"Alles doorvoeren" staat er nu altijd.** De knop verscheen enkel wanneer er meer dan één ding
