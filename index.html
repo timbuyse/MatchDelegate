@@ -501,7 +501,10 @@
     /* Enkel de pijltjes gekleurd; de namen in de gewone tekstkleur, zodat de regel rustig leest.
        Twee gelijke kolommen die mogen afbreken: bij een dubbele wissel staan er meerdere namen. */
     .psr-uit,.psr-in{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
-    .psr-uit .ic-i{color:var(--rd)}
+    .psr-pos{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
+  /* Positiewissel: één zin over de volle breedte i.p.v. twee kolommen, want er is geen eraf/erin. */
+  .psr-pos .ic-i{color:var(--blu,#2f74bd)}
+  .psr-uit .ic-i{color:var(--rd)}
     .psr-in .ic-i{color:var(--grn)}
     .psr .ic-i{width:11px;height:11px;flex-shrink:0;margin-top:2px}
     .pitch-bench{max-width:340px;margin:8px auto 0;font-size:12px;color:var(--txt2);line-height:1.5;text-align:center}

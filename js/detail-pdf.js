@@ -906,6 +906,8 @@ async function pdfMatchBody(doc, L, m) {
       const names = q != null ? periodBenchNames(m, q) : [];
       return {
         wissels: q != null ? periodSubList(m, q) : [],
+        // "naar" i.p.v. een pijl: de PDF-fonts (WinAnsi) kennen → niet, en "->" leest als een typefout.
+        posw: q != null ? periodPosSwapList(m, q, 'naar') : [],
         bank: names.length ? ('Bank: ' + names.join(', ')) : '',
       };
     });
@@ -922,6 +924,16 @@ async function pdfMatchBody(doc, L, m) {
     // aantal is hetzelfde als bij het effectief tekenen verderop; +1 regel speling voor de
     // ondergrens op de lettergrootte bij heel smalle velden.
     const schatBreedte = (CW - (perRow - 1) * gap) / perRow;
+    // Een positiewisselregel loopt over de volle breedte naast de minuut — één splitTextToSize op
+    // wat er na de minuut overblijft.
+    const schatPoswRegels = (posw, size, breedte) => {
+      if (!posw || !posw.length) return 0;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(size);
+      const pad = size * 0.5, sp = size * 0.35;
+      const minW = Math.max(...posw.map(w => doc.getTextWidth(w.min))) + sp * 2;
+      const kol = Math.max(size * 6, breedte - pad * 2.8 - minW - size);
+      return posw.reduce((n, w) => n + doc.splitTextToSize(w.tekst, kol).length, 0);
+    };
     const schatRegels = (wissels, size, breedte) => {
       if (!wissels.length) return 0;
       doc.setFont(undefined, 'normal'); doc.setFontSize(size);
@@ -932,7 +944,7 @@ async function pdfMatchBody(doc, L, m) {
         doc.splitTextToSize(w.out.join(', '), kol).length,
         doc.splitTextToSize(w.in.join(', '), kol).length), 0);
     };
-    const maxWissels = Math.max(0, ...onderLines.map(o => schatRegels(o.wissels, benchSize0, schatBreedte) + (o.wissels.length ? 1 : 0)));
+    const maxWissels = Math.max(0, ...onderLines.map(o => schatRegels(o.wissels, benchSize0, schatBreedte) + schatPoswRegels(o.posw, benchSize0, schatBreedte) + ((o.wissels.length || o.posw.length) ? 1 : 0)));
     // Kader: binnenmarge + kopregel + één regel per wissel; daaronder eventueel de bank (2 regels).
     const kaderH0 = maxWissels ? (benchSize0 * 1.0 + benchSize0 * 1.35 + maxWissels * benchSize0 * 1.45) : 0;
     const benchH = kaderH0 + (heeftBank ? benchSize0 * 2.6 : 0) + (maxWissels || heeftBank ? 6 : 0);
@@ -977,27 +989,46 @@ async function pdfMatchBody(doc, L, m) {
         // pijltje omhoog met wie erin kwam. Enkel de pijltjes gekleurd; namen in gewone tekstkleur.
         const onder = onderLines[items.indexOf(it)];
         let oy = L.y + labelH + imgH + 6;
-        if (onder.wissels.length) {
+        if (onder.wissels.length || onder.posw.length) {
           const pad = benchSize * 0.5, kopH = benchSize * 1.35, rijH = benchSize * 1.45;
           const pijlW = benchSize * 0.95, sp = benchSize * 0.35;
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
-          const minW = Math.max(...onder.wissels.map(w => doc.getTextWidth(w.min))) + sp * 2;
+          // De minuutkolom is zo breed als de breedste minuut van BEIDE soorten regels.
+          const alleMin = [...onder.wissels, ...onder.posw].map(w => w.min);
+          const minW = Math.max(...alleMin.map(x => doc.getTextWidth(x))) + sp * 2;
           // Twee even brede kolommen; te lange namenlijsten breken af i.p.v. het kader uit te
           // duwen. Zelfde gedrag als de twee flex-kolommen op het scherm.
           const kol = Math.max(benchSize * 3, (imgW - pad * 2.8 - minW) / 2 - pijlW - sp);
           const rijen = onder.wissels.map(w => ({
-            min: w.min,
+            soort: 'sub', min: w.min, ms: w.ms || 0,
             uit: doc.splitTextToSize(w.out.join(', '), kol),
             in: doc.splitTextToSize(w.in.join(', '), kol),
           })).map(r => ({ ...r, n: Math.max(r.uit.length, r.in.length) }));
-          const kaderH = pad + kopH + rijen.reduce((h, r) => h + r.n * rijH, 0);
+          const poswRijen = (onder.posw || []).map(w => ({ soort: 'pos', min: w.min, ms: w.ms || 0, regels: doc.splitTextToSize(w.tekst, Math.max(benchSize * 6, imgW - pad * 2.8 - minW - benchSize)) }))
+            .map(r => ({ ...r, n: r.regels.length }));
+          // Beide soorten door elkaar op tijd, net als op het scherm: een positiewissel op 8' hoort
+          // boven een wissel op 12'.
+          const alleRijen = [...rijen, ...poswRijen].sort((a, b) => (a.ms || 0) - (b.ms || 0));
+          const kaderH = pad + kopH + alleRijen.reduce((h, r) => h + r.n * rijH, 0);
           doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.6);
           doc.roundedRect(x, oy, imgW, kaderH, 3, 3, 'S');
           doc.setFont(undefined, 'bold'); doc.setFontSize(benchSize * 0.85); doc.setTextColor(107, 114, 128);
-          doc.text('WISSELS', x + pad * 1.4, oy + pad + benchSize * 0.75);
+          doc.text(onder.wissels.length && onder.posw.length ? 'WISSELS EN POSITIEWISSELS' : (onder.wissels.length ? 'WISSELS' : 'POSITIEWISSELS'), x + pad * 1.4, oy + pad + benchSize * 0.75);
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
           let ry = oy + pad + kopH;
-          for (const r of rijen) {
+          for (const r of alleRijen) {
+            if (r.soort === 'pos') {
+              // POSITIEWISSELS IN HETZELFDE KADER (Tim, 27-08-2026). Ze stonden hier bewust niet, met
+              // als redenering dat ze al in de tijdlijn verderop staan. Maar het zijn ook wissels, en
+              // wie het verslag per kwart leest, kijkt naar dit kader — niet naar een tijdlijn twee
+              // bladzijden verder. Eén regel per moment met het EINDpunt van elke speler, over de
+              // volle breedte want er is geen eraf/erin.
+              doc.setTextColor(107, 114, 128); doc.text(r.min, x + pad * 1.4, ry + benchSize * 0.7);
+              doc.setTextColor(23, 23, 23);
+              r.regels.forEach((ln, li) => doc.text(ln, x + pad * 1.4 + minW, ry + benchSize * 0.7 + li * rijH));
+              ry += r.n * rijH;
+              continue;
+            }
             // Tekst staat op de basislijn (ry + benchSize*0.7); het optische midden van de letters
             // ligt daar ongeveer 0,28 boven — daar hoort het pijltje.
             const midY = ry + benchSize * 0.42;
@@ -1012,8 +1043,6 @@ async function pdfMatchBody(doc, L, m) {
           }
           oy += kaderH + 4;
         }
-        // Positiewisselingen staan hier bewust NIET onder het veld: ze staan al in de tijdlijn
-        // ("Events") verderop in dit document, en tweemaal hetzelfde maakt de pagina enkel voller.
         if (onder.bank) {
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize); doc.setTextColor(107, 114, 128);
           doc.splitTextToSize(onder.bank, imgW).slice(0, 2).forEach((ln, li) => doc.text(ln, x + imgW / 2, oy + benchSize + li * benchLineH, { align: 'center' }));

@@ -2547,8 +2547,8 @@ function evtLabelPlain(e, m) {
     }
     // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
-    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, '->')}`;
-    case 'posSwapReeks': return `${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, '->')}`;
+    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
+    case 'posSwapReeks': return `${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
@@ -3113,11 +3113,26 @@ function renderPitch(m, players, captainId, qNum, tap) {
   // bij de start van het deel en negeert positiewisselingen, dus een naam onder een bol beweerde
   // een positie die de invaller misschien nooit gespeeld heeft. Hier staat enkel wie, wanneer.
   const wissels = (m && !tap) ? periodSubList(m, qNum) : [];
+  // Positiewissels in hetzelfde kader (Tim, 27-08-2026): het zijn wissels, en ze horen dus onder
+  // hetzelfde diagram als de gewone. Ze krijgen wel een eigen regelvorm — er is geen "eraf" en
+  // "erin", maar één zin die zegt waar iedereen belandt.
+  const verplaats = (m && !tap) ? periodPosSwapList(m, qNum) : [];
   return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
-  ${wissels.length ? `<div class="pitch-subs">
-    <div class="pitch-subs-h">Wissels</div>
-    ${wissels.map(w => `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`).join('')}
-  </div>` : ''}
+  ${/* De twee soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
+        wissel op 12' te staan. Apart onder elkaar zetten leest als twee losse lijstjes en dwingt de
+        lezer om zelf de volgorde te maken. */ ''}
+  ${(() => {
+    const rijen = [...wissels.map(w => ({ ...w, soort: 'sub' })), ...verplaats.map(w => ({ ...w, soort: 'pos' }))]
+      .sort((a, b) => (a.ms || 0) - (b.ms || 0));
+    if (!rijen.length) return '';
+    const kop = wissels.length && verplaats.length ? 'Wissels en positiewissels' : (wissels.length ? 'Wissels' : 'Positiewissels');
+    return `<div class="pitch-subs">
+      <div class="pitch-subs-h">${kop}</div>
+      ${rijen.map(w => w.soort === 'sub'
+        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`
+        : `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-pos"><span class="ic-i">${IC.compass}</span> ${esc(w.tekst)}</span></div>`).join('')}
+    </div>`;
+  })()}
   ${bench.length ? `<div class="pitch-bench"><b>Bank:</b> ${esc(bench.join(', '))}</div>` : ''}
   ${/* Dat het oranje shirt de doelman is, stond hier ook nog eens uitgelegd. Weg: dat leest je van het
        veld zelf af (hij staat in het doelgebied). Wat een lezer níet kan weten, is welk cijfer er in
@@ -3144,6 +3159,44 @@ function captainAtStartOfQuarter(m, qNum) {
 // Wissels op dezelfde minuut komen op één regel samen — de spelers die eraf gaan bij elkaar, de
 // invallers bij elkaar. Een dubbele wissel is in de praktijk één beslissing en leest zo ook zo.
 //   [{ min: "12'", out: ['Sam D.', 'Lars M.'], in: ['Tuur S.', 'Vic G.'] }, ...]
+// DE POSITIEWISSELS VAN ÉÉN BLOK (Tim, 27-08-2026). Het kader onder het veld toonde enkel de gewone
+// wissels; wie tijdens een kwart van plek veranderde, stond alleen in de tijdlijn bij "alle
+// gebeurtenissen". Dat is óók een wissel, en ze hoort dus onder hetzelfde diagram te staan.
+// Gegroepeerd per SPEELMINUUT, net als de wissels hierboven en net als de tijdlijn (groepeerPosSwaps):
+// twee verschuivingen die je vlak na elkaar intikt, zijn samen één herschikking. Per groep tonen we
+// het EINDpunt van elke speler (posSwapReeksTekst) en niet de losse ruilen — een tussenstand die
+// nooit op het veld gestaan heeft, verwart alleen maar.
+// Een verhuizing naar een lege plek heeft geen tegenpartij en valt buiten die berekening; die krijgt
+// een eigen regeltje "naam → plek".
+// `pijl`: op het scherm een echt pijltje, in de PDF "->" — de PDF-fonts (WinAnsi) hebben geen
+// pijlglief en zouden er een vraagteken van maken. Zelfde reden als bij de wisselpijltjes, die daar
+// getekend worden i.p.v. getypt.
+function periodPosSwapList(m, qNum, pijl) {
+  pijl = pijl || '→';
+  if (!qNum) return [];
+  const events = (m.events || [])
+    .filter(e => e.type === 'posSwap' && e.quarterNum === qNum && !e.atBreak && e.pA)
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  if (!events.length) return [];
+  const rijen = [];
+  for (const e of events) {
+    const min = eventMinLocal(e, m);
+    const laatste = rijen[rijen.length - 1];
+    if (laatste && laatste.min === min) laatste.events.push(e);
+    else rijen.push({ min, events: [e] });
+  }
+  return rijen.map(r => {
+    const ruilen = r.events.filter(e => e.pB);
+    const verhuizingen = r.events.filter(e => !e.pB);
+    const stukken = [];
+    if (ruilen.length) stukken.push(posSwapReeksTekst(m, ruilen, pijl));
+    for (const e of verhuizingen) {
+      const plek = e.naarPlek ? matchGridLabel(m, e.naarPlek) : (e.posA && e.posA.posNum ? String(e.posA.posNum) : '');
+      stukken.push(`${fieldName(m, e.pA)} ${pijl} ${plek}`.trim());
+    }
+    return { min: r.min, ms: r.events[0].gameTimeMs || 0, tekst: stukken.filter(Boolean).join(' · ') };
+  }).filter(r => r.tekst);
+}
 function periodSubList(m, qNum) {
   if (!qNum) return [];
   const rijen = [];
@@ -3165,7 +3218,7 @@ function periodSubList(m, qNum) {
         laatste.out.push(uitNaam);
         laatste.in.push(inNaam);
       } else {
-        rijen.push({ min, out: [uitNaam], in: [inNaam] });
+        rijen.push({ min, ms: e.gameTimeMs || 0, out: [uitNaam], in: [inNaam] });
       }
     });
   return rijen;

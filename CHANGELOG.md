@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.13.0
+
+**De positiewissels staan nu ook onder het velddiagram**, in het verslag én in de PDF. Ze stonden
+enkel in de tijdlijn bij alle gebeurtenissen, terwijl het ook wissels zijn: wie het verslag per kwart
+leest, kijkt naar het kader onder het veld en niet naar een lijst twee bladzijden verder.
+
+Ze delen dat kader met de gewone wissels, op tijd gesorteerd — een positiewissel op 7' hoort boven
+een wissel op 12'. Per moment één regel met het **eindpunt** van elke speler ("Emiel naar 7 RM ·
+Gust naar 11 LM"), niet de losse ruilen: die tonen een tussenstand die nooit op het veld gestaan
+heeft. Verhuizingen naar een lege plek krijgen hun eigen regeltje. De kop volgt de inhoud: *Wissels*,
+*Positiewissels*, of *Wissels en positiewissels*.
+
+Vier velddiagrammen blijven vier: de startopstelling per kwart, met eronder wat er tijdens dat kwart
+verandert.
+
+**Ook rechtgezet, vóór het kon gebeuren:** bij deze versie zou iedereen die de melding van 1.12 al
+gezien had, de melding van 1.0 opnieuw hebben gekregen — een versie zonder eigen tekst viel terug op
+de major. Wie een tekst van dezelfde reeks al zag, krijgt nu niets; wie er nog nooit een zag, krijgt
+de recentste.
+
+---
 ## v1.12.9
 
 **Bij Posities staat nu hoe er geteld wordt.** Eén wedstrijd en toch "GK×4" leest als een fout, tot

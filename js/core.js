@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.12.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.13.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -759,6 +759,14 @@ function notesSleutel(v) {
   const d = String(v || '').split('.');
   const mm = d[0] + '.' + (d[1] || '0');
   if (RELEASE_NOTES[mm]) return mm;
+  // Geen eigen tekst voor deze versie: neem de LAATSTE tekst van dezelfde major, niet meteen de
+  // major zelf. Anders krijgt wie de app al had maar nog nooit een melding zag, bij versie 1.13 de
+  // tekst van 1.0 te lezen terwijl die van 1.12 actueler is. Beide zijn goedgekeurd, dus de nieuwste
+  // is de juiste keuze.
+  const zelfdeMajor = Object.keys(RELEASE_NOTES)
+    .filter(k => k.indexOf(d[0] + '.') === 0)
+    .sort((a, b) => parseInt(a.split('.')[1], 10) - parseInt(b.split('.')[1], 10));
+  if (zelfdeMajor.length) return zelfdeMajor[zelfdeMajor.length - 1];
   return d[0];
 }
 const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
@@ -784,6 +792,12 @@ async function toonNieuwAlsNodig() {
     const huidig = notesSleutel(APP_VERSION);
     const gezien = localStorage.getItem(MAJOR_GEZIEN_KEY);
     if (gezien === huidig) return;
+    // NIET TERUGVALLEN OP EEN OUDERE TEKST (gevonden 27-08-2026, vóór het kon gebeuren). Zonder deze
+    // regel zou de eerstvolgende versie zónder eigen tekst — bv. 1.13 — bij notesSleutel uitkomen op
+    // de major '1', en dan is '1.12' (wat de gebruiker zag) niet gelijk aan '1': iedereen kreeg de
+    // melding van versie 1.0 opnieuw te zien. Wie al een tekst van dezelfde major zag, is bij.
+    if (gezien && gezien !== majorVan(APP_VERSION) && majorVan(gezien) === majorVan(APP_VERSION)
+        && huidig === majorVan(APP_VERSION)) return;
     // BEWUST ZONDER DE SLEUTEL WEG TE SCHRIJVEN. Wordt een kijker later ploegbeheerder, dan hoort hij
     // de melding alsnog te krijgen; had hij ze hier "gezien", dan kwam ze nooit meer.
     if (!magNieuwsZien()) return;

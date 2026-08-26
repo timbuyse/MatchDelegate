@@ -1972,10 +1972,10 @@ function exportMatchCSV() {
       extraInfo = 'Uit: ' + pName(m, e.playerOutId) + (e.atBreak ? ' (pauzewissel)' : '');
     } else if (e.type === 'posSwap') {
       // CSV-export: ook hier de bewegingen, niet de ruil — zie posSwapBeweging.
-      player = posSwapBeweging(m, e, '->');
+      player = posSwapBeweging(m, e, 'naar');
       extraInfo = e.atBreak ? 'Pauze-positiewissel' : '';
     } else if (e.type === 'posSwapReeks') {
-      player = posSwapReeksTekst(m, e.events, '->');
+      player = posSwapReeksTekst(m, e.events, 'naar');
       extraInfo = e.atBreak ? 'Pauze-positiewissels' : '';
     } else if (e.playerId) {
       player = pName(m, e.playerId);
