@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.12.4
+
+**De handleiding heeft een hoofdstuk 'Gegevens en privacy'.** Het gaat om gegevens van kinderen, dus
+dat hoort in de handleiding te staan en niet enkel in een juridische tekst die niemand opent. Wat de
+app bewaart en wat niet (geen geboortedatum, adres, telefoonnummer of foto's), waar het staat, en wie
+wat ziet.
+
+Inclusief het eerlijke punt: een kijker krijgt de wedstrijden van je ploeg wél volledig op zijn
+toestel binnen — zijn scherm toont niet alles, maar de gegevens zijn er. Dat blijft zo, en daarom
+staat het er nu bij.
+
+---
 ## v1.12.3
 
 **Een wedstrijd die al dagen "loopt" zegt dat nu zelf.** Tim wilde een geplande wedstrijd starten en

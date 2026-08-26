@@ -1461,6 +1461,39 @@ const HANDLEIDING_PAGINAS = [
       </ul>
     `
   },
+  {
+    // GEGEVENS EN PRIVACY (Tims keuze van 25-08-2026, punt 3 van zijn lijst). Het gaat om kinderen,
+    // dus dit hoort in de handleiding te staan en niet enkel in een juridische tekst die niemand
+    // opent. De derde alinea is de eerlijke: een kijker KRIJGT de wedstrijdgegevens volledig op zijn
+    // toestel, ook al toont het scherm ze niet. Dat blijft zo (Tims keuze: laten zoals het is), maar
+    // het hoort er dan wel bij te staan — anders belooft de app een scheiding die er niet is.
+    titel: 'Gegevens en privacy',
+    inhoud: `
+      <p>Deze app houdt gegevens bij over <b>kinderen</b>. Hieronder staat wat er precies bewaard wordt, waar het staat en wie het kan zien.</p>
+      <div class="sec">Wat de app bewaart</div>
+      <ul class="hdl-list">
+        <li><b>Van een speler:</b> zijn naam, en als je ze invult een rugnummer, een positie en een voorkeurszijde.</li>
+        <li><b>Per wedstrijd:</b> of hij in de selectie zat, waar hij stond, hoeveel hij speelde, zijn doelpunten, assists en kaarten — en wat jij zelf intikt: de reden van afwezigheid, een notitie bij een speler, een notitie bij de wedstrijd.</li>
+        <li><b>Van jou als gebruiker:</b> je naam en e-mailadres, om je aan te melden en om te tonen wie er toegang heeft tot een ploeg.</li>
+      </ul>
+      <p>Er wordt <b>geen</b> geboortedatum, adres, telefoonnummer of medisch gegeven bewaard, en er zitten <b>geen foto's</b> in de app.</p>
+      <div class="sec">Waar het staat</div>
+      <p>Alles staat op de <b>toestellen</b> van de mensen die de ploeg volgen. Meld je je aan, dan staat het daarnaast ook in de <b>databank van de app</b>, zodat medebeheerders en kijkers dezelfde wedstrijd zien. Zonder verbinding werkt de app gewoon door en gaat alles later alsnog door.</p>
+      <div class="sec">Wie wat ziet</div>
+      <ul class="hdl-list">
+        <li><b>Ploegbeheerders</b> zien alles van hun ploeg.</li>
+        <li><b>Kijkers</b> zien op hun scherm enkel wat jij vrijgeeft. Bij <b>Statistieken</b> bepaal je met de <b>oogjes</b> welke onderdelen zij te zien krijgen; notities bij spelers en redenen van afwezigheid blijven altijd voor beheerders.</li>
+      </ul>
+      <p class="hdl-tip"><b>Belangrijk om te weten:</b> een kijker krijgt de wedstrijden van je ploeg wel <b>volledig op zijn toestel</b> binnen — zijn scherm toont niet alles, maar de gegevens zijn er. Geef toegang dus enkel aan mensen die je vertrouwt, en haal iemand weg bij <b>Leden</b> zodra hij er niet meer bij hoort. Wie je verwijdert, kan er ook met een oude uitnodiging niet opnieuw in.</p>
+      <div class="sec">Wat je zelf kan doen</div>
+      <ul class="hdl-list">
+        <li>Een <b>speler verwijderen</b> uit de ploeg bij <b>Ploeg</b>. Zijn naam blijft staan in wedstrijden die al gespeeld zijn — dat is de geschiedenis van die wedstrijd.</li>
+        <li>Een <b>wedstrijd verwijderen</b> onderaan het verslag. Dan verdwijnt ook alles wat erin stond.</li>
+        <li>Een <b>ploeg archiveren of laten verwijderen</b> via Clubbeheer.</li>
+        <li>Vragen over de gegevens van je kind gaan naar de <b>ploegverantwoordelijke of de club</b>: zij beheren de ploeg, niet de app.</li>
+      </ul>
+    `
+  },
 ];
 
 let hdlPagina = 0;
