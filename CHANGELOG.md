@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.14.2
+
+**De uitslag kleurt nu naar het resultaat.** Op de wedstrijdkaart stond de score altijd in dezelfde
+kleur, en in het verslag stond óns cijfer altijd groen — ook na een 1-3, wat las als winst. Nu is
+een gewonnen wedstrijd groen, een verloren wedstrijd rood en blijft een gelijkspel staan zoals hij
+stond. In het verslag kleuren allebei de cijfers mee, zodat `1 – 3` in het rood meteen leest als een
+verlies.
+
+Een gewonnen strafschoppenreeks kleurt groen, ook al staat de score gelijk — dezelfde regel die de
+statistiek en de tornooipunten al volgden. Een wedstrijd zonder bijgehouden uitslag krijgt geen
+kleur.
+
+Enkel bij afgesloten wedstrijden. Tijdens een live wedstrijd blijft de score staan zoals hij was:
+daar is nog geen uitslag om te kleuren, en de score zou bij elk doelpunt van kleur wisselen.
+
 ## v1.14.1
 
 **Geïmporteerde clubnamen en plaatsen staan niet meer in kapitalen.** De bondskalenders leveren de

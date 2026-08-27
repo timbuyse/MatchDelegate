@@ -48,7 +48,11 @@ function renderDetail() {
   <div class="content">
     <div class="card" style="text-align:center">
       <div style="font-size:13px;color:var(--txt2);margin-bottom:4px">Eindscore</div>
-      <div style="font-size:50px;font-weight:900;color:var(--txt)">${scoreHtml(match,'grn')}</div>
+      ${/* De HELE eindscore kleurt naar de uitslag (Tim, 28-08-2026): groen gewonnen, rood verloren,
+           var(--txt) bij een gelijkspel. Voordien stond ons cijfer altijd groen — ook na een 1-3 —
+           en dat las als winst. Daarom ook scoreHtml zonder klasse: de groene 'grn' op ons cijfer
+           zou de kleur van de uitslag overschrijven. */ ''}
+      <div style="font-size:50px;font-weight:900;color:${resultaatKleur(match) || 'var(--txt)'}">${scoreHtml(match,'')}</div>
       <div style="font-size:14px;color:var(--txt2)">${esc(isAway(match)?match.opponent:tName(match))} – ${esc(isAway(match)?tName(match):match.opponent)}</div>
       ${/* De strafschoppenreeks staat ONDER de eindscore, niet erin: de wedstrijd eindigde op die
            stand, de reeks bepaalt enkel wie wint (zie shootoutSchoten in core.js). */ ''}

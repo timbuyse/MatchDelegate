@@ -3384,9 +3384,14 @@ function matchItemHtml(m) {
   const badge = st === 'live' ? `<span class="badge badge-live">${icI(IC.live)} Live</span>` : af ? `<span class="badge badge-cancel">${icI(IC.close)} Geannuleerd</span>` : nietAf ? `<span class="badge badge-open">${icI(IC.warn)} Niet afgesloten</span>` : st === 'planned' ? `<span class="badge badge-plan">${icI(IC.calendar)} Gepland</span>` : `<span class="badge badge-done">${icI(IC.done)} Gespeeld</span>`;
   // Bij een strafschoppenreeks blijft de wedstrijdscore staan zoals ze is, met de reeks eronder in
   // het klein — "1-1" met daaronder "pen. 4-5". Zo blijft de uitslag leesbaar als uitslag.
+  // De score kleurt naar de uitslag (Tim, 28-08-2026): groen gewonnen, rood verloren, en bij een
+  // gelijkspel blijft ze staan zoals ze was. Enkel bij een AFGESLOTEN wedstrijd: tijdens een live
+  // wedstrijd is er nog geen uitslag om te kleuren, en zou de score bij elk doelpunt van kleur
+  // wisselen. Geen kleur = geen style-attribuut, zodat mi-score gewoon het thema blijft volgen.
+  const uitslagKleur = st === 'done' ? resultaatKleur(m) : '';
   const right = zonderScore
     ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>`
-    : `<div style="text-align:right"><div class="mi-score">${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
+    : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   if (st === 'live') {

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.14.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.14.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -590,6 +590,20 @@ function matchResultaat(m) {
   if (m.scoreUs < m.scoreThem) return 'V';
   const w = shootoutWinnaar(m);
   return w === 'us' ? 'W' : w === 'them' ? 'V' : 'G';
+}
+// De kleur van een uitslag, vanuit ons standpunt: winst groen, verlies rood (Tim, 28-08-2026).
+// Een gelijkspel en een wedstrijd zonder uitslag geven LEEG en niet een kleur — dan blijft staan
+// wat er al stond, en dat verschilt per plek: de wedstrijdkaart is er zwart of wit (mi-score volgt
+// het thema), het verslag gebruikt var(--txt). Zou hier een vaste kleur voor gelijkspel staan, dan
+// brak één van de twee.
+// Loopt over matchResultaat, de ENIGE bron voor W/G/V, dus een gewonnen strafschoppenreeks kleurt
+// groen ook al staat de score gelijk.
+// LET OP: de tornooifiche heeft een eigen resColor() (teams-tournaments.js) die een gelijkspel wél
+// een kleur geeft — grijs, want daar staat de uitslag in een rij met grijze bijschriften. Verandert
+// hier de kleur van winst of verlies, pas ze daar dan mee aan.
+function resultaatKleur(m) {
+  const r = matchResultaat(m);
+  return r === 'W' ? 'var(--grn)' : r === 'V' ? 'var(--rd)' : '';
 }
 // Korte zin voor onder de score: "Testploeg wint na strafschoppen (4-5)".
 function shootoutZin(m) {
