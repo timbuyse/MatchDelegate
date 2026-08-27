@@ -1774,6 +1774,13 @@ function renderPrep() {
          weg: die wijzigt de wedstrijdgegevens, net als Bewerken. */ ''}
     ${(geenVerbinding && !heeftSelectie(m)) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="startSelectieWizard()">${icI(IC.players)} Selectie ingeven</button>` : ''}
     ${(heeftSelectie(m) && !heeftOpstelling(m)) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>` : ''}
+    ${/* De trainer geeft zijn wedstrijd door via ProSoccerData en drukt dat af als PDF. Dat blad
+         bevat de selectie én de opstelling per moment, dus het kan hier in één keer ingelezen worden
+         (zie import-psd.js). Enkel zolang er nog geen selectie is: de import VERVANGT de selectie en
+         de opstelling, en dat mag geen stille overschrijving worden van werk dat er al staat. Wil je
+         toch opnieuw inlezen, dan wis je eerst de selectie. Verbinding is niet nodig — het bestand
+         wordt op het toestel zelf gelezen. */ ''}
+    ${!heeftSelectie(m) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>` : ''}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
@@ -1859,6 +1866,8 @@ function modalEditMatchMenu() {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
     ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
+    ${/* Enkel zolang er niets ingegeven is — zie de knop op het voorbereidingsscherm zelf. */ ''}
+    ${heeftSel ? '' : item(IC.upload, 'Voorbereiding van de trainer', 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
          planner: die laatste toont een veld en veronderstelt dus dat er al iemand op staat. */ ''}
     ${/* ENKEL NOG WANNEER ER GEEN OPSTELLING IS (Tim, 25-08-2026). Met een opstelling bracht dit item

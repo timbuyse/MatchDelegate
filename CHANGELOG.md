@@ -9,6 +9,39 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.15.0
+
+**De voorbereiding van de trainer inlezen uit een PDF.** Werkt je trainer in ProSoccerData, dan
+drukt hij zijn wedstrijdvoorbereiding af als PDF: op dat blad staan de selectie, de startopstelling
+en de opstelling bij elk volgend moment. Die kan je nu rechtstreeks inlezen in plaats van alles over
+te tikken. Bij een geplande wedstrijd waar nog geen selectie is, staat er een knop
+**"Voorbereiding van de trainer (PDF)"**.
+
+Je krijgt eerst een voorstel te zien: welke wedstrijd op het blad staat, wie de trainer selecteerde
+en wie dat in jouw kern is, en de opstelling per moment met de positienummers erbij. Namen die niet
+letterlijk gelijk zijn worden herkend ("Reyes Henao Julio Cesar" is "Julio Reyes", en een
+schrijfwijze die Ã©Ã©n letter afwijkt ook); wat de app niet zeker weet, wijs je zelf aan in een
+keuzelijst. Pas als je op **Overnemen** tikt wordt er iets bewaard.
+
+Wat er dan klaarstaat is een gewone selectie met een gewone opstelling en een gewoon wedstrijdplan:
+alles blijft daarna te bewerken zoals altijd. De momenten van het blad landen op het juiste blok â€”
+15' is de start van kwart 2, 7' het wisselmoment halverwege kwart 1 â€” en de wissels en
+positiewissels leidt de app zelf af uit de opstelling die de trainer tekende, precies zoals wanneer
+je in de planningskaart een eindveld tekent.
+
+De opstelling wordt herkend aan haar vorm (hoeveel spelers per rij, van achter naar voor), dus de
+formatie wordt mee ingevuld. Herkent de app de vorm niet, dan zet ze de spelers zo goed mogelijk op
+het veld en zegt ze dat erbij.
+
+Er is geen PDF-bibliotheek voor nodig: net als bij de kalenderimport leest de app het bestand zelf,
+op het toestel. Er gaat niets naar een server, en de app wordt er niet zwaarder van.
+
+Op het scherm staat stap voor stap hoe je aan die PDF komt (in PSD: een geplande wedstrijd openen,
+rechtsbovenaan "Bekijk wedstrijdvoorbereiding", dan het printicoon en bewaren als PDF). Er staat ook
+duidelijk bij dat dit voorlopig een **demo-functie** is en vatbaar voor fouten — zowel op de
+uitlegpagina als op het voorstelscherm waar je beslist om over te nemen. Wie de app al gebruikt,
+krijgt bij de eerstvolgende opstart eenmalig een venster over deze nieuwe functie.
+
 ## v1.14.4
 
 **Bij "Uitslag ingeven" staat de thuisploeg nu links.** De twee invulvakjes hadden altijd de eigen

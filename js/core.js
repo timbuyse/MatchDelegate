@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.14.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.15.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -741,6 +741,18 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  '1.15': {
+    titel: 'De voorbereiding van je trainer inlezen',
+    kop: 'Een PDF uit ProSoccerData wordt je selectie, opstelling en wedstrijdplan',
+    intro: 'Werkt je trainer in ProSoccerData, dan hoef je zijn wedstrijdvoorbereiding niet langer over te tikken. Bij een geplande wedstrijd waar nog geen selectie is, staat de knop "Voorbereiding van de trainer (PDF)". Je laadt het blad op, je krijgt eerst te zien wat de app ervan begrepen heeft, en pas als jij akkoord gaat staat alles klaar: wie meegaat, wie start, waar iedereen staat en de wissels per moment. Daarna pas je alles gewoon nog aan zoals je gewend bent.',
+    kopPunten: 'Goed om te weten',
+    punten: [
+      'Dit is voorlopig een demo-functie en vatbaar voor fouten — kijk het voorstel na vóór je het overneemt. Er wordt gewerkt aan de robuustheid',
+      'Hoe je aan die PDF komt, staat stap voor stap op het scherm zelf',
+      'Het bestand wordt op je eigen toestel gelezen: er gaat niets naar een server',
+      'Namen hoeven niet exact gelijk te zijn — wat de app niet zeker weet, wijs je zelf aan',
+    ],
+  },
   '1.12': {
     titel: 'Wissels plannen werkt nu anders',
     kop: 'Je tekent de opstelling, de app bepaalt de wissels',

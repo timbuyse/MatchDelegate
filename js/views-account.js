@@ -2992,6 +2992,10 @@ async function go(v, id, _histReplace) {
   // bevroren op het vorige scherm terwijl ze dacht dat je hier stond (audit 23-08-2026). Meest
   // waarschijnlijke weg ernaartoe: thuis inlezen, aan het veld je verbinding verliezen, terugknop.
   if (v === 'importcal' && !canManage()) v = 'matches';
+  // Een voorbereiding inlezen hoort bij één wedstrijd: zonder die wedstrijd (of zonder de toestand
+  // die psdStart opzet) is er niets om in te lezen. Zelfde poortwachter als hierboven, om dezelfde
+  // reden: via de terugknop van de telefoon kom je er anders op een scherm zonder weg terug.
+  if (v === 'importpsd' && (!canManage() || !psdSt || !match)) v = 'matches';
   // Algemene gate: wie niet ingelogd is (en geen gast), hoort enkel op het auth-scherm, de
   // handleiding of de onderhoudspagina — via Handleiding → terug → Instellingen → terug kon
   // een afgemelde gebruiker anders op een leeg homescherm belanden zonder weg terug.
@@ -3429,6 +3433,9 @@ const views = {
   // Wordt bij de aanroep opgelost, niet bij het laden: renderImportCal woont in import-cal.js, dat
   // ná dit bestand geladen wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
   importcal: () => renderImportCal(),
+  // Zelfde reden als hierboven: renderImportPsd woont in import-psd.js, dat ná dit bestand geladen
+  // wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
+  importpsd: () => renderImportPsd(),
 };
 let homeFilter = 'all';
 // Herlaad het scherm waar je OP staat. De agenda heeft dezelfde ploegfilter, en die viel hier in de
