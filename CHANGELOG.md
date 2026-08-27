@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.14.3
+
+**"Accounts zonder ploeg" bij Alle gebruikers.** Dat scherm bouwde zijn lijst per ploeg op, dus wie
+zich aanmeldde maar bij geen enkele ploeg zit, kwam nergens voor — net de persoon die je zoekt als
+iemand belt met "ik zie niets in de app". Onderaan staat nu een groep met die accounts: naam,
+e-mailadres, en een merkje wanneer iemand clubbeheerder is, ploegen mag aanmaken of een openstaande
+aanvraag heeft. Staat een e-mailadres nog niet bevestigd, dan staat dat erbij — op zo'n adres kan je
+iemand niet als beheerder aanstellen.
+
+Er was hiervoor geen wijziging aan de beveiligingsregels nodig: de app houdt al een e-mailindex bij
+die bij elke aanmelding geschreven wordt en die de eigenaar volledig mag lezen.
+
+**De ploegen staan nu dicht.** Elke ploeg stond open, en met een club vol ploegen werd dat één lange
+lijst. Nu zie je eerst de ploegen met hun aantal leden, met bovenaan één knop om alles open of dicht
+te klappen. Het zoekveld werkt voortaan ook op de ploegnaam en klapt open wat overeenkomt.
+
+---
 ## v1.14.2
 
 **De uitslag kleurt nu naar het resultaat.** Op de wedstrijdkaart stond de score altijd in dezelfde

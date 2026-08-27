@@ -534,6 +534,84 @@ function renderAllUsers() {
     <div id="allusers-view-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
   </div>`;
 }
+// ACCOUNTS ZONDER PLOEG (Tims vraag, 28-08-2026). De lijst hierboven wordt per ploeg opgebouwd, dus
+// wie zich aanmeldde maar bij geen enkele ploeg zit, kwam nergens voor — net de persoon die je zoekt
+// wanneer iemand belt met "ik zie niets in de app". Bij het aanmaken van een account bewaart de app
+// naam, e-mail en datum onder `users/{uid}`, dus de gegevens bestaan; enkel het overzicht ontbrak.
+//
+// BRON: `usersByEmail`. Die index wordt bij ELKE aanmelding geschreven (writeUserEmailIndex in
+// core.js) en de eigenaar mag ze volledig lezen — precies waarvoor ze in fase 3 gemaakt is, om
+// iemand op e-mailadres als clubbeheerder te kunnen aanstellen zonder dat hij al een ploeg heeft.
+// Daarom is hier GEEN wijziging aan de beveiligingsregels voor nodig: de tak `users` mag de eigenaar
+// enkel per account lezen, maar die hebben we niet nodig.
+// Lukt het lezen toch niet, dan valt het terug op wie een beheerdersaanvraag deed of goedgekeurd is
+// (ook owner-leesbaar) en zegt het scherm er eerlijk bij dat de lijst dan onvolledig is.
+async function losseAccountsSectie(bekendeUids) {
+  const uitReq = async (pad) => {
+    try { return ((await fbOnce(fbdb.ref(pad))).val()) || {}; } catch (e) { return {}; }
+  };
+  const [goedgekeurd, aanvragen, clubsVal] = await Promise.all([
+    uitReq('approvedAdmins'), uitReq('adminRequests'), uitReq('clubs')]);
+  // Wie beheert érgens een club? Dat verklaart waarom iemand zonder ploeg tóch in de app zit.
+  const clubBeheerders = new Set();
+  Object.values(clubsVal).forEach(c => Object.keys((c && c.admins) || {}).forEach(u => clubBeheerders.add(u)));
+  let lijst = [], volledig = true;
+  try {
+    const val = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
+    lijst = Object.keys(val).filter(uid => !bekendeUids.has(uid)).map(uid => {
+      const u = val[uid] || {};
+      return { uid, naam: u.name || '', email: u.email || '', bevestigd: !!u.verified };
+    });
+  } catch (e) {
+    volledig = false;
+    const samen = {};
+    for (const bron of [aanvragen, goedgekeurd]) {
+      for (const uid of Object.keys(bron)) {
+        if (bekendeUids.has(uid) || samen[uid]) continue;
+        samen[uid] = { uid, naam: (bron[uid] || {}).name || '', email: (bron[uid] || {}).email || '', bevestigd: true };
+      }
+    }
+    lijst = Object.values(samen);
+  }
+  lijst.sort((a, b) => (a.naam || a.email || '').localeCompare(b.naam || b.email || ''));
+  const uitleg = volledig
+    ? 'Deze mensen hebben een account maar zitten bij geen enkele ploeg. Ze zien dus nog niets in de app. Iemand die zich nog nooit aanmeldde, staat er niet bij.'
+    : `Deze lijst is <b>onvolledig</b>: de gebruikersindex kon niet gelezen worden, dus ze toont enkel wie een beheerdersaanvraag deed of goedgekeurd is.`;
+  const rijen = lijst.map(u => {
+    const merken = [
+      u.uid === (currentUser && currentUser.uid) ? '<span class="ts-role admin">jijzelf</span>' : '',
+      clubBeheerders.has(u.uid) ? `<span class="ts-role admin">${icI(IC.shield)} Clubbeheerder</span>` : '',
+      goedgekeurd[u.uid] ? `<span class="ts-role admin">${icI(IC.check)} Mag ploegen aanmaken</span>` : '',
+      aanvragen[u.uid] ? `<span class="ts-role viewer">${icI(IC.hourglass)} Aanvraag open</span>` : '',
+    ].filter(Boolean).join(' ');
+    // Een niet-bevestigd e-mailadres staat erbij omdat je iemand enkel op een BEVESTIGD adres als
+    // club- of ploegbeheerder kan aanstellen — anders zoek je je blind op waarom dat niet lukt.
+    const adres = u.email
+      ? esc(u.email) + (u.bevestigd ? '' : ' <span style="color:var(--org2)">· e-mail nog niet bevestigd</span>')
+      : 'geen e-mailadres bekend';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+      <span style="flex:1;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
+      ${merken}
+    </div>`;
+  });
+  const zoekBlob = lijst.map(u => ((u.naam || '') + ' ' + (u.email || '')).toLowerCase()).join(' | ') + ' | zonder ploeg';
+  return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
+    <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Accounts zonder ploeg <span style="font-weight:400;text-transform:none">(${lijst.length}${volledig ? '' : '+'})</span></span>
+    </summary>
+    <div style="margin-top:10px">
+      <p style="color:var(--txt2);font-size:12px;margin:0 0 8px">${uitleg}</p>
+      ${rijen.length ? rijen.join('') : '<p style="color:var(--txt2);font-size:13px;margin:0">Iedereen zit bij minstens één ploeg.</p>'}
+    </div>
+  </details>`;
+}
+// Alles in één beweging open- of dichtklappen — met veel ploegen scheelt dat een hoop getik.
+function allUsersToggleAll(open) {
+  document.querySelectorAll('.allusers-team').forEach(sec => { sec.open = !!open; });
+  const b = document.getElementById('allusers-toggle');
+  if (b) b.setAttribute('onclick', `allUsersToggleAll(${open ? 'false' : 'true'})`);
+  if (b) b.innerHTML = open ? 'Alles dichtklappen' : 'Alles openklappen';
+}
 async function loadAllUsersView() {
   const el = document.getElementById('allusers-view-list');
   if (!el || !isOwner || !fbdb) return;
@@ -548,6 +626,7 @@ async function loadAllUsersView() {
     );
 
     const sections = [];
+    const bekendeUids = new Set();   // iedereen die ergens lid is — zie losseAccountsSectie
     for (let i = 0; i < teamIds.length; i++) {
       const tid = teamIds[i];
       const team = teamsVal[tid] || {};
@@ -573,6 +652,7 @@ async function loadAllUsersView() {
         continue;
       }
 
+      uids.forEach(uid => bekendeUids.add(uid));
       const users = uids.map(uid => ({ naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
       const rows = users.map(u => {
         const roleBadge = u.role === 'admin'
@@ -583,8 +663,11 @@ async function loadAllUsersView() {
           ${roleBadge}
         </div>`;
       });
-      const searchBlob = users.map(u => (u.naam + ' ' + u.email).toLowerCase()).join(' | ');
-      sections.push(`<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px" open>
+      const searchBlob = (sectieTitel + ' | ' + users.map(u => (u.naam + ' ' + u.email).toLowerCase()).join(' | ')).toLowerCase();
+      // DICHT BIJ HET OPENEN (Tim, 28-08-2026). Elke ploeg stond open, en met een club vol ploegen was
+      // dat één lange lijst waarin je moest scrollen om te zien wélke ploegen er zijn. Nu zie je eerst
+      // de ploegen met hun aantal; het zoekveld klapt vanzelf open wat je zoekt.
+      sections.push(`<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px">
         <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
           <button class="btn btn-red btn-sm" onclick="event.preventDefault();event.stopPropagation();ownerDeleteTeam('${tid}','${jsq(teamNaam)}')">Verwijderen</button>
@@ -593,7 +676,9 @@ async function loadAllUsersView() {
       </details>`);
     }
 
-    el.innerHTML = (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Geen ploegen met leden.</p>');
+    const losse = await losseAccountsSectie(bekendeUids);
+    const kop = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
+    el.innerHTML = kop + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
     el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
