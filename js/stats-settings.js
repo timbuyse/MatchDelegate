@@ -15,21 +15,78 @@ let kindFilter = null; // soort wedstrijd — zie MATCH_KINDS in core.js
 // dat er ergens een speeldag ingevuld moet worden.
 // Op BEIDE sleutels indexeren (rosterId én naam): oude wedstrijden en losse spelers hebben geen
 // rosterId, en dan zou de match op naam gemist worden.
+//
+// UITGESTELDE WEDSTRIJDEN (Tim, 27-08-2026). De datumregel dekt niet alles: staat de tweede wedstrijd
+// van dezelfde speeldag naar woensdag verschoven, dan liggen de datums te ver uit elkaar. Daarom
+// tellen twee wedstrijden óók als dezelfde speeldag wanneer er bij allebei hetzelfde in het veld
+// SPEELDAG staat. Enkel binnen dezelfde ploeg, hetzelfde seizoen en dezelfde soort — "speeldag 5" van
+// de beker is een andere dag dan "speeldag 5" van de competitie, en de nummering van een andere ploeg
+// staat er los van. Is het veld bij één van de twee leeg, dan blijft alleen de datumregel over: er is
+// dus niets verplicht in te vullen, het werkt enkel beter wanneer je het wél doet.
+function speeldagSleutel(m) {
+  // "5", "05" en " 5 " zijn hetzelfde nummer; wie er "Speeldag 5" van maakt, matcht met andere
+  // wedstrijden waar hetzelfde staat.
+  const nr = String((m && m.matchday) || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\b0+(\d)/g, '$1');
+  if (!nr) return null;
+  const seiz = typeof seasonOf === 'function' ? seasonOf(m) : '';
+  const soort = typeof matchKindOf === 'function' ? matchKindOf(m) : (m.competition || '');
+  return `${m.teamId || ''}|${seiz}|${soort}|${nr}`;
+}
+// Deelt een lijst wedstrijden op in speeldagen volgens diezelfde regel: binnen één dag van elkaar, of
+// hetzelfde ingevulde speeldagnummer. Twee wedstrijden die tegelijk gespeeld worden, zijn zo één
+// speeldag — en dus één kans om geselecteerd te worden, niet twee.
+function speeldagGroepen(lijst) {
+  const items = (lijst || []).filter(m => m && m.date);
+  const ouder = items.map((_, i) => i);
+  const zoek = i => { while (ouder[i] !== i) { ouder[i] = ouder[ouder[i]]; i = ouder[i]; } return i; };
+  const DAG_MS = 86400000;
+  const tijd = items.map(m => Date.parse(m.date + 'T00:00:00Z'));
+  const sleutel = items.map(speeldagSleutel);
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const zelfdeDag = !isNaN(tijd[i]) && !isNaN(tijd[j]) && Math.abs(tijd[i] - tijd[j]) <= DAG_MS;
+      const zelfdeNr = sleutel[i] && sleutel[i] === sleutel[j];
+      if (!zelfdeDag && !zelfdeNr) continue;
+      const ra = zoek(i), rb = zoek(j);
+      if (ra !== rb) ouder[rb] = ra;
+    }
+  }
+  const per = new Map();
+  items.forEach((m, i) => { const k = zoek(i); if (!per.has(k)) per.set(k, []); per.get(k).push(m); });
+  return [...per.values()].map(ms => ({ matches: ms, maxDatum: ms.map(x => x.date).sort().pop() }));
+}
 function bouwSpeeldagIndex(alle) {
   const sleutels = (rosterId, name) => [rosterId ? 'r:' + rosterId : null, 'n:' + (name || '').trim().toLowerCase()].filter(Boolean);
-  const perSpeler = new Map();
+  const perSpeler = new Map();      // op welke datums stond hij in een selectie
+  const perSpeelNr = new Map();     // en op welke ingevulde speeldagen
   for (const m of (alle || [])) {
     if (!m || !m.date || (typeof matchCancelled === 'function' && matchCancelled(m))) continue;
+    const sd = speeldagSleutel(m);
     for (const p of (m.players || [])) {
       if (p.absent) continue;   // in de selectie staan maar niet komen opdagen is geen speeldag elders
       for (const k of sleutels(p.rosterId, p.name)) {
         if (!perSpeler.has(k)) perSpeler.set(k, new Set());
         perSpeler.get(k).add(m.date);
+        if (sd) {
+          if (!perSpeelNr.has(k)) perSpeelNr.set(k, new Set());
+          perSpeelNr.get(k).add(sd);
+        }
       }
     }
   }
   const DAG_MS = 86400000;
-  return (rosterId, name, datum) => {
+  // Neemt een wedstrijd (of, voor oudere aanroepen, enkel een datum). Met de wedstrijd erbij kan ook
+  // het speeldagnummer vergeleken worden — zie de uitleg boven speeldagSleutel.
+  return (rosterId, name, wedstrijdOfDatum) => {
+    const m = (wedstrijdOfDatum && typeof wedstrijdOfDatum === 'object') ? wedstrijdOfDatum : null;
+    const datum = m ? m.date : wedstrijdOfDatum;
+    const sd = m ? speeldagSleutel(m) : null;
+    if (sd) {
+      for (const k of sleutels(rosterId, name)) {
+        const set = perSpeelNr.get(k);
+        if (set && set.has(sd)) return true;
+      }
+    }
     if (!datum) return false;
     // In UTC rekenen, niet in lokale tijd: `new Date('2026-09-12T00:00:00')` is middernacht híer, en
     // daar een dag bij optellen en dan via toISOString terug naar een datum gaf in de zomertijd
@@ -405,7 +462,7 @@ async function loadStats() {
     }
     for (const a of (m.absentPlayers || [])) {
       const ab = typeof a === 'string' ? { name: a, rosterId: null } : a;
-      if (opDezelfdeSpeeldagElders(ab.rosterId, ab.name, m.date)) continue; // die speeldag elders opgesteld → niet afwezig
+      if (opDezelfdeSpeeldagElders(ab.rosterId, ab.name, m)) continue; // die speeldag elders opgesteld → niet afwezig
       // Reden "speelt elders": de speler voetbalde wel, alleen bij een ploeg buiten deze
       // statistieken. Dat is dus geen gemiste wedstrijd — zelfde gedachte als de A/B-correctie
       // hierboven, maar dan handmatig aangegeven omdat die wedstrijd hier niet in de lijst zit.
@@ -466,24 +523,36 @@ async function loadStats() {
     for (const p of (m.players || [])) noem(p.rosterId, p.name);
     for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; noem(ab.rosterId, ab.name); }
   }
+  // PER SPEELDAG, NIET PER WEDSTRIJD (Tim, 27-08-2026). Worden er twee wedstrijden tegelijk gespeeld,
+  // dan is dat één kans om geselecteerd te worden — je kan er maar in één staan. Toch woog zo'n dag
+  // verschillend: wie bij de ene meespeelde kwam op 1/1 (de andere wedstrijd werd hem niet
+  // aangerekend, want hij was die dag elders opgesteld), maar wie bij géén van de twee gekozen werd,
+  // kreeg 0/2. Nu telt de speeldag voor iedereen één keer: meegespeeld bij minstens één wedstrijd van
+  // die dag = mee, anders gemist. Welke wedstrijden samen één speeldag vormen, bepaalt
+  // speeldagGroepen: binnen één dag van elkaar, of hetzelfde ingevulde speeldagnummer.
+  const speeldagen = speeldagGroepen(sortedList);
+  const eldersGemeld = (g, k) => g.matches.some(m => (m.absentPlayers || [])
+    .map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
+    .some(a => spelerKey(a.rosterId, a.name) === k && a.reason === 'elders'));
   for (const r of players) {
     const k = spelerKey(r.rosterId, r.name);
     const vanaf = eersteDatum.get(k);
-    if (!vanaf) { r.gemist = r.absent; continue; }
-    let gemist = 0;
-    for (const m of sortedList) {
-      if (!m.date || m.date < vanaf) continue;
-      if ((m.players || []).some(p => spelerKey(p.rosterId, p.name) === k && !p.absent)) continue;   // stond in de selectie
-      if (opDezelfdeSpeeldagElders(r.rosterId, r.name, m.date)) continue;                            // die speeldag elders
-      const abRec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
-        .find(a => spelerKey(a.rosterId, a.name) === k);
-      if (abRec && abRec.reason === 'elders') continue;
+    if (!vanaf) { r.dagenMee = r.squad; r.dagenGemist = r.absent; continue; }
+    let mee = 0, gemist = 0;
+    for (const g of speeldagen) {
+      if (g.maxDatum < vanaf) continue;
+      // In de selectie van minstens één wedstrijd van die speeldag → hij deed mee die dag.
+      if (g.matches.some(m => (m.players || []).some(p => spelerKey(p.rosterId, p.name) === k && !p.absent))) { mee++; continue; }
+      // Elders opgesteld of afgemeld met "speelt elders": geen gemiste kans, maar ook geen selectie.
+      if (g.matches.some(m => opDezelfdeSpeeldagElders(r.rosterId, r.name, m))) continue;
+      if (eldersGemeld(g, k)) continue;
       gemist++;
     }
-    r.gemist = gemist;
+    r.dagenMee = mee; r.dagenGemist = gemist;
   }
-  const attendTot = p => p.squad + (p.gemist != null ? p.gemist : p.absent);
-  const attend = players.filter(p => attendTot(p) > 0).sort((a, b) => (b.squad / attendTot(b)) - (a.squad / attendTot(a)) || b.squad - a.squad);
+  const attendMee = p => (p.dagenMee != null ? p.dagenMee : p.squad);
+  const attendTot = p => attendMee(p) + (p.dagenGemist != null ? p.dagenGemist : p.absent);
+  const attend = players.filter(p => attendTot(p) > 0).sort((a, b) => (attendMee(b) / attendTot(b)) - (attendMee(a) / attendTot(a)) || attendMee(b) - attendMee(a));
   el.innerHTML = filterBar
     + nietAfgeslotenRegel
     + `<div class="card">
@@ -535,11 +604,11 @@ async function loadStats() {
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${plekken && linies ? `<small style="color:var(--txt2);display:block">${linies}</small>` : ''}</span>`
         + `<span style="color:var(--txt2);font-size:13px">${plekken || linies}</span></div>`;
     }).join('')) : '')
-    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / wedstrijden sinds hij erbij is)</span>`, attend.map(p=>{const tot=attendTot(p);const pct=tot?Math.round(p.squad/tot*100):0;
+    + (attend.length ? sect('selected', `${icI(IC.clipboard)} Geselecteerd <span style="font-weight:400;text-transform:none;color:var(--txt2)">(in selectie / speeldagen sinds hij erbij is)</span>`, attend.map(p=>{const tot=attendTot(p);const mee=attendMee(p);const pct=tot?Math.round(mee/tot*100):0;
       // Afgemeld en niet-komen-opdagen apart onder de naam (Tims keuze, 25-08-2026) — enkel wanneer
       // er iets te melden is, anders krijgt elke rij een lege tweede regel.
       const redenen = [p.nb ? `${p.nb}× afgemeld` : '', p.noshow ? `${p.noshow}× niet komen opdagen` : ''].filter(Boolean).join(' · ');
-      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${redenen ? `<small style="color:var(--txt2);display:block">${redenen}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.squad}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
+      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${redenen ? `<small style="color:var(--txt2);display:block">${redenen}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${mee}/${tot}</span><span style="font-weight:800;min-width:46px;text-align:right${pct<60?';color:var(--org)':''}">${pct}%</span></div>`;}).join('')) : '')
     + ((!isMgr && hiddenCount > 0) ? `<p class="stat-locked">${icI(IC.eyeOff)} Meer statistieken enkel beschikbaar voor ploegbeheerders.</p>` : '')
     // SEIZOEN EXPORTEREN (Tims keuze, 25-08-2026). Dezelfde export als de clubexport, maar voor deze
     // ene ploeg — die zat tot nu enkel bij Clubbeheer, waar een gewone ploegbeheerder niet komt. Voor
@@ -694,18 +763,26 @@ async function loadPlayerDetail() {
   const vermeld = ploegLijst.filter(m2 => (m2.players || []).some(isHem)
     || (m2.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).some(isHem));
   const vanaf = vermeld.length ? vermeld.map(m2 => m2.date).sort()[0] : null;
+  // PER SPEELDAG, zelfde regel als op de statistiekenpagina (Tim, 27-08-2026): twee wedstrijden die
+  // tegelijk gespeeld worden — of die hetzelfde speeldagnummer dragen omdat er één uitgesteld is —
+  // zijn samen één kans om geselecteerd te worden. `squad` blijft het aantal WEDSTRIJDEN waarin hij
+  // zat (dat cijfer staat elders op dit scherm); voor het percentage tellen we speeldagen.
   absent = 0;
+  let dagenMee = 0;
   if (vanaf) {
-    for (const m of ploegLijst) {
-      if (m.date < vanaf) continue;
-      if ((m.players || []).some(p => isHem(p) && !p.absent)) continue;      // stond in de selectie
-      if (speeldagElders(rosterId, name, m.date)) continue;                  // die speeldag elders
-      const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).find(isHem);
-      if (rec && rec.reason === 'elders') continue;
+    for (const g of speeldagGroepen(ploegLijst)) {
+      if (g.maxDatum < vanaf) continue;
+      if (g.matches.some(m => (m.players || []).some(p => isHem(p) && !p.absent))) { dagenMee++; continue; }
+      if (g.matches.some(m => speeldagElders(rosterId, name, m))) continue;   // die speeldag elders
+      const eldersGemeld = g.matches.some(m => {
+        const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).find(isHem);
+        return rec && rec.reason === 'elders';
+      });
+      if (eldersGemeld) continue;
       absent++;
     }
   }
-  const pct = (squad + absent) ? Math.round(squad / (squad + absent) * 100) : null;
+  const pct = (dagenMee + absent) ? Math.round(dagenMee / (dagenMee + absent) * 100) : null;
   // (De tornooitelling zelf staat bovenaan, samen met de seizoenslijst — zie myTournaments.)
   // Gastoptredens bij ANDERE ploegen opsporen — enkel via het stabiele rosterId (dat blijft
   // ploeg-overschrijdend hetzelfde bij een echte gastbeurt, zie addGuestsModal in wizard-prep.js);
@@ -1402,7 +1479,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Topschutters</b> en <b>Assists</b>.</li>
         <li><b>Clean sheets</b> — per keeper, op basis van de minuten die hij effectief in doel stond.</li>
         <li><b>Meeste speelminuten</b> en <b>Fair-play · minste speeltijd</b> — die tweede rekent de <i>gemiddelde</i> speeltijd per selectie, dus wie vaak geselecteerd wordt maar weinig speelt, staat bovenaan. Bedoeld om eerlijke speelkansen op te volgen.</li>
-        <li><b>Geselecteerd</b> — in hoeveel procent van de wedstrijden een speler in de selectie zat. Wie <b>NB</b> stond, telt als gemiste wedstrijd, behalve met de reden 'speelt elders'.</li>
+        <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
         <li><b>Posities</b> en <b>Kaarten</b>.</li>
       </ul>
       <div class="sec">Wat mag een kijker zien?</div>

@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.14.0
+
+**"Geselecteerd" telt nu per speeldag in plaats van per wedstrijd.** Speel je met twee ploegen
+tegelijk, dan is dat één kans om geselecteerd te worden — je kan maar in één van beide staan. Toch
+woog zo'n dag verschillend: wie bij de ene meespeelde kwam op 1/1 (de andere werd hem niet
+aangerekend, want hij was die dag elders opgesteld), maar wie bij géén van de twee gekozen werd,
+kreeg 0/2. Nu telt de speeldag voor iedereen één keer.
+
+**Uitgestelde wedstrijden horen bij dezelfde speeldag.** Twee wedstrijden vormen samen één speeldag
+als hun datums binnen één dag van elkaar liggen (dezelfde dag, of zaterdag en zondag) óf als er bij
+allebei hetzelfde in het veld **Speeldag** staat. Zo blijft speeldag 12 één speeldag, ook wanneer de
+tweede wedstrijd naar woensdag verschoven wordt. Dat geldt enkel binnen dezelfde ploeg, hetzelfde
+seizoen en dezelfde soort, en enkel wanneer het veld bij allebei ingevuld is — je moet dus niets
+verplicht invullen, het werkt alleen scherper wanneer je het wél doet.
+
+Het getal naast het percentage leest daardoor als "in 8 van de 10 **speeldagen**". Op de
+statistiekenpagina en in het spelerdetail staat nu hetzelfde cijfer; de uitleg in de handleiding is
+mee aangepast.
+
+---
 ## v1.13.2
 
 **De opstelling staat nu in een kader, de wissels eronder erbuiten.** De twee chips, het veld en de
