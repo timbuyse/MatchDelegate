@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.14.1
+
+**Geïmporteerde clubnamen en plaatsen staan niet meer in kapitalen.** De bondskalenders leveren de
+tegenstander als `R. KNOKKE FC` of `KSK DE JEUGD LOVENDEGEM` en de plaats als `SPORTPARK DE LEIE,
+KORTRIJKSESTRAAT 12`, en zo kwamen die in de lijst, in het verslag en in de PDF terecht. Bij het
+importeren worden ze nu omgezet naar `R. Knokke FC`, `KSK De Jeugd Lovendegem` en `Sportpark De
+Leie, Kortrijksestraat 12`. Afkortingen blijven kapitaal (FC, KSV, KAA, OHL), streepjes en punten
+beginnen opnieuw (`Sint-Eloois-Winkel`, `K.V.C.`, `A. Rodenbachstraat`), en tekst waar al een kleine
+letter in staat blijft onaangeroerd — die heeft iemand bewust zo getypt. Werkt zowel voor een
+ICS-kalender als voor een xlsx- of csv-tabel. Bestaande wedstrijden die je opnieuw importeert en
+laat bijwerken, krijgen de nette schrijfwijze mee.
+
 ## v1.14.0
 
 **"Geselecteerd" telt nu per speeldag in plaats van per wedstrijd.** Speel je met twee ploegen

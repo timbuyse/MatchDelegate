@@ -391,6 +391,39 @@ function icsTitelDelen(titel) {
   return { thuis, uit, reeks };
 }
 function impNorm(s) { return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ''); }
+// De bondskalenders schrijven de tegenstander en de plaats in kapitalen ("R. KNOKKE FC", "KSK DE
+// JEUGD LOVENDEGEM", "SPORTPARK DE LEIE, KORTRIJKSESTRAAT 12"). Zo belanden die in de lijst, in
+// het verslag en in de PDF, waar ze staan te schreeuwen. Vandaar deze omzetting naar gewone
+// schrijfwijze.
+// Enkel namen zónder één kleine letter komen in aanmerking: staat er al een kleine letter in, dan
+// heeft iemand de naam bewust zo getypt en blijft hij zoals hij is.
+// Afkortingen blijven wél kapitaal. Een woord zonder klinker is er altijd één (FC, KSV, VV, SK) —
+// dat leid ik uit de letters af. Afkortingen mét klinker kan ik niet raden, die staan hieronder.
+// Mist er één, zet hem er dan bij; de rest van de functie verandert daar niet van.
+const IMP_AFKORTINGEN = new Set(['AA', 'AC', 'AFC', 'AS', 'ASC', 'ASO', 'ASV', 'EFC', 'ESK', 'ESV',
+  'EVC', 'KAA', 'KAC', 'KAS', 'KAV', 'KOSC', 'OHL', 'RAAL', 'RAEC', 'RAS', 'RCS', 'RE', 'ROC',
+  'RRC', 'RSCA', 'RUS', 'SCA', 'UR', 'US', 'VVA']);
+// Woordjes die midden in een naam klein blijven. Kort gehouden: "de" hoort er niet bij, want dat
+// krijgt in "KSK De Jeugd Lovendegem" wél een hoofdletter.
+const IMP_KLEINE_WOORDEN = new Set(['van', 'der', 'en']);
+function impNetteNaam(s) {
+  const naam = String(s || '').trim();
+  if (!naam || /\p{Ll}/u.test(naam)) return naam;
+  // Split mét de tussenruimte erin, zodat dubbele spaties niet stil verdwijnen.
+  return naam.split(/(\s+)/).map((w, i) => {
+    if (!w.trim()) return w;
+    if (/^['’]/.test(w)) return w.toLowerCase();                               // 's Gravenwezel, 't Zand
+    const letters = w.replace(/[^\p{L}]/gu, '').toUpperCase();
+    if (!letters) return w;                                                    // "1927", een los streepje
+    if (letters.length === 1) return w.toUpperCase();                          // "R." en de losse ploegletter "A"
+    if (IMP_AFKORTINGEN.has(letters) || !/[AEIOUYÀ-Ý]/.test(letters)) return w.toUpperCase();
+    const klein = w.toLowerCase();
+    if (i > 0 && IMP_KLEINE_WOORDEN.has(klein)) return klein;
+    // Na een streepje, punt, schuine streep of apostrof begint een nieuw woorddeel:
+    // "Sint-Eloois-Winkel", "D'Hondt".
+    return klein.replace(/(^|[-.'’\/])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase());
+  }).join('');
+}
 // Welke ploeg is de jouwe? Die staat in élke wedstrijd van de reeks, aan de ene of de andere kant.
 // De naam met de meeste treffers wint; de kalendernaam ("... reeks U11 A") krijgt voorrang bij
 // een gelijkspel. Format-onafhankelijk, dus dit werkt ook op de kalender van een andere site.
@@ -427,8 +460,8 @@ function impIcsNaarRegels(events) {
     const thuis = impNorm(d.thuis) === eigen;
     regels.push({
       datum: dt.datum, tijd: dt.tijd, thuis,
-      tegenstander: thuis ? d.uit : d.thuis,
-      venue: icsProp(ev, 'LOCATION').replace(/\s*\n\s*/g, ', ').trim(),
+      tegenstander: impNetteNaam(thuis ? d.uit : d.thuis),
+      venue: impNetteNaam(icsProp(ev, 'LOCATION').replace(/\s*\n\s*/g, ', ').trim()),
       reeks: d.reeks, speeldag: '',
       uid: icsProp(ev, 'UID'), bestaat: null, aan: true,
     });
@@ -700,8 +733,8 @@ function impTabelNaarRegels() {
     }
     if (!datum || !tegenstander) { over++; return; }
     regels.push({
-      datum, tijd, thuis, tegenstander,
-      venue: cel(rij, 'venue'), speeldag: cel(rij, 'speeldag'), reeks: '',
+      datum, tijd, thuis, tegenstander: impNetteNaam(tegenstander),
+      venue: impNetteNaam(cel(rij, 'venue')), speeldag: cel(rij, 'speeldag'), reeks: '',
       uid: '', bestaat: null, aan: true,
     });
   });
