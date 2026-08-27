@@ -3145,15 +3145,23 @@ function modalQuickResult() {
     : (heeftSelectie(m)
       ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px">${icI(IC.timer)} <b>Er komen geen speelminuten bij.</b> Daarvoor is een opstelling per ${pSingLow(m)} nodig; een selectie alleen zegt niet wie hoe lang speelde.</p>`
       : '');
+  // THUISPLOEG EERST, ook hier (Tim, 28-08-2026). De invulvelden stonden altijd met de eigen ploeg
+  // links, terwijl de hele app de score in thuisploeg-eerst volgorde schrijft (zie scoreTxt en het
+  // scorebord). Bij een uitwedstrijd tikte je dus 3 in het linkerveld en zei de knop eronder "1-3" —
+  // die volgde isAway al wél. Nu volgen ze allebei dezelfde volgorde.
+  // DE ID'S HANGEN AAN DE PLOEG, NIET AAN DE PLAATS: qr-us is onze score, waar het veld ook staat.
+  // Zo hoeven qrLeesScore en saveQuickResult niet mee te veranderen en kan er geen omgekeerde
+  // uitslag weggeschreven worden. Een tornooiwedstrijd blijft eigen ploeg eerst — dat zit in isAway.
+  const qrVeld = (label, id) => `<div class="fg" style="margin:0"><label>${esc(label)}</label><input id="${id}" type="number" inputmode="numeric" min="0" placeholder="–" value="" oninput="qrKnopBij()" style="text-align:center;font-size:22px;font-weight:800"></div>`;
+  const qrOns = qrVeld(tName(m), 'qr-us'), qrHen = qrVeld(m.opponent, 'qr-them');
+  const qrStreep = `<div style="font-size:22px;font-weight:800;padding-bottom:12px">–</div>`;
   openModal(`<h3>${icI(IC.bolt)} Uitslag ingeven</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Voor een wedstrijd die al gespeeld is. Vul de eindstand in.</p>
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:14px">
       ${/* LEEG, NIET 0 (Tim, 24-08-2026). Met een 0 vooringevuld kan je met twee tikken een 0-0
            opslaan die je nooit bedoeld hebt — en 0-0 is een echte uitslag. Nu moet je ze zelf
            ingeven, en de knop eronder zegt wat je gaat opslaan. */ ''}
-      <div class="fg" style="margin:0"><label>${esc(tName(m))}</label><input id="qr-us" type="number" inputmode="numeric" min="0" placeholder="–" value="" oninput="qrKnopBij()" style="text-align:center;font-size:22px;font-weight:800"></div>
-      <div style="font-size:22px;font-weight:800;padding-bottom:12px">–</div>
-      <div class="fg" style="margin:0"><label>${esc(m.opponent)}</label><input id="qr-them" type="number" inputmode="numeric" min="0" placeholder="–" value="" oninput="qrKnopBij()" style="text-align:center;font-size:22px;font-weight:800"></div>
+      ${isAway(m) ? qrHen + qrStreep + qrOns : qrOns + qrStreep + qrHen}
     </div>
     ${/* DE SPELERSLIJST DICHTGEKLAPT (Tim, 24-08-2026). Met een volledige kern stond hier een lijst
          van veertien rijen tussen de score en de knoppen — je moest er voorbij scrollen om te zien

@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.14.4
+
+**Bij "Uitslag ingeven" staat de thuisploeg nu links.** De twee invulvakjes hadden altijd de eigen
+ploeg links staan, terwijl de hele app de score in thuisploeg-eerst volgorde schrijft. Bij een
+uitwedstrijd tikte je dus een 3 in het linkervakje, en zei de knop eronder `1-3` — die volgde de
+juiste volgorde al wél. Nu wisselen de vakjes mee: thuis staat je eigen ploeg links, uit staat de
+tegenstander links. Bij een tornooiwedstrijd blijft je eigen ploeg vooraan, want daar is geen
+thuisploeg.
+
+Aan de opgeslagen uitslag verandert niets: de vakjes horen bij de ploeg en niet bij de plaats, dus
+wat je in het vakje met jouw ploegnaam tikt, blijft jouw score.
+
 ## v1.14.3
 
 **"Accounts zonder ploeg" bij Alle gebruikers.** Dat scherm bouwde zijn lijst per ploeg op, dus wie
