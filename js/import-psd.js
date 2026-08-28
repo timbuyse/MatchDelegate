@@ -19,11 +19,23 @@
 // geen afbeeldingen. Past een bestand niet in dat stramien, dan zeggen we dat eerlijk in plaats van
 // half te raden.
 //
-// GEMETEN OP TWEE ECHTE BLADEN (28-08-2026): één met vier momenten (start + 15'/30'/45') en één met
-// acht (start + 7'/15'/22'/30'/37'/45'/52'), beide 8v8 in de dubbele ruit. Het raster van PSD lag in
-// allebei op dezelfde plaats. Toch leunt niets hieronder op vaste pixelwaarden: de rijen en kolommen
-// worden per blad uit de gevonden posities afgeleid, en de opstelling wordt herkend aan het PATROON
-// (hoeveel spelers per rij, van achter naar voor) en niet aan waar een naam toevallig staat.
+// GEMETEN OP DRIE ECHTE BLADEN (28-08-2026). Niets hieronder leunt op vaste pixelwaarden: de rijen en
+// kolommen worden per blad uit de gevonden posities afgeleid, en de opstelling wordt herkend aan het
+// PATROON (hoeveel spelers per rij, van achter naar voor) en niet aan waar een naam toevallig staat.
+// Dat bleek nodig ook, want die drie bladen verschillen meer dan je zou denken:
+//   1. 8v8, vier momenten, twee bladzijden, afgedrukt uit Chrome op Windows.
+//   2. 8v8, acht momenten, vier bladzijden, idem.
+//   3. 5v5, vijf momenten, ALLES OP ÉÉN LANGE BLADZIJDE, bewaard vanaf een Mac.
+// Dat derde blad brak vier aannames tegelijk, en elk van de vier is hieronder opgelost:
+//   - Het is geen Chrome/Skia-bestand maar een macOS/Quartz-bestand. De fonts dragen geen
+//     ToUnicode-tabel maar een gewone codering (MacRoman), en de tekst staat tussen HAAKJES in
+//     plaats van als hexadecimale cijfers. Er kwam dus geen letter uit. Zie psdContentItems.
+//   - /Resources stond niet in de pagina zelf maar als verwijzing naar een eigen object, waardoor
+//     de fonts niet gevonden werden. Zie psdResources.
+//   - De momenten staan niet in één rij naast elkaar maar in een RASTER van drie kolommen breed en
+//     twee rijen hoog. Een blok wordt daarom in twee richtingen begrensd.
+//   - De shirtjes op het veld zijn daar één groot lettertype in plaats van losse tekens, waardoor
+//     ze de koppen van drie blokken aan elkaar plakten. Zie psdRegels en psdFontInfo.
 
 // Toestand van het importscherm. Leeft enkel zolang je op dat scherm bent.
 let psdSt = null;
@@ -142,6 +154,41 @@ function psdMul(a, b) {
 // grafische toestand (q/Q/cm), de tekstmatrix (BT/Tm/Td/TD/T*/TL) en het tonen zelf (Tj/TJ/'/").
 // Alles wat tekent — lijnen, vlakken, afbeeldingen — negeren we; de shirtjes op het veld zijn voor
 // ons alleen interessant door de naam die eronder staat.
+// De tekens 128-255 van de twee enkelbyte-coderingen die in de praktijk voorkomen. Een PDF van een
+// Mac (Quartz) gebruikt MacRoman, een van Windows meestal WinAnsi; onder 128 zijn ze allebei gelijk
+// aan ASCII. Zonder deze tabellen wordt "Théo" een "Th‰o" — en dan koppelt de naam niet meer.
+const PSD_MACROMAN = 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄€‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ';
+const PSD_WINANSI = '€�‚ƒ„…†‡ˆ‰Š‹Œ�Ž��‘’“”•–—˜™š›œ�žŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ';
+function psdByteNaarTeken(b, encoding) {
+  if (b < 128) return String.fromCharCode(b);
+  const tab = encoding === 'mac' ? PSD_MACROMAN : encoding === 'win' ? PSD_WINANSI : null;
+  return tab ? tab[b - 128] : String.fromCharCode(b);
+}
+// Een tekst tussen haakjes uit een PDF. De escapes zijn die van de PDF-specificatie: \n \r \t \b \f,
+// een haakje of backslash die letterlijk bedoeld is, een regeleinde dat er niet staat, en \ddd voor
+// een byte in octaal — dat laatste is precies hoe een accent in dit soort bestanden geschreven wordt.
+function psdLiteralBytes(s) {
+  const uit = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c !== '\\') { uit.push(s.charCodeAt(i) & 0xff); continue; }
+    const n = s[++i];
+    if (n === undefined) break;
+    if (n === 'n') uit.push(10);
+    else if (n === 'r') uit.push(13);
+    else if (n === 't') uit.push(9);
+    else if (n === 'b') uit.push(8);
+    else if (n === 'f') uit.push(12);
+    else if (n === '\n') { /* regelvervolg: niets */ }
+    else if (n === '\r') { if (s[i + 1] === '\n') i++; }
+    else if (n >= '0' && n <= '7') {
+      let oc = n;
+      while (oc.length < 3 && s[i + 1] >= '0' && s[i + 1] <= '7') oc += s[++i];
+      uit.push(parseInt(oc, 8) & 0xff);
+    } else uit.push(s.charCodeAt(i) & 0xff);
+  }
+  return uit;
+}
 const PSD_TOK = /<[0-9A-Fa-f\s]*>|\((?:\\[\s\S]|[^\\()])*\)|\[|\]|[-+]?[0-9.]+|\/[^\s/[\]<>(){}]+|[A-Za-z'"*]+/g;
 function psdContentItems(content, fonts, hoogte) {
   const uit = [];
@@ -150,21 +197,37 @@ function psdContentItems(content, fonts, hoogte) {
   const stack = [];
   let ops = [];
   const getal = t => { const v = parseFloat(t); return isFinite(v) ? v : 0; };
+  // Van code naar leesbaar teken, voor één font. De ToUnicode-tabel wint altijd — die staat er net
+  // om dit te kunnen. Zonder tabel is het de codering van het font (MacRoman/WinAnsi/ASCII).
+  const tekenVan = (f, code) => {
+    if (f && f.cmap && f.cmap[code] !== undefined) return f.cmap[code];
+    if (f && f.diff && f.diff[code] !== undefined) return f.diff[code];
+    return psdByteNaarTeken(code, f ? f.enc : null);
+  };
   const toon = () => {
-    const cmap = (font && fonts[font]) || null;
+    const f = (font && fonts[font]) || null;
+    // Shirtjes, bolletjes en ander tekenwerk dat als "tekst" in het bestand staat, slaan we over:
+    // een veld vol shirts zou anders als een spelersnaam gelezen worden. Zie psdFontInfo.
+    if (f && f.decoratief) return;
+    const breed = !!(f && f.tweeByte);
     let txt = '';
     for (const o of ops) {
-      if (o[0] !== '<') continue;
-      const hx = o.slice(1, -1).replace(/\s/g, '');
-      // Identity-H (wat deze PDF's gebruiken) is twee bytes per teken. Zonder tabel valt het terug
-      // op de bytes zelf, wat voor een gewoon font de juiste letters geeft.
-      if (cmap) { for (let i = 0; i + 4 <= hx.length; i += 4) { const c = cmap[parseInt(hx.substr(i, 4), 16)]; if (c) txt += c; } }
-      else for (let i = 0; i + 2 <= hx.length; i += 2) txt += String.fromCharCode(parseInt(hx.substr(i, 2), 16));
+      if (o[0] === '<') {
+        const hx = o.slice(1, -1).replace(/\s/g, '');
+        const stap = breed ? 4 : 2;
+        for (let i = 0; i + stap <= hx.length; i += stap) txt += tekenVan(f, parseInt(hx.substr(i, stap), 16));
+      } else if (o[0] === '(') {
+        // Een gewone tekst tussen haakjes. Bij een tweebyte-font (Identity-H) horen de bytes per
+        // twee gelezen te worden, ook hier.
+        const bs = psdLiteralBytes(o.slice(1, -1));
+        if (breed) { for (let i = 0; i + 2 <= bs.length; i += 2) txt += tekenVan(f, (bs[i] << 8) | bs[i + 1]); }
+        else for (const b of bs) txt += tekenVan(f, b);
+      }
     }
     if (!txt.trim()) return;
     const M = psdMul(tm, ctm);
     const size = Math.abs(tf) * Math.sqrt(M[0] * M[0] + M[1] * M[1]) || 10;
-    uit.push({ x: M[4], y: hoogte - M[5], text: txt, size });
+    uit.push({ x: M[4], y: hoogte - M[5], text: txt, size, font: font || '' });
   };
   let t;
   PSD_TOK.lastIndex = 0;
@@ -194,18 +257,90 @@ function psdContentItems(content, fonts, hoogte) {
 // terug. Twee stukken horen bij elkaar als ze op dezelfde regel staan én het tweede begint waar het
 // eerste ongeveer eindigt. Die breedte schatten we uit de lettergrootte (~0,55 em gemiddeld); bewust
 // aan de krappe kant, want twee kolommen aan elkaar plakken is erger dan één woord in twee stukken.
+// ALLEEN STUKKEN VAN DEZELFDE SOORT PLAKKEN. Twee stukken die toevallig even hoog staan maar in een
+// ander lettertype of een andere grootte gezet zijn, horen niet bij elkaar — dat is een kop naast een
+// naam, geen woord in stukken. Zonder deze voorwaarde plakten op een blad met alles op één pagina de
+// koppen van drie blokken aan elkaar tot één onleesbare regel ("Minuut 15'Minuut 30'Minuut 45'"),
+// omdat er grote sierletters tussen stonden waarvan de geschatte breedte het gat overbrugde.
 function psdRegels(items) {
   const rij = items.slice().sort((a, b) => (Math.round(a.y * 2) - Math.round(b.y * 2)) || (a.x - b.x));
   const uit = [];
   for (const it of rij) {
     const v = uit[uit.length - 1];
-    if (v && Math.abs(v.y - it.y) < 1.5 && it.x <= v.x + 0.55 * v.size * v.text.length + 0.35 * v.size) {
+    if (v && Math.abs(v.y - it.y) < 1.5 && v.font === it.font && Math.abs(v.size - it.size) < 0.6
+        && it.x <= v.x + 0.55 * v.size * v.text.length + 0.35 * v.size) {
       v.text += it.text;
       continue;
     }
-    uit.push({ x: it.x, y: it.y, text: it.text, size: it.size });
+    uit.push({ x: it.x, y: it.y, text: it.text, size: it.size, font: it.font });
   }
   return uit;
+}
+
+// Alles wat we van één font moeten weten om zijn tekst te kunnen lezen.
+//  - tweeByte: een Type0-font (Identity-H) schrijft twee bytes per teken, een gewoon font één.
+//  - cmap:     de ToUnicode-tabel, als het font er een heeft. Die wint altijd.
+//  - enc:      anders de codering waarmee de bytes bedoeld zijn (MacRoman op een Mac, WinAnsi op
+//              Windows). Onder 128 maakt het niet uit; daarboven wel, en daar zitten net de accenten.
+//  - diff:     losse tekens die het font zelf hernoemt (/Differences). Alleen de namen die een
+//              gewoon teken voorstellen nemen we over.
+//  - decoratief: dit font tekent geen tekst maar plaatjes — de shirtjes op het veld. Zulke "letters"
+//              moeten we overslaan, anders leest een rij shirts als een spelersnaam. Twee soorten
+//              komen voor: een Type3-font (de afdruk uit Chrome) en een font dat letterlijk
+//              'shirt' heet (de afdruk vanaf een Mac).
+async function psdFontInfo(s, u8, off, nr) {
+  const fo = psdBody(s, off, nr);
+  const basis = (fo.match(/\/BaseFont\s*\/([^\s/>]+)/) || [, ''])[1];
+  const info = {
+    tweeByte: /\/Subtype\s*\/Type0\b/.test(fo),
+    enc: /\/MacRomanEncoding\b/.test(fo) ? 'mac' : /\/WinAnsiEncoding\b/.test(fo) ? 'win' : null,
+    cmap: null, diff: null,
+    decoratief: /\/Subtype\s*\/Type3\b/.test(fo) || /shirt|icon|glyphicons|fontawesome/i.test(basis),
+  };
+  const md = fo.match(/\/Differences\s*\[([\s\S]*?)\]/);
+  if (md) {
+    info.diff = {};
+    let code = 0;
+    const re = /(\d+)|\/([^\s/\][]+)/g;
+    let d;
+    while ((d = re.exec(md[1]))) {
+      if (d[1]) { code = parseInt(d[1], 10); continue; }
+      const naam = d[2];
+      // Glyphnamen die een gewoon teken voorstellen: 'a', 'eacute', 'uni00E9', 'space'. Alles wat
+      // daar niet in past (zoals 'shirt') laten we leeg — dan valt het teken weg in plaats van als
+      // letter mee te tellen.
+      let ch = '';
+      if (naam.length === 1) ch = naam;
+      else if (/^uni([0-9A-Fa-f]{4})$/.test(naam)) ch = String.fromCharCode(parseInt(naam.slice(3), 16));
+      else if (naam === 'space') ch = ' ';
+      info.diff[code] = ch;
+      code++;
+    }
+  }
+  const tu = fo.match(/\/ToUnicode\s+(\d+)\s+0\s+R/);
+  if (tu) {
+    const cm = await psdStream(s, u8, off, parseInt(tu[1], 10));
+    if (cm) info.cmap = psdCMap(psdLatin1(cm));
+  }
+  return info;
+}
+// Het woordenboek waarin een pagina haar fonts opzoekt. /Resources mag inline in de pagina staan
+// (de afdruk uit Chrome) OF een verwijzing naar een eigen object zijn (de afdruk vanaf een Mac), en
+// mag bovendien van de bovenliggende /Pages geërfd worden. Alleen de eerste vorm werd gelezen,
+// waardoor zo'n Mac-bestand helemaal geen fonts had en er dus geen letter uitkwam.
+// `diepte` begrenst het klimmen langs /Parent: een beschadigd bestand kan naar zichzelf verwijzen,
+// en dan zou dit eindeloos doorgaan. Drie niveaus is ruim — een paginaboom is in de praktijk plat.
+function psdResources(s, off, body, diepte) {
+  const ref = body.match(/\/Resources\s+(\d+)\s+0\s+R/);
+  if (ref) return psdBody(s, off, parseInt(ref[1], 10));
+  const inline = body.match(/\/Resources\s*(<<[\s\S]*)/);
+  if (inline) return inline[1];
+  const par = body.match(/\/Parent\s+(\d+)\s+0\s+R/);
+  if (par && (diepte || 0) < 3) {
+    const pb = psdBody(s, off, parseInt(par[1], 10));
+    if (pb) return psdResources(s, off, pb, (diepte || 0) + 1);
+  }
+  return '';
 }
 
 const PSD_MAX_BYTES = 20 * 1024 * 1024;
@@ -228,19 +363,13 @@ async function psdLeesPdf(arrayBuffer) {
     if (!/\/Type\s*\/Page\b/.test(body) || /\/Type\s*\/Pages\b/.test(body)) continue;
     const mb = body.match(/\/MediaBox\s*\[\s*[-\d.]+\s+[-\d.]+\s+([\d.]+)\s+([\d.]+)\s*\]/);
     const hoogte = mb ? parseFloat(mb[2]) : 842;
-    // De fonts van deze pagina, elk met zijn ToUnicode-tabel.
+    // De fonts van deze pagina.
     const fonts = {};
-    const fm = body.match(/\/Font\s*<<([\s\S]*?)>>/);
+    const fm = psdResources(s, off, body).match(/\/Font\s*<<([\s\S]*?)>>/);
     if (fm) {
-      const re = /\/(\w+)\s+(\d+)\s+0\s+R/g;
+      const re = /\/([\w.]+)\s+(\d+)\s+0\s+R/g;
       let f;
-      while ((f = re.exec(fm[1]))) {
-        const fo = psdBody(s, off, parseInt(f[2], 10));
-        const tu = fo.match(/\/ToUnicode\s+(\d+)\s+0\s+R/);
-        if (!tu) { fonts[f[1]] = null; continue; }
-        const cm = await psdStream(s, u8, off, parseInt(tu[1], 10));
-        fonts[f[1]] = cm ? psdCMap(psdLatin1(cm)) : null;
-      }
+      while ((f = re.exec(fm[1]))) fonts[f[1]] = await psdFontInfo(s, u8, off, parseInt(f[2], 10));
     }
     // /Contents mag één object zijn of een reeks; beide komen voor.
     const cm = body.match(/\/Contents\s+(?:(\d+)\s+0\s+R|\[([^\]]*)\])/);
@@ -267,6 +396,18 @@ function psdNorm(s) {
   // tekens in de broncode: die zijn onzichtbaar en overleven niet elke tekstbewerking.
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Kan dit een spelersnaam zijn? Een vangnet tegen het tekenwerk op het veld: de shirtjes staan als
+// "letters" in het bestand, en een rij van vijf shirts naast elkaar zou anders als een naam gelezen
+// worden. Ze worden meestal al opgevangen doordat hun font als decoratief herkend wordt
+// (zie psdFontInfo); dit vangt de rest af — één enkel teken, of hetzelfde teken herhaald ('aaaa').
+function psdLijktOpNaam(t) {
+  const v = (t || '').trim();
+  if (v.length < 2) return false;
+  if (!/[A-Za-zÀ-ÿ]/.test(v)) return false;
+  const zonderSpaties = v.replace(/\s/g, '');
+  if (zonderSpaties && /^(.)\1*$/.test(zonderSpaties)) return false;
+  return true;
 }
 // De voettekst van de afdruk (datum, adres van de pagina, paginanummer) hoort nergens bij.
 function psdIsVoettekst(r) {
@@ -389,28 +530,50 @@ function psdLeesVoorbereiding(paginas, matchType) {
 
   const blokken = [];
   paginas.forEach((pg, pi) => {
-    // De koppen "Minuut 15'" bakenen de blokken op een pagina af. Ze staan naast elkaar, elk boven
-    // hun eigen veldje. Een blok loopt van net links van zijn kop tot net links van de volgende:
-    // het midden nemen zou fout zijn, want de veldjes zijn smaller dan de ruimte ertussen.
-    const koppen = pg.regels.filter(r => /^Minuut\s*[\d]/i.test(r.text.trim()))
-      .map(r => ({ x: r.x, y: r.y, minuut: parseFloat(r.text.replace(',', '.').match(/[\d.]+/)[0]) }))
-      .sort((a, b) => a.x - b.x);
-    const grenzen = koppen.map((k, i) => ({
-      minuut: k.minuut, y: k.y,
-      van: k.x - 15,
-      tot: i + 1 < koppen.length ? koppen[i + 1].x - 15 : Infinity,
-    }));
-    // De startopstelling staat op de eerste pagina naast de spelerslijst en heeft geen kop. Ze is
-    // te herkennen aan haar plaats: rechts van de tabel.
-    if (pi === 0) grenzen.unshift({ minuut: null, y: 0, van: tabel.rechterrand + 20, tot: Infinity });
+    // De koppen "Minuut 15'" bakenen de blokken af. Ze staan naast elkaar in KOLOMMEN, en wanneer er
+    // meer momenten zijn dan er naast elkaar passen ook in meerdere RIJEN onder elkaar — dat gebeurt
+    // zodra de trainer het blad als één lange pagina bewaart in plaats van als vier bladzijden.
+    // Vandaar dat een blok in twee richtingen begrensd wordt: links tot de volgende kop op dezelfde
+    // hoogte, onder tot de eerstvolgende rij koppen.
+    // Links begint een blok net VÓÓR zijn eigen kop en loopt het tot net vóór de volgende: het midden
+    // tussen twee koppen nemen zou fout zijn, want de veldjes zijn smaller dan de ruimte ertussen.
+    const alleKoppen = pg.regels.filter(r => /^Minuut\s*[\d]/i.test(r.text.trim()))
+      .map(r => ({ x: r.x, y: r.y, minuut: parseFloat(r.text.replace(',', '.').match(/[\d.]+/)[0]) }));
+    // De koppen in rijen groeperen: alles wat ongeveer even hoog staat, hoort bij dezelfde rij.
+    const kopRijen = [];
+    alleKoppen.slice().sort((a, b) => a.y - b.y).forEach(k => {
+      const laatste = kopRijen[kopRijen.length - 1];
+      if (laatste && Math.abs(laatste[0].y - k.y) < 20) laatste.push(k);
+      else kopRijen.push([k]);
+    });
+    kopRijen.forEach(r => r.sort((a, b) => a.x - b.x));
+    const grenzen = [];
+    kopRijen.forEach((rij, ri) => {
+      const onder = ri + 1 < kopRijen.length ? kopRijen[ri + 1][0].y - 10 : Infinity;
+      rij.forEach((k, i) => grenzen.push({
+        minuut: k.minuut, y: k.y, totY: onder,
+        van: k.x - 15,
+        tot: i + 1 < rij.length ? rij[i + 1].x - 15 : Infinity,
+      }));
+    });
+    // De startopstelling staat op de eerste pagina naast de spelerslijst en heeft geen kop. Ze is te
+    // herkennen aan haar plaats: rechts van de tabel, en boven de eerste rij "Minuut"-koppen. Die
+    // bovengrens is nodig zodra alles op één pagina staat: zonder haar slokte de startopstelling ook
+    // de rechterkolom van de blokken eronder op.
+    if (pi === 0) {
+      grenzen.unshift({
+        minuut: null, y: 0, van: tabel.rechterrand + 20, tot: Infinity,
+        totY: kopRijen.length ? kopRijen[0][0].y - 10 : Infinity,
+      });
+    }
 
     for (const g of grenzen) {
       // Andere koppen kunnen in het bereik van dit blok vallen; die horen er niet bij.
-      const inBlok = pg.regels.filter(r => r.x >= g.van && r.x < g.tot && r.y > g.y + 5 && !psdIsVoettekst(r)
-        && !/^Minuut\s*[\d]/i.test(r.text.trim()));
+      const inBlok = pg.regels.filter(r => r.x >= g.van && r.x < g.tot && r.y > g.y + 5 && r.y < g.totY
+        && !psdIsVoettekst(r) && !/^Minuut\s*[\d]/i.test(r.text.trim()));
       const wisselKop = inBlok.find(r => /^wisselspelers$/i.test(r.text.trim()));
       const namen = inBlok.filter(r => (!wisselKop || r.y < wisselKop.y - 3) && !/^wisselspelers$/i.test(r.text.trim())
-        && r.text.trim().length > 1);
+        && psdLijktOpNaam(r.text));
       const bank = wisselKop ? inBlok.filter(r => r.y > wisselKop.y - 3 && !/^wisselspelers$/i.test(r.text.trim())).map(r => r.text.trim()) : [];
       if (namen.length < 2) continue;
       const rijen = psdBlokRijen(namen);

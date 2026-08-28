@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.15.3
+
+**Het inlezen werkt nu ook met een blad dat op één pagina bewaard is, en met 5v5.** Een trainer stuurde
+een wedstrijdvoorbereiding door die er anders uitzag: 5 tegen 5, en alles op één lange bladzijde in
+plaats van vier bladzijden — hij kon dat niet anders bewaren. De app zei daarop dat er geen
+spelerslijst op het blad stond, terwijl die er wel degelijk was.
+
+Dat lag niet aan één ding. Zo'n bestand van een **Mac** zit fundamenteel anders in elkaar dan een
+afdruk uit Chrome: de tekst staat er op een andere manier in en verwijst naar de lettertypes op een
+andere plaats, waardoor er letterlijk geen letter uit te halen viel. Daarbovenop staan de momenten
+daar in een **raster** van drie naast elkaar en twee onder elkaar, terwijl de app één rij verwachtte;
+en de shirtjes op het veld plakten de titels van drie blokken aan elkaar tot één onleesbare regel.
+Alle vier die punten zijn opgelost.
+
+Meteen ook de eerste **5v5**-voorbereiding die door de molen ging: de opstelling wordt herkend als
+*Ruit (1-2-1)* en alle vijf de momenten komen op het juiste blok terecht. Valt een moment buiten de
+wedstrijd — het blad ging tot 60', bij vier blokken van een kwartier houdt het op 60 op — dan wordt
+dat overgeslagen en staat erbij hoeveel.
+
+Accenten in namen worden nu ook uit zulke bestanden juist gelezen, wat nodig is om ze aan je kern te
+kunnen koppelen. De twee bladen die al werkten, geven exact hetzelfde resultaat als voordien.
+
 ## v1.15.2
 
 **Bij de uitleg staat nu dat je de PDF op een computer maakt.** De stappen naar de
