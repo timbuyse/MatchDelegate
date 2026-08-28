@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.17.3
+
+**De zusterploegen bleven leeg voor een gewone ploegbeheerder.** Wie geen eigenaar of clubbeheerder
+is — dus zowat iedereen — kreeg geen enkele andere ploeg te zien: de knop verscheen niet, en bij het
+inlezen van een voorbereiding werd er nergens anders gezocht. Oorzaak was v1.17.2 van een uur eerder:
+die vroeg van elke ploeg op of ze gearchiveerd was, en dat veld mag een beheerder van een zusterploeg
+niet lezen. Eén geweigerde lezing en de hele lijst viel weg. De app gaat nu verder met wat ze wél mag
+lezen in plaats van de ploeg te laten vallen.
+
+> Er horen twee kleine leesregels bij, voor de **naam** en het **archiefvinkje** van een ploeg uit je
+> eigen club. Publiceer ze in de Firebase-console. Zonder die regels werkt alles gewoon, met twee
+> schoonheidsfoutjes: een gearchiveerde ploeg kan nog in de keuzelijst staan, en een ploeg die
+> hernoemd is draagt daar nog haar oude naam.
+
 ## v1.17.2
 
 **Gearchiveerde ploegen stonden tussen de zusterploegen.** Bij "+ Speler van andere ploeg" en bij

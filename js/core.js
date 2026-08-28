@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.17.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.17.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2514,12 +2514,19 @@ async function clubZusterPloegen() {
     try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {}); }
     catch (e) { return []; }   // geen rechten of geen net — dan gewoon geen zusterploegen
     const uit = [];
+    // Lezen dat MAG mislukken. Van een zusterploeg is enkel wat hieronder opgevraagd wordt leesbaar,
+    // en dan nog alleen met de regels van v1.17.3 erop. Zonder die regels — of bij een netwerkfout —
+    // geeft dit `undefined` en werken we verder met wat we wél hebben, i.p.v. de ploeg te laten
+    // vallen. Dat laatste was de fout van v1.17.2: één geweigerde lezing van `info` liet voor een
+    // gewone ploegbeheerder de hele lijst leeglopen (hij mag `info` niet lezen, enkel `roster`).
+    const leesStil = async pad => { try { return (await fbOnce(fbdb.ref(pad))).val(); } catch (e) { return undefined; } };
     await Promise.all(ids.map(async id => {
       try {
-        const info = (await fbOnce(fbdb.ref('teams/' + id + '/info'))).val() || {};
         // Een GEARCHIVEERDE ploeg hoort hier niet thuis: die is overal elders in de app verborgen
         // (ploegkeuzescherm, clublijst), dus ze mag ook niet als bron van gastspelers opduiken.
-        if (info.archived) return;
+        // Kunnen we het niet lezen, dan sluiten we niets uit — liever een ploeg te veel dan geen.
+        if (await leesStil('teams/' + id + '/info/archived')) return;
+        const naamUitInfo = await leesStil('teams/' + id + '/info/name');
         const raw = (await fbOnce(fbdb.ref('teams/' + id + '/roster'))).val();
         if (!raw) return;
         // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave). Welke is de
@@ -2530,11 +2537,13 @@ async function clubZusterPloegen() {
         // ploeg in de lijst, dan is zij het; anders op naam, en pas als laatste "diegene met spelers".
         const arr = (Array.isArray(raw) ? raw : Object.values(raw)).filter(Boolean);
         const t = arr.length === 1 ? arr[0]
-          : ((info.name && arr.find(x => x.name === info.name)) || arr.find(x => (x.players || []).length));
+          : ((naamUitInfo && arr.find(x => x.name === naamUitInfo)) || arr.find(x => (x.players || []).length));
         if (!t) return;
         const players = Array.isArray(t.players) ? t.players.filter(Boolean) : [];
         if (!players.length) return;   // uit een ploeg zonder spelers valt niets te kiezen
-        uit.push(Object.assign({}, t, { id, name: info.name || t.name || '(naamloze ploeg)', fromCloud: true, vanClub: true, players }));
+        // De naam van de ploeg zelf gaat vóór die in de kern (een hernoeming werkt zo meteen door);
+        // is ze niet leesbaar, dan valt hij terug op de naam die in de kern bewaard is.
+        uit.push(Object.assign({}, t, { id, name: naamUitInfo || t.name || '(naamloze ploeg)', fromCloud: true, vanClub: true, players }));
       } catch (e) {}
     }));
     if (activeClubId !== clubId) return [];   // intussen van ploeg gewisseld

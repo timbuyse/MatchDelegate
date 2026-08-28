@@ -83,6 +83,22 @@
             // kan zo het clubtoezicht niet afschudden of een ploeg in een vreemde club planten;
             // bij aanmaken moet de maker clubbeheerder zijn van de opgegeven club.
             ".validate": "root.child('owner').val() === auth.uid || (data.exists() && newData.val() === data.val()) || (!data.exists() && root.child('clubs/' + newData.val() + '/admins/' + auth.uid).exists())"
+          },
+
+          // TWEE VELDJES VAN EEN ZUSTERPLOEG (v1.17.3), met exact dezelfde nagerekende bewering als
+          // bij `roster` hierboven. Enkel deze twee, niet de hele info-node:
+          //   name     — om de ploeg bij haar echte naam te tonen in de keuzelijst, ook na een
+          //              hernoeming (de naam die in de kern bewaard zit, kan verouderd zijn);
+          //   archived — om een door de club gearchiveerde ploeg NIET als bron van gastspelers aan te
+          //              bieden; ze is overal elders in de app verborgen.
+          // Waarom apart en niet op `info` zelf: een leesrecht op een kind geeft geen leesrecht op de
+          // ouder, en dat is hier net de bedoeling — clubId, clubName, statsPublic en createdBy
+          // blijven dicht voor wie geen lid van die ploeg is.
+          "name": {
+            ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()"
+          },
+          "archived": {
+            ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()"
           }
         }
       }
