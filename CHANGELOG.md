@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.15.1
+
+**Bij de uitleg staat nu dat je de PDF op een computer maakt.** De stappen naar de
+wedstrijdvoorbereiding leidden je door ProSoccerData zonder te zeggen op wélk toestel. Wie het op zijn
+gsm probeerde, liep vast bij de laatste stap: in de PSD-app op een telefoon of tablet is er geen
+printvenster, dus raak je daar niet aan een PDF. Stap 1 zegt nu "ga op een computer naar
+ProSoccerData", en onder de stappen staat het nog eens apart met de reden erbij — met de vermelding
+dat het inlezen zelf daarna gewoon kan op het toestel waar je de PDF bij de hand hebt. Het punt in het
+"wat is er nieuw"-venster van 1.15 zegt hetzelfde.
+
 ## v1.15.0
 
 **De voorbereiding van de trainer inlezen uit een PDF.** Werkt je trainer in ProSoccerData, dan

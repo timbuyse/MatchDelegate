@@ -546,8 +546,10 @@ function psdBodyHtml() { return psdSt.fase === 'na' ? psdVoorstelHtml() : psdKie
 // De weg naar dat PDF-bestand staat er stap voor stap bij (Tims tekst, 28-08-2026). Wie hier voor het
 // eerst komt, weet niet dat de knop in PSD "Bekijk wedstrijdvoorbereiding" heet en dat je pas via het
 // printvenster van de browser aan een PDF raakt — en zonder die weg is de hele functie onbruikbaar.
+// Dat printvenster bestaat enkel op een computer: in de PSD-app op gsm of tablet raak je niet aan een
+// PDF, dus staat de computer in stap 1 én als aparte regel onder de stappen (28-08-2026).
 const PSD_STAPPEN = [
-  'Ga naar <b>ProSoccerData</b> als afgevaardigde of trainer.',
+  'Ga <b>op een computer</b> naar <b>ProSoccerData</b> als afgevaardigde of trainer.',
   'Klik op een <b>geplande wedstrijd</b>.',
   'Kies rechtsbovenaan <b>"Bekijk wedstrijdvoorbereiding"</b>.',
   'Klik in het venster dat verschijnt op het <b>printicoon</b> en bewaar het document als <b>PDF</b>.',
@@ -566,6 +568,7 @@ function psdKiesHtml() {
       <ol style="margin:0;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.8">
         ${PSD_STAPPEN.map(s => `<li>${s}</li>`).join('')}
       </ol>
+      <p style="font-size:13px;color:var(--txt2);margin:10px 0 0"><b>De PDF maak je op een computer.</b> In ProSoccerData op je gsm of tablet is er geen printvenster, dus raak je daar niet aan een PDF. Het inlezen hieronder doe je daarna wel gewoon op het toestel waar je de PDF bij de hand hebt.</p>
     </div>
 
     <div class="sec">Bestand</div>
