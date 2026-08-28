@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.17.4
+
+**Het potloodje voor een snelle notitie verdween achter de tabbalk, en twee handleidingbeelden liepen
+niet zuiver af.** Twee kleine dingen, allebei gevonden door de schermbeelden pixel voor pixel na te
+kijken.
+
+De twee zwevende knoppen tijdens een wedstrijd — *snelle notitie* en *moment markeren* — stonden
+onder de tabbalk onderaan (`z-index` 49 tegenover 50). Zolang die balk aan de onderkant plakt raken ze
+elkaar niet, maar helemaal naar beneden gescrold zakt de balk terug naar zijn eigen plek en schuift
+het potloodje erachter. Nu staan de knoppen erboven.
+
+In de handleiding is het beeld van de **seizoenscijfers** opnieuw genomen: de bovenrand liep dwars
+door de eerste rij tegels, zodat je van *Gespeeld / Winst / Gelijk* enkel de labels zag en de cijfers
+half. Het beeld van het **pauzescherm** is meegenomen, zodat het potloodje er nu volledig op staat.
+
 ## v1.17.1
 
 **De handleiding en de opstartmelding leggen nu ook uit wat er met een speler van een andere ploeg

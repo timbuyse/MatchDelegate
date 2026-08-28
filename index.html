@@ -344,10 +344,15 @@
     /* FAB */
     .fab{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;width:62px;height:62px;border-radius:31px;background:var(--org);color:#fff;border:none;font-size:30px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
     .fab:active{transform:scale(.9)}
-    .fab-note{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 12px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--card);border:2px solid var(--bdr);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:49;padding:0;color:var(--txt)}
+    /* z-index 51: BOVEN de tabbalk .ltabs (50). De 56px hieronder is de hoogte van die balk, dus
+       normaal raken ze elkaar niet. Maar render() hangt na de balk nog de voetregel .credit in de
+       pagina, en helemaal onderaan gescrold zakt een sticky balk terug naar zijn eigen plek — een
+       kleine 50px hoger. Deze knoppen staan fixed en blijven waar ze zijn, en verdwenen daardoor
+       achter de balk (te zien op het handleidingbeeld van het pauzescherm). */
+    .fab-note{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 12px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--card);border:2px solid var(--bdr);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:51;padding:0;color:var(--txt)}
     .fab-note:active{transform:scale(.9)}
     .fab-note svg,.fab-mark svg{width:20px;height:20px;display:block}
-    .fab-mark{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 68px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--ylp,#fef9c3);border:2px solid var(--yl,#ca8a04);color:var(--yl,#ca8a04);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:49;padding:0}
+    .fab-mark{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 68px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--ylp,#fef9c3);border:2px solid var(--yl,#ca8a04);color:var(--yl,#ca8a04);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:51;padding:0}
     .fab-mark:active{transform:scale(.9)}
     /* Player input row */
     .pirow{display:grid;grid-template-columns:56px 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
