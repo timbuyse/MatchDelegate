@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.18.0
+
+**De prullenmand is geen eenrichtingsstraat meer: wat erin zit, kan je nu ook definitief wissen.**
+Tot nu kon je een verwijderde wedstrijd, een tornooi of een ploeg enkel terugzetten. Wat er ooit in
+belandde, bleef er dus voor altijd staan — ook wat je bewust en definitief kwijt wou.
+
+Naast elke regel staat nu een rode knop **'Definitief wissen'**, met een bevestiging die zegt dat het
+onomkeerbaar is. Daarna is de bewaarde kopie echt weg: er wordt bewust geen tweede back-up gemaakt,
+anders zou "definitief" niet definitief zijn.
+
+Wie wat mag, blijft gelijk aan wie mag terugzetten: een ploegbeheerder voor de wedstrijden en
+tornooien van zijn eigen ploeg, en enkel de eigenaar voor de verwijderde ploegen. De Firebase-regels
+zijn hiervoor niet gewijzigd — wissen is technisch dezelfde bewerking die "Terugzetten" als eerste
+stap al deed.
+
 ## v1.17.4
 
 **Het potloodje voor een snelle notitie verdween achter de tabbalk, en twee handleidingbeelden liepen

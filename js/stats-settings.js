@@ -1627,7 +1627,7 @@ const HANDLEIDING_PAGINAS = [
         toegang weer open als je je bedenkt.</p>
       {{img2}}
       <p>Onderaan elk van de twee staat de knop naar het andere, dus je hoeft niet eerst terug naar het startscherm.</p>
-      <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
+      <p>In de <b>Prullenmand</b> blijven verwijderde wedstrijden en tornooien bewaard. Je ziet er wat er gewist is, wanneer en door wie, en zet het in één tik volledig terug: gebeurtenissen, opstelling en notities inbegrepen. Wil je iets écht kwijt, dan staat er naast elke regel ook <b>'Definitief wissen'</b> — dat haalt de bewaarde kopie weg en is niet meer terug te draaien.</p>
       <p class="hdl-tip">Als ploegbeheerder kan je alles voor je ploeg: wedstrijden aanmaken, live bijhouden, spelers beheren en PDF's genereren.</p>
       <p style="margin-top:10px">Op het startscherm staat een blok <b>'Niet afgesloten'</b>: wedstrijden waarvan de dag voorbij is en die nooit gestart of nooit beëindigd werden. Die staan niet meer bij 'Eerstvolgende' — daar horen ze niet — maar ze verdwijnen ook niet, want er hangt een verslag aan dat nog afgewerkt moet worden. Het blok staat dichtgeklapt met het aantal erin; tik het open om te zien wat je ermee kan doen.</p>
       <p style="margin-top:10px">Een <b>nieuwe ploeg</b> aanmaken doe je niet zelf — dat doet de clubbeheerder binnen de club (zie de volgende pagina). Contacteer de clubbeheerder van je club.</p>
@@ -2011,23 +2011,26 @@ async function loadTeruggevonden() {
   const wanneer = w => w ? fmtDate(w) : 'onbekend wanneer';
   const regel = (titel, onder, knop) => `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
     <div><b>${titel}</b><br><small style="color:var(--txt2)">${onder}</small></div>
-    <div>${knop}</div></div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${knop}</div></div>`;
   const wHtml = wedstrijden.map((w, i) => regel(
     `${esc(w.match.opponent || '(geen tegenstander)')}`,
     `${esc(w.ploeg)} · ${esc(matchWhen(w.match))} · gewist ${esc(wanneer(w.wanneer))}${w.door ? ' door ' + esc(w.door) : ''}${w.tornooi ? ' · hoorde bij tornooi ' + esc(w.tornooi.name || '') : ''}`,
-    `<button class="btn btn-green btn-sm" onclick="tgvHerstelWedstrijd(${i})">Terugzetten</button>`)).join('');
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelWedstrijd(${i})">Terugzetten</button>
+     <button class="btn btn-red btn-sm" onclick="tgvWisWedstrijd(${i})">${icI(IC.trash)} Definitief wissen</button>`)).join('');
   const tHtml = tornooien.map((t, i) => regel(
     `${esc(t.tornooi.name || '(naamloos tornooi)')}`,
     `${esc(t.ploeg)}${t.tornooi.date ? ' · ' + esc(fmtDate(new Date(t.tornooi.date + 'T00:00:00').getTime())) : ''} · gewist ${esc(wanneer(t.wanneer))}${t.door ? ' door ' + esc(t.door) : ''}`,
-    `<button class="btn btn-green btn-sm" onclick="tgvHerstelTornooi(${i})">Terugzetten</button>`)).join('');
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelTornooi(${i})">Terugzetten</button>
+     <button class="btn btn-red btn-sm" onclick="tgvWisTornooi(${i})">${icI(IC.trash)} Definitief wissen</button>`)).join('');
   const pHtml = ploegen.map((p, i) => regel(
     `${esc(p.naam)}`,
     `${p.aantalWedstrijden} ${p.aantalWedstrijden === 1 ? 'wedstrijd' : 'wedstrijden'} · gewist ${esc(wanneer(p.wanneer))}${p.door ? ' door ' + esc(p.door) : ''}`,
-    `<button class="btn btn-green btn-sm" onclick="tgvHerstelPloeg(${i})">Ploeg terugzetten</button>`)).join('');
+    `<button class="btn btn-green btn-sm" onclick="tgvHerstelPloeg(${i})">Ploeg terugzetten</button>
+     <button class="btn btn-red btn-sm" onclick="tgvWisPloeg(${i})">${icI(IC.trash)} Definitief wissen</button>`)).join('');
   const leeg = !wedstrijden.length && !tornooien.length && !ploegen.length;
   el.innerHTML = leeg
     ? `<div class="empty" style="padding:24px 0"><div class="ei">${IC.done}</div><p>Niets gewist om terug te vinden.</p></div>`
-    : `<p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Wat hier staat, is verwijderd maar bewaard. Terugzetten brengt het volledig terug: gebeurtenissen, opstelling en notities inbegrepen.</p>
+    : `<p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Wat hier staat, is verwijderd maar bewaard. Terugzetten brengt het volledig terug: gebeurtenissen, opstelling en notities inbegrepen. Wil je iets écht kwijt, dan wis je het <b>definitief</b> — dat kan daarna niet meer teruggehaald worden.</p>
       ${wedstrijden.length ? `<div class="sec">${icI(IC.ball)} Wedstrijden (${wedstrijden.length})</div><div class="card">${wHtml}</div>` : ''}
       ${tornooien.length ? `<div class="sec">${icI(IC.medal)} Tornooien (${tornooien.length})</div><div class="card">${tHtml}</div>` : ''}
       ${ploegen.length ? `<div class="sec">${icI(IC.players)} Ploegen (${ploegen.length})</div><div class="card">${pHtml}</div>
@@ -2097,6 +2100,46 @@ async function tgvHerstelPloeg(i) {
     } catch (err) { showToast('Terugzetten mislukt, probeer opnieuw.', 'err'); }
   }, 'Terugzetten', 'btn-green');
 }
+// ---- Definitief wissen uit de prullenmand ----------------------------------------------------
+// De prullenmand was een eenrichtingsstraat: alles wat er ooit in belandde, bleef er staan. Wissen is
+// hier gewoon het back-upknooppunt verwijderen — exact wat "Terugzetten" als eerste stap al doet, dus
+// het vraagt geen ruimere rechten dan wat een beheerder (resp. de eigenaar bij een ploeg) al heeft.
+// Bewust GEEN tweede back-up: dan zou "definitief" niet definitief zijn.
+async function tgvWisWedstrijd(i) {
+  const w = (tgvState || {}).wedstrijden ? tgvState.wedstrijden[i] : null;
+  if (!w || !fbdb) return;
+  showConfirm(`"${jsq(w.match.opponent || 'Wedstrijd')}" van ${jsq(w.ploeg)} definitief wissen? Daarna is ze onherroepelijk weg — ook terugzetten kan dan niet meer.`, async () => {
+    try {
+      await fbdb.ref('deletedMatches/' + w.tid + '/' + w.id).remove();
+      showToast('Definitief gewist.', 'ok');
+      loadTeruggevonden();
+    } catch (e) { showToast('Wissen mislukt, probeer opnieuw.', 'err'); }
+  }, 'Definitief wissen');
+}
+async function tgvWisTornooi(i) {
+  const t = (tgvState || {}).tornooien ? tgvState.tornooien[i] : null;
+  if (!t || !fbdb) return;
+  showConfirm(`Tornooi "${jsq(t.tornooi.name || '')}" definitief wissen? Daarna is het onherroepelijk weg — ook terugzetten kan dan niet meer.`, async () => {
+    try {
+      await fbdb.ref('deletedMatches/' + t.tid + '/' + t.id).remove();
+      showToast('Definitief gewist.', 'ok');
+      loadTeruggevonden();
+    } catch (e) { showToast('Wissen mislukt, probeer opnieuw.', 'err'); }
+  }, 'Definitief wissen');
+}
+async function tgvWisPloeg(i) {
+  const p = (tgvState || {}).ploegen ? tgvState.ploegen[i] : null;
+  if (!p || !fbdb || !isOwner) return;
+  // Zwaarste van de drie: hier hangt de volledige ploeg aan (spelers, wedstrijden, leden, notities).
+  showConfirm(`Ploeg "${jsq(p.naam)}" definitief wissen, met haar ${p.aantalWedstrijden} ${p.aantalWedstrijden === 1 ? 'wedstrijd' : 'wedstrijden'}, spelers en notities? Dit is onomkeerbaar.`, async () => {
+    try {
+      await fbdb.ref('deletedTeams/' + p.tid).remove();
+      showToast('Ploeg definitief gewist.', 'ok');
+      loadTeruggevonden();
+    } catch (e) { showToast('Wissen mislukt, probeer opnieuw.', 'err'); }
+  }, 'Definitief wissen');
+}
+
 // ===================== TERUGZETTEN, PER PLOEG =====================
 // Vroeger waren er twee knoppen: "samenvoegen" of "alles vervangen". Die tweede wiste ALLE
 // wedstrijden van ALLE ploegen op het toestel en overschreef bovendien de spelerslijst — en dat is
