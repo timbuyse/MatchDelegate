@@ -115,7 +115,10 @@ if (Test-Path $map) { throw "De map '$map' bestaat al." }
 # huidige map. Staat de -Port van serve.ps1 nog niet vastgelegd, dan start de
 # tweede server alsnog op 3000 en botst hij met de eerste. Dat kostte bij het
 # uitproberen een kwartier zoeken, vandaar deze controle.
-$vastgelegd = git show "HEAD:serve.ps1" 2>$null
+# De regels aaneenplakken tot ÉÉN tekst: `git show` geeft een array terug, en -notmatch op een array
+# filtert die (het geeft de niet-passende regels terug, wat altijd "waar" lijkt) in plaats van ja/nee
+# te antwoorden. Daardoor blokkeerde deze controle ook nadat serve.ps1 wél vastgelegd was.
+$vastgelegd = (git show "HEAD:serve.ps1" 2>$null) -join "`n"
 if ($vastgelegd -notmatch '\[int\]\$Port') {
     Write-Host ""
     Write-Host "STOP: de aangepaste serve.ps1 is nog niet vastgelegd in git." -ForegroundColor Red
