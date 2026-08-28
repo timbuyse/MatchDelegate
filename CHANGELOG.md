@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.17.1
+
+**Gearchiveerde ploegen stonden tussen de zusterploegen.** Bij "+ Speler van andere ploeg" en bij
+"Speler bijzetten" kon je een speler kiezen uit een ploeg die je club gearchiveerd had. Overal elders
+in de app is zo'n ploeg verborgen; nu ook hier. Een ploeg zonder spelers verdwijnt meteen uit de
+keuzelijst in plaats van er leeg in te blijven staan.
+
+Onderhuids ook de manier waarop de app de juiste kern bij een ploeg zoekt: die vergeleek het id van
+de ploeg met dat van haar spelerskern, en die twee zijn nooit gelijk (ze schelen één teken, ze worden
+milliseconden na elkaar aangemaakt). Het werkte tot nu toe door een tweede poging die op "heeft
+spelers" zocht — toeval dus. Nu wordt de kern op naam herkend, en de ploegnaam komt van de ploeg zelf
+in plaats van uit de kern, zodat een hernoeming meteen doorwerkt.
+
 ## v1.17.0
 
 **Een speler van een andere ploeg van je club bijzetten.** Tot nu had je de knop "+ Speler van andere

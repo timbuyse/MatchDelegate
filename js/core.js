@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.17.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.17.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2515,13 +2515,25 @@ async function clubZusterPloegen() {
     const uit = [];
     await Promise.all(ids.map(async id => {
       try {
+        const info = (await fbOnce(fbdb.ref('teams/' + id + '/info'))).val() || {};
+        // Een GEARCHIVEERDE ploeg hoort hier niet thuis: die is overal elders in de app verborgen
+        // (ploegkeuzescherm, clublijst), dus ze mag ook niet als bron van gastspelers opduiken.
+        if (info.archived) return;
         const raw = (await fbOnce(fbdb.ref('teams/' + id + '/roster'))).val();
         if (!raw) return;
-        // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave); de ploeg
-        // zelf is diegene met dit id. Zelfde manier van uitpakken als addGuestsModal.
-        const arr = Array.isArray(raw) ? raw : Object.values(raw);
-        const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
-        if (t) uit.push(Object.assign({}, t, { id, fromCloud: true, vanClub: true, players: Array.isArray(t.players) ? t.players : [] }));
+        // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave). Welke is de
+        // ploeg zelf? NIET op id vergelijken: het id van een KERN is een ander push-id dan dat van de
+        // PLOEG — ze schelen één teken en worden milliseconden na elkaar aangemaakt door createTeam.
+        // Dat verschil heeft eerder al tot een verkeerde conclusie geleid (incident 21-08-2026), en
+        // in de echte clubdata van 28-08-2026 klopt het bij geen enkele ploeg. Dus: staat er maar één
+        // ploeg in de lijst, dan is zij het; anders op naam, en pas als laatste "diegene met spelers".
+        const arr = (Array.isArray(raw) ? raw : Object.values(raw)).filter(Boolean);
+        const t = arr.length === 1 ? arr[0]
+          : ((info.name && arr.find(x => x.name === info.name)) || arr.find(x => (x.players || []).length));
+        if (!t) return;
+        const players = Array.isArray(t.players) ? t.players.filter(Boolean) : [];
+        if (!players.length) return;   // uit een ploeg zonder spelers valt niets te kiezen
+        uit.push(Object.assign({}, t, { id, name: info.name || t.name || '(naamloze ploeg)', fromCloud: true, vanClub: true, players }));
       } catch (e) {}
     }));
     if (activeClubId !== clubId) return [];   // intussen van ploeg gewisseld
