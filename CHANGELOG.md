@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.15.1
+
+**De handleiding legt de PSD-import uit.** Er staat een nieuwe pagina *"Voorbereiding van de trainer"*
+tussen *Selectie & opstelling* en *Live wedstrijd bijhouden*: waar de knop staat en waarom hij
+verdwijnt zodra er een selectie is, hoe je in ProSoccerData aan die PDF komt, wat je op het
+voorstelscherm te zien krijgt en wat er na het overnemen klaarstaat.
+
+Twee dingen staan er uitdrukkelijk bij, omdat ze anders voor verrassingen zorgen: het blad zegt
+**niet** wie er niet beschikbaar is (dat vul je nadien aan, anders klopt het aanwezigheidspercentage
+niet), en de wedstrijdgegevens zelf — uur, terrein, soort, truikleur — blijven staan zoals ze in
+de app stonden. Bovenaan de pagina staat, net als in de app zelf, dat dit voorlopig een demo-functie
+is.
+
+De pagina heeft nog geen schermafbeeldingen; de PDF-download van de handleiding werkt gewoon mee.
+
 ## v1.15.0
 
 **De voorbereiding van de trainer inlezen uit een PDF.** Werkt je trainer in ProSoccerData, dan
