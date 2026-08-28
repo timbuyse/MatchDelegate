@@ -59,6 +59,23 @@
           }
         },
 
+        // DE KERN, OOK VOOR EEN BEHEERDER VAN EEN ZUSTERPLOEG (v1.17.0). Bovenop de .read op $teamId
+        // hierboven (leden, eigenaar, clubbeheerder): wie beheerder is van een ANDERE ploeg van
+        // DEZELFDE club mag hier lezen. Zo kan hij bij het samenstellen van een selectie een speler
+        // van de zusterploeg bijzetten als gast, met behoud van de koppeling naar die speler.
+        //
+        // Dit opent enkel de kern-node: namen, rugnummers en posities van de spelers, plus de
+        // ploegnaam/verantwoordelijke/trainers die in dezelfde node staan. Wedstrijden, notities en
+        // ledenlijsten blijven dicht, en over de clubgrens heen verandert er niets.
+        //
+        // De lezing gaat via de uid-index users/$uid/clubTeam/$clubId (zie daar): die noemt de ploeg
+        // waarvan de lezer beheerder beweert te zijn, en hier wordt die bewering nagerekend — hij moet
+        // er NU beheerder van zijn, en die ploeg moet in DEZELFDE club zitten als de ploeg die gelezen
+        // wordt. Een verouderde of verzonnen indexvermelding levert dus niets op.
+        "roster": {
+          ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()"
+        },
+
         "info": {
           "clubId": {
             // De clubId van een ploeg ligt vast na aanmaken (fase 2d hardening): enkel de eigenaar
@@ -110,6 +127,24 @@
           // De app-eigenaar mag de omgekeerde ploeg-index van een gebruiker schrijven om rechtstreeks
           // een ploegbeheerder aan te stellen (fase 2d). De gebruiker zelf schrijft ze sowieso al.
           ".write": "auth != null && (auth.uid === $userId || root.child('owner').val() === auth.uid)"
+        },
+
+        // ZUSTERPLOEGEN BINNEN DEZELFDE CLUB (v1.17.0). Een ploegbeheerder mag de KERN van de andere
+        // ploegen van zijn eigen club inkijken, zodat hij een speler die komt meehelpen als gast kan
+        // bijzetten met behoud van de koppeling (i.p.v. hem als naamloze "losse speler" te typen).
+        //
+        // De regels kunnen niet over de ploegen van een gebruiker itereren, dus is er een index op
+        // uid nodig: clubTeam/$clubId = het teamId waarvan deze gebruiker beheerder beweert te zijn.
+        // De .validate hieronder controleert die bewering bij het SCHRIJVEN; de leesregels op
+        // clubs/$clubId/teams en teams/$teamId/roster controleren ze nog eens bij het LEZEN. Die
+        // tweede controle is wat telt: raakt iemand zijn beheerdersrol kwijt en blijft dit vermelding
+        // hier staan, dan levert ze niets meer op. Een verouderde index geeft dus geen toegang.
+        //
+        // Bij verwijderen draait .validate niet — zijn eigen vermelding wissen mag altijd.
+        "clubTeam": {
+          "$clubId": {
+            ".validate": "root.child('teams/' + newData.val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + newData.val() + '/info/clubId').val() === $clubId"
+          }
         }
       }
     },
@@ -267,7 +302,13 @@
         "teams": {
           // De ploeg-index binnen de club mag ook door de clubbeheerder beheerd worden (fase 2d),
           // zodat hij ploegen kan aanmaken/registreren in zijn club. (Niet info of admins.)
-          ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())"
+          ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())",
+
+          // Lezen mag ook een gewone PLOEGBEHEERDER binnen deze club (v1.17.0): hij moet de
+          // zusterploegen kunnen opsommen vóór hij er een speler uit kan bijzetten. Enkel deze lijst
+          // van ploeg-id's — info en admins van de club blijven dicht. Dezelfde nagerekende bewering
+          // als bij teams/$teamId/roster, zie de uitleg daar en bij users/$uid/clubTeam.
+          ".read": "auth != null && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/info/clubId').val() === $clubId"
         }
       }
     },

@@ -496,8 +496,14 @@ function wizStep2() {
          telt mee, anders zou de knop juist daar verdwijnen waar hij nodig is. "+ Losse speler" blijft
          altijd: die heeft geen tweede ploeg nodig. */ ''}
     ${wiz.noGuests ? '' : (() => {
+      // Sinds v1.17.0 tellen ook de ZUSTERPLOEGEN van de eigen club mee: wie maar één ploeg beheert
+      // had deze knop nooit, terwijl net daar de nood zit (U11 leent een speler van U10). Die lijst
+      // komt van de cloud, dus warmen we ze hier op en tekenen we opnieuw zodra ze binnen is.
+      warmClubZusters();
+      const zusters = clubZustersGekend();
       const anderePloegen = getTeamsV2().filter(t => t.id !== wiz.teamId).length
-        + (cloudReady ? Object.keys(userTeams || {}).filter(id => id !== wiz.teamId).length : 0);
+        + (cloudReady ? Object.keys(userTeams || {}).filter(id => id !== wiz.teamId).length : 0)
+        + ((zusters || []).length);
       return `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${anderePloegen ? `<button class="btn btn-orgpale" onclick="addGuestsModal()">+ Speler van andere ploeg</button>` : ''}
       <button class="btn btn-pale" onclick="addLoosePlayerModal()">+ Losse speler</button>
@@ -612,25 +618,30 @@ async function addGuestsModal() {
   guestTeamsCache = [];
   const ctx = guestCtx();
   let teams = getTeamsV2().filter(t => t.id !== ctx.teamId);
-  if (!teams.length && cloudReady && fbdb) {
-    const otherIds = Object.keys(userTeams).filter(id => id !== ctx.teamId);
-    if (otherIds.length) {
+  if (cloudReady && fbdb) {
+    // Ploegen die de gebruiker zelf beheert maar die lokaal niet in de lijst staan (in cloudmodus
+    // bewaart voetbal_teams_v2 enkel de actieve ploeg), plus sinds v1.17.0 de ZUSTERPLOEGEN van de
+    // eigen club — de reden dat deze knop nu ook bestaat voor wie maar één ploeg beheert.
+    const otherIds = teams.length ? [] : Object.keys(userTeams).filter(id => id !== ctx.teamId);
+    if (otherIds.length || clubZustersGekend() === null) {
       openModal(`<h3>Gastspelers toevoegen</h3><p style="text-align:center;color:var(--txt2);margin:16px 0">Ploegen laden…</p>`);
-      const fetched = [];
-      await Promise.all(otherIds.map(async id => {
-        try {
-          const s = await fbOnce(fbdb.ref('teams/' + id + '/roster'));
-          const raw = s.val();
-          if (!raw) return;
-          const arr = Array.isArray(raw) ? raw : Object.values(raw);
-          const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
-          if (t) fetched.push(Object.assign({}, t, { id, fromCloud: true, players: Array.isArray(t.players) ? t.players : [] }));
-        } catch (e) {}
-      }));
-      if (fetched.length) {
-        guestTeamsCache = fetched;
-        teams = [...getTeamsV2().filter(t => t.id !== ctx.teamId), ...fetched.filter(t => !getTeamsV2().some(x => x.id === t.id))];
-      }
+    }
+    const fetched = [];
+    const voegToe = t => { if (t && t.id !== ctx.teamId && !fetched.some(x => x.id === t.id)) fetched.push(t); };
+    await Promise.all(otherIds.map(async id => {
+      try {
+        const s = await fbOnce(fbdb.ref('teams/' + id + '/roster'));
+        const raw = s.val();
+        if (!raw) return;
+        const arr = Array.isArray(raw) ? raw : Object.values(raw);
+        const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
+        if (t) voegToe(Object.assign({}, t, { id, fromCloud: true, players: Array.isArray(t.players) ? t.players : [] }));
+      } catch (e) {}
+    }));
+    try { (await clubZusterPloegen()).forEach(voegToe); } catch (e) {}
+    if (fetched.length) {
+      guestTeamsCache = fetched;
+      teams = [...teams, ...fetched.filter(t => !teams.some(x => x.id === t.id))];
     }
   }
   if (!teams.length) { showToast('Er zijn geen andere ploegen om uit te kiezen.', 'err'); closeModal(); return; }
@@ -1264,7 +1275,13 @@ function modalFormatieAfwijking(verschillen, form, startNow) {
     <button class="btn btn-green" onclick="closeModal();finishWizard(${startNow ? 'true' : 'false'},false,true)">${icI(IC.check)} Zo is het goed, opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Terug naar de opstelling</button>`);
 }
-async function finishWizard(startNow, zonderOpstelling, formatieBevestigd) {
+// `veldMagOnvolledig` (v1.17.0) is er voor één beller: het inlezen van een PSD-voorbereiding. Daar
+// komt de opstelling van een blad en niet van een scherm, en kon er één veldspeler niet gekoppeld
+// worden, dan bleef er een plaats open. De vulcontrole hieronder weigerde dan met "zet 8 spelers op
+// het veld" — een melding waar je in het importscherm niets mee kan, want daar staat geen veld. Het
+// importscherm vraagt nu zelf om bevestiging en zet die open plaats bewust door; verder is een
+// half gevulde opstelling een bestaande, geldige toestand (spelen met zeven voor 8v8 kan al langer).
+async function finishWizard(startNow, zonderOpstelling, formatieBevestigd, veldMagOnvolledig) {
   const form = FORMATIONS[wiz.matchType][wiz.formationIndex];
   if (!zonderOpstelling) {
     // Het veld moet vol. Enige uitzondering: er zijn gewoon niet genoeg spelers geselecteerd om
@@ -1274,7 +1291,7 @@ async function finishWizard(startNow, zonderOpstelling, formatieBevestigd) {
     const beschikbaar = wiz.pool.filter(p => p.sel === 'basis' || p.sel === 'bank').length;
     const nodig = Math.min(plaatsen, beschikbaar);
     const geplaatst = wiz.pool.filter(p => p.sel === 'basis' && p.slot != null).length;
-    if (geplaatst < nodig) {
+    if (geplaatst < nodig && !veldMagOnvolledig) {
       showToast(`Zet ${nodig} spelers op het veld — er ${geplaatst === 1 ? 'staat er' : 'staan er'} nu ${geplaatst}.`, 'err');
       return;
     }

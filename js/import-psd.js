@@ -683,7 +683,9 @@ function psdStart() {
   if (!match) return;
   if (!canManage()) { showToast('Enkel een beheerder kan een voorbereiding inlezen.', 'err'); return; }
   if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
-  psdSt = { fase: 'kies', fout: '', bezig: false, matchId: match.id, bestand: '', lezing: null, koppel: {}, waarschuwingen: [] };
+  // `los`   : { losId: naam } — namen van het blad die je als losse speler bijzet (v1.17.0)
+  // `zusters`: de andere ploegen van de eigen club, met hun kern, om een naam ook dáár te zoeken
+  psdSt = { fase: 'kies', fout: '', bezig: false, matchId: match.id, bestand: '', lezing: null, koppel: {}, los: {}, zusters: [], waarschuwingen: [] };
   go('importpsd');
 }
 function psdTerug() { const id = psdSt && psdSt.matchId; psdSt = null; go('prep', id); }
@@ -755,6 +757,11 @@ async function psdBestand(inp) {
     const m = match;
     const lezing = psdLeesVoorbereiding(paginas, MATCH_TYPES[m.matchType] ? m.matchType : '8v8');
     psdSt.lezing = lezing;
+    // De kernen van de zusterploegen erbij halen vóór we koppelen (v1.17.0): een naam op het blad die
+    // niet in de eigen kern staat, is vaak een speler die van een andere ploeg van de club komt
+    // meehelpen. Mislukt dit (geen club, geen rechten, geen net), dan koppelen we gewoon zoals
+    // voordien — enkel tegen de eigen kern.
+    try { psdSt.zusters = await clubZusterPloegen(); } catch (e) { psdSt.zusters = []; }
     psdKoppelAutomatisch();
     psdSt.fase = 'na';
   } catch (e) {
@@ -769,6 +776,9 @@ async function psdBestand(inp) {
 function psdKoppelAutomatisch() {
   const team = kernById(match.teamId) || getTeamsV2().find(t => t.name === match.teamName);
   const roster = (team && team.players) || [];
+  // Alle spelers van de zusterploegen als één lijst, met hun ploeg erbij (v1.17.0).
+  const zusterSpelers = [];
+  (psdSt.zusters || []).forEach(t => (t.players || []).forEach(p => zusterSpelers.push({ p, t })));
   const gebruikt = new Set();
   psdSt.koppel = {};
   psdSt.lezing.selectie.forEach((s, i) => {
@@ -778,9 +788,23 @@ function psdKoppelAutomatisch() {
     // de lijst staan, zodat je hem er met de keuzelijst alsnog bij kan halen.
     if (!s.speelt && !s.wissel && !psdStaatOpEenVeld(i)) { psdSt.koppel[i] = ''; return; }
     const kand = roster.filter(r => !gebruikt.has(r.id) && psdZelfdePersoon(r.name, s.naam));
-    if (kand.length === 1) { psdSt.koppel[i] = kand[0].id; gebruikt.add(kand[0].id); }
+    if (kand.length === 1) { psdSt.koppel[i] = kand[0].id; gebruikt.add(kand[0].id); return; }
+    if (kand.length > 1) { psdSt.koppel[i] = ''; return; }   // twijfel in de eigen kern: zelf aanwijzen
+    // Niets in de eigen kern: dan de zusterploegen af. Even streng — enkel bij precies één treffer,
+    // anders wijs je hem beter zelf aan. Hij komt als GASTSPELER binnen, dus met de koppeling naar
+    // de speler zoals hij in die andere ploeg bekendstaat.
+    const zk = zusterSpelers.filter(z => !gebruikt.has(z.p.id) && psdZelfdePersoon(z.p.name, s.naam));
+    if (zk.length === 1) { psdSt.koppel[i] = zk[0].p.id; gebruikt.add(zk[0].p.id); }
     else psdSt.koppel[i] = '';
   });
+}
+// De speler achter een koppeling terugvinden in de zusterploegen: geeft { p, t } of null.
+function psdZusterSpeler(id) {
+  for (const t of (psdSt.zusters || [])) {
+    const p = (t.players || []).find(x => x && x.id === id);
+    if (p) return { p, t };
+  }
+  return null;
 }
 // Komt de speler op rij `i` van de lijst ergens in een opstelling voor?
 function psdStaatOpEenVeld(i) {
@@ -788,6 +812,18 @@ function psdStaatOpEenVeld(i) {
 }
 function psdZetKoppel(i, id) {
   if (!psdSt) return;
+  // "+ als losse speler toevoegen": we maken hier ter plekke een speler van de naam die op het blad
+  // staat. Hij hoort bij deze ene wedstrijd, krijgt het merkje "gast" en komt niet in de kern —
+  // precies zoals de knop "Losse speler" bij het samenstellen van een selectie.
+  if (id === '__los__') {
+    const naam = ((psdSt.lezing.selectie[i] || {}).naam || '').trim();
+    if (!naam) { showToast('Deze naam konden we niet van het blad lezen.', 'err'); return; }
+    id = 'los_' + uid();
+    psdSt.los[id] = naam;
+  }
+  // Een eerder aangemaakte losse speler die je weer loslaat, hoeft niet te blijven rondslingeren.
+  const vorige = psdSt.koppel[i];
+  if (vorige && vorige !== id && psdSt.los[vorige]) delete psdSt.los[vorige];
   // Dezelfde speler twee keer koppelen kan niet: die zou dan op twee plaatsen tegelijk staan.
   if (id) Object.keys(psdSt.koppel).forEach(k => { if (k !== String(i) && psdSt.koppel[k] === id) psdSt.koppel[k] = ''; });
   psdSt.koppel[i] = id;
@@ -818,15 +854,26 @@ function psdVoorstelHtml() {
     const id = gekoppeld(i);
     const rol = startIdx.has(i) ? 'basis' : (s.wissel || s.speelt ? 'bank' : '');
     const opties = roster.map(r => `<option value="${esc(r.id)}" ${id === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+    // De kernen van de andere ploegen van de club, elk in hun eigen groepje (v1.17.0). Wie je hier
+    // kiest komt als gastspeler binnen, mét de koppeling naar die speler — zo telt zijn optreden
+    // ook mee in zijn eigen cijfers, i.t.t. een losse speler.
+    const zusterOpties = (psdSt.zusters || []).filter(t => (t.players || []).length).map(t =>
+      `<optgroup label="${esc(t.name)}">${t.players.map(p => `<option value="${esc(p.id)}" ${id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
+    // Al aangemaakt als losse speler? Dan hoort die keuze zelf ook in de lijst te staan, anders kan
+    // de keuzelijst hem niet als het gekozene tonen.
+    const losGekozen = psdSt.los[id] ? `<option value="${esc(id)}" selected>${esc(psdSt.los[id])} — losse speler</option>` : '';
+    const zuster = psdZusterSpeler(id);
     return `<div class="stat-row" style="align-items:center;gap:8px">
       <span style="flex:1;min-width:0">
         <span style="font-weight:600">${esc(s.naam)}</span>
         ${rol === 'basis' ? '<span style="font-size:11px;font-weight:700;color:var(--grn);margin-left:6px">BASIS</span>' : rol === 'bank' ? '<span style="font-size:11px;font-weight:700;color:var(--txt2);margin-left:6px">BANK</span>' : ''}
         ${s.keeper ? `<span style="font-size:11px;color:var(--txt2);margin-left:6px">${esc('doelman')}</span>` : ''}
         ${s.kapitein ? `<span style="font-size:11px;color:var(--org);margin-left:6px">kapitein</span>` : ''}
+        ${zuster ? `<span style="font-size:11px;color:var(--org);margin-left:6px">gast · ${esc(zuster.t.name)}</span>` : psdSt.los[id] ? `<span style="font-size:11px;color:var(--org);margin-left:6px">losse speler</span>` : ''}
       </span>
       <select onchange="psdZetKoppel(${i}, this.value)" style="max-width:52%;font-size:13px;padding:5px 6px">
-        <option value="">— niet meenemen —</option>${opties}
+        <option value="">— niet meenemen —</option>${opties}${zusterOpties}${losGekozen}
+        <option value="__los__">+ als losse speler toevoegen</option>
       </select>
     </div>`;
   }).join('');
@@ -855,7 +902,11 @@ function psdVoorstelHtml() {
     const i = psdVeldNaamNaarSpeler(v.tekst, lz.selectie);
     if (i < 0 || !gekoppeld(i)) onbekend.add(v.tekst);
   }));
-  if (onbekend.size) waar.push(`Deze namen van het veld vinden we niet terug in je kern: <b>${[...onbekend].map(esc).join(', ')}</b>. Koppel ze hierboven, anders blijft die plaats leeg.`);
+  if (onbekend.size) waar.push(`Deze namen van het veld vinden we niet terug in je kern: <b>${[...onbekend].map(esc).join(', ')}</b>. Koppel ze hierboven — kies de juiste speler, of <b>+ als losse speler toevoegen</b> voor iemand die niet in de kern staat. Doe je dat niet, dan blijft die plaats leeg.`);
+  // Wie uit een zusterploeg komt, staat hieronder nog eens samen: dat is een keuze met gevolgen (hij
+  // komt als gast in het verslag en telt mee in zijn eigen cijfers), dus die mag je niet ontgaan.
+  const uitZuster = lz.selectie.map((s, i) => psdZusterSpeler(gekoppeld(i))).filter(Boolean);
+  if (uitZuster.length) waar.push(`${uitZuster.length === 1 ? 'Eén speler komt' : uitZuster.length + ' spelers komen'} uit een andere ploeg van je club (${[...new Set(uitZuster.map(z => z.t.name))].map(esc).join(', ')}). ${uitZuster.length === 1 ? 'Hij wordt' : 'Ze worden'} als <b>gastspeler</b> bijgezet.`);
   if (start && start.formatieIndex === null) waar.push(`De opstelling (${esc(start.patroon)}) komt niet overeen met een formatie van ${esc(m.matchType)}. We zetten de spelers zo goed mogelijk op het veld — kijk de opstelling daarna zeker na.`);
   else if (start && !start.formatieZeker) waar.push(`Meerdere formaties hebben dezelfde vorm; we nemen <b>${esc(start.formatieNaam)}</b>. Je kan die achteraf wijzigen.`);
   if (start && start.veldNamen.length !== veldGroot) waar.push(`Het blad zet <b>${start.veldNamen.length}</b> spelers op het veld, deze wedstrijd is <b>${esc(m.matchType)}</b> (${veldGroot} spelers).`);
@@ -908,7 +959,9 @@ function psdVoorstelHtml() {
 // (finishWizard schrijft m.players precies zoals de app dat overal verwacht), daarna het plan langs
 // _schrijfPlanDraft — dezelfde weg als de planningskaart, dus de geplande wissels worden vanzelf
 // afgeleid uit de opstellingen die het blad geeft.
-async function psdOvernemen() {
+// `bevestigd` komt van het venster hieronder: er stond een plaats open en je hebt gezegd dat dat mag.
+// Opnieuw vanaf het begin binnenkomen kan zonder gevolgen — tot finishWizard wordt er niets bewaard.
+async function psdOvernemen(bevestigd) {
   if (!psdSt || !match) return;
   const lz = psdSt.lezing;
   const m0 = match;
@@ -923,11 +976,44 @@ async function psdOvernemen() {
     return i >= 0 ? (psdSt.koppel[i] || '') : '';
   };
 
+  // BLIJFT ER EEN PLAATS OPEN? Vraag dat hier, vóór er ook maar iets gebouwd wordt. Voordien liep dit
+  // door tot de opstellingscontrole in finishWizard, en die weigerde met "zet 8 spelers op het veld" —
+  // een melding zonder uitweg, want in dit scherm staat geen veld. Nu zeggen we wie het is en wat je
+  // eraan kan doen, en wie toch doorgaat krijgt de opstelling mét dat gat (dat mag).
+  const veldGroot = (MATCH_TYPES[m0.matchType] || {}).field || 8;
+  const gekoppeldOpVeld = new Set(start.veldNamen.map(v => rosterIdVan(v.tekst)).filter(Boolean)).size;
+  if (!gekoppeldOpVeld) { showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
+  if (gekoppeldOpVeld < veldGroot && !bevestigd) {
+    const missend = start.veldNamen.filter(v => !rosterIdVan(v.tekst)).map(v => {
+      const i = psdVeldNaamNaarSpeler(v.tekst, lz.selectie);
+      return i >= 0 ? lz.selectie[i].naam : v.tekst;
+    });
+    const open = veldGroot - gekoppeldOpVeld;
+    showConfirm(`Er ${gekoppeldOpVeld === 1 ? 'staat' : 'staan'} maar <b>${gekoppeldOpVeld} van de ${veldGroot}</b> spelers op het veld.` +
+      (missend.length ? ` Niet gekoppeld: <b>${missend.map(esc).join(', ')}</b>.` : '') +
+      `<br><br>Ga je door, dan ${open === 1 ? 'blijft die plaats' : 'blijven die plaatsen'} leeg — je vult ${open === 1 ? 'ze' : 'die'} daarna zelf aan bij de opstelling. Wil je liever eerst koppelen, kies dan <b>Annuleer</b>: bij zo'n naam kan je ook <b>+ als losse speler toevoegen</b> kiezen.`,
+      () => psdOvernemen(true), 'Toch overnemen', 'btn-green');
+    return;
+  }
+
   await editMatchWizard(m0);
   if (!wiz) { showToast('De ploeg van deze wedstrijd kon niet geladen worden.', 'err'); return; }
 
   // 1. Iedereen op 'none', daarna de selectie van het blad erop leggen.
   wiz.pool.forEach(p => { p.sel = 'none'; p.slot = null; });
+  // Wie niet uit de eigen kern komt, staat nog niet in de selectielijst van de wizard: de losse
+  // spelers en de gasten uit een zusterploeg erbij zetten (v1.17.0). Dit gebeurt NA editMatchWizard,
+  // want die bouwt de lijst opnieuw op. Dezelfde velden als de knoppen "Losse speler" en "Speler van
+  // andere ploeg" gebruiken, zodat ze verderop volstrekt gewone bank- of basisspelers zijn.
+  Object.keys(psdSt.los || {}).forEach(lid => {
+    if (wiz.pool.some(p => p.srcId === lid)) return;
+    wiz.pool.push({ pid: uid(), srcId: lid, name: psdSt.los[lid], number: '', pos: '', fromName: 'Losse speler', guest: true, sel: 'none', slot: null });
+  });
+  Object.keys(psdSt.koppel).forEach(k => {
+    const z = psdZusterSpeler(psdSt.koppel[k]);
+    if (!z || wiz.pool.some(p => p.srcId === z.p.id)) return;
+    wiz.pool.push({ pid: uid(), srcId: z.p.id, srcGlobalId: z.p.globalId || null, name: z.p.name, number: z.p.number || '', pos: z.p.pos || '', side: z.p.side || '', fromName: z.t.name, guest: true, sel: 'none', slot: null });
+  });
   const poolOp = id => wiz.pool.find(p => p.srcId === id);
   lz.selectie.forEach((s, i) => {
     const rid = psdSt.koppel[i];
@@ -949,8 +1035,9 @@ async function psdOvernemen() {
   if (!opVeld) { wiz = null; showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
 
   // formatieBevestigd = true: het blad IS de opstelling, dus een venster dat vraagt of we het echt
-  // zo bedoelen zou hier alleen maar in de weg staan.
-  const m = await finishWizard(false, false, true);
+  // zo bedoelen zou hier alleen maar in de weg staan. veldMagOnvolledig: enkel wanneer er hierboven
+  // uitdrukkelijk bevestigd is dat er een plaats openblijft.
+  const m = await finishWizard(false, false, true, opVeld < veldGroot);
   if (!m) return;   // finishWizard weigerde en heeft zelf al gemeld waarom
 
   // 4. De volgende momenten als plan. De speler-id's bestaan nu pas, dus we zoeken ze hier op.

@@ -15,7 +15,7 @@ It began as a fork of **voetbalapp**, Tim's earlier single-user app (folder brie
 This was a true single-file app until v0.4.2, when the JavaScript was split out of `index.html`. Don't go looking for functions in the HTML.
 
 - `index.html` (~42 KB) — markup only, plus all CSS in one inline `<style>` block (roughly lines 14–458), plus the `<script src>` tags.
-- `js/` — seven classic (non-module) scripts, loaded in this fixed order: `core.js` → `views-account.js` → `stats-settings.js` → `teams-tournaments.js` → `wizard-prep.js` → `live-match.js` → `detail-pdf.js`. **One shared global scope, no bundler**, so every top-level `function`/`const` is a global and load order matters. Function hoisting works per file only: a dispatch table that *references* a function from another file (instead of calling it at the moment of use) breaks the app silently — this bit once during the original split.
+- `js/` — nine classic (non-module) scripts, loaded in this fixed order: `core.js` → `views-account.js` → `stats-settings.js` → `teams-tournaments.js` → `wizard-prep.js` → `live-match.js` → `detail-pdf.js` → `import-cal.js` → `import-psd.js`. **One shared global scope, no bundler**, so every top-level `function`/`const` is a global and load order matters. Function hoisting works per file only: a dispatch table that *references* a function from another file (instead of calling it at the moment of use) breaks the app silently — this bit once during the original split.
   - `core.js` — config (`APP_VERSION`, `MATCH_TYPES`, `FORMATIONS`, `LINE_Y`, `PERIOD_TYPES`, icon set `IC`), the Firebase config block and the whole cloud layer (`cloudReady`/`isAdmin`/`fbdb`/`activeTeamId`, `teamRef`, the `cloudOnLocal*` push hooks), local storage (`dbAll`/`dbSave`/`dbDel`, `getTeamsV2`/`saveTeamsV2`/`teamById`) and the recompute helpers.
   - `views-account.js` — team-admin screen (invites, members, viewer mode, owner claim) and account settings, plus `uid()` and `calcMinutes()`.
   - `stats-settings.js` — season statistics and which sections an admin exposes to viewers (`STATS_DEFAULT_PUBLIC`, `toggleStatPublic`).
@@ -23,13 +23,17 @@ This was a true single-file app until v0.4.2, when the JavaScript was split out 
   - `wizard-prep.js` — new-match wizard (info → selection → lineup) and prep view.
   - `live-match.js` — live match screen: timer, events, substitutions.
   - `detail-pdf.js` — finished-match detail view and PDF export.
+  - `import-cal.js` — importing a season calendar from ICS/Excel/CSV.
+  - `import-psd.js` — reading a ProSoccerData match-preparation PDF (own PDF parser; fills the wizard and then writes the plan, so nothing new enters the data model).
 - `firebase/` — the Firebase compat SDK is vendored here, not loaded from gstatic.
 - Also present: `fonts/`, `pdf/`, `handleiding/` (in-app manual; root-level `handleiding-screenshots.js` is a ~900 KB generated base64 blob).
-- The `<script src>` tags in `index.html` carry no `?v=APP_VERSION`, but that is **not** a stale-cache hole: `sw.js` serves every `js/*.js` network-first with `cache:'no-store'` (see the `isAppJs` branch), precisely so the HTTP cache cannot hand back an old build. Adding a version query to the tags would mean hardcoding the number in seven places next to `APP_VERSION` — a regression of the single-version-source that B16 established. It only bites while **testing**, when the service worker has been unregistered: without it everything falls back to the plain HTTP cache. See the reload recipe under "Running locally".
+- The `<script src>` tags in `index.html` carry no `?v=APP_VERSION`, but that is **not** a stale-cache hole: `sw.js` serves every `js/*.js` network-first with `cache:'no-store'` (see the `isAppJs` branch), precisely so the HTTP cache cannot hand back an old build. Adding a version query to the tags would mean hardcoding the number in nine places next to `APP_VERSION` — a regression of the single-version-source that B16 established. It only bites while **testing**, when the service worker has been unregistered: without it everything falls back to the plain HTTP cache. See the reload recipe under "Running locally".
 
 ## Running locally
 
-Serve this folder with a static file server on port 5501. Note: plain `python`/`node`/`npx` are not on PATH in this environment; the working interpreter is pinned at `AppData\Local\Python\pythoncore-3.14-64\python.exe`. Prefer the preconfigured launch task (`matchdelegate`) when available.
+Serve this folder with a static file server. Note: plain `python`/`node`/`npx` are not on PATH in this environment; the working interpreter is pinned at `AppData\Local\Python\pythoncore-3.14-64\python.exe`. Prefer the preconfigured launch task **`match-delegate`** (`.claude/launch.json` → `serve.ps1`, port 3000 with `autoPort`) when available.
+
+A port other than the usual one is a **feature when testing**: Firebase auth is per origin, so a fresh port means no signed-in session, `teamRef()` returns null, and no write can possibly reach production data. That is the safe place to drive a full match end-to-end. On the usual port you are signed in as Tim — see the seed/demo rules below.
 
 Validate JS changes by manual review (balanced braces/backticks) and by exercising the change in the running app. There is no automated test runner.
 
@@ -39,6 +43,8 @@ Validate JS changes by manual review (balanced braces/backticks) and by exercisi
 - Never touch the Firebase config block in `js/core.js` (API keys, project `matchdelegate-v2`) unless explicitly requested.
 - Multi-tenancy is core: any change to how teams or roles are read/written must preserve isolation between teams. State the impact on other tenants before implementing.
 - Local data (IndexedDB/localStorage) and Firebase sync must stay consistent; when changing one side, check the other.
+- **The isolation boundary is the CLUB, not the team, for one thing only: rosters** (since v1.17.0). A team admin may read `teams/<sibling>/roster` for the other teams of their own club, so a guest player can be added with their real roster id. Nothing else crosses that line, and nothing crosses between clubs. It runs through the uid index `users/<uid>/clubTeam/<clubId>` = the team you claim to administer; the read rules re-verify that claim on every read, so a stale index grants nothing. Client side: `clubZusterPloegen()` / `clubZustersGekend()` / `warmClubZusters()` in `core.js`, written from `fetchTeamInfo`.
+- **Rules are not deployed by pushing.** `database.rules.json` lives in the repo for review and history; Tim publishes it by hand in the Firebase console. Ship app code that degrades silently when the rules are not live yet — that ordering is the safety net.
 
 ## Data model (critical — do not break)
 

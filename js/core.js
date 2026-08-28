@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.16.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.17.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1868,6 +1868,7 @@ async function onAuthChanged(user) {
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
     myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false; archivedTeams = {};
     vreemdeKernen = {};   // opgehaalde kernen van andere ploegen horen niet bij een volgende gebruiker
+    _clubZusters = null; _clubTeamIndex = {};   // idem voor de kernen van de zusterploegen
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
     stopTeamListeners(); listenAdminRequests();
@@ -2449,6 +2450,10 @@ async function fetchTeamInfo(teamId, poging = 0) {
     // logo opgeslagen werd. Een clubbeheerder vult het hier bij — één schrijfactie, en daarna zien
     // ook de kijkers van die ploeg het logo. Op de achtergrond: dit mag de ploegflow niet ophouden.
     if (!activeClubLogo && activeClubId && isClubAdmin) vulClubLogoAan(teamId, activeClubId);
+    // De index waarop de leesregels van de zusterploegen steunen (v1.17.0). Enkel voor een ECHTE
+    // ploegbeheerder — een clubbeheerder komt overal al binnen langs zijn eigen weg, en een kijker
+    // hoort hier niets te kunnen. Op de achtergrond; niets wacht erop.
+    if (activeClubId && userTeams[teamId] === 'admin') schrijfClubTeamIndex(teamId, activeClubId);
     // Gearchiveerde ploeg: gewone leden er niet gewoon in laten doorwerken (ze is uit alle
     // lijsten verborgen, maar werd bv. bij herstart via voetbal_activeTeamId weer actief).
     // Eigenaar/clubbeheerder mag er wél in (beheren/herstellen via Clubbeheer).
@@ -2476,6 +2481,70 @@ async function fetchTeamInfo(teamId, poging = 0) {
     if (info.name) { teamNames[teamId] = info.name; try { localStorage.setItem('voetbal_teamNames', JSON.stringify(teamNames)); } catch (e) {} }
     if (isAdmin !== wasAdmin || ((changed || activeClubName) && (view === 'home' || view === 'matches'))) render();
   }
+}
+
+// ----- Zusterploegen binnen dezelfde club (v1.17.0) -----
+// Een ploegbeheerder mag sinds v1.17.0 de kern van de ANDERE ploegen van zijn eigen club inkijken,
+// zodat hij een speler die komt meehelpen als gast kan bijzetten mét de koppeling naar die speler
+// (i.p.v. hem als naamloze "losse speler" te typen, wat hem in de cijfers een tweede leven geeft).
+// De beveiligingsregels kunnen niet over de ploegen van een gebruiker itereren; daarom deze index op
+// uid, die zegt van welke ploeg binnen deze club hij beheerder is. De regels rekenen die bewering bij
+// élke lezing na, dus een achtergebleven vermelding geeft geen toegang — zie database.rules.json.
+let _clubTeamIndex = {};   // { 'clubId:teamId': true } — al geschreven in deze sessie
+function schrijfClubTeamIndex(teamId, clubId) {
+  if (!currentUser || !fbdb || !teamId || !clubId) return;
+  const sleutel = clubId + ':' + teamId;
+  if (_clubTeamIndex[sleutel]) return;
+  _clubTeamIndex[sleutel] = true;
+  // Stil bij een fout: mislukt dit, dan zijn de zusterploegen gewoon niet beschikbaar. Er hangt geen
+  // enkele andere functie aan vast.
+  try { fbdb.ref('users/' + currentUser.uid + '/clubTeam/' + clubId).set(teamId).catch(() => {}); } catch (e) {}
+}
+// De ploegen van de eigen club, met hun kern. Eén keer per club opgehaald en daarna hergebruikt: dit
+// zijn een paar lezingen over het net en de lijst wijzigt zelden binnen één sessie. De actieve ploeg
+// valt er bij het teruggeven uit, niet bij het opbouwen — anders klopt de cache niet meer na een
+// ploegwissel binnen dezelfde club.
+let _clubZusters = null;   // { clubId, ploegen: [...] }
+async function clubZusterPloegen() {
+  if (!cloudReady || !fbdb || !activeClubId || !isAdmin) return [];
+  if (!_clubZusters || _clubZusters.clubId !== activeClubId) {
+    const clubId = activeClubId;
+    let ids = [];
+    try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {}); }
+    catch (e) { return []; }   // geen rechten of geen net — dan gewoon geen zusterploegen
+    const uit = [];
+    await Promise.all(ids.map(async id => {
+      try {
+        const raw = (await fbOnce(fbdb.ref('teams/' + id + '/roster'))).val();
+        if (!raw) return;
+        // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave); de ploeg
+        // zelf is diegene met dit id. Zelfde manier van uitpakken als addGuestsModal.
+        const arr = Array.isArray(raw) ? raw : Object.values(raw);
+        const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
+        if (t) uit.push(Object.assign({}, t, { id, fromCloud: true, vanClub: true, players: Array.isArray(t.players) ? t.players : [] }));
+      } catch (e) {}
+    }));
+    if (activeClubId !== clubId) return [];   // intussen van ploeg gewisseld
+    uit.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    _clubZusters = { clubId, ploegen: uit };
+  }
+  return _clubZusters.ploegen.filter(t => t.id !== activeTeamId);
+}
+// Voor een scherm dat SYNCHROON moet weten of er zusterploegen zijn (de knop "+ Speler van andere
+// ploeg" staat er enkel als er ook echt een andere ploeg IS). Geeft [] als er geen club is, null
+// zolang de lijst nog niet opgehaald is, en anders de ploegen zelf.
+let _clubZustersBezig = false;
+function clubZustersGekend() {
+  if (!cloudReady || !activeClubId || !isAdmin) return [];
+  if (!_clubZusters || _clubZusters.clubId !== activeClubId) return null;
+  return _clubZusters.ploegen.filter(t => t.id !== activeTeamId);
+}
+// Haal ze op de achtergrond op en teken het scherm opnieuw zodra ze er zijn. Eén keer per club.
+function warmClubZusters() {
+  if (_clubZustersBezig || clubZustersGekend() !== null) return;
+  _clubZustersBezig = true;
+  clubZusterPloegen().then(l => { _clubZustersBezig = false; if (l.length) render(); })
+    .catch(() => { _clubZustersBezig = false; });
 }
 
 // Een ploeg zonder gedenormaliseerd clublogo bijwerken vanuit de clubnode. Enkel voor een

@@ -2618,21 +2618,76 @@ function _trnAbsentAangevinkt() { return !!(document.getElementById('ma-trn') ||
 function _liveTeam() {
   return teamById(match.teamId) || (getTeamsV2().find(t => t.name === match.teamName) || null);
 }
-function modalAddPlayerLive() {
-  const team = _liveTeam();
-  // Zowel op rosterId als op naam ontdubbelen: een speler die via een oudere wedstrijd of als gast
-  // in de selectie kwam, heeft niet noodzakelijk een rosterId.
+// Wie er al in deze wedstrijd zit — op rosterId én op naam, want een speler die via een oudere
+// wedstrijd of als gast in de selectie kwam heeft niet noodzakelijk een rosterId.
+function _liveZitAlIn() {
   const zit = new Set();
   (match.players || []).forEach(p => { if (p.rosterId) zit.add(p.rosterId); zit.add((p.name || '').trim().toLowerCase()); });
+  return zit;
+}
+function modalAddPlayerLive() {
+  const team = _liveTeam();
+  const zit = _liveZitAlIn();
   const vrij = ((team && team.players) || []).filter(p => !zit.has(p.id) && !zit.has((p.name || '').trim().toLowerCase()));
   const lijst = vrij.length
     ? pgGrid(vrij.map(p => pgBtn(p, 'addp-pb', `addPlayerLive('${p.id}')`)).join(''))
     : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin:4px 0 14px">${rosterEmptyText('Iedereen uit het rooster zit al in deze wedstrijd.')}</p>`;
+  // De zusterploegen van de club (v1.17.0): net als bij het samenstellen van een selectie is dit de
+  // betere uitweg dan een losse speler, want de koppeling naar de speler blijft behouden. De lijst
+  // komt van de cloud; we warmen ze hier op en tonen de knop zolang we niet WETEN dat er geen zijn.
+  // Een herrender raakt deze modal niet (render() schrijft enkel in #app), dus de knop verschijnt
+  // ten laatste bij het volgende openen — en het venster erachter meldt het netjes als het er geen
+  // zijn.
+  warmClubZusters();
+  const zusters = clubZustersGekend();
   openModal(`<h3>${icI(IC.plus)} Speler bijzetten</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>
     ${lijst}
-    <button class="btn btn-pale" style="margin-top:12px" onclick="addLoosePlayerLiveModal()">Losse speler (niet in het rooster)</button>
+    ${(zusters === null || zusters.length) ? `<button class="btn btn-orgpale" style="margin-top:12px" onclick="modalAddGuestLive()">Speler van een andere ploeg</button>` : ''}
+    <button class="btn btn-pale" style="margin-top:8px" onclick="addLoosePlayerLiveModal()">Losse speler (niet in het rooster)</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+// ----- Een speler van een zusterploeg bijzetten tijdens de wedstrijd (v1.17.0) -----
+// Dezelfde kern-lezing als bij het samenstellen van een selectie (zie clubZusterPloegen in core.js).
+// Hij komt binnen als GAST met zijn echte rooster-id, dus zijn optreden telt ook mee in zijn eigen
+// cijfers — precies het verschil met een losse speler.
+let _liveGastPloeg = null;
+async function modalAddGuestLive() {
+  openModal(`<h3>${icI(IC.plus)} Speler van een andere ploeg</h3><p style="text-align:center;color:var(--txt2);margin:16px 0">Ploegen laden…</p>`);
+  let ploegen = [];
+  try { ploegen = await clubZusterPloegen(); } catch (e) {}
+  if (!ploegen.length) {
+    openModal(`<h3>${icI(IC.plus)} Speler van een andere ploeg</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin:16px 0">Er zijn geen andere ploegen van je club om uit te kiezen. Gebruik <b>Losse speler</b> voor iemand die nergens in de app staat.</p>
+      <button class="btn btn-gray" onclick="modalAddPlayerLive()">Terug</button>`);
+    return;
+  }
+  if (!ploegen.some(t => t.id === _liveGastPloeg)) _liveGastPloeg = ploegen[0].id;
+  _liveGastToon(ploegen);
+}
+function _liveGastToon(ploegen) {
+  const t = ploegen.find(x => x.id === _liveGastPloeg) || ploegen[0];
+  const zit = _liveZitAlIn();
+  const vrij = (t.players || []).filter(p => !zit.has(p.id) && !zit.has((p.name || '').trim().toLowerCase()));
+  const lijst = vrij.length
+    ? pgGrid(vrij.map(p => pgBtn(p, 'addp-pb', `addGuestPlayerLive('${t.id}','${p.id}')`)).join(''))
+    : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin:4px 0 14px">Iedereen van deze ploeg zit al in deze wedstrijd, of ze heeft nog geen spelers.</p>`;
+  openModal(`<h3>${icI(IC.plus)} Speler van een andere ploeg</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Hij komt op de <b>bank</b>, met het merkje <b>gast</b>. Zijn optreden telt ook mee bij zijn eigen ploeg.</p>
+    <div class="fg"><label>Ploeg</label><select onchange="_liveGastPloeg=this.value;modalAddGuestLive()">${ploegen.map(x => `<option value="${esc(x.id)}" ${x.id === t.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+    ${lijst}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="modalAddPlayerLive()">Terug</button>`);
+}
+async function addGuestPlayerLive(teamId, playerId) {
+  let ploegen = [];
+  try { ploegen = await clubZusterPloegen(); } catch (e) {}
+  const t = ploegen.find(x => x.id === teamId);
+  const r = t && (t.players || []).find(p => p.id === playerId);
+  if (!r) { showToast('Die speler staat niet meer in het rooster van die ploeg.', 'err'); return; }
+  await _voegSpelerToeAanWedstrijd({
+    rosterId: r.id, globalId: r.globalId || null, name: r.name, number: r.number || '',
+    line: posLine(r.pos) || 'Middenveld', guest: true, fromName: t.name,
+  });
 }
 // Gemeenschappelijk stuk voor beide ingangen: de speler in de selectie zetten en opslaan.
 async function _voegSpelerToeAanWedstrijd(veld) {

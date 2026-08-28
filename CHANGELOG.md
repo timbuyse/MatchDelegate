@@ -9,6 +9,40 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.17.0
+
+**Een speler van een andere ploeg van je club bijzetten.** Tot nu had je de knop "+ Speler van andere
+ploeg" enkel als je zelf meer dan één ploeg beheerde. Wie maar één ploeg heeft — de meeste
+afgevaardigden en trainers — kon alleen een naam intikken bij "Losse speler", en die speler bleef
+voor de app een onbekende. Nu staan de **andere ploegen van je eigen club** gewoon in dat lijstje:
+je kiest de speler zoals hij bij hen bekendstaat, en zijn optreden telt daardoor ook mee in zijn
+eigen cijfers ("ook gastspeler bij"). Over de clubgrens heen verandert er niets.
+
+> Dit steunt op een verruiming van de leesrechten: een ploegbeheerder mag de **kern** (namen,
+> rugnummers, posities) van de zusterploegen van zijn club inkijken. Wedstrijden, notities en
+> ledenlijsten blijven dicht. De aangepaste regels moeten in de Firebase-console gepubliceerd worden;
+> zolang dat niet gebeurd is, gedraagt de app zich exact zoals voordien.
+
+**Ook tijdens de wedstrijd.** "Speler bijzetten" in het livescherm had enkel je eigen rooster en
+"Losse speler". Daar staat nu ook **"Speler van een andere ploeg"**, met dezelfde ploegen van je
+club. Handig voor precies het geval waarvoor die knop bestaat: iemand die van het andere veld komt
+bijspringen. Hij komt op de bank, met het merkje "gast".
+
+**PSD-import: een naam die niet in je kern staat.** Twee dingen opgelost:
+
+- Bij elke naam van het blad kan je nu **"+ als losse speler toevoegen"** kiezen. Hij komt met de
+  naam van het blad in deze ene wedstrijd terecht, met het merkje "gast", en verschijnt gewoon in de
+  opstelling, het verslag en de PDF. Voordien kon je zo'n naam enkel laten vallen, en bleef zijn
+  plaats op het veld leeg.
+- De app **zoekt de naam ook in de andere ploegen van je club** en koppelt hem daar als hij er
+  eenduidig in staat — dan komt hij als gastspeler binnen in plaats van als losse speler.
+
+**PSD-import liep vast wanneer er één speler ontbrak.** Kon één veldspeler niet gekoppeld worden, dan
+weigerde het overnemen met "Zet 8 spelers op het veld — er staan er nu 7": een melding waar je in dat
+scherm niets mee kon, want er staat geen veld. De import stopte en er werd niets bewaard. Nu vraagt
+de app vooraf of het zo mag, noemt ze wie er niet gekoppeld is, en wijst ze naar de losse speler. Ga
+je toch door, dan komt de opstelling binnen met die ene plaats open — die vul je daarna zelf aan.
+
 ## v1.16.1
 
 **Een nieuwe functie wordt nu vaker aangekondigd, met een vinkje om ervan af te zijn.** Het venster
