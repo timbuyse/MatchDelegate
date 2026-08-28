@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.16.1
+
+**Een nieuwe functie wordt nu vaker aangekondigd, met een vinkje om ervan af te zijn.** Het venster
+"wat is er nieuw" verscheen één keer bij het opstarten en daarna nooit meer. Wie het wegklikte omdat
+hij net met iets anders bezig was, kreeg het nooit terug — en heeft dus nooit geweten dat de functie
+bestond.
+
+Nu komt zo'n melding bij elke start terug, met twee remmen erop. Onderaan staat een vinkje
+**"Niet meer tonen"** waarmee je er meteen van af bent, en zonder dat vinkje stopt ze na drie keer
+vanzelf; bij die derde keer staat eronder dat het de laatste is. Zo blijft een aankondiging opvallen
+zonder iemand te blijven onderbreken die er niet in geïnteresseerd is.
+
+Er staat ook een knop **"Meer uitleg in de handleiding"** bij, die rechtstreeks naar het juiste
+hoofdstuk springt in plaats van naar de eerste pagina.
+
+Het vinkje wordt bewaard op het moment dat je het aanzet, niet pas bij het sluiten — het venster gaat
+ook dicht als je ernaast tikt, en anders zou je keuze verloren gaan. Wie de app voor het eerst
+installeert krijgt zo'n melding nog steeds niet, en wie alleen meekijkt evenmin — wordt die later
+ploegbeheerder, dan krijgt hij ze alsnog.
+
+Op dit moment is de aankondiging die terugkomt die van de **voorbereiding van de trainer** (v1.15).
+
+---
+
 ## v1.16.0
 
 **De tijdstippen in het verslag lopen door over de hele wedstrijd.** Op vraag van de trainers: een

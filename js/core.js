@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.16.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.16.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -744,6 +744,9 @@ const RELEASE_NOTES = {
   '1.15': {
     titel: 'De voorbereiding van je trainer inlezen',
     kop: 'Een PDF uit ProSoccerData wordt je selectie, opstelling en wedstrijdplan',
+    // De knop "Meer uitleg" onderaan de melding opent deze pagina van de handleiding. Op titel, dus
+    // hernoem je die pagina, hernoem ze dan hier mee (anders valt de knop stil weg).
+    handleiding: 'Voorbereiding van de trainer',
     intro: 'Werkt je trainer in ProSoccerData, dan hoef je zijn wedstrijdvoorbereiding niet langer over te tikken. Bij een geplande wedstrijd waar nog geen selectie is, staat de knop "Voorbereiding van de trainer (PDF)". Je laadt het blad op, je krijgt eerst te zien wat de app ervan begrepen heeft, en pas als jij akkoord gaat staat alles klaar: wie meegaat, wie start, waar iedereen staat en de wissels per moment. Daarna pas je alles gewoon nog aan zoals je gewend bent.',
     kopPunten: 'Goed om te weten',
     punten: [
@@ -752,6 +755,9 @@ const RELEASE_NOTES = {
       'Het bestand wordt op je eigen toestel gelezen: er gaat niets naar een server',
       'Namen hoeven niet exact gelijk te zijn — wat de app niet zeker weet, wijs je zelf aan',
     ],
+    // Vet onderaan de melding (Tims vraag, 28-08-2026): een demo-functie die bij iemand niet meteen
+    // lukt, moet niet stil sneuvelen — dan is een berichtje sneller dan opgeven.
+    hulp: 'Lukt het niet meteen? Stuur een berichtje naar Tim op 0497 10 44 57!',
   },
   '1.12': {
     titel: 'Wissels plannen werkt nu anders',
@@ -795,11 +801,10 @@ function notesSleutel(v) {
   if (zelfdeMajor.length) return zelfdeMajor[zelfdeMajor.length - 1];
   return d[0];
 }
+// De opslag van vóór v1.16.0: één waarde met de laatst getoonde tekst. Wordt niet meer gelezen of
+// geschreven — de teller hieronder heeft haar vervangen — maar blijft benoemd omdat ze op elk toestel
+// nog in de opslag staat. Niet hergebruiken voor iets anders.
 const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
-// Eén keer per major tonen. Wie de app voor het ÉÉRST installeert krijgt niets: "nieuw sinds vorige
-// keer" slaat dan nergens op. Dat herkennen we aan het ontbreken van eerdere gegevens — bij de
-// allereerste versie met deze melding (1.0) heeft nog niemand een opgeslagen major, dus zou anders
-// niemand ze zien.
 // ENKEL VOOR WIE ERGENS BEHEERT (Tims vraag, 27-08-2026). De melding gaat over wat je met de app
 // kán doen — een wedstrijd plannen, wissels klaarzetten, afsluiten. Een ouder die enkel meekijkt,
 // leest daar een lijst dingen die hij niet kan, en dat is precies de melding die je wegklikt zonder
@@ -813,27 +818,71 @@ function magNieuwsZien() {
   if (isOwner || Object.keys(myClubs || {}).length) return true;  // eigenaar of clubbeheerder
   return Object.values(userTeams || {}).some(r => r === 'admin'); // beheerder van eender welke ploeg
 }
+// ----- Hoe vaak een melding terugkomt (v1.16.0, Tims vraag 28-08-2026) -----
+// Tot dan verscheen ze ÉÉN keer en daarna nooit meer: wie ze wegklikte terwijl hij met iets anders
+// bezig was, heeft de functie nooit gezien. Nu komt ze bij elke start terug, met twee remmen erop:
+// een vinkje "niet meer tonen" waarmee je er zelf van af bent, en een teller die er na drie keer
+// vanzelf mee stopt — ook voor wie nooit iets aanvinkt. Anders zou een melding die iemand niet
+// interesseert hem tot in de eeuwigheid blijven onderbreken.
+const NIEUWS_MAX = 3;
+// De nieuwe opslag, per tekst: { '1.15': { n: 2, klaar: true } }. `n` telt hoe vaak ze getoond is,
+// `klaar` betekent "deze niet meer". BEWUST EEN NIEUWE SLEUTEL naast de oude: op de toestellen staat
+// nog `voetbal_major_gezien`, en die laten we met rust. Gevolg is precies wat gevraagd werd — wie de
+// melding van 1.15 al zag, krijgt ze na deze versie opnieuw, want voor de nieuwe teller is het de
+// eerste keer. Vanaf hier telt enkel deze sleutel nog.
+const NIEUWS_STATUS_KEY = 'voetbal_nieuws_status';
+function nieuwsStatusAlles() {
+  try { return JSON.parse(localStorage.getItem(NIEUWS_STATUS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function nieuwsStatus(sleutel) { return nieuwsStatusAlles()[sleutel] || {}; }
+function nieuwsStatusZet(sleutel, patch) {
+  try {
+    const alles = nieuwsStatusAlles();
+    alles[sleutel] = Object.assign({}, alles[sleutel], patch);
+    localStorage.setItem(NIEUWS_STATUS_KEY, JSON.stringify(alles));
+  } catch (e) { /* geen opslag: dan telt ze gewoon opnieuw, en dat is niet erg */ }
+}
+// Het vinkje schrijft METEEN weg, niet pas bij het sluiten. Deze modal gaat ook dicht door naast het
+// venster te tikken (zie openModal), en dan zou een aangevinkt vakje stil verloren gaan.
+function nieuwsNietMeerTonen(aan) {
+  nieuwsStatusZet(notesSleutel(APP_VERSION), { klaar: !!aan });
+  const el = document.getElementById('nieuws-vink-tekst');
+  if (el) el.textContent = aan ? 'Deze melding komt niet meer terug.' : 'Niet meer tonen';
+}
+// "Meer uitleg" opent de handleiding op de pagina die bij deze melding hoort. Op TITEL en niet op
+// nummer: er komen pagina's bij, en dan zou een nummer stil naar het verkeerde hoofdstuk wijzen.
+// De handleiding woont in stats-settings.js, dat ná dit bestand geladen wordt — vandaar dat alles
+// hier pas bij de aanroep opgezocht wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
+function handleidingIndexVoor(titel) {
+  if (!titel || typeof HANDLEIDING_PAGINAS === 'undefined') return -1;
+  return HANDLEIDING_PAGINAS.findIndex(p => p.titel === titel);
+}
+async function nieuwsMeerUitleg(titel) {
+  closeModal();
+  const i = handleidingIndexVoor(titel);
+  await go('handleiding');
+  if (i > 0 && typeof hdlGo === 'function') hdlGo(i);
+}
 async function toonNieuwAlsNodig() {
   try {
     const huidig = notesSleutel(APP_VERSION);
-    const gezien = localStorage.getItem(MAJOR_GEZIEN_KEY);
-    if (gezien === huidig) return;
-    // NIET TERUGVALLEN OP EEN OUDERE TEKST (gevonden 27-08-2026, vóór het kon gebeuren). Zonder deze
-    // regel zou de eerstvolgende versie zónder eigen tekst — bv. 1.13 — bij notesSleutel uitkomen op
-    // de major '1', en dan is '1.12' (wat de gebruiker zag) niet gelijk aan '1': iedereen kreeg de
-    // melding van versie 1.0 opnieuw te zien. Wie al een tekst van dezelfde major zag, is bij.
-    if (gezien && gezien !== majorVan(APP_VERSION) && majorVan(gezien) === majorVan(APP_VERSION)
-        && huidig === majorVan(APP_VERSION)) return;
-    // BEWUST ZONDER DE SLEUTEL WEG TE SCHRIJVEN. Wordt een kijker later ploegbeheerder, dan hoort hij
-    // de melding alsnog te krijgen; had hij ze hier "gezien", dan kwam ze nooit meer.
+    // BEWUST ZONDER IETS WEG TE SCHRIJVEN. Wordt een kijker later ploegbeheerder, dan hoort hij de
+    // melding alsnog te krijgen; had hij ze hier "gezien", dan kwam ze nooit meer.
     if (!magNieuwsZien()) return;
+    const st = nieuwsStatus(huidig);
+    if (st.klaar || (st.n || 0) >= NIEUWS_MAX) return;
     const notes = RELEASE_NOTES[huidig];
-    if (!notes) { localStorage.setItem(MAJOR_GEZIEN_KEY, huidig); return; }
-    // Bestaande gebruiker? Dan is er al iets ingesteld of gespeeld.
+    if (!notes) { nieuwsStatusZet(huidig, { klaar: true }); return; }
+    // Bestaande gebruiker? Dan is er al iets ingesteld of gespeeld. Wie de app voor het EERST
+    // installeert krijgt niets: "nieuw sinds vorige keer" slaat dan nergens op.
     let bestaand = setupDone() || getTeamsV2().length > 0;
     if (!bestaand) { try { bestaand = (await dbAll()).length > 0; } catch (e) {} }
-    localStorage.setItem(MAJOR_GEZIEN_KEY, huidig);
-    if (!bestaand) return;
+    if (!bestaand) { nieuwsStatusZet(huidig, { klaar: true }); return; }
+    // De teller gaat omhoog bij het TONEN, niet bij het sluiten: wie wegklikt zonder te lezen, heeft
+    // ze wel degelijk gezien, en anders zou de melding bij wegklikken eeuwig blijven terugkomen.
+    const keer = (st.n || 0) + 1;
+    nieuwsStatusZet(huidig, { n: keer });
+    const hdlIndex = handleidingIndexVoor(notes.handleiding);
     openModal(`<h3>${icI(IC.medal)} ${esc(notes.titel)}</h3>
       <div class="card" style="margin:8px 0 12px;padding:12px 14px;border-left:4px solid var(--org)">
         <div style="font-weight:800;font-size:15px;margin-bottom:4px">${esc(notes.kop)}</div>
@@ -843,7 +892,14 @@ async function toonNieuwAlsNodig() {
         <ul style="margin:0 0 14px;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.7">
           ${notes.punten.map(p => `<li>${esc(p)}</li>`).join('')}
         </ul>` : ''}
-      <button class="btn btn-green" onclick="closeModal()">${icI(IC.check)} Aan de slag</button>`);
+      ${notes.hulp ? `<p style="font-size:14px;font-weight:800;margin:0 0 14px">${esc(notes.hulp)}</p>` : ''}
+      ${hdlIndex > 0 ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="nieuwsMeerUitleg('${jsq(notes.handleiding)}')">${icI(IC.clipboard)} Meer uitleg in de handleiding</button>` : ''}
+      <label style="display:flex;align-items:center;gap:9px;justify-content:center;margin:0 0 12px;font-size:13px;color:var(--txt2);cursor:pointer">
+        <input type="checkbox" onchange="nieuwsNietMeerTonen(this.checked)" style="width:17px;height:17px;accent-color:var(--grn);cursor:pointer">
+        <span id="nieuws-vink-tekst">Niet meer tonen</span>
+      </label>
+      <button class="btn btn-green" onclick="closeModal()">${icI(IC.check)} Aan de slag</button>
+      ${keer >= NIEUWS_MAX ? '<p style="font-size:11px;color:var(--txt2);text-align:center;margin:10px 0 0">Dit was de laatste keer dat we deze melding tonen.</p>' : ''}`);
   } catch (e) { /* een melding hoort nooit de app te breken */ }
 }
 // ----- Thema (kleuren passen zich aan het logo aan) -----
