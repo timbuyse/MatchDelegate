@@ -1408,6 +1408,19 @@ const HANDLEIDING_PAGINAS = [
       <p style="margin-top:10px">De <b>formatie</b> wordt herkend aan de vorm van de opstelling en mee
         ingevuld. Herkent de app die vorm niet, dan zet ze de spelers zo goed mogelijk neer en zegt ze dat
         erbij — kijk de opstelling in dat geval zeker na.</p>
+      <div class="sec">Een speler van een andere ploeg</div>
+      <p>Komt er iemand van een <b>andere ploeg van je club</b> meehelpen en zet de trainer die op het blad,
+        dan herkent de app dat: ze zoekt die naam ook op in de kernen van je andere ploegen en zet hem bij
+        als <b>gastspeler</b>, met de koppeling naar de speler zoals hij daar bekendstaat. Zijn speelminuten
+        en doelpunten van deze wedstrijd tellen daardoor ook mee in <b>zijn eigen</b> cijfers — je ziet dat
+        bij hem terug als een optreden bij een andere ploeg.</p>
+      <p style="margin-top:10px">In het voorstel staat bij zo'n speler uit welke ploeg hij komt, en onderaan wordt
+        het nog eens apart gemeld. Weet de app het niet zeker, dan kies je hem zelf: de keuzelijst toont dan
+        ook de spelers van je andere ploegen, netjes per ploeg gegroepeerd.</p>
+      <p class="hdl-tip">Dit blijft <b>binnen je eigen club</b>, en enkel bij ploegen waar jij beheerder van
+        bent. Speelt er iemand mee van een andere club, dan kan de app hem nergens terugvinden. Kies dan
+        <b>'+ als losse speler toevoegen'</b>: hij komt op het wedstrijdblad en in het verslag, maar zonder
+        koppeling — zijn minuten tellen dus nergens anders mee.</p>
       <div class="sec">Wat er niet in zit</div>
       <ul class="hdl-list">
         <li>Wie <b>niet beschikbaar</b> is. Het blad zegt wie meegaat, niet wie ziek of geblesseerd thuis
