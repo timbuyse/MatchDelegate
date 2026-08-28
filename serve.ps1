@@ -1,4 +1,8 @@
-$port = if ($env:PORT) { $env:PORT } else { 3000 }
+# -Port maakt een tweede werkmap mogelijk (zie worktree.ps1): die draait haar eigen server op een
+# andere poort, zodat twee sessies elkaar niet voor de voeten lopen. Zonder de parameter verandert
+# er niets — dan geldt $env:PORT, en anders gewoon 3000 zoals altijd.
+param([int]$Port = 0)
+$port = if ($Port -gt 0) { $Port } elseif ($env:PORT) { $env:PORT } else { 3000 }
 $root = $PSScriptRoot
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add("http://localhost:$port/")

@@ -72,6 +72,22 @@ Test-data scripts live in `C:\Users\tbuyse\Tim - COI\COI\Claude` — a companion
 
 ## Working conventions
 
+- **Two Claude sessions must never share this working directory.** Git has one working tree per
+  folder: if session A edits `core.js` and session B runs `git add -A`, B commits A's half-finished
+  work — and if they touch the same file, the last writer silently wins. This nearly went wrong on
+  28-08-2026 (both sessions claimed v1.16.0).
+  **Tim will not remember the commands — offer this yourself and run it for him.** Do so whenever he
+  mentions a second session, asks to work on two things at once, or you spot changes in `git status`
+  that are not yours. Don't wait to be asked, and don't hand him a command to type.
+    - `.\worktree.ps1 <naam>` → second folder `../MatchDelegate-<naam>` on its own branch, with its own
+      dev-server port. Tell him which folder to open his new session in.
+    - `.\worktree.ps1 -Lijst` → what is currently open. `-Klaar <naam>` merges it back and cleans up;
+      `-Weg <naam>` discards it. Both refuse while uncommitted work is present.
+    - The app's stored data is per origin, so `localhost:3001` is a separate "installation" — he has
+      to sign in again there to test.
+    - A worktree checks out the last COMMIT, so commit before creating one.
+- **Bump `APP_VERSION` just before committing, never while building.** Claiming the number early is
+  what collided on 28-08-2026 (and on 23-08 with 1.1.0/1.1.1).
 - **Never commit or push without explicit, per-request permission from Tim** — even mid-session after several prior approvals, ask again each time before running `git commit`/`git push`.
 - Before editing production code, briefly state the problem and proposed fix first — even for small/mechanical cleanups.
 - Commit messages in Dutch (Nederlands).
