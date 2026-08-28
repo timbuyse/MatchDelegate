@@ -9,7 +9,7 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
-## v1.17.1
+## v1.17.2
 
 **Gearchiveerde ploegen stonden tussen de zusterploegen.** Bij "+ Speler van andere ploeg" en bij
 "Speler bijzetten" kon je een speler kiezen uit een ploeg die je club gearchiveerd had. Overal elders
@@ -21,6 +21,21 @@ de ploeg met dat van haar spelerskern, en die twee zijn nooit gelijk (ze schelen
 milliseconden na elkaar aangemaakt). Het werkte tot nu toe door een tweede poging die op "heeft
 spelers" zocht — toeval dus. Nu wordt de kern op naam herkend, en de ploegnaam komt van de ploeg zelf
 in plaats van uit de kern, zodat een hernoeming meteen doorwerkt.
+
+## v1.17.1
+
+**De handleiding en de opstartmelding leggen nu ook uit wat er met een speler van een andere ploeg
+gebeurt.** De functie zelf kwam er in v1.17.0, maar nergens stond het beschreven — en het is net iets
+waarvan je moet wéten dat het gebeurt.
+
+Op de handleidingpagina *"Voorbereiding van de trainer"* staat er een eigen stuk over: dat de app een
+naam die niet in je eigen kern staat ook opzoekt bij de andere ploegen van je club, dat zo iemand als
+**gastspeler** bijgezet wordt mét de koppeling naar zijn eigen kern, en dat zijn speelminuten daardoor
+ook in **zijn** cijfers meetellen. Met de grens er duidelijk bij: dit werkt binnen je eigen club en
+enkel bij ploegen waar jij beheerder van bent. Speelt er iemand mee van een andere club, dan kies je
+*"+ als losse speler toevoegen"* — die komt wel op het blad, maar zonder koppeling.
+
+Het venster dat bij het opstarten verschijnt, kreeg er een punt over bij.
 
 ## v1.17.0
 

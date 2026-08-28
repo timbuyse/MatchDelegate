@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.17.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.17.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -754,6 +754,7 @@ const RELEASE_NOTES = {
       'Hoe je aan die PDF komt, staat stap voor stap op het scherm zelf en in de handleiding — die PDF maak je wel op een computer: in ProSoccerData op gsm of tablet is er geen printvenster',
       'Het bestand wordt op je eigen toestel gelezen: er gaat niets naar een server',
       'Namen hoeven niet exact gelijk te zijn — wat de app niet zeker weet, wijs je zelf aan',
+      'Staat er iemand van een andere ploeg van je club op het blad, dan zoekt de app hem daar op en zet hem als gastspeler bij. Zijn speelminuten tellen dan ook mee in zijn eigen cijfers',
     ],
     // Vet onderaan de melding (Tims vraag, 28-08-2026): een demo-functie die bij iemand niet meteen
     // lukt, moet niet stil sneuvelen — dan is een berichtje sneller dan opgeven.
