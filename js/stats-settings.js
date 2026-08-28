@@ -1358,6 +1358,68 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
+    titel: 'Voorbereiding van de trainer',
+    inhoud: `
+      <div style="background:var(--bg);border-left:3px solid #f5821f;padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--txt2);margin-bottom:14px">
+        <b style="color:var(--txt)">Dit is voorlopig een demo-functie</b> en vatbaar voor fouten. Kijk het
+        voorstel na vóór je het overneemt — je krijgt alles eerst te zien. Er wordt gewerkt aan de robuustheid.
+      </div>
+      <p>Werkt je trainer in <b>ProSoccerData</b>, dan staat op zijn wedstrijdvoorbereiding alles wat je hier
+        anders met de hand intikt: wie meegaat, wie start, waar iedereen staat, en hoe de ploeg er bij elk
+        volgend moment hoort te staan. Dat blad kan je inlezen in plaats van alles over te tikken.</p>
+      <div class="sec">Waar staat de knop?</div>
+      <p>Open een <b>geplande wedstrijd</b> waar nog <b>geen selectie</b> is ingegeven. Onder de knoppenrij
+        staat <b>'Voorbereiding van de trainer (PDF)'</b>. Is er al een selectie, dan is die knop weg: het
+        inlezen zou ze vervangen, en dat mag niet per ongeluk gebeuren. Wil je toch opnieuw beginnen, wis de
+        selectie dan eerst via <b>Bewerken → Selectie wissen</b>.</p>
+      <div class="sec">Aan die PDF geraken</div>
+      <p>Dit doe je <b>op een computer</b>: in ProSoccerData op je gsm of tablet is er geen printvenster, dus
+        raak je daar niet aan een PDF. Het inlezen zelf doe je daarna wel gewoon op het toestel waar je de PDF
+        bij de hand hebt.</p>
+      <ol class="hdl-list">
+        <li>Ga <b>op een computer</b> naar <b>ProSoccerData</b> als afgevaardigde of trainer.</li>
+        <li>Klik op een <b>geplande wedstrijd</b>.</li>
+        <li>Kies rechtsbovenaan <b>'Bekijk wedstrijdvoorbereiding'</b>.</li>
+        <li>Klik in het venster dat verschijnt op het <b>printicoon</b> en bewaar het document als <b>PDF</b>.</li>
+        <li>Die PDF laad je hier op.</li>
+      </ol>
+      <p class="hdl-tip">Het bestand wordt op je eigen toestel gelezen. Er gaat niets naar een server, en het
+        werkt dus ook zonder verbinding.</p>
+      <div class="sec">Wat je eerst te zien krijgt</div>
+      <p>Er wordt nog niets bewaard. Je krijgt een voorstel met drie delen:</p>
+      <ul class="hdl-list">
+        <li>De <b>wedstrijd</b> die op het blad staat. Klopt de datum of de tegenstander niet met de wedstrijd
+          die je open hebt, dan zegt de app dat — waarschijnlijk heb je het verkeerde blad te pakken.</li>
+        <li>De <b>selectie</b>: links de naam zoals ProSoccerData ze schrijft, rechts wie dat is in jouw kern.
+          De namen hoeven niet exact gelijk te zijn. Wat de app niet zeker weet, wijs je zelf aan in de
+          keuzelijst; iemand die niet mee hoort te gaan zet je op <b>'niet meenemen'</b>.</li>
+        <li>De <b>opstelling per moment</b>, met de positienummers erbij. Een naam die niet gekoppeld raakte
+          staat in het rood: koppel die eerst, anders blijft zijn plaats leeg.</li>
+      </ul>
+      <p>Pas als je op <b>'Overnemen'</b> tikt, wordt er iets bewaard.</p>
+      <div class="sec">Wat er dan klaarstaat</div>
+      <p>Een gewone selectie, een gewone opstelling en een gewoon wedstrijdplan — niet te onderscheiden van
+        wat je zelf zou ingeven, en dus achteraf gewoon aan te passen. De momenten van het blad komen op de
+        juiste plaats terecht: bij vier kwarten van vijftien minuten is <b>15'</b> de start van kwart 2, en
+        <b>7'</b> het wisselmoment halverwege kwart 1.</p>
+      <p style="margin-top:10px">De wissels zelf staan niet op dat blad — de trainer tekent enkel hoe de ploeg
+        er op elk moment staat. De app leidt er zelf uit af wie erin en eruit gaat en wie er meeschuift,
+        precies zoals wanneer je in de planning zelf een veld tekent.</p>
+      <p style="margin-top:10px">De <b>formatie</b> wordt herkend aan de vorm van de opstelling en mee
+        ingevuld. Herkent de app die vorm niet, dan zet ze de spelers zo goed mogelijk neer en zegt ze dat
+        erbij — kijk de opstelling in dat geval zeker na.</p>
+      <div class="sec">Wat er niet in zit</div>
+      <ul class="hdl-list">
+        <li>Wie <b>niet beschikbaar</b> is. Het blad zegt wie meegaat, niet wie ziek of geblesseerd thuis
+          bleef. Vul dat nadien aan via <b>Selectie</b>, anders klopt het aanwezigheidspercentage niet.</li>
+        <li>De <b>wedstrijdgegevens</b> zelf — uur, terrein, soort, truikleur. Die blijven staan zoals ze in
+          de app stonden; enkel de selectie, de opstelling en het plan komen van het blad.</li>
+      </ul>
+      <p class="hdl-tip">Loopt er iets mis met een blad? Bewaar die PDF. Met het bestand erbij is zo'n
+        probleem meestal snel recht te zetten.</p>
+    `
+  },
+  {
     titel: 'Live wedstrijd bijhouden',
     img: 'handleiding/screenshots/09_live_wedstrijd.png',
     img2: 'handleiding/screenshots/09b_pauze_opstelling.png',

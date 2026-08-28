@@ -9,15 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
-## v1.15.1
+## v1.15.2
 
 **Bij de uitleg staat nu dat je de PDF op een computer maakt.** De stappen naar de
 wedstrijdvoorbereiding leidden je door ProSoccerData zonder te zeggen op wélk toestel. Wie het op zijn
 gsm probeerde, liep vast bij de laatste stap: in de PSD-app op een telefoon of tablet is er geen
 printvenster, dus raak je daar niet aan een PDF. Stap 1 zegt nu "ga op een computer naar
-ProSoccerData", en onder de stappen staat het nog eens apart met de reden erbij — met de vermelding
-dat het inlezen zelf daarna gewoon kan op het toestel waar je de PDF bij de hand hebt. Het punt in het
-"wat is er nieuw"-venster van 1.15 zegt hetzelfde.
+ProSoccerData" — op het inleesscherm zelf én op de handleidingpagina — en op beide plaatsen staat het
+er onder de stappen nog eens apart bij, met de reden. Met de vermelding dat het inlezen zelf daarna
+gewoon kan op het toestel waar je de PDF bij de hand hebt. Het punt in het "wat is er nieuw"-venster
+van 1.15 zegt hetzelfde.
+
+## v1.15.1
+
+**De handleiding legt de PSD-import uit.** Er staat een nieuwe pagina *"Voorbereiding van de trainer"*
+tussen *Selectie & opstelling* en *Live wedstrijd bijhouden*: waar de knop staat en waarom hij
+verdwijnt zodra er een selectie is, hoe je in ProSoccerData aan die PDF komt, wat je op het
+voorstelscherm te zien krijgt en wat er na het overnemen klaarstaat.
+
+Twee dingen staan er uitdrukkelijk bij, omdat ze anders voor verrassingen zorgen: het blad zegt
+**niet** wie er niet beschikbaar is (dat vul je nadien aan, anders klopt het aanwezigheidspercentage
+niet), en de wedstrijdgegevens zelf — uur, terrein, soort, truikleur — blijven staan zoals ze in
+de app stonden. Bovenaan de pagina staat, net als in de app zelf, dat dit voorlopig een demo-functie
+is.
+
+De pagina heeft nog geen schermafbeeldingen; de PDF-download van de handleiding werkt gewoon mee.
 
 ## v1.15.0
 
