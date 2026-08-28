@@ -1245,7 +1245,7 @@ async function pdfMatchBody(doc, L, m) {
     // 'pauze' als tijdstip: het gebeurde er letterlijk voor, en in de pauze loopt geen klok — zelfde
     // volgorde als op het scherm.
     const rows = [], rowEvents = [];
-    const rij = e => { rows.push([e.atBreak ? 'pauze' : eventMinLocal(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); };
+    const rij = e => { rows.push([e.atBreak ? 'pauze' : eventMinTijd(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); };
     lijst.filter(e => e.atBreak).forEach(rij);
     if (startTekst) { rows.push(['', '', startTekst]); rowEvents.push(null); }
     const rest = lijst.filter(e => !e.atBreak);
@@ -1264,7 +1264,7 @@ async function pdfMatchBody(doc, L, m) {
           const s = 11;
           try { data.doc.addImage(png, 'PNG', data.cell.x + 3, data.cell.y + (data.cell.height - s) / 2, s, s, undefined, PDF_BEELD_COMPRESSIE); } catch (e) {}
         } }, 10,
-      gi === 0 ? `Minuut binnen het ${pSingLow(m)} · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
+      gi === 0 ? `Doorlopende wedstrijdtijd · tussenstand: ${homeName(m)} – ${awayName(m)}` : '');
   });
 
 }

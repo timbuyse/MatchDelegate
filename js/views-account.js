@@ -2309,22 +2309,31 @@ function eventMinGlobal(e, m) {
   }
 }
 function eventMinSummaryText(e, m) {
+  // GEEN MINUUT VERZINNEN, ook hier niet (Tim, 28-08-2026). Zelfde regel als in het verloop, zie
+  // eventMinTijd hieronder: een gebeurtenis zonder deel draagt geen tijdstip, en eventMinGlobal
+  // maakt van gameTimeMs 0 anders "1'". Elk doelpunt uit "Snel resultaat" is er zo een, dus een 3-1
+  // gaf in de samenvatting vier doelpunten die allemaal in de eerste minuut leken te vallen.
+  if (!e.quarterNum) return (e.gameTimeMs > 0) ? `${gameMin(e.gameTimeMs)}'` : '–';
   const { min, extra } = eventMinGlobal(e, m);
   return extra > 0 ? `${min}' + ${extra}'` : `${min}'`;
 }
-function eventMinLocal(e, m) {
+// Het tijdstip van een gebeurtenis zoals het in het verloop, in de wisselkaders en in de PDF staat.
+// DOORLOPENDE WEDSTRIJDTIJD (trainers, 28-08-2026): elk deel begint waar het vorige nominaal
+// eindigde, dus de eerste minuut van deel 3 is 31' en niet opnieuw 1'. Loopt een deel uit, dan telt
+// die extra tijd apart door zoals in het voetbal gebruikelijk is: minuut 16 van deel 1 wordt 15'+1'.
+// Vroeger telde deze functie per deel opnieuw vanaf 1, terwijl de samenvatting, de deel-tekst en de
+// CSV-export al doorlopend rekenden — twee tijdrekeningen in één verslag.
+// Rekent op dezelfde basis als eventMinGlobal, alleen compacter geschreven: daar "45' + 1'", hier
+// "45'+1'", want dit staat in een smalle minuutkolom.
+function eventMinTijd(e, m) {
   // GEEN MINUUT VERZINNEN (audit 25-08-2026). Een gebeurtenis zonder deel heeft bewust géén tijdstip:
   // addEvent zet dan gameTimeMs 0 en quarterNum null ("Onbekend"), en élk doelpunt uit "Snel
   // resultaat" is zo'n gebeurtenis. gameMin(0) is 1, dus het verloop toonde ze allemaal op 1' — een
   // 3-1 gaf vier doelpunten die er allemaal in de eerste minuut leken te vallen. Een streepje zegt
   // de waarheid: het moment is niet bekend.
   if (!e.quarterNum) return (e.gameTimeMs > 0) ? `${gameMin(e.gameTimeMs)}'` : '–';
-  const nomMs = (m.quarterDuration || 15) * 60000;
-  const actualStart = gameTimeMsAtStartOfQuarter(m, e.quarterNum);
-  const withinQ = Math.max(0, e.gameTimeMs - actualStart);
-  if (withinQ <= nomMs) return `${Math.floor(withinQ / 60000) + 1}'`;
-  const extraMin = Math.ceil((withinQ - nomMs) / 60000);
-  return `${m.quarterDuration || 15}'+${extraMin}'`;
+  const { min, extra } = eventMinGlobal(e, m);
+  return extra > 0 ? `${min}'+${extra}'` : `${min}'`;
 }
 // Vaste ordening voor élke spelerslijst: alfabetisch op FAMILIENAAM, met de voornaam als
 // tiebreaker. Eén regel voor het hele scherm, het verslag, de PDF en de CSV, zodat je een naam
@@ -2816,7 +2825,7 @@ function renderEventLog(m) {
         : (e.type === 'posSwapReeks'
           ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
           : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
-      return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinLocal(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
+      return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinTijd(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
     };
     const items = pauzeItems.map(li).join('') + startRegel + (list.length
       ? list.map(li).join('')
@@ -3269,7 +3278,7 @@ function periodPosSwapList(m, qNum, pijl) {
   if (!events.length) return [];
   const rijen = [];
   for (const e of events) {
-    const min = eventMinLocal(e, m);
+    const min = eventMinTijd(e, m);
     const laatste = rijen[rijen.length - 1];
     if (laatste && laatste.min === min) laatste.events.push(e);
     else rijen.push({ min, events: [e] });
@@ -3298,7 +3307,7 @@ function periodSubList(m, qNum) {
     .filter(e => e.type === 'substitution' && e.quarterNum === qNum && !e.atBreak && (e.playerOutId || e.playerInId))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
     .forEach(e => {
-      const min = eventMinLocal(e, m);
+      const min = eventMinTijd(e, m);
       const uitNaam = e.playerOutId ? fieldName(m, e.playerOutId) : '—';
       const inNaam = e.playerInId ? fieldName(m, e.playerInId) : '—';
       // Gesorteerd op tijd, dus wissels met dezelfde minuut staan naast elkaar in de lijst.

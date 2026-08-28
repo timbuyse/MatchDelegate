@@ -1758,21 +1758,25 @@ function shareWhatsApp(m) {
     e.type === 'goal_us' || e.type === 'own_goal_them' ||
     (e.type === 'penalty_us' && e.scored)
   );
+  // Een doelpunt zonder gekend tijdstip (bv. uit "Snel resultaat") krijgt hier géén minuut mee: in
+  // een tabel zegt een streepje "moment onbekend", maar midden in een regel leest "⚽ – Jonas" als
+  // een tikfout. Dan liever de naam alleen.
+  const minVoor = e => {
+    const t = e.gameTimeMs != null ? eventMinSummaryText(e, m) : '';
+    return (t && t !== '–') ? t + ' ' : '';
+  };
   const goalLines = goalEvents.map(e => {
-    const min = e.gameTimeMs != null ? eventMinSummaryText(e, m) : '';
-    if (e.type === 'own_goal_them') return `  ⚽ ${min} Eigen doel tegenstander`;
+    const min = minVoor(e);
+    if (e.type === 'own_goal_them') return `  ⚽ ${min}Eigen doel tegenstander`;
     const scorer = e.playerId ? pName(m, e.playerId) : '?';
     const assist = e.assistId ? ` (assist ${pName(m, e.assistId)})` : '';
     const isPen = e.type === 'penalty_us' ? ' (pen.)' : '';
-    return `  ⚽ ${min} ${scorer}${isPen}${assist}`;
+    return `  ⚽ ${min}${scorer}${isPen}${assist}`;
   });
 
   // Eigen doelen door onze spelers
   const ownGoals = m.events.filter(e => e.type === 'own_goal');
-  const ownGoalLines = ownGoals.map(e => {
-    const min = e.gameTimeMs != null ? eventMinSummaryText(e, m) : '';
-    return `  🔴 ${min} Eigen doel ${pName(m, e.playerId)}`;
-  });
+  const ownGoalLines = ownGoals.map(e => `  🔴 ${minVoor(e)}Eigen doel ${pName(m, e.playerId)}`);
 
   // Kaarten
   const yellowCards = m.events.filter(e => e.type === 'yellow_card');
@@ -2345,7 +2349,7 @@ function modalEditEvent(id) {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
     ${e.atBreak
       ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Pauzewissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
-      : `<div class="fg"><label>Minuut</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
+      : `<div class="fg"><label>Minuut binnen dit ${pSingLow(match)}</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
     ${fields}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
     ${startopstellingKnopHtml(e)}
@@ -2376,7 +2380,7 @@ function startopstellingKnopHtml(e) {
 // ook in de startopstelling (gevonden op 22-08-2026 met 60 nagespeelde wedstrijden). Beter dus om ze
 // niet te laten ontstaan dan om de reconstructie er nog een uitzondering bij te geven.
 // "Tijdens het spel" hoort in de EERSTE minuut van het deel (audit 25-08-2026). Met qStart + 60000
-// kwam het event op minuut 2 te staan: eventMinLocal rekent floor(verstreken/60000) + 1, dus één
+// kwam het event op minuut 2 te staan: de minuutberekening doet floor(verstreken/60000) + 1, dus één
 // volle minuut erbij is al de tweede minuut. Het venster en de commentaar spraken van de eerste.
 // Eén seconde ná de start: minuut 1, en toch duidelijk ná het blokbegin (dat is de atBreak-variant,
 // die exact op qStart staat).
@@ -2409,7 +2413,7 @@ function confirmVerplaatsEvent(id, naarStart) {
       <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
       <p style="font-size:13px;margin-bottom:10px;text-align:left">Er ${conflicten.length === 1 ? 'staat' : 'staan'} nog ${conflicten.length === 1 ? 'een gebeurtenis' : conflicten.length + ' gebeurtenissen'} met dezelfde spelers <b>tussen</b> het nieuwe en het oude tijdstip. Die zou${conflicten.length === 1 ? '' : 'den'} dan gebeuren met iemand die op dat moment al gewisseld is, en dan klopt de opstelling van geen enkel ${label} meer:</p>
       <div style="text-align:left;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:12px">
-        ${conflicten.map(x => `<div style="padding:3px 0">${eventMinLocal(x, match)} — ${evtLabel(x, match)}</div>`).join('')}
+        ${conflicten.map(x => `<div style="padding:3px 0">${eventMinTijd(x, match)} — ${evtLabel(x, match)}</div>`).join('')}
       </div>
       <p style="font-size:13px;color:var(--txt2);margin-bottom:14px;text-align:left">Zet ${conflicten.length === 1 ? 'die' : 'die'} eerst recht (verplaatsen of verwijderen), en kom dan hier terug.</p>
       <button class="btn btn-gray" onclick="modalEditEvent('${id}')">Terug</button>`);

@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.16.0
+
+**De tijdstippen in het verslag lopen door over de hele wedstrijd.** Op vraag van de trainers: een
+doelpunt in het derde blok stond er als "1'" omdat de klok bij elk blok opnieuw begon te tellen. Nu
+staat er "31'", zoals je het op televisie en op elk wedstrijdblad ziet. Loopt een blok uit, dan telt
+die extra tijd apart mee: de zestiende minuut van het eerste blok is "15'+1'".
+
+Dat geldt voor het verloop op het scherm, voor de wissels en positiewisselingen in de kaders per
+blok, en voor de tijdlijn in de PDF. De samenvatting bovenaan het verslag, de deel-tekst voor
+WhatsApp en de export naar Excel rekenden al zo — die drie en het verslag spreken elkaar nu niet
+langer tegen.
+
+Wil je een tijdstip rechtzetten, dan tik je nog altijd de minuut **binnen dat blok** in; het venster
+zegt dat er nu uitdrukkelijk bij.
+
+**En er wordt nergens nog een minuut verzonnen.** Geef je een uitslag in met "Snel resultaat", dan
+hebben die doelpunten geen moment — ze zijn nooit op een klok gelogd. In het verloop stond daar al
+een streepje, maar in de samenvatting bovenaan het verslag en in de tekst voor WhatsApp stonden ze
+allemaal op "1'", alsof er vier doelpunten in de eerste minuut vielen. De samenvatting toont nu ook
+een streepje; in de WhatsApp-tekst valt de minuut gewoon weg, want "⚽ – Jonas" leest als een
+tikfout.
+
+---
+
 ## v1.15.3
 
 **Het inlezen werkt nu ook met een blad dat op één pagina bewaard is, en met 5v5.** Een trainer stuurde
