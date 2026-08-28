@@ -2514,15 +2514,36 @@ async function clubZusterPloegen() {
     try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {}); }
     catch (e) { return []; }   // geen rechten of geen net — dan gewoon geen zusterploegen
     const uit = [];
+    // Lezen dat MAG mislukken. Van een zusterploeg is enkel wat hieronder opgevraagd wordt leesbaar,
+    // en dan nog alleen met de regels van v1.17.3 erop. Zonder die regels — of bij een netwerkfout —
+    // geeft dit `undefined` en werken we verder met wat we wél hebben, i.p.v. de ploeg te laten
+    // vallen. Dat laatste was de fout van v1.17.2: één geweigerde lezing van `info` liet voor een
+    // gewone ploegbeheerder de hele lijst leeglopen (hij mag `info` niet lezen, enkel `roster`).
+    const leesStil = async pad => { try { return (await fbOnce(fbdb.ref(pad))).val(); } catch (e) { return undefined; } };
     await Promise.all(ids.map(async id => {
       try {
+        // Een GEARCHIVEERDE ploeg hoort hier niet thuis: die is overal elders in de app verborgen
+        // (ploegkeuzescherm, clublijst), dus ze mag ook niet als bron van gastspelers opduiken.
+        // Kunnen we het niet lezen, dan sluiten we niets uit — liever een ploeg te veel dan geen.
+        if (await leesStil('teams/' + id + '/info/archived')) return;
+        const naamUitInfo = await leesStil('teams/' + id + '/info/name');
         const raw = (await fbOnce(fbdb.ref('teams/' + id + '/roster'))).val();
         if (!raw) return;
-        // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave); de ploeg
-        // zelf is diegene met dit id. Zelfde manier van uitpakken als addGuestsModal.
-        const arr = Array.isArray(raw) ? raw : Object.values(raw);
-        const t = arr.find(x => x && x.id === id) || arr.find(x => x && x.players && x.players.length);
-        if (t) uit.push(Object.assign({}, t, { id, fromCloud: true, vanClub: true, players: Array.isArray(t.players) ? t.players : [] }));
+        // De roster-node bewaart een LIJST van ploegobjecten (zie cloudOnLocalTeamsSave). Welke is de
+        // ploeg zelf? NIET op id vergelijken: het id van een KERN is een ander push-id dan dat van de
+        // PLOEG — ze schelen één teken en worden milliseconden na elkaar aangemaakt door createTeam.
+        // Dat verschil heeft eerder al tot een verkeerde conclusie geleid (incident 21-08-2026), en
+        // in de echte clubdata van 28-08-2026 klopt het bij geen enkele ploeg. Dus: staat er maar één
+        // ploeg in de lijst, dan is zij het; anders op naam, en pas als laatste "diegene met spelers".
+        const arr = (Array.isArray(raw) ? raw : Object.values(raw)).filter(Boolean);
+        const t = arr.length === 1 ? arr[0]
+          : ((naamUitInfo && arr.find(x => x.name === naamUitInfo)) || arr.find(x => (x.players || []).length));
+        if (!t) return;
+        const players = Array.isArray(t.players) ? t.players.filter(Boolean) : [];
+        if (!players.length) return;   // uit een ploeg zonder spelers valt niets te kiezen
+        // De naam van de ploeg zelf gaat vóór die in de kern (een hernoeming werkt zo meteen door);
+        // is ze niet leesbaar, dan valt hij terug op de naam die in de kern bewaard is.
+        uit.push(Object.assign({}, t, { id, name: naamUitInfo || t.name || '(naamloze ploeg)', fromCloud: true, vanClub: true, players }));
       } catch (e) {}
     }));
     if (activeClubId !== clubId) return [];   // intussen van ploeg gewisseld

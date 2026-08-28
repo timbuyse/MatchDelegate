@@ -24,6 +24,33 @@ In de handleiding is het beeld van de **seizoenscijfers** opnieuw genomen: de bo
 door de eerste rij tegels, zodat je van *Gespeeld / Winst / Gelijk* enkel de labels zag en de cijfers
 half. Het beeld van het **pauzescherm** is meegenomen, zodat het potloodje er nu volledig op staat.
 
+## v1.17.3
+
+**De zusterploegen bleven leeg voor een gewone ploegbeheerder.** Wie geen eigenaar of clubbeheerder
+is — dus zowat iedereen — kreeg geen enkele andere ploeg te zien: de knop verscheen niet, en bij het
+inlezen van een voorbereiding werd er nergens anders gezocht. Oorzaak was v1.17.2 van een uur eerder:
+die vroeg van elke ploeg op of ze gearchiveerd was, en dat veld mag een beheerder van een zusterploeg
+niet lezen. Eén geweigerde lezing en de hele lijst viel weg. De app gaat nu verder met wat ze wél mag
+lezen in plaats van de ploeg te laten vallen.
+
+> Er horen twee kleine leesregels bij, voor de **naam** en het **archiefvinkje** van een ploeg uit je
+> eigen club. Publiceer ze in de Firebase-console. Zonder die regels werkt alles gewoon, met twee
+> schoonheidsfoutjes: een gearchiveerde ploeg kan nog in de keuzelijst staan, en een ploeg die
+> hernoemd is draagt daar nog haar oude naam.
+
+## v1.17.2
+
+**Gearchiveerde ploegen stonden tussen de zusterploegen.** Bij "+ Speler van andere ploeg" en bij
+"Speler bijzetten" kon je een speler kiezen uit een ploeg die je club gearchiveerd had. Overal elders
+in de app is zo'n ploeg verborgen; nu ook hier. Een ploeg zonder spelers verdwijnt meteen uit de
+keuzelijst in plaats van er leeg in te blijven staan.
+
+Onderhuids ook de manier waarop de app de juiste kern bij een ploeg zoekt: die vergeleek het id van
+de ploeg met dat van haar spelerskern, en die twee zijn nooit gelijk (ze schelen één teken, ze worden
+milliseconden na elkaar aangemaakt). Het werkte tot nu toe door een tweede poging die op "heeft
+spelers" zocht — toeval dus. Nu wordt de kern op naam herkend, en de ploegnaam komt van de ploeg zelf
+in plaats van uit de kern, zodat een hernoeming meteen doorwerkt.
+
 ## v1.17.1
 
 **De handleiding en de opstartmelding leggen nu ook uit wat er met een speler van een andere ploeg
