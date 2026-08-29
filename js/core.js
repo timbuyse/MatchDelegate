@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.18.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.19.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -653,6 +653,14 @@ async function wisEigenCloudSporen(uid) {
   try { await fbdb.ref('approvedAdmins/' + uid).remove(); } catch (e) {}
   try { await fbdb.ref('adminRequests/' + uid).remove(); } catch (e) {}
   try { await fbdb.ref('rejectedAdmins/' + uid).remove(); } catch (e) {}
+  // Aanwezigheid en "laatst actief": ook sporen van deze persoon, en ze hebben geen zin meer zonder
+  // account. presenceStop() haalt het briefje van dít toestel weg; de tak eronder ruimt eventuele
+  // briefjes van andere toestellen op die nog niet verlopen waren.
+  presenceStop();
+  for (const tid of tids.concat([PRESENCE_GEEN_PLOEG])) {
+    try { await fbdb.ref('presence/' + tid + '/' + uid).remove(); } catch (e) {}
+  }
+  try { await fbdb.ref('lastSeen/' + uid).remove(); } catch (e) {}
 }
 function getClubLogo() { return 'logo.png'; } // vast MatchDelegate-merklogo, niet wijzigbaar
 // Zelfde merklogo zonder de donkere tegel eronder — losse bal, geen woordmerk. Gebruikt op de
@@ -1760,6 +1768,7 @@ function notesRef(path) {
 }
 
 let fbConnected = null; // null = nog onbekend, true/false = echte verbindingsstatus
+let _fbOoitVerbonden = false; // was er al eens verbinding? (onderscheidt "herstel" van "eerste keer")
 // PAS NA EEN TIJDJE "OFFLINE" ZEGGEN (v1.9.4). `.info/connected` gaat bij Firebase op false bij ELKE
 // onderbreking van de verbinding — ook bij een hik van een seconde, en daarna herstelt hij zichzelf.
 // Voor het bolletje op het wedstrijdscherm is dat prima: dat is een klein signaal dat mag flikkeren.
@@ -1812,8 +1821,161 @@ function cloudInit() {
       else if (!_fbOfflineTimer) {
         _fbOfflineTimer = setTimeout(() => { _fbOfflineTimer = null; if (!fbConnected) _zetOfflineBevestigd(true); }, FB_OFFLINE_DREMPEL_MS);
       }
+      // TERUG verbonden → het aanwezigheidsbriefje opnieuw neerleggen. De afspraak "ruim dit op als
+      // de lijn wegvalt" is bij het wegvallen zelf verbruikt, dus zonder dit staat er na de eerste
+      // hik niets meer en verdwijnt dit toestel bij de volgende onderbreking niet meer uit de lijst.
+      // Meteen ook de kans om het opnieuw te proberen als de regels intussen gepubliceerd zijn, en
+      // presenceStart() i.p.v. enkel schrijven omdat met de laag ook het levensteken stilviel.
+      // Enkel bij een HERSTEL: de allereerste verbinding handelt onAuthChanged af, en anders zou
+      // elke app-start hetzelfde twee keer wegschrijven.
+      const presHerstel = _fbOoitVerbonden;
+      if (fbConnected) _fbOoitVerbonden = true;
+      if (fbConnected && presHerstel && currentUser) { _presUit = false; presenceStart(); }
     });
+    // Klokverschil met de server. De aanwezigheidslijst vergelijkt tijdstempels die de SERVER zette
+    // met de klok van dit toestel; zonder deze correctie zou een telefoon die verkeerd staat de hele
+    // lijst als "verlopen" of juist als eeuwig online zien.
+    fbdb.ref('.info/serverTimeOffset').on('value', s => { fbTijdVerschil = Number(s.val()) || 0; });
   } catch (e) { cloudReady = false; }
+}
+
+// ===================== AANWEZIGHEID =====================
+// "Hoeveel mensen hebben de app nu open, en hoeveel volgen er een wedstrijd?" (Tims vraag,
+// 29-08-2026). Er bestaat geen afsluitknop, en een browser die dichtgaat meldt zich niet af — het
+// enige betrouwbare signaal is dat de VERBINDING wegvalt. Firebase kan dat zelf afhandelen: je legt
+// vooraf vast wat er moet gebeuren zodra de lijn dood is (onDisconnect), en de server voert dat uit.
+// Ook bij een lege batterij, een tunnel of een afgeknepen tabblad.
+//
+// WAT ER IN DE DATABANK KOMT — presence/<ploeg>/<uid>/<sessie>:
+//   t = tijdstip van het laatste levensteken (servertijd), m = de wedstrijd die open staat,
+//   l = staat die wedstrijd live, r = de rol (beheerder/kijker/gast).
+// BEWUST GEEN NAAM. Een ploegbeheerder mag deze tak van zijn eigen ploeg lezen (daar hangt de
+// volgersteller op het wedstrijdscherm aan), en die hoeft niet te weten wie er meekijkt — dat zijn
+// ouders. Enkel de eigenaar zet er in zijn overzicht namen bij, via de gebruikersindex die hij toch
+// al mag lezen.
+//
+// TELLEN GEBEURT PER PERSOON, NIET PER BRIEFJE. Twee tabbladen zijn één persoon, en na een herlaad-
+// beurt blijft het oude briefje nog tot ongeveer een minuut staan (zo lang duurt het voor de server
+// een gesloten socket opmerkt). Per sessie tellen zou dus structureel te hoog uitkomen.
+const PRESENCE_HB_MS = 60000;        // levensteken: hoe vaak het tijdstip ververst wordt
+const PRESENCE_VERS_MS = 180000;     // ouder dan dit telt niet meer mee (vangnet als onDisconnect faalt)
+const PRESENCE_GEEN_PLOEG = '_geen'; // aangemeld, maar nog geen ploeg gekozen
+let _presSessie = null;              // id van déze app-instantie (nieuw bij elke herlaadbeurt)
+let _presRef = null;                 // waar dit toestel op dit moment ingeschreven staat
+let _presTeam = null;
+let _presTimer = null;
+let _presSig = '';                   // laatst weggeschreven toestand, om nutteloze writes te sparen
+let fbTijdVerschil = 0;              // klok van de server t.o.v. deze telefoon (.info/serverTimeOffset)
+// ZOLANG DE REGELS NIET GEPUBLICEERD ZIJN, HOUDT DIT ZICH STIL. Het bestand database.rules.json
+// gaat mee in de repo, maar Tim publiceert het met de hand in de Firebase-console — de app moet dus
+// werken zonder. Firebase schrijft bij élke geweigerde poging zelf een waarschuwing in de console
+// (dat kan een .catch() niet tegenhouden), en met een levensteken per minuut zou dat een gestage
+// stroom worden. Eén weigering volstaat om te weten dat het nog niet aanstaat: daarna zwijgt de
+// hele laag tot de volgende herverbinding of app-start.
+let _presUit = false;
+function presenceFout(e) {
+  if (e && (e.code === 'PERMISSION_DENIED' || /permission/i.test(e.message || ''))) {
+    _presUit = true;
+    if (_presTimer) { clearInterval(_presTimer); _presTimer = null; }
+  }
+}
+
+// Servertijd benaderd op dit toestel. De verse-drempel hierboven vergelijkt tijdstempels die de
+// SERVER zette; een telefoon die tien minuten voorloopt zou anders iedereen als "weg" zien.
+function presenceNu() { return Date.now() + fbTijdVerschil; }
+
+// Wat dit toestel op dit moment aan het doen is. `view` en `match` staan in views-account.js, dat
+// later laadt — op het moment dat deze functie draait, bestaan ze (nooit vanuit de top-level van
+// dit bestand aanroepen).
+function presenceGegevens() {
+  const opWedstrijd = (view === 'live' || view === 'prep' || view === 'detail') && match;
+  return {
+    t: firebase.database.ServerValue.TIMESTAMP,
+    m: opWedstrijd ? match.id : null,
+    l: !!(opWedstrijd && match.status === 'live'),
+    r: isGuest ? 'guest' : (isAdmin ? 'admin' : 'viewer'),
+  };
+}
+function presenceSchrijf(force) {
+  if (!cloudReady || !fbdb || !currentUser || _presUit) return;
+  const team = activeTeamId || PRESENCE_GEEN_PLOEG;
+  const g = presenceGegevens();
+  const sig = team + '|' + (g.m || '') + '|' + g.l + '|' + g.r;
+  // Van ploeg gewisseld: eerst het oude briefje weg, anders sta je in twee ploegen tegelijk online.
+  if (_presRef && _presTeam !== team) presenceWeg();
+  if (!force && _presRef && sig === _presSig) return; // niets veranderd → geen schrijfbeurt
+  if (!_presSessie) _presSessie = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  _presSig = sig; _presTeam = team;
+  try {
+    const ref = fbdb.ref('presence/' + team + '/' + currentUser.uid + '/' + _presSessie);
+    _presRef = ref;
+    // Elke keer opnieuw vastleggen: een onDisconnect vervalt nadat hij afgegaan is, en na een
+    // herverbinding moet de afspraak er weer staan.
+    ref.onDisconnect().remove().catch(() => {});
+    ref.set(g).catch(presenceFout);   // regels nog niet gepubliceerd → de laag legt zichzelf stil
+  } catch (e) {}
+}
+function presenceWeg() {
+  const r = _presRef;
+  _presRef = null; _presTeam = null; _presSig = '';
+  if (!r) return;
+  try { r.onDisconnect().cancel().catch(() => {}); r.remove().catch(() => {}); } catch (e) {}
+}
+function presenceStart() {
+  presenceSchrijf(true);
+  schrijfLastSeen();
+  if (_presTimer) clearInterval(_presTimer);
+  // Zelfde ritme voor de teller op het wedstrijdscherm: een briefje dat verloopt zonder dat de
+  // server iets stuurt (toestel hard afgezet), verdwijnt zo vanzelf uit het getal.
+  _presTimer = setInterval(() => { presenceSchrijf(true); updateVolgersBadge(); }, PRESENCE_HB_MS);
+}
+function presenceStop() {
+  if (_presTimer) { clearInterval(_presTimer); _presTimer = null; }
+  presenceWeg();
+}
+// LAATST ACTIEF. Een momentopname zegt niets als je 's avonds kijkt; deze datum wel. Eén getal per
+// account, geschreven bij het openen van de app. Gasten hebben geen account en horen hier niet:
+// hun anonieme uid verandert bij elke installatie en zou de lijst vervuilen met wegwerp-accounts.
+function schrijfLastSeen() {
+  if (!fbdb || !currentUser || isGuest || _presUit) return;
+  try { fbdb.ref('lastSeen/' + currentUser.uid).set(firebase.database.ServerValue.TIMESTAMP).catch(presenceFout); } catch (e) {}
+}
+// Uit een presence-tak (één ploeg, of alles) halen wat we willen weten. Telt PERSONEN en negeert
+// briefjes die te oud zijn. `matchId` meegeven om enkel de volgers van één wedstrijd te tellen.
+function presenceTel(tak, matchId) {
+  const grens = presenceNu() - PRESENCE_VERS_MS;
+  const mensen = new Set(), opWedstrijd = new Set(), live = new Set();
+  for (const uid in (tak || {})) {
+    for (const sid in (tak[uid] || {})) {
+      const s = tak[uid][sid] || {};
+      if (!(Number(s.t) > grens)) continue;
+      if (matchId && s.m !== matchId) continue;
+      mensen.add(uid);
+      if (s.m) opWedstrijd.add(uid);
+      if (s.l) live.add(uid);
+    }
+  }
+  return { mensen: mensen.size, opWedstrijd: opWedstrijd.size, live: live.size, uids: mensen };
+}
+
+// De aanwezigheid van de ACTIEVE ploeg, live meegelezen door cloudListen() (enkel voor beheerders).
+// Voedt de volgersteller op het wedstrijdscherm.
+let _presTeamData = {};
+// Hoeveel ANDEREN hebben deze wedstrijd op dit moment open? Jezelf niet meetellen: je staat er zelf
+// ook in, en "1 volgt mee" terwijl er niemand meekijkt is erger dan geen teller.
+function volgersVanMatch(matchId) {
+  if (!matchId) return 0;
+  const t = presenceTel(_presTeamData, matchId);
+  return Math.max(0, t.mensen - (currentUser && t.uids.has(currentUser.uid) ? 1 : 0));
+}
+// Het tellertje bijwerken zonder het hele scherm te hertekenen — net als het sync-bolletje. Tijdens
+// een wedstrijd mag er niets knipperen of verspringen omdat er iemand komt meekijken.
+function updateVolgersBadge() {
+  const el = document.getElementById('live-volgers');
+  if (!el || !match) return;
+  const n = volgersVanMatch(match.id);
+  el.innerHTML = n ? `${icI(IC.eye)}${n}` : '';
+  el.title = n ? (n === 1 ? '1 persoon volgt deze wedstrijd mee' : n + ' mensen volgen deze wedstrijd mee') : '';
 }
 
 // once('value') met timeout: offline resolvet zo'n call nooit, waardoor de opstartflow
@@ -1872,12 +2034,13 @@ async function onAuthChanged(user) {
     _clubZusters = null; _clubTeamIndex = {};   // idem voor de kernen van de zusterploegen
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
-    stopTeamListeners(); listenAdminRequests();
+    stopTeamListeners(); listenAdminRequests(); presenceStop();
     await go('auth', undefined, true); return;
   }
   // Anonieme gast
   if (user.isAnonymous) {
     isGuest = true; isAdmin = false;
+    presenceStart();
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
     myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
     // Onderhoudsmodus geldt ook voor gasten — anders werken die gewoon door tijdens onderhoud.
@@ -1898,6 +2061,8 @@ async function onAuthChanged(user) {
     return;
   }
   isGuest = false;
+  // Aanwezigheid: dit toestel staat vanaf nu in de lijst, en de datum "laatst actief" wordt gezet.
+  presenceStart();
   // E-mail->uid index van zichzelf wegschrijven (fase 3) zodat de app-eigenaar deze persoon later
   // op e-mailadres als clubbeheerder kan aanstellen, ook als hij (nog) geen ploeg vervoegd heeft.
   // Fire-and-forget; de rules laten enkel je eigen entry met je eigen e-mailadres toe.
@@ -2400,6 +2565,8 @@ async function selectTeam(teamId) {
   if (userTeams[teamId]) writeMemberInfo(teamId, userTeams[teamId]);
   cloudListen();
   listenCoAdminRequests();
+  // Aanwezigheid verhuist mee naar deze ploeg (het briefje bij de vorige wordt opgeruimd).
+  presenceSchrijf(true);
   // Zorg dat setup overgeslagen wordt voor kijkers (club-data komt van de cloud)
   localStorage.setItem('voetbal_setup_done', '1');
   // teamNames[] kan deze ploeg nog niet kennen (bv. rechtstreeks via invite-link toegevoegd,
@@ -2714,6 +2881,7 @@ function stopTeamListeners() {
   teamListeners = [];
   knownLiveMatchIds = new Set();
   knownScores = {};
+  _presTeamData = {};   // aanwezigheid hoort bij de ploeg waar we naar luisterden
 }
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
@@ -2749,6 +2917,16 @@ function cloudListen() {
   if (isAdmin) {
     const nr = notesRef();
     if (nr) { nr.on('value', s => applyCloudNotes(s.val() || {})); teamListeners.push({ ref: nr, event: 'value' }); }
+  }
+  // WIE VOLGT ER MEE (v1.19.0). Enkel voor wie de ploeg beheert: de rules laten deze tak ook enkel
+  // door een ploeg- of clubbeheerder (en de eigenaar) lezen. Een kijker heeft er niets aan en hoeft
+  // niet te weten wie er nog meekijkt. Bij een fout (rules nog niet gepubliceerd) blijft de teller
+  // gewoon leeg — de tweede callback vangt dat af, anders schrijft Firebase een rode fout in de log.
+  if (isAdmin && !isGuest) {
+    const pRef = fbdb.ref('presence/' + activeTeamId);
+    pRef.on('value', s => { _presTeamData = s.val() || {}; updateVolgersBadge(); },
+             () => { _presTeamData = {}; });
+    teamListeners.push({ ref: pRef, event: 'value' });
   }
   // Live meeluisteren naar de EIGEN rol: goedkeuring/degradatie/verwijdering komt zo
   // meteen door i.p.v. pas na een app-herstart. Eerste waarde (huidige rol bij het

@@ -18,6 +18,7 @@ function renderBeheer() {
     <div class="card">
       <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs en clubbeheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="go('online')">${icI(IC.eye)} Nu online</button>
       ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
     </div>
     <div class="sec">${icI(IC.wrench)} Onderhoud</div>
@@ -586,9 +587,9 @@ async function losseAccountsSectie(bekendeUids) {
     ].filter(Boolean).join(' ');
     // Een niet-bevestigd e-mailadres staat erbij omdat je iemand enkel op een BEVESTIGD adres als
     // club- of ploegbeheerder kan aanstellen — anders zoek je je blind op waarom dat niet lukt.
-    const adres = u.email
+    const adres = (u.email
       ? esc(u.email) + (u.bevestigd ? '' : ' <span style="color:var(--org2)">· e-mail nog niet bevestigd</span>')
-      : 'geen e-mailadres bekend';
+      : 'geen e-mailadres bekend') + lastSeenRegel(u.uid);
     return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
       <span style="flex:1;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
       ${merken}
@@ -612,12 +613,38 @@ function allUsersToggleAll(open) {
   if (b) b.setAttribute('onclick', `allUsersToggleAll(${open ? 'false' : 'true'})`);
   if (b) b.innerHTML = open ? 'Alles dichtklappen' : 'Alles openklappen';
 }
+// LAATST ACTIEF (v1.19.0). Een momentopname ("nu online") zegt niets als je 's avonds kijkt; deze
+// datum wel. Ze wordt geschreven telkens iemand de app opent — dus enkel vanáf deze versie, en dat
+// staat er ook bij: wie sindsdien niet meer opende, heeft hier geen datum, en dat betekent niet dat
+// hij nooit gebruiker was.
+let _lastSeenVal = {};
+function lastSeenTekst(ts) {
+  const t = Number(ts);
+  if (!t) return '';
+  const nu = presenceNu();
+  const min = Math.floor((nu - t) / 60000);
+  if (min < 2) return 'nu in de app';
+  if (min < 60) return min + ' min geleden';
+  const d = new Date(t);
+  const uur = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  const dagen = Math.floor((new Date(nu).setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 86400000);
+  if (dagen === 0) return 'vandaag om ' + uur;
+  if (dagen === 1) return 'gisteren om ' + uur;
+  if (dagen < 7) return dagen + ' dagen geleden';
+  return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function lastSeenRegel(uid) {
+  const t = _lastSeenVal[uid];
+  return t ? ` · <span style="color:var(--txt2)">laatst actief: ${lastSeenTekst(t)}</span>` : '';
+}
 async function loadAllUsersView() {
   const el = document.getElementById('allusers-view-list');
   if (!el || !isOwner || !fbdb) return;
   try {
     const teamsSnap = await fbOnce(fbdb.ref('teams'));
     const teamsVal = teamsSnap.val() || {};
+    // Faalt dit (regels nog niet gepubliceerd), dan blijft het overzicht gewoon zonder datums staan.
+    try { _lastSeenVal = (await fbOnce(fbdb.ref('lastSeen'))).val() || {}; } catch (e) { _lastSeenVal = {}; }
 
     // Per ploeg, als inklapbare sectie
     const teamIds = Object.keys(teamsVal);
@@ -653,13 +680,13 @@ async function loadAllUsersView() {
       }
 
       uids.forEach(uid => bekendeUids.add(uid));
-      const users = uids.map(uid => ({ naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
+      const users = uids.map(uid => ({ uid, naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid] }));
       const rows = users.map(u => {
         const roleBadge = u.role === 'admin'
           ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
           : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-          <span style="flex:1;font-size:14px"><b>${esc(u.naam)}</b><br><small style="color:var(--txt2)">${esc(u.email)}</small></span>
+          <span style="flex:1;font-size:14px"><b>${esc(u.naam)}</b><br><small style="color:var(--txt2)">${esc(u.email)}${lastSeenRegel(u.uid)}</small></span>
           ${roleBadge}
         </div>`;
       });
@@ -677,7 +704,22 @@ async function loadAllUsersView() {
     }
 
     const losse = await losseAccountsSectie(bekendeUids);
-    const kop = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
+    // WORDT DE APP GEBRUIKT? Twee getallen die dat beantwoorden zonder dat je op het juiste moment
+    // moet kijken. Ze tellen ACCOUNTS, niet toestellen, en enkel wie de app sinds v1.19.0 opende.
+    const nu = presenceNu();
+    const dagStart = new Date(nu).setHours(0, 0, 0, 0);
+    const tijden = Object.values(_lastSeenVal).map(Number).filter(Boolean);
+    const vandaag = tijden.filter(t => t >= dagStart).length;
+    const week = tijden.filter(t => t >= nu - 7 * 86400000).length;
+    const gebruik = tijden.length ? `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;gap:10px;text-align:center">
+        <div style="flex:1"><div style="font-size:26px;font-weight:800;line-height:1.1">${vandaag}</div><div style="font-size:12px;color:var(--txt2)">vandaag actief</div></div>
+        <div style="flex:1;border-left:1px solid var(--bdr)"><div style="font-size:26px;font-weight:800;line-height:1.1">${week}</div><div style="font-size:12px;color:var(--txt2)">deze week actief</div></div>
+      </div>
+      <p style="font-size:12px;color:var(--txt2);margin:10px 0 0">Geteld sinds de app deze versie kreeg. Wie sindsdien niet opende, heeft nog geen datum — dat betekent niet dat hij de app niet gebruikt.</p>
+      <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="go('online')">${icI(IC.eye)} Wie heeft de app nu open?</button>
+    </div>` : '';
+    const kop = gebruik + `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
     el.innerHTML = kop + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
@@ -693,6 +735,169 @@ function filterAllUsersView(q) {
     if (query && isMatch) sec.open = true;
   });
 }
+// ===================== NU ONLINE (view) =====================
+// Het overzicht waar Tim naar vroeg (29-08-2026): hoeveel mensen hebben de app nu open, en hoeveel
+// van hen volgen een wedstrijd. Leest de aanwezigheidstak die core.js bijhoudt (zie daar voor het
+// hoe en waarom) en beweegt live mee zolang dit scherm open staat.
+//
+// EERLIJK OVER WAT HET IS: een benadering. Een toestel dat afgezet wordt verdwijnt pas wanneer de
+// server de dode verbinding opmerkt (tot ongeveer een minuut), en een telefoon die in de broekzak
+// verdwijnt kan de verbinding laten vallen terwijl de persoon nog aan het kijken is. Daarom staat
+// die uitleg ook op het scherm zelf en niet enkel hier.
+let _onlineRef = null;        // actieve listener op de presence-tak
+let _onlineLaatste = null;    // laatste snapshot, om te kunnen hertekenen zonder nieuw event
+let _onlineTimer = null;      // hertekenen zodat verlopen briefjes vanzelf uit het beeld gaan
+let _onlineNamen = null;      // uid -> {name, email}, eenmalig uit de gebruikersindex
+let _onlineTeamInfo = {};     // teamId -> {naam, club}
+let _onlineMatchNaam = {};    // teamId/matchId -> tegenstander
+function renderOnline() {
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Nu online</h1></div>
+    <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  setTimeout(startOnlineWatch, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.eye)} Nu online</h1></div>
+  <div class="content" id="online-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+function stopOnlineWatch() {
+  if (_onlineRef) { try { _onlineRef.off('value'); } catch (e) {} _onlineRef = null; }
+  if (_onlineTimer) { clearInterval(_onlineTimer); _onlineTimer = null; }
+  _onlineLaatste = null;
+}
+async function startOnlineWatch() {
+  if (!isOwner || !fbdb) return;
+  stopOnlineWatch();
+  // Namen komen uit de gebruikersindex — dezelfde bron als "Alle gebruikers", en de enige plaats
+  // waar naam en uid samen staan. In de aanwezigheidstak zelf staat bewust geen naam.
+  if (!_onlineNamen) {
+    try { _onlineNamen = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {}; } catch (e) { _onlineNamen = {}; }
+  }
+  if (view !== 'online') return;   // intussen weggeklikt
+  _onlineRef = fbdb.ref('presence');
+  _onlineRef.on('value',
+    s => { _onlineLaatste = s.val() || {}; tekenOnline(); },
+    () => {
+      const el = document.getElementById('online-content');
+      if (el) el.innerHTML = `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px">Dit overzicht is nog niet beschikbaar. De beveiligingsregels met de aanwezigheidstak moeten eerst gepubliceerd worden in de Firebase-console.</p></div>`;
+    });
+  // Een briefje verloopt zonder dat de databank iets stuurt (toestel hard afgezet). Zonder deze
+  // klok zou zo iemand tot de volgende wijziging in het beeld blijven staan.
+  _onlineTimer = setInterval(() => { if (view === 'online') tekenOnline(); }, 30000);
+}
+// Ploegnaam en tegenstander erbij halen voor wat er nú in beeld staat — gericht, dus niet de hele
+// ploegenboom (daar hangen alle wedstrijden van alle seizoenen aan). Eén keer per ploeg/wedstrijd;
+// zodra er iets nieuws binnen is, wordt er opnieuw getekend.
+async function vulOnlineNamen(teamIds, matchSleutels) {
+  let iets = false;
+  await Promise.all([
+    ...teamIds.map(async tid => {
+      if (_onlineTeamInfo[tid]) return;
+      try {
+        const info = (await fbOnce(fbdb.ref('teams/' + tid + '/info'))).val() || {};
+        _onlineTeamInfo[tid] = { naam: info.name || tid, club: info.clubName || '' };
+        iets = true;
+      } catch (e) {}
+    }),
+    ...matchSleutels.map(async sleutel => {
+      if (_onlineMatchNaam[sleutel]) return;
+      const [tid, mid] = sleutel.split('/');
+      try {
+        const opp = (await fbOnce(fbdb.ref('teams/' + tid + '/matches/' + mid + '/opponent'))).val();
+        _onlineMatchNaam[sleutel] = opp || '—';
+        iets = true;
+      } catch (e) {}
+    }),
+  ]);
+  if (iets && view === 'online') tekenOnline();
+}
+function tekenOnline() {
+  const el = document.getElementById('online-content');
+  if (!el || !_onlineLaatste) return;
+  const grens = presenceNu() - PRESENCE_VERS_MS;
+  const alles = _onlineLaatste;
+  // Per ploeg één regel per PERSOON (niet per toestel): twee tabbladen of een net herladen pagina
+  // zijn één mens. Van zijn briefjes telt het meest sprekende: een geopende wedstrijd wint.
+  const perPloeg = {};
+  let totaal = 0, totaalWedstrijd = 0, totaalLive = 0;
+  const teTonenTeams = [], teTonenMatches = [];
+  for (const tid in alles) {
+    const personen = [];
+    for (const uid in (alles[tid] || {})) {
+      // Welk briefje spreekt het meest? Een lopende wedstrijd wint van een geopende wedstrijd, en
+      // die wint van "gewoon in de app". Pas bij gelijke stand telt het nieuwste. Zonder die
+      // rangorde zei een tweede tabblad dat net ververst was "in de app" over iemand die op zijn
+      // eerste tabblad de wedstrijd aan het volgen is.
+      const gewicht = s => (s.l ? 4 : 0) + (s.m ? 2 : 0);
+      let beste = null;
+      for (const sid in (alles[tid][uid] || {})) {
+        const s = alles[tid][uid][sid] || {};
+        if (!(Number(s.t) > grens)) continue;
+        if (!beste || gewicht(s) > gewicht(beste) ||
+            (gewicht(s) === gewicht(beste) && Number(s.t) > Number(beste.t))) beste = s;
+      }
+      if (!beste) continue;
+      personen.push({ uid, s: beste });
+      totaal++;
+      if (beste.m) { totaalWedstrijd++; teTonenMatches.push(tid + '/' + beste.m); }
+      if (beste.l) totaalLive++;
+    }
+    if (!personen.length) continue;
+    perPloeg[tid] = personen;
+    if (tid !== PRESENCE_GEEN_PLOEG) teTonenTeams.push(tid);
+  }
+  vulOnlineNamen(teTonenTeams, teTonenMatches);
+
+  if (!totaal) {
+    el.innerHTML = `<div class="card" style="text-align:center">
+      <p style="margin:0;font-size:15px">Er heeft op dit moment niemand de app open.</p>
+      <p style="margin:8px 0 0;color:var(--txt2);font-size:13px">Dit scherm beweegt vanzelf mee zodra iemand de app opent.</p>
+    </div>${onlineVoetnoot()}`;
+    return;
+  }
+  const kop = `<div class="card" style="display:flex;gap:10px;text-align:center">
+    <div style="flex:1">
+      <div style="font-size:30px;font-weight:800;line-height:1.1">${totaal}</div>
+      <div style="font-size:12px;color:var(--txt2)">${totaal === 1 ? 'persoon heeft' : 'mensen hebben'} de app open</div>
+    </div>
+    <div style="flex:1;border-left:1px solid var(--bdr)">
+      <div style="font-size:30px;font-weight:800;line-height:1.1;color:${totaalWedstrijd ? 'var(--grn2)' : 'inherit'}">${totaalWedstrijd}</div>
+      <div style="font-size:12px;color:var(--txt2)">${totaalWedstrijd === 1 ? 'volgt' : 'volgen'} een wedstrijd${totaalLive ? ` <span style="color:var(--grn2)">(${totaalLive} live bezig)</span>` : ''}</div>
+    </div>
+  </div>`;
+
+  const rolBadge = r => r === 'admin' ? `<span class="ts-role admin">${icI(IC.edit)} Beheerder</span>`
+    : r === 'guest' ? `<span class="ts-role viewer">${icI(IC.eye)} Gast</span>`
+    : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
+  const secties = Object.keys(perPloeg).sort((a, b) => {
+    if (a === PRESENCE_GEEN_PLOEG) return 1;
+    if (b === PRESENCE_GEEN_PLOEG) return -1;
+    return perPloeg[b].length - perPloeg[a].length;
+  }).map(tid => {
+    const info = _onlineTeamInfo[tid] || {};
+    const titel = tid === PRESENCE_GEEN_PLOEG
+      ? 'Aangemeld, nog geen ploeg gekozen'
+      : (info.club ? esc(info.club) + ' · ' : '') + esc(info.naam || tid);
+    const rijen = perPloeg[tid].map(({ uid, s }) => {
+      const acc = (_onlineNamen && _onlineNamen[uid]) || null;
+      const naam = s.r === 'guest' ? 'Meekijker met een uitnodigingscode' : ((acc && acc.name) || (acc && acc.email) || '(naam onbekend)');
+      const opp = s.m ? _onlineMatchNaam[tid + '/' + s.m] : null;
+      const bezig = !s.m ? 'in de app'
+        : (s.l ? `${icI(IC.ball)} volgt de lopende wedstrijd${opp && opp !== '—' ? ' tegen ' + esc(opp) : ''}`
+               : `bekijkt de wedstrijd${opp && opp !== '—' ? ' tegen ' + esc(opp) : ''}`);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+        <span style="flex:1;font-size:14px"><b>${esc(naam)}</b><br><small style="color:${s.l ? 'var(--grn2)' : 'var(--txt2)'}">${bezig}</small></span>
+        ${rolBadge(s.r)}
+      </div>`;
+    }).join('');
+    return `<div class="card" style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${titel} <span style="font-weight:400;text-transform:none">(${perPloeg[tid].length})</span></div>
+      ${rijen}
+    </div>`;
+  }).join('');
+  el.innerHTML = kop + secties + onlineVoetnoot();
+}
+function onlineVoetnoot() {
+  return `<p style="font-size:12px;color:var(--txt2);margin:14px 0 0">Een toestel verschijnt zodra de app geopend wordt en verdwijnt wanneer de verbinding wegvalt — dat merkt de databank tot ongeveer een minuut later. Een telefoon die in een broekzak verdwijnt of het bereik verliest, valt tijdelijk uit de lijst. Tel dit dus als een goede benadering, niet als een exact bezoekersaantal.</p>`;
+}
+
 // ===================== CLUBEXPORT =====================
 // Twee vragen zitten hierachter: "kunnen we onze gegevens eruit krijgen als we stoppen" (een bestuur)
 // en "geef me de speeltijd van de hele club" (een TVJO). Eén tabel met één regel per speler per
@@ -1342,6 +1547,9 @@ function toggleViewerMode(aan) {
 }
 function cloudLogout() {
   clearLocalDeviceData(currentUser ? currentUser.uid : null);
+  // Eerst uit de aanwezigheidslijst, dán afmelden: na het afmelden weigeren de regels het wissen en
+  // zou dit toestel nog tot een minuut als "online" blijven staan.
+  presenceStop();
   try { fbauth.signOut(); } catch (e) {}
   activeTeamId = null; userTeams = {}; isAdmin = false; isGuest = false; viewerMode = false;
   closeModal();
@@ -1358,6 +1566,7 @@ async function authDoSignOut() {
   const uid = user ? user.uid : null;
   const wasGast = !!(user && user.isAnonymous);
   clearLocalDeviceData(uid);
+  presenceStop();   // zie cloudLogout: opruimen kan enkel zolang je nog aangemeld bent
   const afmelden = () => { try { fbauth.signOut(); } catch (e) {} };
   if (wasGast) {
     // Eerst zijn lidmaatschap en index-records opruimen — daarna mag het niet meer, want zonder
@@ -2109,7 +2318,7 @@ function renderTeamSelect() {
       })()}
       ${showAppBeheer ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
       <button class="btn btn-dark" onclick="_beheerFrom='teamselect';go('beheer')">${icI(IC.shield)} App-beheer</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs en clubbeheerders, alle gebruikers, onderhoud.</p>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs en clubbeheerders, alle gebruikers, wie er nu online is, onderhoud.</p>` : ''}
       <div style="display:flex;gap:8px;margin-top:20px">
         <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
         <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
@@ -3011,6 +3220,8 @@ async function go(v, id, _histReplace) {
   // (cloudReady-check: in lokale modus zonder cloud blijft alles gewoon bereikbaar.)
   if (!currentUser && !isGuest && cloudReady && !['auth', 'handleiding', 'maintenance'].includes(v)) v = 'auth';
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
+  // Het aanwezigheidsoverzicht luistert live mee; dat hoort te stoppen zodra je het scherm verlaat.
+  if (view === 'online' && v !== 'online') stopOnlineWatch();
   view = v; tab = 'wedstrijd';
   if (id) {
     // ELKE WEDSTRIJD OPENT OP DE STARTOPSTELLING (Tims melding, 26-08-2026). De planningskaart hield
@@ -3038,6 +3249,10 @@ async function go(v, id, _histReplace) {
   if (noHistory || _histReplace) history.replaceState(state, '');
   else history.pushState(state, '');
   render();
+  // Doorgeven waar dit toestel nu staat (voor de teller "wie volgt er mee"). Schrijft enkel als er
+  // écht iets veranderd is aan de wedstrijd die open staat — doorklikken kost dus geen schrijfbeurten.
+  presenceSchrijf();
+  updateVolgersBadge();
 }
 window.addEventListener('popstate', async e => {
   const s = e.state;

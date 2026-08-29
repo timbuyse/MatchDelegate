@@ -35,7 +35,14 @@ function renderLive() {
   // Kijker heeft geen "Wedstrijd"-bedieningstab → start op de Log.
   if (ro && tab === 'wedstrijd') tab = 'log';
   const syncDot = (match.fromCloud && cloudReady) ? `<span id="sync-dot" class="sync-dot ${fbConnected === false ? 'off' : 'on'}" title="${fbConnected === false ? 'Offline — wijzigingen syncen zodra er verbinding is' : 'Gesynchroniseerd met de cloud'}"></span>` : '';
-  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot;
+  // WIE VOLGT ER MEE (v1.19.0). Enkel voor wie de wedstrijd bijhoudt — een kijker heeft er niets aan.
+  // Bij nul volgers blijft het leeg: "0" naast de stand is ontmoedigend en zegt niets nieuws.
+  // updateVolgersBadge() vult dit verder bij zonder het scherm te hertekenen (net als het bolletje
+  // hierboven): tijdens een wedstrijd mag er niets verspringen omdat er iemand komt meekijken.
+  const volgersBadge = (!ro && match.fromCloud && cloudReady)
+    ? `<span id="live-volgers" style="margin-left:9px;font-weight:700;opacity:.85">${(() => { const n = volgersVanMatch(match.id); return n ? `${icI(IC.eye)}${n}` : ''; })()}</span>`
+    : '';
+  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge;
   const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>

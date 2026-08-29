@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.19.0
+
+**Zie hoeveel mensen de app open hebben, en hoeveel er een wedstrijd volgen.** Tot nu was daar geen
+antwoord op: het enige cijfer dat bestond, stond in de Firebase-console als één getal voor de hele
+app, zonder te zeggen wie of waar.
+
+In **App-beheer** staat een nieuw scherm **'Nu online'**, enkel voor de eigenaar. Bovenaan twee
+getallen — hoeveel mensen de app open hebben en hoeveel daarvan een wedstrijd volgen — en daaronder
+per ploeg wie dat is en wat hij aan het doen is ("volgt de lopende wedstrijd tegen X", "in de app").
+Wie aangemeld is maar nog geen ploeg koos, staat apart. Het scherm beweegt live mee.
+
+Op het **wedstrijdscherm** ziet wie de wedstrijd bijhoudt een klein oogje met een aantal naast de
+stand: hoeveel anderen deze wedstrijd op dit moment volgen. Bij niemand blijft het leeg. Een kijker
+ziet die teller niet, en er staan nooit namen bij — het gaat om ouders die meekijken.
+
+Bij **Alle gebruikers** staat voortaan per persoon wanneer hij de app laatst opende, met bovenaan
+"vandaag actief" en "deze week actief". Die datums beginnen te lopen vanaf deze versie: wie de app
+sindsdien niet opende, heeft nog geen datum, en dat betekent niet dat hij ze niet gebruikt.
+
+Onder de motorkap laat Firebase zelf het aanwezigheidsbriefje van een toestel verdwijnen zodra de
+verbinding wegvalt, dus ook bij een lege batterij of een gesloten browser. Er wordt geteld per
+persoon en niet per toestel: twee tabbladen zijn één mens. Het blijft een benadering — een gesloten
+verbinding wordt tot ongeveer een minuut later opgemerkt, en een telefoon die het bereik verliest
+valt tijdelijk uit de lijst. Dat staat ook op het scherm zelf.
+
+`database.rules.json` heeft er twee takken bij (`presence` en `lastSeen`). Zolang die regels niet
+gepubliceerd zijn, houdt de hele laag zich stil: de tellers blijven leeg, het overzicht zegt waarom,
+en de app werkt verder zoals voordien.
+
 ## v1.18.0
 
 **De prullenmand is geen eenrichtingsstraat meer: wat erin zit, kan je nu ook definitief wissen.**
