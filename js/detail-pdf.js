@@ -1487,8 +1487,7 @@ async function exportWedstrijdplanPDF() {
   }
 
   L.footer(voetLogo);
-  const teamsPart = isAway(m) ? `${m.opponent}_vs_${tName(m)}` : `${tName(m)}_vs_${m.opponent}`;
-  const bestand = `${m.date ? m.date + '_' : ''}wedstrijdplan_${teamsPart}`.replace(/[\\/:*?"<>|]/g, '-');
+  const bestand = pdfMatchBestandsnaam(m, 'wedstrijdplan');
   doc.save(`${bestand}.pdf`);
 }
 
@@ -1624,9 +1623,7 @@ async function exportPDF() {
 
   // Eigen (niet-HTML-ge-esc'te) bestandsnaam i.p.v. matchTitle() — die is voor de HTML-<title>
   // en zou HTML-entities (&amp; e.d.) letterlijk in de bestandsnaam laten verschijnen.
-  // Formaat: datum_thuisploeg_vs_uitploeg, zodat een map met PDF's chronologisch sorteert.
-  const teamsPart = isAway(m) ? `${m.opponent}_vs_${tName(m)}` : `${tName(m)}_vs_${m.opponent}`;
-  const fileTitle = `${m.date ? m.date + '_' : ''}${teamsPart}`.replace(/[\\/:*?"<>|]/g, '-');
+  const fileTitle = pdfMatchBestandsnaam(m);
   doc.save(`${fileTitle}.pdf`);
   // Eigen bevestiging i.p.v. te vertrouwen op de (soms afwezige) native downloadmelding van
   // de browser: door de await's hierboven is het korte "rechtstreeks door een tik"-venster
@@ -1636,6 +1633,27 @@ async function exportPDF() {
 }
 
 // ===================== HELPERS =====================
+// De bestandsnaam van een wedstrijd-PDF, zonder extensie. Formaat: datum_thuisploeg_vs_uitploeg,
+// zodat een map met PDF's chronologisch sorteert; `deel` schuift er een woord tussen (bv.
+// 'wedstrijdplan') voor de andere PDF van dezelfde wedstrijd.
+// Het ploeglabel hangt vást aan de eigen ploegnaam (U11IP_Groen), waar die in het paar ook staat:
+// speelt de ploeg in twee delen tegelijk tegen dezelfde tegenstander, dan leverden datum +
+// ploegnamen anders twee keer exact dezelfde bestandsnaam op, en werd de tweede download
+// overschreven of van een "(1)" voorzien.
+// Datum zonder streepjes en spaties als underscore (Tims keuze, 29-08-2026): een telefoon kort een
+// lange naam af in de downloadlijst, dus hoe korter de naam, hoe meer ervan overblijft om twee
+// wedstrijden van dezelfde dag te onderscheiden.
+function pdfMatchBestandsnaam(m, deel) {
+  const lab = ((m && m.subteam) || '').trim();
+  const eigen = tName(m) + (lab ? '_' + lab : '');
+  const teg = (m && m.opponent) || '';
+  const paar = isAway(m) ? `${teg}_vs_${eigen}` : `${eigen}_vs_${teg}`;
+  return [((m && m.date) || '').replace(/-/g, ''), deel, paar].filter(Boolean).join('_')
+    .replace(/\s+/g, '_')                 // geen spaties in de bestandsnaam
+    .replace(/[\\/:*?"<>|]/g, '-')        // tekens die geen enkel bestandssysteem toelaat
+    .replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
