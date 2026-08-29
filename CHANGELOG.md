@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## Nog niet uitgebracht (versienummer wordt bij het samenvoegen gezet)
+
+**Gebruikscijfers: hoeveel mensen gebruiken de app, en hoe vaak?** In App-beheer staat er een nieuw
+scherm **Gebruikscijfers**, waar alles wat over het gebruik van de app gaat nu samen staat. Per
+periode — vandaag, de laatste 7 dagen en de laatste 30 dagen — zie je hoeveel verschillende
+bezoekers er waren en hoeveel bezoeken (sessies) ze samen brachten. "Nu online" staat er bovenaan
+als één getal, met de weg naar de volledige lijst; de twee losse getallen die onderaan bij Alle
+gebruikers stonden ("vandaag actief", "deze week actief") zijn ernaartoe verhuisd.
+
+**Accounts en gasten staan naast elkaar, nooit opgeteld.** Een gast kijkt mee via een
+uitnodigingslink en krijgt bij elke installatie automatisch een nieuw account. Dat cijfer zegt dus
+wel iets over hoe druk het is, maar niet over hoeveel mensen het zijn — en daarom mag het nooit in
+hetzelfde getal terechtkomen als de accounts, waar één mens één account is.
+
+**Sessies konden vroeger niet geteld worden.** De app bewaarde per persoon enkel het láátste moment
+dat hij ze opende. Nu komt er per dag, per persoon, per bezoek één tijdstip bij in de databank —
+zonder naam, zonder ploeg, zonder wedstrijd. Eén sessie is één bezoek: de app sluiten en binnen het
+halfuur opnieuw openen blijft hetzelfde bezoek, dus herladen telt niet mee. Dagen ouder dan zes
+weken ruimt het scherm zelf op.
+
+> **Dit vraagt nieuwe beveiligingsregels** (`database.rules.json`, tak `usage`) die met de hand in
+> de Firebase-console gepubliceerd moeten worden. Tot dan blijft de app gewoon werken: het scherm
+> zegt dat de sessieteller nog niet beschikbaar is en toont ondertussen wat het wél weet — hoeveel
+> accounts de app in die periode nog openden, uit "laatst actief".
+
+---
+
 ## v1.21.1
 
 **Een toestel dat achterloopt kan niet meer door een al gespeelde wedstrijd tikken.** Stond de app op

@@ -368,6 +368,40 @@
       }
     },
 
+    "usage": {
+      // GEBRUIKSCIJFERS. Per dag, per soort gebruiker, per persoon, per bezoek één tijdstip:
+      //   usage/<dag>/<soort>/<uid>/<sessie> = tijdstip
+      // Dat is genoeg om bezoekers (verschillende uid's) en sessies (verschillende bezoeken) te
+      // tellen over een dag, een week en een maand, zonder dat er ooit iets opgeteld of verhoogd
+      // moet worden — een teller die twee toestellen tegelijk verhogen zou stilletjes mislopen.
+      // Er staat GEEN naam, geen ploeg en geen wedstrijd in: dit is een teller, geen logboek.
+      //
+      // Lezen en opkuisen: enkel de eigenaar (het scherm "Gebruikscijfers" in App-beheer, dat ook de
+      // dagen ouder dan zes weken opruimt). Schrijven: enkel je eigen briefjes, en enkel onder je
+      // eigen uid — niemand kan de cijfers van iemand anders aandikken.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      ".write": "auth != null && root.child('owner').val() === auth.uid",
+      "$dag": {
+        "$soort": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            // De dagsleutel moet een datum zijn (anders groeit de tak vol met verzonnen sleutels die
+            // het opkuisen op datum nooit meer te pakken krijgt), en een GAST kan zichzelf niet in de
+            // accountkolom zetten. Die tweede clausule staat bewust omgekeerd geformuleerd: is de
+            // herkomst van de aanmelding om welke reden dan ook niet af te lezen, dan blijft het
+            // gewone schrijven werken en valt enkel deze extra bescherming weg — een teller die
+            // zwijgt is hier erger dan een gast die één wegwerp-account in de verkeerde kolom zet.
+            ".write": "auth != null && auth.uid === $uid && ($soort === 'a' || $soort === 'g') && $dag.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && !($soort === 'a' && auth.token.firebase.sign_in_provider === 'anonymous')",
+            "$sessie": {
+              // Eén getal per bezoek, en niet in de toekomst — net als bij de aanwezigheid: anders
+              // kan iemand zich een tijdstempel van volgend jaar geven.
+              ".validate": "newData.isNumber() && newData.val() <= now && $sessie.matches(/^[a-z0-9]{1,32}$/)"
+            }
+          }
+        }
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false
