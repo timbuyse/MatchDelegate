@@ -54,14 +54,40 @@ async function loadClubBeheerView() {
   const clubId = (_clubBeheerId && clubIds.includes(_clubBeheerId)) ? _clubBeheerId : clubIds[0];
   _clubBeheerId = clubId;
   try {
-    const club = (await fbOnce(fbdb.ref('clubs/' + clubId))).val() || {};
-    const clubName = (club.info && club.info.name) || 'Mijn club';
-    const teamIds = Object.keys(club.teams || {});
+    // NIET OP HET CLUBLOGO WACHTEN (v1.22.x). `clubs/{id}` in één keer ophalen sleept het logo mee —
+    // tientallen KB waar dit scherm alleen een miniatuur van toont, terwijl al de rest erop wacht.
+    // Naam, beheerders en ploegenlijst apart; het logo schuift na de opbouw in zijn kaartje (zie
+    // vulClubLogoKaart onderaan dit blok).
+    const leesClub = async (pad, leeg) => {
+      try { const v = (await fbOnce(fbdb.ref('clubs/' + clubId + '/' + pad))).val(); return (v === null || v === undefined) ? leeg : v; }
+      catch (e) { return leeg; }
+    };
+    const [clubNaamRuw, clubAdmins, clubTeams] = await Promise.all([
+      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}),
+    ]);
+    const clubName = clubNaamRuw || 'Mijn club';
+    const teamIds = Object.keys(clubTeams);
     // Altijd vers de naam ophalen (niet op de cache vertrouwen): zo weten we of de ploeg nog
     // bestaat. Een ploeg die verwijderd is laat anders een wees-indexregel achter (info bestaat
     // niet meer) — die tonen we niet én kuisen we meteen op uit clubs/{id}/teams.
+    //
+    // NIET DE HELE INFO-NODE (v1.22.x). Daar zit ook `clubLogo` in, en dat is een afbeelding van
+    // tientallen KB die bij élke ploeg apart bewaard zit. Twaalf ploegen betekende dus twaalf keer
+    // hetzelfde logo binnenhalen voor twee veldjes. Nu enkel de naam en het archiefvinkje.
     const fetched = await Promise.all(teamIds.map(async tid => {
-      try { const s = await fbOnce(fbdb.ref('teams/' + tid + '/info')); const inf = s.val() || {}; return { id: tid, name: s.exists() ? (inf.name || '') : null, archived: !!inf.archived, exists: s.exists() }; }
+      try {
+        const [nameSnap, archSnap] = await Promise.all([
+          fbOnce(fbdb.ref('teams/' + tid + '/info/name')),
+          fbOnce(fbdb.ref('teams/' + tid + '/info/archived')),
+        ]);
+        if (nameSnap.exists()) return { id: tid, name: nameSnap.val() || '', archived: !!archSnap.val(), exists: true };
+        // "Bestaat niet meer" hing vroeger aan de info-node; nu aan de naam. Voor het tonen maakt dat
+        // niets uit, maar het opkuisen hieronder VERWIJDERT een indexregel — daarom kijkt een ploeg
+        // zonder naam nog één keer de info-node zelf na vóór we die conclusie trekken. Dat gebeurt
+        // bijna nooit, dus het kost in de praktijk geen extra ophaalbeurt.
+        const bestaat = (await fbOnce(fbdb.ref('teams/' + tid + '/info'))).exists();
+        return { id: tid, name: bestaat ? '' : null, archived: !!archSnap.val(), exists: bestaat };
+      }
       catch (e) { return { id: tid, name: teamNames[tid] || '', archived: !!archivedTeams[tid], exists: true }; } // bij een fout (bv. offline) niet opkuisen
     }));
     const dead = fetched.filter(r => !r.exists);
@@ -84,7 +110,7 @@ async function loadClubBeheerView() {
     // Wie beheert deze club? Namen zijn "best effort": usersByEmail is owner-only, dus een
     // clubbeheerder valt terug op de ledeninformatie van zijn eigen clubploegen en anders op de
     // ruwe id. Een naam die ontbreekt mag dit scherm niet doen falen.
-    const clubAdminUids = Object.keys(club.admins || {});
+    const clubAdminUids = Object.keys(clubAdmins || {});
     const clubAdminNamen = {};
     if (clubAdminUids.length) {
       let ube = {};
@@ -105,7 +131,7 @@ async function loadClubBeheerView() {
       : '';
     el.innerHTML = `
       ${clubSelector}
-      ${clubLogoCardHtml(clubId, (club.info && club.info.logo) || '', 'loadClubBeheerView()')}
+      ${clubLogoCardHtml(clubId, '', 'loadClubBeheerView()', false)}
       <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
       <div class="card">
         ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
@@ -151,6 +177,7 @@ async function loadClubBeheerView() {
         </div>`).join('')}
         <p style="font-size:12px;color:var(--txt2);margin-top:8px">Gearchiveerde ploegen zijn verborgen uit de actieve lijsten maar behouden al hun gegevens.</p>
       </div>` : ''}`;
+    vulClubLogoKaart(clubId, 'loadClubBeheerView()');   // komt na, zie daar
   } catch (e) {
     el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de club niet laden. Probeer opnieuw.</p></div>';
   }
@@ -237,8 +264,29 @@ async function loadClubsAdminView() {
   const el = document.getElementById('clubsadmin-content');
   if (!el || !isOwner || !fbdb) return;
   try {
-    const clubsVal = (await fbOnce(fbdb.ref('clubs'))).val() || {};
-    const clubIds = Object.keys(clubsVal);
+    // NIET OP DE LOGO'S WACHTEN (v1.22.x). `clubs` in één keer ophalen betekent ook élk clublogo
+    // meenemen — tientallen KB per club voor een miniatuur van 44 pixels. Al de rest van dit scherm
+    // stond daarop te wachten, en op een zwakke verbinding bleef het daardoor op "Laden..." staan.
+    // Nu komt eerst alles wat tekst is (naam, beheerders, ploegen) en schuiven de logo's er na de
+    // opbouw in, elk apart. Lukt de sleutellijst niet, dan valt het terug op de oude weg.
+    let clubsVal = null;
+    let clubIds = await fbSleutels('clubs');
+    if (!clubIds) { clubsVal = (await fbOnce(fbdb.ref('clubs'))).val() || {}; clubIds = Object.keys(clubsVal); }
+    const clubData = {};
+    await Promise.all(clubIds.map(async cid => {
+      if (clubsVal) {
+        const c = clubsVal[cid] || {};
+        clubData[cid] = { naam: (c.info && c.info.name) || '', admins: c.admins || {}, teams: c.teams || {}, logo: (c.info && c.info.logo) || '', logoGekend: true };
+        return;
+      }
+      const lees = async (pad, leeg) => { try { const v = (await fbOnce(fbdb.ref(pad))).val(); return (v === null || v === undefined) ? leeg : v; } catch (e) { return leeg; } };
+      const [naam, admins, teams] = await Promise.all([
+        lees('clubs/' + cid + '/info/name', ''),
+        lees('clubs/' + cid + '/admins', {}),
+        lees('clubs/' + cid + '/teams', {}),
+      ]);
+      clubData[cid] = { naam: naam || '', admins, teams, logo: '', logoGekend: false };
+    }));
     // Namen/e-mails van gebruikers samenstellen uit usersByEmail (elke ingelogde gebruiker) +
     // memberInfo (fallback voor wie enkel als ploeglid bekend is), zodat aangestelde clubbeheerders
     // met naam getoond worden i.p.v. een ruwe uid.
@@ -254,7 +302,7 @@ async function loadClubsAdminView() {
     // Ploegnamen van alle clubploegen ophalen (voor de per-ploeg aanstel-knoppen). Verwijderde
     // ploegen (naam niet gevonden) laten we weg — die tellen ook niet mee voor "leeg" bij verwijderen.
     const allTeamIds = [];
-    clubIds.forEach(cid => Object.keys((clubsVal[cid] || {}).teams || {}).forEach(t => allTeamIds.push(t)));
+    clubIds.forEach(cid => Object.keys(clubData[cid].teams || {}).forEach(t => allTeamIds.push(t)));
     const teamNameMap = {};
     await Promise.all([...new Set(allTeamIds)].map(async t => {
       try { const s = await fbOnce(fbdb.ref('teams/' + t + '/info/name')); teamNameMap[t] = s.exists() ? (s.val() || t) : null; }
@@ -262,8 +310,8 @@ async function loadClubsAdminView() {
     }));
     const secMini = 'font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px';
     const clubsHtml = clubIds.length ? clubIds.map(cid => {
-      const c = clubsVal[cid] || {};
-      const nm = (c.info && c.info.name) || '(naamloze club)';
+      const c = clubData[cid];
+      const nm = c.naam || '(naamloze club)';
       const teamIds = Object.keys(c.teams || {}).filter(t => teamNameMap[t] !== null);
       const nTeams = teamIds.length;
       const admins = Object.keys(c.admins || {});
@@ -282,14 +330,7 @@ async function loadClubsAdminView() {
           <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="renameClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.edit)} Hernoemen</button>
         </div>
         <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'}</div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          ${(c.info && c.info.logo)
-            ? `<img src="${c.info.logo}" alt="Clublogo" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
-            : `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`}
-          <span style="flex:1;font-size:13px;color:var(--txt2)">Clublogo</span>
-          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="pickClubLogo('${cid}',()=>{loadClubsAdminView()})">${(c.info && c.info.logo) ? 'Wijzigen' : 'Toevoegen'}</button>
-          ${(c.info && c.info.logo) ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubLogo('${cid}',()=>{loadClubsAdminView()})">Verwijderen</button>` : ''}
-        </div>
+        <div id="ca-logo-${cid}" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">${clubsAdminLogoCel(cid, c.logo, c.logoGekend)}</div>
         <div style="${secMini}">Clubbeheerders</div>
         ${adminHtml}
         <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
@@ -302,9 +343,32 @@ async function loadClubsAdminView() {
       <button class="btn btn-green" onclick="showCreateClubModal()">${icI(IC.plus)} Nieuwe club aanmaken</button>
       <div class="sec" style="margin-top:16px">Clubs</div>
       ${clubsHtml}`;
+    // De logo's komen na. Bewust NIET afgewacht: het scherm staat er al en is al bruikbaar. Is de
+    // gebruiker intussen weg, dan bestaat het vakje niet meer en gebeurt er gewoon niets.
+    // Een ruimere wachttijd dan de gewone vier seconden, want dit is het enige zware stuk.
+    clubIds.filter(cid => !clubData[cid].logoGekend).forEach(async cid => {
+      let logo = '';
+      try { logo = (await fbOnce(fbdb.ref('clubs/' + cid + '/info/logo'), 20000)).val() || ''; } catch (e) { return; }
+      const cel = document.getElementById('ca-logo-' + cid);
+      if (cel) cel.innerHTML = clubsAdminLogoCel(cid, logo, true);
+    });
   } catch (e) {
     el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de clubs niet laden. Probeer opnieuw.</p></div>';
   }
+}
+// Het logo-vakje van één club in "Clubs beheren". `gekend` is false zolang het logo nog onderweg is:
+// dan staat er een leeg kadertje en nog geen knop, want of het "Toevoegen" of "Wijzigen" moet zeggen,
+// weten we op dat moment nog niet.
+function clubsAdminLogoCel(cid, logo, gekend) {
+  const beeld = !gekend
+    ? `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px solid var(--bdr)"></div>`
+    : (logo
+      ? `<img src="${logo}" alt="Clublogo" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
+      : `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`);
+  const knoppen = !gekend ? ''
+    : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="pickClubLogo('${cid}',()=>{loadClubsAdminView()})">${logo ? 'Wijzigen' : 'Toevoegen'}</button>
+       ${logo ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubLogo('${cid}',()=>{loadClubsAdminView()})">Verwijderen</button>` : ''}`;
+  return `${beeld}<span style="flex:1;font-size:13px;color:var(--txt2)">Clublogo</span>${knoppen}`;
 }
 function showCreateClubModal() {
   openModal(`<h3>${icI(IC.plus)} Nieuwe club</h3>
@@ -386,22 +450,41 @@ async function removeClubLogo(cid, onDone) {
 }
 // Herbruikbaar logo-kaartje voor de beheerschermen. `reloadCall` is een JS-expressie (string)
 // die het scherm herlaadt na een wijziging (bv. "loadClubBeheerView()").
-function clubLogoCardHtml(cid, logo, reloadCall) {
+// `gekend` is false zolang het logo nog onderweg is: dan staat er een leeg kadertje en nog geen knop,
+// want of die "Toevoegen" of "Wijzigen" moet zeggen, weten we op dat moment nog niet. Zie
+// vulClubLogoKaart hieronder — het scherm hoeft niet op die tientallen KB te wachten.
+function clubLogoCardHtml(cid, logo, reloadCall, gekend) {
   const rc = (reloadCall || '').replace(/"/g, '&quot;');
-  const preview = logo
-    ? `<img src="${logo}" alt="Clublogo" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
-    : `<div style="width:56px;height:56px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`;
-  return `<div class="card" style="display:flex;align-items:center;gap:12px">
+  const wacht = (gekend === false);
+  const preview = wacht
+    ? `<div style="width:56px;height:56px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px solid var(--bdr)"></div>`
+    : (logo
+      ? `<img src="${logo}" alt="Clublogo" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
+      : `<div style="width:56px;height:56px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`);
+  return `<div class="card" id="club-logo-kaart-${cid}" style="display:flex;align-items:center;gap:12px">
     ${preview}
     <div style="flex:1">
       <div style="font-weight:600;font-size:14px">Clublogo</div>
-      <div style="font-size:12px;color:var(--txt2)">${logo ? 'Wordt getoond op de ploegpagina en in de PDF.' : 'Nog geen logo ingesteld.'}</div>
+      <div style="font-size:12px;color:var(--txt2)">${wacht ? 'Laden...' : (logo ? 'Wordt getoond op de ploegpagina en in de PDF.' : 'Nog geen logo ingesteld.')}</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px">
-      <button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="pickClubLogo('${cid}',()=>{${rc}})">${logo ? 'Wijzigen' : 'Toevoegen'}</button>
-      ${logo ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="removeClubLogo('${cid}',()=>{${rc}})">Verwijderen</button>` : ''}
+      ${wacht ? '' : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="pickClubLogo('${cid}',()=>{${rc}})">${logo ? 'Wijzigen' : 'Toevoegen'}</button>
+      ${logo ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;white-space:nowrap" onclick="removeClubLogo('${cid}',()=>{${rc}})">Verwijderen</button>` : ''}`}
     </div>
   </div>`;
+}
+// Haalt het clublogo op en schuift het in de kaart die clubLogoCardHtml al neerzette. Bewust niet
+// afgewacht door de oproeper: het scherm staat er al. Is de gebruiker intussen weg, dan bestaat de
+// kaart niet meer en gebeurt er niets. Ruimere wachttijd dan de gewone vier seconden, want dit is
+// het enige zware stuk van zo'n scherm.
+async function vulClubLogoKaart(cid, reloadCall) {
+  let logo = '';
+  try { logo = (await fbOnce(fbdb.ref('clubs/' + cid + '/info/logo'), 20000)).val() || ''; } catch (e) { return; }
+  const kaart = document.getElementById('club-logo-kaart-' + cid);
+  if (!kaart) return;
+  const vers = document.createElement('div');
+  vers.innerHTML = clubLogoCardHtml(cid, logo, reloadCall, true);
+  if (vers.firstElementChild) kaart.replaceWith(vers.firstElementChild);
 }
 function showAppointClubAdmin(cid) {
   openModal(`<h3>${icI(IC.shield)} Clubbeheerder aanstellen</h3>
@@ -547,24 +630,21 @@ function renderAllUsers() {
 // enkel per account lezen, maar die hebben we niet nodig.
 // Lukt het lezen toch niet, dan valt het terug op wie een beheerdersaanvraag deed of goedgekeurd is
 // (ook owner-leesbaar) en zegt het scherm er eerlijk bij dat de lijst dan onvolledig is.
-async function losseAccountsSectie(bekendeUids) {
-  const uitReq = async (pad) => {
-    try { return ((await fbOnce(fbdb.ref(pad))).val()) || {}; } catch (e) { return {}; }
-  };
-  const [goedgekeurd, aanvragen, clubsVal] = await Promise.all([
-    uitReq('approvedAdmins'), uitReq('adminRequests'), uitReq('clubs')]);
-  // Wie beheert érgens een club? Dat verklaart waarom iemand zonder ploeg tóch in de app zit.
-  const clubBeheerders = new Set();
-  Object.values(clubsVal).forEach(c => Object.keys((c && c.admins) || {}).forEach(u => clubBeheerders.add(u)));
-  let lijst = [], volledig = true;
-  try {
-    const val = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {};
+//
+// De vier takken die hiervoor nodig zijn worden NIET meer hier opgehaald: loadAllUsersView heeft ze
+// al, en dat scheelt vier ophaalbeurten bovenop de rest van dat scherm. Ze komen mee in `bronnen`.
+function losseAccountsSectie(bekendeUids, bronnen) {
+  const goedgekeurd = (bronnen && bronnen.goedgekeurd) || {};
+  const aanvragen = (bronnen && bronnen.aanvragen) || {};
+  const clubBeheerders = (bronnen && bronnen.clubBeheerders) || new Set();
+  let lijst = [], volledig = !!(bronnen && bronnen.ubeGelukt);
+  if (volledig) {
+    const val = (bronnen && bronnen.ube) || {};
     lijst = Object.keys(val).filter(uid => !bekendeUids.has(uid)).map(uid => {
       const u = val[uid] || {};
       return { uid, naam: u.name || '', email: u.email || '', bevestigd: !!u.verified };
     });
-  } catch (e) {
-    volledig = false;
+  } else {
     const samen = {};
     for (const bron of [aanvragen, goedgekeurd]) {
       for (const uid of Object.keys(bron)) {
@@ -637,31 +717,99 @@ function lastSeenRegel(uid) {
   const t = _lastSeenVal[uid];
   return t ? ` · <span style="color:var(--txt2)">laatst actief: ${lastSeenTekst(t)}</span>` : '';
 }
+// ALLEEN OPHALEN WAT DIT SCHERM TOONT (v1.22.x).
+// Tot hier begon dit scherm met één `teams`-oproep: de hele ploegenboom. Gemeten op de echte
+// databank (29-08-2026): 786 KB binnengehaald voor 2 KB die er ook echt op het scherm belandt —
+// 404 KB wedstrijden, 341 KB clublogo (hetzelfde logo staat bij elk van de twaalf ploegen apart),
+// 30 KB kernen. Op een goede lijn duurde dat een halve seconde; op een zwakke mobiele verbinding
+// liep het over de wachttijd van fbOnce en bleef het scherm op "Laden..." staan.
+//
+// Wat dit scherm van een ploeg nodig heeft, is drie dingen: de naam, de club en wie er lid is. Die
+// worden nu apart opgehaald — samen een paar KB. De lijst van ploegen zelf komt uit fbSleutels
+// (enkel de namen van de takken, zie core.js).
 async function loadAllUsersView() {
   const el = document.getElementById('allusers-view-list');
   if (!el || !isOwner || !fbdb) return;
   try {
-    const teamsSnap = await fbOnce(fbdb.ref('teams'));
-    const teamsVal = teamsSnap.val() || {};
-    // Faalt dit (regels nog niet gepubliceerd), dan blijft het overzicht gewoon zonder datums staan.
-    try { _lastSeenVal = (await fbOnce(fbdb.ref('lastSeen'))).val() || {}; } catch (e) { _lastSeenVal = {}; }
+    // Eén hulpje voor "lezen, en bij een fout gewoon leeg teruggeven". Een enkele mislukte tak mag
+    // nooit het hele scherm doen kantelen — dat was ook de opzet van de oude losse try/catch'en.
+    const stil = async (pad, leeg) => {
+      try { const v = (await fbOnce(fbdb.ref(pad))).val(); return (v === null || v === undefined) ? leeg : v; }
+      catch (e) { return leeg; }
+    };
 
-    // Per ploeg, als inklapbare sectie
-    const teamIds = Object.keys(teamsVal);
-    const memberInfoSnaps = await Promise.all(
-      teamIds.map(tid => fbOnce(fbdb.ref('memberInfo/' + tid)).catch(() => null))
-    );
+    // RONDE 1 — wat er bestaat, en alles wat in één beweging kan.
+    // `memberInfo` in zijn geheel vervangt de twaalf aparte oproepen van vroeger: de eigenaar mag de
+    // hele tak lezen en ze bevat enkel namen en e-mailadressen (een paar KB).
+    let ubeGelukt = true;
+    const [teamKeys, clubKeys, miAlle, lastSeen, ube, goedgekeurd, aanvragen] = await Promise.all([
+      fbSleutels('teams'),
+      fbSleutels('clubs'),
+      stil('memberInfo', {}),
+      // Faalt dit (regels nog niet gepubliceerd), dan blijft het overzicht gewoon zonder datums staan.
+      stil('lastSeen', {}),
+      fbOnce(fbdb.ref('usersByEmail')).then(s => s.val() || {}).catch(() => { ubeGelukt = false; return {}; }),
+      stil('approvedAdmins', {}),
+      stil('adminRequests', {}),
+    ]);
+    _lastSeenVal = lastSeen || {};
+
+    // RONDE 2 — de clubs. Per club enkel de naam, de beheerders en de ploegenlijst; het clublogo
+    // (tientallen KB) blijft waar het is, want dit scherm toont het niet.
+    const clubs = {};
+    await Promise.all((clubKeys || []).map(async cid => {
+      const [naam, admins, ploegen] = await Promise.all([
+        stil('clubs/' + cid + '/info/name', ''),
+        stil('clubs/' + cid + '/admins', {}),
+        stil('clubs/' + cid + '/teams', {}),
+      ]);
+      clubs[cid] = { naam: naam || '', admins, ploegen };
+    }));
+    // Wie beheert érgens een club? Dat verklaart waarom iemand zonder ploeg tóch in de app zit.
+    const clubBeheerders = new Set();
+    Object.values(clubs).forEach(c => Object.keys(c.admins || {}).forEach(u => clubBeheerders.add(u)));
+    // Van welke club is deze ploeg? Uit de ploegenlijst van de club, zodat de clubnaam maar één keer
+    // per club opgehaald wordt in plaats van één keer per ploeg.
+    const clubVanPloeg = {};
+    Object.values(clubs).forEach(c => Object.keys(c.ploegen || {}).forEach(t => { clubVanPloeg[t] = c.naam; }));
+
+    // EEN PLOEG ZONDER CLUB MAG NIET STIL WEGVALLEN. Dit is het enige scherm waar de eigenaar zo'n
+    // ploeg — of een ploeg zonder leden — nog ziet staan en kan verwijderen. Daarom is de bron van de
+    // ploegenlijst `teams` zelf en niet de ploegenlijst van de clubs. Lukt dat opvragen niet, dan
+    // vallen we terug op wat we zonder die lijst kennen (ploegen met ledeninformatie + ploegen die in
+    // een club zitten) en zegt het scherm er met zoveel woorden bij dat er ploegen kunnen ontbreken.
+    const ploegenVolledig = Array.isArray(teamKeys);
+    let teamIds = teamKeys;
+    if (!ploegenVolledig) {
+      const uit = new Set(Object.keys(miAlle || {}));
+      Object.keys(clubVanPloeg).forEach(t => uit.add(t));
+      teamIds = Array.from(uit);
+    }
+
+    // RONDE 3 — per ploeg: de naam en de ledenlijst. `members` is de enige plek waar de rol echt
+    // klopt: promoveren en degraderen schrijven alleen daar, niet in de ledeninformatie.
+    const ploegen = await Promise.all(teamIds.map(async tid => {
+      const [naam, members] = await Promise.all([
+        stil('teams/' + tid + '/info/name', ''),
+        stil('teams/' + tid + '/members', {}),
+      ]);
+      return { tid, naam, members };
+    }));
+    // Een ploeg die wél een club heeft maar (nog) niet in de ploegenlijst van die club staat, zou
+    // hierboven zonder clubnaam blijven. Zeldzaam, dus halen we die ene naam pas op als het gebeurt.
+    await Promise.all(ploegen.filter(p => !clubVanPloeg[p.tid]).map(async p => {
+      const cn = await stil('teams/' + p.tid + '/info/clubName', '');
+      if (cn) clubVanPloeg[p.tid] = cn;
+    }));
 
     const sections = [];
     const bekendeUids = new Set();   // iedereen die ergens lid is — zie losseAccountsSectie
-    for (let i = 0; i < teamIds.length; i++) {
-      const tid = teamIds[i];
-      const team = teamsVal[tid] || {};
-      const members = team.members || {};
-      const info = (memberInfoSnaps[i] && memberInfoSnaps[i].val()) || {};
-      const tInfo = team.info || {};
-      const teamNaam = tInfo.name || (team.club && team.club.name) || tid;
-      const clubNaam = tInfo.clubName || '';
+    for (let i = 0; i < ploegen.length; i++) {
+      const tid = ploegen[i].tid;
+      const members = ploegen[i].members || {};
+      const info = (miAlle && miAlle[tid]) || {};
+      const teamNaam = ploegen[i].naam || tid;
+      const clubNaam = clubVanPloeg[tid] || '';
       const sectieTitel = (clubNaam ? clubNaam + ' · ' : '') + teamNaam;
       const uids = Object.keys(members).sort((a, b) =>
         (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
@@ -703,7 +851,7 @@ async function loadAllUsersView() {
       </details>`);
     }
 
-    const losse = await losseAccountsSectie(bekendeUids);
+    const losse = losseAccountsSectie(bekendeUids, { ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders });
     // WORDT DE APP GEBRUIKT? Dat stond hier als twee losse getallen ("vandaag/deze week actief"),
     // terwijl "Nu online" een scherm verderop zat. Alles wat over het gebruik van de app gaat, staat
     // nu bij elkaar op één scherm (renderGebruik) — hier blijft de weg ernaartoe. Deze lijst gaat
@@ -711,7 +859,9 @@ async function loadAllUsersView() {
     const gebruik = `<div class="card" style="margin-bottom:12px">
       <button class="btn btn-pale btn-sm" style="margin:0" onclick="go('gebruik')">${icI(IC.chart)} Wordt de app gebruikt? Bekijk de cijfers</button>
     </div>`;
-    const kop = gebruik + `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
+    const waarschuwing = ploegenVolledig ? '' :
+      `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De ploegenlijst kon niet opgevraagd worden. Hieronder staan enkel de ploegen die we langs een andere weg kennen — <b>er kunnen ploegen ontbreken</b>. Herlaad het scherm om het opnieuw te proberen.</p></div>`;
+    const kop = gebruik + waarschuwing + `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
     el.innerHTML = kop + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
   } catch (e) {
     console.error('loadAllUsersView fout:', e);

@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.23.1
+
+**De beheerschermen blijven niet meer op "Laden..." staan.** "Alle gebruikers" haalde om een
+ledenlijst te tonen de volledige ploegenboom op: alle wedstrijden van alle seizoenen, alle
+spelerskernen, en het clublogo dat bij elke ploeg apart bewaard staat. Op een goede verbinding duurde
+dat een halve seconde en merkte je niets, maar op een zwakke mobiele verbinding haalde die ophaalbeurt
+de wachttijd van vier seconden niet — en dan bleef het scherm hangen. "Clubbeheer" had hetzelfde
+euvel: dertien keer hetzelfde clublogo binnenhalen voor twee tekstveldjes.
+
+De schermen halen nu alleen nog op wat ze tonen. Gemeten op de echte gegevens, tot het scherm er
+staat:
+
+| Scherm | Was | Nu |
+|---|---|---|
+| Alle gebruikers | 886 KB | 12 KB |
+| Clubbeheer | 403 KB | 3 KB |
+| Clubs beheren | 38 KB | 10 KB |
+
+De clublogo's komen nu ná de opbouw binnen en schuiven in hun kaartje, zodat je niet op een plaatje
+moet wachten om een lijst te kunnen lezen.
+
+---
+
 ## v1.23.0
 
 **Een uitslag die je achteraf ingeeft, levert geen speelminuten meer.** Sluit je een wedstrijd af
