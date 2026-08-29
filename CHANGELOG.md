@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.18.2
+
+**Een speler die in de pauze naar de bank ging, kreeg in het kwartoverzicht soms `0'` te zien in
+plaats van een streepje.** Gevonden in het verslag van de wedstrijd van 29-08-2026: één speler stond
+op `0'` in een kwart dat hij helemaal op de bank zat, terwijl vier ploegmaats in dezelfde situatie
+netjes een streepje kregen.
+
+De oorzaak zat in het tijdstip van een pauzewissel. Die wordt pas weggeschreven wanneer je het
+volgende deel start, en dat gebeurde in deze volgorde: eerst het nieuwe blok openen (de klok krijgt
+zijn starttijd), dan pas de klaargezette wissels loggen met "de speeltijd van nu". Was er tussen die
+twee stappen een milliseconde verstreken, dan viel de wissel technisch gezien *ná* de kwartgrens en
+had de speler die eraf ging een flintertje speeltijd in een kwart waarin hij niet speelde. Afgerond
+werd dat `0'`. Of die milliseconde net tikte is kop of munt, vandaar dat het bij de ene speler
+opviel en bij de andere niet — en bij wie later in datzelfde kwart nog inviel, verdween het in het
+afgeronde getal.
+
+Twee dingen aangepast. Een wissel die in de pauze klaargezet is, krijgt nu als tijdstip exact het
+begin van het nieuwe deel — wat in de code al als bedoeling stond voor pauze-gebeurtenissen, maar
+door dit ene pad niet gevolgd werd. En in het kwartoverzicht (scherm én PDF) telt minder dan één
+seconde in een deel als niet gespeeld: zo staan ook de wedstrijden die je al gespeeld hebt meteen
+juist, want die dragen dat flintertje nog in hun gegevens. Een echte wissel duurt nooit korter dan
+een seconde, dus er kan niets echts wegvallen.
+
+Aan opgeslagen gegevens verandert niets: bestaande wedstrijden worden niet aangeraakt, enkel anders
+gelezen.
+
 ## v1.18.1
 
 **Dezelfde wissel kon een tweede keer klaargezet worden in een later kwart, en niets waarschuwde

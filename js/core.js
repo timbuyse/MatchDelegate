@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.18.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.18.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -619,6 +619,12 @@ function shootoutZin(m) {
 // (20% van 20 min = 4'). Wijzig je dit, kijk dan ook naar `mn()` in teams-tournaments.js en
 // stats-settings.js — die doen hetzelfde voor de totalen.
 function playedMin(ms) { return Math.round((ms || 0) / 60000); }
+// De speeltijd van één speler in één deel, zoals ze in het kwartoverzicht (scherm én PDF) staat.
+// Onder de seconde = niet gespeeld: een echte wissel duurt nooit zo kort, dus wat daar overblijft is
+// afrondingsruis van de kwartgrens zelf. Wedstrijden die vóór 29-08-2026 gespeeld zijn dragen dat
+// flintertje nog in hun gegevens (zie de uitleg bij atBreak in addEvent) en lazen als "0'" in een
+// deel waarin de speler op de bank zat; deze drempel toont ze alsnog als "—".
+function deelMinTxt(ms) { return (ms || 0) >= 1000 ? playedMin(ms) + "'" : '—'; }
 // Club/ploeg-branding (logo + naam), per toestel bewaard
 function getClubName() { return localStorage.getItem('voetbal_club_name') || 'Mijn ploeg'; }
 // Alle eigen sporen van één gebruiker uit de cloud halen: lidmaatschappen, aanvragen en de

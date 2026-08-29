@@ -2075,7 +2075,16 @@ function addEvent(type, extra={}) {
       quarterNum: _postEventQuarter, atBreak: true, type, ...extra });
     return;
   }
-  if (_postEventQuarter !== null && _postEventQuarter) {
+  // EEN PAUZEWISSEL VALT OP DE KWARTGRENS ZELF (29-08-2026). De wissels die in de pauze klaargezet
+  // zijn, worden pas gelogd door startQuarter — en die heeft het nieuwe blok NET daarvoor geopend,
+  // dus getGameTimeMs() telt de eerste milliseconden van dat blok al mee. Zo belandde de wissel een
+  // milliseconde ná de kwartgrens en kreeg de speler die eraf ging een flintertje speeltijd in een
+  // kwart waarin hij op de bank zat: in het kwartoverzicht las dat als "0'" in plaats van "—".
+  // Het is kop of munt of de klok net tikt, dus het viel maar bij één speler tegelijk op.
+  // Deze events dragen atBreak — voor hen is de start van hun eigen blok het juiste tijdstip.
+  if (extra.atBreak && qn) {
+    gms = gameTimeMsAtStartOfQuarter(match, qn);
+  } else if (_postEventQuarter !== null && _postEventQuarter) {
     if (_postEventMinute !== null) {
       const qEnd = Math.max(0, gameTimeMsAtEndOfQuarter(match, _postEventQuarter) - 1);
       gms = Math.min(gameTimeMsAtStartOfQuarter(match, _postEventQuarter) + (_postEventMinute - 1) * 60000, qEnd);
