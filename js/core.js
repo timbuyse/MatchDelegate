@@ -2081,6 +2081,40 @@ function fbOnce(ref, ms = 4000) {
     new Promise((_, reject) => setTimeout(() => reject(new Error('fb-timeout')), ms))
   ]);
 }
+// ENKEL DE SLEUTELS, NIET DE INHOUD.
+// De Firebase-bibliotheek kent maar één manier om te weten wélke ploegen er bestaan: de tak `teams`
+// in haar geheel binnenhalen — met alle wedstrijden en met het clublogo dat bij elke ploeg apart
+// bewaard zit. Gemeten op de echte databank (29-08-2026): 786 KB binnen voor 2 KB die het scherm
+// "Alle gebruikers" ook echt gebruikt. Op een zwakke verbinding haalde dat de wachttijd van fbOnce
+// niet en bleef dat scherm op "Laden..." staan.
+//
+// Dezelfde databank heeft naast de websocket ook een gewone HTTP-kant, en die kan wél alleen de
+// namen van de takken teruggeven (`?shallow=true`): een paar honderd bytes i.p.v. honderden KB.
+// De beveiligingsregels gelden daar precies even hard — dit opent geen deur die anders dicht is,
+// het vraagt gewoon minder op. De aanmelding gaat mee als `auth=`, de manier die Firebase daarvoor
+// voorziet; met een kop i.p.v. een parameter zou de browser er een extra heen-en-weer bijdoen.
+//
+// Geeft null terug wanneer het niet lukt (geen netwerk, geen aanmelding, of de HTTP-kant is
+// onbereikbaar), zodat de oproeper zelf kan beslissen wat hij dan toont. Nooit een uitzondering.
+async function fbSleutels(pad, ms = 8000) {
+  if (!fbdb || !currentUser || typeof fetch !== 'function') return null;
+  let basis = '';
+  try { basis = (firebase.app().options || {}).databaseURL || ''; } catch (e) { return null; }
+  if (!basis) return null;
+  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const t = setTimeout(() => { if (ctl) ctl.abort(); }, ms);
+  try {
+    const token = await currentUser.getIdToken();
+    const url = basis.replace(/\/+$/, '') + '/' + pad + '.json?shallow=true&auth=' + encodeURIComponent(token);
+    const res = await fetch(url, ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' });
+    if (!res.ok) return null;
+    const val = await res.json();
+    // Een lege tak geeft null terug; dat is een geldig antwoord ("er is niets") en geen fout.
+    if (val === null) return [];
+    return (val && typeof val === 'object') ? Object.keys(val) : null;
+  } catch (e) { return null; }
+  finally { clearTimeout(t); }
+}
 // Zegt het toestel zelf iets over zijn netwerk, dan loopt dat langs dezelfde wachttijd als de
 // databank — zie _offlineHerzie. Hertekenen gebeurt daar, en enkel wanneer de balk echt omslaat.
 window.addEventListener('online', _offlineHerzie);
