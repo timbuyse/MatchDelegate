@@ -3798,10 +3798,13 @@ async function loadHome() {
   // MAAR NIET BIJ ELKE HIK (v1.9.4, Tim meldde dat hij "nogal veel" offline te zien kreeg).
   // `.info/connected` valt ook weg bij een onderbreking van één seconde, waarna Firebase zichzelf
   // herstelt — en dan stond deze balk er telkens even. Daarom `fbOfflineBevestigd`: die gaat pas aan
-  // als de verbinding een aantal seconden wég blijft (zie FB_OFFLINE_DREMPEL_MS in core.js). Zegt het
-  // toestel zelf dat er geen netwerk is, dan valt er niets te bevestigen en is het meteen waar.
+  // als er een aantal seconden écht iets mis is (zie _offlineHerzie in core.js).
+  // HIER STAAT BEWUST GEEN `navigator.onLine` MEER (29-08-2026). Dat signaal werd hier rechtstreeks
+  // uitgelezen en sloeg de wachttijd hierboven dus over: één hik van het toestel zette de balk
+  // meteen aan. Tim meldde de klacht daarom opnieuw. Beide signalen lopen nu samen door
+  // _offlineHerzie, en dat zet `fbOfflineBevestigd` — de enige bron die deze balk nog leest.
   const isOffline = offlineWithKnownCloudTeam()
-    || (cloudReady && !!activeTeamId && (!navigator.onLine || fbOfflineBevestigd));
+    || (cloudReady && !!activeTeamId && fbOfflineBevestigd);
   const offlineBanner = !isOffline ? '' : (canManage()
     ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je kan gewoon verder werken — wijzigingen worden gesynchroniseerd zodra er terug verbinding is.</div>`
     : `<div class="viewer-banner" style="background:var(--rdp,#fee2e2);color:var(--rd,#dc2626);border-color:#fca5a5;margin-bottom:12px">${icI(IC.warn)} Je bent offline. Je ziet mogelijk verouderde gegevens tot de verbinding terugkeert.</div>`);

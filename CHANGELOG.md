@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.21.2
+
+**De melding "je bent offline" verschijnt niet meer bij elke hik.** De app wachtte al even af voor ze
+dat zei, maar dat gold enkel voor de verbinding met de databank — meldde je telefoon zélf een korte
+onderbreking, dan stond de oranje balk er onmiddellijk. Die ene weg sloeg de wachttijd dus over, en
+daarmee bleef de klacht van v1.9.4 in de praktijk bestaan.
+
+Nu wachten beide signalen even af, op één plek in de code. Bij het opstarten van de app krijgt de
+verbinding wat meer tijd, want dan is "nog niet verbonden" gewoon de normale gang van zaken en niet
+een storing. En een app die uit de achtergrond terugkomt begint opnieuw te kijken, in plaats van de
+melding te tonen van een onderbreking die tijdens het wegklikken al voorbij was.
+
+Blijft de verbinding écht weg, dan verschijnt de melding zoals voorheen — nagemeten in de draaiende
+app: bij een hik van een seconde blijft het scherm rustig, na negen seconden zonder verbinding staat
+de balk er, en zodra de verbinding terug is verdwijnt hij meteen.
+
+---
+
 ## v1.21.1
 
 **Een toestel dat achterloopt kan niet meer door een al gespeelde wedstrijd tikken.** Stond de app op

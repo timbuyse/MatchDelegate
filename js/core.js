@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.21.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.21.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1781,15 +1781,43 @@ let _fbOoitVerbonden = false; // was er al eens verbinding? (onderscheidt "herst
 // Maar sinds v1.9.0 hangt ook de oranje balk op het startscherm eraan, en die verscheen daardoor bij
 // elke korte hik. Tim meldde terecht dat hij "nogal veel" offline te zien kreeg.
 // De banner volgt daarom een BEVESTIGDE toestand: de verbinding moet een aantal seconden weg blijven.
-// Zegt het toestel zelf dat er geen netwerk is (navigator.onLine), dan is er niets te bevestigen —
-// dat is meteen waar.
+// Sinds 29-08-2026 geldt dat óók voor wat het toestel zelf over zijn netwerk zegt — dat sloeg de
+// wachttijd voordien over, en dat was precies waarom de klacht terugkwam. Zie _offlineHerzie.
 let fbOfflineBevestigd = false;
 let _fbOfflineTimer = null;
 const FB_OFFLINE_DREMPEL_MS = 8000;
+// EEN KOUDE START MAG LANGER DUREN (29-08-2026). Firebase meldt bij het opstarten éérst "niet
+// verbonden" en begint dan pas de lijn op te bouwen. Met één drempel van acht seconden verscheen
+// de balk dus tijdens het gewone opstarten, terwijl er niets aan de hand was. Zolang er nog nooit
+// verbinding geweest is, geldt daarom een ruimere marge.
+const FB_OFFLINE_START_MS = 20000;
+// Is er op DIT moment iets mis? Beide signalen tellen mee: de databank (.info/connected) en wat het
+// toestel zelf over zijn netwerk zegt. `fbConnected === null` betekent "nog niets gehoord" en is
+// bewust géén storing — dat is precies de toestand vlak na het opstarten.
+function _offlineNu() { return fbConnected === false || navigator.onLine === false; }
 function _zetOfflineBevestigd(v) {
   if (fbOfflineBevestigd === v) return;
   fbOfflineBevestigd = v;
   if (view === 'home') render();
+}
+// HET ENIGE PUNT WAAR DE BALK AAN- EN UITGAAT (29-08-2026). Voordien had elk signaal zijn eigen weg:
+// de databank liep via de drempel hierboven, maar `navigator.onLine` werd rechtstreeks in de banner
+// uitgelezen en sloeg die drempel dus over. Eén hik van het toestel — wifi naar 4G, een seconde
+// niets — zette de balk meteen aan, precies de klacht die met v1.9.4 opgelost had moeten zijn.
+// Tim meldde ze op 29-08-2026 opnieuw. Beide signalen lopen nu door dezelfde wachttijd.
+function _offlineHerzie() {
+  if (!_offlineNu()) {
+    // Weer goed: meteen weg. Op goed nieuws hoeft niemand te wachten.
+    if (_fbOfflineTimer) { clearTimeout(_fbOfflineTimer); _fbOfflineTimer = null; }
+    _zetOfflineBevestigd(false);
+    return;
+  }
+  if (_fbOfflineTimer || fbOfflineBevestigd) return;   // al aan het aftellen, of al gemeld
+  const ms = _fbOoitVerbonden ? FB_OFFLINE_DREMPEL_MS : FB_OFFLINE_START_MS;
+  _fbOfflineTimer = setTimeout(() => {
+    _fbOfflineTimer = null;
+    if (_offlineNu()) _zetOfflineBevestigd(true);
+  }, ms);
 }
 // Laatste wijziging van een ánder toestel op een lopende wedstrijd: {matchId, when}. Gevuld door
 // applyCloudMatch, uitgelezen door het livescherm (andereBeheerderActief). Bewust niet bewaard —
@@ -1823,10 +1851,6 @@ function cloudInit() {
       // De banner op het startscherm volgt de BEVESTIGDE toestand, niet elke hik — zie
       // fbOfflineBevestigd hierboven. Terug verbonden: meteen weg, want dan is er goed nieuws te
       // melden en hoeft niemand daarop te wachten.
-      if (fbConnected) { clearTimeout(_fbOfflineTimer); _fbOfflineTimer = null; _zetOfflineBevestigd(false); }
-      else if (!_fbOfflineTimer) {
-        _fbOfflineTimer = setTimeout(() => { _fbOfflineTimer = null; if (!fbConnected) _zetOfflineBevestigd(true); }, FB_OFFLINE_DREMPEL_MS);
-      }
       // TERUG verbonden → het aanwezigheidsbriefje opnieuw neerleggen. De afspraak "ruim dit op als
       // de lijn wegvalt" is bij het wegvallen zelf verbruikt, dus zonder dit staat er na de eerste
       // hik niets meer en verdwijnt dit toestel bij de volgende onderbreking niet meer uit de lijst.
@@ -1836,6 +1860,7 @@ function cloudInit() {
       // elke app-start hetzelfde twee keer wegschrijven.
       const presHerstel = _fbOoitVerbonden;
       if (fbConnected) _fbOoitVerbonden = true;
+      _offlineHerzie();
       if (fbConnected && presHerstel && currentUser) { _presUit = false; presenceStart(); }
     });
     // Klokverschil met de server. De aanwezigheidslijst vergelijkt tijdstempels die de SERVER zette
@@ -1993,9 +2018,20 @@ function fbOnce(ref, ms = 4000) {
     new Promise((_, reject) => setTimeout(() => reject(new Error('fb-timeout')), ms))
   ]);
 }
-// Offline-banner op het homescherm live bijwerken bij verbindingswissel.
-window.addEventListener('online', () => { if (view === 'home') render(); });
-window.addEventListener('offline', () => { if (view === 'home') render(); });
+// Zegt het toestel zelf iets over zijn netwerk, dan loopt dat langs dezelfde wachttijd als de
+// databank — zie _offlineHerzie. Hertekenen gebeurt daar, en enkel wanneer de balk echt omslaat.
+window.addEventListener('online', _offlineHerzie);
+window.addEventListener('offline', _offlineHerzie);
+// TERUG IN BEELD NA DE ACHTERGROND (29-08-2026). Een app die weggeklikt was, heeft daar sowieso zijn
+// verbinding verloren; het oordeel dat intussen geveld is, zegt niets over nu. Zonder dit zag je bij
+// het openen van de app de balk staan van een onderbreking die al voorbij was. Opnieuw beginnen
+// tellen dus — behalve wanneer het toestel zelf zegt dat er géén netwerk is, want dan klopt ze.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (_fbOfflineTimer) { clearTimeout(_fbOfflineTimer); _fbOfflineTimer = null; }
+  if (fbOfflineBevestigd && navigator.onLine !== false) _zetOfflineBevestigd(false);
+  _offlineHerzie();
+});
 
 // Onderhoudsstatus lezen + live meeluisteren. Geldt voor élke geauthenticeerde gebruiker
 // (ook een anonieme gast), zodat niemand tijdens onderhoud gewoon doorwerkt. De eigenaar wordt
