@@ -18,7 +18,7 @@ function renderBeheer() {
     <div class="card">
       <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs en clubbeheerders</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="go('online')">${icI(IC.eye)} Nu online</button>
+      <button class="btn btn-dark" style="margin-top:8px" onclick="go('gebruik')">${icI(IC.chart)} Gebruikscijfers</button>
       ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
     </div>
     <div class="sec">${icI(IC.wrench)} Onderhoud</div>
@@ -704,21 +704,13 @@ async function loadAllUsersView() {
     }
 
     const losse = await losseAccountsSectie(bekendeUids);
-    // WORDT DE APP GEBRUIKT? Twee getallen die dat beantwoorden zonder dat je op het juiste moment
-    // moet kijken. Ze tellen ACCOUNTS, niet toestellen, en enkel wie de app sinds v1.19.0 opende.
-    const nu = presenceNu();
-    const dagStart = new Date(nu).setHours(0, 0, 0, 0);
-    const tijden = Object.values(_lastSeenVal).map(Number).filter(Boolean);
-    const vandaag = tijden.filter(t => t >= dagStart).length;
-    const week = tijden.filter(t => t >= nu - 7 * 86400000).length;
-    const gebruik = tijden.length ? `<div class="card" style="margin-bottom:12px">
-      <div style="display:flex;gap:10px;text-align:center">
-        <div style="flex:1"><div style="font-size:26px;font-weight:800;line-height:1.1">${vandaag}</div><div style="font-size:12px;color:var(--txt2)">vandaag actief</div></div>
-        <div style="flex:1;border-left:1px solid var(--bdr)"><div style="font-size:26px;font-weight:800;line-height:1.1">${week}</div><div style="font-size:12px;color:var(--txt2)">deze week actief</div></div>
-      </div>
-      <p style="font-size:12px;color:var(--txt2);margin:10px 0 0">Geteld sinds de app deze versie kreeg. Wie sindsdien niet opende, heeft nog geen datum — dat betekent niet dat hij de app niet gebruikt.</p>
-      <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="go('online')">${icI(IC.eye)} Wie heeft de app nu open?</button>
-    </div>` : '';
+    // WORDT DE APP GEBRUIKT? Dat stond hier als twee losse getallen ("vandaag/deze week actief"),
+    // terwijl "Nu online" een scherm verderop zat. Alles wat over het gebruik van de app gaat, staat
+    // nu bij elkaar op één scherm (renderGebruik) — hier blijft de weg ernaartoe. Deze lijst gaat
+    // over WIE er is; die over HOEVEEL er komen.
+    const gebruik = `<div class="card" style="margin-bottom:12px">
+      <button class="btn btn-pale btn-sm" style="margin:0" onclick="go('gebruik')">${icI(IC.chart)} Wordt de app gebruikt? Bekijk de cijfers</button>
+    </div>`;
     const kop = gebruik + `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
     el.innerHTML = kop + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
   } catch (e) {
@@ -896,6 +888,148 @@ function tekenOnline() {
 }
 function onlineVoetnoot() {
   return `<p style="font-size:12px;color:var(--txt2);margin:14px 0 0">Een toestel verschijnt zodra de app geopend wordt en verdwijnt wanneer de verbinding wegvalt — dat merkt de databank tot ongeveer een minuut later. Een telefoon die in een broekzak verdwijnt of het bereik verliest, valt tijdelijk uit de lijst. Tel dit dus als een goede benadering, niet als een exact bezoekersaantal.</p>`;
+}
+
+// ===================== GEBRUIKSCIJFERS (view) =====================
+// "Wordt de app gebruikt?" — alles wat dat beantwoordt op één plek: hoeveel mensen er nu online
+// zijn, en over een dag, een week en een maand hoeveel verschillende bezoekers er waren en hoeveel
+// bezoeken ze samen brachten. Voordien stonden die brokken op twee schermen: "Nu online" apart, en
+// "vandaag/deze week actief" onderaan bij Alle gebruikers.
+//
+// ACCOUNTS EN GASTEN STAAN NAAST ELKAAR, NIET OPGETELD. Een gast is een ouder die via een link
+// meekijkt; die krijgt bij elke installatie een nieuw wegwerp-account. Twee gasten kunnen dus
+// dezelfde persoon zijn, en één gast die zijn app opnieuw installeert telt er twee. Dat getal zegt
+// wel iets over hoe druk het is, maar niet hoeveel mensen het zijn — en daarom mag het nooit in
+// hetzelfde getal terechtkomen als de accounts, waar één mens één account is.
+//
+// De cijfers komen uit de gebruikstak die core.js bijhoudt (zie daar voor het hoe en waarom).
+const GEBRUIK_VENSTERS = [['Vandaag', 1], ['Laatste 7 dagen', 7], ['Laatste 30 dagen', 30]];
+function renderGebruik() {
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Gebruikscijfers</h1></div>
+    <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  setTimeout(loadGebruikView, 0);
+  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.chart)} Gebruikscijfers</h1></div>
+  <div class="content" id="gebruik-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+// Uit de ruwe gebruikstak halen wat één venster (het aantal dagen tot en met vandaag) opgeleverd
+// heeft. De dagsleutels zijn 2026-08-29, dus ze vergelijken als tekst geeft dezelfde volgorde als
+// vergelijken als datum — daar hangt de filter hieronder aan.
+function telGebruik(ruw, dagen, nu) {
+  const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
+  const uit = { a: { mensen: new Set(), sessies: new Set() }, g: { mensen: new Set(), sessies: new Set() } };
+  for (const dag in (ruw || {})) {
+    if (dag < vanaf) continue;
+    for (const soort in uit) {
+      const tak = (ruw[dag] || {})[soort] || {};
+      for (const uid in tak) {
+        uit[soort].mensen.add(uid);
+        // Eén sessie die over middernacht liep, staat op twee dagen met hetzelfde id: de Set houdt
+        // er één van over, wat klopt zodra je over meer dan één dag kijkt.
+        for (const sid in (tak[uid] || {})) uit[soort].sessies.add(sid);
+      }
+    }
+  }
+  return uit;
+}
+// Hoeveel mensen hebben op dit moment de app open? Eén momentopname (het scherm "Nu online" luistert
+// live mee; hier volstaat een enkele lezing). Telt PERSONEN: twee tabbladen zijn één mens.
+function telNuOnline(alles) {
+  const grens = presenceNu() - PRESENCE_VERS_MS;
+  const mensen = new Set();
+  for (const tid in (alles || {})) {
+    for (const uid in (alles[tid] || {})) {
+      for (const sid in (alles[tid][uid] || {})) {
+        if (Number(((alles[tid][uid] || {})[sid] || {}).t) > grens) { mensen.add(uid); break; }
+      }
+    }
+  }
+  return mensen.size;
+}
+// Oude dagen opruimen. De tak groeit met één briefje per bezoek en niemand kijkt ooit verder terug
+// dan het overzicht toont; zonder dit blijft er jarenlang van alles staan. Enkel de eigenaar mag dit
+// (hij is ook de enige die hier komt), en het gebeurt stil op de achtergrond: mislukt het, dan is er
+// niets aan de hand — de cijfers hierboven kijken toch enkel naar de laatste dertig dagen.
+async function opkuisGebruik() {
+  if (!isOwner || !fbdb) return;
+  const grens = gebruikDag(presenceNu() - GEBRUIK_BEWAAR_DAGEN * 86400000);
+  try {
+    const oud = (await fbOnce(fbdb.ref('usage').orderByKey().endAt(grens).limitToFirst(10))).val() || {};
+    for (const dag of Object.keys(oud)) { try { await fbdb.ref('usage/' + dag).remove(); } catch (e) {} }
+  } catch (e) {}
+}
+async function loadGebruikView() {
+  const el = document.getElementById('gebruik-content');
+  if (!el || !isOwner || !fbdb) return;
+  const nu = presenceNu();
+  // Enkel de dagen die getoond worden ophalen. Zonder deze grens zou elk bezoek aan dit scherm de
+  // hele geschiedenis binnentrekken.
+  let ruw = null;
+  try { ruw = (await fbOnce(fbdb.ref('usage').orderByKey().startAt(gebruikDag(nu - (GEBRUIK_DAGEN - 1) * 86400000)))).val() || {}; }
+  catch (e) { ruw = null; }   // regels nog niet gepubliceerd → terugval op "laatst actief", zie onder
+  let online = null;
+  try { online = telNuOnline((await fbOnce(fbdb.ref('presence'))).val() || {}); } catch (e) {}
+  // Terugval: "laatst actief" bewaart per account het laatste bezoek. Voor het AANTAL BEZOEKERS in
+  // een periode is dat even juist (wie deze week kwam, heeft een datum van deze week); voor sessies
+  // en voor gasten kan het niets zeggen. Beter dan een leeg scherm zolang de regels niet live zijn.
+  if (ruw === null) { try { _lastSeenVal = (await fbOnce(fbdb.ref('lastSeen'))).val() || {}; } catch (e) { _lastSeenVal = {}; } }
+  const lsTijden = ruw === null ? Object.values(_lastSeenVal).map(Number).filter(Boolean) : [];
+
+  const kolTitel = (t, sub) => `<div style="font-size:11px;color:var(--txt2)">${sub}</div><div style="font-size:22px;font-weight:800;line-height:1.15">${t}</div>`;
+  const rijen = GEBRUIK_VENSTERS.map(([label, dagen]) => {
+    const vanafMs = new Date(nu - (dagen - 1) * 86400000).setHours(0, 0, 0, 0);
+    const t = ruw === null ? null : telGebruik(ruw, dagen, nu);
+    // De streep vóór de gastenkolom loopt door tot in de cijfers: zonder die scheiding leest een rij
+    // als vier getallen op een hoop, en juist dat ze niet bij elkaar horen is hier het punt.
+    const cel = (v, streep) => `<td style="text-align:center;padding:8px 2px;font-size:20px;font-weight:800${streep ? ';border-left:1px solid var(--bdr)' : ''}">${v}</td>`;
+    const leeg = (streep) => `<td style="text-align:center;padding:8px 2px;font-size:16px;color:var(--txt2)${streep ? ';border-left:1px solid var(--bdr)' : ''}">—</td>`;
+    return `<tr style="border-top:1px solid var(--bdr)">
+      <td style="padding:8px 6px 8px 0;font-size:13px;color:var(--txt2)">${label}</td>
+      ${t ? cel(t.a.mensen.size) : cel(lsTijden.filter(x => x >= vanafMs).length)}
+      ${t ? cel(t.a.sessies.size) : leeg()}
+      ${t ? cel(t.g.mensen.size, true) : leeg(true)}
+      ${t ? cel(t.g.sessies.size) : leeg()}
+    </tr>`;
+  }).join('');
+
+  const nogNiet = ruw === null ? `<div class="card" style="margin-bottom:12px">
+    <p style="margin:0;font-size:14px">De sessieteller is nog niet beschikbaar: de beveiligingsregels met de gebruikstak moeten eerst gepubliceerd worden in de Firebase-console.</p>
+    <p style="margin:8px 0 0;color:var(--txt2);font-size:13px">Zolang dat niet gebeurd is, staat hieronder wat er wél geweten is: hoeveel accounts de app in die periode nog openden. Sessies en gasten blijven leeg.</p>
+  </div>` : '';
+
+  const onlineKaart = `<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+    <div style="text-align:center;min-width:64px">
+      <div style="font-size:30px;font-weight:800;line-height:1.1;color:${online ? 'var(--grn2)' : 'inherit'}">${online === null ? '—' : online}</div>
+      <div style="font-size:11px;color:var(--txt2)">nu online</div>
+    </div>
+    <div style="flex:1">
+      <p style="margin:0 0 8px;font-size:13px;color:var(--txt2)">${online === null ? 'Kon niet gelezen worden.' : (online === 1 ? 'Eén persoon heeft de app op dit moment open.' : `${online} mensen hebben de app op dit moment open.`)}</p>
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="go('online')">${icI(IC.eye)} Wie zijn dat?</button>
+    </div>
+  </div>`;
+
+  el.innerHTML = onlineKaart + nogNiet + `<div class="card">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th></th>
+          <th colspan="2" style="padding:0 2px 4px;font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Accounts</th>
+          <th colspan="2" style="padding:0 2px 4px;font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;border-left:1px solid var(--bdr)">Gasten</th>
+        </tr>
+        <tr style="font-size:11px;color:var(--txt2)">
+          <th></th>
+          <th style="font-weight:400;padding-bottom:4px">bezoekers</th>
+          <th style="font-weight:400;padding-bottom:4px">sessies</th>
+          <th style="font-weight:400;padding-bottom:4px;border-left:1px solid var(--bdr)">bezoekers</th>
+          <th style="font-weight:400;padding-bottom:4px">sessies</th>
+        </tr>
+      </thead>
+      <tbody>${rijen}</tbody>
+    </table>
+  </div>
+  <p style="font-size:12px;color:var(--txt2);margin:14px 0 0"><b>Bezoekers</b> is hoeveel verschillende mensen de app in die periode openden; wie drie keer kwam, telt één keer. <b>Sessies</b> is hoe vaak ze ze openden. De app en weer sluiten en binnen het halfuur opnieuw openen, blijft hetzelfde bezoek — herladen of even naar een andere app telt dus niet mee als een tweede keer.</p>
+  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>Gasten staan apart en zijn een ruwer cijfer.</b> Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.</p>
+  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Geteld vanaf de dag dat de app deze versie kreeg. Wie sindsdien niet meer opende, staat er niet in — dat betekent niet dat hij de app niet gebruikt. Dagen ouder dan zes weken worden opgeruimd.</p>`;
+  opkuisGebruik();
 }
 
 // ===================== CLUBEXPORT =====================

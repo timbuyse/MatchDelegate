@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.21.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.22.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1955,10 +1955,12 @@ function presenceWeg() {
 function presenceStart() {
   presenceSchrijf(true);
   schrijfLastSeen();
+  schrijfGebruik();
   if (_presTimer) clearInterval(_presTimer);
   // Zelfde ritme voor de teller op het wedstrijdscherm: een briefje dat verloopt zonder dat de
-  // server iets stuurt (toestel hard afgezet), verdwijnt zo vanzelf uit het getal.
-  _presTimer = setInterval(() => { presenceSchrijf(true); updateVolgersBadge(); }, PRESENCE_HB_MS);
+  // server iets stuurt (toestel hard afgezet), verdwijnt zo vanzelf uit het getal. Het gebruiks-
+  // briefje hangt aan hetzelfde ritme, maar schrijft enkel bij een nieuwe dag of een nieuw bezoek.
+  _presTimer = setInterval(() => { presenceSchrijf(true); schrijfGebruik(); updateVolgersBadge(); }, PRESENCE_HB_MS);
 }
 function presenceStop() {
   if (_presTimer) { clearInterval(_presTimer); _presTimer = null; }
@@ -1970,6 +1972,67 @@ function presenceStop() {
 function schrijfLastSeen() {
   if (!fbdb || !currentUser || isGuest || _presUit) return;
   try { fbdb.ref('lastSeen/' + currentUser.uid).set(firebase.database.ServerValue.TIMESTAMP).catch(presenceFout); } catch (e) {}
+}
+
+// ===================== GEBRUIKSCIJFERS =====================
+// "Hoeveel mensen gebruiken de app, en hoe vaak?" (Tim, 29-08-2026). "Laatst actief" hierboven
+// bewaart één getal per account: het LAATSTE moment. Daarmee kan je tellen hoeveel accounts er deze
+// week nog binnenkwamen, maar niet hoe VAAK, en gasten staan er bewust niet in. Voor sessies is er
+// dus een tweede, even klein briefje nodig.
+//
+// WAT ER IN DE DATABANK KOMT — usage/<dag>/<soort>/<uid>/<sessie> = tijdstip (servertijd):
+//   dag    = 2026-08-29, de dag zoals dit toestel ze kent (het publiek zit in één tijdzone)
+//   soort  = 'a' voor een account, 'g' voor een gast. APART GEHOUDEN, en niet uit preutsheid: een
+//            gast krijgt bij elke installatie een nieuw wegwerp-account, dus dat cijfer is wolliger
+//            dan dat van de echte accounts. Bij elkaar optellen zou het geheel onbetrouwbaar maken.
+//   sessie = één bezoek. Verder GEEN naam, geen ploeg, geen wedstrijd: dit is een teller, geen
+//            logboek van wie wat deed.
+// Uniek tellen doe je dan met een Set over de uid's (bezoekers) en een Set over de sessie-id's
+// (sessies). Er hoeft dus nooit iets verhoogd of opgeteld te worden — dat zou mislopen zodra twee
+// toestellen tegelijk schrijven, en het zou de cijfers stilletjes scheeftrekken.
+//
+// WAT IS ÉÉN SESSIE? Een bezoek, niet een laadbeurt van de pagina. Het id blijft in dít toestel
+// bewaard en wordt hergebruikt zolang er niet langer dan een halfuur stilte was. Herladen, of even
+// naar een andere app en terug, telt dus niet als een nieuw bezoek; morgen weer openen wel.
+//
+// Loopt een sessie over middernacht, dan komt er op de tweede dag een briefje bij met HETZELFDE
+// sessie-id. "Sessies vandaag" klopt daardoor voor beide dagen, en over een week telt ze één keer.
+const GEBRUIK_STIL_MS = 30 * 60000;    // zoveel stilte → het volgende bezoek is een nieuwe sessie
+const GEBRUIK_DAGEN = 30;              // hoe ver het overzicht terugkijkt
+const GEBRUIK_BEWAAR_DAGEN = 45;       // ouder dan dit wordt opgeruimd (zie opkuisGebruik)
+// Zelfde stilhoud-truc als bij de aanwezigheid hierboven: zolang de regels niet gepubliceerd zijn,
+// weigert de databank elke schrijfbeurt én schrijft ze daar zelf een waarschuwing bij. Eén weigering
+// volstaat om te weten dat het nog niet aanstaat; daarna zwijgt deze laag tot de volgende app-start.
+let _gebruikUit = false;
+let _gebruikPad = '';                  // laatst weggeschreven briefje, om nutteloze writes te sparen
+function gebruikFout(e) {
+  if (e && (e.code === 'PERMISSION_DENIED' || /permission/i.test(e.message || ''))) _gebruikUit = true;
+  else _gebruikPad = '';               // gewone fout: bij het volgende levensteken opnieuw proberen
+}
+function gebruikDag(ts) {
+  const d = new Date(ts), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+// Het id van het huidige bezoek. Elke aanroep schuift de stilteklok op, dus zolang de app open staat
+// (het levensteken tikt elke minuut) blijft het bezoek hetzelfde.
+function gebruikSessie() {
+  const nu = Date.now();
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem('voetbal_sessie') || 'null'); } catch (e) {}
+  if (!s || !s.id || !(nu - Number(s.t) < GEBRUIK_STIL_MS)) {
+    s = { id: 's' + nu.toString(36) + Math.random().toString(36).slice(2, 8) };
+  }
+  s.t = nu;
+  try { localStorage.setItem('voetbal_sessie', JSON.stringify(s)); } catch (e) {}
+  return s.id;
+}
+function schrijfGebruik() {
+  if (!cloudReady || !fbdb || !currentUser || _gebruikUit) return;
+  const pad = 'usage/' + gebruikDag(presenceNu()) + '/' + (isGuest ? 'g' : 'a')
+    + '/' + currentUser.uid + '/' + gebruikSessie();
+  if (pad === _gebruikPad) return;     // zelfde dag, zelfde bezoek → er valt niets nieuws te melden
+  _gebruikPad = pad;
+  try { fbdb.ref(pad).set(firebase.database.ServerValue.TIMESTAMP).catch(gebruikFout); } catch (e) {}
 }
 // Uit een presence-tak (één ploeg, of alles) halen wat we willen weten. Telt PERSONEN en negeert
 // briefjes die te oud zijn. `matchId` meegeven om enkel de volgers van één wedstrijd te tellen.
