@@ -599,9 +599,34 @@ async function resetUndo() {
   showToast('De wedstrijd staat terug zoals ze was.', 'ok');
   await go(terug.status === 'done' ? 'detail' : 'live', terug.id);
 }
+// IS DIT DEEL AL BEGONNEN OF AL AFGESLOTEN? (29-08-2026)
+// De klok van dit toestel is hier geen bruikbare bron: op een achterlopend toestel is dat net het
+// stuk dat niet klopt. De gebeurtenissen wél — die worden bij een samenvoeging van beide kanten
+// verenigd (zie applyCloudMatch), en wat je bewust terugnam is er mét tombstone uit gehaald en komt
+// dus niet terug. Een verlenging krijgt een nieuw nummer en heeft hier per definitie niets staan.
+function deelHeeftGebeurtenis(m, num, type) {
+  if (!m || !Array.isArray(m.events) || !num) return false;
+  return m.events.some(e => e && e.type === type && e.quarterNum === num);
+}
 async function startQuarter(zonderControle) {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
+  // DIT DEEL IS AL GESPEELD (29-08-2026). De controles hieronder kijken naar de eigen kopie van de
+  // klok; een toestel dat achterloopt heeft daar "we zitten nog in deel 1" staan en mag dan vrolijk
+  // doortikken. Elke start duwt een deel met de klok van NU in de lijst en voert de klaargezette
+  // wissels een tweede keer uit — en omdat de klok bij een samenvoeging integraal van de laatste
+  // schrijver komt (bewuste keuze, zie applyCloudMatch), wint die verkeerde versie.
+  // GEMETEN op een echte wedstrijd van 29-08-2026: zeven overgangen in 43 seconden, uren ná de
+  // wedstrijd zelf. Vier delen met een verkeerde klok, elke pauzewissel dubbel, twee spelers op
+  // dezelfde plek en speelminuten die nergens meer op sloegen.
+  // Deze controle staat VÓÓR die op het vorige deel: "deel 2 is al gespeeld" zegt wat er echt aan de
+  // hand is, terwijl "deel 1 is nog niet afgesloten" je naar de knop stuurt die de schade aanricht.
+  const volgendDeel = (match.currentQuarter || 0) + 1;
+  if (deelHeeftGebeurtenis(match, volgendDeel, 'quarter_start')) {
+    showToast(`${pSing(match)} ${volgendDeel} is hier al gespeeld — dit toestel loopt achter. Wacht tot de wedstrijd bijgewerkt is, of herlaad de app.`, 'err');
+    render();
+    return;
+  }
   // Bovenop de statuscontrole ook naar het BLOK zelf kijken (audit 24-08-2026). pauseQuarter,
   // resumeQuarter en doEndPeriod doen dat al; hier niet, en dus kon een verouderd scherm of een
   // synchronisatie met een medebeheerder een nieuw blok openen terwijl het vorige nog geen eindtijd
@@ -911,6 +936,17 @@ async function doEndPeriod() {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const q = match.quarters[match.quarters.length - 1];
   if (!q || q.endTime) { closeModal(); return; } // dubbeltik-guard: deel al beëindigd
+  // DIT DEEL IS HIER AL AFGESLOTEN (29-08-2026) — zelfde reden als de wachter in startQuarter, en de
+  // andere helft van dezelfde keten: een achterlopend toestel begint met het vorige deel nóg eens af
+  // te sluiten, en pas daarna gaat het door de volgende delen heen. De regel hierboven ziet dat niet,
+  // want die leest de klok van dít toestel. Hervatten ("verkeerd afgesloten") wist het einde-event
+  // mét tombstone, dus daarna kan je gewoon opnieuw afsluiten.
+  if (deelHeeftGebeurtenis(match, q.num, 'quarter_end')) {
+    closeModal();
+    showToast(`${pSing(match)} ${q.num} is hier al afgesloten — dit toestel loopt achter. Wacht tot de wedstrijd bijgewerkt is, of herlaad de app.`, 'err');
+    render();
+    return;
+  }
   if (q.pausedAt) { q.totalPaused = (q.totalPaused || 0) + (Date.now() - q.pausedAt); q.pausedAt = null; }
   const corrInp = document.getElementById('ep-correct-min');
   const corrMin = corrInp ? parseInt(corrInp.value) : NaN;
