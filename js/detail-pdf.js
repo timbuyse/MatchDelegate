@@ -1727,6 +1727,7 @@ views.beheer = renderBeheer;
 views.clubbeheer = renderClubBeheer;
 views.clubsadmin = renderClubsAdmin;
 views.allusers = renderAllUsers;
+views.online = renderOnline;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
 views.tournaments = renderTournamentList;

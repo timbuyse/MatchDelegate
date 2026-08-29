@@ -329,6 +329,45 @@
       }
     },
 
+    "presence": {
+      // WIE HEEFT DE APP OPEN (v1.19.0). Elk toestel legt hier een briefje neer zodra de app opent,
+      // en Firebase ruimt dat zelf op wanneer de verbinding wegvalt (onDisconnect). Er staat GEEN
+      // naam in: enkel een tijdstip, de wedstrijd die open staat en de rol. De namen komen uit
+      // usersByEmail, dat enkel de eigenaar leest.
+      //
+      // Lezen: de eigenaar leest alles (zijn overzicht "Nu online"). Per ploeg leest ook de
+      // ploegbeheerder en de clubbeheerder — dat voedt de teller "N volgen mee" op het
+      // wedstrijdscherm. Een KIJKER mag hier niet lezen: hij heeft er niets aan, en het gaat over
+      // ouders die meekijken.
+      ".read": "auth != null && root.child('owner').val() === auth.uid",
+      "$teamId": {
+        ".read": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+        "$uid": {
+          // Schrijven: enkel je eigen briefjes. Niemand kan iemand anders online of offline zetten.
+          ".read":  "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$sessionId": {
+            // Het tijdstip mag niet in de toekomst liggen. Zonder deze clausule kon iemand zichzelf
+            // een tijdstempel van volgend jaar geven en zo eeuwig als "online" in de lijst blijven
+            // staan — de verse-drempel van de app hangt volledig aan dit getal.
+            ".validate": "newData.hasChild('t') && newData.child('t').isNumber() && newData.child('t').val() <= now"
+          }
+        }
+      }
+    },
+
+    "lastSeen": {
+      // Wanneer opende deze persoon de app voor het laatst (v1.19.0)? Eén getal per account, dat de
+      // gebruiker zelf schrijft bij het openen. Voedt "vandaag/deze week actief" bij Alle gebruikers.
+      // Enkel de eigenaar leest de volledige lijst; iedereen leest en schrijft zijn eigen getal.
+      ".read": "auth != null && root.child('owner').val() === auth.uid",
+      "$uid": {
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() <= now)"
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false
