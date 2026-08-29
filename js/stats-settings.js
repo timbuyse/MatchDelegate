@@ -1519,14 +1519,20 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
     inhoud: `
       <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
-      <p style="margin-top:10px">Onderaan vind je ook:</p>
+      <p style="margin-top:10px">Onderaan staan drie knoppen. <b>'Wedstrijd heropenen'</b> zet ze weer op live (bv. als je te vroeg affloot), <b>'Wedstrijd verwijderen'</b> haalt ze uit de lijst — ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
       <ul class="hdl-list">
+        <li><b>'Uitslag aanpassen'</b> — enkel bij een wedstrijd die je niet live gevolgd hebt.</li>
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
-        <li><b>'Spelernotities'</b> / <b>'Info bewerken'</b> — voeg notities per speler toe of pas de wedstrijdinfo aan.</li>
-        <li><b>'Posities herplaatsen'</b> — pas de opstelling aan.</li>
-        <li><b>'Wedstrijd verwijderen'</b> — haalt ze uit de lijst. Ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten.</li>
+        <li><b>'Info bewerken'</b> — tegenstander, datum, uur, scheidsrechter …</li>
+        <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden.</li>
+        <li><b>'Spelernotities'</b> en <b>'Rugnummers'</b> — per speler, enkel voor deze wedstrijd.</li>
+        <li><b>'Startopstelling herplaatsen'</b> — pas de plaatsen van de aftrap aan.</li>
+        <li><b>'Gebruik als template'</b> — een nieuwe wedstrijd met dezelfde ploeg en opstelling.</li>
       </ul>
-      <p class="hdl-tip"><b>'Posities herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
+      <p class="hdl-tip"><b>'Startopstelling herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
+      <div class="sec">Iemand uit de selectie halen</div>
+      <p>Speel je met twee ploegen tegelijk, dan neem je vaak een ruimere selectie op dan er nodig is. Wie uiteindelijk de hele tijd bij de andere wedstrijd bleef, telt hier anders mee als <b>geselecteerd</b>. Met <b>'Selectie aanpassen'</b> haal je hem er achteraf alsnog uit: hij komt weer bij <b>niet geselecteerd</b> te staan, ook in de statistieken.</p>
+      <p class="hdl-tip">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij. Bij een <b>tornooiwedstrijd</b> kan het niet — daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.</p>
       <div class="sec">Wat staat er in het verslag?</div>
       {{img2}}
       <ul class="hdl-list">

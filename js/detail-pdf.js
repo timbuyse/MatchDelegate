@@ -212,33 +212,13 @@ function renderDetail() {
          scherm bleef toen staan. `ro` bovenaan deze functie is al !canLive(), en de notitiezone
          hierboven gebruikt die maatstaf ook. */ ''}
     ${ro ? '' : `<div class="no-print">
-      ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Zonder deze knop was "Snel resultaat" enkel
-           bereikbaar op een GEPLANDE wedstrijd, en dan kon je een wedstrijd die op "– . –" staat
-           nooit meer een score geven — of een fout ingevoerde snelscore niet meer rechtzetten.
-           Enkel wanneer er géén speeltijd bijgehouden is: bij een live gevolgde wedstrijd corrigeer
-           je de score via de gebeurtenissen, en zou dit venster er doelpunten bovenop zetten. */ ''}
-      ${(!match.tournamentId && !geenUitslag(match) && getGameTimeMs(match) === 0) ? `<div style="margin-bottom:8px">
-        <button class="btn btn-pale" style="width:100%" onclick="modalQuickResult()">${icI(IC.bolt)} Uitslag aanpassen</button>
-      </div>` : ''}
-      <div style="margin-bottom:8px">
-        <button class="btn btn-green" style="width:100%" onclick="modalAddPostEvent()">${icI(IC.log)} Event toevoegen</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <button class="btn btn-orgpale" onclick="modalPlayerNotes()">${icI(IC.edit)} Spelernotities</button>
-        <button class="btn btn-pale" onclick="modalEditMatchInfo()">${icI(IC.clipboard)} Info bewerken</button>
-      </div>
-      ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
-           de ploeg overstapt op spelen zonder vaste nummers. Los van "Spelers bewerken", dat op een
-           afgewerkte wedstrijd te veel kan (spelers verwijderen, lijnen wijzigen). */ ''}
-      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalMatchNumbers()">${icI(IC.shirt)} Rugnummers</button>
-      ${/* "Posities herplaatsen" herplaatst de STARTopstelling. Zodra er een wissel of positiewissel
-           gelogd is, weigert modalEditPositions dat (het zou de kwart-reconstructie corrumperen) —
-           dan stond hier een knop die alleen een foutmelding gaf. Nu verbergen we ze in dat geval,
-           met een regeltje dat naar de juiste weg verwijst. */ ''}
-      ${((FORMATIONS[match.matchType]||[]).length && !(match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap'))
-        ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalEditPositions()">${icI(IC.shirt)} Startopstelling herplaatsen</button>`
-        : ((FORMATIONS[match.matchType]||[]).length ? `<p style="font-size:11px;color:var(--txt2);margin:-2px 0 8px">De startopstelling kan niet meer herplaatst worden — er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met <b>Positiewissel</b> in het livescherm.</p>` : '')}
-      ${cloneMatchBtnHtml(match)}
+      ${/* ÉÉN KNOP IN PLAATS VAN NEGEN (Tim, 29-08-2026). Hier stond elke bewerking als eigen knop
+           onder elkaar — uitslag, event, spelernotities, info, rugnummers, startopstelling, template —
+           en die rij duwde de twee knoppen die je écht zoekt (heropenen, verwijderen) een half scherm
+           naar beneden. Ze zitten nu samen achter "Bewerken", naar het model van het menu van een
+           geplande wedstrijd (modalEditMatchMenu). Wat hier blijft staan, is wat geen bewerking is:
+           doorsturen (hierboven), heropenen en verwijderen. */ ''}
+      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalDetailEditMenu()">${icI(IC.edit)} Bewerken</button>
       ${/* Bij "zonder uitslag" staat heropenen al bovenaan, naast "Alsnog een uitslag ingeven". */ ''}
       ${geenUitslag(match) ? '' : `<button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>`}
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
@@ -265,6 +245,195 @@ function cloneMatchBtnHtml(m) {
     ? `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneTournamentMatch('${m.id}','${m.tournamentId}')">${icI(IC.copy)} Kloon als nieuwe tornooiwedstrijd</button>`
     : `<button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="cloneMatch()">${icI(IC.copy)} Gebruik als template</button>`;
 }
+// ===================== BEWERKEN-MENU VAN EEN AFGEWERKTE WEDSTRIJD =====================
+// Alles wat je aan een gespeelde wedstrijd nog kan wijzigen, achter één knop — dezelfde opzet als
+// modalEditMatchMenu voor een geplande wedstrijd, en met dezelfde menuItemHtml. De volgorde volgt
+// dezelfde gedachte: eerst wat er gebeurd is (uitslag, gebeurtenissen), dan de gegevens van de
+// wedstrijd, dan wie meespeelde, dan waar ze stonden, en helemaal onderaan het klonen.
+function modalDetailEditMenu() {
+  const m = match; if (!m || !canLive()) return;   // gordel én bretellen, net als de andere vensters
+  const heeftFormatie = (FORMATIONS[m.matchType] || []).length > 0;
+  const alGewisseld = (m.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap');
+  openModal(`<h3>${icI(IC.edit)} Bewerken</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
+    ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Enkel wanneer er géén speeltijd bijgehouden is:
+         bij een live gevolgde wedstrijd corrigeer je de score via de gebeurtenissen, en zou dit
+         venster er doelpunten bovenop zetten. */ ''}
+    ${(!m.tournamentId && !geenUitslag(m) && getGameTimeMs(m) === 0)
+      ? menuItemHtml(IC.bolt, 'Uitslag aanpassen', 'De score en de doelpuntenmakers van deze wedstrijd rechtzetten.', 'modalQuickResult()') : ''}
+    ${menuItemHtml(IC.log, 'Event toevoegen', 'Een doelpunt, kaart of andere gebeurtenis die je tijdens de wedstrijd gemist hebt.', 'modalAddPostEvent()')}
+    ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
+    ${/* Enkel bij een gewone wedstrijd — zie de uitleg bij modalSelectieVerslag. */ ''}
+    ${menuItemHtml(IC.players, 'Selectie aanpassen', m.tournamentId
+      ? 'Kan niet bij een tornooiwedstrijd: daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'
+      : 'Haal spelers uit de selectie die uiteindelijk niets deden — bv. wie de hele tijd bij de andere wedstrijd bleef.',
+      'modalSelectieVerslag()', !!m.tournamentId)}
+    ${menuItemHtml(IC.edit, 'Spelernotities', 'Een notitie per speler, enkel zichtbaar voor beheerders.', 'modalPlayerNotes()')}
+    ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
+         de ploeg overstapt op spelen zonder vaste nummers. */ ''}
+    ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
+    ${/* "Startopstelling herplaatsen" verlegt de plaatsen van de aftrap. Zodra er een wissel of
+         positiewissel gelogd is, weigert modalEditPositions dat (het zou de reconstructie per deel
+         corrumperen). Als grijs item mét de reden erbij, i.p.v. als losse regel tekst zoals vroeger:
+         zo staat het antwoord waar je de knop zoekt. */ ''}
+    ${heeftFormatie ? menuItemHtml(IC.compass, 'Startopstelling herplaatsen', alGewisseld
+      ? 'Kan niet meer: er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met Positiewissel in het livescherm.'
+      : 'Zet de spelers van de aftrap op een andere plek op het veld.',
+      'modalEditPositions()', alGewisseld) : ''}
+    ${menuItemHtml(IC.copy, m.tournamentId ? 'Kloon als nieuwe tornooiwedstrijd' : 'Gebruik als template',
+      m.tournamentId
+        ? 'Een nieuwe wedstrijd in ditzelfde tornooi, met dezelfde selectie.'
+        : 'Een nieuwe wedstrijd beginnen met dezelfde ploeg, selectie en opstelling.',
+      m.tournamentId ? `cloneTournamentMatch('${m.id}','${m.tournamentId}')` : 'cloneMatch()')}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+
+// ===================== SELECTIE VAN EEN AFGEWERKTE WEDSTRIJD =====================
+// WAAROM DIT BESTAAT (Tim, 29-08-2026). Wie met twee ploegen tegelijk speelt, neemt bewust een ruime
+// selectie op: er kan er altijd één moeten oversteken. De spelers die uiteindelijk de hele tijd bij
+// de andere wedstrijd bleven, tellen hier dan mee als "geselecteerd" — en drukken zo hun eigen
+// speelminuten-gemiddelde en het selectiepercentage van de rest.
+//
+// "Selectie aanpassen" bestond enkel op een GEPLANDE wedstrijd (startSelectieWizard): daar mag je
+// alles, want er hangt nog niets aan. Op een gespeelde wedstrijd kan dat niet — je zou iemand kunnen
+// wissen die wél gespeeld heeft, en dan verwijzen zijn doelpunten en wissels naar een speler die niet
+// meer bestaat. Vandaar dit smallere venster: het laat ALLEEN weghalen wie niets deed, en toont de
+// anderen grijs met de reden erbij, zodat zichtbaar is dát het bewust niet kan.
+//
+// Weghalen betekent helemaal uit de wedstrijd (Tims keuze): de speler komt weer bij "niet
+// geselecteerd" te staan, alsof hij nooit op de lijst stond. Bewust NIET naar "niet beschikbaar" —
+// dat is een andere uitspraak (hij kon niet), en hier weet je enkel dat hij niet meegedaan heeft.
+//
+// NIET BIJ EEN TORNOOIWEDSTRIJD. Daar komt de selectie uit de dagselectie van het tornooi
+// (tournamentSquadMee): één selectie voor alle wedstrijden van die dag, en de statistieken rekenen
+// zo'n dag ook als één kans om geselecteerd te worden. Iemand uit één tornooiwedstrijd halen
+// verandert dus niets aan zijn cijfers, en hem uit álle wedstrijden van die dag halen zou hem als
+// "gemist" laten tellen terwijl hij wel degelijk mee was. Het menu-item staat er daarom grijs bij.
+
+// Woorden voor wat er in het verloop op iemands naam staat. Bewust in gebruikerstaal en zonder
+// tegenstander-types: die dragen geen eigen speler-id, dus ze komen hier nooit langs.
+const SEL_EVT_WOORD = {
+  goal_us: 'doelpunt', own_goal: 'eigen doelpunt', substitution: 'wissel', posSwap: 'positiewissel',
+  yellow_card: 'gele kaart', red_card: 'rode kaart', penalty_us: 'strafschop', freekick_us: 'vrije trap',
+  corner_us: 'hoekschop', injury: 'blessure', captain_change: 'kapiteinswissel', shot: 'doelpoging',
+  save: 'redding', disallowed_us: 'afgekeurd doelpunt',
+};
+// Elk veld waarin een gebeurtenis naar een speler kan verwijzen. Ook playerOutId, assistId, fromId en
+// pB horen erbij: dat zijn de plekken waar iemand als TWEEDE man in een gebeurtenis staat, en precies
+// daar zou een verwijzing naar een gewiste speler achterblijven.
+const SEL_EVT_VELDEN = ['playerId', 'playerInId', 'playerOutId', 'assistId', 'fromId', 'pA', 'pB'];
+// Wat heeft deze speler in deze wedstrijd op zijn naam staan? Een lege lijst = hij deed niets, en dan
+// (en alleen dan) mag hij nog uit de selectie.
+function selectieBezwaren(m, p, mins) {
+  const uit = [];
+  const ms = ((mins || {})[p.id] || {}).ms || 0;
+  // Zelfde ondergrens als deelMinTxt: onder de seconde is afrondingsruis van een kwartgrens, geen
+  // speeltijd. Anders blokkeerde een flintertje van 40 ms iemand die nooit op het veld stond.
+  if (ms >= 1000) uit.push(`${playedMin(ms)} min gespeeld`);
+  const woorden = new Set();
+  for (const e of (m.events || [])) {
+    for (const veld of SEL_EVT_VELDEN) {
+      if (!e[veld] || e[veld] !== p.id) continue;
+      woorden.add(veld === 'assistId' ? 'assist' : (SEL_EVT_WOORD[e.type] || 'gebeurtenis'));
+      break;
+    }
+  }
+  if (woorden.size) uit.push([...woorden].join(', '));
+  // De strafschoppenreeks staat NIET in de events (zie m.shootout in core.js), dus apart nakijken:
+  // wie een strafschop nam, deed wel degelijk mee.
+  if (shootoutSchoten(m).some(s => s.playerId === p.id)) uit.push('strafschop in de reeks');
+  if (m.captainId === p.id) uit.push('kapitein');
+  if (m.motmId === p.id) uit.push('man van de match');
+  if (typeof wasKeeperAtAll === 'function' && wasKeeperAtAll(m, p.id)) uit.push('stond in doel');
+  return uit;
+}
+let _selWeg = null;   // werkkopie: de id's die je in dit venster uit de selectie wil halen
+function modalSelectieVerslag() {
+  const m = match; if (!m || !canLive()) return;
+  if (m.tournamentId) { showToast('Bij een tornooi geldt één selectie voor de hele dag — pas ze aan op de tornooipagina.', 'err'); return; }
+  // Hier leegmaken en niet enkel bij "Annuleren": je kan dit venster ook sluiten door naast het kader
+  // te tikken, en dan blijft je keuze staan. Zo begint elke opening met een schone lei.
+  _selWeg = new Set();
+  _tekenSelectieVerslag();
+}
+function _tekenSelectieVerslag() {
+  const m = match; if (!m || !_selWeg) return;
+  const mins = calcMinutes(m);
+  let kanAantal = 0;
+  const rijen = sortedByName(m.players).map(p => {
+    const bezwaren = selectieBezwaren(m, p, mins);
+    const naam = `${esc(p.number ? p.number + ' ' : '')}${esc(p.name || 'Speler')}`;
+    if (bezwaren.length) {
+      return `<div class="selrow" style="opacity:.5">
+        <div class="nm">${naam}<small>${esc(bezwaren.join(' · '))}</small></div>
+      </div>`;
+    }
+    kanAantal++;
+    const weg = _selWeg.has(p.id);
+    return `<div class="selrow">
+      <div class="nm" style="${weg ? 'text-decoration:line-through;color:var(--txt2)' : ''}">${naam}<small>${p.absent ? 'niet aanwezig' : 'niets gedaan in deze wedstrijd'}</small></div>
+      <div class="seg">
+        <button class="${weg ? '' : 'basis'}" onclick="_selWegZet('${p.id}',false)" title="Blijft in de selectie">Mee</button>
+        <button class="${weg ? 'absent' : ''}" onclick="_selWegZet('${p.id}',true)" title="Uit de selectie halen">Weg</button>
+      </div></div>`;
+  }).join('');
+  const gekozen = _selWeg.size;
+  openModal(`<h3>${icI(IC.players)} Selectie aanpassen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij.</p>
+    ${kanAantal ? '' : `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Iedereen in deze selectie heeft meegespeeld of staat ergens in het verslag. Er valt hier dus niemand weg te halen.</div>`}
+    <div>${rijen || `<p style="color:var(--txt2);font-size:14px">Deze wedstrijd heeft geen selectie.</p>`}</div>
+    <button class="btn ${gekozen ? 'btn-red' : 'btn-gray'}" style="margin-top:12px" ${gekozen ? 'onclick="confirmSelectieVerslag()"' : 'disabled'}>${icI(IC.trash)} ${gekozen ? `${gekozen} ${gekozen === 1 ? 'speler' : 'spelers'} weghalen` : 'Niemand gekozen'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_selWeg=null;closeModal()">Annuleren</button>`);
+}
+function _selWegZet(id, weg) {
+  if (!_selWeg) return;
+  if (weg) _selWeg.add(id); else _selWeg.delete(id);
+  _tekenSelectieVerslag();
+}
+// Bevestigen mét de namen erbij: uit een gespeelde wedstrijd is een speler niet in twee tikken terug
+// te zetten (daarvoor moet je ze heropenen), dus dit is geen keuze die je per ongeluk maakt.
+function confirmSelectieVerslag() {
+  const m = match; if (!m || !_selWeg || !_selWeg.size) return;
+  const namen = m.players.filter(p => _selWeg.has(p.id)).map(p => p.name || 'Speler');
+  openModal(`<h3>Uit de selectie halen?</h3>
+    <p style="text-align:center;margin-bottom:8px"><b>${esc(namen.join(', '))}</b></p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:16px">${namen.length === 1 ? 'Hij komt' : 'Ze komen'} bij <b>niet geselecteerd</b> te staan, alsof ${namen.length === 1 ? 'hij' : 'ze'} nooit op de lijst ${namen.length === 1 ? 'stond' : 'stonden'} — ook in de statistieken. Terugzetten kan alleen door de wedstrijd te heropenen.</p>
+    <button class="btn btn-red" onclick="saveSelectieVerslag()">${icI(IC.check)} Ja, weghalen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_tekenSelectieVerslag()">Terug</button>`);
+}
+async function saveSelectieVerslag() {
+  const m = match; if (!m || !canLive() || !_selWeg || !_selWeg.size) return;
+  // Opnieuw nakijken vóór het schrijven: het venster kan open blijven staan terwijl een
+  // medebeheerder een doelpunt of een wissel op deze speler bijzet (de cloudsync werkt dat scherm
+  // bij). Wie intussen wél iets op zijn naam heeft, blijft gewoon staan.
+  const mins = calcMinutes(m);
+  const weg = new Set(m.players.filter(p => _selWeg.has(p.id) && !selectieBezwaren(m, p, mins).length).map(p => p.id));
+  const geweigerd = _selWeg.size - weg.size;
+  _selWeg = null;
+  if (!weg.size) { closeModal(); render(); showToast('Niemand weggehaald — die spelers staan intussen wél in het verslag.', 'err'); return; }
+  const namen = m.players.filter(p => weg.has(p.id)).map(p => p.name || 'Speler');
+  m.players = m.players.filter(p => !weg.has(p.id));
+  // Alles opruimen wat nog naar hem verwees. Gebeurtenissen zitten er niet bij — die zijn hierboven
+  // net de reden waarom iemand NIET weg mag — maar het wedstrijdplan wel: dat blijft op een
+  // afgesloten wedstrijd staan en zou anders naar een speler wijzen die niet meer bestaat. Zelfde
+  // opruiming als bij "niet aanwezig melden" in het livescherm (doMarkAbsent).
+  if (Array.isArray(m.plannedSubs)) m.plannedSubs = m.plannedSubs.filter(s => !weg.has(s.inId) && !weg.has(s.outId));
+  if (Array.isArray(m.plannedPosSwaps)) m.plannedPosSwaps = m.plannedPosSwaps.filter(s => !weg.has(s.pA) && !weg.has(s.pB));
+  if (Array.isArray(m.pendingSubs)) m.pendingSubs = m.pendingSubs.filter(s => !weg.has(s.inId) && !weg.has(s.outId));
+  if (Array.isArray(m.pendingPosSwaps)) m.pendingPosSwaps = m.pendingPosSwaps.filter(s => !weg.has(s.pA) && !weg.has(s.pB));
+  if (Array.isArray(m.nextLineup)) m.nextLineup = m.nextLineup.filter(e => !weg.has(e.id));
+  if (m.plannedLineups) {
+    for (const k of Object.keys(m.plannedLineups)) {
+      m.plannedLineups[k] = (m.plannedLineups[k] || []).filter(e => !weg.has(e.id));
+    }
+  }
+  // Vaste volgorde vóór het bewaren (zie CLAUDE.md): de afgeleide stand en het veld volgen de events.
+  recomputeScore(m); recomputeOnField(m);
+  await dbSave(m);
+  closeModal(); render();
+  showToast(`${namen.join(', ')} ${namen.length === 1 ? 'staat' : 'staan'} niet meer in de selectie van deze wedstrijd.${geweigerd ? ' Eén of meer anderen bleven staan: die hebben intussen wél iets op hun naam.' : ''}`, 'ok');
+}
+
 function cloneMatch() {
   if (!canManage() || !match) return;
   const src = match;

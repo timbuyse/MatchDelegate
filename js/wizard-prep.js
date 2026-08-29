@@ -1890,6 +1890,19 @@ function renderPrep() {
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
 }
+// Eén regel in een "Bewerken"-menu: titel met icoon, en eronder in het klein wat het doet. Staat het
+// item uit, dan is die tweede regel de reden waarom het nu niet kan — een grijze knop zonder uitleg
+// laat je alleen maar raden. Gedeeld door het menu van een GEPLANDE wedstrijd (modalEditMatchMenu,
+// hieronder) en dat van een AFGEWERKTE (modalDetailEditMenu in detail-pdf.js), zodat de twee menu's
+// niet uit elkaar kunnen groeien.
+function menuItemHtml(ico, titel, uitleg, actie, uit) {
+  return `
+    <button class="btn ${uit ? 'btn-gray' : 'btn-pale'}" style="margin-top:8px;text-align:left;display:block;width:100%${uit ? ';opacity:.5' : ''}"
+      ${uit ? 'disabled' : `onclick="closeModal();${actie}"`}>
+      <div style="font-weight:700">${icI(ico)} ${titel}</div>
+      <div style="font-size:12px;font-weight:400;color:var(--txt2);margin-top:2px">${uitleg}</div>
+    </button>`;
+}
 // Alles wat je aan een geplande wedstrijd kan wijzigen, achter één knop. Elk item leidt naar het
 // scherm dat er al voor bestond; dit menu is enkel de wegwijzer. De volgorde volgt hoe je een
 // wedstrijd opbouwt: eerst de gegevens, dan wie meespeelt, dan waar ze staan, dan de details.
@@ -1897,12 +1910,7 @@ function modalEditMatchMenu() {
   const m = match; if (!m || !canManage()) return;
   const heeftSel = heeftSelectie(m);
   const heeftOpst = heeftOpstelling(m);
-  const item = (ico, titel, uitleg, actie, uit) => `
-    <button class="btn ${uit ? 'btn-gray' : 'btn-pale'}" style="margin-top:8px;text-align:left;display:block;width:100%${uit ? ';opacity:.5' : ''}"
-      ${uit ? 'disabled' : `onclick="closeModal();${actie}"`}>
-      <div style="font-weight:700">${icI(ico)} ${titel}</div>
-      <div style="font-size:12px;font-weight:400;color:var(--txt2);margin-top:2px">${uitleg}</div>
-    </button>`;
+  const item = menuItemHtml;
   openModal(`<h3>${icI(IC.edit)} Bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
