@@ -381,12 +381,11 @@ async function loadStats() {
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
     const gemeten = getGameTimeMs(m) > 0;
-    // SPEELMINUTEN UIT HET PLAN (v1.8.0). Een afgesloten wedstrijd met een echte kwartverdeling
-    // levert wél minuten (zie minutenUitPlan in views-account.js), dus die telt mee als noemer voor
-    // de fair-play-gemiddelden. Clean sheets blijven bewust op `gemeten`: die gaan over de doelman
-    // en over wat er op het veld gebeurde, niet over een verdeling die vooraf op papier stond.
-    const uitPlan = typeof minutenUitPlan === 'function' && minutenUitPlan(m);
-    const heeftMinuten = gemeten || uitPlan;
+    // (Van v1.8.0 tot v1.22.0 kon een afgesloten wedstrijd met een kwartverdeling in het plan hier
+    // ook minuten leveren. Sinds Tims regel van 29-08-2026 niet meer — zie calcMinutes in
+    // views-account.js — dus is een wedstrijd met gelopen klok weer de enige bron van speeltijd, en
+    // ook de enige noemer voor de fair-play-gemiddelden.)
+    const heeftMinuten = gemeten;
     // ALLEEN GEMETEN WEDSTRIJDEN (audit 25-08-2026). De ploegteller nam élke wedstrijd zonder
     // tegendoel mee, ook een "Snel resultaat" — maar de keeperregels eisen ms > 0, wat bij een
     // snelinvoer nooit waar is. Op dezelfde kaart stond dan "Ploeg 3/8" met keeperrijen die samen op
@@ -408,7 +407,6 @@ async function loadStats() {
       if (p.absent) { r.absent++; r.noshow++; continue; }
       r.squad++;
       if (heeftMinuten) r.timed++;
-      if (uitPlan) r.volgensPlan = (r.volgensPlan || 0) + 1;
       // Vertrokken of onderweg bijgekomen (Tims keuze, 25-08-2026): die wedstrijd telt gewoon mee,
       // maar het wordt bij zijn naam gezet. Zo'n speler heeft weinig minuten bij een volle wedstrijd
       // en klom daardoor naar de top van "Fair-play · minste speeltijd" — de lijst die juist moet
@@ -582,11 +580,10 @@ async function loadStats() {
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee — tenzij er een opstelling per blok in stond: dan komen de minuten uit dat plan, en staat dat bij de speler vermeld.</p>${fairplay.length ? fairplay.map(p=>{
-      // "Volgens plan" erbij (v1.8.0): bij een wedstrijd die enkel afgesloten is, komen de minuten uit
-      // het wedstrijdplan en niet van een gelopen klok. Dat hoort zichtbaar te zijn — zoals bij een
-      // speler die vertrok — want anders lees je een gemiddelde zonder te weten waar het op steunt.
-      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : '', p.volgensPlan ? `${p.volgensPlan}× speeltijd volgens het wedstrijdplan` : ''].filter(Boolean).join(' · ');
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: zonder gelopen klok is er niet uit af te leiden wie hoe lang speelde.</p>${fairplay.length ? fairplay.map(p=>{
+      // (Hier stond van v1.8.0 tot v1.22.0 ook "N× speeltijd volgens het wedstrijdplan". Die minuten
+      // bestaan niet meer sinds Tims regel van 29-08-2026, dus valt het merkje weg.)
+      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven of helemaal geen uitslag, dus er valt niet uit af te leiden of er tegengescoord is.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')

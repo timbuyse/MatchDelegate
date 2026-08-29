@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.23.0
+
+**Een uitslag die je achteraf ingeeft, levert geen speelminuten meer.** Sluit je een wedstrijd af
+zonder ze live gevolgd te hebben — met een uitslag, met de doelpuntenmakers erbij, of zonder uitslag
+— dan staat iedereen op 0 speelminuten. Niemand heeft de klok gevolgd, dus wie hoe lang speelde is
+niet te berekenen. **Wat wél meetelt: de selectie, de doelpunten en de assists.** Die geef je zelf in
+en die kloppen.
+
+**Dit draait de regel van v1.8.0 terug.** Stond er een verdeling over de blokken in het wedstrijdplan
+(een opstelling voor een later blok, of een geplande wissel), dan rekende de app daar tot nu toe
+speelminuten uit en telden die volwaardig mee. Maar een plan zegt wat de bedoeling was, niet wat er
+gebeurd is — en eenmaal die minuten in een gemiddelde zitten, kan je ze niet meer van gemeten
+minuten onderscheiden.
+
+**Ook de wedstrijden die je sinds v1.8.0 zo afsloot.** Die plancijfers worden niet meer gelezen, dus
+ze verdwijnen ook uit je bestaande statistieken. Ze blijven wel in de gegevens staan; sluit je zo'n
+wedstrijd opnieuw af, dan worden ze definitief opgeruimd.
+
+Waar je dat merkt: in het venster **Uitslag ingeven** staat nu vooraf één vaste regel die zegt wat er
+wel en niet meetelt — hij hangt niet langer af van je plan. In het verslag en de PDF staat bij zo'n
+wedstrijd dat ze niet live gevolgd is. In **Fair-play · minste speeltijd** telt ze niet meer mee als
+noemer, en het merkje "× speeltijd volgens het wedstrijdplan" bij een speler is verdwenen.
+
+De kaart **Speeltijd volgens dit plan** op het voorbereidingsscherm blijft gewoon staan: dat is je
+plan, geen statistiek.
+
+---
+
 ## v1.22.0
 
 **Gebruikscijfers: hoeveel mensen gebruiken de app, en hoe vaak?** In App-beheer staat er een nieuw

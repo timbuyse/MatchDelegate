@@ -1214,10 +1214,10 @@ async function doReopenMatch() {
   match.status = 'live';
   match.quarterStatus = 'between';
   match.numQuarters = Math.max(match.numQuarters || 0, match.quarters.length) + 1;
-  // SPEELMINUTEN UIT HET PLAN OPRUIMEN (v1.8.0). Ze zijn vastgelegd bij het afsluiten; wie de
-  // wedstrijd heropent gaat ze alsnog volgen, en dan telt de klok. Nu al wissen in plaats van erop
-  // te vertrouwen dat minutenUitPlan ze negeert zodra er tijd gelopen heeft — anders blijft een
-  // heropende maar nooit gespeelde wedstrijd op geplande minuten staan.
+  // OUDE PLANCIJFERS OPRUIMEN. Sinds Tims regel van 29-08-2026 leest de app ze niet meer (zie
+  // calcMinutes in views-account.js), maar op wedstrijden die tussen v1.8.0 en v1.22.0 afgesloten
+  // werden staan ze nog. Wie zo'n wedstrijd heropent gaat ze alsnog volgen; dan mogen die restanten
+  // er zeker niet meer in zitten.
   delete match.planMinuten; delete match.minutenVolgensPlan;
   closeModal();
   await dbSave(match);
