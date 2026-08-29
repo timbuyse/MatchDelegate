@@ -2810,6 +2810,10 @@ function evtLabel(e, m) {
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
+    // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
+    // rugnummer dat aan de lijn genoteerd is.
+    case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
+    case 'red_card_them': return `${icI(IC.cardR)} Rode kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}`;
@@ -2854,6 +2858,8 @@ function evtLabelPlain(e, m) {
     case 'posSwapReeks': return `${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
+    case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
+    case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}`;
@@ -2899,7 +2905,7 @@ const ELOG_FILTER_GROUPS = {
   // Positiewisselingen horen bij deze filter: wie op 'Wissels' klikt om een pas toegevoegde of
   // aangepaste positiewissel terug te vinden, zag ze anders net wegvallen.
   sub: { label: 'Wissels', icon: 'swap', types: ['substitution', 'posSwap'] },
-  card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card'] },
+  card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them'] },
 };
 // null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
 let elogFilter = null;
@@ -2998,7 +3004,7 @@ function renderEventLog(m) {
   // tijdlijn van elk verslag, ook wanneer je het kaartenblok voor kijkers verborgen had. Enkel voor
   // wie alleen mag lezen — een beheerder ziet altijd alles.
   const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']
-    .concat(statSectionVisible('cards') ? [] : ['yellow_card', 'red_card']));
+    .concat(statSectionVisible('cards') ? [] : ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them']));
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;
   const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;

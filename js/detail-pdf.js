@@ -118,9 +118,12 @@ function renderDetail() {
         // onzichtbaar, dan verdween het blok op de statistiekenpagina maar bleven de kaarten hier en
         // in de PDF wél staan, mét naam in de tijdlijn. Dan betekent dat oogje voor de ouders niets.
         // Voor een beheerder verandert er niets: statSectionVisible is dan altijd waar.
+        // De kolom 'Tegen' stond hier leeg zolang een kaart enkel voor een eigen speler kon: er was
+        // niets te tellen. Nu een kaart voor een tegenspeler bestaat, hoort ze in deze tabel op
+        // dezelfde plaats als de hoekschoppen en de penalty's.
         ...(statSectionVisible('cards') ? [
-        [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), ''],
-        [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    ''],
+        [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), st('yellow_card_them')],
+        [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    st('red_card_them')],
         ] : []),
       ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
       if (!rows.length) return '';
@@ -435,7 +438,9 @@ const PDF_EVT_ICON = {
   goal_us: 'goal', goal_them: 'goal', own_goal: 'goal', own_goal_them: 'goal',
   corner_us: 'corner', corner_them: 'corner', substitution: 'swap', posSwap: 'compass',
   posSwapReeks: 'compass',
-  yellow_card: 'cardY', red_card: 'cardR', penalty_us: 'penalty', penalty_them: 'penalty',
+  yellow_card: 'cardY', red_card: 'cardR',
+  yellow_card_them: 'cardY', red_card_them: 'cardR',
+  penalty_us: 'penalty', penalty_them: 'penalty',
   freekick_us: 'bolt', freekick_them: 'bolt', injury: 'injury', shot_us: 'shot', shot_them: 'shot',
   save_us: 'save', save_them: 'save', disallowed_us: 'disallowed', disallowed_them: 'disallowed',
   captain_change: 'captain', quarter_start: 'playFilled', quarter_end: 'stopFilled',
@@ -1123,7 +1128,13 @@ async function pdfMatchBody(doc, L, m) {
     [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
     // Zelfde oogje als op het scherm (Tims keuze, 25-08-2026): een kijker met kaarten op onzichtbaar
     // krijgt ze ook niet in de PDF.
-    [statSectionVisible('cards') ? stat('yellow_card') + stat('red_card') : 0, `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
+    // Kaarten voor de tegenstander staan er in dezelfde 'voor / tegen'-vorm als de regels hierboven,
+    // maar enkel wanneer ze er zijn: bij de meeste wedstrijden is er geen, en dan zou "0 tegen" de
+    // regel enkel langer maken.
+    [statSectionVisible('cards') ? stat('yellow_card') + stat('red_card') + stat('yellow_card_them') + stat('red_card_them') : 0,
+      (stat('yellow_card_them') + stat('red_card_them'))
+        ? `Geel: ${vt('yellow_card', 'yellow_card_them')} · Rood: ${vt('red_card', 'red_card_them')}`
+        : `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
     heading('Wedstrijdstatistieken', 17);
@@ -1218,7 +1229,7 @@ async function pdfMatchBody(doc, L, m) {
   // meewerkt. Voor een beheerder verandert er niets.
   const _kijker = !canLive();
   const _verbergen = new Set(_kijker ? ['posSwap'] : []);
-  if (_kaartenUit) { _verbergen.add('yellow_card'); _verbergen.add('red_card'); }
+  if (_kaartenUit) { _verbergen.add('yellow_card'); _verbergen.add('red_card'); _verbergen.add('yellow_card_them'); _verbergen.add('red_card_them'); }
   const timelineGroups = eventsByQuarter(m).map(g => _verbergen.size
     ? Object.assign({}, g, { list: (g.list || []).filter(e => !_verbergen.has(e.type)) })
     : g);

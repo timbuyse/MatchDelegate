@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.20.0
+
+**Een gele of rode kaart voor een tegenspeler kan je nu registreren.** Tot nu vroeg het kaartvenster
+meteen "voor welke speler?" en toonde het enkel je eigen selectie — een kaart aan de overkant was
+nergens kwijt te raken, terwijl de afgevaardigde ze wel op zijn blad noteert.
+
+Het venster begint nu met dezelfde vraag als bij een goal of een penalty: **voor wie?** Kies je de
+tegenstander, dan verdwijnt het spelersrooster en blijft er één optioneel veld over: het
+**rugnummer**. Een naam vraagt de app niet — ze kent de kern van de tegenstander niet. Laat je het
+nummer leeg, dan staat er gewoon "Gele kaart tegenstander". Typ je "nr. 7", dan houdt de app daar
+`7` van over. Achteraf aanpassen of leegmaken kan via het potloodje bij de gebeurtenis.
+
+Zo'n kaart verschijnt in de **tijdlijn** van het livescherm en het verslag, valt onder de filter
+**Kaarten**, en staat in het **deelbericht** en de **CSV-export**. Bij de wedstrijdstatistieken
+stond de kolom **Tegen** bij de kaarten altijd leeg — er viel niets te tellen; die is nu gevuld, op
+het scherm én in de PDF, net als bij de hoekschoppen en de penalty's. Verberg je de kaarten voor
+kijkers, dan vallen die van de tegenstander mee weg.
+
+Wat ze bewust **niet** doet: ze raakt je eigen ploeg niet aan — geen speelminuten, geen uitsluiting,
+niets aan het veld. Er volgt ook geen automatische rode kaart bij een tweede gele voor de
+tegenstander: zonder hun kern weet de app niet of het dezelfde speler is. Voor je eigen spelers
+blijft die automaat werken zoals altijd. De seizoenscijfers, de tucht per speler en het
+spelersoverzicht tellen enkel je eigen kaarten — daarvoor is een kaart voor de tegenstander een
+eigen soort gebeurtenis geworden en geen vlagje op de bestaande kaart, zodat geen enkele teller ze
+per ongeluk op naam van een eigen speler kan zetten.
+
 ## v1.19.0
 
 **Zie hoeveel mensen de app open hebben, en hoeveel er een wedstrijd volgen.** Tot nu was daar geen

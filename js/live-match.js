@@ -1788,9 +1788,14 @@ function shareWhatsApp(m) {
   // Kaarten
   const yellowCards = m.events.filter(e => e.type === 'yellow_card');
   const redCards = m.events.filter(e => e.type === 'red_card');
+  // Kaarten voor de tegenstander staan er als aparte regels bij, met "tegenstander" erachter zodat
+  // niemand ze voor een eigen speler aanziet. Een naam hebben we niet, hooguit een rugnummer.
+  const tegKaart = e => `tegenstander${e.oppNumber ? ` (nr. ${e.oppNumber})` : ''}`;
   const cardLines = [
     ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
+    ...m.events.filter(e => e.type === 'yellow_card_them').map(e => `  🟨 ${tegKaart(e)}`),
     ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
+    ...m.events.filter(e => e.type === 'red_card_them').map(e => `  🟥 ${tegKaart(e)}`),
   ];
 
   // Samenstellen
@@ -1858,6 +1863,11 @@ async function shareReport() {
   if (asLine) lines.push(`🎯 Assists: ${asLine}`);
   if (ycLine) lines.push(`🟨 ${ycLine}`);
   if (rcLine) lines.push(`🟥 ${rcLine}`);
+  // Kaarten voor de tegenstander: één regel met het aantal, want namen hebben we er niet van. Enkel
+  // wanneer er ook echt zijn — anders staat er een regel over iets wat niet gebeurd is.
+  const ycT = m.events.filter(e => e.type === 'yellow_card_them').length;
+  const rcT = m.events.filter(e => e.type === 'red_card_them').length;
+  if (ycT || rcT) lines.push(`🟨🟥 Tegenstander: ${ycT} geel · ${rcT} rood`);
   if (m.motmId) lines.push(`⭐ Man v/d match: ${pName(m, m.motmId)}`);
   // canLive() i.p.v. isAdmin: in "Kijken"-modus zie je de notities zelf niet op het scherm, dus dan
   // horen ze ook niet in een bericht dat je doorstuurt. Stond tot 24-08-2026 op canManage, en die is
@@ -1964,6 +1974,7 @@ function exportMatchCSV() {
     goal_us: 'Doelpunt', goal_them: 'Doelpunt tegen',
     own_goal: 'Eigen doel', own_goal_them: 'Eigen doel (teg.)',
     yellow_card: 'Gele kaart', red_card: 'Rode kaart',
+    yellow_card_them: 'Gele kaart tegen', red_card_them: 'Rode kaart tegen',
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
     injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
     freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
@@ -1997,6 +2008,10 @@ function exportMatchCSV() {
       if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
     }
     if (e.type === 'note' && e.text) extraInfo = e.text;
+    // Een kaart voor de tegenstander heeft geen speler uit onze selectie; het rugnummer is het enige
+    // dat we ervan weten, en dat hoort in de spelerskolom en niet bij de extra info.
+    if (e.oppNumber) player = 'Tegenstander nr. ' + e.oppNumber;
+    else if (e.type === 'yellow_card_them' || e.type === 'red_card_them') player = 'Tegenstander';
     row('', e.quarterNum || '', minStr, e.gameTimeMs || '', type, player, extraInfo);
   }
   blank();
@@ -2338,6 +2353,9 @@ function modalEditEvent(id) {
   const t = e.type; let fields = '';
   if (t === 'goal_us') fields = `<div class="fg"><label>Doelpuntenmaker</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Assist</label><select id="ee-assist">${opts(e.assistId, true)}</select></div>`;
   else if (t === 'yellow_card' || t === 'red_card') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div>`;
+  // Kaart voor de tegenstander: geen spelerskeuze (we kennen hun kern niet), enkel het rugnummer dat
+  // je bij het ingeven kon meegeven. Leeg laten mag: dan staat er gewoon "tegenstander".
+  else if (t === 'yellow_card_them' || t === 'red_card_them') fields = `<div class="fg"><label>Rugnummer <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-oppnr" type="text" inputmode="numeric" value="${esc(e.oppNumber || '')}" placeholder="bv. 7" autocomplete="off"></div>`;
   else if (t === 'own_goal') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
   else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
   // HOEKSCHOP: geen nemer en geen type meer (audit 25-08-2026). logCorner vraagt die bewust niet
@@ -2534,6 +2552,12 @@ async function saveEditEvent(id) {
     if (nietTerug) e.notReturning = true; else delete e.notReturning;
   }
   if (has('ee-reason')) e.reason = val('ee-reason');
+  // Rugnummer van een tegenspeler: enkel cijfers, en leeg wist het veld weer weg in plaats van een
+  // lege tekst op te slaan — anders zou "nr. " zonder nummer in het verloop verschijnen.
+  if (has('ee-oppnr')) {
+    const nr = String(val('ee-oppnr') || '').replace(/[^0-9]/g, '').slice(0, 3);
+    if (nr) e.oppNumber = nr; else delete e.oppNumber;
+  }
   // Gepaarde 2e gele die naar een andere speler verhuist: de automatische rode blijft bij de
   // oorspronkelijke speler staan — dat kan juist zijn (die heeft misschien nog 2 gele) of niet;
   // te dubbelzinnig om automatisch om te hangen, dus expliciet waarschuwen.
@@ -4875,7 +4899,25 @@ async function confirmPosVerhuis() {
 }
 
 // ===================== MODAL: CARD =====================
+// OOK VOOR EEN TEGENSPELER (Tim, 29-08-2026). Dit venster vroeg meteen "voor welke speler?" en toonde
+// enkel de eigen selectie, dus een kaart voor een tegenspeler was nergens vast te leggen — terwijl de
+// afgevaardigde ze wél op zijn blad noteert. Zelfde vorm als het goal- en het penaltyvenster: een
+// schakelaar bovenaan, en bij "Tegenstander" verdwijnt het spelersrooster.
+//
+// EEN EIGEN SOORT EVENT, GEEN VLAGJE. Een kaart voor de tegenstander wordt yellow_card_them /
+// red_card_them, náást de bestaande soorten. Alles wat kaarten per speler telt — de seizoenscijfers,
+// de tucht per speler, het spelersoverzicht, de PDF — filtert op 'yellow_card'/'red_card'; met een
+// vlagje op datzelfde event zou elk van die tellingen apart uitgezonderd moeten worden, en eentje
+// vergeten betekent een kaart van de tegenstander op naam van een eigen speler. Een eigen soort kan
+// daar per definitie niet in terechtkomen. Het volgt bovendien wat de app al doet met 'eigen doel
+// tegenstander' en 'afgekeurd doelpunt tegen'.
+//
+// Wat zo'n kaart NIET doet: hij raakt de opstelling niet (een uitgesloten tegenspeler verandert niets
+// aan ons veld), levert geen speelminuten op, en er volgt géén automatische rode kaart bij een tweede
+// gele — zonder kern van de tegenstander weten we niet of het dezelfde speler is.
+let cardTeam = 'us';
 function modalCard(color) {
+  cardTeam = 'us';
   // Ook de bank kiesbaar (gemerkt) — een kaart voor protest vanaf de bank bestaat, en de
   // blessuremodal bood de bank al aan. Zie spelersVoorEventKeuze.
   const keuze = spelersVoorEventKeuze(match, true);
@@ -4883,9 +4925,36 @@ function modalCard(color) {
   const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
   openModal(`<h3>${ico} ${lbl}</h3>
-    <div class="sec" style="margin-top:0">Voor welke speler?</div>
-    ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join(''))}
+    <div class="sec" style="margin-top:0">Voor wie?</div>
+    <div class="tgl" id="card-team">
+      <button class="act" onclick="tglCardTeam('us',this)">${esc(tName(match))}</button>
+      <button onclick="tglCardTeam('them',this)">Tegenstander</button>
+    </div>
+    <div id="card-us-section">
+      <div class="sec">Welke speler?</div>
+      ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join(''))}
+    </div>
+    ${/* Van een tegenspeler kennen we geen naam: de app heeft geen kern van de tegenstander. Het
+         rugnummer is wat er aan de lijn effectief opgeschreven wordt, dus dat is het enige veld — en
+         het is optioneel, want wie het nummer niet zag hoort er geen te moeten verzinnen. Een eigen
+         bevestigingsknop, want anders dan bij een eigen speler is er niets om aan te tikken. */ ''}
+    <div id="card-them-section" class="hidden">
+      <div class="fg" style="margin-top:12px">
+        <label>Rugnummer <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
+        ${/* Geen maxlength: wie "nr. 7" typt zou dan op "nr." blijven staan en zijn cijfer kwijt zijn.
+             Het opschonen bij het opslaan houdt enkel de cijfers over en kapt af op drie. */ ''}
+        <input id="card-them-nr" type="text" inputmode="numeric" placeholder="bv. 7" autocomplete="off">
+      </div>
+      <button class="btn btn-green" style="margin-top:4px" onclick="logCardThem('${color}')">${icI(IC.check)}${lbl} voor de tegenstander</button>
+    </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
+function tglCardTeam(team, btn) {
+  cardTeam = team;
+  document.querySelectorAll('#card-team button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  document.getElementById('card-us-section').classList.toggle('hidden', team !== 'us');
+  document.getElementById('card-them-section').classList.toggle('hidden', team !== 'them');
 }
 async function logCard(color, pid) {
   if (_eventBusy) return;
@@ -4915,10 +4984,29 @@ async function logCard(color, pid) {
       _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== pid));
     }
     await dbSave(match); closeModal(); render();
-    requestAnimationFrame(() => {
-      const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
-      if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
-    });
+    kaartAnim(color);
+  } finally { _eventBusy = false; }
+}
+// Het kaartje op de knop laten oplichten — hetzelfde seintje voor een eigen kaart en een kaart voor
+// de tegenstander, dus één plek.
+function kaartAnim(color) {
+  requestAnimationFrame(() => {
+    const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
+    if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
+  });
+}
+// Een kaart voor de tegenstander: geen speler, geen gevolgen voor het veld of de speelminuten. Het
+// rugnummer is vrije invoer, dus enkel cijfers overhouden — "nr. 7." of een spatie eromheen hoort
+// niet in de gegevens terecht te komen. Leeg blijft leeg: dan draagt het event gewoon geen nummer.
+async function logCardThem(color) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const el = document.getElementById('card-them-nr');
+    const nr = ((el && el.value) || '').replace(/[^0-9]/g, '').slice(0, 3);
+    addEvent(color === 'red' ? 'red_card_them' : 'yellow_card_them', nr ? { oppNumber: nr } : {});
+    await dbSave(match); closeModal(); render();
+    kaartAnim(color);
   } finally { _eventBusy = false; }
 }
 
