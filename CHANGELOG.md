@@ -37,6 +37,16 @@ typte, maar kwam de correctie via de cloud binnen, dan bleven de wedstrijden hie
 staan en herstelde niets dat nog. Enige uitweg was de selectie van elke wedstrijd opnieuw opslaan.
 Nu wordt de correctie ook toegepast op de wedstrijden die nog niet begonnen zijn.
 
+**De PDF van een wedstrijd draagt nu het ploeglabel in zijn bestandsnaam.** Speelden Groen en Zwart
+op dezelfde dag tegen dezelfde tegenstander, dan kregen hun verslagen exact dezelfde naam: de tweede
+download overschreef de eerste, of kwam binnen met een "(1)" erachter. Het label hangt nu vast aan je
+eigen ploegnaam, waar die in de naam ook staat — dus vooraan bij een thuiswedstrijd
+(`20260830_U11A_Groen_vs_KFC_Elders.pdf`) en achteraan op verplaatsing
+(`20260830_KFC_Elders_vs_U11A_Groen.pdf`). Tegelijk is de naam korter en netter: de datum aan elkaar
+en geen spaties meer, want een telefoon kapt een lange naam af in de downloadlijst en dan valt net
+het stuk weg waaraan je de twee onderscheidt. Geldt voor het verslag én voor het wedstrijdplan; het
+tornooiverslag blijft zoals het was, want dat bundelt alle wedstrijden van het tornooi in één PDF.
+
 ## v1.18.0
 
 **De prullenmand is geen eenrichtingsstraat meer: wat erin zit, kan je nu ook definitief wissen.**
