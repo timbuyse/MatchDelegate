@@ -3866,11 +3866,25 @@ function veldBijStartVanDeel(m, q) {
   }
   // Toekomstig deel: het dichtstbijzijnde plan op of vóór dat deel (delen erven van elkaar, zie
   // plannedLineupBase). Zonder plan verandert er niets, dus blijft staan wie er nu staat.
+  let basis = null, vanaf = 0;
   for (let k = q; k >= 2; k--) {
     const pl = (m.plannedLineups || {})[k];
-    if (pl && pl.length) return plannedLineupPlayers(m, pl).filter(p => magOpHetVeld(m, p));
+    if (pl && pl.length) { basis = plannedLineupPlayers(m, pl).filter(p => magOpHetVeld(m, p)); vanaf = k; break; }
   }
-  return effectiveOnField(m);
+  if (!basis) { basis = effectiveOnField(m); vanaf = 1; }
+  // DE GEPLANDE WISSELS VAN DE BLOKKEN ERTUSSEN TELLEN MEE (Tims melding, 29-08-2026). Tot hier erfde
+  // deze functie enkel via plannedLineups, terwijl plannedLineupBase — waarop de planningskaart en de
+  // PDF draaien — óók de geplande wissels van elk tussenliggend blok toepast. Twee antwoorden op
+  // dezelfde vraag dus. Een wedstrijd met een wissel in kwart 3 en zonder eigen opstellingen viel hier
+  // terug op de startopstelling: "Wissels plannen" bood voor kwart 4 dan iemand aan die er volgens het
+  // plan al af was, je kon dezelfde wissel een tweede keer klaarzetten, en plannedSubProbleem — die op
+  // ditzelfde veld rekent — zag daar geen graten in. Het veld zelf tekende wél juist, want
+  // _pasGeplandToe slaat een onuitvoerbare wissel over; enkel dit ijkpunt liep achter.
+  // ENKEL BLOKKEN NA HET LOPENDE: wat er in het lopende blok gebeurde staat al in effectiveOnField, en
+  // een geplande wissel gaat nooit vanzelf af — die mag dus niet alsnog als gebeurd gelden.
+  const eerste = Math.max(vanaf, (m.currentQuarter || 0) + 1);
+  for (let j = eerste; j < q; j++) basis = _pasGeplandToe(m, basis.map(p => ({ ...p })), j, null);
+  return basis;
 }
 // Waarom een klaargezette wissel nu niet kan (of null als hij wel kan). De situatie kan veranderd
 // zijn sinds het klaarzetten: speler intussen gewisseld, afwezig gemarkeerd of uit de selectie.

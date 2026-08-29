@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.18.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.18.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3147,6 +3147,27 @@ function applyCloudTeams(val) {
     const spelers = Object.values(perId);
     return Object.assign({}, ct, { players: spelers }, Object.keys(graven).length ? { deletedPlayers: graven } : {});
   });
+  // EEN NAAMCORRECTIE VAN EEN ANDER TOESTEL (Tims melding, 29-08-2026). Een wedstrijd bewaart zijn
+  // eigen kopie van de naam — bewust, want een gastspeler of iemand die de ploeg verliet heeft geen
+  // rooster meer om op terug te vallen. Die kopie wordt rechtgezet door hernoemSpelerInGegevens, maar
+  // dat draaide enkel op het toestel waar je de naam typte (in saveTeamEdit). Kwam de correctie via de
+  // cloud binnen, dan bleven de wedstrijden hier op de oude naam staan, en niets herstelde dat ooit
+  // nog: de enige uitweg was de selectie van elke wedstrijd opnieuw opslaan.
+  // Vergelijken vóór het wegschrijven, want daarna is de oude naam weg. Enkel een échte wijziging van
+  // een niet-lege naam telt; een speler die de cloud nog niet kent (of net toegevoegd is) hoort hier
+  // niet bij. Geen lus: dit schrijft wedstrijden, geen rooster, dus het roept zichzelf niet terug op.
+  const hernoemdUitCloud = [];
+  merged.forEach(t => {
+    const lt = lokaal.find(x => x.id === t.id); if (!lt) return;
+    const oud = {};
+    (lt.players || []).forEach(p => { if (p && p.id) oud[p.id] = p; });
+    (t.players || []).forEach(p => {
+      if (!p || !p.id) return;
+      const o = oud[p.id]; if (!o) return;
+      const vroeger = (o.name || '').trim(), nu = (p.name || '').trim();
+      if (vroeger && nu && vroeger !== nu) hernoemdUitCloud.push({ id: p.id, globalId: p.globalId, naam: p.name });
+    });
+  });
   localStorage.setItem('voetbal_teams_v2', JSON.stringify(merged));
   // Rooster van de actieve ploeg is nu écht binnen: vlag zetten (leeg betekent van hier af ook
   // echt "geen spelers") en apart cachen zodat een volgende wissel naar deze ploeg meteen klopt.
@@ -3158,6 +3179,15 @@ function applyCloudTeams(val) {
   // rosterReady() onwaar is, en dat is precies wat die vlaggen bepalen.
   // Geen lus: na de echo is er niets meer dat enkel lokaal staat en stopt dit vanzelf.
   if (moetTerug && isAdmin) cloudOnLocalTeamsSave(merged);
+  // De correctie zelf: enkel wedstrijden die nog niet begonnen zijn (zie de uitleg bij
+  // hernoemSpelerInGegevens). Niet awaiten — dit is een achtergrondgebeurtenis en mag het tekenen van
+  // het scherm niet ophouden. De guards vangen de vroegste snapshot op, die kan binnenkomen vóór de
+  // databank open is of vóór teams-tournaments.js geladen is.
+  if (hernoemdUitCloud.length && typeof db !== 'undefined' && db && typeof hernoemSpelerInGegevens === 'function') {
+    hernoemSpelerInGegevens(hernoemdUitCloud, { enkelGepland: true })
+      .then(n => { if (n) showToast(`Naam aangepast in ${n} geplande wedstrijd${n === 1 ? '' : 'en'}.`, 'ok'); })
+      .catch(() => {});
+  }
   cloudRefreshUI();
 }
 // Tornooien stonden vroeger als één array in de cloud en werden hier onvoorwaardelijk over de

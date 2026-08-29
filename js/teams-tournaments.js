@@ -414,14 +414,21 @@ function teamPasteApply() {
 // iemand die de ploeg intussen verliet heeft geen rooster meer om op terug te vallen. Bij een
 // naamCORRECTIE is die kopie echter gewoon fout, en dan hoort ze overal mee te veranderen.
 // Enkel de naam: rugnummers en posities mogen per wedstrijd afwijken en blijven dus staan.
-async function hernoemSpelerInGegevens(hernoemd) {
+// `opties.enkelGepland` beperkt de correctie tot wedstrijden die nog niet begonnen zijn, en laat de
+// tornooiselecties ongemoeid. Dat is de stand waarin applyCloudTeams deze functie aanroept: een
+// naamcorrectie die van een ánder toestel binnenkomt (zie de uitleg daar). Een gespeelde wedstrijd
+// herschrijven vanuit een achtergrondgebeurtenis is een zwaardere ingreep dan daar past; wie de naam
+// zelf typt, krijgt via saveTeamEdit nog altijd de volledige correctie.
+async function hernoemSpelerInGegevens(hernoemd, opties) {
   if (!hernoemd.length) return 0;
+  const enkelGepland = !!(opties && opties.enkelGepland);
   const opId = new Map(hernoemd.map(h => [h.id, h.naam]));
   const opGlobal = new Map(hernoemd.filter(h => h.globalId).map(h => [h.globalId, h.naam]));
   const nieuweNaam = (rosterId, globalId) => (rosterId && opId.get(rosterId)) || (globalId && opGlobal.get(globalId)) || null;
   let aantal = 0;
   const alle = await dbAll();
   for (const m of alle) {
+    if (enkelGepland && m.status !== 'planned') continue;
     let raak = false;
     (m.players || []).forEach(p => {
       const n = nieuweNaam(p.rosterId, p.globalId);
@@ -438,7 +445,7 @@ async function hernoemSpelerInGegevens(hernoemd) {
   // Ook de tornooiselecties dragen namen mee (zie tournamentSquadList). Per tornooi opslaan met
   // saveTournament: saveTournaments() schrijft bewust enkel lokaal en zou de correctie dus niet
   // naar de andere toestellen brengen.
-  getTournaments().forEach(t => {
+  if (!enkelGepland) getTournaments().forEach(t => {
     const sq = t && t.squad; if (!sq) return;
     let raak = false;
     [sq.players, sq.base, sq.bench, sq.absent].forEach(lijst => {

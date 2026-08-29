@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.18.1
+
+**Dezelfde wissel kon een tweede keer klaargezet worden in een later kwart, en niets waarschuwde
+ervoor.** Gevonden op een echte wedstrijd: één wissel gepland tijdens kwart 3, en in kwart 4 stond
+diezelfde wissel er nog eens — terwijl die speler daar volgens het plan al af was.
+
+De oorzaak: de app gaf twee verschillende antwoorden op de vraag *wie staat er bij de start van kwart
+4 op het veld?* De planningskaart en de PDF rekenden de geplande wissels van de kwarten ertussen mee;
+het venster **Wissels plannen** deed dat niet en viel terug op de startopstelling. Daardoor bood dat
+venster iemand aan die er al af was, en de controle die zulke wissels normaal in het rood zet keek
+naar datzelfde verkeerde veld en zag geen probleem. Op het veld zelf was er niets van te merken: een
+onuitvoerbare wissel werd stilzwijgend overgeslagen. Beide plekken rekenen nu hetzelfde. Bij een
+wedstrijd die bezig is verandert er niets: wat er in het lopende kwart nog klaarstaat blijft buiten
+beschouwing, want een geplande wissel gaat nooit vanzelf af.
+
+**In de planning zie je nu per kwart of er iets klaarstaat.** Naast de bestaande ● (dit kwart heeft
+een eigen opstelling) staat er een wisselteken met het aantal wissels dat voor dat kwart klaargezet
+is, en een kompas voor de positiewissels. Tot nu was er geen enkel teken bij een kwart dat afwijkt
+doordat er tijdens dat kwart gewisseld wordt — je zag het verschil wel op het veld, maar de kop erbij
+bleef zwijgen.
+
+**Een naam die je op een ander toestel verbetert, komt nu ook hier terecht.** Een wedstrijd bewaart
+zijn eigen kopie van de spelersnaam — bewust, want een gastspeler of iemand die de ploeg verliet
+heeft geen kern meer om op terug te vallen. Die kopie werd rechtgezet op het toestel waar je de naam
+typte, maar kwam de correctie via de cloud binnen, dan bleven de wedstrijden hier op de oude naam
+staan en herstelde niets dat nog. Enige uitweg was de selectie van elke wedstrijd opnieuw opslaan.
+Nu wordt de correctie ook toegepast op de wedstrijden die nog niet begonnen zijn.
+
 ## v1.18.0
 
 **De prullenmand is geen eenrichtingsstraat meer: wat erin zit, kan je nu ook definitief wissen.**
