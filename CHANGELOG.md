@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.21.0
+
+**De hele wedstrijd staat nu als tijdlijn boven de planningskaart.** Daar stonden twee dingen die
+hetzelfde zeiden: een rij naamloze bolletjes boven de kaart, en binnen het kader de twee chips van
+het blok waar je op stond. Samen zeiden ze nog altijd niet wáár in de wedstrijd er iets gepland
+stond — dat moest je blok per blok gaan bekijken.
+
+Nu is er één strook, met **elk moment van de wedstrijd** erop: Start · 7,5' · 15' · 22,5' · 30' ·
+37,5' · 45' · 52,5', gegroepeerd per kwart met "Kwart 1" tot "Kwart 4" erboven. Elk chipje is
+aantikbaar en brengt je meteen naar dat moment, ook in een ander kwart. De kop "Kwart 1 / 4" en de
+pijltjes blijven werken zoals je gewend bent.
+
+Een chipje staat **grijs met een stippellijn** wanneer er op dat moment niets aan de ploeg
+verandert: het kwart heeft geen eigen opstelling, of er staat tijdens dat kwart geen wissel klaar.
+Aantikken kan gewoon — je landt dan op de uitnodiging om er wissels klaar te zetten. Zo zie je in
+één oogopslag waar je plan iets doet en waar nog niet.
+
+Op een telefoon staan de vier kwarten als 2 × 2; vanaf een tabletbreedte op één regel. De chips zijn
+bewust allemaal even groot en ruim genoeg om met een vinger te raken — dat weegt zwaarder dan alles
+op één lijn krijgen. Dezelfde strook staat in de planningskaart tijdens de wedstrijd, daar vanaf het
+eerstvolgende kwart, en ook wanneer je met het potlood aan het plan werkt.
+
 ## v1.20.0
 
 **Een gele of rode kaart voor een tegenspeler kan je nu registreren.** Tot nu vroeg het kaartvenster

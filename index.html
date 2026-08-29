@@ -524,6 +524,32 @@
        getoonde opstelling te horen in plaats van bij het kwart. */
     .planmoment{border:1px solid var(--bdr);border-radius:14px;padding:12px 12px 14px;background:rgba(0,0,0,.02)}
     body.dark .planmoment{background:rgba(255,255,255,.03)}
+    /* De tijdlijn boven de planningskaart: elk moment van de wedstrijd als een klein aantikbaar
+       chipje, per blok gegroepeerd met het bloknummer erboven (zie planTijdlijnHtml in wizard-prep.js).
+       ALLES OP ÉÉN LIJN, EN ANDERS 2 x 2 (Tim, 29-08-2026). Het aantal kolommen is het aantal BLOKKEN
+       en wordt door planTijdlijnHtml zelf gezet, zodat de hele wedstrijd op één regel staat. Lukt dat
+       niet, dan valt de regel hieronder terug op twee kolommen, dus 2 x 2. Bewust geen auto-fit: dat
+       kiest bij vier blokken op een smal scherm drie kolommen, en dan staat er 3 + 1, met één blok
+       alleen op de tweede regel. Het PAAR breekt nooit af: dat is het verband tussen de twee momenten
+       van hetzelfde blok.
+       DE CHIPS GAAN VÓÓR DE ENE REGEL (Tim, 29-08-2026): ze moeten met een vinger te raken zijn, dus
+       liever vroeger naar 2 x 2 dan chips die je moet mikken. Acht chips van deze maat passen pas op
+       een tablet of een computerscherm; op een telefoon is het dus altijd 2 x 2, en dat is de bedoeling. */
+    .plantl{display:grid;justify-items:center;gap:8px 8px;margin:-2px 0 10px}
+    /* !important is hier nodig, geen slordigheid: het aantal kolommen staat als inline-stijl op het
+       element (planTijdlijnHtml kent het aantal blokken, de CSS niet), en een inline-stijl wint het
+       anders van deze regel. */
+    @media (max-width:539px){.plantl.plantl-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+    .plantl-blok{display:flex;flex-direction:column;align-items:center;gap:3px}
+    .plantl-nr{font-size:10px;font-weight:800;color:var(--txt2);white-space:nowrap}
+    .plantl-paar{display:flex;gap:4px}
+    /* Vaste breedte: "Start" en "22,5'" zijn twee gelijkwaardige momenten en horen er even groot uit
+       te zien. Liet je de chip meegroeien met zijn tekst, dan werd elk kommagetal een breder blokje. */
+    .plantl-chip{font-family:inherit;font-size:12px;font-weight:700;width:54px;padding:8px 0;text-align:center;border-radius:12px;border:1px solid var(--bdr);background:var(--card);color:var(--txt);cursor:pointer;line-height:1;white-space:nowrap}
+    /* Grijs met een stippellijn = op dat moment verandert er niets aan de ploeg. Aanklikbaar blijft
+       het wél: net daar zet je een wissel klaar. */
+    .plantl-chip.leeg{color:var(--txt2);border-style:dashed;font-weight:600}
+    .plantl-chip.act{background:var(--grn);border-color:var(--grn);color:#fff}
     .lc-wrap{position:relative}
     .lc-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
     .lc-nav-lbl{font-size:13px;font-weight:700;color:var(--txt2)}

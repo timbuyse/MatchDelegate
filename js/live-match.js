@@ -3728,14 +3728,14 @@ function planningTijdensMatchHtml(m) {
     // Dezelfde twee velden als in het voorbereidingsscherm (planTweeVelden in wizard-prep.js): bij de
     // start van het blok en na de geplande wissels. Beide kaarten toonden altijd hetzelfde, dus ze
     // delen die helper — anders zou de ene straks iets anders zeggen dan de andere.
-    const { veld, chips } = planTweeVelden(m, q);
+    const { veld } = planTweeVelden(m, q);
     const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
-    // Zelfde kader als in het voorbereidingsscherm (zie .planmoment): chips + veld + bank horen bij het
-    // moment, de geplande wissels eronder bij het hele blok.
+    // Zelfde kader als in het voorbereidingsscherm (zie .planmoment): veld + bank horen bij het
+    // moment, de geplande wissels eronder bij het hele blok. De momentchips staan in de tijdlijn
+    // boven de kaart, ook hier.
     return `<div class="lc-slide" style="${q === _planLiveQ ? '' : 'display:none'}">
       <div class="planmoment">
-        ${chips}
         ${renderPitch(m, veld, captainAtStartOfQuarter(m, q))}
         <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
         <div class="place-chips">${bank.length
@@ -3752,9 +3752,9 @@ function planningTijdensMatchHtml(m) {
         <span class="lc-nav-lbl" id="pl-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ} van ${totaal}</span>
         <button class="lc-btn" id="pl-next" onclick="_planLiveNav(1)" ${(_planLiveQ === totaal && _prepPlanNa) ? 'disabled' : ''}>›</button>
       </div>` : `<div class="lc-nav"><span class="lc-nav-lbl" style="flex:1;text-align:center">${pSing(m)} ${_planLiveQ}</span></div>`}
-      ${/* Dezelfde bolletjes als in het voorbereidingsscherm, maar enkel voor de blokken die hier
+      ${/* Dezelfde tijdlijn als in het voorbereidingsscherm, maar enkel voor de blokken die hier
            getoond worden: wat al gespeeld is, staat in het verslag en telt hier niet mee. */ ''}
-      ${planStipjesHtml(totaal, _planLiveQ, _prepPlanNa, vanaf)}
+      ${planTijdlijnHtml(m, _planLiveQ, _prepPlanNa, vanaf, 'live')}
       ${delen.map(slide).join('')}
     </div></div>
     ${canLive() ? `<button class="btn btn-gray" style="margin-top:8px" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>` : ''}`;

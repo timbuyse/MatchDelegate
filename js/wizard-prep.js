@@ -1621,7 +1621,8 @@ const PLAN_MERK_TITEL = '● = dit deel heeft een eigen opstelling · pijltjes =
 // hoedanigheid vergelijken. Een blok zonder geplande wissels heeft geen tweede veld en toont gewoon
 // de start, ongeacht deze stand.
 let _prepPlanNa = false;
-function prepPlanToonNa(v) { _prepPlanNa = !!v; render(); }
+// (prepPlanToonNa is weg: de twee chips binnen het kader zijn vervangen door de
+// tijdlijn boven de kaart, en die springt met planNaarMoment naar blok én moment tegelijk.)
 // Alles wat de planningskaart onthoudt terug op nul. Aangeroepen door go() zodra je een ándere
 // wedstrijd opent — zie de uitleg daar: de kaart hoort te openen op de startopstelling, en een
 // werkkopie hoort bij de wedstrijd waarin ze gemaakt is.
@@ -1651,7 +1652,6 @@ function planTweeVelden(m, q) {
     toonNa,
     // Niets klaargezet voor dit blok: dan toont de tweede chip geen veld maar een uitnodiging.
     leeg: toonNa && planNaLeeg(m, q),
-    chips: planChipsHtml(q),
   };
 }
 function prepPlanHerkomstHtml(m, q) {
@@ -1684,22 +1684,23 @@ function prepPlanningHtml(m, ro) {
     // Twee velden per blok — zie planTweeVelden. De bank volgt het getoonde veld: wie ingewisseld
     // wordt, staat op het tweede veld niet meer op de bank. Anders zou je een speler tegelijk op het
     // veld én op de bank zien staan.
-    const { veld, toonNa, chips, leeg } = planTweeVelden(m, q);
-    // HET KADER (Tim, 26-08-2026): chips + veld + bank horen bij het MOMENT en wisselen samen mee; de
+    const { veld, toonNa, leeg } = planTweeVelden(m, q);
+    // HET KADER (Tim, 26-08-2026): veld + bank horen bij het MOMENT en wisselen samen mee; de
     // geplande wissels eronder gelden voor het hele blok en blijven daarom staan. Zonder die rand las
-    // dat als één geheel en leek de wissellijst bij de getoonde opstelling te horen.
+    // dat als één geheel en leek de wissellijst bij de getoonde opstelling te horen. De momentchips
+    // stonden hier vroeger óók in; die zitten nu in de tijdlijn boven de kaart, die over de hele
+    // wedstrijd gaat en dus niet in één moment thuishoort (zie planTijdlijnHtml).
     // Ook in het lege geval staat de wissellijst er nu onder: verdween ze zodra je naar de tweede chip
     // ging, dan versprong net dat stuk dat juist stil moet blijven.
     const onder = plannedSubsVoorDeelHtml(m, q, !ro && canManage());
     if (leeg) return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
-      <div class="planmoment">${chips}${planNaLeegHtml(m, q)}</div>
+      <div class="planmoment">${planNaLeegHtml(m, q)}</div>
       ${onder}
     </div>`;
     const opVeld = new Set(veld.map(p => p.id));
     const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
     return `<div class="lc-slide" style="${q === _prepPlanQ ? '' : 'display:none'}">
       <div class="planmoment">
-        ${chips}
         ${renderPitch(m, veld, m.captainId)}
         ${toonNa ? '' : prepPlanHerkomstHtml(m, q)}
         <div class="sec" style="margin-bottom:6px">Bank (${bank.length})</div>
@@ -1711,7 +1712,10 @@ function prepPlanningHtml(m, ro) {
     </div>`;
   };
   if (total < 2) {
-    return `<div class="card">${potlood ? `<div class="lc-nav"><span class="lc-nav-lbl">Opstelling</span>${potlood}</div>` : ''}${slide(1)}</div>`;
+    // Eén blok heeft nog altijd twee momenten (de start en na de wissels), dus de strook hoort er ook
+    // hier te staan — anders was er geen enkele manier meer om naar dat tweede veld te gaan.
+    return `<div class="card">${potlood ? `<div class="lc-nav"><span class="lc-nav-lbl">Opstelling</span>${potlood}</div>` : ''}
+      ${planTijdlijnHtml(m, 1, _prepPlanNa)}${slide(1)}</div>`;
   }
   return `<div class="card"><div class="lc-wrap" id="pp-wrap">
     <div class="lc-nav">
@@ -1723,7 +1727,7 @@ function prepPlanningHtml(m, ro) {
       <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${(_prepPlanQ === total && _prepPlanNa) ? 'disabled' : ''}>›</button>
       ${potlood}
     </div>
-    ${planStipjesHtml(total, _prepPlanQ, _prepPlanNa)}
+    ${planTijdlijnHtml(m, _prepPlanQ, _prepPlanNa)}
     ${Array.from({ length: total }, (_, i) => slide(i + 1)).join('')}
   </div></div>
   ${planSpeeltijdHtml(m)}`;
@@ -2561,28 +2565,82 @@ function planBlokTijdLabels(m, q) {
   const begin = (q - 1) * dur;
   return { start: q === 1 ? 'Start' : fmt(begin), na: fmt(begin + dur / 2) };
 }
-// WAAR ZIT IK IN DE WEDSTRIJD? (Tim, 26-08-2026) Een rij bolletjes, één per moment: twee per blok,
-// dus acht bij vier kwarten. Het gevulde bolletje is waar je staat. Bewust géén knoppen — daarvoor
-// zijn de pijltjes en de chips er al, en op een telefoon is een bolletje te klein om betrouwbaar aan
-// te tikken. Dit is enkel oriëntatie, en het kost geen leesbaarheid zoals acht chips dat wel zouden.
+// DE TIJDLIJN BOVEN HET VELD (Tim, 29-08-2026). Hier stonden twee dingen die hetzelfde zeiden: een
+// rij naamloze bolletjes boven de kaart (één per moment, twee per blok) én, binnen het kader, de twee
+// chips van het blok waar je op stond. Samen zeiden ze nog altijd niet waar in de wedstrijd er iets
+// gepland stond: dat moest je blok per blok gaan bekijken.
+// Nu is er één strook, en die vervangt allebei: élk moment van de wedstrijd staat er met zijn
+// tijdstip op — Start · 7,5' · 15' · 22,5' … — en elk moment is aantikbaar. Een moment waarop er
+// niets verandert staat grijs met een stippellijn; waar wél iets gebeurt staat gewoon zwart. Zo lees
+// je in één oogopslag waar het plan iets doet. De kop erboven blijft zeggen in welk blok je zit en de
+// pijltjes blijven stap voor stap door de momenten lopen.
+//
+// HORIZONTAAL EN NIET ALS KOLOM NAAST HET VELD (Tims eerste idee, afgewogen op 29-08-2026): op een
+// telefoon is hoogte goedkoop — je scrollt toch — en breedte duur. Een kolom kost het veld ongeveer
+// een zesde van zijn breedte, en dat voel je zodra je met het potlood shirtjes aantikt. Deze strook
+// kost één regel, en die gaven we al uit aan de bolletjes.
+//
+// BOVEN HET KADER, NIET ERIN: de strook gaat over de hele wedstrijd, het kader eronder over dit ene
+// moment. Daarom staat ze ook maar één keer op de kaart en niet in elke dia.
 // `vanaf` is het eerste blok dat nog getoond wordt (tijdens de wedstrijd tellen de gespeelde blokken
-// niet mee).
-function planStipjesHtml(totaal, q, na, vanaf) {
+// niet mee). `bron` bepaalt welke kaart er navigeert: 'live' stuurt de kaart tijdens de wedstrijd.
+function planTijdlijnHtml(m, q, na, vanaf, bron) {
+  const totaal = plannedPartsCount(m);
   const start = vanaf || 1;
-  const n = (totaal - start + 1) * 2;
-  if (n < 3) return '';
-  const hier = (q - start) * 2 + (na ? 1 : 0);
-  const stip = i => `<span style="width:6px;height:6px;border-radius:50%;background:${i === hier ? 'var(--grn)' : 'var(--bdr)'};display:inline-block"></span>`;
-  return `<div style="display:flex;justify-content:center;gap:5px;margin:-2px 0 8px">${Array.from({ length: n }, (_, i) => stip(i)).join('')}</div>`;
+  if (totaal < start) return '';
+  const fn = bron === 'live' ? 'planLiveNaarMoment' : 'planNaarMoment';
+  // Zonder bekende blokduur zijn er geen tijdstippen om op de chips te zetten; dan zeggen twee korte
+  // woorden wat de twee momenten zijn. Het nummer boven het paar zegt over welk blok het gaat.
+  const dur = (m && m.quarterDuration) || 0;
+  // Tijdens het bewerken telt de werkkopie mee, anders zou de strook een eigen opstelling pas na het
+  // opslaan gaan tonen — precies wanneer je aan het tekenen bent, wil je zien dat het aankomt.
+  const eff = _planInline ? _planLineupsNu(m) : ((m && m.plannedLineups) || {});
+  const blokken = [];
+  for (let k = start; k <= totaal; k++) {
+    const lab = planBlokTijdLabels(m, k);
+    // Eerste chip: verandert er iets BIJ de start van dit blok? Blok 1 is de startopstelling en telt
+    // dus altijd mee; een later blok enkel wanneer het een eigen opstelling heeft.
+    const eigen = k === 1 || !!(eff[k] || []).length;
+    // Tweede chip: staat er tijdens dit blok iets klaar? Dezelfde vraag die het lege tweede veld
+    // stelt, dus dezelfde bron — anders kan de chip iets anders beweren dan het scherm eronder.
+    const iets = !planNaLeeg(m, k);
+    const chip = (aan, vol, tekst, waarde) =>
+      `<button type="button" class="plantl-chip${aan ? ' act' : ''}${vol ? '' : ' leeg'}" onclick="${fn}(${k},${waarde})">${esc(tekst)}</button>`;
+    // HET WOORD ERBIJ (Tim, 29-08-2026). Er stond enkel een cijfer boven elk paar, en dat las als een
+    // nummering van de chips in plaats van als het blok waar ze bij horen. pSing volgt de soort van de
+    // wedstrijd, dus bij helften staat er "Helft 1".
+    blokken.push(`<div class="plantl-blok">
+      <span class="plantl-nr">${pSing(m)} ${k}</span>
+      <span class="plantl-paar">${chip(k === q && !na, eigen, dur ? lab.start : 'start', 'false')}${chip(k === q && !!na, iets, dur ? lab.na : 'na', 'true')}</span>
+    </div>`);
+  }
+  // Eén kolom per blok, zodat de hele wedstrijd op één regel staat. Past dat niet — vier kwarten op
+  // een smalle telefoon — dan valt de opmaak terug op twee kolommen; zie .plantl-4 in index.html.
+  return `<div class="plantl plantl-${blokken.length}" style="grid-template-columns:repeat(${blokken.length},minmax(0,1fr))"
+    title="Grijs = op dat moment verandert er niets aan de ploeg">${blokken.join('')}</div>`;
 }
-function planChipsHtml(q) {
-  const lab = planBlokTijdLabels(match, q || _prepPlanQ);
-  // TWEE EVEN BREDE CHIPS, UIT ELKAAR (Tim, 25-08-2026). Een chip groeit normaal mee met zijn tekst,
-  // en "Start" naast "22,5'" gaf dan twee ongelijke blokjes die tegen elkaar plakten. Het zijn twee
-  // gelijkwaardige standen van hetzelfde veld, dus ze horen er ook gelijk uit te zien: een vaste
-  // breedte van 104px met een centrale tekst, en 14px ertussen.
-  const chip = (aan, tekst, waarde) => `<span class="place-chip${aan ? ' sel' : ''}" style="cursor:pointer;width:104px;justify-content:center;text-align:center" onclick="prepPlanToonNa(${waarde})">${esc(tekst)}</span>`;
-  return `<div class="place-chips" style="justify-content:center;gap:14px;margin-bottom:10px">${chip(!_prepPlanNa, lab.start, false)}${chip(_prepPlanNa, lab.na, true)}</div>`;
+// Rechtstreeks naar één moment van de wedstrijd. De pijltjes lopen stap voor stap (zie _prepPlanNav);
+// dit is de sprong.
+function planNaarMoment(k, na) {
+  na = !!na;
+  if (k === _prepPlanQ && na === _prepPlanNa) return;
+  // Bewerken staat aan én je springt naar een ANDER blok: dan langs planNaarDeel, dat de werkkopie
+  // eerst wegschrijft — het volgende blok erft van dit blok, dus dat moet vastliggen vóór het
+  // getekend wordt. Binnen hetzelfde blok is er niets weg te schrijven.
+  if (_planInline && k !== _prepPlanQ) { planNaarDeel(k, na); return; }
+  // Een tweede veld dat je net opengezet hebt om op te tekenen, blijft open zolang je op dat moment
+  // van dat blok blijft — zelfde regel als bij het bladeren met de pijltjes.
+  if (k !== _prepPlanQ || !na) _planNaOpen = 0;
+  _prepPlanQ = k; _prepPlanNa = na;
+  render();
+}
+// Dezelfde sprong in de planningskaart tijdens de wedstrijd. Die kaart houdt haar eigen blok bij
+// (_planLiveQ) maar deelt de momentstand met het voorbereidingsscherm, net als de pijltjes daar.
+function planLiveNaarMoment(k, na) {
+  na = !!na;
+  if (k === _planLiveQ && na === _prepPlanNa) return;
+  _planLiveQ = k; _prepPlanNa = na;
+  render();
 }
 // Staat er voor dit blok nog niets klaar en ben je er nog niet aan begonnen, dan toont de tweede chip
 // GEEN veld maar een uitnodiging (Tim, 25-08-2026). Anders staat er een kopie van het veld ernaast,
@@ -2619,7 +2677,7 @@ function planBewerkKnoppenHtml(inline) {
 // leidWisselsAf) en toont ze eronder, zodat je meteen ziet wat er klaargezet wordt.
 function plannerNaBodyHtml(m, deel) {
   // Nog niets klaargezet en nog niet begonnen: eerst de uitnodiging, geen leeg tweede veld.
-  if (planNaLeeg(m, deel)) return `<div class="planmoment">${planChipsHtml(deel)}${planNaLeegHtml(m, deel)}</div>${planBewerkKnoppenHtml(true)}`;
+  if (planNaLeeg(m, deel)) return `<div class="planmoment">${planNaLeegHtml(m, deel)}</div>${planBewerkKnoppenHtml(true)}`;
   const start = plannedLineupPlayers(m, planLineupBaseNu(m, deel));
   const veld = planNaBaseNu(m, deel);
   const opVeld = new Set(veld.map(p => p.id));
@@ -2639,7 +2697,6 @@ function plannerNaBodyHtml(m, deel) {
   // blok, dan nemen we die over; anders het midden van het blok — zelfde telling als modalPlanSub.
 
   return `<div class="planmoment">
-      ${planChipsHtml()}
       <div style="min-height:60px;display:flex;align-items:center;justify-content:center"><p style="text-align:center;color:var(--txt2);font-size:13px;margin:0">Teken hoe de ploeg er <b>tijdens ${pSingLow(m)} ${deel}</b> moet komen te staan. <b>De app rekent zelf uit welke wissels daarvoor nodig zijn.</b></p></div>
       ${renderPitch(m, veld, m.captainId, null, { fn: 'planNaTap', selId, plek: true })}
       <div class="sec">Bank (${bank.length})</div>
@@ -2697,13 +2754,12 @@ function plannerBodyHtml(m, deel, inline) {
       : (eigen
         ? ` Dit ${pSingLow(m)} heeft een <b>eigen</b> opstelling en volgt ${pSingLow(m)} ${deel - 1} dus niet meer.`
         : ` Dit ${pSingLow(m)} heeft nog geen eigen opstelling: het begint zoals het vorige <b>eindigt</b>.`)}`;
-  // Hetzelfde kader als in de kijkstand, maar enkel inline: daar staan de twee chips van het blok en
-  // moet zichtbaar zijn dat het veld bij ÉÉN moment hoort. In het losse venster zijn er geen
-  // momentchips, dus daar zou een rand enkel ruis zijn.
+  // Hetzelfde kader als in de kijkstand, maar enkel inline: daar staat de tijdlijn boven de kaart en
+  // moet zichtbaar zijn dat het veld bij ÉÉN moment daarvan hoort. In het losse venster is er geen
+  // tijdlijn, dus daar zou een rand enkel ruis zijn.
   const kader = inline ? '<div class="planmoment">' : '';
   const kaderDicht = inline ? '</div>' : '';
   return `${kader}
-    ${inline ? planChipsHtml() : ''}
     ${/* Inline heeft de kaart zelf al pijltjes en een label per blok; die knoppenrij zou dat dubbel
          doen. In het venster is ze de enige manier om te springen, dus daar blijft ze staan. */ ''}
     ${(totaal > 1 && !inline) ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${chips}</div>${bolUitleg}` : ''}
