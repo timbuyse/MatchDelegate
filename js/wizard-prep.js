@@ -1596,6 +1596,26 @@ function _prepPlanNav(dir) {
 // wie die wissel in kwart 2 niet doorvoerde begon kwart 3 met de speler die er nog stond (het
 // pauzescherm zei dat wél correct). Die kaart zei daar niets over, en dat is het hele punt.
 function prepPlanEigen(m, q) { return (((m && m.plannedLineups) || {})[q] || []).length > 0; }
+// WAT STAAT ER VOOR DIT DEEL KLAAR? (Tims melding, 29-08-2026.) Het puntje hierboven zegt enkel of een
+// deel een EIGEN opstelling heeft. Een deel dat afwijkt doordat er tijdens dat deel gewisseld wordt,
+// kreeg dus géén merkje — terwijl je op het veld wél verschil ziet. Bladerend door de blokken was er
+// zo geen enkel teken van waar er iets gepland stond. Vandaar een tweede merkje, met een eigen
+// betekenis: de wissels en positiewissels die voor dit deel klaarstaan.
+function prepPlanKlaar(m, q) {
+  return {
+    subs: (((m && m.plannedSubs) || [])).filter(s => s.quarterNum === q).length,
+    swaps: (((m && m.plannedPosSwaps) || [])).filter(s => s.quarterNum === q).length,
+  };
+}
+// De merkjes achter een blokkop of -knop. `eigen` mag meegegeven worden wanneer de beller de
+// werkkopie meerekent (de planner doet dat); zonder dat leest hij gewoon wat opgeslagen is.
+function prepPlanMerkjes(m, q, eigen) {
+  const k = prepPlanKlaar(m, q);
+  return ((eigen === undefined ? prepPlanEigen(m, q) : eigen) ? ' ●' : '')
+    + (k.subs ? ' ' + icI(IC.swap) + k.subs : '')
+    + (k.swaps ? ' ' + icI(IC.compass) + k.swaps : '');
+}
+const PLAN_MERK_TITEL = '● = dit deel heeft een eigen opstelling · pijltjes = wissels die tijdens dit deel klaarstaan · kompas = geplande positiewissels';
 // Welk van de twee velden staat er? false = bij de start, true = na de geplande wissels. Bewust één
 // stand voor de hele kaart en niet per blok: blader je door de blokken, dan wil je ze in dezelfde
 // hoedanigheid vergelijken. Een blok zonder geplande wissels heeft geen tweede veld en toont gewoon
@@ -1699,7 +1719,7 @@ function prepPlanningHtml(m, ro) {
            moment van de wedstrijd, volgende pas op het allerlaatste. */ ''}
       <button class="lc-btn" id="pp-prev" onclick="_prepPlanNav(-1)" ${(_prepPlanQ === 1 && !_prepPlanNa) ? 'disabled' : ''}>‹</button>
       ${'' /* speeltijdblok staat onder de kaart — zie het einde van deze functie */}
-      <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center" title="● = dit deel heeft een eigen opstelling">${pSing(m)} ${_prepPlanQ} / ${total}${prepPlanEigen(m, _prepPlanQ) ? ' ●' : ''}</span>
+      <span class="lc-nav-lbl" id="pp-lbl" style="flex:1;text-align:center" title="${PLAN_MERK_TITEL}">${pSing(m)} ${_prepPlanQ} / ${total}${prepPlanMerkjes(m, _prepPlanQ)}</span>
       <button class="lc-btn" id="pp-next" onclick="_prepPlanNav(1)" ${(_prepPlanQ === total && _prepPlanNa) ? 'disabled' : ''}>›</button>
       ${potlood}
     </div>
@@ -2655,13 +2675,18 @@ function plannerBodyHtml(m, deel, inline) {
     // Een stipje betekent "dit deel heeft een eigen opstelling". Deel 1 heeft er per definitie een
     // (de startopstelling), dus daar zou het stipje niets onderscheiden.
     const heeft = k > 1 && !!(eff[k] || []).length;
-    const titel = heeft ? ` title="Eigen opstelling — volgt ${pSingLow(m)} ${k - 1} niet meer"` : '';
-    return `<button class="tgl-btn${k === deel ? ' act' : ''}"${titel} onclick="planNaarDeel(${k})">${pSing(m)} ${k}${heeft ? ' ●' : ''}</button>`;
+    return `<button class="tgl-btn${k === deel ? ' act' : ''}" title="${PLAN_MERK_TITEL}" onclick="planNaarDeel(${k})">${pSing(m)} ${k}${prepPlanMerkjes(m, k, heeft)}</button>`;
   }).join('');
-  // Wat het bolletje betekent, staat er nu bij: het onderscheidt een deel dat je zelf invulde van een
-  // deel dat gewoon het vorige volgt, en dat verschil bepaalt of een latere wijziging nog doorwerkt.
-  const bolUitleg = Array.from({ length: totaal }, (_, i) => i + 1).some(k => k > 1 && (eff[k] || []).length)
-    ? `<p style="text-align:center;color:var(--txt2);font-size:11px;margin:-4px 0 10px">● = eigen opstelling</p>` : '';
+  // Wat de merkjes betekenen, staat eronder. Het bolletje onderscheidt een deel dat je zelf invulde
+  // van een deel dat gewoon het vorige volgt (dat verschil bepaalt of een latere wijziging nog
+  // doorwerkt); de pijltjes zeggen dat er tijdens dat deel iets klaarstaat. Enkel tonen wat er ook
+  // echt staat, anders is het uitleg bij merkjes die nergens te zien zijn.
+  const delenLijst = Array.from({ length: totaal }, (_, i) => i + 1);
+  const stukjes = [];
+  if (delenLijst.some(k => k > 1 && (eff[k] || []).length)) stukjes.push('● = eigen opstelling');
+  if (delenLijst.some(k => { const x = prepPlanKlaar(m, k); return x.subs || x.swaps; })) stukjes.push(icI(IC.swap) + '= staat klaar');
+  const bolUitleg = stukjes.length
+    ? `<p style="text-align:center;color:var(--txt2);font-size:11px;margin:-4px 0 10px">${stukjes.join(' · ')}</p>` : '';
   const selId = _planLineupSel ? _planLineupSel.id : null;
   const uitleg = ro
     ? (deel === 1
