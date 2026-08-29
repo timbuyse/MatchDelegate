@@ -33,7 +33,11 @@ This was a true single-file app until v0.4.2, when the JavaScript was split out 
 
 Serve this folder with a static file server. Note: plain `python`/`node`/`npx` are not on PATH in this environment; the working interpreter is pinned at `AppData\Local\Python\pythoncore-3.14-64\python.exe`. Prefer the preconfigured launch task **`match-delegate`** (`.claude/launch.json` → `serve.ps1`, port 3000 with `autoPort`) when available.
 
-A port other than the usual one is a **feature when testing**: Firebase auth is per origin, so a fresh port means no signed-in session, `teamRef()` returns null, and no write can possibly reach production data. That is the safe place to drive a full match end-to-end. On the usual port you are signed in as Tim — see the seed/demo rules below.
+A **genuinely fresh** port is a feature when testing: Firebase auth is per origin, so an origin that has never been signed in has no session, `teamRef()` returns null, and no write can reach production data.
+
+**Port 3000 is NOT such a port** (measured 29-08-2026). It is the fixed port of the `match-delegate` launch task, so it has been signed in before and the session persists: `cloudReady` and `isAdmin` both came back `true`, and every `dbSave` there reaches production. Verify before you trust a port — read `cloudReady`/`isAdmin` in the console rather than assuming. On any port where they are true, the seed/demo rules below apply in full: stub `dbSave` and `cloudOnLocalMatchSave` before calling anything that saves.
+
+Also, when driving the app from the console: `match` is a **lexical global**, not a property of `window`. Assigning `window.match = …` does nothing — the handlers keep seeing the real `match` and bail out at their `if (!match) return` without any error, which reads as "my code never ran". Use a bare `match = m`. Functions (`dbSave`, `showToast`, `render`) *are* window properties and stub normally.
 
 Validate JS changes by manual review (balanced braces/backticks) and by exercising the change in the running app. There is no automated test runner.
 

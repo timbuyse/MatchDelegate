@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.21.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.21.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3030,6 +3030,64 @@ function applyCloudClub(val) {
   applyStoredTheme();
   if (view === 'home' || view === 'setup') { go('home'); } else cloudRefreshUI();
 }
+// DE KLOK VAN EEN BLOK VOLGT ZIJN EIGEN START- EN EINDSIGNAAL (29-08-2026)
+//
+// De gebeurtenissen worden bij een samenvoeging van beide kanten verenigd; de blokken (m.quarters)
+// komen integraal van wie het laatst schreef. Schreef die als laatste met een verouderde kopie, dan
+// staat er een klok bij die nooit gelopen heeft. Gebeurd op een echte wedstrijd van 29-08-2026: vier
+// blokken kregen de kloktijd van drie uur ná de wedstrijd, kwart 4 stond op 55 minuten.
+//
+// Elk 'quarter_start'-event draagt zijn eigen `realTime` — gezet in dezelfde tel als `q.startTime`,
+// dus in een gezonde wedstrijd schelen die hooguit een paar milliseconden. Wijken ze uren af, dan is
+// de klok van dat blok niet te vertrouwen en bouwen we ze terug op uit de events zelf. Dat is exact
+// de handmatige reparatie die de wedstrijd van 29-08-2026 heeft rechtgezet.
+//
+// DE STARTTIJD IS DE TOETS, NIET DE EINDTIJD. "Duur aanpassen" (pasKwartDuurToe) verzet bewust
+// `q.endTime` zonder het einde-event te verplaatsen — een eindtijd die afwijkt is dus een geldige
+// correctie van de gebruiker en mag nooit teruggedraaid worden. De starttijd verzet niets in de app
+// nadat het blok geopend is, dus die is het enige betrouwbare ijkpunt. Klopt de start, dan blijft
+// het blok volledig ongemoeid.
+const KLOK_AFWIJKING_MS = 60000;   // een minuut speling; echte schade is uren
+function herstelKlokUitEvents(m) {
+  if (!m || !Array.isArray(m.quarters) || !Array.isArray(m.events) || !m.quarters.length) return false;
+  let veranderd = false;
+  // HET VROEGSTE SIGNAAL WINT. Na zo'n replay staan er twee startsignalen voor hetzelfde blok: het
+  // echte en dat van het toestel dat er nog eens doorheen tikte. Een blok begint wanneer het voor het
+  // eerst begon, dus het vroegste is per definitie het echte en het latere de replay. In een gezonde
+  // wedstrijd is er maar één en verandert dit niets — "toch nog niet gestart" wist het oude
+  // startsignaal mét tombstone, dus daar ontstaat geen tweede.
+  const vroegste = (num, type) => m.events.reduce((t, e) =>
+    (e && e.type === type && e.quarterNum === num && e.realTime && (t === 0 || e.realTime < t)) ? e.realTime : t, 0);
+  for (const q of m.quarters) {
+    if (!q || q.num == null) continue;
+    const start = vroegste(q.num, 'quarter_start');
+    // Geen startsignaal (of een wedstrijd van vóór dat events een kloktijd droegen): niets te toetsen.
+    if (!start) continue;
+    if (Math.abs((q.startTime || 0) - start) <= KLOK_AFWIJKING_MS) continue;
+    q.startTime = start;
+    // De pauzes van dat blok zijn niet te reconstrueren; ze zaten in de klok die we net weggooien.
+    q.totalPaused = 0; q.pausedAt = null;
+    if (q.endTime) {
+      const eind = vroegste(q.num, 'quarter_end');
+      if (eind > start) q.endTime = eind;
+      else {
+        // Zonder einde-event (een blok dat nooit netjes afgesloten is) schatten we: de laatste
+        // gebeurtenis van dat blok die nog BINNEN een plausibele duur valt — drie keer de voorziene
+        // duur. Die grens is geen meting maar een filter: de gebeurtenissen van de replay liggen uren
+        // verderop en zouden er anders een blok van drie uur van maken. Bewust de laatste binnen de
+        // grens en niet "alles of niets": één gebeurtenis van de replay mag de échte laatste
+        // gebeurtenis niet wegduwen. Ligt er niets binnen de grens, dan de voorziene duur.
+        const nominaal = (m.quarterDuration || 15) * 60000;
+        const grens = start + 3 * nominaal;
+        const laatste = m.events.reduce((t, e) =>
+          (e && e.quarterNum === q.num && e.realTime > t && e.realTime <= grens) ? e.realTime : t, 0);
+        q.endTime = laatste > start ? laatste : start + nominaal;
+      }
+    }
+    veranderd = true;
+  }
+  return veranderd;
+}
 // Verwerkt precies één wedstrijd uit de cloud (via child_added/child_changed) — zelfde
 // logica als voorheen in de over-alles-lopende applyCloudMatches, maar nu per item, zodat
 // één cloud-wijziging niet langer het hele seizoen opnieuw verwerkt (zie B14).
@@ -3043,7 +3101,49 @@ async function applyCloudMatch(id, m) {
   // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
   // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
   // Dan lokaal behouden en opnieuw pushen i.p.v. overschrijven met de oude cloud-versie.
+  //
+  // MAAR NOOIT DE GEBEURTENISSEN VAN DE ANDER WEGGOOIEN (29-08-2026). Dit vangnet nam de lokale
+  // kopie integraal en liet het binnenkomende object vallen — inclusief events die hier niet
+  // stonden. Een toestel dat zonder verbinding door een al gespeelde wedstrijd tikte, leerde dus
+  // nooit iets: het wist niet dat die blokken elders al gespeeld waren, de wachter in startQuarter
+  // kon niet afgaan, en bij het herverbinden won zijn klok. Zo raakte een echte wedstrijd op
+  // 29-08-2026 zijn vier kwartkloktijden kwijt en stond elke pauzewissel dubbel.
+  // De verhouding blijft wat ze was — de lokale kopie wint — maar de events worden verenigd, met
+  // dezelfde tombstone-regel als de gewone merge hieronder: wat bewust gewist is, komt niet terug.
   if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
+    if (!Array.isArray(existing.events)) existing.events = [];
+    // Tombstones van beide kanten verenigen, net als bij de gewone merge hieronder. De vergelijking
+    // gaat over de VERZAMELING en niet over de lijstlengte: een dubbel merkje in de lijst zou anders
+    // een echt verschil kunnen maskeren. De unie is per definitie een superset van wat we hadden,
+    // dus gelijke grootte betekent hier gelijke inhoud.
+    const tombLokaal = new Set([...(m.deletedEventIds || []), ...(existing.deletedEventIds || [])]);
+    const tombNieuw = tombLokaal.size !== new Set(existing.deletedEventIds || []).size;
+    if (tombNieuw) existing.deletedEventIds = [...tombLokaal];
+    const hier = new Set(existing.events.map(e => e && e.id));
+    const erbij = (m.events || []).filter(e => e && e.id && !hier.has(e.id) && !tombLokaal.has(e.id));
+    // Bracht de cloud een merkje voor een event dat wij nog hebben, dan moet dat hier ook weg —
+    // anders blijft het staan op het toestel waar het net verwijderd had moeten worden.
+    let gewijzigd = tombNieuw;
+    if (erbij.length || tombNieuw) {
+      existing.events = [...existing.events.filter(e => e && !tombLokaal.has(e.id)), ...erbij]
+        .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+      recomputeScore(existing); recomputeOnField(existing);
+      // Zelfde herbouw als bij de gewone merge verderop: zonder dit staat een invaller van het
+      // andere toestel wel op het veld maar zonder plaats.
+      try {
+        if (typeof rebuildPositions === 'function' && typeof playersAtPeriodStart === 'function'
+            && Array.isArray(existing.quarters) && existing.quarters.length) {
+          rebuildPositions(existing, playersAtPeriodStart(existing, 1));
+        }
+      } catch (e) { /* een mislukte herbouw mag de sync nooit breken */ }
+      gewijzigd = true;
+    }
+    // Ook hier de klok toetsen: net de events van de ander erbij, dus nu pas is te zien of onze
+    // eigen blokken een kloktijd dragen die nooit gelopen heeft.
+    if (herstelKlokUitEvents(existing)) gewijzigd = true;
+    // Lokaal ook echt bewaren: anders leeft de vereniging enkel in de push en weet dít toestel
+    // nog steeds van niets — precies het gat dat we hier dichten.
+    if (gewijzigd) { await dbPutLocal(existing); cloudRefreshUI(); }
     cloudOnLocalMatchSave(existing);
     return;
   }
@@ -3126,8 +3226,14 @@ async function applyCloudMatch(id, m) {
   // Twee aanleidingen: (1) we hebben net events samengevoegd, (2) er staat iemand op het veld
   // zonder plaats. Dat tweede maakt het zelfherstellend voor wedstrijden die al in die toestand
   // bewaard zijn.
+  // DE KLOK RECHTZETTEN (29-08-2026). Staat hier, ná de event-merge: pas dan zijn alle start- en
+  // eindsignalen van beide toestellen bij elkaar en is er iets om tegen te toetsen. In een gezonde
+  // wedstrijd is dit een no-op; is er een blok met een kloktijd die nooit gelopen heeft, dan wordt ze
+  // hier stil rechtgezet — óók bij wedstrijden die al beschadigd bewaard staan, want deze controle
+  // loopt bij élke cloud-update en niet enkel wanneer er events samengevoegd zijn.
+  const klokHersteld = herstelKlokUitEvents(m);
   const gatInOpstelling = (m.players || []).some(p => p.onField && typeof p.x !== 'number');
-  if ((eventsGemerged || gatInOpstelling) && Array.isArray(m.quarters) && m.quarters.length) {
+  if ((eventsGemerged || gatInOpstelling || klokHersteld) && Array.isArray(m.quarters) && m.quarters.length) {
     try {
       if (typeof rebuildPositions === 'function' && typeof playersAtPeriodStart === 'function') {
         rebuildPositions(m, playersAtPeriodStart(m, 1));
@@ -3162,6 +3268,10 @@ async function applyCloudMatch(id, m) {
     _andereBeheerder = { matchId: id, when: Date.now() };
   }
   await dbPutLocal(m);
+  // Een rechtgezette klok ook terugduwen, zodat alle toestellen op dezelfde tijden uitkomen. Geen
+  // lus-gevaar: na de echo klopt de klok en geeft herstelKlokUitEvents niets meer terug.
+  // `updatedAt` blijft bewust ongemoeid — dit is een reparatie, geen bewerking van de gebruiker.
+  if (klokHersteld) cloudOnLocalMatchSave(m);
   // Notificatie voor kijkers: toon eenmalig als wedstrijd live gaat
   if (!isAdmin && m.status === 'live' && !knownLiveMatchIds.has(id)) {
     knownLiveMatchIds.add(id);

@@ -9,6 +9,46 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.21.1
+
+**Een toestel dat achterloopt kan niet meer door een al gespeelde wedstrijd tikken.** Stond de app op
+een tweede toestel nog op een oude stand van de wedstrijd, dan kon je daar gewoon "kwart afsluiten"
+en "volgend kwart starten" blijven aantikken — ook al was die wedstrijd elders allang uitgespeeld.
+Elke start zette een kwart met de klok van *dat* moment in de lijst en voerde de klaargezette wissels
+een tweede keer uit.
+
+Gebeurd op een echte wedstrijd op 29-08-2026: zeven kwartovergangen in 43 seconden, uren na de
+wedstrijd zelf. Gevolg: vier kwarten met een verkeerde klok (kwart 4 stond op 55 minuten), elke
+pauzewissel dubbel, twee spelers op dezelfde plek op het velddiagram, en speelminuten die nergens
+meer op sloegen. De wedstrijd is nadien volledig hersteld — de gebeurtenissen dragen elk hun echte
+kloktijd, en daaruit is de juiste klok terug te rekenen.
+
+Er zitten nu **drie sloten** op, want één was niet genoeg.
+
+**Een kwart dat al gespeeld is, kan je niet opnieuw starten of afsluiten.** Het starten en afsluiten
+keken naar de klok zoals dat ene toestel ze kende — op een achterlopend toestel net het stuk dat niet
+klopt. Ze kijken nu naar de gebeurtenissen: die worden bij het samenvoegen van twee toestellen van
+beide kanten verenigd. Is het kwart daar al begonnen of al afgesloten, dan gaat de tik niet door en
+zegt de app dat dit toestel achterloopt. "Opnieuw beginnen", "toch nog niet gestart", een verlenging
+en "verkeerd afgesloten — hervatten" blijven gewoon werken.
+
+**Een wedstrijd die je offline bijhield, gooit de gebeurtenissen van het andere toestel niet meer
+weg.** Werkte je zonder verbinding, dan hield de app terecht jouw versie aan — maar ze liet daarbij
+álles vallen wat er intussen elders bijgekomen was. Daardoor wist zo'n toestel nooit dat die kwarten
+al gespeeld waren, en ging het slot hierboven niet af. De twee lijsten worden nu verenigd; wat je
+bewust verwijderd hebt, blijft verwijderd.
+
+**En de klok van een kwart wordt vanzelf rechtgezet.** Elke start van een kwart wordt opgeslagen mét
+het tijdstip waarop hij gebeurde. Wijkt de bewaarde klok van een kwart daar uren van af, dan is ze
+niet te vertrouwen en bouwt de app ze terug op uit die tijdstippen — het vroegste startsignaal is het
+echte, een later signaal voor hetzelfde kwart is de dubbelloop. Dat gebeurt bij elke synchronisatie,
+dus **wedstrijden die nu al een scheve klok hebben, zetten zichzelf recht** zodra ze binnenkomen. Een
+duur die je zelf corrigeerde met "Duur aanpassen" blijft daarbij staan — die wordt niet als fout
+gezien.
+
+
+---
+
 ## v1.21.0
 
 **De hele wedstrijd staat nu als tijdlijn boven de planningskaart.** Daar stonden twee dingen die
@@ -30,6 +70,8 @@ Op een telefoon staan de vier kwarten als 2 × 2; vanaf een tabletbreedte op é�
 bewust allemaal even groot en ruim genoeg om met een vinger te raken — dat weegt zwaarder dan alles
 op één lijn krijgen. Dezelfde strook staat in de planningskaart tijdens de wedstrijd, daar vanaf het
 eerstvolgende kwart, en ook wanneer je met het potlood aan het plan werkt.
+
+---
 
 ## v1.20.0
 
