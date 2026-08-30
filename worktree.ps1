@@ -29,9 +29,35 @@ $ErrorActionPreference = 'Stop'
 $hoofd = $PSScriptRoot
 Set-Location $hoofd
 
+# GIT SCHRIJFT GEWONE VOORTGANG NAAR HET FOUTKANAAL ("Preparing worktree...", "Updating files...").
+# Met $ErrorActionPreference = 'Stop' maakt Windows PowerShell daar een terminating error van, en dan
+# stopt dit script middenin: de tweede map staat er dan wél, maar zonder eigen poort en zonder de
+# skip-worktree op launch.json — precies de twee dingen die botsingen moeten voorkomen. Twee keer
+# gebeurd op 29-08-2026. Deze helper vouwt het foutkanaal bij de gewone uitvoer en laat het oordeel
+# volledig aan de afloopcode over, wat het enige betrouwbare signaal van git is.
+# Let op: enkel `2>&1` volstaat NIET. Windows PowerShell maakt van elke regel op het foutkanaal een
+# ErrorRecord, en met 'Stop' is die op zichzelf al fataal — ook al is de tekst gewone voortgang. De
+# voorkeur moet dus echt even op 'Continue' staan tijdens de aanroep. Hij is hier lokaal aan de
+# functie, dus buiten deze regels blijft 'Stop' onverkort gelden.
+function Git-Doe {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Argumenten)
+    $ErrorActionPreference = 'Continue'
+    & git @Argumenten 2>&1 | ForEach-Object { Write-Host "  $_" }
+    return $LASTEXITCODE
+}
+
 function Vrije-Poort {
     # De hoofdmap draait op 3000; een tweede werkmap krijgt de eerste vrije daarboven.
-    $bezet = (Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue).LocalPort
+    $bezet = @((Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue).LocalPort)
+    # OOK DE POORTEN DIE ANDERE WERKMAPPEN AL GECLAIMD HEBBEN (29-08-2026). Hierboven staan enkel de
+    # poorten waarop op DIT moment iets luistert. Maak je twee werkmappen na elkaar zonder er een
+    # server in te starten, dan kregen ze allebei 3001 — en zodra je ze later samen opstart, vechten
+    # ze erom. Wat een map claimt, staat in haar eigen launch.json.
+    foreach ($pad in (git worktree list --porcelain 2>$null | Where-Object { $_ -like 'worktree *' } | ForEach-Object { $_.Substring(9) })) {
+        $cfg = Join-Path $pad '.claude\launch.json'
+        if (-not (Test-Path $cfg)) { continue }
+        try { $bezet += (Get-Content $cfg -Raw | ConvertFrom-Json).configurations.port } catch {}
+    }
     foreach ($p in 3001..3020) { if ($bezet -notcontains $p) { return $p } }
     throw "Geen vrije poort gevonden tussen 3001 en 3020."
 }
@@ -86,8 +112,8 @@ if ($Klaar -or $Weg) {
             return
         }
         Write-Host "Werk van tak '$n' binnenhalen in master..." -ForegroundColor Cyan
-        git merge --no-ff $n -m "Werk van '$n' samenvoegen"
-        if ($LASTEXITCODE -ne 0) {
+        $code = Git-Doe merge --no-ff $n -m "Werk van '$n' samenvoegen"
+        if ($code -ne 0) {
             Write-Host ""
             Write-Host "Samenvoegen liep vast. De werkmap blijft staan; los het conflict op en" -ForegroundColor Yellow
             Write-Host "voer dit daarna opnieuw uit." -ForegroundColor Yellow
@@ -95,9 +121,18 @@ if ($Klaar -or $Weg) {
         }
     }
 
-    git worktree remove $map --force
-    git branch -D $n 2>$null | Out-Null
+    # WEIGERT WINDOWS DE MAP TE WISSEN, DAN IS DE SESSIE DIE ERIN WERKTE NOG OPEN (29-08-2026). Git
+    # heeft de worktree dan al uitgeschreven, dus de tak mag weg en er kan niets meer misgaan; enkel
+    # de lege map blijft staan. Dat melden is beter dan het script laten struikelen.
+    $wegCode = Git-Doe worktree remove $map --force
+    git branch -D $n 2>&1 | Out-Null
     Write-Host ""
+    if ($wegCode -ne 0 -and (Test-Path $map)) {
+        Write-Host "De map '$map' kon niet gewist worden - ze wordt nog gebruikt." -ForegroundColor Yellow
+        Write-Host "Sluit de sessie die daarin werkte en wis ze daarna met de hand." -ForegroundColor Yellow
+        Write-Host "Git en de tak zijn wel al opgeruimd." -ForegroundColor Yellow
+        Write-Host ""
+    }
     Write-Host "Opgeruimd." -ForegroundColor Green
     if ($Klaar) { Write-Host "Het werk staat nu in master. Nog niet gepusht." -ForegroundColor Green }
     Toon-Lijst
@@ -130,8 +165,7 @@ if ($vastgelegd -notmatch '\[int\]\$Port') {
 
 $poort = Vrije-Poort
 Write-Host "Tweede werkmap aanmaken op poort $poort..." -ForegroundColor Cyan
-git worktree add $map -b $Naam
-if ($LASTEXITCODE -ne 0) { throw "Aanmaken mislukt." }
+if ((Git-Doe worktree add $map -b $Naam) -ne 0) { throw "Aanmaken mislukt." }
 
 # De preview-tool leest .claude/launch.json om te weten hoe de app start en op
 # welke poort ze luistert. In deze tweede map moet dat een ANDERE poort zijn,
