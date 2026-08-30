@@ -75,16 +75,32 @@ function renderDetail() {
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
         </div>`}
-      </div>`
-      // geenUitslag: zonder uitslag valt er niets met strafschoppen te beslissen (v1.6.0) — de 0-0
-      // in de gegevens is daar geen gelijkspel maar "niet bijgehouden".
-      : (ro || match.status !== 'done' || geenUitslag(match) ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppenreeks toevoegen</button>`)}
-    ${/* HEROPENEN HOORT HIER OOK (Tim, 26-08-2026). Het stond enkel helemaal onderaan, naast
-         "Wedstrijd verwijderen" — terwijl je het net gebruikt in de minuut ná het affluiten, als
-         blijkt dat je te vroeg stopte. Dat is exact hetzelfde moment waarop je een strafschoppenreeks
-         toevoegt, dus staan ze nu naast elkaar. De knop onderaan blijft ook staan: wie daar aan het
-         opruimen is, verwacht hem daar. Zonder uitslag staat heropenen al in de rij bovenaan. */ ''}
-    ${(ro || match.status !== 'done' || geenUitslag(match)) ? '' : `<button class="btn btn-orgpale btn-sm no-print" style="margin-top:8px" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>`}
+      </div>` : ''}
+    ${/* ÉÉN RIJ MET WAT JE MET DEZE WEDSTRIJD DOET (Tim, 30-08-2026). Hier stonden twee knoppen los
+         onder elkaar — een strafschoppenreeks toevoegen en heropenen — en daaronder nog de rij
+         delen/PDF/export. Dat las als drie losse zones, terwijl het gewoon één handeling per knop is.
+         Ze staan nu in één rij die afbreekt op een smal scherm, met "Bewerken" erbij: dat is de knop
+         die je hier het vaakst nodig hebt, en die stond helemaal onderaan.
+         "Strafschoppenreeks toevoegen" is uit de ternary hierboven naar deze rij verhuisd; de sectie
+         zelf blijft wél vlak onder de eindscore staan, want die hoort bij de uitslag.
+         geenUitslag: zonder uitslag valt er niets met strafschoppen te beslissen (v1.6.0) — de 0-0 in
+         de gegevens is daar geen gelijkspel maar "niet bijgehouden". Heropenen staat daar al in de
+         groene rij hieronder, dus hier niet nog eens. */ ''}
+    ${/* KORTE OPSCHRIFTEN, ZODAT DE DRIE OP ÉÉN LIJN PASSEN (Tim, 30-08-2026). "Strafschoppenreeks
+         toevoegen" en "Wedstrijd heropenen" samen waren te breed: dan viel er altijd één naar een
+         tweede regel. "Strafschoppen" en "Heropenen" zeggen hier hetzelfde — je staat op het scherm
+         van één wedstrijd, dus "wedstrijd" en "reeks" voegen niets toe. Gemeten met de knoppen in het
+         echte scherm: op 360 px (de smalste telefoon die vandaag nog telt) passen ze samen op 322 van
+         de 328 px. Op een nog smaller toestel breekt de rij netjes af i.p.v. de tekst af te kappen —
+         daarom flex-wrap en geen raster van drie vaste kolommen. */ ''}
+    ${ro ? '' : (() => {
+      const af = match.status === 'done' && !geenUitslag(match);
+      const stijl = 'margin:0;font-size:13px;padding:9px 6px;gap:5px;flex:1 1 auto';
+      const knoppen = [`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="modalDetailEditMenu()">${icI(IC.edit)} Bewerken</button>`];
+      if (af) knoppen.push(`<button class="btn btn-orgpale btn-sm" style="${stijl}" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>`);
+      if (af && !heeftShootout(match)) knoppen.push(`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppen</button>`);
+      return `<div class="no-print" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${knoppen.join('')}</div>`;
+    })()}
     ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
          stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
          notities, de notities per speler en de reden van afwezigheid — precies wat het scherm voor een
@@ -96,11 +112,15 @@ function renderDetail() {
          wil doen: alsnog een uitslag ingeven, of de wedstrijd heropenen. */ ''}
     ${geenUitslag(match) ? (ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="no-print">
       <button class="btn btn-green btn-sm" onclick="modalQuickResult()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
-      <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>
-    </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="shareReport()">${icI(IC.share)} Delen</button>
-      <button class="btn btn-org btn-sm" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
-      ${ro ? '' : `<button class="btn btn-pale btn-sm" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
+      ${/* "Heropenen", zoals in de rij hierboven: één naam voor één knop. */ ''}
+      <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>
+    </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
+      ${/* KLEINER DAN DE RIJ ERBOVEN (Tim, 30-08-2026). Drie gevulde knoppen op volle breedte wogen
+           zwaarder dan de handelingen erboven, terwijl doorsturen niets aan de wedstrijd verandert.
+           De iconen krimpen mee: die staan op 1em (zie .ic-i in index.html). */ ''}
+      <button class="btn btn-green btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="shareReport()">${icI(IC.share)} Delen</button>
+      <button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
+      ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>`}
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
@@ -211,16 +231,13 @@ function renderDetail() {
          verwijderen. Precies dezelfde fout als die op 23-08-2026 in renderPrep rechtgezet is; dit
          scherm bleef toen staan. `ro` bovenaan deze functie is al !canLive(), en de notitiezone
          hierboven gebruikt die maatstaf ook. */ ''}
+    ${/* HIER STAAT ENKEL NOG VERWIJDEREN (Tim, 29 en 30-08-2026). Onderaan stond elke bewerking als
+         eigen knop onder elkaar — uitslag, event, spelernotities, info, rugnummers, startopstelling,
+         template — met heropenen en verwijderen eronder. Alle bewerkingen zitten nu achter "Bewerken"
+         bovenaan, en heropenen staat daar in dezelfde rij: het stond hier én daar, en twee wegen naar
+         dezelfde knop is er één te veel. Verwijderen blijft wél apart hier: dat is het einde van het
+         scherm, achter een rode lijn, waar je het verwacht en niet per ongeluk aantikt. */ ''}
     ${ro ? '' : `<div class="no-print">
-      ${/* ÉÉN KNOP IN PLAATS VAN NEGEN (Tim, 29-08-2026). Hier stond elke bewerking als eigen knop
-           onder elkaar — uitslag, event, spelernotities, info, rugnummers, startopstelling, template —
-           en die rij duwde de twee knoppen die je écht zoekt (heropenen, verwijderen) een half scherm
-           naar beneden. Ze zitten nu samen achter "Bewerken", naar het model van het menu van een
-           geplande wedstrijd (modalEditMatchMenu). Wat hier blijft staan, is wat geen bewerking is:
-           doorsturen (hierboven), heropenen en verwijderen. */ ''}
-      <button class="btn btn-pale" style="margin-bottom:8px;width:100%" onclick="modalDetailEditMenu()">${icI(IC.edit)} Bewerken</button>
-      ${/* Bij "zonder uitslag" staat heropenen al bovenaan, naast "Alsnog een uitslag ingeven". */ ''}
-      ${geenUitslag(match) ? '' : `<button class="btn btn-orgpale" style="margin-bottom:8px;width:100%" onclick="confirmReopenMatch()">${icI(IC.live)} Wedstrijd heropenen</button>`}
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
     ${viewerVisibilityHintHtml(['selected', 'minutes'])}

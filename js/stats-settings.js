@@ -1519,7 +1519,7 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
     inhoud: `
       <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
-      <p style="margin-top:10px">Onderaan staan drie knoppen. <b>'Wedstrijd heropenen'</b> zet ze weer op live (bv. als je te vroeg affloot), <b>'Wedstrijd verwijderen'</b> haalt ze uit de lijst — ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
+      <p style="margin-top:10px">Vlak onder de eindscore staan <b>'Bewerken'</b>, <b>'Heropenen'</b> (zet de wedstrijd weer op live, bv. als je te vroeg affloot) en <b>'Strafschoppen'</b>, met daaronder <b>'Delen'</b>, <b>'PDF'</b> en <b>'Export'</b>. Helemaal onderaan staat <b>'Wedstrijd verwijderen'</b>: dat haalt ze uit de lijst, maar ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
       <ul class="hdl-list">
         <li><b>'Uitslag aanpassen'</b> — enkel bij een wedstrijd die je niet live gevolgd hebt.</li>
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
