@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.23.2
+
+**Bij een wissel zie je nu wie erin gaat en wie eraf.** Er stond "Jan Peeters voor Piet Janssens" —
+wie erin kwam vooraan, "voor" degene die eraf ging. In een lijst met gebeurtenissen was dat niet te
+lezen, en in de PDF zeker niet: "voor" betekent net zo goed "ten behoeve van" als "in de plaats van".
+
+Elke naam draagt nu zijn eigen kant: **`IN: Jan Peeters · UIT: Piet Janssens`**. Bij een pauzewissel
+staat "Pauzewissel" ervoor, en gaat er iemand af zonder vervanger of komt er iemand bij zonder dat er
+iemand weggaat, dan staat alleen die ene kant er — met "(geen vervanger)" erbij waar dat van
+toepassing is.
+
+Dezelfde regel staat op het scherm, in de PDF en in het bericht dat je deelt, dus het is overal in
+één keer duidelijk. Pijltjes zoals onder het velddiagram zijn bewust niet gebruikt: die staan daar
+als tekening, maar als tekst kennen de lettertypes van een PDF dat teken niet en zou er een leeg
+blokje verschijnen.
+
+---
+
 ## v1.23.1
 
 **De beheerschermen blijven niet meer op "Laden..." staan.** "Alle gebruikers" haalde om een

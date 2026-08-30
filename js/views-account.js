@@ -3083,11 +3083,21 @@ function evtLabel(e, m) {
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
+    // ELKE NAAM DRAAGT ZIJN EIGEN KANT (Tim, 30-08-2026). Dit stond als "Jan voor Piet" — wie erin
+    // kwam vooraan, "voor" wie eraf ging. In een lijst is dat niet te lezen: "voor" betekent net zo
+    // goed "ten behoeve van" als "in de plaats van", en Tim kon in de PDF niet zien wie welke kant op
+    // ging. GEEN PIJLTJES, hoe voor de hand liggend die ook lijken: de lettertypes van een PDF
+    // (WinAnsi) kennen dat teken niet en tonen een leeg blokje — daarom staat er elders in dit
+    // bestand ook "naar" i.p.v. een pijl. Onder het velddiagram zijn de pijltjes met lijnen
+    // GETEKEND; dat kan hier niet, want deze tekst gaat ook naar het scherm en het deelbericht.
+    // De middelste punt zit wél in WinAnsi (CP1252 0xB7), net als bij de hoekschoppen hieronder.
+    // Zelfde opbouw in evtLabelPlain verderop — pas ze samen aan.
     case 'substitution': {
-      const kop = e.atBreak ? 'Pauzewissel: ' : '';
-      if (e.playerInId && !e.playerOutId) return `${icI(IC.swap)} ${kop}${pn(e.playerInId)} komt erbij${e.naarPlek ? ` op ${esc(matchGridLabel(m, e.naarPlek))}` : ''}`;
-      if (!e.playerInId && e.playerOutId) return `${icI(IC.swap)} ${kop}${pn(e.playerOutId)} gaat van het veld — geen vervanger`;
-      return `${icI(IC.swap)} ${kop}${pn(e.playerInId)} voor ${pn(e.playerOutId)}`;
+      // 'Pauzewissel · ' en niet 'Pauzewissel: ', anders staan er twee dubbele punten na elkaar.
+      const kop = e.atBreak ? 'Pauzewissel · ' : '';
+      if (e.playerInId && !e.playerOutId) return `${icI(IC.swap)} ${kop}IN: ${pn(e.playerInId)}${e.naarPlek ? ` (op ${esc(matchGridLabel(m, e.naarPlek))})` : ''}`;
+      if (!e.playerInId && e.playerOutId) return `${icI(IC.swap)} ${kop}UIT: ${pn(e.playerOutId)} (geen vervanger)`;
+      return `${icI(IC.swap)} ${kop}IN: ${pn(e.playerInId)} · UIT: ${pn(e.playerOutId)}`;
     }
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
@@ -3129,11 +3139,12 @@ function evtLabelPlain(e, m) {
     case 'own_goal_them': return 'Eigen doel tegenstander';
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
+    // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.
     case 'substitution': {
-      const kop = e.atBreak ? 'Pauzewissel: ' : '';
-      if (e.playerInId && !e.playerOutId) return `${kop}${pName(m,e.playerInId)} komt erbij${e.naarPlek ? ` op ${matchGridLabel(m, e.naarPlek)}` : ''}`;
-      if (!e.playerInId && e.playerOutId) return `${kop}${pName(m,e.playerOutId)} gaat van het veld — geen vervanger`;
-      return `${kop}${pName(m,e.playerInId)} voor ${pName(m,e.playerOutId)}`;
+      const kop = e.atBreak ? 'Pauzewissel · ' : '';   // zie evtLabel: geen twee dubbele punten
+      if (e.playerInId && !e.playerOutId) return `${kop}IN: ${pName(m,e.playerInId)}${e.naarPlek ? ` (op ${matchGridLabel(m, e.naarPlek)})` : ''}`;
+      if (!e.playerInId && e.playerOutId) return `${kop}UIT: ${pName(m,e.playerOutId)} (geen vervanger)`;
+      return `${kop}IN: ${pName(m,e.playerInId)} · UIT: ${pName(m,e.playerOutId)}`;
     }
     // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
