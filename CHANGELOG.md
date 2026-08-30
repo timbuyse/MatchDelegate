@@ -9,6 +9,37 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.24.0
+
+**Het scherm van een afgesloten wedstrijd is opgeruimd.** Er stonden negen bewerkingsknoppen onder
+elkaar, waardoor "Wedstrijd heropenen" en "Wedstrijd verwijderen" een half scherm naar beneden
+geduwd werden. Alles wat je met zo'n wedstrijd doet, staat nu vlak onder de eindscore in twee rijen:
+
+```
+Bewerken · Heropenen · Strafschoppen
+Delen · PDF · Export
+```
+
+Achter **Bewerken** zit wat je vroeger los onder elkaar zag: de uitslag aanpassen, een gebeurtenis
+toevoegen, spelernotities, info bewerken, rugnummers, de startopstelling herplaatsen en de wedstrijd
+als template gebruiken. Onderaan blijft enkel nog "Wedstrijd verwijderen" staan, achter de rode lijn
+waar je dat verwacht. Delen, PDF en Export staan een maat kleiner: doorsturen verandert niets aan de
+wedstrijd, en drie zware knoppen wogen daar te sterk.
+
+**Nieuw: een speler die niet gespeeld heeft, kan je achteraf uit je selectie halen.** Speel je met
+twee ploegen tegelijk, dan neem je bewust een ruimere selectie op voor het geval er iemand moet
+wisselen. Wie uiteindelijk de hele tijd bij de andere wedstrijd bleef, telde tot nu toe wél mee als
+geselecteerd in zijn statistieken. Via **Bewerken → Selectie aanpassen** haal je hem er nu uit; hij
+komt gewoon weer bij "niet geselecteerd" te staan, alsof hij nooit op de lijst stond.
+
+Weghalen kan **alleen bij wie in die wedstrijd niets gedaan heeft**: geen speelminuut en geen enkele
+gebeurtenis op zijn naam — ook niet als assistgever, als tweede man in een wissel, als nemer in een
+strafschoppenreeks, als kapitein, als man van de match of in doel. Wie wél meespeelde staat er grijs
+bij met de reden erbij, zodat je ziet dát het bewust niet kan in plaats van je af te vragen waarom
+hij ontbreekt. Bij een tornooiwedstrijd kan het niet: daar geldt de selectie voor de hele speeldag.
+
+---
+
 ## v1.23.3
 
 **Bij elk doelpunt staat nu meteen de stand.** In het verloop van de wedstrijd — op het scherm, in de
