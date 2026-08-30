@@ -18,7 +18,15 @@ function renderDetail() {
     // own_goal_them hoort erbij (audit 25-08-2026): recomputeScore telt een eigen doel van de
     // tegenstander als ons doelpunt, dus zonder dit type sprong de tussenstand van 0-0 naar 1-0
     // met een streepje in de doelpuntenkolom. Zelfde lijst als in de PDF hieronder.
-    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||e.type==='own_goal_them'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num);
+    // OP SPEELTIJD SORTEREN (Tim, 30-08-2026). Deze lijst nam de volgorde van m.events zoals ze
+    // opgeslagen staat, en dat is NIET de volgorde waarin er gescoord is: een doelpunt dat je
+    // achteraf toevoegt wordt achteraan geplakt, en bij het samenvoegen van twee toestellen komen
+    // events er ook achteraan bij. Gemeten op Tims eigen wedstrijd van 29-08-2026: kwart 2 toonde
+    // "30'+2'" vóór "27'". De tijdlijn eronder had dit al goed (eventsByQuarter sorteert wél),
+    // waardoor dezelfde twee doelpunten op één scherm in twee verschillende volgordes stonden.
+    // De sortering is stabiel, dus twee doelpunten in dezelfde seconde houden hun onderlinge orde.
+    const goals = match.events.filter(e => (e.type==='goal_us'||e.type==='goal_them'||e.type==='own_goal'||e.type==='own_goal_them'||(e.type.startsWith('penalty')&&e.scored)) && e.quarterNum === q.num)
+      .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
     const cum = scoreUpToQuarter(match, q.num);
     // De stand van DIT blok erbij (audit 25-08-2026). Deze kaart toonde enkel de doorlopende stand,
     // en "1-1" alleen las als de score van dit kwart. De tijdlijn en beide PDF-plekken zetten er
@@ -36,7 +44,12 @@ function renderDetail() {
            een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
       <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(canLive() && q.endTime)
         ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
-      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabel(e,match)}`).join('<br>')||'–'}</div>
+      ${/* evtLabelBasis en niet evtLabel (Tim, 30-08-2026): die laatste plakt sinds v1.23.3 de
+           tussenstand achter elk doelpunt, en op déze kaart staat de stand al twee kolommen naar
+           links — zowel doorlopend als "dit kwart". Hetzelfde cijfer drie keer op één regel is
+           ruis, zeker op een telefoon. In de tijdlijn en het deelbericht blijft de stand wél staan;
+           daar is er niets anders dat ze toont. Idem in de PDF-tabel hieronder. */ ''}
+      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabelBasis(e,match)}`).join('<br>')||'–'}</div>
     </div>`;
   }).join('');
 
@@ -1266,9 +1279,14 @@ async function pdfMatchBody(doc, L, m) {
       const cumText = (isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`)
         + `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})`;
       // own_goal_them erbij — zelfde reden als op het scherm (audit 25-08-2026).
-      const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num);
+      // Sorteren en evtLabelPlainBasis om dezelfde twee redenen als op het scherm hierboven: de
+      // opslagvolgorde is niet de scorevolgorde, en de tussenstand staat hier al in een eigen kolom.
+      // Sorteren VÓÓR goalsPerRow.push, want de iconen die per regel getekend worden lezen die
+      // lijst en moeten dus dezelfde volgorde hebben als de tekst.
+      const evts = m.events.filter(e => (e.type === 'goal_us' || e.type === 'goal_them' || e.type === 'own_goal' || e.type === 'own_goal_them' || (e.type.startsWith('penalty') && e.scored)) && e.quarterNum === q.num)
+        .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
       goalsPerRow.push(evts);
-      const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlain(e, m)}`).join('\n') || '–';
+      const gs = evts.map(e => `${e.gameTimeMs != null ? eventMinSummaryText(e, m) + ' ' : ''}${evtLabelPlainBasis(e, m)}`).join('\n') || '–';
       return [`${pAbbr(m)}${q.num}`, cumText, `${dur} min`, gs];
     });
     tableBlock(`Tussenstand per ${pSingLow(m)}`, { head: [[pSing(m), 'Tussenstand', 'Duur', 'Doelpunten']], body: rows,

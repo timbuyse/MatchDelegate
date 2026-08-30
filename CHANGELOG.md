@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.24.1
+
+**De doelpunten bij "score per kwart" stonden soms in de verkeerde volgorde.** Op het verslag van
+een wedstrijd van 29 augustus stond in kwart 2 het doelpunt van `30' + 2'` vóór dat van `27'`.
+
+De oorzaak: die kaart toonde de doelpunten in de volgorde waarin ze *opgeslagen* staan, en dat is
+meestal — maar niet altijd — de volgorde waarin er gescoord is. Een doelpunt dat je achteraf
+toevoegt komt achteraan in de opslag terecht, en hetzelfde gebeurt wanneer twee toestellen hun
+gegevens samenvoegen. De tijdlijn eronder sorteerde wél op speeltijd, waardoor dezelfde twee
+doelpunten op één scherm in twee verschillende volgordes stonden. Nu sorteren ze allebei op
+speeltijd. Van de 29 kwarten met meer dan één doelpunt was er precies één fout; bij de andere 28
+verandert er niets.
+
+**En de tussenstand staat niet langer bij elk doelpunt op die kaart.** Sinds v1.23.3 stond ze achter
+elk doelpunt, maar op deze kaart staat de stand al twee kolommen naar links — zowel doorlopend als
+"dit kwart". Hetzelfde cijfer drie keer op één regel is ruis, zeker op een telefoon. In de tijdlijn
+en in het bericht dat je deelt blijft ze gewoon staan.
+
+Allebei ook rechtgezet in de PDF, in de tabel "Tussenstand per kwart".
+
+---
+
 ## v1.24.0
 
 **Het scherm van een afgesloten wedstrijd is opgeruimd.** Er stonden negen bewerkingsknoppen onder
