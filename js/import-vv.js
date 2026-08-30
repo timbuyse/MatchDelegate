@@ -394,6 +394,10 @@ function vvKiesHtml() {
     <div class="sec">Hoe werkt dit?</div>
     <div class="card">
       <p style="font-size:14px;color:var(--txt2);margin:0 0 10px">Van een wedstrijd die je niet live gevolgd hebt, staat er achteraf vaak meer op de wedstrijdpagina dan in je app: de selectie van beide ploegen, de uitslag, de kaarten, de scheidsrechter, het terrein, de trainer en de afgevaardigde.</p>
+      ${/* WAAR EN WANNEER DIT WERKT (Tim, 30-08-2026). Twee voorwaarden, en allebei bepalen ze of er
+           überhaupt iets te halen valt. Ze horen hier te staan, niet pas nadat je een leeg scherm
+           terugkrijgt: anders lees je "er staat niets op" als "de app werkt niet". */ ''}
+      <p style="font-size:13px;color:var(--txt2);margin:0 0 10px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px"><b>Dit is er voor de bovenbouw.</b> Daar wordt een wedstrijdblad ingevuld. Bij de jongste reeksen worden er geen uitslagen, rangschikkingen of opstellingen bijgehouden, dus valt er ook niets op te halen.<br><br><b>En pas zodra het blad verwerkt is.</b> De opstellingen en de uitslag verschijnen op die pagina wanneer de bond het officiële wedstrijdblad verwerkt heeft — niet meteen na het laatste fluitsignaal. Kom je er te vroeg, dan staat er nog weinig; probeer dan later opnieuw.</p>
       <ol style="margin:0;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.8">
         ${VV_STAPPEN.map(s => `<li>${s}</li>`).join('')}
       </ol>
@@ -536,6 +540,11 @@ function vvVoorstelHtml() {
 
   // --- wat we niet konden ---
   const waar = [];
+  // GEEN SPELERS = MEESTAL GEEN VERWERKT BLAD (Tim, 30-08-2026). De opstellingen verschijnen op die
+  // pagina pas wanneer de bond het officiële wedstrijdblad verwerkt heeft. Kom je er te vroeg, dan
+  // krijg je een pagina die klopt maar leeg is — en dat leest als "de app doet het niet". Daarom hier
+  // met zoveel woorden, als eerste regel, mét de tweede mogelijke reden erbij.
+  if (!(lz.onzeSpelers || []).length) waar.push('Er staan <b>geen spelers</b> van onze ploeg op deze pagina. Meestal betekent dat dat het officiële wedstrijdblad nog niet verwerkt is — probeer het dan later opnieuw. Bij de jongste reeksen wordt er sowieso geen blad ingevuld; daar vul je de wedstrijd zelf in.');
   if (!lz.gespeeld) waar.push(`Volgens de pagina is deze wedstrijd <b>nog niet afgelopen</b> (${esc(lz.state || 'onbekend')}). De uitslag halen we dan niet op.`);
   if (!lz.kentBasis && (lz.onzeSpelers || []).length) waar.push('Op deze pagina staat niet wie er begon en wie op de bank zat — iedereen komt gewoon in de selectie. Wie start, duid je zelf aan bij de opstelling.');
   if (lz.strafschoppen) waar.push('Deze wedstrijd werd beslist na <b>strafschoppen</b>. Die reeks nemen we niet over — geef ze zelf in, dan telt ze mee voor winst of verlies.');

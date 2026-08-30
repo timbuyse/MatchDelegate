@@ -123,8 +123,13 @@ function renderDetail() {
          een verslag dat je doorstuurt — en er valt niets door te sturen van een wedstrijd waarvan
          niemand iets bijhield. Op precies dezelfde plek staan dan de twee dingen die je daar wél
          wil doen: alsnog een uitslag ingeven, of de wedstrijd heropenen. */ ''}
+    ${/* NAAR HETZELFDE MENU ALS "AFRONDEN" (Tim, 30-08-2026). Deze knop ging rechtstreeks naar het
+         uitslagvenster en sloeg de tweede manier — de wedstrijdinfo ophalen — dus over. Het is
+         dezelfde vraag als op een geplande wedstrijd ("hoe vul ik deze gespeelde wedstrijd in?"), dus
+         hoort er hetzelfde menu achter. De naam blijft wél zeggen wat je hier komt doen: bij een
+         wedstrijd op "– . –" is een uitslag alsnog ingeven de reden waarom je kijkt. */ ''}
     ${geenUitslag(match) ? (ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="modalQuickResult()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
+      <button class="btn btn-green btn-sm" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
       ${/* "Heropenen", zoals in de rij hierboven: één naam voor één knop. */ ''}
       <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>
     </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
@@ -301,7 +306,7 @@ function modalDetailEditMenu() {
          ophalen kan enkel mét net. Zelfde reden als de knop "Bewerken" die op het
          voorbereidingsscherm wegvalt zonder verbinding. */ ''}
     ${menuItemHtml(IC.link, 'Wedstrijdinfo ophalen', canManage()
-      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde.'
+      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.'
       : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
       'vvStart()', !canManage())}
     ${/* Enkel bij een gewone wedstrijd — zie de uitleg bij modalSelectieVerslag. */ ''}

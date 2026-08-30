@@ -4280,7 +4280,7 @@ async function loadHome() {
     const een = openOud.length === 1;
     return `<details class="nudge nudge-fold" style="margin-bottom:12px">
       <summary>${icI(IC.warn)} <b>${openOud.length} ${een ? 'wedstrijd is' : 'wedstrijden zijn'} niet afgesloten</b></summary>
-      <div class="nudge-body">${een ? 'Deze wedstrijd heeft' : 'Deze wedstrijden hebben'} nog geen uitslag. Sluit ze af door de <b>uitslag in te geven</b>, of registreer ze als <b>gespeeld zonder uitslag</b> als je er geen wil ingeven.
+      <div class="nudge-body">${een ? 'Deze wedstrijd heeft' : 'Deze wedstrijden hebben'} nog geen uitslag. Open ze en tik op <b>'Afronden'</b>: daar geef je de uitslag zelf in — of je sluit ze af <b>zonder uitslag</b> — en bij de bovenbouw kan je de <b>wedstrijdinfo ophalen</b>.
         <button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="toonNietAfgesloten()">${icI(IC.ball)} ${een ? 'Wedstrijd' : 'Wedstrijden'} bekijken</button>
       </div>
     </details>`;
