@@ -458,7 +458,220 @@ async function hernoemSpelerInGegevens(hernoemd, opties) {
   });
   return aantal;
 }
+// ---------------------------------------------------------------------------------------------
+// DEZELFDE JONGEN TWEE KEER OPVANGEN
+// ---------------------------------------------------------------------------------------------
+// Een speler bijzetten deed tot nu toe geen enkele controle: elke rij kreeg een verse `id` én een
+// verse `globalId`. Stond diezelfde jongen al in de kern van een andere ploeg van de club, dan waren
+// dat voor de app twee verschillende personen — en zijn loopbaanoverzicht in het spelerdetail, dat
+// op `globalId` werkt, bleef leeg. Op 30-08-2026 bleken Oscar Jones, Noa Duvinage en Matteo Van
+// Glabeke alle drie zo verdubbeld.
+//
+// De controle draait bij het OPSLAAN van de ploeg, niet bij het tikken op "+ Speler": op dat moment
+// is er nog geen naam om iets mee te vergelijken. Het is meteen ook de enige plek waar de geplakte
+// lijst langskomt, en dáár levert het het meeste op — twintig namen in één beweging.
+//
+// Het is een WAARSCHUWING, geen slot: "toch een andere speler" staat altijd in de keuzelijst.
+// Hoe streng er vergeleken wordt, staat bij naamLijktOp in core.js.
+let dubbelSt = null;   // { clean, hernoemd, items, keuze } zolang het venster openstaat
+let dubbelBezig = false;
+
+// Waar kan dezelfde jongen al staan? In deze kern, in de kern van een zusterploeg, en in de
+// wedstrijden op dit toestel (daar zitten de losse en de gastspelers).
+//
+// WAARSCHUWEN DOEN WE OVER ÁLLE WEDSTRIJDEN, RECHTZETTEN ENKEL IN DIE VAN DEZE PLOEG. De reden is
+// dwingend: dbSave() duwt een wedstrijd altijd naar het pad van de ACTIEVE ploeg (zie
+// cloudOnLocalMatchSave in core.js), en op dit toestel staan ook de wedstrijden van elke andere
+// ploeg die hier ooit geopend is. Een wedstrijd van een andere ploeg terugschrijven zou haar dus
+// naar de verkeerde ploeg verhuizen. Lezen is ongevaarlijk, schrijven niet — vandaar de grendel
+// onderaan in dubbelKoppelWedstrijden, die het los van deze filter nog eens nakijkt.
+async function dubbelBronnen() {
+  let zusters = [];
+  try { zusters = await clubZusterPloegen(); } catch (e) { zusters = []; }
+  let wedstrijden = [];
+  try { wedstrijden = (await dbAll()).filter(Boolean); } catch (e) { wedstrijden = []; }
+  return { zusters, wedstrijden };
+}
+// Hoort deze wedstrijd bij de kern die je aan het bewerken bent? Een wedstrijd draagt het id van de
+// SPELERSKERN, niet dat van de ploeg (zie showPloegExport in views-account.js) — en `kern.id` is
+// precies dat id. Wedstrijden van vóór dat veld vallen terug op de naam.
+function dubbelEigenWedstrijd(m, kern) {
+  if (!m || !kern) return false;
+  return m.teamId ? m.teamId === kern.id : (!!m.teamName && m.teamName === kern.name);
+}
+function dubbelWedstrijdLabel(m) {
+  const dag = m.date ? m.date.split('-').reverse().slice(0, 2).join('/') : '';
+  return (m.opponent || 'wedstrijd') + (dag ? ' · ' + dag : '');
+}
+function dubbelWedLijst(waar) {
+  const namen = [...new Set(waar.map(w => w.wedstrijd))];
+  const kop = namen.slice(0, 2).join(', ') + (namen.length > 2 ? ' en ' + (namen.length - 2) + ' andere' : '');
+  return `${namen.length === 1 ? 'de wedstrijd' : namen.length + ' wedstrijden'} (${kop})`;
+}
+function dubbelWedZin(g) {
+  const wat = g.herkomst === 'Losse speler' ? 'staat als losse speler'
+    : g.herkomst ? 'staat als gast · ' + g.herkomst
+    : 'stond in de selectie';
+  const eigen = g.waar.filter(w => w.eigen), elders = g.waar.filter(w => !w.eigen);
+  const delen = [];
+  if (eigen.length) delen.push('in ' + dubbelWedLijst(eigen) + ' van deze ploeg');
+  if (elders.length) delen.push('in ' + dubbelWedLijst(elders) + ' van ' + [...new Set(elders.map(w => w.ploeg))].join(', '));
+  return wat + ' ' + delen.join(', en ');
+}
+// `nieuw` zijn de spelers die er nu bijkomen, `bestaand` de kern zoals ze al was. Geeft per nieuwe
+// speler terug waar hij al lijkt te staan — of niets, en dan slaat de app gewoon op.
+async function dubbelsZoeken(nieuw, bestaand, kern) {
+  if (!nieuw.length) return [];
+  const { zusters, wedstrijden } = await dubbelBronnen();
+  const kernIds = new Set(bestaand.map(p => p.id).filter(Boolean));
+  const kernGlobals = new Set(bestaand.map(p => p.globalId).filter(Boolean));
+  // Uit de wedstrijden van DEZE ploeg: iedereen die meespeelde zonder in haar kern te staan —
+  // gasten, losse spelers, en wie ooit uit de kern gehaald is.
+  // Uit die van een ANDERE ploeg: enkel de gasten en de losse spelers. Haar gewone spelers vind je
+  // al via haar kern, en die dubbel opnoemen maakt er alleen ruis van.
+  // Per persoon gebundeld: een losse speler die in vijf wedstrijden staat is één keuze, en koppelen
+  // doen we dan meteen in alle vijf.
+  const groepen = new Map();
+  wedstrijden.forEach(m => {
+    const eigen = dubbelEigenWedstrijd(m, kern);
+    (m.players || []).forEach(p => {
+      if (!p || !p.name || !p.id) return;
+      if (!eigen && !p.guest) return;
+      if (p.rosterId && kernIds.has(p.rosterId)) return;
+      if (p.globalId && kernGlobals.has(p.globalId)) return;
+      const sleutel = (eigen ? 'e:' : 'a:') + (p.rosterId || ('naam:' + naamNorm(p.name)));
+      let g = groepen.get(sleutel);
+      if (!g) { g = { naam: p.name, herkomst: p.guest ? (p.fromName || '') : '', waar: [] }; groepen.set(sleutel, g); }
+      g.waar.push({ matchId: m.id, playerId: p.id, wedstrijd: dubbelWedstrijdLabel(m), eigen, ploeg: eigen ? '' : (m.teamName || 'een andere ploeg') });
+    });
+  });
+  const alleGroepen = [...groepen.values()];
+  const uit = [];
+  nieuw.forEach((np, k) => {
+    const kernTreffers = [];
+    bestaand.forEach(p => { if (naamLijktOp(p.name, np.name)) kernTreffers.push({ naam: p.name, waar: 'staat al in deze kern' }); });
+    // Ook de nieuwe rijen onderling: twee keer dezelfde lijst plakken is zo gebeurd.
+    nieuw.slice(0, k).forEach(p => { if (naamLijktOp(p.name, np.name)) kernTreffers.push({ naam: p.name, waar: 'staat hierboven nog een keer in je lijst' }); });
+    zusters.forEach(t => (t.players || []).forEach(p => { if (naamLijktOp(p.name, np.name)) kernTreffers.push({ naam: p.name, waar: 'staat in de kern van ' + (t.name || 'een andere ploeg') }); }));
+    const wedTreffers = alleGroepen.filter(g => naamLijktOp(g.naam, np.name));
+    if (kernTreffers.length || wedTreffers.length) uit.push({ speler: np, kernTreffers, wedTreffers });
+  });
+  return uit;
+}
+function dubbelKies(i, val) { if (dubbelSt) dubbelSt.keuze[i] = val; }
+// De keuze die klaarstaat. Die moet altijd ook ECHT in de keuzelijst staan, anders toont het venster
+// iets anders dan wat er zou gebeuren. Staat hij al in een kern: niet toevoegen.
+// Anders koppelen aan de eerste wedstrijd van DEZE ploeg waar hij in staat. Vindt hij er geen — hij
+// staat enkel bij een andere ploeg — dan valt hij terug op gewoon toevoegen.
+function dubbelStandaardKeuze(it) {
+  if (it.kernTreffers.length) return 'weg';
+  const j = it.wedTreffers.findIndex(g => g.waar.some(w => w.eigen));
+  return j >= 0 ? 'koppel:' + j : 'nieuw';
+}
+function dubbelTerug() { dubbelSt = null; closeModal(); }
+function dubbelVenster() {
+  const kaarten = dubbelSt.items.map((it, i) => {
+    const regels = it.kernTreffers.map(t => `<li><b>${esc(t.naam)}</b> — ${esc(t.waar)}</li>`)
+      .concat(it.wedTreffers.map(g => `<li><b>${esc(g.naam)}</b> — ${esc(dubbelWedZin(g))}</li>`)).join('');
+    // Welke keuze klaarstaat, bepaalt dubbelStandaardKeuze — houd die twee gelijk.
+    // Koppelen kan ALLEEN in een wedstrijd van deze ploeg — zie de uitleg bij dubbelBronnen.
+    const opties = [];
+    if (it.kernTreffers.length) opties.push({ v: 'weg', t: 'Niet toevoegen — het is dezelfde speler' });
+    it.wedTreffers.forEach((g, j) => {
+      const eigen = g.waar.filter(w => w.eigen);
+      if (!eigen.length) return;
+      opties.push({ v: 'koppel:' + j, t: `Toevoegen en koppelen aan ${g.naam} (${eigen.length} wedstrijd${eigen.length === 1 ? '' : 'en'})` });
+    });
+    if (!it.kernTreffers.length) opties.push({ v: 'weg', t: 'Toch niet toevoegen' });
+    opties.push({ v: 'nieuw', t: 'Toch toevoegen — het is een andere speler' });
+    const gekozen = dubbelSt.keuze[i];
+    // Staat hij enkel in wedstrijden van een ANDERE ploeg, dan valt er niets recht te zetten — hier
+    // niet, en daar evenmin (Tims twee vragen, 30-08-2026). Het bewerkmenu van een afgewerkte
+    // wedstrijd kent geen manier om een losse speler alsnog aan een speler te hangen: "Selectie
+    // aanpassen" haalt er enkel iemand uit die niets deed.
+    // Hier stond even "zet hem dan ook in de kern van die ploeg". Dat was FOUT ADVIES: één speler
+    // hoort in één kern, en hem in twee kernen zetten is exact de dubbele identiteit die dit venster
+    // moet tegenhouden. Andersom is het net de bedoeling dat hij daar als GAST opgeroepen wordt, en
+    // dat kan pas nu — want vanaf deze opslag bestaat hij in een kern.
+    // De melding zegt daarom enkel wat het is, en waarschuwt uitdrukkelijk tegen die tweede kern.
+    const enkelElders = it.wedTreffers.length && !it.wedTreffers.some(g => g.waar.some(w => w.eigen));
+    return `<div class="card" style="border-left:4px solid var(--org);text-align:left;margin-bottom:10px">
+      <div style="font-weight:700;margin-bottom:5px">${esc(it.speler.name)}</div>
+      <ul style="margin:0 0 9px 17px;padding:0;font-size:13px;color:var(--txt2);line-height:1.5">${regels}</ul>
+      ${enkelElders ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 9px">Dat is een wedstrijd van een andere ploeg. Die blijft zo staan — daar valt niets meer aan recht te zetten. Voeg hem hier gewoon toe, maar zet hem <b>niet</b> ook nog eens in de kern van die ploeg: één speler hoort in één kern, en vanaf nu kan die ploeg hem als gast oproepen.</p>` : ''}
+      <select onchange="dubbelKies(${i}, this.value)" style="font-size:13px">
+        ${opties.map(o => `<option value="${esc(o.v)}" ${o.v === gekozen ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+  const n = dubbelSt.items.length;
+  openModal(`<h3>${icI(IC.warn)} ${n === 1 ? 'Deze speler bestaat misschien al' : 'Deze spelers bestaan misschien al'}</h3>
+    <p style="color:var(--txt2);font-size:13px;margin-bottom:12px">Zet je dezelfde jongen twee keer in de app, dan ziet ze hem als twee verschillende spelers en blijft zijn overzicht per ploeg leeg. Kies per speler wat er moet gebeuren.</p>
+    ${kaarten}
+    <button class="btn btn-green" onclick="dubbelDoorgaan()">${icI(IC.check)}Ploeg opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="dubbelTerug()">Terug naar de lijst</button>`);
+}
+// De wedstrijdinvoer aan de nieuwe speler hangen: enkel `rosterId` en `globalId`. `guest`/`fromName`
+// blijven bewust staan — dat zegt iets over die dag (hij speelde toen als gast mee) en dat mag een
+// latere toevoeging aan de kern niet met terugwerkende kracht herschrijven.
+async function dubbelKoppelWedstrijden(koppelingen, kern) {
+  let aantal = 0;
+  for (const k of koppelingen) {
+    const perWedstrijd = new Map();
+    k.waar.forEach(w => { if (!w.eigen) return; if (!perWedstrijd.has(w.matchId)) perWedstrijd.set(w.matchId, []); perWedstrijd.get(w.matchId).push(w.playerId); });
+    for (const [matchId, ids] of perWedstrijd) {
+      let m = null;
+      try { m = await dbGet(matchId); } catch (e) { m = null; }
+      if (!m || !Array.isArray(m.players)) continue;
+      // DE GRENDEL. Los van alle filters hierboven: enkel een wedstrijd van DEZE ploeg mag hier
+      // weggeschreven worden. dbSave() zet een wedstrijd altijd bij de actieve ploeg, dus die van
+      // een andere ploeg zou hier van ploeg verspringen. Vandaar deze controle vlak vóór de pen.
+      if (!dubbelEigenWedstrijd(m, kern)) continue;
+      let raak = false;
+      m.players.forEach(p => {
+        if (ids.indexOf(p.id) < 0) return;
+        p.rosterId = k.speler.id;
+        p.globalId = k.speler.globalId || null;
+        raak = true;
+      });
+      if (!raak) continue;
+      try {
+        // Firebase bewaart geen lege lijst, dus een geplande wedstrijd kan uit de cloud terugkomen
+        // zónder `events`. Dan gewoon opslaan: er valt niets te herrekenen.
+        if (Array.isArray(m.events)) { recomputeScore(m); recomputeOnField(m); }
+        await dbSave(m); aantal++;
+      } catch (e) {}
+    }
+  }
+  return aantal;
+}
+async function dubbelDoorgaan() {
+  if (!dubbelSt) { closeModal(); return; }
+  const st = dubbelSt;
+  const weg = new Set(), koppelingen = [];
+  st.items.forEach((it, i) => {
+    const keuze = st.keuze[i] || 'nieuw';
+    if (keuze === 'weg') { weg.add(it.speler.id); return; }
+    if (keuze.indexOf('koppel:') === 0) {
+      const g = it.wedTreffers[parseInt(keuze.slice(7), 10)];
+      // Enkel de wedstrijden van deze ploeg; die van een andere ploeg zijn hier alleen ter info.
+      const eigen = g ? g.waar.filter(w => w.eigen) : [];
+      if (eigen.length) koppelingen.push({ speler: it.speler, waar: eigen });
+    }
+  });
+  st.clean.players = st.clean.players.filter(p => !weg.has(p.id));
+  dubbelSt = null;
+  closeModal();
+  await ploegWegschrijven(st.clean, st.hernoemd);
+  const gekoppeld = koppelingen.length ? await dubbelKoppelWedstrijden(koppelingen, st.clean) : 0;
+  const bericht = [];
+  if (weg.size) bericht.push(`${weg.size} niet toegevoegd`);
+  if (gekoppeld) bericht.push(`gekoppeld in ${gekoppeld} wedstrijd${gekoppeld === 1 ? '' : 'en'}`);
+  if (bericht.length) showToast('Ploeg opgeslagen — ' + bericht.join(', ') + '.', 'ok');
+}
+
 async function saveTeamEdit() {
+  if (dubbelBezig) return;   // twee keer tikken op Opslaan zou twee vensters openen
   if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
   const eDmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
   const eDforms = FORMATIONS[eDmt] || [];
@@ -493,14 +706,39 @@ async function saveTeamEdit() {
     })
   };
   if (editingTeam.fromCloud) clean.fromCloud = true;
-  const arr = getTeamsV2(); const idx = arr.findIndex(t => t.id === clean.id);
   // Wie is er hernoemd? Vergelijken vóór het opslaan, want daarna is de oude naam weg.
-  const vorige = idx >= 0 ? (arr[idx].players || []) : [];
+  const bestaandeKern = getTeamsV2().find(t => t.id === clean.id);
+  const vorige = bestaandeKern ? (bestaandeKern.players || []) : [];
   const hernoemd = clean.players.map(np => {
     const op = vorige.find(x => x.id === np.id);
     return (op && (op.name || '').trim() !== (np.name || '').trim())
       ? { id: np.id, globalId: np.globalId, naam: np.name } : null;
   }).filter(Boolean);
+  // Lijkt een van de nieuwe spelers op iemand die al bestaat? Dan eerst vragen (zie hierboven).
+  // Faalt de opzoeking — geen net, geen rechten op de zusterploegen — dan slaat de app gewoon op:
+  // dit is een hulp, geen voorwaarde.
+  const bestaandeIds = new Set(vorige.map(p => p.id));
+  const nieuweSpelers = clean.players.filter(p => !bestaandeIds.has(p.id) && (p.name || '').trim());
+  if (nieuweSpelers.length) {
+    let items = [];
+    dubbelBezig = true;
+    try { items = await dubbelsZoeken(nieuweSpelers, clean.players.filter(p => bestaandeIds.has(p.id)), clean); }
+    catch (e) { items = []; }
+    dubbelBezig = false;
+    if (items.length) {
+      dubbelSt = { clean, hernoemd, items, keuze: {} };
+      items.forEach((it, i) => { dubbelSt.keuze[i] = dubbelStandaardKeuze(it); });
+      dubbelVenster();
+      return;
+    }
+  }
+  await ploegWegschrijven(clean, hernoemd);
+}
+// Het eigenlijke wegschrijven van de ploeg. Apart, omdat de dubbelcontrole er een venster tussen
+// kan schuiven en daarna hier verder moet. De lijst wordt hier OPNIEUW gelezen: tussen het openen
+// van dat venster en het opslaan kan er een roostersnapshot van de cloud binnengekomen zijn.
+async function ploegWegschrijven(clean, hernoemd) {
+  const arr = getTeamsV2(); const idx = arr.findIndex(t => t.id === clean.id);
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
   if (hernoemd.length) {

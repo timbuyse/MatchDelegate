@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.24.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.25.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -998,6 +998,66 @@ function saveTeamsV2(arr) {
   cloudOnLocalTeamsSave(gestempeld);
 }
 function teamById(id) { return getTeamsV2().find(t => t.id === id) || null; }
+// ----- Lijken twee namen op dezelfde persoon? -----
+// Gebruikt door de dubbelcontrole bij het toevoegen van een speler aan een kern (zie
+// dubbelsBijKern in teams-tournaments.js). Bewust NIET psdZelfdePersoon hergebruikt: dat is de
+// vergelijking van de PSD-import, en die moet strenger zijn omdat ze zonder te vragen KOPPELT.
+// Hier waarschuwen we enkel, dus een treffer te veel kost een tik en een treffer te weinig kost
+// een dubbele speler. Twee dingen zijn daarom losser dan bij PSD:
+//   - "bijna hetzelfde woord" telt tikfouten IN het woord mee (Peeters/Peters, Ibraham/Ibrahim);
+//     PSD kijkt enkel naar een gedeeld begin en mist die twee dus.
+//   - er hoeft nog maar ÉÉN woord letterlijk gelijk te zijn i.p.v. twee.
+// De rest is hetzelfde idee: vergelijken op de VERZAMELING woorden, zodat "Van Glabeke Matteo" en
+// "Matteo Van Glabeke" hetzelfde zijn, en elk woord van de kortste naam moet een partner vinden in
+// de langste. Dat laatste is wat naamgenoten uit elkaar houdt: "Miel De Jaeger" en "De Jaegere
+// Mathias Steven" delen een familienaam, maar "Miel" vindt niets en dus zwijgt de app.
+function naamNorm(s) {
+  // Accenttekens als code-punten schrappen, niet als letterlijke tekens in de broncode: die zijn
+  // onzichtbaar en overleven niet elke tekstbewerking (zelfde reden als bij psdNorm).
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Het aantal tekens dat je moet toevoegen, weghalen of vervangen om van a naar b te gaan.
+function naamAfstand(a, b) {
+  if (a === b) return 0;
+  let vorige = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const rij = [i];
+    for (let j = 1; j <= b.length; j++) {
+      rij[j] = Math.min(vorige[j] + 1, rij[j - 1] + 1, vorige[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    vorige = rij;
+  }
+  return vorige[b.length];
+}
+// Korte woorden blijven met rust: "Sam" en "Tom" schelen ook maar één letter, en dat zijn twee
+// jongens. Vanaf zeven letters mag er een tweede tikfout in zitten.
+function naamBijnaZelfdeWoord(a, b) {
+  if (a === b) return true;
+  const kortste = Math.min(a.length, b.length);
+  if (kortste < 4 || Math.abs(a.length - b.length) > 2) return false;
+  return naamAfstand(a, b) <= (kortste >= 7 ? 2 : 1);
+}
+function naamLijktOp(a, b) {
+  const wa = naamNorm(a).split(' ').filter(Boolean), wb = naamNorm(b).split(' ').filter(Boolean);
+  if (!wa.length || !wb.length) return false;
+  if (wa.slice().sort().join(' ') === wb.slice().sort().join(' ')) return true;
+  const kort = wa.length <= wb.length ? wa : wb, lang = wa.length <= wb.length ? wb : wa;
+  const over = lang.slice();
+  let exact = 0, samen = 0;
+  for (const w of kort) {
+    let i = over.indexOf(w);
+    if (i >= 0) exact++;
+    else i = over.findIndex(x => naamBijnaZelfdeWoord(w, x));
+    if (i < 0) return false;
+    samen++;
+    over.splice(i, 1);
+  }
+  // Twee woorden die passen is genoeg. Staat er maar één woord ingevuld (enkel een voornaam, of
+  // enkel een familienaam), dan moet dat ene woord wél letterlijk kloppen — anders zou "Jan" al bij
+  // "Jon Vermeulen" gaan piepen.
+  return samen >= 2 || exact === 1;
+}
 // ----- Rooster per ploeg: cache + "al geladen?"-vlag -----
 // In cloudmodus bevat 'voetbal_teams_v2' enkel het rooster van de ACTIEVE ploeg: applyCloudTeams
 // schrijft de hele sleutel over met wat de roster-listener binnenbrengt. Tussen het wisselen van

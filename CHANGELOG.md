@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.25.0
+
+**De app waarschuwt nu als je een speler toevoegt die al ergens bestaat.** Tot hiertoe werd elke
+nieuwe speler blind aangemaakt, ook als diezelfde jongen al in de kern van een andere ploeg van je
+club stond. Voor de app waren dat dan twee verschillende personen — en dus bleef zijn overzicht van
+optredens bij andere ploegen leeg. Op 30 augustus bleken Oscar Jones, Noa Duvinage en Matteo Van
+Glabeke alle drie zo verdubbeld te zijn.
+
+Bij het opslaan van een kern kijkt de app nu of een nieuwe naam al voorkomt: in deze kern zelf, in de
+kernen van je andere ploegen, en bij de gast- en losse spelers in je wedstrijden. Vindt ze iets, dan
+zegt ze waar het staat en kies je zelf:
+
+- **Het is dezelfde speler** — hij neemt die identiteit over, en zijn optredens komen samen.
+- **Toch een andere** — er wordt gewoon een nieuwe speler aangemaakt.
+
+Het is dus een seintje, geen slot. Het werkt ook bij het plakken van een hele lijst in één keer, en
+juist dáár levert het het meeste op.
+
+**De vergelijking kijkt naar de losse woorden van een naam, niet naar de volgorde**, en verdraagt een
+tikfout. "Van Glabeke Matteo" en "Matteo Van Glabeke" zijn dus dezelfde, net als "Ibraham" en
+"Ibrahim". Maar naamgenoten blijven uit elkaar: "Miel De Jaeger" en "De Jaegere Mathias Steven" zijn
+twee jongens, en dat ziet de app ook zo. Korte namen worden met rust gelaten — "Sam" en "Tom"
+schelen ook maar één letter.
+
+---
+
 ## v1.24.2
 
 **De twee knoppenrijen op het verslag staan weer netjes onder elkaar.** Sinds v1.24.0 staan er onder
