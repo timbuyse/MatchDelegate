@@ -106,13 +106,26 @@ function renderDetail() {
          echte scherm: op 360 px (de smalste telefoon die vandaag nog telt) passen ze samen op 322 van
          de 328 px. Op een nog smaller toestel breekt de rij netjes af i.p.v. de tekst af te kappen —
          daarom flex-wrap en geen raster van drie vaste kolommen. */ ''}
+    ${/* GELIJKE KOLOMMEN, ZODAT DE TWEE RIJEN OP ELKAAR UITKOMEN (Tim, 30-08-2026). Deze rij stond op
+         flex met knoppen op tekstbreedte, de rij eronder op drie gelijke kolommen — dus lagen de
+         scheidingen niet onder elkaar en las het als twee losse blokjes. Nu allebei een raster met
+         evenveel gelijke kolommen als er knoppen zijn; bij een afgesloten wedstrijd zijn dat er drie
+         boven én onder, en vallen ze samen. `min-width:0` is nodig omdat een rasterkolom anders niet
+         onder de breedte van zijn inhoud krimpt en de rij tóch te breed wordt. */ ''}
     ${ro ? '' : (() => {
       const af = match.status === 'done' && !geenUitslag(match);
-      const stijl = 'margin:0;font-size:13px;padding:9px 6px;gap:5px;flex:1 1 auto';
+      const stijl = 'margin:0;font-size:13px;padding:9px 4px;gap:5px;min-width:0';
       const knoppen = [`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="modalDetailEditMenu()">${icI(IC.edit)} Bewerken</button>`];
       if (af) knoppen.push(`<button class="btn btn-orgpale btn-sm" style="${stijl}" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>`);
-      if (af && !heeftShootout(match)) knoppen.push(`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Strafschoppen</button>`);
-      return `<div class="no-print" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${knoppen.join('')}</div>`;
+      // "Penalty's" en niet "Strafschoppen" (Tim, 30-08-2026). Zodra de drie knoppen even breed zijn
+      // krijgt elk er 105 px op een telefoon van 360 px, en "Strafschoppen" heeft er 129 nodig — 24 px
+      // te veel, dus niet op te lossen met een kleinere letter of minder marge binnen de knop.
+      // "Strafschop" paste met één pixel speling, en dat breekt bij het eerste toestel met een ander
+      // lettertype. "Penalty's" heeft 91 px nodig en staat er ruim in. De SECTIE en het venster heten
+      // nog wél "Strafschoppen(reeks)": daar is plaats zat, en dat is de term die de app verder
+      // overal gebruikt.
+      if (af && !heeftShootout(match)) knoppen.push(`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="shootoutVanuitVerslag()">${icI(IC.penalty)} Penalty's</button>`);
+      return `<div class="no-print" style="display:grid;grid-template-columns:repeat(${knoppen.length},1fr);gap:6px;margin-bottom:8px">${knoppen.join('')}</div>`;
     })()}
     ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
          stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
@@ -131,9 +144,11 @@ function renderDetail() {
       ${/* KLEINER DAN DE RIJ ERBOVEN (Tim, 30-08-2026). Drie gevulde knoppen op volle breedte wogen
            zwaarder dan de handelingen erboven, terwijl doorsturen niets aan de wedstrijd verandert.
            De iconen krimpen mee: die staan op 1em (zie .ic-i in index.html). */ ''}
-      <button class="btn btn-green btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="shareReport()">${icI(IC.share)} Delen</button>
-      <button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
-      ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 8px;gap:5px" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
+      ${/* Zelfde min-width:0 als in de rij hierboven, en dezelfde zijdelingse padding, zodat de twee
+           rasters op exact dezelfde plaatsen scheiden. */ ''}
+      <button class="btn btn-green btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="shareReport()">${icI(IC.share)} Delen</button>
+      <button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
+      ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>`}
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">

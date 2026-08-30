@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.24.2
+
+**De twee knoppenrijen op het verslag staan weer netjes onder elkaar.** Sinds v1.24.0 staan er onder
+de eindscore twee rijen van drie, maar de bovenste stond op tekstbreedte en de onderste op drie
+gelijke kolommen — de scheidingen lagen dus niet onder elkaar en het las als twee losse blokjes. Nu
+gebruiken ze allebei hetzelfde raster. Nagemeten op een telefoon van 360 px: de knoppen beginnen en
+eindigen boven en onder op exact dezelfde punten.
+
+**"Strafschoppen" heet op die knop nu "Penalty's".** Zodra de drie knoppen even breed zijn, krijgt
+elk er een derde van de breedte — en daar past "Strafschoppen" niet in, met 24 pixels te veel. Een
+kleinere letter of minder marge haalde dat niet, en "Strafschop" paste maar met één pixel speling.
+De sectie op het verslag en het venster zelf heten nog gewoon "Strafschoppen(reeks)": daar is plaats
+zat.
+
+---
+
 ## v1.24.1
 
 **De doelpunten bij "score per kwart" stonden soms in de verkeerde volgorde.** Op het verslag van
