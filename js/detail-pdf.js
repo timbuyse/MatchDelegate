@@ -293,6 +293,17 @@ function modalDetailEditMenu() {
       ? menuItemHtml(IC.bolt, 'Uitslag aanpassen', 'De score en de doelpuntenmakers van deze wedstrijd rechtzetten.', 'modalQuickResult()') : ''}
     ${menuItemHtml(IC.log, 'Event toevoegen', 'Een doelpunt, kaart of andere gebeurtenis die je tijdens de wedstrijd gemist hebt.', 'modalAddPostEvent()')}
     ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
+    ${/* Dezelfde ingang als bij een geplande wedstrijd (zie modalEditMatchMenu en import-vv.js).
+         Juist hier hoort ze thuis: een wedstrijd die niemand volgde, wordt achteraf afgesloten en
+         staat dan leeg terwijl de wedstrijdpagina intussen alles heeft. Vult enkel aan — wat er al
+         staat, blijft staan tenzij je het zelf aanvinkt. */ ''}
+    ${/* Grijs zonder verbinding: dit venster staat open zodra je mag bijhouden (canLive), maar
+         ophalen kan enkel mét net. Zelfde reden als de knop "Bewerken" die op het
+         voorbereidingsscherm wegvalt zonder verbinding. */ ''}
+    ${menuItemHtml(IC.link, 'Wedstrijdinfo ophalen', canManage()
+      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde.'
+      : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
+      'vvStart()', !canManage())}
     ${/* Enkel bij een gewone wedstrijd — zie de uitleg bij modalSelectieVerslag. */ ''}
     ${menuItemHtml(IC.players, 'Selectie aanpassen', m.tournamentId
       ? 'Kan niet bij een tornooiwedstrijd: daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'

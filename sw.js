@@ -10,6 +10,7 @@ const ASSETS = ['./', './index.html', './manifest.json', './MD_cropped.png', './
   './qr/qrcode.js',
   './js/core.js', './js/views-account.js', './js/stats-settings.js', './js/teams-tournaments.js',
   './js/wizard-prep.js', './js/live-match.js', './js/detail-pdf.js', './js/import-cal.js', './js/import-psd.js',
+  './js/import-vv.js',
   './pdf/jspdf.umd.min.js', './pdf/jspdf.plugin.autotable.min.js'];
 
 self.addEventListener('install', e => {

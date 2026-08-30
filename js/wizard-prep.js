@@ -1933,6 +1933,10 @@ function modalEditMatchMenu() {
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
     ${item(IC.timer, 'Uitslag ingeven', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
+    ${/* De openbare wedstrijdpagina van de bond uitlezen (zie import-vv.js). Staat hier onder
+         "Uitslag ingeven", want het is dezelfde soort handeling: een wedstrijd die je niet gevolgd
+         hebt achteraf invullen — alleen haalt deze het op in plaats van dat je het tikt. */ ''}
+    ${item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde.', 'vvStart()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
     ${(heeftSel && (m.status || 'planned') === 'planned')
