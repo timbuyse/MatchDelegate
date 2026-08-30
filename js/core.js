@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.23.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.23.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1425,6 +1425,45 @@ function scoreUpToQuarter(m, qNum) {
     else if (e.type === 'penalty_them' && e.scored) them++;
   }
   return { us, them };
+}
+// DE STAND ZOALS ZE NA DIT DOELPUNT OP HET BORD STOND (Tim, 30-08-2026). In de lijst met
+// gebeurtenissen — en vooral in de PDF — stond wél wie er scoorde, maar niet hoe het er daarna
+// voor stond; je moest zelf terugtellen.
+//
+// Welke events meetellen is exact dezelfde vraag als in recomputeScore hierboven: wijzig je daar
+// iets, dan hier mee. Een GEMISTE strafschop verandert de stand niet en krijgt dus niets — daarom
+// levert `kant` daar null op en niet 'us'/'them'.
+//
+// DE VOLGORDE IS OP gameTimeMs, met de plaats in de rij als tiebreak. Dat is dezelfde volgorde als
+// waarin de lijst en de PDF de gebeurtenissen tonen (zie recomputeOnField en de tijdlijn), en de
+// tiebreak is nodig omdat twee doelpunten in dezelfde minuut anders van volgorde kunnen wisselen —
+// dan zou de stand in de lijst niet meer oplopen. Bewust niet de ruwe volgorde van m.events: een
+// retroactief toegevoegd doelpunt wordt daar achteraan geplakt en zou de stand doen terugspringen.
+function standNaEvent(m, e) {
+  if (!m || !e || !Array.isArray(m.events)) return null;
+  const kant = ev => ev.type === 'goal_us' || ev.type === 'own_goal_them' ? 'us'
+    : ev.type === 'goal_them' || ev.type === 'own_goal' ? 'them'
+    : ev.type === 'penalty_us' ? (ev.scored ? 'us' : null)
+    : ev.type === 'penalty_them' ? (ev.scored ? 'them' : null)
+    : null;
+  if (!kant(e)) return null;
+  const rij = m.events.map((ev, i) => ({ ev, i }))
+    .sort((a, b) => ((a.ev.gameTimeMs ?? 0) - (b.ev.gameTimeMs ?? 0)) || (a.i - b.i));
+  let us = 0, them = 0;
+  for (const { ev } of rij) {
+    const k = kant(ev);
+    if (k === 'us') us++; else if (k === 'them') them++;
+    if (ev === e || (ev.id && e.id && ev.id === e.id)) return { us, them };
+  }
+  return null;   // dit event zit niet (meer) in de lijst
+}
+// Klaar om achter een gebeurtenis te plakken; lege string voor alles wat de stand niet verandert.
+// DEZELFDE KANT OP ALS HET SCOREBORD: scoreTxt draait de cijfers om bij een uitwedstrijd (thuisploeg
+// vooraan), en een stand die de andere kant op staat dan de eindstand erboven leest als een fout.
+function standAchterEvent(m, e) {
+  const s = standNaEvent(m, e);
+  if (!s) return '';
+  return ' · ' + (isAway(m) ? `${s.them}-${s.us}` : `${s.us}-${s.them}`);
 }
 // De doelpunten van DIT blok alleen. Op het verslag stond enkel de tussenstand, en dat las als de
 // score van dat blok — "K2 · 1–1" terwijl er in kwart 2 misschien niets gescoord werd. Dezelfde

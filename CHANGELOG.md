@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.23.3
+
+**Bij elk doelpunt staat nu meteen de stand.** In het verloop van de wedstrijd — op het scherm, in de
+PDF en in het bericht dat je deelt — zag je wél wie er scoorde, maar niet hoe het er daarna voor
+stond. Je moest dus zelf terugtellen. Nu staat het cijfer er gewoon achter:
+
+```
+ 2'  Doelpunt Jan Peeters (assist Piet Janssens) · 1-0
+10'  Doelpunt FC Test · 1-1
+13'  Penalty voor Sparta · Wout Coppens — GOAL · 2-1
+14'  Eigen doel (Piet Janssens) · 2-2
+```
+
+Alleen wat de stand echt verandert krijgt een cijfer: doelpunten aan beide kanten, eigen doelpunten
+en een benutte strafschop. Een gemiste strafschop, een wissel of een hoekschop krijgt niets.
+
+Bij een uitwedstrijd draaien de cijfers mee met het scorebord, zodat de lijst en de eindstand erboven
+altijd dezelfde kant op staan. En voeg je achteraf nog een doelpunt toe op een vroeger moment, dan
+telt het op zijn juiste plaats mee en schuift de rest gewoon op.
+
+---
+
 ## v1.23.2
 
 **Bij een wissel zie je nu wie erin gaat en wie eraf.** Er stond "Jan Peeters voor Piet Janssens" —

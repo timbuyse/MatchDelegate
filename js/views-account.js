@@ -3073,7 +3073,14 @@ function groepeerPosSwaps(list) {
   return uit.map(x => (x.type === 'posSwapReeks' && x.events.length === 1) ? x.events[0] : x);
 }
 // voor platte tekst (WhatsApp-deelbericht, CSV), waar HTML-entities fout zouden staan.
-function evtLabel(e, m) {
+//
+// DE STAND KOMT ER ACHTERAAN VIA EEN OMHULSEL (Tim, 30-08-2026), niet in elke case apart. Er zijn
+// zes soorten gebeurtenissen die de score veranderen, en die stuk voor stuk aanvullen is zes kansen
+// om er één te vergeten — en nog eens zes in de platte variant hieronder. standAchterEvent (core.js)
+// beslist zelf of er iets bij hoort en geeft anders een lege string, dus dit werkt ook meteen voor
+// een soort die er later bijkomt.
+function evtLabel(e, m) { return evtLabelBasis(e, m) + standAchterEvent(m, e); }
+function evtLabelBasis(e, m) {
   const pn = id => esc(pName(m, id));
   switch(e.type) {
     case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
@@ -3131,7 +3138,9 @@ function evtLabel(e, m) {
 }
 // Platte-tekstvariant van evtLabel(): zelfde switch, maar zonder iconen/HTML — nodig voor
 // contexten die geen HTML renderen (PDF-tijdlijn via jsPDF-tekst i.p.v. innerHTML).
-function evtLabelPlain(e, m) {
+// Zelfde omhulsel voor de stand als hierboven; zie daar voor het waarom.
+function evtLabelPlain(e, m) { return evtLabelPlainBasis(e, m) + standAchterEvent(m, e); }
+function evtLabelPlainBasis(e, m) {
   switch(e.type) {
     case 'goal_us': { let s = `Doelpunt ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
     case 'goal_them': return `Doelpunt ${oppName(m)}`;
