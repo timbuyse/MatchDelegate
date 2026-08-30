@@ -679,10 +679,32 @@ function psdMomentLabel(m, moment, blok) {
 // 5. HET SCHERM
 // ---------------------------------------------------------------------------------------------
 
-function psdStart() {
+// STAAT ER AL IETS? (Tim, 30-08-2026). Het blad van de trainer VERVANGT de selectie en de
+// opstelling — psdOvernemen legt ze langs finishWizard opnieuw aan. Zolang de knop enkel op een lege
+// wedstrijd stond, kon dat niemand verrassen; nu ze altijd bereikbaar is, hoort de vraag hier: vóór
+// je een bestand gaat zoeken, niet erna. Het is een waarschuwing, geen punt van geen terugkeer —
+// tot je op het voorstelscherm "Overnemen" tikt, wordt er niets bewaard, en dat staat er ook bij.
+function psdBevestigOverschrijven() {
+  const m = match;
+  // "de opstelling" en "de opstelling per kwart" zijn hetzelfde ding op twee niveaus; naast elkaar
+  // opsommen leest als twee dingen. Vandaar één zin die zegt hoever het gaat.
+  const opst = heeftOpstelling(m)
+    ? (plannedLineupCount(m) ? `de opstelling, ook die per ${pSingLow(m)}` : 'de opstelling')
+    : (plannedLineupCount(m) ? `de opstelling per ${pSingLow(m)}` : '');
+  const stukken = [
+    `de selectie (${(m.players || []).length} speler${(m.players || []).length === 1 ? '' : 's'})`,
+    opst,
+    plannedCount(m) ? `${plannedCount(m)} geplande wissel${plannedCount(m) === 1 ? '' : 's'}` : '',
+  ].filter(Boolean);
+  showConfirm(`Het blad van de trainer <b>vervangt</b> wat er nu in deze wedstrijd staat: ${stukken.join(', ')}.` +
+    `<br><br>Je krijgt eerst te zien wat we van het blad begrepen hebben. Er wordt pas iets vervangen wanneer je daar op <b>Overnemen</b> tikt.`,
+    () => psdStart(true), 'Blad inlezen', 'btn-green');
+}
+function psdStart(bevestigd) {
   if (!match) return;
   if (!canManage()) { showToast('Enkel een beheerder kan een voorbereiding inlezen.', 'err'); return; }
   if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
+  if (!bevestigd && heeftSelectie(match)) { psdBevestigOverschrijven(); return; }
   // `los`   : { losId: naam } — namen van het blad die je als losse speler bijzet (v1.17.0)
   // `zusters`: de andere ploegen van de eigen club, met hun kern, om een naam ook dáár te zoeken
   psdSt = { fase: 'kies', fout: '', bezig: false, matchId: match.id, bestand: '', lezing: null, koppel: {}, los: {}, zusters: [], waarschuwingen: [] };
@@ -896,7 +918,10 @@ function psdVoorstelHtml() {
   }).join('');
 
   // --- wat we niet konden ---
+  // De overschrijving staat hier nog eens, want dít is het scherm waarop je op Overnemen tikt — de
+  // waarschuwing bij het openen (psdBevestigOverschrijven) ligt dan al een bestandskeuze achter je.
   const waar = [];
+  if (heeftSelectie(m)) waar.push(`Deze wedstrijd heeft al een <b>selectie van ${(m.players || []).length} speler${(m.players || []).length === 1 ? '' : 's'}</b>${heeftOpstelling(m) ? ' en een opstelling' : ''}. Overnemen <b>vervangt</b> die door wat hierboven staat.`);
   const onbekend = new Set();
   lz.blokken.forEach(b => b.veldNamen.forEach(v => {
     const i = psdVeldNaamNaarSpeler(v.tekst, lz.selectie);

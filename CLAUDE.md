@@ -35,6 +35,13 @@ Serve this folder with a static file server. Note: plain `python`/`node`/`npx` a
 
 A **genuinely fresh** port is a feature when testing: Firebase auth is per origin, so an origin that has never been signed in has no session, `teamRef()` returns null, and no write can reach production data.
 
+**A worktree port is not such a port either** (measured 30-08-2026 on port 3002, the fixed port of
+the `wedstrijdinfo-ophalen` worktree): `cloudReady` and `isAdmin` both came back `true` and
+`currentUser` was Tim's own account. And it fooled me first: right after loading, the app showed the
+sign-in screen, so the origin *looked* clean — Firebase restores the session a moment later and only
+then flips to the home screen. Read `cloudReady`/`isAdmin` **after** the app has settled, never from
+the first paint.
+
 **Port 3000 is NOT such a port** (measured 29-08-2026). It is the fixed port of the `match-delegate` launch task, so it has been signed in before and the session persists: `cloudReady` and `isAdmin` both came back `true`, and every `dbSave` there reaches production. Verify before you trust a port — read `cloudReady`/`isAdmin` in the console rather than assuming. On any port where they are true, the seed/demo rules below apply in full: stub `dbSave` and `cloudOnLocalMatchSave` before calling anything that saves.
 
 Also, when driving the app from the console: `match` is a **lexical global**, not a property of `window`. Assigning `window.match = …` does nothing — the handlers keep seeing the real `match` and bail out at their `if (!match) return` without any error, which reads as "my code never ran". Use a bare `match = m`. Functions (`dbSave`, `showToast`, `render`) *are* window properties and stub normally.

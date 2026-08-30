@@ -136,8 +136,13 @@ function renderDetail() {
          een verslag dat je doorstuurt — en er valt niets door te sturen van een wedstrijd waarvan
          niemand iets bijhield. Op precies dezelfde plek staan dan de twee dingen die je daar wél
          wil doen: alsnog een uitslag ingeven, of de wedstrijd heropenen. */ ''}
+    ${/* NAAR HETZELFDE MENU ALS "AFRONDEN" (Tim, 30-08-2026). Deze knop ging rechtstreeks naar het
+         uitslagvenster en sloeg de tweede manier — de wedstrijdinfo ophalen — dus over. Het is
+         dezelfde vraag als op een geplande wedstrijd ("hoe vul ik deze gespeelde wedstrijd in?"), dus
+         hoort er hetzelfde menu achter. De naam blijft wél zeggen wat je hier komt doen: bij een
+         wedstrijd op "– . –" is een uitslag alsnog ingeven de reden waarom je kijkt. */ ''}
     ${geenUitslag(match) ? (ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="modalQuickResult()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
+      <button class="btn btn-green btn-sm" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
       ${/* "Heropenen", zoals in de rij hierboven: één naam voor één knop. */ ''}
       <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>
     </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
@@ -308,6 +313,17 @@ function modalDetailEditMenu() {
       ? menuItemHtml(IC.bolt, 'Uitslag aanpassen', 'De score en de doelpuntenmakers van deze wedstrijd rechtzetten.', 'modalQuickResult()') : ''}
     ${menuItemHtml(IC.log, 'Event toevoegen', 'Een doelpunt, kaart of andere gebeurtenis die je tijdens de wedstrijd gemist hebt.', 'modalAddPostEvent()')}
     ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
+    ${/* Dezelfde ingang als bij een geplande wedstrijd (zie modalEditMatchMenu en import-vv.js).
+         Juist hier hoort ze thuis: een wedstrijd die niemand volgde, wordt achteraf afgesloten en
+         staat dan leeg terwijl de wedstrijdpagina intussen alles heeft. Vult enkel aan — wat er al
+         staat, blijft staan tenzij je het zelf aanvinkt. */ ''}
+    ${/* Grijs zonder verbinding: dit venster staat open zodra je mag bijhouden (canLive), maar
+         ophalen kan enkel mét net. Zelfde reden als de knop "Bewerken" die op het
+         voorbereidingsscherm wegvalt zonder verbinding. */ ''}
+    ${menuItemHtml(IC.link, 'Wedstrijdinfo ophalen', canManage()
+      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.'
+      : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
+      'vvStart()', !canManage())}
     ${/* Enkel bij een gewone wedstrijd — zie de uitleg bij modalSelectieVerslag. */ ''}
     ${menuItemHtml(IC.players, 'Selectie aanpassen', m.tournamentId
       ? 'Kan niet bij een tornooiwedstrijd: daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'

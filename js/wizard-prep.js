@@ -1748,6 +1748,16 @@ function renderPrep() {
   // stonden die knoppen er wél en deden ze stil niets, terwijl de rode knop als enige doorging.
   const geenVerbinding = !ro && !canManage() && canLive();
   const af = matchCancelled(m);   // afgelast: alles blijft bewaard, maar er valt niets meer te doen
+  // DE WEDSTRIJD IS VOORBIJ (Tim, 30-08-2026). Dit scherm zag er de dag vóór de match exact hetzelfde
+  // uit als een week erna: bovenaan groot "Wedstrijd starten", en alles eronder over voorbereiden.
+  // Terwijl er na de match nog maar één vraag telt — hoe vul ik ze in? Vanaf de dag NADIEN wisselt de
+  // bovenkant daarom van rol: afronden wordt de grote knop, starten zakt naar een bleke eronder (het
+  // moet mogelijk blijven, maar het is dan zelden wat je wil).
+  // Bewust dezelfde maatstaf als het startscherm en de wedstrijdenlijst — matchNietAfgesloten() in
+  // core.js, "datum voorbij en nooit afgewerkt" — zodat de drie plekken hetzelfde zeggen. Niet "na het
+  // eindsignaal": de app weet niet wanneer een wedstrijd die ze niet volgde gedaan is, en op de dag
+  // zelf hoort "starten" de grote knop te blijven.
+  const voorbij = typeof matchNietAfgesloten === 'function' && matchNietAfgesloten(m);
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
   const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
@@ -1773,9 +1783,13 @@ function renderPrep() {
     ${af
       ? `<div class="viewer-banner" style="background:var(--bdr);color:var(--txt2);border-color:var(--txt2)">${icI(IC.close)} Geannuleerd${m.cancelledAt ? ' op ' + fmtDate(m.cancelledAt) : ''}${m.cancelReason ? ' — ' + esc(m.cancelReason) : ''}</div>
       ${ro ? '' : `<button class="btn btn-pale" onclick="confirmUncancelMatch()">${icI(IC.undo)} Annulering ongedaan maken</button>`}`
-      : ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${!heeftSelectie(m)
-      ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>`
-      : (!heeftOpstelling(m) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Opstelling nog niet ingegeven — zet de spelers op het veld voor je de wedstrijd start.</div>` : '')}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>
+      : ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${voorbij
+      ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Deze wedstrijd is voorbij en nog niet afgesloten.</div>
+        <button class="btn btn-green" onclick="modalAfrondenMenu()">${icI(IC.done)} Wedstrijd afronden</button>
+        <button class="btn btn-pale" style="margin-top:8px" onclick="startPlanned()">${icI(IC.live)} Toch nog live volgen</button>`
+      : `${!heeftSelectie(m)
+        ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>`
+        : (!heeftOpstelling(m) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Opstelling nog niet ingegeven — zet de spelers op het veld voor je de wedstrijd start.</div>` : '')}<button class="btn btn-green" onclick="startPlanned()">${icI(IC.live)} Wedstrijd starten</button>`}
     ${/* Eén ingang voor alles wat je aan een geplande wedstrijd kan wijzigen (zie
          modalEditMatchMenu). Zonder dat menu stonden er een half dozijn knoppen naast elkaar in dit
          scherm, elk voor een stukje van dezelfde wedstrijd. Er staat enkel een tweede knop naast
@@ -1800,16 +1814,25 @@ function renderPrep() {
          weg. minmax(0, …) is nodig, anders wordt een kolom nooit smaller dan de inhoud van de knop.
          Bij drie knoppen een tikje kleinere letter dan gewoon: op 320 px — de smalste telefoons die
          nog meedoen — werd "Bewerken" anders met een paar pixels afgesneden. Gemeten op 320 en 375. */ ''}
-    ${geenVerbinding ? '' : (heeftSelectie(m)
-      ? `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">
-        <button class="btn btn-pale" style="margin:0;min-width:0" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
-        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px" onclick="modalQuickResult()" title="Uitslag ingeven — de wedstrijd niet live volgen, enkel de uitslag ingeven" aria-label="Uitslag ingeven">${icI(IC.bolt)} Uitslag</button>
-      </div>`
-      : `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px">
-        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px;font-size:15px" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>
-        <button class="btn btn-orgpale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px;font-size:15px" onclick="startSelectieWizard()">${icI(IC.players)} Selectie</button>
-        <button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px;font-size:15px" onclick="modalQuickResult()" title="Uitslag ingeven — de wedstrijd niet live volgen, enkel de uitslag ingeven" aria-label="Uitslag ingeven">${icI(IC.bolt)} Uitslag</button>
-      </div>`)}
+    ${/* "UITSLAG" HEET NU "AFRONDEN" (Tim, 30-08-2026). Er zijn sinds v1.25 twee manieren om een
+         wedstrijd die niemand volgde alsnog in te vullen — de uitslag zelf ingeven, of ze ophalen van
+         de wedstrijdpagina — en die zaten op twee verschillende plaatsen: de ene als knop hier, de
+         andere weggestopt in het bewerkmenu. Ondoorzichtig, want het is één vraag ("hoe vul ik deze
+         gespeelde wedstrijd in?") met twee antwoorden. Nu één knop, en het menu erachter zet de twee
+         wegen naast elkaar mét uitleg. "Uitslag" kon die knop niet meer heten: ophalen levert veel
+         meer dan een uitslag. */ ''}
+    ${geenVerbinding ? '' : (() => {
+      // Is de wedstrijd voorbij, dan staat "Afronden" al als grote groene knop hierboven en hoort ze
+      // hier niet nog eens: twee keer dezelfde handeling op één scherm is precies wat dit menu moest
+      // oplossen. Blijft over: Bewerken, plus de selectie zolang die ontbreekt.
+      const knoppen = [`<button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`];
+      if (!heeftSelectie(m)) knoppen.push(`<button class="btn btn-orgpale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="startSelectieWizard()">${icI(IC.players)} Selectie</button>`);
+      if (!voorbij) knoppen.push(`<button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="modalAfrondenMenu()" title="Afronden — de wedstrijd is gespeeld maar niet live gevolgd; vul ze achteraf in" aria-label="Wedstrijd afronden">${icI(IC.done)} Afronden</button>`);
+      // Bij drie knoppen een tikje kleinere letter: op 320 px — de smalste telefoons die nog meedoen —
+      // werd "Bewerken" anders met een paar pixels afgesneden. Gemeten op 320 en 375.
+      const fs = knoppen.length >= 3 ? ';font-size:15px' : '';
+      return `<div style="display:grid;grid-template-columns:repeat(${knoppen.length},minmax(0,1fr));gap:8px;margin-top:8px">${knoppen.join('').split('{FS}').join(fs)}</div>`;
+    })()}
     ${/* Zonder verbinding valt enkel "Bewerken" weg; de selectie ingeven kan wél (zie de regel
          hierboven), dus die knop moet dan op zichzelf blijven staan. De uitslag valt daar wél mee
          weg: die wijzigt de wedstrijdgegevens, net als Bewerken. */ ''}
@@ -1817,11 +1840,13 @@ function renderPrep() {
     ${(heeftSelectie(m) && !heeftOpstelling(m)) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="startOpstellingWizard()">${icI(IC.shirt)} Opstelling aanmaken</button>` : ''}
     ${/* De trainer geeft zijn wedstrijd door via ProSoccerData en drukt dat af als PDF. Dat blad
          bevat de selectie én de opstelling per moment, dus het kan hier in één keer ingelezen worden
-         (zie import-psd.js). Enkel zolang er nog geen selectie is: de import VERVANGT de selectie en
-         de opstelling, en dat mag geen stille overschrijving worden van werk dat er al staat. Wil je
-         toch opnieuw inlezen, dan wis je eerst de selectie. Verbinding is niet nodig — het bestand
-         wordt op het toestel zelf gelezen. */ ''}
-    ${!heeftSelectie(m) ? `<button class="btn btn-orgpale" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>` : ''}
+         (zie import-psd.js). Verbinding is niet nodig — het bestand wordt op het toestel zelf gelezen.
+         ALTIJD BEREIKBAAR (Tim, 30-08-2026). Deze knop verdween zodra er een selectie stond, omdat de
+         import de selectie en de opstelling VERVANGT; wie toch wou inlezen moest eerst zijn selectie
+         wissen — een omweg die niemand zelf bedenkt, en die precies het geval trof waarin je het blad
+         alsnog krijgt. Nu blijft ze staan en waarschuwt psdStart() wat er vervangen wordt. De nadruk
+         (btn-orgpale) hoort enkel bij een lege wedstrijd: dáár is inlezen de gewone weg. */ ''}
+    <button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
@@ -1885,7 +1910,17 @@ function renderPrep() {
          bevestiging. Maar wie hier komt, weet vaak wél hoe het geëindigd is — en die moest dan langs
          Bewerken → Uitslag ingeven, een andere weg voor dezelfde handeling. Nu opent hij hetzelfde
          venster, waar beide uitkomsten naast elkaar staan. */ ''}
-    ${(ro || m.tournamentId || af || m.status === 'done') ? '' : `<div class="afsluitzone"><button class="btn btn-gray" style="margin:0" onclick="modalQuickResult()">${icI(IC.done)} Afsluiten met of zonder uitslag</button></div>`}
+    ${/* Dezelfde weg als de knop "Afronden" hierboven (Tim, 30-08-2026). Hij opende rechtstreeks het
+         uitslagvenster en sloeg de tweede manier — ophalen — dus over. Hij blijft bestaan omdat de
+         knoppenrij hierboven zónder verbinding volledig wegvalt: dan is dit de enige uitweg voor een
+         wedstrijd die nooit afgesloten raakte.
+         ENKEL NOG DAAR (Tim, 30-08-2026). Hij stond er altijd, en sinds "Afronden" in de knoppenrij
+         staat was dat op elk online scherm de tweede plek voor dezelfde handeling — precies de
+         ondoorzichtigheid die we aan het opruimen zijn. Zijn oorspronkelijke reden (de uitslagknop
+         verscheen pas mét selectie) geldt niet meer: de rij toont Afronden altijd. Nu heeft elke
+         toestand exact één weg: voorbij → de grote groene knop bovenaan; online → de knop in de rij;
+         zonder verbinding → deze. */ ''}
+    ${(ro || m.tournamentId || af || voorbij || !geenVerbinding || m.status === 'done') ? '' : `<div class="afsluitzone"><button class="btn btn-gray" style="margin:0" onclick="modalAfrondenMenu()">${icI(IC.done)} Wedstrijd afronden</button></div>`}
     ${(ro || geenVerbinding) ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
@@ -1915,8 +1950,10 @@ function modalEditMatchMenu() {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
     ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
-    ${/* Enkel zolang er niets ingegeven is — zie de knop op het voorbereidingsscherm zelf. */ ''}
-    ${heeftSel ? '' : item(IC.upload, 'Voorbereiding van de trainer', 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
+    ${/* Ook mét selectie (Tim, 30-08-2026) — psdStart() waarschuwt dan wat er vervangen wordt. */ ''}
+    ${item(IC.upload, 'Voorbereiding van de trainer', heeftSel
+      ? 'Lees het PSD-blad van de trainer in. Let op: dat vervangt de selectie en de opstelling die er nu staan.'
+      : 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
          planner: die laatste toont een veld en veronderstelt dus dat er al iemand op staat. */ ''}
     ${/* ENKEL NOG WANNEER ER GEEN OPSTELLING IS (Tim, 25-08-2026). Met een opstelling bracht dit item
@@ -1933,6 +1970,10 @@ function modalEditMatchMenu() {
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
     ${item(IC.timer, 'Uitslag ingeven', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
+    ${/* De openbare wedstrijdpagina van de bond uitlezen (zie import-vv.js). Staat hier onder
+         "Uitslag ingeven", want het is dezelfde soort handeling: een wedstrijd die je niet gevolgd
+         hebt achteraf invullen — alleen haalt deze het op in plaats van dat je het tikt. */ ''}
+    ${item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.', 'vvStart()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
     ${(heeftSel && (m.status || 'planned') === 'planned')
@@ -3207,6 +3248,32 @@ function gedeeldeSpelers(a, b) {
 async function doStartPlanned() {
   match.status = 'live'; await dbSave(match); await go('live', match.id);
 }
+// ----- Afronden: één deur, twee wegen (Tim, 30-08-2026) -----
+// Een wedstrijd die gespeeld is maar die niemand live volgde, kan op twee manieren ingevuld worden:
+// je geeft de uitslag zelf in, of je haalt de wedstrijdpagina op. Die twee stonden op twee
+// verschillende plaatsen — de ene als knop op dit scherm, de andere in het bewerkmenu — en dat is
+// precies één vraag met twee antwoorden. Hier staan ze naast elkaar, met in één regel waarvoor elk
+// dient. Ze blijven allebei ook in het bewerkmenu staan (Tims regel: wie ze daar zoekt, vindt ze daar).
+//
+// VOLGORDE: zelf ingeven eerst. Dat werkt altijd en in tien seconden; het ophalen hangt af van een
+// blad dat de twee ploegen nog moeten invullen, van een verbinding, en van de reeks (zie hieronder).
+function modalAfrondenMenu() {
+  const m = match; if (!m || !canLive()) return;
+  const item = menuItemHtml;
+  openModal(`<h3>${icI(IC.done)} Wedstrijd afronden</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">De wedstrijd is gespeeld, maar je hebt ze niet live gevolgd. Hoe wil je ze invullen?</p>
+    ${item(IC.bolt, 'Uitslag zelf ingeven', heeftSelectie(m)
+      ? 'De eindstand, en desgewenst de doelpuntenmakers. Of afsluiten zonder uitslag.'
+      : 'De eindstand. Of afsluiten zonder uitslag, als er geen genoteerd is.', 'modalQuickResult()')}
+    ${/* Enkel mét verbinding: dit haalt een pagina op. Grijs mét de reden, niet stil weggelaten —
+         anders lijkt de functie te verdwijnen zodra je in een kantine zonder bereik staat. */ ''}
+    ${item(IC.link, 'Wedstrijdinfo ophalen', canManage()
+      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.'
+      : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
+      'vvStart()', !canManage())}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+
 // ----- Uitslag ingeven (wedstrijd die al gespeeld is, zonder live opvolging) -----
 let qrScorers = {};
 function modalQuickResult() {

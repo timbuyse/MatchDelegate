@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.25.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.26.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -755,6 +755,23 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  // DE TEKST VAN 1.15 STAAT HIER BEWUST NOG EENS IN (Tim, 31-08-2026). notesSleutel() valt terug op
+  // de LAATSTE tekst van dezelfde major, dus zodra '1.26' bestaat krijgt niemand '1.15' nog te zien
+  // — ook een nieuwe gebruiker niet. De trainersvoorbereiding is te belangrijk om zo stil te
+  // verdwijnen, dus ze staat hier samen met het ophalen, als twee punten onder één kop.
+  '1.26': {
+    titel: 'Twee nieuwe features',
+    kop: 'Laat de app invullen wat elders al ingetikt staat',
+    handleiding: 'Voorbereiding van de trainer',
+    intro: 'Op twee plaatsen bestaan je gegevens al: de wedstrijdvoorbereiding van je trainer in ProSoccerData, en de wedstrijdpagina van voetbalvlaanderen.be. Allebei kan je ze nu binnenhalen in plaats van alles over te tikken. Je krijgt telkens eerst te zien wat de app ervan begrepen heeft, en pas als jij akkoord gaat wordt er iets bewaard.',
+    kopPunten: 'Wat je nu kan',
+    punten: [
+      'De voorbereiding van je trainer inlezen. Bij een wedstrijd staat de knop "Voorbereiding van de trainer (PDF)": je laadt het blad uit ProSoccerData op en de app zet je selectie, je opstelling en het wisselplan klaar. Namen hoeven niet exact gelijk te zijn, en staat er iemand van een andere ploeg van je club op, dan zoekt de app hem daar op en zet hem als gastspeler bij.',
+      'Wedstrijdinfo ophalen. Een wedstrijd die je niet live gevolgd hebt, vul je aan met wat er op de wedstrijdpagina van voetbalvlaanderen.be staat: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Je plakt de link, ziet eerst wat de app begrepen heeft, en beslist per stuk wat je overneemt. Wat je zelf al ingaf blijft staan, en spelers worden alleen toegevoegd, nooit weggehaald.',
+      'Dat ophalen werkt enkel voor de bovenbouw, en pas zodra de bond het officiële wedstrijdblad verwerkt heeft. Lukt het niet, dan verandert er niets en vul je gewoon in met de hand.',
+    ],
+    hulp: 'Lukt het niet meteen? Stuur een berichtje naar Tim op 0497 10 44 57!',
+  },
   '1.15': {
     titel: 'De voorbereiding van je trainer inlezen',
     kop: 'Een PDF uit ProSoccerData wordt je selectie, opstelling en wedstrijdplan',

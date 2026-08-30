@@ -9,6 +9,46 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.26.0
+
+**Wedstrijdinfo ophalen van de openbare wedstrijdpagina.** Een wedstrijd die niemand live gevolgd
+heeft, vul je nu aan met wat er op de wedstrijdpagina van voetbalvlaanderen.be staat: de selectie, de
+uitslag met de doelpuntenmakers, de kaarten, de scheidsrechter, het terrein, de trainer en de
+afgevaardigde. Je plakt de link, krijgt eerst te zien wat de app ervan begrepen heeft, en beslist per
+stuk wat je overneemt. Te vinden onder **Bewerken**, zowel bij een geplande als bij een afgesloten
+wedstrijd.
+
+Het werkt enkel voor de bovenbouw, en pas zodra de bond het officiële wedstrijdblad verwerkt heeft.
+Dit is geen koppeling en geen samenwerking met de voetbalbond — de app leest een openbare pagina uit.
+Lukt dat niet, dan verandert er niets en vul je in met de hand.
+
+De grenzen die er bewust in zitten:
+
+- Wat je zelf al ingevuld had, wordt niet stil overschreven.
+- Spelers worden enkel toegevoegd, nooit weggehaald. Je opstelling, formatie, planning en kapitein
+  blijven onaangeroerd; wie erbij komt, komt op de bank.
+- Uitslag en kaarten enkel bij een wedstrijd zonder speeltijd — volgde je ze live, dan zijn jouw
+  gebeurtenissen de waarheid.
+- Bij een tornooiwedstrijd enkel de neutrale gegevens: selectie en uitslag horen daar bij de
+  tornooidag.
+- Minuten, wissels, de opstelling per deel en de strafschoppenreeks komen niet mee; het scherm zegt
+  waarom.
+- Haal je een tweede keer op, dan vervangt dat wat de eerste keer gezet werd. Er verdubbelt niets.
+
+**En een wedstrijd afronden gaat nu via één deur.** Er waren twee manieren om een gespeelde wedstrijd
+die niemand volgde alsnog in te vullen — de uitslag zelf ingeven of ze ophalen — en die zaten op
+twee verschillende plaatsen. De knop "Uitslag" heet nu **"Afronden"** en toont beide wegen naast
+elkaar, met een regel uitleg per stuk. Vanaf de dag ná de wedstrijd wisselt het wedstrijdscherm
+bovendien van rol: "Wedstrijd afronden" wordt de grote groene knop, "Wedstrijd starten" zakt eronder,
+en er staat een melding dat de wedstrijd voorbij is en nog niet afgesloten.
+
+**"Voorbereiding van de trainer (PDF)" is weer bereikbaar wanneer er al een selectie staat.** Die
+knop verdween zodra je iets had ingevuld, omdat het blad je selectie en opstelling vervangt — en de
+uitweg was "wis eerst je selectie", een omweg die niemand zelf bedenkt. Nu waarschuwt de app gewoon
+wat er vervangen wordt.
+
+---
+
 ## v1.25.0
 
 **De app waarschuwt nu als je een speler toevoegt die al ergens bestaat.** Tot hiertoe werd elke

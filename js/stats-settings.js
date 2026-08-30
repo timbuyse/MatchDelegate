@@ -1285,6 +1285,9 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Opstelling &amp; wissels</b> — het hele plan, kwart per kwart.</li>
         <li><b>Namen, nummers &amp; notities</b> — enkel voor deze ene wedstrijd.</li>
         <li><b>Uitslag ingeven</b> — de wedstrijd niet live volgen, enkel de uitslag ingeven.</li>
+        <li><b>Wedstrijdinfo ophalen</b> — de wedstrijd aanvullen met wat er op de wedstrijdpagina van
+          voetbalvlaanderen.be staat: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en
+          afgevaardigde. Zie <b>Wedstrijdverslag &amp; PDF</b> voor hoe dat werkt.</li>
         <li><b>Selectie wissen</b> — helemaal opnieuw beginnen: de selectie, de opstellingen per
           kwart en de geplande wissels gaan weg, de wedstrijd zelf blijft staan.</li>
       </ul>
@@ -1327,10 +1330,15 @@ const HANDLEIDING_PAGINAS = [
         echt nooit door, dan is <b>'Wedstrijd verwijderen'</b> nog altijd de definitieve weg.</p>
       <div class="sec">Wel gespeeld, maar niet gevolgd</div>
       <p>Bij een vriendschappelijke volgt soms niemand de wedstrijd in de app. Zo'n wedstrijd blijft
-        anders voor altijd als <b>'niet afgesloten'</b> op je startscherm staan. Onderaan het
-        wedstrijdscherm staat daarom <b>'Afsluiten met of zonder uitslag'</b> — ook als je nooit een
-        selectie ingaf. Bovenaan kan het ook, met de knop <b>'Uitslag'</b>.</p>
-      <p>In dat venster kies je zelf:</p>
+        anders voor altijd als <b>'niet afgesloten'</b> op je startscherm staan. Daarvoor is de knop
+        <b>'Afronden'</b>, bovenaan het wedstrijdscherm naast <b>Bewerken</b> — en helemaal onderaan
+        nog eens, ook als je nooit een selectie ingaf. Daar kies je tussen twee wegen:</p>
+      <ul class="hdl-list">
+        <li><b>'Uitslag zelf ingeven'</b> — de snelste weg, en ze werkt altijd.</li>
+        <li><b>'Wedstrijdinfo ophalen'</b> — haalt de selectie, de uitslag, de kaarten en de rest van
+          de wedstrijdpagina. Enkel voor de bovenbouw, en je hebt er verbinding voor nodig.</li>
+      </ul>
+      <p>Kies je voor de uitslag zelf ingeven, dan kies je in dat venster nog eens:</p>
       <ul class="hdl-list">
         <li><b>Met uitslag:</b> vul de eindstand in. De wedstrijd telt volledig mee — winst, gelijk of
           verlies, en het doelpuntenverschil.</li>
@@ -1524,6 +1532,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Uitslag aanpassen'</b> — enkel bij een wedstrijd die je niet live gevolgd hebt.</li>
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
         <li><b>'Info bewerken'</b> — tegenstander, datum, uur, scheidsrechter …</li>
+        <li><b>'Wedstrijdinfo ophalen'</b> — vul een wedstrijd aan met wat er op de wedstrijdpagina staat.</li>
         <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden.</li>
         <li><b>'Spelernotities'</b> en <b>'Rugnummers'</b> — per speler, enkel voor deze wedstrijd.</li>
         <li><b>'Startopstelling herplaatsen'</b> — pas de plaatsen van de aftrap aan.</li>
@@ -1533,6 +1542,12 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Iemand uit de selectie halen</div>
       <p>Speel je met twee ploegen tegelijk, dan neem je vaak een ruimere selectie op dan er nodig is. Wie uiteindelijk de hele tijd bij de andere wedstrijd bleef, telt hier anders mee als <b>geselecteerd</b>. Met <b>'Selectie aanpassen'</b> haal je hem er achteraf alsnog uit: hij komt weer bij <b>niet geselecteerd</b> te staan, ook in de statistieken.</p>
       <p class="hdl-tip">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij. Bij een <b>tornooiwedstrijd</b> kan het niet — daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.</p>
+      <div class="sec">Een wedstrijd aanvullen van de wedstrijdpagina</div>
+      <p>Van een wedstrijd die niemand live gevolgd heeft, staat er achteraf vaak meer op de openbare wedstrijdpagina van <b>voetbalvlaanderen.be</b> dan in je app. Met <b>'Wedstrijdinfo ophalen'</b> — je vindt het achter <b>Bewerken</b>, zowel bij een geplande als bij een gespeelde wedstrijd — plak je het adres van die pagina en haalt de app op wat ze kan: de <b>selectie</b>, de <b>uitslag</b> met de doelpuntenmakers, de <b>kaarten</b>, de <b>scheidsrechter</b>, het <b>terrein</b>, de <b>trainer</b> en de <b>afgevaardigde</b>.</p>
+      <p>Je krijgt eerst te zien wat de app begrepen heeft, met per stuk een vinkje en per naam een keuzelijst om hem aan de juiste speler van je kern te hangen. Pas als je op <b>'Overnemen'</b> tikt, wordt er iets bewaard.</p>
+      <p><b>Dit is er voor de bovenbouw.</b> Daar wordt een wedstrijdblad ingevuld. Bij de jongste reeksen worden er geen uitslagen, rangschikkingen of opstellingen bijgehouden, dus valt er niets op te halen — die vul je gewoon zelf in met <b>'Uitslag zelf ingeven'</b>.</p>
+      <p><b>En pas zodra het blad verwerkt is.</b> De opstellingen en de uitslag verschijnen op die pagina wanneer de bond het officiële wedstrijdblad verwerkt heeft, niet meteen na het laatste fluitsignaal. Kom je er te vroeg, dan zegt de app dat er nog geen spelers op de pagina staan; probeer het dan een paar dagen later opnieuw.</p>
+      <p class="hdl-tip">Wat je zelf al ingaf, blijft staan tenzij je het vinkje uitdrukkelijk aanzet. Spelers worden alleen <b>toegevoegd</b>, nooit weggehaald. De opstelling per deel, de wissels en de speelminuten staan niet op die pagina en blijven handwerk. Lukt het ophalen niet — de pagina is van de voetbalbond, niet van deze app — dan verandert er niets en vul je gewoon in zoals altijd.</p>
       <div class="sec">Wat staat er in het verslag?</div>
       {{img2}}
       <ul class="hdl-list">
