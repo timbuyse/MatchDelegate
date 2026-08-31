@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.1
+
+**De ploegenlijst springt niet meer naar boven bij elke keuze.** Koppelde je als clubbeheerder de
+ploegen van je club aan die van de bond, dan stond je na elke keuze weer bovenaan de lijst — bij
+negenendertig ploegen betekende dat telkens opnieuw naar beneden vegen. De lijst blijft nu staan waar
+je stond.
+
+**En koppelen gebeurt alleen nog op clubniveau.** Een ploegbeheerder kon zijn eigen ploeg aan de bond
+koppelen; dat is eruit. Een koppeling is een clubgegeven, net als de clubnaam en het clublogo, en
+hoort één keer door de clubbeheerder gelegd te worden bij de opstart — en later opnieuw wanneer er een
+ploeg bij komt. Anders moeten twintig ploegbeheerders elk een clubnummer opzoeken, met twintig kansen
+om de verkeerde ploeg van de bond aan te vinken.
+
+Op het ploegscherm blijven het clubnummer en het ploegnummer wél **staan**, zodat je kan zien waaraan
+een ploeg hangt en waar haar kalender vandaan komt. Alleen aanpassen kan er niet meer. Is een ploeg
+nog niet gekoppeld, dan zegt de importwizard dat — met een knop naar Clubbeheer voor wie
+clubbeheerder is, en anders met de melding dat de clubbeheerder het doet.
+
+---
+
 ## v1.27.0
 
 **De kalender van je ploeg komt nu rechtstreeks bij de voetbalbond binnen.** Geen bestand meer

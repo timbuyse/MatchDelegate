@@ -1272,11 +1272,17 @@ function rbfaBronKaartHtml() {
   const fout = (impSt.fout && impSt.rbfaFout)
     ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(impSt.fout)}</div>`
     : '';
+  // NIET GEKOPPELD = HIER GEEN KNOP, MAAR EEN WEG (Tim, 31-08-2026). Koppelen is een clubgegeven en
+  // gebeurt bij Clubbeheer; zie de uitleg bij rbfaTeamSectieHtml. Hier stond een knop die het per
+  // ploeg deed. Zonder vervanging zou je hier alleen lezen dat het kan en niet waar — en dan is een
+  // doodlopende melding erger dan geen melding. De clubbeheerder krijgt de weg erbij, wie het niet
+  // is, weet aan wie hij het moet vragen.
   if (!ploegen.length) {
+    const magZelf = isOwner || isClubAdmin;
     return `<div class="sec">Van de voetbalbond</div>
       <div class="card">
-        <p style="font-size:14px;color:var(--txt2);margin:0 0 12px">De kalender van je ploeg staat op <b>rbfa.be</b>. Zeg één keer welke ploeg van de bond bij <b>${esc(team.name)}</b> hoort, en de app haalt de kalender daarna zelf op — met het <b>wedstrijdnummer</b> van elke wedstrijd erbij, zodat "Wedstrijdinfo ophalen" achteraf meteen weet welke wedstrijd het is.</p>
-        <button class="btn btn-pale" style="margin:0" onclick="rbfaKoppelOpen('${esc(team.id)}')">${icI(IC.link)} Ploeg van de bond kiezen</button>
+        <p style="font-size:14px;color:var(--txt2);margin:0 0 ${magZelf ? '12' : '0'}px">De kalender van je ploeg kan rechtstreeks van <b>rbfa.be</b> komen, met het <b>wedstrijdnummer</b> van elke wedstrijd erbij — maar dan moet <b>${esc(team.name)}</b> eerst aan haar ploeg bij de bond gekoppeld zijn. ${magZelf ? 'Dat doe je bij <b>Clubbeheer</b>, in één keer voor alle ploegen van de club.' : 'Dat doet de clubbeheerder, in één keer voor alle ploegen van de club.'}</p>
+        ${magZelf ? `<button class="btn btn-pale" style="margin:0" onclick="go('clubbeheer')">${icI(IC.link)} Naar Clubbeheer</button>` : ''}
       </div>`;
   }
   const lijst = ploegen.map(p => `<div style="padding:1px 0">${rbfaPloegTxt(p)}</div>`).join('');
@@ -1287,7 +1293,7 @@ function rbfaBronKaartHtml() {
       ${ploegen.length > 1 ? `<p style="font-size:13px;color:var(--txt2);margin:0 0 12px">Beide kalenders komen samen in één lijst.</p>` : ''}
       ${fout}
       <button class="btn btn-green" style="margin-top:2px" ${impSt.rbfaBezig ? 'disabled style="margin-top:2px;opacity:.5"' : 'onclick="impRbfaOphalen()"'}>${icI(IC.link)} ${impSt.rbfaBezig ? 'Bezig met ophalen…' : 'Kalender ophalen'}</button>
-      <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="rbfaKoppelOpen('${esc(team.id)}')">Ploegen aanpassen</button>
+      ${/* "Ploegen aanpassen" stond hier; die weg loopt nu via Clubbeheer (Tim, 31-08-2026). */ ''}
     </div>`;
 }
 
@@ -1488,17 +1494,28 @@ function rbfaKoppelBewaar() {
 // STAAT OP BEIDE GEDAANTEN VAN DAT SCHERM. Het ploegscherm heeft een leesweergave
 // (renderTeamOverview) en een bewerkweergave (renderTeamEdit), en je komt standaard op de eerste
 // terecht — daar hoort dit dus óók te staan, anders bestaat de functie voor wie het potlood niet
-// aantikt gewoon niet. Het venster bewaart zelf, dus het werkt vanuit beide even goed.
+// aantikt gewoon niet.
+//
+// HIER ALLEEN LEZEN, KOPPELEN GEBEURT OP CLUBNIVEAU (Tim, 31-08-2026). Aanvankelijk stond hier een
+// knop waarmee een ploegbeheerder zijn eigen ploeg koppelde. Dat is eruit: een koppeling is een
+// clubgegeven, net als de clubnaam en het clublogo, en hoort één keer door de clubbeheerder gelegd te
+// worden bij de opstart — en later opnieuw wanneer er een ploeg bij komt. Anders krijg je twintig
+// ploegbeheerders die elk een clubnummer moeten opzoeken, met twintig kansen om de verkeerde ploeg
+// van de bond aan te vinken. De nummers blijven hier wél STAAN, zodat je kan zien waaraan een ploeg
+// hangt en waarom haar kalender vandaan komt waar hij vandaan komt.
+//
+// GEVOLG, BEWUST AANVAARD: een ploeg zonder club kan niet meer gekoppeld worden, want er is dan geen
+// clubscherm om het vanaf te doen. Tims antwoord (31-08-2026): er worden nooit ploegen gemaakt die
+// niet aan een club hangen.
 function rbfaTeamSectieHtml(team) {
   if (!team || team.isNew || !canManage()) return '';
   const ploegen = rbfaPloegen(team);
-  const knop = `<button class="btn btn-pale btn-sm" style="margin:${ploegen.length ? '10' : '0'}px 0 0" onclick="rbfaKoppelOpen('${esc(team.id)}')">${icI(IC.link)} ${ploegen.length ? 'Aanpassen' : 'Ploeg van de bond kiezen'}</button>`;
-  const body = ploegen.length
-    ? `<div style="font-size:14px">${ploegen.map(p => `<div style="padding:2px 0">${rbfaPloegTxt(p)}</div>`).join('')}</div>
-       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Bij <b>Kalender importeren</b> haalt de app hiermee de kalender op, met het wedstrijdnummer van elke wedstrijd erbij.</p>`
-    : `<p style="font-size:14px;color:var(--txt2);margin:0 0 12px">Koppel deze ploeg aan haar ploeg bij de voetbalbond, en de app haalt de kalender op zonder dat je nog een bestand moet downloaden. Het wedstrijdnummer komt mee, zodat "Wedstrijdinfo ophalen" achteraf meteen weet welke wedstrijd het is.</p>`;
+  if (!ploegen.length) return '';
   return `<div class="sec">Kalender van de voetbalbond</div>
-    <div class="card">${body}${knop}</div>`;
+    <div class="card">
+      <div style="font-size:14px">${ploegen.map(p => `<div style="padding:2px 0">${rbfaPloegTxt(p)}</div>`).join('')}</div>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Bij <b>Kalender importeren</b> haalt de app hiermee de kalender op, met het wedstrijdnummer van elke wedstrijd erbij. De koppeling zelf legt de clubbeheerder, bij <b>Clubbeheer</b>.</p>
+    </div>`;
 }
 
 // =============================================================================================
@@ -1653,7 +1670,28 @@ async function rbfaClubKoppelOpen(clubId) {
   rbfaCkRender();
   if (rbfaCkSt.clubIn && !rbfaCkSt.fout) rbfaCkZoek();
 }
-function rbfaCkRender() { if (rbfaCkSt) openModal(rbfaCkHtml()); }
+// DE SCHUIFPOSITIE VAN DE PLOEGENLIJST OVERLEEFT EEN HERTEKENING (Tim, 31-08-2026). Elke keuze
+// tekent dit venster opnieuw, en de lijst met bondsploegen zit in een eigen schuifvak binnen de
+// modal. openModal bewaart de positie van de MODAL, maar niet die van een vak daarin — dus stond je
+// na elke keuze weer bovenaan. Bij 39 bondsploegen betekende dat na elke tik opnieuw naar beneden
+// vegen. Gemeten: op 1500 px stond je na één keuze terug op 0.
+// Het vak wordt gezocht op zijn max-height-stijl en niet op een klasse: dat is dezelfde plek waar
+// rbfaCkHtml hem zet, en zo hoeft er geen naam op twee plaatsen te kloppen. Vindt hij hem niet, dan
+// gebeurt er gewoon niets — nooit een hertekening laten mislukken om een schuifpositie.
+const RBFA_CK_LIJST_STIJL = 'max-height:44vh';
+function rbfaCkLijstVak() {
+  return Array.from(document.querySelectorAll('#modal div'))
+    .find(e => (e.getAttribute('style') || '').indexOf(RBFA_CK_LIJST_STIJL) === 0) || null;
+}
+function rbfaCkRender() {
+  if (!rbfaCkSt) return;
+  const vak = rbfaCkLijstVak();
+  const schuif = vak ? vak.scrollTop : 0;
+  openModal(rbfaCkHtml());
+  if (!schuif) return;
+  const nieuw = rbfaCkLijstVak();
+  if (nieuw) nieuw.scrollTop = schuif;
+}
 function rbfaCkSluit() { rbfaCkSt = null; closeModal(); }
 function rbfaCkVeld(v) { if (rbfaCkSt) rbfaCkSt.clubIn = v; }
 
