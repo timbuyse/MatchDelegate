@@ -1496,3 +1496,404 @@ function rbfaTeamSectieHtml() {
   return `<div class="sec">Kalender van de voetbalbond</div>
     <div class="card">${body}${knop}</div>`;
 }
+
+// =============================================================================================
+// DE PLOEGEN VAN DE CLUB NAAST DE PLOEGENLIJST VAN DE BOND
+// =============================================================================================
+// Laag 2, vanuit Clubbeheer. Het venster hierboven koppelt ÉÉN ploeg; dit legt de volledige
+// ploegenlijst van de club naast die van de bond, en laat per bondsploeg kiezen: bij welke ploeg in
+// de app ze hoort, of dat ze hier nog niet bestaat en aangemaakt moet worden. Dat laatste was Tims
+// vraag: aan het begin van een seizoen staan er dertig ploegen bij de bond en nul in de app.
+//
+// WAT DIT SCHRIJFT, EN MET WELK RECHT. Twee dingen, en beide mocht een clubbeheerder al:
+//   1. De koppeling op de kern van een ploeg van zijn club. De regel op `teams/$teamId` geeft hem
+//      schrijfrecht op een BESTAANDE ploeg van zijn club zolang `info/clubId` ongewijzigd blijft
+//      (fase 2d); `roster` heeft enkel een eigen `.read`, dus het schrijfrecht erft van de ouder.
+//      Wij werken gericht bij op `teams/<ploeg>/roster/<kern>/rbfaTeams`. De ploeg-id's komen
+//      uitsluitend uit `clubs/<club>/teams`, en de regels rekenen de clubbeheerdersclaim nóg eens na
+//      op de ploeg zelf — er gaat dus niets over een clubgrens, ook niet bij een fout van ons.
+//   2. Een ploeg aanmaken, via dezelfde createTeam als "Nieuwe ploeg in deze club".
+// Er is GEEN regelwijziging voor nodig en er komt geen nieuw recht bij.
+//
+// EEN VALKUIL DIE APART AFGEHANDELD WORDT. `saveTeamsV2` schrijft de HELE kernlijst van de ACTIEVE
+// ploeg weg (cloudOnLocalTeamsSave doet één `teamRef('roster').set(arr)`). Koppel je de actieve ploeg
+// hier met een gerichte write, dan kan een latere gewone opslag dat overschrijven met de verouderde
+// kopie die in het geheugen zat. Voor de actieve ploeg gaan we daarom langs de lokale weg
+// (getTeamsV2 + saveTeamsV2), voor elke andere ploeg gericht. Zie rbfaKoppelingWegschrijven.
+
+// De wedstrijdvorm en het aantal blokken die een NIEUWE ploeg meekrijgt, geraden uit de naam die de
+// bond haar geeft. Enkel een startwaarde — ze staat op het ploegscherm en per wedstrijd aanpasbaar —
+// maar een 11v11-ploeg met vier kwarten is zo verkeerd dat 'geen gok' hier de slechtere keuze is.
+// De gok staat zichtbaar in de rij vóór je op Toepassen tikt.
+// Belgische jeugdreeksen: U6-U7 3v3, U8-U9 5v5, U10-U13 8v8, vanaf U14 (en bij de kernploegen) 11v11.
+function rbfaVormGok(naam) {
+  const m = String(naam || '').match(/\bU\s?(\d{1,2})\b/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (n <= 7) return { matchType: '3v3', periodKey: 'kwarten' };
+    if (n <= 9) return { matchType: '5v5', periodKey: 'kwarten' };
+    if (n <= 13) return { matchType: '8v8', periodKey: 'kwarten' };
+    return { matchType: '11v11', periodKey: 'helften' };
+  }
+  // "Eerste Elftal", "Reserven", "G-voetbal" en al de rest: geen leeftijd om op te gaan. De
+  // kernploegen spelen 11v11; voor de rest is 8v8 de standaard van de app zelf.
+  if (/eerste\s*elftal|reserven|beloften|dames|vrouwen/i.test(naam)) return { matchType: '11v11', periodKey: 'helften' };
+  return { matchType: '8v8', periodKey: 'kwarten' };
+}
+
+// Alle KERNEN van alle (niet-gearchiveerde) ploegen van de club, met hun huidige koppeling.
+// Een kern, niet een ploeg: `m.teamId` op een wedstrijd is een kern-id, en de koppeling hoort dus bij
+// de kern. Meestal heeft een cloudploeg er precies één (createTeam maakt er één aan), maar wie op het
+// lokale Ploegen-scherm een tweede aanmaakte heeft er twee — dan komen die hier als twee rijen.
+async function rbfaKernenVanClub(clubId) {
+  const lees = async (pad, leeg) => {
+    try { const v = (await fbOnce(fbdb.ref(pad))).val(); return (v === null || v === undefined) ? leeg : v; }
+    catch (e) { return leeg; }
+  };
+  const teams = await lees('clubs/' + clubId + '/teams', {});
+  const ids = Object.keys(teams || {});
+  const uit = [];
+  await Promise.all(ids.map(async tid => {
+    const [naam, gearchiveerd, roster] = await Promise.all([
+      lees('teams/' + tid + '/info/name', ''),
+      lees('teams/' + tid + '/info/archived', false),
+      lees('teams/' + tid + '/roster', null),
+    ]);
+    if (!naam || gearchiveerd) return;   // een gearchiveerde ploeg biedt zich hier niet aan
+    // De kern staat als lijst óf als object, afhankelijk van wie ze het laatst wegschreef
+    // (createTeam schrijft een object met één push-key, saveTeamsV2 een array). Overal in de app
+    // wordt dat zo genormaliseerd; de SLEUTEL houden we erbij, want daarop schrijven we straks
+    // gericht terug.
+    const paren = roster
+      ? (Array.isArray(roster)
+          ? roster.map((k, i) => [String(i), k])
+          : Object.keys(roster).map(k => [k, roster[k]]))
+      : [];
+    paren.forEach(([sleutel, kern]) => {
+      if (!kern || !kern.id) return;
+      uit.push({
+        teamId: tid, ploegNaam: naam, sleutel,
+        kernId: String(kern.id), kernNaam: String(kern.name || naam),
+        meerdereKernen: paren.length > 1,
+        rbfaClubId: String(kern.rbfaClubId || ''),
+        rbfaTeams: rbfaPloegen(kern),
+      });
+    });
+  }));
+  uit.sort((a, b) => (a.kernNaam || '').localeCompare(b.kernNaam || '', 'nl'));
+  return uit;
+}
+
+// De koppeling op één kern wegschrijven. `ploegen` is de volledige, gewenste lijst — een lege lijst
+// haalt de koppeling weg.
+async function rbfaKoppelingWegschrijven(kern, clubNr, ploegen) {
+  const heeft = ploegen && ploegen.length;
+  // DE ACTIEVE PLOEG langs de gewone lokale weg: dan klopt de lijst in het geheugen meteen én kan een
+  // volgende "Ploeg opslaan" de koppeling niet overschrijven met een verouderde kopie. Precies
+  // dezelfde weg als het venster van laag 2's kleine broer (rbfaKoppelBewaar).
+  if (cloudReady && activeTeamId && kern.teamId === activeTeamId) {
+    const arr = getTeamsV2();
+    const idx = arr.findIndex(t => t && t.id === kern.kernId);
+    if (idx >= 0) {
+      if (heeft) { arr[idx].rbfaTeams = ploegen; arr[idx].rbfaClubId = String(clubNr || ''); }
+      else { delete arr[idx].rbfaTeams; delete arr[idx].rbfaClubId; }
+      saveTeamsV2(arr);
+      return;
+    }
+    // Staat de kern (nog) niet in de lokale lijst — bv. een ploeg die net aangemaakt is en waarvan de
+    // luisteraar nog niets binnenbracht — dan valt hij door naar de gerichte write hieronder.
+  }
+  // EEN ANDERE PLOEG VAN DE CLUB: gericht bijwerken, enkel deze twee velden. Nooit de hele kern
+  // wegschrijven: daar zitten de spelers in, en die hebben we hier niet vers in handen.
+  const pad = 'teams/' + kern.teamId + '/roster/' + kern.sleutel;
+  await fbdb.ref(pad).update({
+    rbfaTeams: heeft ? ploegen : null,
+    rbfaClubId: heeft ? String(clubNr || '') : null,
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// HET VENSTER
+// ---------------------------------------------------------------------------------------------
+let rbfaCkSt = null;
+
+async function rbfaClubKoppelOpen(clubId) {
+  if (!fbdb || !currentUser) { showToast('Hiervoor is verbinding nodig.', 'err'); return; }
+  if (!(myClubs && myClubs[clubId]) && !isOwner) { showToast('Enkel een clubbeheerder kan dit.', 'err'); return; }
+  rbfaCkSt = {
+    clubId, clubNaam: '', clubIn: '', club: null, bondPloegen: null,
+    kernen: null, keuze: {}, bezig: true, fout: '', bezigTxt: 'Ploegen van de club ophalen…',
+  };
+  rbfaCkRender();
+  try {
+    const [naam, kernen] = await Promise.all([
+      (async () => { try { return (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val() || ''; } catch (e) { return ''; } })(),
+      rbfaKernenVanClub(clubId),
+    ]);
+    rbfaCkSt.clubNaam = naam || 'deze club';
+    rbfaCkSt.kernen = kernen;
+    // Het clubnummer van de bond staat nergens op de CLUB bewaard — op `clubs/<id>` mag enkel de
+    // maker van de app schrijven (het logo uitgezonderd), dus een clubbeheerder kan daar niets
+    // kwijt. Het staat wél op elke kern die al gekoppeld is; daar halen we het vandaan. Zo hoeft
+    // niemand het een tweede keer op te zoeken.
+    const gekend = kernen.map(k => k.rbfaClubId).filter(Boolean);
+    rbfaCkSt.clubIn = gekend[0] || '';
+    // Wat er al gekoppeld is, is de beginstand van de keuzes.
+    kernen.forEach(k => k.rbfaTeams.forEach(p => {
+      rbfaCkSt.keuze[p.id] = { naar: k.kernId, label: p.label || '', naam: '' };
+    }));
+  } catch (e) {
+    rbfaCkSt.fout = 'De ploegen van de club ophalen is niet gelukt. Probeer het opnieuw.';
+  }
+  rbfaCkSt.bezig = false; rbfaCkSt.bezigTxt = '';
+  rbfaCkRender();
+  if (rbfaCkSt.clubIn && !rbfaCkSt.fout) rbfaCkZoek();
+}
+function rbfaCkRender() { if (rbfaCkSt) openModal(rbfaCkHtml()); }
+function rbfaCkSluit() { rbfaCkSt = null; closeModal(); }
+function rbfaCkVeld(v) { if (rbfaCkSt) rbfaCkSt.clubIn = v; }
+
+async function rbfaCkZoek() {
+  if (!rbfaCkSt || rbfaCkSt.bezig) return;
+  const veld = document.getElementById('rbfa-ck-club');
+  if (veld) rbfaCkSt.clubIn = veld.value;
+  const nr = rbfaClubNummerUit(rbfaCkSt.clubIn);
+  if (!nr) { rbfaCkSt.fout = 'Hier vind ik geen clubnummer in. Tik het nummer in, of plak het volledige adres van je clubpagina.'; rbfaCkRender(); return; }
+  rbfaCkSt.fout = ''; rbfaCkSt.bezig = true; rbfaCkSt.bezigTxt = 'Ploegen bij de bond ophalen…';
+  rbfaCkSt.club = null; rbfaCkSt.bondPloegen = null;
+  rbfaCkRender();
+  try {
+    const club = await rbfaClubInfo(nr);
+    if (!club) throw new Error(`Club ${nr} bestaat niet bij de bond. Kijk het nummer na in het adres van je clubpagina.`);
+    const ploegen = await rbfaClubPloegen(nr);
+    if (!ploegen || !ploegen.length) throw new Error(`Bij ${club.name || ('club ' + nr)} staat geen enkele ploeg. Kijk het clubnummer na.`);
+    rbfaCkSt.clubIn = nr; rbfaCkSt.club = club; rbfaCkSt.bondPloegen = ploegen;
+  } catch (e) {
+    rbfaCkSt.fout = (e && e.message) || 'Het ophalen is niet gelukt.';
+  }
+  rbfaCkSt.bezig = false; rbfaCkSt.bezigTxt = '';
+  rbfaCkRender();
+}
+
+// De keuzelijst per bondsploeg: niets doen, een bestaande kern, of aanmaken.
+function rbfaCkKies(bondId, waarde) {
+  if (!rbfaCkSt) return;
+  bondId = String(bondId);
+  if (!waarde) { delete rbfaCkSt.keuze[bondId]; rbfaCkRender(); return; }
+  const bond = (rbfaCkSt.bondPloegen || []).find(p => String(p.id) === bondId) || {};
+  const vorig = rbfaCkSt.keuze[bondId] || {};
+  rbfaCkSt.keuze[bondId] = {
+    naar: waarde,
+    label: vorig.label !== undefined && vorig.label !== '' ? vorig.label : rbfaLabelVoorstel(bond.name),
+    // Bij "aanmaken" is de naam van de bondsploeg het voorstel — je kan ze nog wijzigen.
+    naam: waarde === '#nieuw' ? (vorig.naam || String(bond.name || '')) : '',
+  };
+  rbfaCkRender();
+}
+// Geen hertekening bij het typen: dat zou de cursor uit het veld halen.
+function rbfaCkLabel(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.label = v; }
+function rbfaCkNaam(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.naam = v; }
+
+// Hoeveel bondsploegen wijzen naar dezelfde kern? Twee is het geval van Tim (U11 A en U11 B bij de
+// bond, één U11IP bij ons); meer dan twee mag ook, maar dan hoort er een label bij elk.
+function rbfaCkPerKern() {
+  const per = {};
+  Object.keys(rbfaCkSt.keuze).forEach(bondId => {
+    const k = rbfaCkSt.keuze[bondId];
+    if (!k || !k.naar) return;
+    if (!per[k.naar]) per[k.naar] = [];
+    per[k.naar].push(bondId);
+  });
+  return per;
+}
+
+function rbfaCkHtml() {
+  const s = rbfaCkSt;
+  const fout = s.fout
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(s.fout)}</div>`
+    : '';
+  if (s.bezig) {
+    return `<h3 style="margin:0 0 4px">Ploegen van de voetbalbond</h3>
+      <p style="font-size:14px;color:var(--txt2);margin:14px 0">${esc(s.bezigTxt || 'Bezig…')}</p>`;
+  }
+  const kernen = s.kernen || [];
+  const perKern = s.bondPloegen ? rbfaCkPerKern() : {};
+  const teKoppelen = Object.keys(s.keuze).filter(b => s.keuze[b].naar && s.keuze[b].naar !== '#nieuw').length;
+  const teMaken = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw').length;
+
+  const clubBlok = s.club
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bg2,#f4f6f8);font-size:14px">
+         <b>${esc(s.club.name || '')}</b>${s.club.registrationNumber ? `<span style="color:var(--txt2)"> · stamnummer ${esc(s.club.registrationNumber)}</span>` : ''}
+         <div style="font-size:12px;color:var(--txt2);margin-top:2px">${(s.bondPloegen || []).length} ploegen bij de bond · ${kernen.length} ${kernen.length === 1 ? 'ploeg' : 'ploegen'} in de app</div>
+       </div>`
+    : '';
+
+  // Welke bondsploeg is de EERSTE van haar groep, gelezen in de volgorde van het scherm? Daar komt de
+  // uitleg over het label te staan, één keer per groep. Niet via perKern[..][0]: dat is een lijst van
+  // nummerachtige sleutels uit Object.keys, en die geeft JavaScript in numerieke volgorde terug — de
+  // uitleg landde daardoor onder een willekeurige rij van de groep in plaats van onder de eerste.
+  const eersteVanGroep = {};
+  (s.bondPloegen || []).forEach(p => {
+    const k = s.keuze[String(p.id)];
+    if (!k || !k.naar) return;
+    if (eersteVanGroep[k.naar] === undefined) eersteVanGroep[k.naar] = String(p.id);
+  });
+
+  // Eén rij per bondsploeg.
+  const rijen = (s.bondPloegen || []).map(p => {
+    const id = String(p.id);
+    const k = s.keuze[id] || null;
+    const naar = k ? k.naar : '';
+    const nieuw = naar === '#nieuw';
+    // Het labelveld hoort er zodra er MEER DAN ÉÉN bondsploeg bij dezelfde ploeg hoort — dan moet je
+    // ze van elkaar kunnen houden. Maar ook wanneer er al een label staat, ook bij één bondsploeg:
+    // anders verdwijnt het veld zodra je de tweede losmaakt, en kan je dat label nergens meer wissen.
+    const samen = (naar && !nieuw && ((perKern[naar] || []).length > 1 || !!String(k.label || '').trim()));
+    const gok = nieuw ? rbfaVormGok(k.naam || p.name) : null;
+    const opties = `<option value="" ${!naar ? 'selected' : ''}>— niets doen —</option>`
+      + kernen.map(kn => `<option value="${esc(kn.kernId)}" ${naar === kn.kernId ? 'selected' : ''}>${esc(kn.kernNaam)}${kn.meerdereKernen ? ` (in ${esc(kn.ploegNaam)})` : ''}</option>`).join('')
+      + `<option value="#nieuw" ${nieuw ? 'selected' : ''}>+ Ploeg aanmaken in de app</option>`;
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="flex:1;min-width:0;font-size:15px;font-weight:${naar ? '700' : '500'}">${esc(p.name || ('ploeg ' + id))}</span>
+        <span style="font-size:12px;color:var(--txt2);flex:none">${esc(id)}</span>
+      </div>
+      <select onchange="rbfaCkKies('${esc(id)}',this.value)" style="margin-top:6px;width:100%">${opties}</select>
+      ${nieuw ? `<input type="text" value="${esc(k.naam || '')}" oninput="rbfaCkNaam('${esc(id)}',this.value)"
+             placeholder="naam van de nieuwe ploeg" autocomplete="off"
+             style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
+        <div style="font-size:12px;color:var(--txt2);margin-top:4px">Wordt aangemaakt als <b>${esc(gok.matchType.replace('v', ' tegen '))}</b> · <b>${PERIOD_TYPES[gok.periodKey].count} ${esc(PERIOD_TYPES[gok.periodKey].plural)}</b>, geraden uit de naam. Aan te passen bij "Ploeg bewerken".</div>` : ''}
+      ${(naar && samen) ? `<input type="text" value="${esc(k.label || '')}" oninput="rbfaCkLabel('${esc(id)}',this.value)"
+             placeholder="ploeg-label, bv. A" autocomplete="off"
+             style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
+        ${/* De uitleg enkel bij de EERSTE van een groep. Ze stond onder elke rij van dezelfde ploeg,
+             en dan lees je twee keer hetzelfde vlak onder elkaar. */''}
+        ${(eersteVanGroep[naar] === id && (perKern[naar] || []).length > 1) ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Meer dan één bondsploeg hoort bij <b>${esc((kernen.find(x => x.kernId === naar) || {}).kernNaam || 'deze ploeg')}</b>, dus hier hoort een label bij om ze in de app van elkaar te houden.</div>` : ''}` : ''}
+    </div>`;
+  }).join('');
+
+  const knopTxt = (teKoppelen || teMaken)
+    ? [teKoppelen ? `${teKoppelen} koppelen` : '', teMaken ? `${teMaken} aanmaken` : ''].filter(Boolean).join(' · ')
+    : 'Alle koppelingen wissen';
+
+  return `<h3 style="margin:0 0 4px">Ploegen van de voetbalbond</h3>
+    <p style="font-size:13px;color:var(--txt2);margin:0 0 14px">Voor <b>${esc(s.clubNaam)}</b>. Zeg per ploeg van de bond bij welke ploeg in de app ze hoort — of laat ze hier meteen aanmaken als ze nog niet bestaat.</p>
+    <div class="fg"><label>Clubnummer bij de bond</label>
+      <input id="rbfa-ck-club" type="text" inputmode="numeric" value="${esc(s.clubIn || '')}" oninput="rbfaCkVeld(this.value)"
+             placeholder="bv. 1641" autocomplete="off" spellcheck="false">
+      <div style="font-size:12px;color:var(--txt2);margin-top:4px">Zoek je club op <b>rbfa.be</b>. In het adres van je clubpagina staat het nummer: rbfa.be/nl/club/<b>1641</b>/ploegen.</div></div>
+    <button class="btn btn-pale" style="margin:0" onclick="rbfaCkZoek()">${icI(IC.search)} Ploegen ophalen</button>
+    ${fout}
+    ${clubBlok}
+    ${s.bondPloegen ? `
+      ${kernen.length ? '' : `<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(230,150,30,.14);font-size:13px">${icI(IC.warn)} Er staat nog geen enkele ploeg in de app voor deze club. Kies bij de ploegen die je nodig hebt <b>"+ Ploeg aanmaken in de app"</b>.</div>`}
+      <div class="sec" style="margin-top:16px">Ploeg per ploeg</div>
+      <div style="max-height:44vh;overflow-y:auto;margin-bottom:12px">${rijen}</div>
+      <button class="btn btn-green" onclick="rbfaCkToepassen()">${icI(IC.check)} ${esc(knopTxt)}</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="rbfaCkSluit()">Annuleren</button>`;
+}
+
+async function rbfaCkToepassen() {
+  if (!rbfaCkSt || !rbfaCkSt.bondPloegen || rbfaCkSt.bezig) return;
+  const s = rbfaCkSt;
+  const clubNr = String(s.clubIn || '');
+  const bondNaam = (id) => {
+    const p = (s.bondPloegen || []).find(x => String(x.id) === String(id));
+    return p ? String(p.name || '') : '';
+  };
+  // Eerst nakijken of elke aan te maken ploeg een naam heeft: halverwege stoppen is hier het
+  // slechtste wat er kan gebeuren.
+  const zonderNaam = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw' && !String(s.keuze[b].naam || '').trim());
+  if (zonderNaam.length) {
+    s.fout = `Geef elke nieuwe ploeg een naam (${zonderNaam.map(bondNaam).filter(Boolean).join(', ') || zonderNaam.join(', ')}).`;
+    rbfaCkRender(); return;
+  }
+  s.bezig = true; s.fout = ''; s.bezigTxt = 'Bezig…'; rbfaCkRender();
+
+  let gemaakt = 0, gekoppeld = 0, gewist = 0;
+  const misluktBij = [];
+  try {
+    // ---- 1. De nieuwe ploegen aanmaken. Eén per één, want elke aanmaak is een reeks writes en bij
+    // een fout willen we weten waar het stopte. `stil` houdt de app op dit scherm.
+    for (const bondId of Object.keys(s.keuze)) {
+      const k = s.keuze[bondId];
+      if (!k || k.naar !== '#nieuw') continue;
+      const naam = String(k.naam || '').trim();
+      const gok = rbfaVormGok(naam || bondNaam(bondId));
+      s.bezigTxt = `"${naam}" aanmaken…`; rbfaCkRender();
+      // joinAsMember false: de clubbeheerder beheert deze ploegen via zijn clubrol, zoals bij
+      // "Nieuwe ploeg in deze club" de niet-aangevinkte keuze. Hij kan zich er later bij zetten met
+      // "Bij mijn ploegen" op het clubscherm — dertig ploegen in "Jouw ploegen" duwen zou het
+      // ploegkeuzescherm onbruikbaar maken.
+      const res = await createTeam(naam, s.clubId, false, gok.matchType, '', gok.periodKey, 0, true);
+      if (!res || !res.teamId) { misluktBij.push(naam); continue; }
+      gemaakt++;
+      // De verse ploeg wordt vanaf nu een gewone bestemming: één kern, waarvan createTeam ons het
+      // id gaf, dus zonder terug te moeten ophalen.
+      const kern = { teamId: res.teamId, sleutel: res.rosterId, kernId: res.rosterId,
+        kernNaam: naam, ploegNaam: naam, meerdereKernen: false, rbfaClubId: '', rbfaTeams: [] };
+      s.kernen.push(kern);
+      k.naar = kern.kernId;
+    }
+
+    // ---- 2. De gewenste koppeling per kern samenstellen. Over ÁLLE kernen lopen, niet enkel over de
+    // gewijzigde: een kern waarvan de laatste bondsploeg weggehaald werd, moet haar koppeling kwijt.
+    const perKern = rbfaCkPerKern();
+    for (const kern of s.kernen) {
+      const bondIds = perKern[kern.kernId] || [];
+      // In de volgorde waarin de bond haar ploegen geeft, zodat het leest zoals het venster.
+      const gewenst = (s.bondPloegen || [])
+        .filter(p => bondIds.includes(String(p.id)))
+        .map(p => {
+          const k = s.keuze[String(p.id)] || {};
+          const label = String(k.label || '').trim();
+          const naam = String(p.name || '').trim();
+          return Object.assign({ id: String(p.id) }, label ? { label } : {}, naam ? { naam } : {});
+        });
+      // Niets veranderd? Dan ook niets schrijven — elke overbodige write op een ándere ploeg is een
+      // write die fout kan lopen.
+      const nu = kern.rbfaTeams || [];
+      const zelfde = nu.length === gewenst.length && nu.every((p, i) =>
+        p.id === gewenst[i].id && (p.label || '') === (gewenst[i].label || '') && (p.naam || '') === (gewenst[i].naam || ''))
+        && (!gewenst.length || String(kern.rbfaClubId || '') === clubNr);
+      if (zelfde) continue;
+      s.bezigTxt = `"${kern.kernNaam}" bijwerken…`; rbfaCkRender();
+      try {
+        await rbfaKoppelingWegschrijven(kern, clubNr, gewenst);
+        if (gewenst.length) gekoppeld++; else gewist++;
+        kern.rbfaTeams = gewenst;
+        kern.rbfaClubId = gewenst.length ? clubNr : '';
+      } catch (e) {
+        misluktBij.push(kern.kernNaam);
+      }
+    }
+  } catch (e) {
+    s.bezig = false; s.bezigTxt = '';
+    s.fout = (e && e.code === 'PERMISSION_DENIED')
+      ? 'Je hebt hier geen toestemming voor. Enkel de clubbeheerder van deze club kan dit — contacteer de clubbeheerder of de maker van de app.'
+      : ((e && e.message) || 'Het opslaan is niet gelukt.');
+    rbfaCkRender();
+    return;
+  }
+  s.bezig = false; s.bezigTxt = '';
+
+  // Wat er misliep, blijft op het scherm staan; wat lukte, is gebeurd en wordt gemeld. Nooit
+  // "gelukt" zeggen over een half gelukte beweging.
+  const delen = [];
+  if (gemaakt) delen.push(`${gemaakt} ${gemaakt === 1 ? 'ploeg' : 'ploegen'} aangemaakt`);
+  // "bijgewerkt" en niet "gekoppeld": in deze telling zitten zowel nieuwe koppelingen als ploegen
+  // waar er al één stond en die nu een bondsploeg meer of minder heeft.
+  if (gekoppeld) delen.push(`${gekoppeld} koppeling${gekoppeld === 1 ? '' : 'en'} bijgewerkt`);
+  if (gewist) delen.push(`${gewist} koppeling${gewist === 1 ? '' : 'en'} gewist`);
+  if (misluktBij.length) {
+    s.fout = `Niet gelukt bij: ${misluktBij.join(', ')}.${delen.length ? ' De rest is wel gelukt.' : ''} Probeer het opnieuw of kijk je verbinding na.`;
+    rbfaCkRender();
+    if (delen.length) showToast(delen.join(' · ') + '.', 'ok');
+    return;
+  }
+  rbfaCkSt = null;
+  closeModal();
+  showToast(delen.length ? delen.join(' · ') + '.' : 'Niets gewijzigd.', 'ok');
+  // Het clubscherm opnieuw opbouwen: de nieuwe ploegen horen er meteen bij te staan.
+  if (typeof loadClubBeheerView === 'function') loadClubBeheerView();
+}
