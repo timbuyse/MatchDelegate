@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.0
+
+**De kalender van je ploeg komt nu rechtstreeks bij de voetbalbond binnen.** Geen bestand meer
+downloaden en opladen: je zegt één keer welke ploeg bij de bond jouw ploeg is, en de app haalt de
+kalender zelf op — het volledige seizoen, altijd de actuele versie.
+
+Je hoeft geen ploegnummer op te zoeken. Je tikt je **clubnummer** in (dat staat in het adres van je
+clubpagina), de app toont clubnaam en stamnummer ter bevestiging, en dan vink je je ploeg aan uit de
+volledige ploegenlijst van de club. Zo kan er ook geen verkeerd nummer ingetikt worden — dat zou een
+lege kalender geven die niet te onderscheiden is van een ploeg zonder wedstrijden.
+
+**En de eigenlijke buit: bij elke wedstrijd komt haar wedstrijdnummer mee.** Dat betekent dat
+"Wedstrijdinfo ophalen" van v1.26.0 geen link meer nodig heeft — de app weet zelf al om welke
+wedstrijd het gaat. Plak je er toch met de hand een link, dan onthoudt ze die ook.
+
+Speel je met twee ploegen die allebei bij de bond staan, dan koppel je ze beide en krijgt elke
+wedstrijd het juiste ploeglabel. Spelen ze tegen elkaar, dan komt die wedstrijd één keer in de lijst.
+
+**Voor een clubbeheerder** staat de volledige ploegenlijst van de club naast die van de bond, met per
+bondsploeg de keuze bij welke ploeg in de app ze hoort — en "Ploeg aanmaken in de app" voor wie er
+nog niet is. Aan het begin van een seizoen staan er dertig ploegen bij de bond en nul in de app.
+
+Wat er bewust **niet** gebeurt: de uitslag van een gespeelde wedstrijd wordt nooit ingelezen, alleen
+getoond met het merkje "Bij de bond gespeeld" — een stand zonder gebeurtenissen is geen verslag. En
+het terrein blijft ongemoeid, want de bond geeft het niet mee.
+
+---
+
 ## v1.26.2
 
 **Het clublogo weegt nu een derde van wat het woog, en is scherper in de PDF.** Het werd bewaard als
