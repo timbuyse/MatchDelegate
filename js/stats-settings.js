@@ -1147,6 +1147,7 @@ const HANDLEIDING_PAGINAS = [
   {
     titel: 'Kalender importeren',
     img: 'handleiding/screenshots/24_kalender_importeren.png',
+    img2: 'handleiding/screenshots/24b_kalender_lijst.png',
     inhoud: `
       <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>. Er zijn twee wegen: rechtstreeks bij de voetbalbond, of uit een bestand.</p>
       <div class="sec">Rechtstreeks bij de voetbalbond</div>
@@ -1169,6 +1170,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Een <b>tabel</b> (<b>.xlsx</b> of <b>.csv</b>) — bijvoorbeeld een kalender die je club zelf rondstuurt. Foot24 biedt enkel de agenda aan, dus hiervoor heb je een andere bron nodig. De app raadt zelf welke kolom de datum, het uur en de tegenstander bevat; onder <b>'Kolommen van het bestand'</b> zet je dat recht als ze het verkeerd voorstelt.</li>
       </ul>
       <div class="sec">Voor je importeert</div>
+      {{img2}}
       <ul class="hdl-list">
         <li>Bovenaan kies je één keer het <b>format</b>, het <b>aantal blokken</b> en de <b>blokduur</b>. Die staan in geen enkele kalender, dus ze gelden voor alles wat je nu inleest — per wedstrijd blijven ze nadien aanpasbaar. Bij een bestand kies je daar ook de <b>ploeg</b> en de <b>soort</b>; komt de kalender van de bond, dan staan die al vast (de ploeg door de koppeling, de soort per wedstrijd uit de reeks — competitie, beker of vriendschappelijk).</li>
         <li>Speelt je ploeg in twee delen (A en B), dan hoort daar een <b>ploeg-label</b> bij. Bij een bestand leest de app dat uit de reeksnaam ('U11 A' wordt label <b>A</b>), en lees je daarna de kalender van de andere ploeg in, wijzig dan enkel dat veld. Komt de kalender van de bond, dan staat het label per wedstrijd vast en hoef je niets te doen — ook niet als je beide reeksen in één keer inleest.</li>

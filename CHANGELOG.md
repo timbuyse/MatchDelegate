@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.4
+
+**Nieuwe beelden bij "Kalender importeren" in de handleiding.** Het beeld dat er stond toonde de lijst
+uit een bestand en sloeg het eerste scherm over — juist daar waar de bondskalender nu staat. Er staan
+nu twee beelden: bovenaan het keuzescherm met de kaart van de voetbalbond, en bij "Voor je importeert"
+de lijst zoals ze uit de bondskalender komt, met de reeks, het merkje "Bij de bond gespeeld" en een
+wedstrijd die er al staat.
+
+---
+
 ## v1.27.3
 
 **De handleiding zegt nu wie de ploegen aan de bond koppelt.** Er stond nog dat je dat bij je eigen
