@@ -1059,7 +1059,7 @@ const HANDLEIDING_PAGINAS = [
       <p>MatchDelegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Jouw ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
       <div class="hdl-rol"><b>Ploegbeheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
-      <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen en het clublogo instellen</span></div>
+      <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen, het clublogo instellen en de ploegen aan de voetbalbond koppelen</span></div>
       <p style="margin-top:14px">Na registratie start je als <b>kijker</b>. Je kan daarna:</p>
       <ul class="hdl-list">
         <li>Een ploeg volgen via een uitnodiging (link, QR-code of code).</li>
@@ -1150,14 +1150,16 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>. Er zijn twee wegen: rechtstreeks bij de voetbalbond, of uit een bestand.</p>
       <div class="sec">Rechtstreeks bij de voetbalbond</div>
-      <p>De snelste weg, en je hoeft niets te downloaden. Je zegt <b>één keer</b> welke ploeg bij de bond jouw ploeg is, en daarna haalt de app de kalender zelf op — het volledige seizoen, altijd de actuele versie.</p>
+      <p>De snelste weg, en je hoeft niets te downloaden. Elke ploeg wordt <b>één keer</b> aan haar ploeg bij de bond gekoppeld, en daarna haalt de app de kalender zelf op — het volledige seizoen, altijd de actuele versie.</p>
+      <p><b>Dat koppelen doet de clubbeheerder</b>, voor de hele club in één beweging. Het is geen instelling per ploeg: net als de clubnaam en het clublogo hoort ze bij de club, en zo hoeven twintig ploegbeheerders niet elk hetzelfde clubnummer op te zoeken. Ben je zelf geen clubbeheerder en is je ploeg nog niet gekoppeld, dan zegt het importscherm dat — vraag het aan wie je club beheert.</p>
       <ul class="hdl-list">
+        <li>Ga naar <b>Clubbeheer</b> → <b>'Ploegen van de voetbalbond'</b>.</li>
         <li>Zoek je club op <b>rbfa.be</b>. In het adres van je clubpagina staat het <b>clubnummer</b>: rbfa.be/nl/club/<b>1641</b>/ploegen. Dat nummer tik je in (het volledige adres plakken mag ook), en de app toont je clubnaam en stamnummer zodat je meteen ziet of het klopt.</li>
-        <li>Daarna krijg je <b>alle ploegen van je club</b> te zien, met hun naam. Je vinkt aan welke bij deze ploeg hoort. Zo hoef je nooit een ploegnummer over te typen.</li>
-        <li>Is jouw ploeg bij de bond in <b>twee reeksen</b> gesplitst — bij ons één ploeg, daar een A en een B in een andere poule — dan vink je ze <b>allebei</b> aan. Beide kalenders komen samen in één lijst, en je geeft elk het <b>ploeg-label</b> waarmee je ze in de app van elkaar houdt.</li>
-        <li>Je stelt dit in bij <b>Ploegen</b> → je ploeg → <b>'Kalender van de voetbalbond'</b>, of meteen op het importscherm zelf.</li>
-        <li>Ben je <b>clubbeheerder</b>, dan doe je het voor de hele club in één beweging: <b>Clubbeheer</b> → <b>'Ploegen van de voetbalbond'</b>. Daar staan alle ploegen van de bond naast die van de app, en zeg je per ploeg bij welke ze hoort. Bestaat ze bij ons nog niet, kies dan <b>'Ploeg aanmaken in de app'</b> — handig bij het begin van een seizoen, wanneer er dertig ploegen bij de bond staan en nog geen enkele in de app.</li>
+        <li>Daarna staan <b>alle ploegen van de bond naast die van de app</b>. Je zegt per bondsploeg bij welke ploeg in de app ze hoort. Zo hoef je nooit een ploegnummer over te typen — en kan er dus ook geen verkeerd nummer ingetikt worden.</li>
+        <li>Bestaat die ploeg bij ons nog niet, kies dan <b>'Ploeg aanmaken in de app'</b>. Handig bij het begin van een seizoen, wanneer er dertig ploegen bij de bond staan en nog geen enkele in de app.</li>
+        <li>Is één ploeg bij de bond in <b>twee reeksen</b> gesplitst — bij ons één ploeg, daar een A en een B in een andere poule — dan wijs je ze <b>allebei</b> naar dezelfde ploeg. Beide kalenders komen samen in één lijst, en je geeft elk het <b>ploeg-label</b> waarmee je ze in de app van elkaar houdt.</li>
       </ul>
+      <p>Op het ploegscherm zie je onder <b>'Kalender van de voetbalbond'</b> waaraan een ploeg gekoppeld is. Dat staat er om na te kijken; aanpassen gebeurt in Clubbeheer.</p>
       <p class="hdl-tip">Deze weg geeft nog iets extra: bij elke wedstrijd komt haar <b>wedstrijdnummer</b> mee. Wil je later <b>'Wedstrijdinfo ophalen'</b> gebruiken bij een wedstrijd die je niet live volgde, dan hoef je daar geen link meer te gaan zoeken — de app weet al welke wedstrijd het is en één tik volstaat.</p>
       <p>Wat er langs deze weg <b>niet</b> meekomt, is het <b>terrein</b>: dat staat niet in de kalender van de bond. Een import laat een terrein dat je zelf ingaf dus altijd staan, en bij 'Wedstrijdinfo ophalen' komt het achteraf wel mee.</p>
       <p>Wedstrijden die bij de bond al gespeeld zijn, krijgen in de lijst het merkje <b>'Bij de bond gespeeld'</b> met de uitslag erbij. Ze komen wel als <b>geplande</b> wedstrijd binnen: een uitslag zonder verslag is voor de app geen gespeelde wedstrijd. Wil je die aanvullen, gebruik dan 'Wedstrijdinfo ophalen'.</p>
@@ -1678,6 +1680,10 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Verwijderen'</b> — definitief wissen. Deze knop staat grijs: enkel de maker van de app kan dat. Vraag het aan hem als het echt moet.</li>
       </ul>
       <p class="hdl-tip">Aanmaken, archiveren en verwijderen van een hele ploeg staan alle drie hier, in Clubbeheer — niet op het ploegscherm zelf. Zo kan niemand tijdens het dagelijkse werk per ongeluk een ploeg wissen.</p>
+      <div class="sec">De ploegen aan de voetbalbond koppelen</div>
+      <p>Dit is de eerste zet bij de opstart van een club, en het scheelt je nadien veel werk: tik in Clubbeheer op <b>'Ploegen van de voetbalbond'</b>. Je geeft één keer je <b>clubnummer</b> en zegt dan per ploeg van de bond bij welke ploeg in de app ze hoort. Bestaat die er nog niet, dan laat je ze meteen aanmaken.</p>
+      <p>Daarna haalt elke ploegbeheerder zijn kalender op met één tik, zonder ergens iets te downloaden — en bij elke wedstrijd komt haar wedstrijdnummer mee, waardoor <b>'Wedstrijdinfo ophalen'</b> achteraf geen link meer nodig heeft. Komt er in de loop van het seizoen een ploeg bij, dan open je dit scherm opnieuw en koppel je alleen die.</p>
+      <p class="hdl-tip">Alleen jij kan dit: een ploegbeheerder ziet op zijn ploegscherm wél aan welke bondsploeg zijn ploeg hangt, maar kan het niet wijzigen. Een koppeling hoort bij de club, net als de clubnaam en het clublogo — anders zoeken twintig mensen hetzelfde clubnummer op, met twintig kansen om de verkeerde ploeg aan te vinken.</p>
       <div class="sec">Een trainer uitnodigen</div>
       <ol class="hdl-list">
         <li>Open de ploeg met <b>'Openen'</b>, tik op de tegel <b>'Ploeg'</b> en dan bij <b>'Mensen met toegang'</b> op <b>'Iemand uitnodigen'</b>.</li>

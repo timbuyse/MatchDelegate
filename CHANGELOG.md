@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.3
+
+**De handleiding zegt nu wie de ploegen aan de bond koppelt.** Er stond nog dat je dat bij je eigen
+ploeg instelt — de weg die in v1.27.1 net verdwenen was. Wie dat las, ging zoeken naar knoppen die er
+niet meer zijn.
+
+Bij **Kalender importeren** staat nu vooraan dat de clubbeheerder het doet, voor de hele club in één
+beweging, en waarom: een koppeling hoort bij de club, net als de clubnaam en het clublogo. Ben je zelf
+geen clubbeheerder en is je ploeg nog niet gekoppeld, dan zegt het importscherm dat.
+
+Bij **Als clubbeheerder** is er een eigen stuk bijgekomen over het koppelen — de eerste zet bij de
+opstart van een club — en bij **Rollen in de app** staat het nu in de taken van een clubbeheerder.
+
+---
+
 ## v1.27.2
 
 **Opruiming, niets zichtbaar.** Het koppelvenster dat in v1.27.1 uit de app verdween, is nu ook uit de
