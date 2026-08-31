@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.2
+
+**Opruiming, niets zichtbaar.** Het koppelvenster dat in v1.27.1 uit de app verdween, is nu ook uit de
+code gehaald — 159 regels die niemand nog kon openen. Achtergelaten schermen zonder ingang zijn eerder
+al eens een probleem geworden in deze app, dus ze blijven niet staan. Aan wat je ziet of kan doen
+verandert niets.
+
+---
+
 ## v1.27.1
 
 **De ploegenlijst springt niet meer naar boven bij elke keuze.** Koppelde je als clubbeheerder de
