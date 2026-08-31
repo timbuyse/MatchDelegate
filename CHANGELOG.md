@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.5
+
+**Koppelen op clubniveau werkte niet meer — hersteld.** Sinds v1.27.2 liep het venster "Ploegen van de
+voetbalbond" stuk zodra je een ploeg aanwees: er gebeurde niets zichtbaars, en het veld voor het
+**ploeg-label** verscheen nooit, ook niet wanneer je twee ploegen van de bond naar dezelfde ploeg in
+de app stuurde.
+
+De oorzaak zat in de opruiming van v1.27.2: bij het verwijderen van het oude koppelvenster is een
+klein hulpstuk meegegaan dat het clubvenster nog gebruikte — het stukje dat het label uit de naam van
+de bond raadt ("U11 A" wordt label A). Dat staat nu terug, en bewust vlak bij zijn enige gebruiker,
+zodat het bij een volgende opruiming niet opnieuw kan wegvallen.
+
+---
+
 ## v1.27.4
 
 **Nieuwe beelden bij "Kalender importeren" in de handleiding.** Het beeld dat er stond toonde de lijst

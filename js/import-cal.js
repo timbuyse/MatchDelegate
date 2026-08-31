@@ -1559,6 +1559,21 @@ async function rbfaCkZoek() {
   rbfaCkRender();
 }
 
+// Het ploeg-label geraden uit de naam die de bond geeft: "U11 A" → "A". Een losse letter achteraan
+// is bij de bond het reeksonderscheid, en dat is precies waarmee de app A en B van elkaar houdt.
+// Geen letter achteraan? Dan geen voorstel; je tikt zelf iets.
+//
+// STAAT HIER, VLAK BIJ ZIJN ENIGE GEBRUIKER, EN DAAR IS EEN REDEN VOOR. Deze functie stond
+// oorspronkelijk in het koppelvenster per ploeg, en dat venster is in v1.27.2 opgeruimd — met deze
+// functie mee. Gevolg: rbfaCkKies hieronder liep stuk op "rbfaLabelVoorstel is not defined", dus
+// koppelen op clubniveau werkte niet meer en het labelveld verscheen nooit. Tim liep er meteen tegen
+// aan. Een helper die in een ander blok woont dan zijn aanroeper, verdwijnt bij de volgende
+// opruiming opnieuw.
+function rbfaLabelVoorstel(naam) {
+  const m = String(naam || '').trim().match(/(?:^|\s)([A-Za-z])$/);
+  return m ? m[1].toUpperCase() : '';
+}
+
 // De keuzelijst per bondsploeg: niets doen, een bestaande kern, of aanmaken.
 function rbfaCkKies(bondId, waarde) {
   if (!rbfaCkSt) return;
