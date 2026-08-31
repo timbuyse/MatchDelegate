@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.6
+
+**"Nieuwe ploeg" en "Ploegen van de voetbalbond" staan nu bovenaan in Clubbeheer.** Ze stonden onder
+de ploegenlijst, en met drieëntwintig ploegen betekende dat elke keer langs de hele lijst scrollen om
+een ploeg toe te voegen of de bondskoppeling te openen. Het zijn juist de twee dingen die je bij het
+opzetten van een club het eerst nodig hebt, dus ze staan nu direct onder het clublogo — en onder
+elkaar, zodat ze samen lezen als wat ze zijn.
+
+---
+
 ## v1.27.5
 
 **Koppelen op clubniveau werkte niet meer — hersteld.** Sinds v1.27.2 liep het venster "Ploegen van de

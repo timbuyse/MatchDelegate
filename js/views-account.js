@@ -132,6 +132,17 @@ async function loadClubBeheerView() {
     el.innerHTML = `
       ${clubSelector}
       ${clubLogoCardHtml(clubId, '', 'loadClubBeheerView()', false)}
+      ${/* DE TWEE HANDELINGEN BOVEN DE LIJST (Tim, 31-08-2026). Ze stonden eronder, en met dertien
+            ploegen betekende dat scrollen langs de hele lijst om een ploeg toe te voegen of de
+            bondskoppeling te openen. Het zijn juist de dingen die je bij de OPSTART van een club het
+            eerst nodig hebt, en daarna nog maar zelden — dus ze horen bovenaan, waar je ze ziet
+            zonder te zoeken. De lijst eronder is om te lezen en per ploeg iets te doen.
+            "Ploegen van de voetbalbond" staat in import-cal.js; dit bestand laadt vóór dat bestand,
+            maar de aanroep gebeurt pas bij het aantikken, dus dat mag (zie CLAUDE.md). */ ''}
+      <div style="display:grid;gap:8px;margin-bottom:16px">
+        <button class="btn btn-green" style="margin:0" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
+        <button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
+      </div>
       <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
       <div class="card">
         ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
@@ -151,12 +162,6 @@ async function loadClubBeheerView() {
           </div>
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
-      <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-      ${/* De ploegen van de club naast de ploegenlijst van de voetbalbond leggen: in één beweging
-            koppelen wat er al staat, en aanmaken wat er nog niet is. Staat in import-cal.js, bij de
-            kalenderimport die de koppeling gebruikt; dit bestand laadt vóór dat bestand, maar de
-            aanroep gebeurt pas bij het aantikken. */ ''}
-      <button class="btn btn-pale" style="margin-top:8px" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
       ${/* Wie de club beheert stond nergens in dit scherm — enkel de eigenaar zag het, in een heel
             ander scherm. Hier alleen ter informatie: aanstellen blijft bij de maker van de app. */ ''}
