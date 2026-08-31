@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.31.0
+
+**"Bij de bond nakijken": één knop die al je onafgewerkte wedstrijden afgaat.** De bond verwerkt een
+wedstrijdblad niet meteen na het laatste fluitsignaal, soms pas dagen later. Wie er te vroeg was kreeg
+een leeg voorstel en moest zelf onthouden om het later opnieuw te proberen — per wedstrijd, met de
+hand. Die knop staat nu op het scherm **Wedstrijden**, onder "Kalender importeren".
+
+Hij neemt elke wedstrijd van deze ploeg die **in het verleden ligt en nog geen uitslag heeft** — ook
+een die je afsloot met "geen uitslag" — en vraagt per stuk aan de bond wat er klaarstaat. De uitkomst
+zegt per wedstrijd wat er te halen valt: *blad verwerkt* met de uitslag, het aantal spelers, de
+doelpuntenmakers, de kaarten en de wissels · *enkel de uitslag* · *blad nog niet verwerkt* · *nog niet
+gespeeld volgens de bond*. Bij de eerste twee staat er een knop **Ophalen** die je meteen naar het
+gewone voorstelscherm van díe wedstrijd brengt.
+
+**Hij zoekt, hij werkt niet bij**, en dat is een keuze. Het gevoelige stuk van het overnemen is de
+koppeling van de namen: de bond schrijft "Lars Aloïs Van Laere" waar jouw kern "Lars Van Laere" heeft,
+en een gastspeler vraagt een keuze. Dat automatisch doen over vijf wedstrijden tegelijk is hoe je stil
+de verkeerde speler in een verslag krijgt. Je kijkt dus nog altijd elk voorstel na, alleen hoef je niet
+meer te gokken welke wedstrijd het waard is.
+
+Twee dingen die de uitkomst er zelf bij zegt: **wedstrijden zonder wedstrijdnummer van de bond** kunnen
+niet nagekeken worden (zet die nummers erbij met de knop uit v1.29.0), en er worden er **maximaal 20**
+per keer bevraagd — staan er meer, dan zegt hij hoeveel hij liet liggen. De knop verschijnt alleen
+wanneer er echt iets na te kijken valt.
+
+---
+
 ## v1.30.0
 
 **Geen veld meer dat we niet kunnen vullen — en je kan de opstelling nu zelf ingeven.** Haalde je een

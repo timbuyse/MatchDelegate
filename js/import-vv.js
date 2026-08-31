@@ -1037,3 +1037,173 @@ async function vvOvernemen() {
   await go(m.status === 'done' ? 'detail' : 'prep', m.id);
   showToast(gedaan.length ? `Overgenomen: ${gedaan.join(', ')}.` : 'Er was niets aangevinkt om over te nemen.', gedaan.length ? 'ok' : 'err');
 }
+
+// ---------------------------------------------------------------------------------------------
+// 7. BIJ DE BOND NAKIJKEN WAT ER KLAARSTAAT (Tim, 31-08-2026)
+// ---------------------------------------------------------------------------------------------
+// De bond verwerkt een wedstrijdblad niet meteen na het laatste fluitsignaal, soms pas dagen later.
+// Wie er te vroeg was, kreeg een leeg voorstel en moest zelf onthouden om het later opnieuw te
+// proberen — per wedstrijd, met de hand. Deze knop doet dat onthouden: hij loopt de niet-afgesloten
+// wedstrijden van deze ploeg af en vraagt per stuk of er intussen iets klaarstaat.
+//
+// HIJ ZOEKT, HIJ WERKT NIET BIJ, en dat is een bewuste grens. Het gevoelige stuk van het overnemen is
+// de koppeling van de namen: de bond schrijft "Lars Aloïs Van Laere" waar de kern "Lars Van Laere"
+// heeft, en een gastspeler of een naam die niet in de kern staat vraagt een keuze. Dat automatisch
+// doen over vijf wedstrijden tegelijk is precies hoe je stil de verkeerde speler in een verslag
+// krijgt. Dus: de scan vindt ze, en je gaat per wedstrijd naar het bestaande voorstelscherm.
+//
+// EEN BONDSNUMMER IS NODIG. Zonder `m.rbfaMatchId` weet de app niet welke wedstrijd bij de bond hoort.
+// Dat nummer komt van de kalenderimport; staat het er niet, dan zegt de uitkomst hoe je het erbij zet
+// (zie impEnkelNummers in import-cal.js).
+const VV_SCAN_MAX = 20;
+
+let vvScanSt = null;   // { fase, totaal, gedaan, items, zonderNummer, overgeslagen, fout }
+
+// Hoort deze wedstrijd bij de ploeg die je nu bekijkt? Dezelfde maatstaf als de wedstrijdenlijst zelf
+// (zie loadMatches in views-account.js: in de cloud staat homeFilter op de actieve ploeg). Nodig omdat
+// dbAll() élke wedstrijd op dit toestel geeft, ook die van een ploeg die hier ooit geopend is.
+function vvScanEigenPloeg(m) {
+  return homeFilter === 'all' || (m && (m.teamName || '') === homeFilter);
+}
+// Mag de uitslag van deze wedstrijd aangevuld worden? Zelfde vraag als vvMagUitslag, maar zonder te
+// vertrouwen op `m.quarters`: Firebase bewaart geen lege lijst, dus een geplande wedstrijd kan uit de
+// cloud terugkomen zónder dat veld — en getGameTimeMs loopt daar stuk op zijn for-of.
+function vvScanMagAangevuld(m) {
+  if (!m || m.tournamentId) return false;
+  if (m.klokVanBlad) return true;
+  return getGameTimeMs({ quarters: Array.isArray(m.quarters) ? m.quarters : [] }) === 0;
+}
+// Het nakijken waard: ze ligt in het verleden en er staat nog geen uitslag op. Een wedstrijd die je
+// afsloot met "geen uitslag" hoort er óók bij — daar valt juist iets te halen.
+function vvScanTeVullen(m) {
+  return !!m && !matchCancelled(m) && (matchNietAfgesloten(m) || (m.status === 'done' && geenUitslag(m)));
+}
+function vvScanKandidaten(alle) {
+  return (alle || [])
+    .filter(m => vvScanTeVullen(m) && vvScanEigenPloeg(m) && vvScanMagAangevuld(m) && m.rbfaMatchId)
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+// Staat de knop op het wedstrijdenscherm? Enkel wanneer er iets na te kijken valt — anders is het een
+// knop die altijd "niets gevonden" antwoordt.
+function vvScanZinvol(alle) {
+  return canManage() && (alle || []).some(m => vvScanTeVullen(m) && vvScanEigenPloeg(m) && vvScanMagAangevuld(m) && m.rbfaMatchId);
+}
+
+async function vvScanStart() {
+  if (!canManage()) { showToast('Enkel een beheerder met verbinding kan bij de bond nakijken.', 'err'); return; }
+  let alle = [];
+  try { alle = (await dbAll()).filter(Boolean); } catch (e) { alle = []; }
+  const teVullen = alle.filter(m => vvScanTeVullen(m) && vvScanEigenPloeg(m));
+  const kandidaten = vvScanKandidaten(alle);
+  vvScanSt = {
+    fase: 'bezig', totaal: Math.min(kandidaten.length, VV_SCAN_MAX), gedaan: 0, items: [], fout: '',
+    // Zonder bondsnummer valt er niets te vragen. Dat aantal hoort in de uitkomst: het is het verschil
+    // tussen "er is niets nieuws" en "ik heb het niet kunnen nakijken".
+    zonderNummer: teVullen.filter(m => !m.rbfaMatchId).length,
+    overgeslagen: Math.max(0, kandidaten.length - VV_SCAN_MAX),
+  };
+  vvScanRender();
+  for (const m of kandidaten.slice(0, VV_SCAN_MAX)) {
+    if (!vvScanSt) return;                       // venster gesloten: stoppen
+    const rij = { id: m.id, datum: m.date || '', tegen: m.opponent || '?', nr: String(m.rbfaMatchId) };
+    try {
+      const d = await vvHaalOp(rij.nr);
+      if (!d) rij.staat = 'onbekend';
+      else {
+        const lz = vvLees(d, vvGokKant(d, m));
+        rij.spelers = (lz.onzeSpelers || []).length;
+        rij.kaarten = vvKaartRijen(lz).length;
+        rij.wissels = vvWisselRijen(lz).length;
+        rij.doelpunten = (lz.onzeSpelers || []).reduce((n, s) => n + s.doelpunten + s.eigenDoelpunten, 0);
+        rij.uitslag = (lz.scoreOns != null && lz.scoreZij != null)
+          ? (lz.thuis ? `${lz.scoreOns} - ${lz.scoreZij}` : `${lz.scoreZij} - ${lz.scoreOns}`) : '';
+        rij.staat = !lz.gespeeld ? 'nietgespeeld' : (rij.spelers ? 'klaar' : (rij.uitslag ? 'enkeluitslag' : 'wacht'));
+      }
+    } catch (e) {
+      rij.staat = 'fout';
+      rij.fout = (e && e.message) || 'Het ophalen is niet gelukt.';
+      // EEN FOUT OP DE EERSTE WEDSTRIJD IS GEEN WEDSTRIJDPROBLEEM. Dan is de verbinding weg of de
+      // dienst onbereikbaar, en negentien keer hetzelfde proberen levert negentien keer dezelfde rode
+      // regel (en negentien nutteloze verzoeken). Eén keer stoppen met een duidelijke melding.
+      if (!vvScanSt.gedaan) { vvScanSt.fout = rij.fout; vvScanSt.fase = 'klaar'; vvScanRender(); return; }
+    }
+    if (!vvScanSt) return;
+    vvScanSt.items.push(rij);
+    vvScanSt.gedaan++;
+    vvScanRender();
+  }
+  if (!vvScanSt) return;
+  vvScanSt.fase = 'klaar';
+  vvScanRender();
+}
+
+function vvScanSluit() { vvScanSt = null; closeModal(); }
+
+// Naar het voorstelscherm van één wedstrijd. `match` is een LEXICALE global (géén window-eigenschap),
+// dus een gewone toewijzing — vvStart leest ze en zet vvSt op.
+async function vvScanOpen(id) {
+  const m = await dbGet(id);
+  if (!m) { showToast('Die wedstrijd staat niet meer op dit toestel.', 'err'); return; }
+  vvScanSt = null;
+  closeModal();
+  match = m;
+  vvStart();
+}
+
+const VV_SCAN_TEKST = {
+  klaar:        { kleur: 'var(--grn)',  label: 'Blad verwerkt' },
+  enkeluitslag: { kleur: 'var(--org)',  label: 'Enkel de uitslag' },
+  wacht:        { kleur: 'var(--txt2)', label: 'Blad nog niet verwerkt' },
+  nietgespeeld: { kleur: 'var(--txt2)', label: 'Nog niet gespeeld volgens de bond' },
+  onbekend:     { kleur: 'var(--rd)',   label: 'Dit nummer bestaat niet bij de bond' },
+  fout:         { kleur: 'var(--rd)',   label: 'Niet kunnen nakijken' },
+};
+
+function vvScanRijHtml(r) {
+  const t = VV_SCAN_TEKST[r.staat] || VV_SCAN_TEKST.fout;
+  const dag = r.datum ? r.datum.split('-').reverse().slice(0, 2).join('/') : '?';
+  const wat = [];
+  if (r.uitslag) wat.push(`uitslag <b>${esc(r.uitslag)}</b>`);
+  if (r.spelers) wat.push(`${r.spelers} spelers`);
+  if (r.doelpunten) wat.push(`${r.doelpunten} doelpunt${r.doelpunten === 1 ? '' : 'en'} met naam`);
+  if (r.kaarten) wat.push(`${r.kaarten} kaart${r.kaarten === 1 ? '' : 'en'}`);
+  if (r.wissels) wat.push(`${r.wissels} wissel${r.wissels === 1 ? '' : 's'}`);
+  const magOphalen = r.staat === 'klaar' || r.staat === 'enkeluitslag';
+  return `<div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${t.kleur}">
+    <div style="font-weight:700">${esc(r.tegen)} <span style="font-weight:400;color:var(--txt2)">· ${esc(dag)}</span></div>
+    <div style="font-size:12px;font-weight:700;color:${t.kleur};margin:2px 0 4px">${esc(t.label)}</div>
+    ${wat.length ? `<div style="font-size:13px;color:var(--txt2)">${wat.join(' · ')}</div>` : ''}
+    ${r.fout ? `<div style="font-size:12px;color:var(--rd)">${esc(r.fout)}</div>` : ''}
+    ${magOphalen ? `<button class="btn btn-green btn-sm" style="margin-top:8px" onclick="vvScanOpen('${esc(r.id)}')">${icI(IC.link)} Ophalen</button>` : ''}
+  </div>`;
+}
+
+function vvScanRender() {
+  if (!vvScanSt) return;
+  const st = vvScanSt;
+  const klaar = st.items.filter(r => r.staat === 'klaar' || r.staat === 'enkeluitslag');
+  const rest = st.items.filter(r => !(r.staat === 'klaar' || r.staat === 'enkeluitslag'));
+  const kop = st.fase === 'bezig'
+    ? `<p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:12px">Bezig met nakijken… <b>${st.gedaan} / ${st.totaal}</b></p>`
+    : st.fout
+      ? `<div class="card" style="border-left:4px solid var(--rd);text-align:left;margin-bottom:12px">
+           <p style="font-size:13px;color:var(--rd);margin:0">${icI(IC.warn)}${esc(st.fout)}</p>
+           <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Er is niets nagekeken. Probeer het opnieuw wanneer je verbinding weer werkt.</p></div>`
+      : `<p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:12px">${klaar.length
+          ? `Bij de bond staat er info klaar voor <b>${klaar.length}</b> van de <b>${st.items.length}</b> nagekeken ${st.items.length === 1 ? 'wedstrijd' : 'wedstrijden'}.`
+          : st.items.length
+            ? `Bij de bond staat er nog niets nieuws voor ${st.items.length === 1 ? 'deze wedstrijd' : 'deze ' + st.items.length + ' wedstrijden'}.`
+            : 'Er is geen enkele niet-afgesloten wedstrijd met een wedstrijdnummer van de bond.'}</p>`;
+  // Wat we NIET konden nakijken hoort erbij, anders leest "niets nieuws" als "alles is gecontroleerd".
+  const voet = [];
+  if (st.zonderNummer) voet.push(`<b>${st.zonderNummer}</b> ${st.zonderNummer === 1 ? 'wedstrijd heeft' : 'wedstrijden hebben'} geen wedstrijdnummer van de bond en ${st.zonderNummer === 1 ? 'is' : 'zijn'} dus niet nagekeken. Lees de kalender van je ploeg opnieuw in en gebruik daar <b>Alleen het wedstrijdnummer erbij zetten</b>.`);
+  if (st.overgeslagen) voet.push(`Er zijn er nog <b>${st.overgeslagen}</b> ouder dan deze ${VV_SCAN_MAX}; die zijn niet nagekeken. Vraag het straks nog een keer.`);
+  openModal(`<h3>${icI(IC.link)} Bij de bond nakijken</h3>
+    ${kop}
+    ${klaar.map(vvScanRijHtml).join('')}
+    ${(klaar.length && rest.length) ? '<div class="sec" style="text-align:left">Nog niets te halen</div>' : ''}
+    ${rest.map(vvScanRijHtml).join('')}
+    ${voet.length ? `<div class="card" style="text-align:left;border-left:4px solid var(--org)">
+      ${voet.map(v => `<p style="font-size:13px;color:var(--txt2);margin:0 0 6px">${v}</p>`).join('')}</div>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="vvScanSluit()">${st.fase === 'bezig' ? 'Stoppen' : 'Sluiten'}</button>`);
+}

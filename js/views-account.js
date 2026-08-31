@@ -4864,8 +4864,17 @@ async function loadMatches() {
   // De twee bijzaken naast elkaar op halve breedte; staat er maar één, dan vult die de regel.
   const rijBtns = (impBtn || bulkBtn)
     ? `<div style="display:grid;grid-template-columns:${impBtn && bulkBtn ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:12px">${impBtn}${bulkBtn}</div>` : '';
+  // BIJ DE BOND NAKIJKEN (v1.31.0). Op een eigen regel onder de twee bijzaken, en ENKEL wanneer er echt
+  // iets na te kijken valt: een niet-afgesloten wedstrijd uit het verleden mét een wedstrijdnummer van
+  // de bond. Zonder die voorwaarde staat er een knop die altijd "niets gevonden" antwoordt.
+  // Hij hoort HIER en niet bij maakBtns hierboven: vvScanZinvol weegt per ploeg en `homeFilter` wordt
+  // pas een paar regels hoger op de actieve ploeg gezet. De weging zit in vvScanZinvol (import-vv.js);
+  // `typeof` erbij omdat import-vv.js na dit bestand geladen wordt — dit is een aanroep op het moment
+  // van tekenen, dus dat komt goed, maar een oudere cache mag de lijst niet doen struikelen.
+  const scanBtn = (typeof vvScanZinvol === 'function' && vvScanZinvol(all))
+    ? `<button class="btn btn-orgpale btn-sm" style="margin:0 0 12px" onclick="vvScanStart()">${icI(IC.link)} Bij de bond nakijken</button>` : '';
   if (matchesWeergave === 'kalender') {
-    el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '') + filterBar + schakelaar + renderKalender(list);
+    el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '') + scanBtn + filterBar + schakelaar + renderKalender(list);
     return;
   }
   // Het filterteken met de actieve filters ernaast als kaartjes. Zonder filter staat het woord
@@ -4884,7 +4893,7 @@ async function loadMatches() {
         ${matchFilterChipsHtml()}
         ${n ? `<span style="font-size:12px;color:var(--txt2)">${list.length} van ${perPloeg.length}</span>` : ''}
       </div>` : '';
-  el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + rijBtns + filterBar + schakelaar + filterBtn + searchBar + `<div id="match-list">${items}</div>`;
+  el.innerHTML = bulkUndoBannerHtml() + impUndoBannerHtml() + nieuwBtn + rijBtns + scanBtn + filterBar + schakelaar + filterBtn + searchBar + `<div id="match-list">${items}</div>`;
   if (homeSearch) filterHomeItems(homeSearch);
 }
 let homeSearch = '';
