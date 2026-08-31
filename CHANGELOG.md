@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.30.0
+
+**Geen veld meer dat we niet kunnen vullen — en je kan de opstelling nu zelf ingeven.** Haalde je een
+wedstrijd op bij de voetbalbond, dan stonden de elf basisspelers als één rij shirts over elkaar in het
+midden van het veld. Dat leest als een defect, maar het is informatie die niet bestaat: het
+wedstrijdblad van de bond geeft het rugnummer, de keeper en de kapitein — **geen posities**. Een speler
+zonder plek belandt op zijn lijn, en zonder positie is dat voor iedereen "Middenveld".
+
+- **De sectie Opstelling valt weg** wanneer er geen enkele speler een plek op het veld heeft, op het
+  scherm én in de PDF. In de plaats staat één regel die zegt waarom. De kaart **Selectie** staat er al
+  direct boven, met alle namen en rugnummers — er gaat dus niets verloren. Dit geldt ook voor elke
+  andere wedstrijd die je enkel afsloot zonder de spelers op het veld te zetten.
+- **"Startopstelling ingeven"** in het bewerkmenu werkt weer bij zo'n wedstrijd. Sinds v1.28.0 komen de
+  wissels van de bond mee, en die zetten het item op grijs met "er zijn al wissels gebeurd" — terecht
+  bij een wedstrijd waar posities STAAN (die dragen de reconstructie per helft), maar niet bij een
+  wedstrijd waar nog geen enkele plek ingevuld is. Daar vul je ze voor de eerste keer in.
+- **En één tik voor een vertrekpunt:** in dat venster staat nu "Zet ze volgens 1-4-3-3" (of welke
+  formatie de wedstrijd draagt), zodat je niet elf keer twee keer moet tikken. Daarna verschuif je wie
+  ergens anders stond. Wie later inviel blijft zonder plek — het blad zegt niet waar hij ging staan.
+
+---
+
 ## v1.29.0
 
 **Een kalender een tweede keer inlezen is geen doodlopende weg meer, en je kan nu enkel het

@@ -196,8 +196,19 @@ function renderDetail() {
       <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
     </div>`}
     ${selectionCardHtml(match)}
+    ${/* GEEN VELD TEKENEN DAT WE NIET KUNNEN VULLEN (Tim, 31-08-2026). Een speler zonder plek belandt
+         in renderPitch op zijn LIJN, verdeeld over de breedte — en omdat het wedstrijdblad van de bond
+         geen posities geeft, kregen alle elf "Middenveld" en stonden ze als één rij shirts over elkaar.
+         Dat leest als een defect terwijl het gewoon informatie is die niet bestaat. De kaart Selectie
+         hierboven noemt iedereen al bij naam en nummer, dus er gaat niets verloren.
+         De controle is niet "komt van de bond" maar "is er een opstelling": dit gold ook voor elke
+         wedstrijd die je enkel afsloot zonder de spelers op het veld te zetten. */ ''}
     <div class="sec">${match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling'}</div>
-    <div class="card">${renderLineupCarousel(match)}</div>
+    ${heeftOpstelling(match)
+      ? `<div class="card">${renderLineupCarousel(match)}</div>`
+      : `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
+          ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
+          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${canLive() ? ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.' : ''}</p></div>`}
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     ${!statSectionVisible('minutes') ? '' : `
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
@@ -310,7 +321,11 @@ function cloneMatchBtnHtml(m) {
 function modalDetailEditMenu() {
   const m = match; if (!m || !canLive()) return;   // gordel én bretellen, net als de andere vensters
   const heeftFormatie = (FORMATIONS[m.matchType] || []).length > 0;
-  const alGewisseld = (m.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap');
+  // Dezelfde grens als _epMag in live-match.js — houd die twee gelijk, anders staat het item grijs
+  // terwijl het venster het wél zou doen (of omgekeerd, en dan krijg je een melding in plaats van een
+  // scherm). Staat er nog geen enkele plek, dan mag het herplaatsen wél, ook met wissels.
+  const alGewisseld = heeftPlekkenOpHetVeld(m)
+    && (m.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap');
   openModal(`<h3>${icI(IC.edit)} Bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Enkel wanneer er géén speeltijd bijgehouden is:
@@ -348,9 +363,13 @@ function modalDetailEditMenu() {
          positiewissel gelogd is, weigert modalEditPositions dat (het zou de reconstructie per deel
          corrumperen). Als grijs item mét de reden erbij, i.p.v. als losse regel tekst zoals vroeger:
          zo staat het antwoord waar je de knop zoekt. */ ''}
-    ${heeftFormatie ? menuItemHtml(IC.compass, 'Startopstelling herplaatsen', alGewisseld
-      ? 'Kan niet meer: er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met Positiewissel in het livescherm.'
-      : 'Zet de spelers van de aftrap op een andere plek op het veld.',
+    ${heeftFormatie ? menuItemHtml(IC.compass,
+      heeftPlekkenOpHetVeld(m) ? 'Startopstelling herplaatsen' : 'Startopstelling ingeven',
+      alGewisseld
+        ? 'Kan niet meer: er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met Positiewissel in het livescherm.'
+        : heeftPlekkenOpHetVeld(m)
+          ? 'Zet de spelers van de aftrap op een andere plek op het veld.'
+          : 'Er staat nog niemand op het veld. Zet de basisspelers zelf op hun plek — het wedstrijdblad van de bond zegt niet waar ze stonden.',
       'modalEditPositions()', alGewisseld) : ''}
     ${menuItemHtml(IC.copy, m.tournamentId ? 'Kloon als nieuwe tornooiwedstrijd' : 'Gebruik als template',
       m.tournamentId
@@ -1126,7 +1145,9 @@ async function pdfMatchBody(doc, L, m) {
   // verslag op het scherm blijft ze wel staan (daar is geen pagina-beperking).
 
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
-  if (m.players.some(p => p.starting)) {
+  // `heeftOpstelling` erbij (v1.30.0): zonder één ingevulde plek tekende de PDF hetzelfde rijtje
+  // shirts over elkaar als het scherm. Zelfde reden, zelfde grens — zie de uitleg in renderDetail.
+  if (m.players.some(p => p.starting) && heeftOpstelling(m)) {
     const numQ = m.quarters.length || 1;
     // pitchPlayersAtPeriodStart i.p.v. de rauwe m.players: startopstelling + wissels, zonder
     // positiewisselingen (zie de toelichting bij die functie). Ook het één-blok-geval loopt via de

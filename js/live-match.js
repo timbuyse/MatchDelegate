@@ -1586,7 +1586,10 @@ async function saveMatchInfo() {
   const slots = formationChanged && (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
   // Zodra er wissels/positiewissels gelogd zijn, blokkeert modalEditPositions het collectief
   // herplaatsen (zou de kwart-reconstructie corrumperen) — bied de knop dan ook niet aan.
-  if (slots && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
+  // `heeftPlekkenOpHetVeld` erbij (v1.30.0): dezelfde verruiming als in _epMag, zodat deze twee wegen
+  // hetzelfde zeggen. Staat er nog geen enkele plek, dan mag het collectief plaatsen wél — er is geen
+  // eerdere plaatsing die de reconstructie van de latere delen draagt.
+  if (slots && heeftPlekkenOpHetVeld(match) && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
     closeModal(); render();
     // Verwees tot 24-08-2026 naar "Positiewissel" als knop. Zo'n knop staat niet op dit scherm: je
     // herplaatst iemand door hem op het tabblad Opstelling aan te tikken en dan zijn nieuwe plek.
@@ -1636,8 +1639,16 @@ function _epStarters() { return (match.players || []).filter(p => p.starting && 
 // Mag de startopstelling nog herplaatst worden? Zodra er wissels of positiewissels gelogd zijn, hangt
 // de reconstructie van de latere kwarten aan de oorspronkelijke posities (zie de snapshots in de
 // events en playersAtPeriodStart) — dan blokkeren we, met de weg die dan wél klopt.
+// NOG GEEN ENKELE PLEK INGEVULD = NIETS TE CORRUMPEREN (v1.30.0). De blokkade hierboven klopt zodra
+// er posities STAAN: die dragen de reconstructie van de latere delen. Maar sinds de wissels van het
+// wedstrijdblad van de bond meekomen (v1.28.0) bestaat er een wedstrijd MET wissels en ZONDER één
+// ingevulde plek — en daar sloot deze wachter de enige weg af om de opstelling ooit nog in te geven.
+// Je vult ze dan voor de eerste keer in; er is geen eerdere plaatsing die verschuift.
+// LET OP wat je dan krijgt: de basisspelers staan waar jij ze zet, maar een INVALLER heeft nog steeds
+// geen plek (het blad zegt niet waar hij ging staan) en belandt op zijn lijn. Dat is de eerlijke
+// weergave, niet een tekort van deze wijziging.
 function _epMag() {
-  if ((match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
+  if (heeftPlekkenOpHetVeld(match) && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
     closeModal();
     // Zelfde rechtzetting als hierboven: niet naar een knopnaam verwijzen die niet bestaat, maar naar
     // de weg die er wél is (tik de speler aan op het tabblad Opstelling, dan zijn nieuwe plek).
@@ -1735,13 +1746,28 @@ function _renderEpModal() {
   const chips = nogTeDoen.length
     ? nogTeDoen.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
     : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen staat op het veld</span>`;
+  // Kop en uitleg volgen of er al plekken STAAN (v1.30.0). Bij een wedstrijd waarvan de gegevens van
+  // het wedstrijdblad van de bond komen, staat er nog niemand op het veld — dan is "zo stonden ze bij
+  // de aftrap" onzin en gaat het om voor het eerst ingeven. Houd deze twee teksten gelijk met het item
+  // in modalDetailEditMenu (detail-pdf.js).
+  const eersteKeer = !heeftPlekkenOpHetVeld(match);
   document.getElementById('modal').innerHTML = `<div class="modal-ov"><div class="modal">
-    <h3>${icI(IC.shirt)} Startopstelling herplaatsen</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Zo stonden ze bij de aftrap. Tik een speler en dan een andere plek om hem te verzetten, of twee spelers om ze van plaats te wisselen.</p>
+    <h3>${icI(IC.shirt)} Startopstelling ${eersteKeer ? 'ingeven' : 'herplaatsen'}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${eersteKeer
+      ? 'Er staat nog niemand op het veld. Tik een speler uit de lijst onderaan en dan zijn plek. Wie erna inviel blijft zonder plek — het wedstrijdblad zegt niet waar hij ging staan.'
+      : 'Zo stonden ze bij de aftrap. Tik een speler en dan een andere plek om hem te verzetten, of twee spelers om ze van plaats te wisselen.'}</p>
     <div class="card" style="padding:8px">${renderPitch(match, veld, match.captainId, null, { fn: '_epTap', selId, plek: true })}</div>
     <div class="sec" style="margin-top:8px">Nog te plaatsen (${nogTeDoen.length})</div>
     <div class="place-chips">${chips}</div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="_saveEpPositions()">${icI(IC.check)} Opslaan</button>
+    ${/* ELF SPELERS ÉÉN PER ÉÉN PLAATSEN IS TWEEËNTWINTIG TIKKEN (v1.30.0). applyFormationPositions
+         bestond al, maar was alleen bereikbaar nadat je het formatielabel wijzigde. Bij een wedstrijd
+         waar nog niemand staat — de bondsimport — is dat juist de knop die je wil: één tik voor een
+         verdedigbaar vertrekpunt, daarna zelf verschuiven. Enkel in dat geval aangeboden: staan er al
+         plekken, dan is collectief herplaatsen een grovere ingreep dan wat je hier komt doen, en
+         daarvoor bestaat de weg via het formatielabel. */ ''}
+    ${(eersteKeer && (FORMATIONS[match.matchType] || []).length)
+      ? `<button class="btn btn-pale" style="margin-top:12px" onclick="applyFormationPositions()">${icI(IC.compass)} Zet ze volgens ${esc(match.formation || (FORMATIONS[match.matchType][0] || {}).name || 'de formatie')}</button>` : ''}
+    <button class="btn btn-green" style="margin-top:${eersteKeer ? '8' : '12'}px" onclick="_saveEpPositions()">${icI(IC.check)} Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="_ep=null;closeModal();render()">Annuleren</button>
   </div></div>`;
   document.getElementById('modal').classList.remove('hidden');

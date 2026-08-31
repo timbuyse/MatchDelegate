@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.29.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.30.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1741,6 +1741,15 @@ function heeftOpstelling(m) {
   // Terugval voor het geval het vlaggetje ontbreekt: zonder één basisspeler mét plaats is er
   // feitelijk geen opstelling om te tonen.
   return m.players.some(p => p.starting && typeof p.x === 'number');
+}
+// STAAT ER AL ÉÉN BASISSPELER OP EEN PLEK? (v1.30.0) Bijna hetzelfde als heeftOpstelling, maar zonder
+// het `lineupPending`-vlaggetje: hier gaat het puur om de vraag of er al plaatsen INGEVULD zijn.
+// Nodig omdat "Startopstelling herplaatsen" blokkeert zodra er wissels gelogd zijn — de posities van
+// de aftrap dragen dan de reconstructie van de latere delen. Bij een wedstrijd waarvan de wissels van
+// het wedstrijdblad van de bond komen, staat er nog géén enkele plek: dan valt er niets te
+// corrumperen en vul je de opstelling voor de eerste keer in. Zie _epMag in live-match.js.
+function heeftPlekkenOpHetVeld(m) {
+  return !!(m && (m.players || []).some(p => p.starting && typeof p.x === 'number'));
 }
 
 // ===================== DATABASE =====================
