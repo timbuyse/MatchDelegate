@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.27.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.28.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1631,7 +1631,14 @@ function isVertrokken(m, pid) { return vertrokkenIds(m).has(pid); }
 // de pas gaat lopen met de app. In plaats daarvan het verschil tussen wat er MOEST gespeeld worden
 // (plaatsen × speeltijd) en wat de app zelf optelt aan speelminuten. Speelde je met méér spelers
 // dan plaatsen — dat mag, met waarschuwing — dan is het verschil negatief en geven we 0 terug.
+// NIET BIJ EEN KLOK VAN HET WEDSTRIJDBLAD (v1.28.0). Deze berekening vergelijkt plaatsen × speeltijd
+// met de som van de speelminuten, en dat klopt alleen wanneer élke speler die meedeed ook in de
+// selectie staat. Bij een wedstrijd waarvan de minuten van het blad van de bond komen, is dat niet
+// gegarandeerd: een naam die je niet aan een speler koppelde, doet mee op het blad maar zit niet in
+// m.players — en dan meldt de app met grote zekerheid "90 min met minder spelers op het veld" terwijl
+// er niets aan de hand was. Een echte man minder (rode kaart) staat gewoon bij de gebeurtenissen.
 function minutenMetMinderMs(m) {
+  if (m && m.klokVanBlad) return 0;
   const veldN = ((MATCH_TYPES[m && m.matchType] || {}).field) || 0;
   const tot = (m && m.quarters && m.quarters.length) ? getGameTimeMs(m) : 0;
   if (!veldN || !tot) return 0;

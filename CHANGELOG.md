@@ -9,6 +9,43 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.28.0
+
+**Alles wat op het wedstrijdblad van de bond staat, komt nu mee — ook de wissels en de speelminuten.**
+Bij "Wedstrijdinfo ophalen" bleven de wissels liggen, met de melding dat de app er zonder klok geen
+speeltijd op kon rekenen en dat er niet bij staat wie voor wie inviel. Dat tweede argument was fout:
+de app kent al lang de eenzijdige wissel ("eraf zonder vervanger", "erbij zonder dat er iemand af
+gaat"), dus die paren zijn niet nodig. Bij de wedstrijd waarop dit boven kwam gingen op minuut 75 drie
+spelers samen uit en drie in — daar zijn paren zelfs niet te maken.
+
+Concreet:
+
+- **De doelpunten en de kaarten krijgen de minuut van het blad**, in plaats van "geen tijd". Ze staan
+  daarmee op hun plaats in de tijdlijn, in het verslag, in de PDF en in het deelbericht — inclusief de
+  stand bij elk doelpunt. Ook de doelpunten van de tegenstander, want hun minuten staan er ook op.
+- **De wissels komen mee**, elk als los moment op zijn minuut.
+- **En daarmee de speelminuten.** De app zet een klok op de wedstrijd die overeenkomt met de blokken
+  van dat soort wedstrijd, en rekent daarop met dezelfde code als bij een live gevolgde wedstrijd.
+  Geen apart veld voor minuten, geen tweede rekenweg.
+
+**Staat het er niet, dan gebeurt er niets.** De minuten komen er alleen wanneer het blad wissels mét
+minuut heeft én zegt wie begon en wie op de bank zat. Bij een vriendschappelijke wedstrijd houdt de
+bond enkel de namen en de uitslag bij: geen bank, geen doelpuntenmaker, geen kaart, geen wissel. Daar
+blijft alles op nul, en dat zegt de app nu ook met zoveel woorden in plaats van je te laten zoeken
+waarom je doelpunten nergens staan. De regel van 29-08-2026 blijft dus staan waar hij hoort: niemand
+gevolgd én niets op het blad, dan geen speelminuten.
+
+**Zo'n wedstrijd gaat niet door voor live gevolgd.** Ze draagt een merkje dat de klok van het blad
+komt. Daardoor kan je nog altijd opnieuw ophalen — de bond verwerkt een blad soms dagen na het laatste
+fluitsignaal — en blijft "Uitslag aanpassen" beschikbaar. In het verslag en in de PDF staat erbij dat
+de speelminuten van het officiële wedstrijdblad komen en niet van iemand die de klok volgde. De
+melding "X min met minder spelers op het veld" staat bij zo'n wedstrijd uit: die berekening klopt
+alleen wanneer élke naam van het blad aan een speler gekoppeld is.
+
+Dit werkt vooruit. Wedstrijden die je al opgehaald hebt, veranderen pas als je ze opnieuw ophaalt.
+
+---
+
 ## v1.27.7
 
 **Twee ploegen van de bond kunnen nu naar één ploeg die je in dezelfde beweging laat aanmaken.** Bij

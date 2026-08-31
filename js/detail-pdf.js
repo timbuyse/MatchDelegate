@@ -209,7 +209,14 @@ function renderDetail() {
          wedstrijd die je enkel afsloot. Die minuten bestaan niet meer sinds Tims regel van
          29-08-2026 — zie calcMinutes in views-account.js — dus valt de melding ook weg. Wat je bij
          zo'n wedstrijd ziet, is iedereen op 0', en de zin hieronder legt uit waarom.) */ ''}
-    ${getGameTimeMs(match) === 0
+    ${/* DRIE GEVALLEN, EN ZE MOETEN VAN ELKAAR TE ONDERSCHEIDEN ZIJN (v1.28.0). Live gevolgd: geen
+         melding, de minuten zijn gemeten. Achteraf ingegeven zonder blad: geen minuten. Achteraf
+         ingegeven mét het wedstrijdblad van de bond: er zíjn minuten, maar ze komen van de wissels op
+         dat blad en niet van iemand met een klok — dat hoort erbij te staan, anders lezen ze als
+         gemeten tijd. Zie import-vv.js voor waar klokVanBlad vandaan komt. */ ''}
+    ${match.klokVanBlad
+      ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} De speelminuten komen van het <b>officiële wedstrijdblad van de bond</b>: de wissels die daarop staan, met hun minuut. Niemand volgde de klok tijdens deze wedstrijd.</p>`
+      : getGameTimeMs(match) === 0
       ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} Deze wedstrijd is <b>niet live gevolgd</b>: de uitslag is achteraf ingegeven. Er zijn dus geen speelminuten — de selectie, de doelpunten en de assists tellen wél mee.</p>` : ''}
     ${(() => {
       const ms = minutenMetMinderMs(match);
@@ -309,7 +316,11 @@ function modalDetailEditMenu() {
     ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Enkel wanneer er géén speeltijd bijgehouden is:
          bij een live gevolgde wedstrijd corrigeer je de score via de gebeurtenissen, en zou dit
          venster er doelpunten bovenop zetten. */ ''}
-    ${(!m.tournamentId && !geenUitslag(m) && getGameTimeMs(m) === 0)
+    ${/* `klokVanBlad` erbij (v1.28.0): op zo'n wedstrijd staat wél tijd, maar niet omdat iemand ze
+         volgde — de klok komt van het wedstrijdblad van de bond. Zonder deze uitzondering verdween
+         "Uitslag aanpassen" zodra je één keer speelminuten van het blad overnam, en dan was de score
+         van een niet-gevolgde wedstrijd niet meer recht te zetten. */ ''}
+    ${(!m.tournamentId && !geenUitslag(m) && (getGameTimeMs(m) === 0 || m.klokVanBlad))
       ? menuItemHtml(IC.bolt, 'Uitslag aanpassen', 'De score en de doelpuntenmakers van deze wedstrijd rechtzetten.', 'modalQuickResult()') : ''}
     ${menuItemHtml(IC.log, 'Event toevoegen', 'Een doelpunt, kaart of andere gebeurtenis die je tijdens de wedstrijd gemist hebt.', 'modalAddPostEvent()')}
     ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
@@ -1420,7 +1431,9 @@ async function pdfMatchBody(doc, L, m) {
     // Zelfde meldingen als op het scherm. Eerst dat er geen speelminuten zijn (dat geldt voor de
     // hele tabel), dan de man-minder-noot; de tabel neemt één notitieregel, dus ze staan samen.
     (() => {
-      const uitPlan = getGameTimeMs(m) === 0
+      const uitPlan = m.klokVanBlad
+        ? 'De speelminuten komen van het officiële wedstrijdblad van de bond: de wissels die daarop staan, met hun minuut. Niemand volgde de klok tijdens deze wedstrijd.'
+        : getGameTimeMs(m) === 0
         ? 'Niet live gevolgd — de uitslag is achteraf ingegeven, dus er zijn geen speelminuten. Selectie, doelpunten en assists tellen wel mee.' : '';
       const ms = minutenMetMinderMs(m);
       const minder = ms >= 60000 ? `Ongeveer ${Math.round(ms / 60000)} min met minder spelers op het veld dan er plaatsen zijn.` : '';

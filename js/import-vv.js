@@ -16,11 +16,35 @@
 // wél open voor andere herkomsten — gemeten vanaf localhost én vanuit de app. De vraag hieronder is
 // letterlijk de vraag die de site zelf stelt; hij komt uit haar eigen JavaScript.
 //
-// WAT ER NIET OP DIE PAGINA STAAT, en dus handwerk blijft: de opstelling per kwart, de wissels met
-// hun moment, en de speelminuten. De minuten van de doelpunten en kaarten staan er wél, maar een
-// wedstrijd die niet live gevolgd is heeft geen klok waarop je ze kan leggen (zie de regel van
-// 29-08-2026: zo'n wedstrijd levert geen speelminuten). Ze worden daarom bewust niet overgenomen —
-// wél getoond op het voorstelscherm, zodat je ziet wat er stond.
+// ALLES WAT OP HET BLAD STAAT, KOMT MEE (Tims regel van 31-08-2026). Staan de doelpuntenmakers erop:
+// meenemen. Staan de kaarten erop: meenemen. Staan de wissels met hun minuut erop: meenemen, en dan
+// ook de speelminuten. Staat het er niet, dan gebeurt er niets — geen schatting, geen benadering.
+//
+// TOT v1.27.7 GING DAT ANDERS, en het argument daarvoor was fout. De wissels werden overgeslagen
+// "omdat er niet bij staat wie voor wie inviel". Dat hebben we niet nodig: calcMinutes kent al sinds
+// v0.49.0 de eenzijdige wissel (playerInId of playerOutId mag null zijn), dus elke in- en uitwissel
+// kan los op zijn minuut. Bij de wedstrijd waarop dit boven kwam gingen op minuut 75 drie spelers
+// samen uit en drie in — paren zijn daar niet alleen onnodig, ze zijn niet te maken.
+//
+// DE KLOK VAN HET BLAD. Speeltijd komt in deze app altijd uit m.quarters (getGameTimeMs), en die
+// heeft een achteraf ingegeven wedstrijd niet — dáárom kwam er nul uit, niet omdat de gegevens
+// ontbraken. Het blad geeft wél een klok: minuut 46, 75, 86. Bij het overnemen zetten we dus blokken
+// op de wedstrijd die overeenkomen met wat er gespeeld is, en daarna rekent calcMinutes met exact
+// dezelfde code als bij een live gevolgde wedstrijd. Geen nieuw veld voor minuten, geen tweede
+// rekenweg — dat is de hele reden om het zo te doen.
+//
+// ALLEEN WANNEER HET VERANTWOORD IS. Voorwaarde: er staan wissels mét minuut op het blad ÉN het blad
+// zegt wie begon en wie op de bank zat. Zonder dat laatste weet de app niet wie startte en zou
+// iedereen de volle wedstrijd krijgen — dat is fout, niet onnauwkeurig. Bij een vriendschappelijke
+// wedstrijd staat er geen bank en geen enkele gebeurtenis op het blad (gemeten 31-08-2026 op drie
+// wedstrijden), dus daar blijft alles nul, precies zoals voordien. Tims regel van 29-08-2026 blijft
+// dus staan waar hij hoort: heeft niemand gevolgd én staat er niets op het blad, dan geen minuten.
+//
+// EN ZO'N WEDSTRIJD IS GEEN LIVE GEVOLGDE WEDSTRIJD. Op verschillende plaatsen leest de app
+// "er is tijd gelopen" als "hier stond iemand met de klok in de hand, blijf eraf". Zetten we een klok
+// zonder meer, dan kan je niet meer opnieuw ophalen — en de bond verwerkt een blad soms dagen later,
+// dus je komt hier juist vaak twee keer. Daarom draagt zo'n wedstrijd `klokVanBlad: true` en kijken
+// die controles daarop. Zoek dat vlaggetje op vóór je ergens `getGameTimeMs(m) === 0` aanpast.
 //
 // ER KOMT NIETS NIEUWS IN HET DATAMODEL BIJ. Spelers worden gewone spelers van de selectie,
 // doelpunten gewone `quick`-doelpunten zoals bij "Uitslag ingeven", kaarten gewone kaart-events.
@@ -129,6 +153,9 @@ function vvSpelerUit(p, basis) {
     doelpunten: soorten.filter(s => s.soort === 'doelpunt').length,
     eigenDoelpunten: soorten.filter(s => s.soort === 'eigendoelpunt').length,
     kaarten: soorten.filter(s => s.soort === 'geel' || s.soort === 'rood' || s.soort === 'rood2'),
+    // Enkel de wissels met een bruikbare minuut. Een 'in' of 'uit' zonder minuut zegt dat er gewisseld
+    // is maar niet wanneer, en daar kan geen klok op — die laten we liggen in plaats van te gokken.
+    wissels: soorten.filter(s => (s.soort === 'in' || s.soort === 'uit') && Number(s.minuut) > 0),
   };
 }
 
@@ -292,7 +319,11 @@ function vvZetKoppel(i, waarde) {
 // Mag de uitslag (en mogen de kaarten) van deze wedstrijd overschreven worden? Enkel wanneer er geen
 // speeltijd bijgehouden is. Bij een live gevolgde wedstrijd zijn de events dáár de waarheid; die
 // zouden hier stil dubbel komen te staan. Zelfde grens als "Uitslag aanpassen" in het bewerkmenu.
-function vvMagUitslag(m) { return !m.tournamentId && getGameTimeMs(m) === 0; }
+// EEN KLOK VAN HET BLAD IS GEEN GELOPEN KLOK. Zonder de tweede voorwaarde sloot deze functie zichzelf
+// af zodra ze één keer minuten overgenomen had: er staat dan tijd op de wedstrijd, dus "live gevolgd",
+// dus niets meer aan te raken. En dat is precies de wedstrijd waarvoor je hier een tweede keer komt —
+// de bond verwerkt een blad soms dagen na het laatste fluitsignaal.
+function vvMagUitslag(m) { return !m.tournamentId && (getGameTimeMs(m) === 0 || !!m.klokVanBlad); }
 // En mag de selectie aangevuld worden? Niet bij een tornooiwedstrijd: daar komt de selectie uit de
 // DAGSELECTIE van het tornooi (tournamentSquadMee) en geldt ze voor alle wedstrijden van die dag.
 // Iemand hier bijzetten zou een speler opleveren die niet in die dagselectie staat — en die valt er
@@ -339,6 +370,77 @@ function vvKaartRijen(lz) {
   return uit.sort((a, b) => (a.minuut || 0) - (b.minuut || 0));
 }
 function vvKaartWoord(soort) { return soort === 'geel' ? 'gele kaart' : soort === 'rood2' ? 'rood na twee keer geel' : 'rode kaart'; }
+
+// De wissels van ons blad, elk als LOS moment: het blad zegt "in op 75'" en "uit op 86'", niet wie
+// voor wie. Dat hoeft ook niet — zie de uitleg bovenaan over de eenzijdige wissel.
+function vvWisselRijen(lz) {
+  const uit = [];
+  (lz.onzeSpelers || []).forEach((s, i) => (s.wissels || []).forEach(w =>
+    uit.push({ idx: i, naam: s.naam, soort: w.soort, minuut: Number(w.minuut) })));
+  return uit.sort((a, b) => a.minuut - b.minuut);
+}
+
+// Kan de app op dit blad speelminuten rekenen? Drie voorwaarden, en alle drie zijn hard:
+//  - de wedstrijd is afgelopen (een lopende wedstrijd heeft geen eindstand van de klok);
+//  - er staan wissels mét minuut op (anders is er geen enkel moment om op te rekenen);
+//  - het blad zegt wie begon en wie op de bank zat (anders zou iedereen de volle wedstrijd krijgen,
+//    en dat is fout in plaats van onnauwkeurig).
+function vvKanMinuten(lz) { return !!(lz && lz.gespeeld && lz.kentBasis && vvWisselRijen(lz).length); }
+
+// De hoogste minuut die ergens op het blad staat. Nodig omdat een wedstrijd langer kan duren dan het
+// plan in de app: toegevoegde tijd, of verlengingen.
+function vvHoogsteMinuut(lz) {
+  let hoog = 0;
+  ['onzeSpelers', 'hunSpelers'].forEach(k => ((lz && lz[k]) || []).forEach(s => (s.soorten || []).forEach(x => {
+    const n = Number(x.minuut);
+    if (Number.isFinite(n) && n > hoog) hoog = n;
+  })));
+  return hoog;
+}
+
+// De blokken zoals DEZE wedstrijd ze zelf kent (2 helften, 3 delen, 4 kwarten) met hun eigen duur.
+// Loopt het blad verder dan het plan, dan rekt het LAATSTE blok mee: extra tijd komt aan het einde en
+// niet netjes verdeeld over de hele wedstrijd.
+function vvKlokPlan(m, lz) {
+  const aantal = Math.max(1, Number(m.numQuarters) || 4);
+  const duur = Math.max(1, Number(m.quarterDuration) || 25);
+  const blokken = [];
+  for (let i = 1; i <= aantal; i++) blokken.push({ num: i, vanMin: (i - 1) * duur, totMin: i * duur });
+  const laatste = blokken[blokken.length - 1];
+  const hoog = vvHoogsteMinuut(lz);
+  if (hoog > laatste.totMin) laatste.totMin = hoog;
+  return { blokken, totaalMin: laatste.totMin };
+}
+
+// De minuut van het blad als speeltijd in de app. gameMin() (views-account.js) toont
+// floor(ms/60000)+1, dus minuut 86 moet op 85 volle minuten staan om als 86' te lezen. Zonder deze
+// -1 staat élke gebeurtenis een minuut te laat in de tijdlijn.
+function vvGameMs(minuut) { return Math.max(0, (Number(minuut) || 1) - 1) * 60000; }
+
+// In welk blok valt die speeltijd?
+function vvKwartVan(klok, gameMs) {
+  const min = gameMs / 60000;
+  for (const b of klok.blokken) if (min < b.totMin) return b.num;
+  return klok.blokken[klok.blokken.length - 1].num;
+}
+
+// De klok op de wedstrijd zetten. De tijdstempels hangen aan datum en uur van de wedstrijd zelf, zodat
+// ze niet toevallig van vandaag zijn; voor de speeltijd telt enkel het verschil (zie getGameTimeMs).
+// `klokVanBlad` is het vlaggetje waaraan de rest van de app ziet dat hier niemand met een klok in de
+// hand stond — lees de uitleg bovenaan vóór je het gebruikt.
+function vvZetKlok(m, klok) {
+  const geparsed = Date.parse(`${m.date || ''}T${m.time || '00:00'}:00`);
+  const start = Number.isFinite(geparsed) ? geparsed : Date.now() - klok.totaalMin * 60000;
+  m.quarters = klok.blokken.map(b => ({
+    num: b.num,
+    startTime: start + b.vanMin * 60000,
+    endTime: start + b.totMin * 60000,
+    totalPaused: 0,
+    pausedAt: null,
+  }));
+  m.currentQuarter = klok.blokken.length;
+  m.klokVanBlad = true;
+}
 
 // ---------------------------------------------------------------------------------------------
 // 5. HET SCHERM
@@ -411,7 +513,7 @@ function vvKiesHtml() {
         : `<ol style="margin:0;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.8">
         ${VV_STAPPEN.map(s => `<li>${s}</li>`).join('')}
       </ol>`}
-      <p style="font-size:13px;color:var(--txt2);margin:10px 0 0"><b>Wat er niet op staat:</b> de opstelling per ${pSingLow(match)}, de wissels en de speelminuten. Die blijven handwerk.</p>
+      <p style="font-size:13px;color:var(--txt2);margin:10px 0 0"><b>Alles wat op het blad staat, kan mee:</b> de selectie, de uitslag met de doelpuntenmakers, de kaarten, en bij een competitiewedstrijd ook de wissels met hun minuut — en daarmee de speelminuten. Staat iets er niet, dan gebeurt er niets: bij een vriendschappelijke wedstrijd houdt de bond enkel de namen en de uitslag bij. Wat nooit op het blad staat, is de opstelling per ${pSingLow(match)}.</p>
     </div>
 
     <div class="sec">${nrKlaar ? 'Ophalen' : 'Link of nummer'}</div>
@@ -478,8 +580,21 @@ function vvZetStandaardVinkjes() {
   vvSt.aan.selectie = vvMagSelectie(m) && (lz.onzeSpelers || []).length > 0;
   vvSt.aan.uitslag = vvMagUitslag(m) && lz.gespeeld && lz.scoreOns != null && lz.scoreZij != null;
   vvSt.aan.kaarten = vvMagUitslag(m) && vvKaartRijen(lz).length > 0;
+  // De wissels en de speelminuten zitten onder ÉÉN vinkje, en dat is geen luiheid: het een kan niet
+  // zonder het ander. Wissels zonder klok zouden allemaal op minuut 1 staan en de berekening van de
+  // speeltijd bederven; minuten zonder wissels zouden elke basisspeler de volle wedstrijd geven en de
+  // bank nul. Ze horen samen aan of samen uit.
+  vvSt.aan.minuten = vvSt.aan.uitslag && vvKanMinuten(lz);
 }
-function vvZet(key, aan) { if (vvSt) { vvSt.aan[key] = !!aan; vvRender(); } }
+function vvZet(key, aan) {
+  if (!vvSt) return;
+  vvSt.aan[key] = !!aan;
+  // De klok komt mee MET de uitslag. Zet je de uitslag uit, dan zou er een klok op een wedstrijd komen
+  // waarvan de doelpunten nog op "geen tijd" staan — die zouden dan allemaal als minuut 1 lezen.
+  if (key === 'uitslag' && !vvSt.aan.uitslag) vvSt.aan.minuten = false;
+  if (key === 'minuten' && vvSt.aan.minuten) vvSt.aan.uitslag = true;
+  vvRender();
+}
 
 // Eén vinkregel. `class="chkrow"` is nodig: binnen een .fg maakt de app-stijl van een vinkje anders
 // een leeg vierkant zonder vinkje (zie de valkuil in de projectnotities).
@@ -553,6 +668,17 @@ function vvVoorstelHtml() {
   const kaarten = vvKaartRijen(lz);
   const kaartTxt = kaarten.map(k => `${k.ons ? esc(k.naam) : 'tegenstander' + (k.nummer ? ' nr. ' + esc(k.nummer) : '')} — ${vvKaartWoord(k.soort)}${k.minuut ? " (" + k.minuut + "')" : ''}`).join('<br>');
 
+  // --- de wissels en de speelminuten ---
+  const wisselRijen = vvWisselRijen(lz);
+  const kanMinuten = vvKanMinuten(lz);
+  const klok = kanMinuten ? vvKlokPlan(m, lz) : null;
+  const wisselTxt = wisselRijen
+    .map(w => `${w.minuut}' ${w.soort === 'in' ? 'in' : 'uit'}: ${esc(w.naam)}`)
+    .join('<br>');
+  // Hoeveel van die wissels kunnen we echt gebruiken? Een naam die nog niet aan een speler gekoppeld
+  // is, heeft niemand om de wissel aan te hangen — net zoals bij de kaarten.
+  const wisselsGekoppeld = wisselRijen.filter(w => vvSt.koppel[w.idx]).length;
+
   // --- wat we niet konden ---
   const waar = [];
   // GEEN SPELERS = MEESTAL GEEN VERWERKT BLAD (Tim, 30-08-2026). De opstellingen verschijnen op die
@@ -567,8 +693,23 @@ function vvVoorstelHtml() {
   if (!magUitslag && m.tournamentId) waar.push('Bij een <b>tornooiwedstrijd</b> hoort de uitslag bij de dagstand van het tornooi; die geef je daar in.');
   if (kaarten.some(k => k.soort === 'rood2')) waar.push('Een uitsluiting na twee gele kaarten wordt hier één <b>rode kaart</b>: de app kent geen apart soort daarvoor.');
   if (kaarten.some(k => !k.ons && !k.nummer)) waar.push('Van een kaart voor de tegenstander bewaart de app enkel het rugnummer, en dat staat er niet bij elke speler bij.');
-  const wisselsOpBlad = (lz.onzeSpelers || []).reduce((n, s) => n + s.soorten.filter(x => x.soort === 'in' || x.soort === 'uit').length, 0);
-  if (wisselsOpBlad) waar.push(`Er staan <b>${wisselsOpBlad}</b> wisselmomenten op de pagina. Die nemen we niet over: zonder klok kan de app er geen speeltijd op rekenen, en wie voor wie inviel staat er niet bij.`);
+  // EEN BLAD MET ENKEL EEN UITSLAG. Bij een vriendschappelijke wedstrijd zet de club één lijst namen
+  // op het blad en verder niets — geen bank, geen doelpuntenmaker, geen kaart, geen wissel (gemeten
+  // 31-08-2026 op twee vriendschappelijke U14-wedstrijden: 0 gebeurtenissen op 32 en 34 spelers, ook
+  // al eindigde de ene 7-5). Zonder deze regel zoek je waarom je vijf doelpunten nergens staan.
+  if (lz.gespeeld && (lz.onzeSpelers || []).length && !kaarten.length && !wisselRijen.length
+      && !(lz.onzeSpelers || []).some(s => s.doelpunten || s.eigenDoelpunten)) {
+    waar.push(`Op dit blad staat <b>alleen de uitslag</b>: geen doelpuntenmakers, geen kaarten, geen wissels.${lz.soort === 'Vriendschappelijk' ? ' Bij een vriendschappelijke wedstrijd houdt de bond enkel de namen en de uitslag bij — er is niets meer om over te nemen.' : ' Meestal betekent dat dat het blad niet volledig ingevuld is.'}`);
+  }
+  // Wissels op het blad, maar de app kan er geen klok op leggen. Zeg dan WAT er ontbreekt in plaats van
+  // "we nemen ze niet over" — dat las als "die informatie bestaat niet".
+  if (wisselRijen.length && !kanMinuten) {
+    waar.push(`Er staan <b>${wisselRijen.length}</b> wisselmomenten op de pagina, maar ${!lz.kentBasis ? 'het blad zegt niet wie begon en wie op de bank zat' : 'de wedstrijd staat nog niet als afgelopen'}. Zonder dat kan de app geen speeltijd berekenen, dus laten we de wissels én de speelminuten liggen.`);
+  }
+  if (kanMinuten && wisselsGekoppeld < wisselRijen.length) {
+    waar.push(`Van de <b>${wisselRijen.length}</b> wisselmomenten kunnen we er <b>${wisselsGekoppeld}</b> gebruiken: de rest hangt aan een naam die hieronder nog niet gekoppeld is. Dat maakt de speelminuten van die spelers onvolledig.`);
+  }
+  if (m.klokVanBlad) waar.push('De speelminuten die nu op deze wedstrijd staan, komen van een eerdere ophaalbeurt van dit blad. Neem je opnieuw over, dan worden ze vervangen — niet verdubbeld.');
   const nietGekoppeld = (lz.onzeSpelers || []).filter((s, i) => !vvSt.koppel[i]).length;
   if (nietGekoppeld) waar.push(`<b>${nietGekoppeld}</b> ${nietGekoppeld === 1 ? 'naam van de pagina is' : 'namen van de pagina zijn'} nog niet gekoppeld. ${nietGekoppeld === 1 ? 'Die blijft' : 'Die blijven'} weg uit de selectie — kies de juiste speler, of <b>+ als losse speler toevoegen</b> voor wie niet in je kern staat.`);
   const absent = vvGekoppeldeAbsenten();
@@ -615,7 +756,9 @@ function vvVoorstelHtml() {
     <div class="sec">Uitslag</div>
     <div class="card">
       ${(magUitslag && lz.gespeeld && uitslagTekst) ? `${vvChk('uitslag', `Uitslag <b>${esc(uitslagTekst)}</b> overnemen`, scorersTxt)}
-      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">${icI(IC.timer)} Er komen <b>geen speelminuten</b> bij: niemand volgde de klok. De selectie, de doelpunten en de assists tellen wél mee.</p>`
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">${icI(IC.timer)} ${kanMinuten
+        ? 'De doelpunten en de kaarten komen op <b>de minuut van het blad</b> te staan. Zie hieronder bij de speelminuten.'
+        : 'Er komen <b>geen speelminuten</b> bij: niemand volgde de klok en het blad geeft er geen. De selectie, de doelpunten en de assists tellen wél mee.'}</p>`
       : `<p style="font-size:13px;color:var(--txt2);margin:0">${magUitslag ? 'Er staat nog geen uitslag op de pagina.' : 'De uitslag van deze wedstrijd halen we hier niet op — zie hieronder.'}</p>`}
     </div>
 
@@ -623,6 +766,17 @@ function vvVoorstelHtml() {
     <div class="card">
       ${magUitslag ? vvChk('kaarten', `${kaarten.length} kaart${kaarten.length === 1 ? '' : 'en'} overnemen`, kaartTxt)
         : `<p style="font-size:13px;color:var(--txt2);margin:0">${kaartTxt}</p><p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Deze nemen we niet over — zie hieronder.</p>`}
+    </div>` : ''}
+
+    ${wisselRijen.length ? `<div class="sec">Wissels en speelminuten</div>
+    <div class="card">
+      ${(magUitslag && kanMinuten) ? `${vvChk('minuten', `${wisselRijen.length} wissel${wisselRijen.length === 1 ? '' : 's'} en de speelminuten overnemen`,
+          `De app zet de wedstrijd op <b>${klok.blokken.length} × ${esc(String(m.quarterDuration || 25))} min</b>${klok.totaalMin > klok.blokken.length * (Number(m.quarterDuration) || 25) ? ` (met ${klok.totaalMin} min tot de laatste gebeurtenis op het blad)` : ''} en rekent daarop wie hoe lang speelde.`)}
+      <p style="font-size:13px;color:var(--txt2);margin:6px 0 8px">${wisselTxt}</p>
+      <p style="font-size:12px;color:var(--txt2);margin:0">${icI(IC.warn)} Het blad zegt niet <b>wie voor wie</b> inviel — bij een dubbele wissel op dezelfde minuut valt dat niet op te maken. Elke wissel komt daarom als los moment binnen: "eraf" en "erbij". Voor de speelminuten maakt dat geen verschil.</p>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">${icI(IC.timer)} Deze minuten komen van het <b>officiële wedstrijdblad van de bond</b>, niet van iemand die de klok volgde. Ze tellen mee in de statistieken, en je kan ze nadien gewoon aanpassen.</p>`
+        : `<p style="font-size:13px;color:var(--txt2);margin:0 0 6px">${wisselTxt}</p>
+      <p style="font-size:12px;color:var(--txt2);margin:0">Deze nemen we niet over — zie hieronder waarom.</p>`}
     </div>` : ''}
 
     ${waar.length ? `<div class="card" style="border-left:4px solid var(--org)">
@@ -673,6 +827,9 @@ function vvWisEigenEvents(m, soorten) {
 }
 const VV_DOELPUNT_TYPES = ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'];
 const VV_KAART_TYPES = ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them'];
+// Enkel wissels die híer vandaan komen (vvWisEigenEvents kijkt op `bron === 'vv'`). Een wissel die
+// iemand zelf ingaf, blijft staan — die is niet van ons om weg te gooien.
+const VV_WISSEL_TYPES = ['substitution'];
 
 async function vvOvernemen() {
   if (!vvSt || !match) return;
@@ -754,10 +911,35 @@ async function vvOvernemen() {
     });
   }
 
-  // --- 3. de uitslag ---
-  // Zelfde vorm als "Uitslag ingeven" (saveQuickResult): doelpunten zonder tijdstip, met het merkje
-  // `quick`, zodat een latere correctie langs dat venster ze netjes vervangt.
-  if (vvSt.aan.uitslag && vvMagUitslag(m) && lz.scoreOns != null && lz.scoreZij != null) {
+  // --- 3. de klok van het blad ---
+  // MOET VÓÓR DE DOELPUNTEN EN DE KAARTEN STAAN: die krijgen hun blok uit deze klok.
+  // De klok komt mee met de uitslag, nooit los. Zou ze los kunnen, dan kwam er tijd op een wedstrijd
+  // waarvan de doelpunten nog op nul staan, en die zouden dan allemaal als minuut 1 lezen.
+  const doetUitslag = vvSt.aan.uitslag && vvMagUitslag(m) && lz.scoreOns != null && lz.scoreZij != null;
+  const metKlok = doetUitslag && !!vvSt.aan.minuten && vvKanMinuten(lz);
+  const klok = metKlok ? vvKlokPlan(m, lz) : null;
+  if (metKlok) vvZetKlok(m, klok);
+  // Neemt hij de uitslag opnieuw over zónder de minuten, dan moet de klok van een vorige beurt weg:
+  // anders blijven er speelminuten staan die bij doelpunten van minuut 1 horen.
+  else if (doetUitslag && m.klokVanBlad) { m.quarters = []; m.currentQuarter = 0; delete m.klokVanBlad; }
+  // ONZE WISSELS HOREN BIJ ONZE KLOK. Komt er geen klok, dan mogen de wissels van een vorige beurt
+  // niet blijven staan: dan hangen er wissels op 75' aan een wedstrijd zonder speeltijd, en gaan drie
+  // spelers volgens recomputeOnField van het veld terwijl er nul minuten gerekend worden. Gemeten
+  // 31-08-2026: zonder deze regel bleven er 8 wissels achter na het uitvinken van de minuten.
+  if (doetUitslag) vvWisEigenEvents(m, VV_WISSEL_TYPES);
+  // De minuut van het blad als tijdstip voor een event — leeg wanneer er geen klok is, en dan blijft
+  // het `gameTimeMs: 0` van hieronder gewoon staan, precies zoals vóór v1.28.0.
+  const tijd = minuut => {
+    if (!metKlok || !(Number(minuut) > 0)) return {};
+    const gms = vvGameMs(minuut);
+    return { gameTimeMs: gms, quarterNum: vvKwartVan(klok, gms) };
+  };
+
+  // --- 4. de uitslag ---
+  // Zelfde vorm als "Uitslag ingeven" (saveQuickResult): doelpunten met het merkje `quick`, zodat een
+  // latere correctie langs dat venster ze netjes vervangt. Sinds v1.28.0 mét de minuut van het blad,
+  // als er een klok is.
+  if (doetUitslag) {
     vvWisEigenEvents(m, VV_DOELPUNT_TYPES);
     // Een eerdere snelinvoer wijkt voor deze — zoals saveQuickResult dat ook doet. Mét tombstone,
     // anders duwt een ander toestel ze via de cloudsync terug.
@@ -767,23 +949,36 @@ async function vvOvernemen() {
     let onsGeteld = 0, zijGeteld = 0;
     // Wat we van de pagina wéten: wie scoorde, en wie in eigen doel trapte. Een eigen doelpunt van
     // ons telt voor hen, en omgekeerd — vandaar de twee soorten.
+    // PER DOELPUNT, NIET PER SPELER: alleen zo houdt elk doelpunt zijn eigen minuut. Wie twee keer
+    // scoorde in de 12e en de 78e, had anders twee doelpunten op hetzelfde moment gekregen.
     (lz.onzeSpelers || []).forEach((s, i) => {
-      for (let k = 0; k < s.doelpunten && onsGeteld < lz.scoreOns; k++) { m.events.push(evt('goal_us', { playerId: spelerIdVan[i] || null, assistId: null })); onsGeteld++; }
-      for (let k = 0; k < s.eigenDoelpunten && zijGeteld < lz.scoreZij; k++) { m.events.push(evt('own_goal', { playerId: spelerIdVan[i] || null })); zijGeteld++; }
+      (s.soorten || []).forEach(x => {
+        if (x.soort === 'doelpunt' && onsGeteld < lz.scoreOns) { m.events.push(evt('goal_us', { playerId: spelerIdVan[i] || null, assistId: null, ...tijd(x.minuut) })); onsGeteld++; }
+        else if (x.soort === 'eigendoelpunt' && zijGeteld < lz.scoreZij) { m.events.push(evt('own_goal', { playerId: spelerIdVan[i] || null, ...tijd(x.minuut) })); zijGeteld++; }
+      });
     });
     (lz.hunSpelers || []).forEach(s => {
-      for (let k = 0; k < s.eigenDoelpunten && onsGeteld < lz.scoreOns; k++) { m.events.push(evt('own_goal_them')); onsGeteld++; }
+      (s.soorten || []).forEach(x => {
+        if (x.soort === 'eigendoelpunt' && onsGeteld < lz.scoreOns) { m.events.push(evt('own_goal_them', tijd(x.minuut))); onsGeteld++; }
+      });
     });
-    // De rest zonder naam erbij, tot de eindstand klopt — precies zoals bij "Uitslag ingeven".
+    // De rest zonder naam erbij, tot de eindstand klopt — precies zoals bij "Uitslag ingeven". Zonder
+    // minuut: van deze doelpunten weten we alleen dát ze gevallen zijn.
     for (let k = onsGeteld; k < lz.scoreOns; k++) m.events.push(evt('goal_us', { playerId: null, assistId: null }));
-    for (let k = zijGeteld; k < lz.scoreZij; k++) m.events.push(evt('goal_them'));
+    // De doelpunten van de tegenstander bewaart de app zonder naam — die van een tegenspeler kent ze
+    // niet. Hun minuten staan wél op het blad, en die zijn wat de tijdlijn en de stand-bij-elk-doelpunt
+    // bruikbaar maakt: zonder hen zou de tussenstand bij ons derde doelpunt niets zeggen.
+    const hunMinuten = (lz.hunSpelers || [])
+      .flatMap(s => (s.soorten || []).filter(x => x.soort === 'doelpunt').map(x => Number(x.minuut)))
+      .filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+    for (let k = zijGeteld, j = 0; k < lz.scoreZij; k++, j++) m.events.push(evt('goal_them', tijd(hunMinuten[j])));
     delete m.geenUitslag;
     if (typeof _wisPlanMinuten === 'function') _wisPlanMinuten(m);
     m.status = 'done'; m.quarterStatus = 'done';
     gedaan.push('de uitslag');
   }
 
-  // --- 4. de kaarten ---
+  // --- 5. de kaarten ---
   if (vvSt.aan.kaarten && vvMagUitslag(m)) {
     vvWisEigenEvents(m, VV_KAART_TYPES);
     let n = 0;
@@ -792,14 +987,40 @@ async function vvOvernemen() {
       if (k.ons) {
         const pid = spelerIdVan[k.idx];
         if (!pid) return;   // niet gekoppeld: dan is er geen speler om de kaart aan te hangen
-        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card' : 'yellow_card', playerId: pid, bron: 'vv' });
+        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card' : 'yellow_card', playerId: pid, bron: 'vv', ...tijd(k.minuut) });
       } else {
         const nr = String(k.nummer || '').replace(/\D/g, '').slice(0, 3);
-        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card_them' : 'yellow_card_them', ...(nr ? { oppNumber: nr } : {}), bron: 'vv' });
+        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card_them' : 'yellow_card_them', ...(nr ? { oppNumber: nr } : {}), bron: 'vv', ...tijd(k.minuut) });
       }
       n++;
     });
     if (n) gedaan.push(`${n} kaart${n === 1 ? '' : 'en'}`);
+  }
+
+  // --- 6. de wissels, en daarmee de speelminuten ---
+  // ELKE WISSEL ALS LOS MOMENT. Het blad zegt niet wie voor wie inviel, en dat hoeft ook niet:
+  // calcMinutes kent de eenzijdige wissel (playerInId óf playerOutId mag null zijn). Wie eraf gaat op
+  // 85' heeft 85 minuten gespeeld, wie erbij komt op 75' speelt van dan tot het einde — daar komt geen
+  // paar aan te pas. Zie de uitleg bovenaan dit bestand.
+  //
+  // De klok staat hierboven al op de wedstrijd; deze events hangen eraan. Zonder klok komen ze er niet
+  // in: een wissel op minuut 1 zou de speeltijd van iedereen bederven.
+  if (metKlok) {
+    let n = 0;
+    vvWisselRijen(lz).forEach(w => {
+      const pid = spelerIdVan[w.idx];
+      if (!pid) return;   // niet gekoppeld: geen speler om de wissel aan te hangen (het voorstelscherm waarschuwt daarvoor)
+      const gms = vvGameMs(w.minuut);
+      m.events.push({
+        id: uid(), realTime: Date.now(), gameTimeMs: gms, quarterNum: vvKwartVan(klok, gms),
+        type: 'substitution',
+        playerInId: w.soort === 'in' ? pid : null,
+        playerOutId: w.soort === 'uit' ? pid : null,
+        bron: 'vv',
+      });
+      n++;
+    });
+    if (n) gedaan.push(`${n} wissel${n === 1 ? '' : 's'} met de speelminuten`);
   }
 
   // HET WEDSTRIJDNUMMER ONTHOUDEN. Heb je het hier met de hand geplakt, dan staat het vanaf nu op de
