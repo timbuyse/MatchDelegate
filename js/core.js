@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.26.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.26.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -710,10 +710,34 @@ function getActiveClubLogo() {
   return '';
 }
 // Lees een afbeeldingsbestand in, verklein tot max `size` px en comprimeer tot een
-// kleine data-URI (geschikt om in RTDB te bewaren). Behoudt transparantie (PNG) bij
-// bestanden mét alpha, anders JPEG voor een kleinere payload. Geeft een data-URI terug.
-const CLUB_LOGO_MAX_PX = 512;    // was 256: te weinig pixels voor een scherp logo in de PDF
+// kleine data-URI (geschikt om in RTDB te bewaren). Behoudt transparantie (WebP, met PNG als
+// terugval) bij bestanden mét alpha, anders JPEG voor een kleinere payload. Geeft een data-URI terug.
+//
+// DE BEWAARMAAT VOLGT DE PDF, niet een rond getal. Alle drie de PDF-koppen (tweemaal in
+// detail-pdf.js, eenmaal in teams-tournaments.js) zetten het clublogo in een vak van 40×40 punten
+// en vragen PDF_LOGO_DICHTHEID pixels per punt: 40 × 8 = 320 px. Minder bewaren maakt de PDF wazig,
+// meer bewaren levert niets op — rasterizeToPngFit schaalt toch terug naar diezelfde 320.
+// Wijzigt PDF_LOGO_DICHTHEID (of dat vak van 40 punten), dan hoort dit getal mee te wijzigen.
+const CLUB_LOGO_PDF_VAK_PT = 40;
+const CLUB_LOGO_MAX_PX = CLUB_LOGO_PDF_VAK_PT * PDF_LOGO_DICHTHEID;   // = 320
 const CLUB_LOGO_MAX_URI = 120000; // ±88 KB — grens waarboven we liever verkleinen dan bewaren
+// Kwaliteit van de WebP. Gemeten op twee doorzichtige logo's op 320 px (31-08-2026): het
+// doorzichtigheidskanaal komt er pixel voor pixel identiek uit, de kleuren wijken gemiddeld 0,6%
+// af van de PNG, en het bestand is drie tot vijf keer kleiner. Verliesvrij (kwaliteit 1) kan ook,
+// maar een gedetailleerd logo werd zo 114 KB — over CLUB_LOGO_MAX_URI, dus dan zou het alsnog
+// verkleind worden en dat kost méér scherpte dan deze compressie. Op 40 punten in de PDF zit er
+// een achtvoudige overbemonstering op, dus van dat verschil is niets te zien.
+const CLUB_LOGO_WEBP_KWALITEIT = 0.92;
+// Maak een data-URI van dit canvas in `type` — en enkel als de browser hem écht in dat formaat
+// gemaakt heeft. canvas.toDataURL('image/webp') geeft op een browser die geen WebP kan SCHRIJVEN
+// (oudere Safari) stilzwijgend een PNG terug: geen fout, geen waarschuwing. Vertrouwen op wat we
+// gevraagd hebben zou daar een als-WebP-bedoelde PNG opleveren; daarom lezen we de kop terug en
+// geven we anders leeg terug, zodat de aanroeper netjes kan terugvallen.
+function canvasNaarType(cv, type, kwaliteit) {
+  let uri = '';
+  try { uri = cv.toDataURL(type, kwaliteit); } catch (e) { return ''; }
+  return uri.indexOf('data:' + type) === 0 ? uri : '';
+}
 function fileToClubLogoDataUri(file, size = CLUB_LOGO_MAX_PX) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) { reject(new Error('Geen afbeelding')); return; }
@@ -733,11 +757,19 @@ function fileToClubLogoDataUri(file, size = CLUB_LOGO_MAX_PX) {
         const isPng = /png/i.test(file.type);
         if (!isPng) { resolve(teken(size).toDataURL('image/jpeg', 0.82)); return; }
         // Een logo hoort transparant te blijven: JPEG zou er een witte blokrand van maken op een
-        // donkere achtergrond. Valt de PNG te groot uit (het logo gaat naar Firebase en wordt naar
-        // élke ploeg van de club gekopieerd), dan liever een paar pixels kleiner dan die
-        // transparantie kwijt. Pas als het dan nog niet past, wint de payload.
-        for (const maat of [size, 384, 256]) {
-          const uri = teken(maat).toDataURL('image/png');
+        // donkere achtergrond. WebP houdt die doorzichtigheid én is bij hetzelfde aantal pixels een
+        // veelvoud kleiner dan PNG (op een clubwapen van 256 px: 45 KB → 10 KB). Dat het bewaarde formaat
+        // WebP is, deert de PDF niet: het logo gaat daar altijd eerst door rasterizeToPngFit, een
+        // canvas, en komt er hoe dan ook als PNG uit. Kan de browser geen WebP schrijven, dan is
+        // PNG op dezelfde maat de terugval — precies zoals het hiervoor altijd ging.
+        // Past geen van beide (het logo gaat naar Firebase en wordt naar élke ploeg van de club
+        // gekopieerd), dan liever een paar pixels kleiner dan die doorzichtigheid kwijt. Pas als het
+        // dan nog niet past, wint de payload.
+        for (const maat of [size, 256, 192]) {
+          const cv = teken(maat);
+          const webp = canvasNaarType(cv, 'image/webp', CLUB_LOGO_WEBP_KWALITEIT);
+          if (webp && webp.length <= CLUB_LOGO_MAX_URI) { resolve(webp); return; }
+          const uri = cv.toDataURL('image/png');
           if (uri.length <= CLUB_LOGO_MAX_URI) { resolve(uri); return; }
         }
         resolve(teken(size).toDataURL('image/jpeg', 0.82));

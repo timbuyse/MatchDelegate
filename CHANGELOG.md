@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.26.2
+
+**Het clublogo weegt nu een derde van wat het woog, en is scherper in de PDF.** Het werd bewaard als
+PNG, en dat logo gaat naar elke ploeg van de club — bij achttien ploegen loopt dat op. Als WebP is
+diezelfde afbeelding drie tot vijf keer kleiner, met de doorzichtigheid onaangetast. Het logo van
+Sparta Petegem Deinze ging van 28 KB naar 11 KB.
+
+Tegelijk is het **iets groter** opgeslagen dan voorheen: 320 in plaats van 300 pixels. Dat is precies
+wat de drie PDF-koppen vragen, dus het logo staat er nu op zijn volle scherpte in plaats van een
+tikje uitgerekt. Kleiner opslaan zou het wazig maken, groter opslaan levert niets op.
+
+Dat het bewaarde formaat WebP is, merkt de PDF niet: het logo gaat daar altijd eerst door een
+tekenvlak en komt er hoe dan ook als PNG uit. Kan een browser geen WebP maken, dan wordt het gewoon
+PNG zoals vroeger.
+
+Bestaande logo's wijzigen niet automatisch mee — stel je het logo opnieuw in, dan wordt het kleiner.
+
+---
+
 ## v1.26.1
 
 **De handleiding zegt nu ook waar je die wedstrijdpagina vindt.** Het ophalen stond er al in
