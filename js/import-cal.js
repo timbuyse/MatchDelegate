@@ -1481,14 +1481,18 @@ function rbfaKoppelBewaar() {
   render();
 }
 
-// De sectie op het scherm "Ploeg bewerken". Wordt daar tijdens het tekenen aangeroepen, dus na het
-// laden van alle bestanden — teams-tournaments.js laadt vóór dit bestand, en dat mag zolang de
-// aanroep op het moment van gebruik gebeurt en niet in een tabel die bij het laden opgebouwd wordt
-// (zie CLAUDE.md).
-function rbfaTeamSectieHtml() {
-  if (!editingTeam || editingTeam.isNew || !canManage()) return '';
-  const ploegen = rbfaPloegen(editingTeam);
-  const knop = `<button class="btn btn-pale btn-sm" style="margin:${ploegen.length ? '10' : '0'}px 0 0" onclick="rbfaKoppelOpen('${esc(editingTeam.id)}')">${icI(IC.link)} ${ploegen.length ? 'Aanpassen' : 'Ploeg van de bond kiezen'}</button>`;
+// De sectie op het ploegscherm. Wordt tijdens het tekenen aangeroepen, dus na het laden van alle
+// bestanden — teams-tournaments.js laadt vóór dit bestand, en dat mag zolang de aanroep op het moment
+// van gebruik gebeurt en niet in een tabel die bij het laden opgebouwd wordt (zie CLAUDE.md).
+//
+// STAAT OP BEIDE GEDAANTEN VAN DAT SCHERM. Het ploegscherm heeft een leesweergave
+// (renderTeamOverview) en een bewerkweergave (renderTeamEdit), en je komt standaard op de eerste
+// terecht — daar hoort dit dus óók te staan, anders bestaat de functie voor wie het potlood niet
+// aantikt gewoon niet. Het venster bewaart zelf, dus het werkt vanuit beide even goed.
+function rbfaTeamSectieHtml(team) {
+  if (!team || team.isNew || !canManage()) return '';
+  const ploegen = rbfaPloegen(team);
+  const knop = `<button class="btn btn-pale btn-sm" style="margin:${ploegen.length ? '10' : '0'}px 0 0" onclick="rbfaKoppelOpen('${esc(team.id)}')">${icI(IC.link)} ${ploegen.length ? 'Aanpassen' : 'Ploeg van de bond kiezen'}</button>`;
   const body = ploegen.length
     ? `<div style="font-size:14px">${ploegen.map(p => `<div style="padding:2px 0">${rbfaPloegTxt(p)}</div>`).join('')}</div>
        <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Bij <b>Kalender importeren</b> haalt de app hiermee de kalender op, met het wedstrijdnummer van elke wedstrijd erbij.</p>`
