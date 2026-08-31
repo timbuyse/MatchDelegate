@@ -211,6 +211,9 @@ function renderTeamOverview() {
       <div class="stat-row"><span style="color:var(--txt2);min-width:140px">Standaardopstelling</span><span style="font-weight:600">${esc(oForm)} <span style="color:var(--txt2);font-weight:400">(${esc(oDmt)})</span></span></div>
       ${teamStaffRowsHtml(t)}
     </div>
+    ${/* Ook hier, niet enkel achter het potlood: dit is het scherm waar je bélandt, en waar je dus
+         komt kijken of deze ploeg aan haar ploeg bij de bond hangt. Zie import-cal.js. */ ''}
+    ${rbfaTeamSectieHtml(t)}
     <div class="sec">Spelers (${t.players.length})</div>
     <div class="card">${teamPlayerRows(t)}</div>
     ${/* Mensen met toegang en "Deze ploeg" staan niet meer hieronder maar in het beheerscherm (de
@@ -297,6 +300,10 @@ function renderTeamEdit() {
           value="${ddur}" oninput="teamDurCustom(this.value)" style="margin-top:6px;${(DURATIONS[dpk] || []).includes(ddur) ? 'display:none' : ''}"></div>
       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen.</p>
     </div>
+    ${/* De koppeling met de ploeg bij de voetbalbond. Staat in import-cal.js, bij de kalenderimport
+         die er iets mee doet. Dat bestand laadt ná dit bestand, maar deze aanroep gebeurt pas bij
+         het tekenen — dus na het laden van alles. Zelfde constructie als durOptsHtml hierboven. */''}
+    ${rbfaTeamSectieHtml(editingTeam)}
     <div class="sec">Trainers</div>
     <div class="card">${trainerRows}</div>
     <div class="sec">Spelers (${editingTeam.players.length})</div>
@@ -739,6 +746,18 @@ async function saveTeamEdit() {
 // van dat venster en het opslaan kan er een roostersnapshot van de cloud binnengekomen zijn.
 async function ploegWegschrijven(clean, hernoemd) {
   const arr = getTeamsV2(); const idx = arr.findIndex(t => t.id === clean.id);
+  // DE KOPPELING MET DE VOETBALBOND MEENEMEN. `clean` wordt hierboven veld per veld opgebouwd uit wat
+  // op het scherm staat, en alles wat er niet in zit verdwijnt bij de regel hieronder (`arr[idx] =
+  // clean` vervangt de ploeg volledig). Die koppeling wordt door haar eigen venster bewaard, dus
+  // zonder deze twee regels wiste een gewone "Ploeg opslaan" de gekoppelde bondsploegen.
+  // Uit de PAS GELEZEN lijst, niet uit editingTeam: tussen het openen van het scherm en het opslaan
+  // kan dat venster de koppeling gewijzigd hebben, of kan er een roostersnapshot uit de cloud
+  // binnengekomen zijn.
+  if (idx >= 0) {
+    const b = arr[idx] || {};
+    if (Array.isArray(b.rbfaTeams) && b.rbfaTeams.length) clean.rbfaTeams = b.rbfaTeams;
+    if (b.rbfaClubId) clean.rbfaClubId = b.rbfaClubId;
+  }
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
   if (hernoemd.length) {

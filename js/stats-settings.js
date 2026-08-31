@@ -1148,18 +1148,30 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Kalender importeren',
     img: 'handleiding/screenshots/24_kalender_importeren.png',
     inhoud: `
-      <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>.</p>
-      <div class="sec">Welk bestand?</div>
+      <p>Staat de kalender van je reeks al ergens klaar, dan hoef je ze niet wedstrijd per wedstrijd in te tikken. Ga naar <b>Wedstrijden</b> en tik op <b>'Kalender importeren'</b>. Er zijn twee wegen: rechtstreeks bij de voetbalbond, of uit een bestand.</p>
+      <div class="sec">Rechtstreeks bij de voetbalbond</div>
+      <p>De snelste weg, en je hoeft niets te downloaden. Je zegt <b>één keer</b> welke ploeg bij de bond jouw ploeg is, en daarna haalt de app de kalender zelf op — het volledige seizoen, altijd de actuele versie.</p>
+      <ul class="hdl-list">
+        <li>Zoek je club op <b>rbfa.be</b>. In het adres van je clubpagina staat het <b>clubnummer</b>: rbfa.be/nl/club/<b>1641</b>/ploegen. Dat nummer tik je in (het volledige adres plakken mag ook), en de app toont je clubnaam en stamnummer zodat je meteen ziet of het klopt.</li>
+        <li>Daarna krijg je <b>alle ploegen van je club</b> te zien, met hun naam. Je vinkt aan welke bij deze ploeg hoort. Zo hoef je nooit een ploegnummer over te typen.</li>
+        <li>Is jouw ploeg bij de bond in <b>twee reeksen</b> gesplitst — bij ons één ploeg, daar een A en een B in een andere poule — dan vink je ze <b>allebei</b> aan. Beide kalenders komen samen in één lijst, en je geeft elk het <b>ploeg-label</b> waarmee je ze in de app van elkaar houdt.</li>
+        <li>Je stelt dit in bij <b>Ploegen</b> → je ploeg → <b>'Kalender van de voetbalbond'</b>, of meteen op het importscherm zelf.</li>
+        <li>Ben je <b>clubbeheerder</b>, dan doe je het voor de hele club in één beweging: <b>Clubbeheer</b> → <b>'Ploegen van de voetbalbond'</b>. Daar staan alle ploegen van de bond naast die van de app, en zeg je per ploeg bij welke ze hoort. Bestaat ze bij ons nog niet, kies dan <b>'Ploeg aanmaken in de app'</b> — handig bij het begin van een seizoen, wanneer er dertig ploegen bij de bond staan en nog geen enkele in de app.</li>
+      </ul>
+      <p class="hdl-tip">Deze weg geeft nog iets extra: bij elke wedstrijd komt haar <b>wedstrijdnummer</b> mee. Wil je later <b>'Wedstrijdinfo ophalen'</b> gebruiken bij een wedstrijd die je niet live volgde, dan hoef je daar geen link meer te gaan zoeken — de app weet al welke wedstrijd het is en één tik volstaat.</p>
+      <p>Wat er langs deze weg <b>niet</b> meekomt, is het <b>terrein</b>: dat staat niet in de kalender van de bond. Een import laat een terrein dat je zelf ingaf dus altijd staan, en bij 'Wedstrijdinfo ophalen' komt het achteraf wel mee.</p>
+      <p>Wedstrijden die bij de bond al gespeeld zijn, krijgen in de lijst het merkje <b>'Bij de bond gespeeld'</b> met de uitslag erbij. Ze komen wel als <b>geplande</b> wedstrijd binnen: een uitslag zonder verslag is voor de app geen gespeelde wedstrijd. Wil je die aanvullen, gebruik dan 'Wedstrijdinfo ophalen'.</p>
+      <div class="sec">Uit een bestand</div>
       <ul class="hdl-list">
         <li>Een <b>agenda</b> (<b>.ics</b>) — op Foot24 staat bij je reeks een knop om de kalender als agenda te downloaden. Dit is de gemakkelijkste weg: de app haalt er zelf datum, uur, tegenstander, thuis of uit en het adres van het terrein uit.</li>
         <li>Een <b>tabel</b> (<b>.xlsx</b> of <b>.csv</b>) — bijvoorbeeld een kalender die je club zelf rondstuurt. Foot24 biedt enkel de agenda aan, dus hiervoor heb je een andere bron nodig. De app raadt zelf welke kolom de datum, het uur en de tegenstander bevat; onder <b>'Kolommen van het bestand'</b> zet je dat recht als ze het verkeerd voorstelt.</li>
       </ul>
       <div class="sec">Voor je importeert</div>
       <ul class="hdl-list">
-        <li>Bovenaan kies je één keer de <b>ploeg</b>, het <b>format</b>, het <b>aantal blokken</b>, de <b>blokduur</b> en de <b>soort</b>. Die staan in geen enkele kalender, dus ze gelden voor alles wat je nu inleest — per wedstrijd blijven ze nadien aanpasbaar.</li>
-        <li>Speelt je ploeg in twee delen (A en B), dan hoort daar een <b>ploeg-label</b> bij. De app leest dat uit de reeksnaam in het bestand ('U11 A' wordt label <b>A</b>). Lees je daarna de kalender van de andere ploeg in, wijzig dan enkel dat veld — zo blijven de twee wedstrijden van dezelfde dag netjes gescheiden.</li>
-        <li>In de lijst vink je aan wat erbij mag. Tik op het bolletje <b>Thuis</b> of <b>Uit</b> om dat om te zetten als het bestand het verkeerd heeft.</li>
-        <li>Wedstrijden die al in de app staan, dragen <b>'Staat er al'</b> en zijn <b>niet</b> aangevinkt. Vink je er toch een aan, dan worden alleen de tegenstander, de datum, het uur, thuis/uit en de plaats bijgewerkt — je selectie, je opstelling en je plan blijven staan. Handig bij een verschoven kalender.</li>
+        <li>Bovenaan kies je één keer het <b>format</b>, het <b>aantal blokken</b> en de <b>blokduur</b>. Die staan in geen enkele kalender, dus ze gelden voor alles wat je nu inleest — per wedstrijd blijven ze nadien aanpasbaar. Bij een bestand kies je daar ook de <b>ploeg</b> en de <b>soort</b>; komt de kalender van de bond, dan staan die al vast (de ploeg door de koppeling, de soort per wedstrijd uit de reeks — competitie, beker of vriendschappelijk).</li>
+        <li>Speelt je ploeg in twee delen (A en B), dan hoort daar een <b>ploeg-label</b> bij. Bij een bestand leest de app dat uit de reeksnaam ('U11 A' wordt label <b>A</b>), en lees je daarna de kalender van de andere ploeg in, wijzig dan enkel dat veld. Komt de kalender van de bond, dan staat het label per wedstrijd vast en hoef je niets te doen — ook niet als je beide reeksen in één keer inleest.</li>
+        <li>In de lijst vink je aan wat erbij mag. Tik op het bolletje <b>Thuis</b> of <b>Uit</b> om dat om te zetten als het verkeerd staat. (Bij de bondskalender klopt dat altijd: die zegt het met een ploegnummer in plaats van met een naam.)</li>
+        <li>Wedstrijden die al in de app staan, dragen <b>'Staat er al'</b> en zijn <b>niet</b> aangevinkt. Vink je er toch een aan, dan worden alleen de tegenstander, de datum, het uur, thuis/uit en de plaats bijgewerkt — je selectie, je opstelling en je plan blijven staan. Handig bij een verschoven kalender. Een wedstrijd die al <b>gespeeld</b> is of <b>loopt</b>, zegt dat er ook bij, en <b>'Alles aan'</b> laat die met rust.</li>
       </ul>
       <p class="hdl-tip">Een bondssite schrijft clubnamen voluit ('SPORTKRING ROESELARE') waar jij ze kort intikte ('SK Roeselare'). De app herkent dat als dezelfde wedstrijd en zet dat erbij. Past er die dag geen enkele wedstrijd bij, maar staat er wel één, dan krijg je een waarschuwing ('Ook Olsa Brakel (B) op deze dag') en blijft de regel aangevinkt — jij beslist.</p>
       <p>Er wordt niets bewaard tot je onderaan op de groene knop tikt. Reclame en aankondigingen die in zo'n agenda meekomen, laat de app zelf vallen.</p>

@@ -349,7 +349,11 @@ function vvStart() {
   if (!canManage()) { showToast('Enkel een beheerder met verbinding kan wedstrijdinfo ophalen.', 'err'); return; }
   if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
   vvSt = {
-    fase: 'kies', matchId: match.id, link: '', bezig: false, fout: '',
+    // HET WEDSTRIJDNUMMER STAAT ER VAAK AL. Een wedstrijd die uit de kalender van de voetbalbond
+    // ingelezen is, draagt het nummer van de bond (m.rbfaMatchId, gezet door impVoerUit in
+    // import-cal.js). Dan hoeft er niets opgezocht en niets geplakt te worden: het veld staat
+    // ingevuld en één tik volstaat. Staat het er niet, dan is dit gewoon leeg zoals voordien.
+    fase: 'kies', matchId: match.id, link: String(match.rbfaMatchId || ''), bezig: false, fout: '',
     ruw: null, lezing: null, wij: 'home', koppel: {}, los: {}, zusters: [],
     aan: {},
   };
@@ -385,6 +389,10 @@ const VV_STAPPEN = [
   'Kopieer dat volledige adres en plak het hieronder. Enkel het nummer mag ook.',
 ];
 function vvKiesHtml() {
+  // Staat het wedstrijdnummer al op de wedstrijd (ingelezen uit de kalender van de bond), dan gaan de
+  // drie stappen hieronder over iets wat je niet meer hoeft te doen — die vallen dan weg, en het
+  // plakveld verhuist achter een dichtgeklapt "Een ander nummer gebruiken".
+  const nrKlaar = String((match && match.rbfaMatchId) || '').trim();
   return `
     <div class="card" style="border-left:4px solid var(--org)">
       <div style="font-weight:800;font-size:15px;margin-bottom:4px">${icI(IC.warn)} Demo-functie</div>
@@ -398,18 +406,25 @@ function vvKiesHtml() {
            überhaupt iets te halen valt. Ze horen hier te staan, niet pas nadat je een leeg scherm
            terugkrijgt: anders lees je "er staat niets op" als "de app werkt niet". */ ''}
       <p style="font-size:13px;color:var(--txt2);margin:0 0 10px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px"><b>Dit is er voor de bovenbouw.</b> Daar wordt een wedstrijdblad ingevuld. Bij de jongste reeksen worden er geen uitslagen, rangschikkingen of opstellingen bijgehouden, dus valt er ook niets op te halen.<br><br><b>En pas zodra het blad verwerkt is.</b> De opstellingen en de uitslag verschijnen op die pagina wanneer de bond het officiële wedstrijdblad verwerkt heeft — niet meteen na het laatste fluitsignaal. Kom je er te vroeg, dan staat er nog weinig; probeer dan later opnieuw.</p>
-      <ol style="margin:0;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.8">
+      ${nrKlaar
+        ? `<p style="font-size:14px;color:var(--txt2);margin:0"><b>Je hoeft niets op te zoeken.</b> Deze wedstrijd komt uit de kalender van de voetbalbond, dus haar wedstrijdnummer (<b>${esc(nrKlaar)}</b>) staat er al bij. Eén tik op de knop hieronder volstaat.</p>`
+        : `<ol style="margin:0;padding-left:20px;font-size:14px;color:var(--txt2);line-height:1.8">
         ${VV_STAPPEN.map(s => `<li>${s}</li>`).join('')}
-      </ol>
+      </ol>`}
       <p style="font-size:13px;color:var(--txt2);margin:10px 0 0"><b>Wat er niet op staat:</b> de opstelling per ${pSingLow(match)}, de wissels en de speelminuten. Die blijven handwerk.</p>
     </div>
 
-    <div class="sec">Link of nummer</div>
+    <div class="sec">${nrKlaar ? 'Ophalen' : 'Link of nummer'}</div>
     <div class="card">
+      ${/* Het veld blijft bestaan wanneer het nummer al bekend is — vvOphalen leest het uit
+           #vv-link — maar het zit dan dichtgeklapt: je hebt het alleen nodig als het nummer om
+           een of andere reden niet klopt. */''}
+      ${nrKlaar ? `<details class="more-details"><summary>Een ander nummer gebruiken</summary><div style="margin-top:10px">` : ''}
       <div class="fg" style="margin:0"><label>Het adres van de wedstrijdpagina</label>
         <input id="vv-link" type="text" inputmode="url" autocomplete="off" spellcheck="false"
                value="${esc(vvSt.link || '')}" placeholder="https://www.voetbalvlaanderen.be/wedstrijd/…"
                onchange="vvSt.link=this.value"></div>
+      ${nrKlaar ? `</div></details>` : ''}
       ${vvSt.fout ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(vvSt.fout)}</div>` : ''}
       <button class="btn btn-green" style="margin-top:12px" ${vvSt.bezig ? 'disabled style="opacity:.5"' : 'onclick="vvOphalen()"'}>${icI(IC.link)} ${vvSt.bezig ? 'Bezig met ophalen…' : 'Gegevens ophalen'}</button>
       <p style="font-size:13px;color:var(--txt2);margin:14px 0 0">Er wordt nog niets bewaard: je krijgt eerst te zien wat we van de pagina begrepen hebben, en pas daarna neem je het over. Wat je zelf al ingaf, blijft standaard staan.</p>
@@ -786,6 +801,13 @@ async function vvOvernemen() {
     });
     if (n) gedaan.push(`${n} kaart${n === 1 ? '' : 'en'}`);
   }
+
+  // HET WEDSTRIJDNUMMER ONTHOUDEN. Heb je het hier met de hand geplakt, dan staat het vanaf nu op de
+  // wedstrijd — net zoals bij een wedstrijd die uit de kalender van de bond ingelezen werd. Dat
+  // scheelt vooral bij een tweede poging: de bond verwerkt het wedstrijdblad niet meteen na het
+  // laatste fluitsignaal, dus kom je hier vaak twee keer.
+  const nrGebruikt = vvNummerUit(vvSt.link);
+  if (nrGebruikt && String(m.rbfaMatchId || '') !== String(nrGebruikt)) m.rbfaMatchId = String(nrGebruikt);
 
   recomputeScore(m);
   recomputeOnField(m);

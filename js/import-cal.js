@@ -73,7 +73,9 @@ function renderImportCal() {
 function impTerug() { impSt = null; go('matches'); }
 function impAnderBestand() {
   if (!impSt) return;
-  impSt.fase = 'kies'; impSt.regels = []; impSt.fout = ''; render();
+  // Ook de bron leegmaken: anders staat het keuzescherm nog in de stand van de vorige poging (en
+  // bleef een foutmelding van de bond onder het bestandsveld hangen).
+  impSt.fase = 'kies'; impSt.regels = []; impSt.fout = ''; impSt.bron = ''; impSt.bestand = ''; impSt.rbfaFout = false; render();
 }
 // Enkel het inhoudsblok hertekenen: de titelbalk hoeft niet mee, en zo blijft de scrollpositie
 // van een lange lijst bewaard bij het aan- en uitvinken.
@@ -83,14 +85,22 @@ function impRender() {
   el.innerHTML = impSt.fase === 'lijst' ? impLijstHtml() : impKiesHtml();
 }
 
+// TWEE BRONNEN sinds de bondskalender erbij kwam. De bond staat bovenaan: dat is de weg zonder
+// download, en ze levert het wedstrijdnummer. Het bestandspad blijft er onveranderd naast staan —
+// niet elke club haalt haar kalender bij de RBFA, en een ploeg die niet gekoppeld is moet gewoon
+// verder kunnen.
 function impKiesHtml() {
   return `
+    ${rbfaBronKaartHtml()}
+    <div class="sec">Uit een bestand</div>
     <div class="card">
       <p style="font-size:14px;color:var(--txt2);margin:0 0 14px">Kies het kalenderbestand van je ploeg. Op <b>Foot24</b> staat bij je reeks een knop om de kalender als <b>agenda (.ics)</b> te downloaden — dat is de gemakkelijkste weg. Krijg je de kalender van je club als tabel doorgestuurd (<b>.xlsx</b> of <b>.csv</b>), dan kan die ook.</p>
       <div class="fg"><label>Bestand</label>
         <input id="imp-file" type="file" accept=".ics,.ical,.xlsx,.csv,.txt,text/calendar" onchange="impBestand(this)"
                style="width:100%;padding:10px;border:2px dashed var(--bdr);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt)"></div>
-      ${impSt.fout ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(impSt.fout)}</div>` : ''}
+      ${/* Enkel de fouten van dít pad. Een mislukt ophalen bij de bond hoort in de bondskaart
+           hierboven, niet onder het bestandsveld — daar lees je het als "mijn bestand is stuk". */''}
+      ${impSt.fout && !impSt.rbfaFout ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(impSt.fout)}</div>` : ''}
       <p style="font-size:13px;color:var(--txt2);margin:14px 0 0">Er wordt nog niets bewaard: je krijgt eerst de volledige lijst te zien en kiest zelf welke wedstrijden erbij komen.</p>
     </div>`;
 }
@@ -102,6 +112,15 @@ function impLijstHtml() {
   const nieuw = rs.filter(r => r.aan && !r.bestaat).length;
   const bij = aan - nieuw;
   const isCustomDur = impSt.quarterDuration && !(DURATIONS[impSt.periodKey] || []).includes(impSt.quarterDuration);
+  // Komt de kalender van de bond, dan staan twee dingen al per wedstrijd vast en horen hun velden
+  // hier dus niet: het ploeg-label (dat komt van de bondsploeg waar de wedstrijd uit komt) en de
+  // soort (uit de reeks — vriendschappelijk, beker of competitie). Een veld voor de hele import zou
+  // die per-wedstrijdwaarde alleen maar kunnen overschrijven.
+  const isRbfa = impSt.bron === 'rbfa';
+  const telTxt = `${rs.length} ${rs.length === 1 ? 'wedstrijd' : 'wedstrijden'} gevonden`
+    + (impSt.overgeslagen ? ` · ${impSt.overgeslagen} ${isRbfa ? 'onleesbare regel(s) overgeslagen' : 'andere agenda-items overgeslagen'}` : '')
+    + ((isRbfa && impSt.rbfaSamengevoegd) ? ` · ${impSt.rbfaSamengevoegd} keer dezelfde wedstrijd in twee kalenders` : '')
+    + ((!isRbfa && impSt.eigenClub && impSt.clubKeuzes.length <= 1) ? ` · eigen club: <b>${esc(impSt.eigenClub)}</b>` : '');
   const teamSel = teams.length
     ? `<select id="imp-team" onchange="impZetTeam(this.value)">${teams.map(t => `<option value="${t.id}" ${impSt.teamId===t.id?'selected':''}>${esc(t.name)} (${t.players.length})</option>`).join('')}</select>`
     : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
@@ -116,15 +135,27 @@ function impLijstHtml() {
   return `
     <div class="card">
       <div style="font-size:14px;font-weight:700;margin-bottom:2px">${esc(impSt.bestand)}</div>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:12px">${rs.length} ${rs.length === 1 ? 'wedstrijd' : 'wedstrijden'} gevonden${impSt.overgeslagen ? ` · ${impSt.overgeslagen} andere agenda-items overgeslagen` : ''}${impSt.eigenClub && impSt.clubKeuzes.length <= 1 ? ` · eigen club: <b>${esc(impSt.eigenClub)}</b>` : ''}</div>
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:12px">${telTxt}</div>
       ${clubKaart}
-      <div class="fg"><label>Eigen ploeg</label>${teamSel}</div>
+      ${/* De ploegkeuze staat er bij de bondskalender niet: die is al gemaakt vóór het ophalen (de
+           koppeling hangt aan één ploeg), en hier van ploeg wisselen zou een kalender op de kern van
+           een ándere ploeg zetten zonder dat er ook maar één nummer bij past. */''}
+      ${isRbfa
+        ? `<div class="fg"><label>Eigen ploeg</label><div style="font-size:15px;font-weight:700;padding:6px 0">${esc((teamById(impSt.teamId) || {}).name || '')}</div>
+             <div style="font-size:12px;color:var(--txt2)">De kalender is opgehaald voor déze ploeg. Wil je een andere ploeg, ga dan terug en haal haar kalender op.</div></div>`
+        : `<div class="fg"><label>Eigen ploeg</label>${teamSel}</div>`}
       ${/* Speelt een club met een A- en een B-ploeg onder dezelfde ploegnaam, dan staat op dezelfde
            dag twee keer een wedstrijd. Het label houdt die twee kalenders uit elkaar, óók bij het
            herkennen van dubbels — vandaar dat het hier meteen hertekent. */''}
-      <div class="fg"><label>Ploeg-label (optioneel)</label>
+      ${isRbfa
+        ? (rs.some(r => r.rbfaLabel)
+            ? `<div class="fg"><label>Ploeg-label</label>
+                 <div style="font-size:14px;padding:4px 0">${[...new Set(rs.map(r => r.rbfaLabel || '(geen)'))].map(l => `<b>${esc(l)}</b>`).join(' · ')}</div>
+                 <div style="font-size:12px;color:var(--txt2)">Staat per wedstrijd vast: het komt van de bondsploeg waar ze uit komt. Aan te passen bij "Ploegen aanpassen".</div></div>`
+            : '')
+        : `<div class="fg"><label>Ploeg-label (optioneel)</label>
         <input type="text" value="${esc(impSt.subteam)}" oninput="impVeld('subteam',this.value)" onchange="impHermarkeer()" placeholder="bv. A of B" autocomplete="off">
-        ${impSt.subteamVoorstel ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Uit de reeksnaam in het bestand (<b>${esc(impSt.subteamVoorstel)}</b>). Lees je de kalender van je andere ploeg in, zet hier dan haar label.</div>` : ''}</div>
+        ${impSt.subteamVoorstel ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Uit de reeksnaam in het bestand (<b>${esc(impSt.subteamVoorstel)}</b>). Lees je de kalender van je andere ploeg in, zet hier dan haar label.</div>` : ''}</div>`}
       <div class="fg"><label>Format</label>
         <select onchange="impVeld('matchType',this.value)">${Object.keys(MATCH_TYPES).map(t => `<option value="${t}" ${impSt.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -134,9 +165,13 @@ function impLijstHtml() {
           <select id="imp-qd" onchange="impDuur()">${durOptsHtml(impSt.periodKey, impSt.quarterDuration)}</select>
           <input id="imp-qd-custom" type="number" min="1" max="99" placeholder="min." oninput="impDuur()" style="margin-top:6px;${isCustomDur?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${isCustomDur?impSt.quarterDuration:''}"></div>
       </div>
-      <div class="fg"><label>Soort</label>
+      ${isRbfa
+        ? `<div class="fg"><label>Soort</label>
+             <div style="font-size:14px;padding:4px 0">${[...new Set(rs.map(r => r.rbfaSoort || 'Competitie'))].map(s => `<b>${esc(s)}</b>`).join(' · ')}</div>
+             <div style="font-size:12px;color:var(--txt2)">Uit de reeks van de bond, per wedstrijd. Nadien nog aan te passen.</div></div>`
+        : `<div class="fg"><label>Soort</label>
         <select onchange="impVeld('competition',this.value)">${MATCH_KINDS.map(c => `<option ${impSt.competition===c?'selected':''}>${c}</option>`).join('')}</select>
-        <div style="font-size:12px;color:var(--txt2);margin-top:4px">Geldt voor alles wat je nu importeert; per wedstrijd nadien aan te passen.</div></div>
+        <div style="font-size:12px;color:var(--txt2);margin-top:4px">Geldt voor alles wat je nu importeert; per wedstrijd nadien aan te passen.</div></div>`}
       ${mapKaart}
     </div>
     ${rs.length ? `
@@ -147,9 +182,11 @@ function impLijstHtml() {
     <div id="imp-lijst">${rs.map(impRegelHtml).join('')}</div>
     <button class="btn btn-green" style="margin-top:14px" onclick="impVoerUit()" ${aan ? '' : 'disabled style="margin-top:14px;opacity:.5"'}>
       ${icI(IC.check)} ${aan ? `${aan} ${aan === 1 ? 'wedstrijd' : 'wedstrijden'} importeren` : 'Niets aangevinkt'}</button>
-    ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit en plaats. Selectie, opstelling en plan blijven staan.</div>` : ''}`
-    : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden herkend in dit bestand.${impSt.bron === 'tabel' ? '<br>Kijk hierboven na welke kolom de datum en de tegenstander bevat.' : ''}</p></div>`}
-    <button class="btn btn-gray" style="margin-top:10px" onclick="impAnderBestand()">Ander bestand kiezen</button>`;
+    ${/* Wat er bij een bestaande wedstrijd écht overschreven wordt. De bondskalender kent geen
+         terrein, dus die noemt "plaats" hier niet — en raakt het veld ook niet aan (impVoerUit). */''}
+    ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit${isRbfa ? ' en het wedstrijdnummer' : ' en plaats'}. Selectie, opstelling en plan blijven staan.</div>` : ''}`
+    : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden herkend in ${isRbfa ? 'deze kalender' : 'dit bestand'}.${impSt.bron === 'tabel' ? '<br>Kijk hierboven na welke kolom de datum en de tegenstander bevat.' : ''}</p></div>`}
+    <button class="btn btn-gray" style="margin-top:10px" onclick="impAnderBestand()">${isRbfa ? 'Andere bron kiezen' : 'Ander bestand kiezen'}</button>`;
 }
 
 function impRegelHtml(r, i) {
@@ -166,6 +203,10 @@ function impRegelHtml(r, i) {
         <span class="badge badge-plan" style="cursor:pointer" title="Wissel thuis/uit"
               onclick="event.stopPropagation();impWisselTU(${i})">${r.thuis ? icI(IC.home) + 'Thuis' : icI(IC.plane) + 'Uit'}</span>
         ${r.reeks ? `<span class="badge badge-type">${esc(r.reeks)}</span>` : ''}
+        ${/* Bij de bondskalender: dat deze wedstrijd al gespeeld is, en met welke uitslag. Enkel om
+             te ZIEN — de uitslag wordt niet geïmporteerd (zie rbfaUitslagTxt). Zo begrijp je waarom
+             er een wedstrijd van vorige maand in de lijst staat, en dat ze als GEPLAND binnenkomt. */''}
+        ${r.rbfaGespeeld ? `<span class="badge badge-type">Bij de bond gespeeld${r.rbfaUitslag ? ' · ' + esc(r.rbfaUitslag) : ''}</span>` : ''}
         ${r.bestaat ? `<span class="badge badge-cancel">${icI(IC.warn)}${r.andereNaam ? 'Staat er al als ' + esc(r.andereNaam) : 'Staat er al'}${r.bestaatStatus === 'done' ? ' · gespeeld' : (r.bestaatStatus === 'live' ? ' · loopt nu' : '')}</span>` : ''}
         ${r.dagWaarschuwing ? `<span class="badge badge-type">${icI(IC.warn)}Ook ${esc(r.dagWaarschuwing)} op deze dag</span>` : ''}
       </div>
@@ -279,7 +320,7 @@ async function impHerbouw() {
 async function impBestand(inp) {
   const f = inp && inp.files && inp.files[0];
   if (!f) return;
-  impSt.fout = ''; impSt.bestand = f.name;
+  impSt.fout = ''; impSt.rbfaFout = false; impSt.bestand = f.name;
   const naam = f.name.toLowerCase();
   try {
     if (naam.endsWith('.xlsx')) {
@@ -755,6 +796,11 @@ function impDubbelSleutel(teamId, subteam, datum, tegenstander) { return `${team
 // Past een bestaande wedstrijd bij het label waarmee je nu importeert? Een leeg label aan één van
 // beide kanten past op alles: wie zijn wedstrijden nooit labelde, mag ze niet plots dubbel krijgen.
 function impZelfdeSubteam(a, b) { return !impNorm(a) || !impNorm(b) || impNorm(a) === impNorm(b); }
+// Het ploeg-label waarmee déze regel bekeken moet worden. Bij een bestand geldt er één label voor de
+// hele import (het veld bovenaan de lijst); bij de bondskalender staat het per wedstrijd vast, want
+// het komt van de bondsploeg waar ze uit komt — en dat is precies wat één MD-ploeg met twee
+// bondsploegen bruikbaar maakt.
+function impRegelSubteam(r) { return (r && r.rbfaLabel) ? r.rbfaLabel : (impSt.subteam || ''); }
 // Gaan twee clubnamen over dezelfde ploeg? Ze moeten een echt woord delen: "SK Roeselare" en
 // "SPORTKRING ROESELARE" delen "roeselare", maar "RFC Wetteren" en "FOOTBALL CLUB GULLEGEM" delen
 // niets — dat zijn dus twee verschillende wedstrijden op dezelfde dag, geen dubbel.
@@ -783,6 +829,10 @@ async function impMarkeerDubbels() {
     if (m.tournamentId) return;                        // tornooiwedstrijden staan buiten de kalender
     bestaand.set(impDubbelSleutel(m.teamId || '', m.subteam || '', m.date || '', m.opponent || ''), m.id);
     if (m.importUid) bestaand.set('uid|' + m.importUid, m.id);
+    // HET WEDSTRIJDNUMMER VAN DE BOND is de sterkste sleutel die er is: hij overleeft een verplaatste
+    // datum, een andere schrijfwijze van de tegenstander en een gewijzigd ploeg-label. Vandaar dat
+    // hij hieronder als eerste bekeken wordt.
+    if (m.rbfaMatchId) bestaand.set('rbfa|' + m.rbfaMatchId, m.id);
     // Tweede net: een bondssite schrijft de tegenstander voluit ("SPORTKRING ROESELARE") waar jij hem
     // kort intikte ("SK Roeselare") — op naam alleen zou dat een dubbel worden. Álle wedstrijden van
     // die dag bijhouden, niet enkel de eerste: met een A- en een B-ploeg staan er twee, en dan moet
@@ -792,11 +842,14 @@ async function impMarkeerDubbels() {
     perDag.get(dk).push({ id: m.id, opponent: m.opponent || '', subteam: m.subteam || '' });
   });
   impSt.regels.forEach(r => {
-    const exact = (r.uid && bestaand.get('uid|' + r.uid)) || bestaand.get(impDubbelSleutel(impSt.teamId, impSt.subteam, r.datum, r.tegenstander)) || null;
+    const label = impRegelSubteam(r);
+    const exact = (r.rbfaMatchId && bestaand.get('rbfa|' + r.rbfaMatchId))
+      || (r.uid && bestaand.get('uid|' + r.uid))
+      || bestaand.get(impDubbelSleutel(impSt.teamId, label, r.datum, r.tegenstander)) || null;
     const dagAlles = exact ? [] : (perDag.get(`${impSt.teamId}|${r.datum}`) || []);
     // Voor het herkennen van een dubbel enkel wedstrijden van dezelfde (of van een niet-gelabelde)
     // ploeg: A mag de wedstrijd van B niet opeisen.
-    const dagLijst = dagAlles.filter(m => impZelfdeSubteam(m.subteam, impSt.subteam));
+    const dagLijst = dagAlles.filter(m => impZelfdeSubteam(m.subteam, label));
     const zelfdeClub = dagLijst.find(m => impZelfdeClub(m.opponent, r.tegenstander)) || null;
     r.bestaat = exact || (zelfdeClub ? zelfdeClub.id : null);
     // Dezelfde wedstrijd onder een andere schrijfwijze: de naam die er nu staat erbij, zodat je zelf
@@ -841,8 +894,19 @@ async function impVoerUit() {
   for (const r of kiezen) {
     const veld = {
       opponent: r.tegenstander, date: r.datum, time: r.tijd || '00:00',
-      location: r.thuis ? 'Thuis' : 'Uit', venue: r.venue || '',
+      location: r.thuis ? 'Thuis' : 'Uit',
     };
+    // HET TERREIN alleen aanraken als de bron het kent. De kalender van de bond bevat geen terrein
+    // (dat komt pas mee bij het ophalen per wedstrijd), dus zonder deze voorwaarde wiste een import
+    // bij élke wedstrijd het terrein dat je zelf ingaf of dat via "Wedstrijdinfo ophalen"
+    // binnenkwam — en dat bij elke keer opnieuw inlezen.
+    if (impSt.bron !== 'rbfa') veld.venue = r.venue || '';
+    // HET WEDSTRIJDNUMMER VAN DE BOND. Dit is de eigenlijke buit van de bondskalender: staat dat
+    // nummer op de wedstrijd, dan weet "Wedstrijdinfo ophalen" (import-vv.js) achteraf meteen welke
+    // wedstrijd het is en hoeft er nooit meer een link geplakt te worden. Het staat in `veld`, dus
+    // het gaat mee bij een nieuwe én bij een bijgewerkte wedstrijd, en het ongedaan-maken hieronder
+    // neemt het automatisch mee (dat loopt over de sleutels van `veld`).
+    if (r.rbfaMatchId) veld.rbfaMatchId = String(r.rbfaMatchId);
     if (r.bestaat) {
       // Enkel de velden uit het bestand aanpassen. De selectie, de opstelling, het plan, de events
       // en de notities van die wedstrijd blijven staan.
@@ -866,8 +930,12 @@ async function impVoerUit() {
       formation: '', players: [], absentPlayers: [], status: 'planned',
     }, veld, {
       teamName: team ? team.name : 'Ploeg', teamId: impSt.teamId || '',
-      subteam: impSt.subteam || '',
-      competition: impSt.competition, matchday: r.speeldag || '', referee: '', jersey: '',
+      // Het label per regel: bij een bestand is dat het ene veld bovenaan de lijst, bij de
+      // bondskalender het label van de bondsploeg waar deze wedstrijd uit komt.
+      subteam: impRegelSubteam(r) || '',
+      // Idem voor de soort: de bond zegt per wedstrijd of het competitie, beker of vriendschappelijk
+      // is; bij een bestand geldt de keuze voor de hele import.
+      competition: r.rbfaSoort || impSt.competition, matchday: r.speeldag || '', referee: '', jersey: '',
       trainer: teamTrainerNames(team)[0] || '', responsible: teamResponsibleNames(team)[0] || '',
       matchType: impSt.matchType, fieldSize: MATCH_TYPES[impSt.matchType].field,
       periodKey: impSt.periodKey, numQuarters: PERIOD_TYPES[impSt.periodKey].count,
@@ -942,4 +1010,894 @@ function impUndoBannerHtml() {
   return `<div class="nudge" style="margin-bottom:12px">${icI(IC.upload)} <b>Kalender ingelezen</b> — ${esc(wat)}.
     <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="impUndo()">Import ongedaan maken</button>
     <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="impUndoVergeten()">Sluiten</button></div>`;
+}
+
+// =============================================================================================
+// DE KALENDER RECHTSTREEKS BIJ DE VOETBALBOND
+// =============================================================================================
+// Dezelfde wizard als hierboven, maar zonder bestand: de app vraagt de kalender van je ploeg op bij
+// de bond. Twee redenen. Eén: geen download meer, geen bestand meer, en wat je krijgt is altijd de
+// actuele kalender. Twee, en eigenlijk de belangrijkste: er komt een WEDSTRIJDNUMMER mee. Dat is
+// precies wat "Wedstrijdinfo ophalen" (import-vv.js) nu met de hand geplakt moet krijgen — staat dat
+// nummer op de wedstrijd, dan hoeft dat nooit meer.
+//
+// DIT IS GEEN NIEUWE LEZER. De regels die hieronder gebouwd worden hebben exact dezelfde vorm als
+// die uit een .ics of een tabel, en gaan door dezelfde lijst, dezelfde dubbeldetectie en dezelfde
+// impVoerUit. Alles wat daar geldt — een bestaande wedstrijd staat standaard uit, een gespeelde
+// wedstrijd wordt niet stil overschreven, ongedaan maken blijft 24 uur geldig — geldt hier
+// ongewijzigd.
+//
+// HETZELFDE ENDPOINT als import-vv.js, en op dezelfde manier: wij sturen onze eigen querytekst mee.
+// De site van de bond stuurt zelf enkel een sha256-vingerafdruk van haar vraag (een Apollo
+// "persisted query"), maar het endpoint neemt een gewone vraag óók aan — gemeten 31-08-2026, zowel
+// voor de kalender als voor de ploegenlijst van een club. Dat scheelt een afhankelijkheid:
+// verandert de site háár vraag, dan verandert er voor ons niets.
+//
+// MOET JE OOIT TOCH ZO'N VINGERAFDRUK VINDEN — bijvoorbeeld voor een vraag die de site alleen
+// server-side stelt en die je dus nergens ziet passeren: haal `main.<hash>.js` van rbfa.be op. Daar
+// staan álle vraagteksten in klare taal in, met `query <Naam>` erboven. De hash is de sha256 van die
+// tekst nadat je (1) twee spaties indent weghaalt, (2) de spatie voor `(` na de operatienaam
+// weghaalt en (3) `__typename` als laatste veld in élke geneste selectie zet, niet in de buitenste —
+// dat laatste doet Apollo zelf vóór het hashen. Onderscheppen werkt ook, maar alleen binnen één
+// paginabezoek: `window.fetch` overschrijven en dán BÍNNEN de pagina doorklikken; een volledige
+// herlaadbeurt wist je onderschepper. Meer staat in analyse-rbfa-kalender.md.
+//
+// WAT ER NIET IN DE KALENDER ZIT: het terrein. Dat komt pas mee bij het ophalen per wedstrijd.
+// Daarom raakt deze bron het terreinveld niet aan — zie impVoerUit.
+
+const RBFA_ENDPOINT = 'https://datalake-prod2018.rbfa.be/graphql';
+
+// Enkel de velden die we echt gebruiken. De kalender geeft er meer (het clublogo, de scheidsrechter,
+// de strafschoppen van een reeks), maar elk veld dat we vragen is een veld dat kan verdwijnen.
+const RBFA_Q_KALENDER = `query GetTeamCalendar($teamId: ID!, $language: Language!, $sortByDate: SortDirection) {
+  teamCalendar(teamId: $teamId, language: $language, sortByDate: $sortByDate) {
+    id
+    startTime
+    showScore
+    homeTeam { id name }
+    awayTeam { id name }
+    outcome { status homeTeamGoals awayTeamGoals }
+    series { id name }
+  }
+}`;
+const RBFA_Q_CLUBPLOEGEN = `query getClubTeams($clubId: ID!, $language: Language!) {
+  clubTeams(clubId: $clubId, language: $language) { id name discipline }
+}`;
+const RBFA_Q_CLUB = `query getClub($clubId: ID!, $language: Language!) {
+  club(clubId: $clubId, language: $language) { id name registrationNumber }
+}`;
+
+// Eén verzoek. `wat` komt in de foutmelding terecht, zodat je uit de melding kan opmaken welke van
+// de drie vragen niet lukte.
+async function rbfaVraag(query, variables, wat) {
+  let r;
+  try {
+    r = await fetch(RBFA_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch (e) {
+    throw new Error('Geen verbinding met de voetbalbond. Kijk je internetverbinding na en probeer opnieuw.');
+  }
+  if (!r.ok) throw new Error(`De voetbalbond antwoordde niet zoals verwacht (${r.status}). Probeer het later opnieuw.`);
+  let j;
+  try { j = await r.json(); } catch (e) {
+    throw new Error('Het antwoord van de voetbalbond was onleesbaar. Probeer het later opnieuw.');
+  }
+  // Een GraphQL-fout betekent hier bijna altijd dat de bond haar gegevens ánders is gaan noemen.
+  // Daar helpt opnieuw proberen niet tegen, dus zeg dat er ook bij — en zet de melding van de bond
+  // erachter, want dat is het enige spoor dat een volgende lezer heeft om de vraag mee te herstellen.
+  if (j && j.errors && j.errors.length) {
+    const m = (j.errors[0] && j.errors[0].message) || '';
+    throw new Error(`De voetbalbond kon ${wat} niet geven. Mogelijk is haar site veranderd; dan werkt dit pas weer na een aanpassing van de app.${m ? ` (${m})` : ''}`);
+  }
+  return (j && j.data) || {};
+}
+
+// De clubnaam en het stamnummer, zodat de gebruiker zélf ziet of hij het juiste clubnummer heeft.
+// Bestaat de club niet, dan komt hier `null` terug — het énige geval waarin de bond een verkeerd
+// nummer verklapt. Bij een verkeerd PLOEGnummer krijg je gewoon een lege kalender, niet te
+// onderscheiden van een ploeg zonder wedstrijden. Vandaar dat de ploeg gekozen wordt uit de lijst
+// van de club en niet met de hand ingetikt.
+async function rbfaClubInfo(clubId) {
+  const d = await rbfaVraag(RBFA_Q_CLUB, { clubId: String(clubId), language: 'nl' }, 'de gegevens van die club');
+  return d.club || null;
+}
+async function rbfaClubPloegen(clubId) {
+  const d = await rbfaVraag(RBFA_Q_CLUBPLOEGEN, { clubId: String(clubId), language: 'nl' }, 'de ploegenlijst van die club');
+  return d.clubTeams || null;
+}
+async function rbfaKalender(teamId) {
+  const d = await rbfaVraag(RBFA_Q_KALENDER, { teamId: String(teamId), language: 'nl', sortByDate: 'asc' }, 'de kalender van die ploeg');
+  return d.teamCalendar || [];
+}
+
+// Het clubnummer uit wat je plakt: een volledig adres mag, een los getal ook. Zelfde gedachte als
+// vvNummerUit in import-vv.js. Plak je het adres van een PLOEGpagina
+// (rbfa.be/nl/club/1641/ploeg/380596/overzicht), dan is het clubnummer het eerste van de twee — en
+// dat is precies wat we hier willen.
+function rbfaClubNummerUit(txt) {
+  const s = String(txt || '').trim();
+  if (/^\d+$/.test(s)) return s;
+  const m = s.match(/\/(?:club|clubs)\/(\d+)/i);
+  if (m) return m[1];
+  const alle = s.match(/\d{2,}/g);
+  return alle ? alle[0] : '';
+}
+
+// De bond hangt haar eigen niveau- en ploegnummer achter de clubnaam: "RFC Wetteren A 3-2",
+// "VK Ninove 3", "Koninklijke Eendracht Aalst Lede 3-2". Die cijfers horen niet bij de club en staan
+// lelijk op het kaartje, in het verslag en in de PDF. Ze gaan eraf.
+// De LOSSE LETTER blijft wél staan ("RFC Wetteren A"): dat is het ploeglabel van de tegenstander, en
+// in een jeugdreeks is de A-ploeg een ándere tegenstander dan de B-ploeg.
+// Maximaal twee cijfers, zodat een jaartal in de clubnaam ("Sporting 1927") blijft staan.
+function rbfaNetteTegenstander(naam) {
+  let s = String(naam || '').trim();
+  s = s.replace(/\s+\d{1,2}\s*-\s*\d{1,2}$/, '');   // niveau, "3-2"
+  s = s.replace(/\s+\d{1,2}$/, '');                 // ploegnummer, "3"
+  // impNetteNaam maakt van "SPORTKRING ROESELARE" weer "Sportkring Roeselare"; een naam waar al een
+  // kleine letter in staat blijft ongemoeid. Dat is nodig, want de bond schrijft dezelfde club in
+  // een vriendschappelijke reeks in kapitalen en in de competitie niet.
+  return impNetteNaam(s.trim());
+}
+
+// De soort wedstrijd, in de drie woorden die de app kent (MATCH_KINDS in core.js).
+// LET OP — het voorvoegsel van de reeks-id zegt NIET of het een beker is: "Beker van Vlaanderen"
+// staat onder CHP_ (competitie), en alleen de Croky Cup onder CUP_. Gemeten 31-08-2026 bij het
+// eerste elftal. Vandaar dat de naam van de reeks hier meebeslist.
+function rbfaSoort(w) {
+  const id = String(((w.series || {}).id) || '');
+  const naam = String(((w.series || {}).name) || '');
+  if (/^FRN_/i.test(id)) return 'Vriendschappelijk';
+  if (/^CUP_/i.test(id) || /\bbeker\b/i.test(naam) || /\bcoupe\b/i.test(naam)) return 'Beker';
+  return 'Competitie';
+}
+
+// Enkel om te TONEN in de lijst, zodat je ziet dat het om een gespeelde wedstrijd gaat. De uitslag
+// wordt NOOIT geïmporteerd: een stand zonder gebeurtenissen levert een wedstrijd met een score en
+// geen verslag, en daar hangen de selectie- en speelminutenregels aan vast (v1.23.0). Een gespeelde
+// wedstrijd aanvullen doe je met "Wedstrijdinfo ophalen" — dat heeft na deze import het
+// wedstrijdnummer al klaarstaan.
+function rbfaUitslagTxt(w) {
+  const o = w.outcome || {};
+  if (o.status !== 'finished' || w.showScore === false) return '';
+  if (o.homeTeamGoals === null || o.homeTeamGoals === undefined) return '';
+  if (o.awayTeamGoals === null || o.awayTeamGoals === undefined) return '';
+  return `${o.homeTeamGoals}-${o.awayTeamGoals}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// DE KOPPELING, ZOALS ZE BIJ DE PLOEG BEWAARD STAAT
+// ---------------------------------------------------------------------------------------------
+// Twee OPTIONELE velden op de ploeg: `rbfaClubId` (één clubnummer, enkel om de lijst de volgende
+// keer meteen te kunnen tonen) en `rbfaTeams` (een LIJST van {id, label}).
+//
+// WAAROM EEN LIJST. Bij ons is U11IP één ploeg met ploeglabels (A = Groen, B = Zwart); bij de bond
+// zijn dat U11 A en U11 B, elk in een eigen poule met een eigen kalender. Eén MD-ploeg kan dus met
+// twee (of meer) bondsploegen overeenkomen, en die kalenders horen samen in één lijst te komen.
+// Het label per bondsploeg wordt het ploeglabel op de wedstrijd (m.subteam) — precies het veld
+// waarmee de app A en B al van elkaar houdt, ook in de dubbeldetectie. Geen nieuw veld nodig.
+//
+// Een ploeg van vóór deze versie heeft beide velden niet. Dan is er geen bondskalender op te halen
+// en verandert er niets: elk gebruik hieronder gaat door rbfaPloegen(), die dan een lege lijst geeft.
+// `naam` is de naam die de bond aan die ploeg geeft ("U17 A"). Enkel om te TONEN: een rij met
+// "381165" alleen zegt niemand iets, en zonder naam kan je niet nakijken of je de juiste ploeg
+// koppelde. Alles wat ophaalt gebruikt enkel `id`. Ontbreekt de naam, dan valt de weergave terug op
+// het nummer.
+function rbfaPloegen(team) {
+  const arr = team && team.rbfaTeams;
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map(p => ({
+      id: String((p && p.id) || '').trim(),
+      label: String((p && p.label) || '').trim(),
+      naam: String((p && p.naam) || '').trim(),
+    }))
+    .filter(p => p.id);
+}
+// Hoe één gekoppelde bondsploeg op het scherm komt.
+function rbfaPloegTxt(p) {
+  return `<b>${esc(p.naam || ('ploeg ' + p.id))}</b>`
+    + `<span style="color:var(--txt2)">${p.naam ? ` · ${esc(p.id)}` : ''}${p.label ? ` · label ${esc(p.label)}` : ''}</span>`;
+}
+function rbfaClubVan(team) { return String((team && team.rbfaClubId) || '').trim(); }
+
+// De kalenders van álle gekoppelde bondsploegen. Eén na één en niet tegelijk: het zijn er twee of
+// drie, en zo weet je bij een fout welke ploeg ze gaf.
+async function rbfaHaalKalenders(ploegen) {
+  const uit = [];
+  for (const p of ploegen) {
+    uit.push({ id: p.id, label: p.label, wedstrijden: await rbfaKalender(p.id) });
+  }
+  return uit;
+}
+
+// Van de kalender(s) van de bond naar exact dezelfde regels als impIcsNaarRegels aflevert.
+function rbfaNaarRegels(perPloeg) {
+  const onze = new Set(perPloeg.map(p => String(p.id)));
+  const regels = [];
+  const gezien = new Set();
+  let over = 0, samengevoegd = 0;
+  perPloeg.forEach(p => {
+    (p.wedstrijden || []).forEach(w => {
+      const nr = String((w && w.id) || '');
+      const st = String((w && w.startTime) || '');
+      const datum = st.slice(0, 10);
+      if (!nr || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) { over++; return; }
+      // ONTDUBBELEN OP HET WEDSTRIJDNUMMER. Spelen twee ploegen van je eigen club tegen elkaar, dan
+      // staat die wedstrijd in beide kalenders. Eén keer volstaat.
+      if (gezien.has(nr)) { samengevoegd++; return; }
+      const thuisId = String(((w.homeTeam || {}).id) || '');
+      const uitId = String(((w.awayTeam || {}).id) || '');
+      // THUIS OF UIT NIET OP NAAM BEPALEN. Binnen één kalender staat de eigen club onder
+      // verschillende schrijfwijzen — bij het eerste elftal van Sparta vier: "KFC Sparta Petegem A",
+      // "SPARTA PETEGEM DEINZE", "SPARTA PETEGEM DEINZE A" en "Sparta Petegem Deinze A". Het
+      // ploegnummer is exact, en we hebben het toch al. (De ICS-import moet wél op naam werken; daar
+      // is geen nummer.)
+      const thuis = onze.has(thuisId);
+      if (!thuis && !onze.has(uitId)) { over++; return; }
+      gezien.add(nr);
+      regels.push({
+        datum, tijd: st.slice(11, 16), thuis,
+        tegenstander: rbfaNetteTegenstander(((thuis ? w.awayTeam : w.homeTeam) || {}).name),
+        // Het terrein staat niet in de kalender van de bond. Leeg laten, en impVoerUit raakt het veld
+        // dan ook niet aan (zie daar) — anders wiste elke import het terrein dat je zelf ingaf of dat
+        // via "Wedstrijdinfo ophalen" binnenkwam.
+        venue: '',
+        reeks: String(((w.series || {}).name) || '').trim(),
+        speeldag: '', uid: '',
+        bestaat: null, aan: true,
+        // De eigenlijke buit.
+        rbfaMatchId: nr,
+        // Het label van de bondsploeg waar deze wedstrijd uit komt.
+        rbfaLabel: p.label || '',
+        rbfaSoort: rbfaSoort(w),
+        rbfaGespeeld: ((w.outcome || {}).status === 'finished'),
+        rbfaUitslag: rbfaUitslagTxt(w),
+      });
+    });
+  });
+  regels.sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd));
+  return { regels, overgeslagen: over, samengevoegd };
+}
+
+// ---------------------------------------------------------------------------------------------
+// DE BRONKAART IN DE IMPORTWIZARD
+// ---------------------------------------------------------------------------------------------
+function rbfaBronKaartHtml() {
+  const team = teamById(impSt.teamId);
+  if (!team) return '';   // zonder ploeg valt er niets te koppelen; het bestandspad zegt dat al
+  const ploegen = rbfaPloegen(team);
+  const fout = (impSt.fout && impSt.rbfaFout)
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(impSt.fout)}</div>`
+    : '';
+  if (!ploegen.length) {
+    return `<div class="sec">Van de voetbalbond</div>
+      <div class="card">
+        <p style="font-size:14px;color:var(--txt2);margin:0 0 12px">De kalender van je ploeg staat op <b>rbfa.be</b>. Zeg één keer welke ploeg van de bond bij <b>${esc(team.name)}</b> hoort, en de app haalt de kalender daarna zelf op — met het <b>wedstrijdnummer</b> van elke wedstrijd erbij, zodat "Wedstrijdinfo ophalen" achteraf meteen weet welke wedstrijd het is.</p>
+        <button class="btn btn-pale" style="margin:0" onclick="rbfaKoppelOpen('${esc(team.id)}')">${icI(IC.link)} Ploeg van de bond kiezen</button>
+      </div>`;
+  }
+  const lijst = ploegen.map(p => `<div style="padding:1px 0">${rbfaPloegTxt(p)}</div>`).join('');
+  return `<div class="sec">Van de voetbalbond</div>
+    <div class="card">
+      <p style="font-size:14px;color:var(--txt2);margin:0 0 6px"><b>${esc(team.name)}</b> is bij de bond ${ploegen.length === 1 ? 'deze ploeg' : `deze ${ploegen.length} ploegen`}:</p>
+      <div style="font-size:14px;margin:0 0 12px">${lijst}</div>
+      ${ploegen.length > 1 ? `<p style="font-size:13px;color:var(--txt2);margin:0 0 12px">Beide kalenders komen samen in één lijst.</p>` : ''}
+      ${fout}
+      <button class="btn btn-green" style="margin-top:2px" ${impSt.rbfaBezig ? 'disabled style="margin-top:2px;opacity:.5"' : 'onclick="impRbfaOphalen()"'}>${icI(IC.link)} ${impSt.rbfaBezig ? 'Bezig met ophalen…' : 'Kalender ophalen'}</button>
+      <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="rbfaKoppelOpen('${esc(team.id)}')">Ploegen aanpassen</button>
+    </div>`;
+}
+
+async function impRbfaOphalen() {
+  if (!impSt || impSt.rbfaBezig) return;
+  const team = teamById(impSt.teamId);
+  const ploegen = rbfaPloegen(team);
+  if (!ploegen.length) return;
+  impSt.rbfaBezig = true; impSt.fout = ''; impSt.rbfaFout = false; impRender();
+  try {
+    const per = await rbfaHaalKalenders(ploegen);
+    const uit = rbfaNaarRegels(per);
+    if (!uit.regels.length) {
+      throw new Error(`De bond geeft geen wedstrijden voor ${ploegen.length === 1 ? 'deze ploeg' : 'deze ploegen'}. Bij de jongste reeksen staat er soms nog geen kalender online; kijk anders bij "Ploegen aanpassen" na of het de juiste ploeg is.`);
+    }
+    impSt.bron = 'rbfa';
+    impSt.bestand = 'Kalender van de voetbalbond';
+    impSt.regels = uit.regels;
+    impSt.overgeslagen = uit.overgeslagen;
+    impSt.rbfaSamengevoegd = uit.samengevoegd;
+    // Het ploeglabel staat hier per wedstrijd vast — het komt van de bondsploeg waar ze uit komt.
+    // Dus niets te raden uit de reeksnaam (impSubteamUitReeks) en niets in te stellen voor de hele
+    // import; het veld valt weg uit de lijst (zie impLijstHtml).
+    impSt.subteamVoorstel = '';
+    await impMarkeerDubbels();
+    impSt.fase = 'lijst';
+  } catch (e) {
+    impSt.fout = (e && e.message) || 'Het ophalen is niet gelukt.';
+    impSt.rbfaFout = true;
+  }
+  impSt.rbfaBezig = false;
+  impRender();
+}
+
+// ---------------------------------------------------------------------------------------------
+// HET VENSTER "PLOEG VAN DE BOND KIEZEN"
+// ---------------------------------------------------------------------------------------------
+// Clubnummer intikken → de app haalt de clubnaam en de volledige ploegenlijst op → je vinkt aan
+// welke bondsploegen bij déze ploeg horen. Zo hoeft er geen ploegnummer overgetypt te worden, en
+// kan er dus ook geen verkeerd nummer ingetikt worden (een verkeerd ploegnummer geeft stil een lege
+// kalender, zie rbfaClubInfo).
+//
+// DIT VENSTER BEWAART ZELF. Het wordt vanuit twee schermen geopend (de ploeg bewerken én de
+// importwizard) en schrijft rechtstreeks in de ploegenlijst, zodat er maar één opslagweg is. Let op
+// het gevolg daarvan in ploegWegschrijven (teams-tournaments.js): dat formulier bouwt zijn eigen
+// object op en zou deze twee velden wissen als het ze niet uitdrukkelijk meeneemt.
+let rbfaSt = null;
+
+function rbfaKoppelOpen(teamId) {
+  const team = teamById(teamId);
+  if (!team) { showToast('Die ploeg vind ik niet meer.', 'err'); return; }
+  if (!canManage()) { showToast('Enkel een beheerder kan dit instellen.', 'err'); return; }
+  const gekozen = {};
+  rbfaPloegen(team).forEach(p => { gekozen[p.id] = p.label; });
+  rbfaSt = {
+    teamId, teamNaam: team.name || '',
+    clubIn: rbfaClubVan(team), club: null, ploegen: null,
+    gekozen, bezig: false, fout: '',
+  };
+  rbfaKoppelRender();
+  // Is het clubnummer al bekend, dan meteen de lijst ophalen: dan sta je bij "aanpassen" direct
+  // voor de vinkjes in plaats van voor een nummer dat je al ingaf.
+  if (rbfaSt.clubIn) rbfaKoppelZoek();
+}
+function rbfaKoppelRender() { if (rbfaSt) openModal(rbfaKoppelHtml()); }
+function rbfaKoppelSluit() { rbfaSt = null; closeModal(); }
+function rbfaKoppelVeld(v) { if (rbfaSt) rbfaSt.clubIn = v; }
+
+async function rbfaKoppelZoek() {
+  if (!rbfaSt || rbfaSt.bezig) return;
+  const veld = document.getElementById('rbfa-club');
+  if (veld) rbfaSt.clubIn = veld.value;
+  const nr = rbfaClubNummerUit(rbfaSt.clubIn);
+  if (!nr) { rbfaSt.fout = 'Hier vind ik geen clubnummer in. Tik het nummer in, of plak het volledige adres van je clubpagina.'; rbfaKoppelRender(); return; }
+  rbfaSt.fout = ''; rbfaSt.bezig = true; rbfaSt.club = null; rbfaSt.ploegen = null;
+  rbfaKoppelRender();
+  try {
+    const club = await rbfaClubInfo(nr);
+    if (!club) throw new Error(`Club ${nr} bestaat niet bij de bond. Kijk het nummer na in het adres van je clubpagina.`);
+    const ploegen = await rbfaClubPloegen(nr);
+    if (!ploegen || !ploegen.length) throw new Error(`Bij ${club.name || ('club ' + nr)} staat geen enkele ploeg. Kijk het clubnummer na.`);
+    rbfaSt.clubIn = nr;
+    rbfaSt.club = club;
+    rbfaSt.ploegen = ploegen;
+  } catch (e) {
+    rbfaSt.fout = (e && e.message) || 'Het ophalen is niet gelukt.';
+  }
+  rbfaSt.bezig = false;
+  rbfaKoppelRender();
+}
+
+// Een losse letter achteraan de bondsnaam ("U17 A") is precies het ploeglabel. Enkel een voorstel:
+// het veld staat zichtbaar in het venster en je kan het leegmaken.
+function rbfaLabelVoorstel(naam) {
+  const m = String(naam || '').trim().match(/(?:^|\s)([A-Za-z])$/);
+  return m ? m[1].toUpperCase() : '';
+}
+function rbfaKoppelVink(id) {
+  if (!rbfaSt) return;
+  id = String(id);
+  if (rbfaSt.gekozen[id] !== undefined) { delete rbfaSt.gekozen[id]; }
+  else {
+    const p = (rbfaSt.ploegen || []).find(x => String(x.id) === id);
+    rbfaSt.gekozen[id] = rbfaLabelVoorstel(p && p.name);
+  }
+  rbfaKoppelRender();
+}
+// Geen hertekening bij het typen: dat zou de cursor uit het veld halen.
+function rbfaKoppelLabel(id, v) { if (rbfaSt && rbfaSt.gekozen[String(id)] !== undefined) rbfaSt.gekozen[String(id)] = v; }
+
+function rbfaKoppelHtml() {
+  const s = rbfaSt;
+  const aantal = Object.keys(s.gekozen).length;
+  const fout = s.fout
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(s.fout)}</div>`
+    : '';
+  const clubBlok = s.club
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bg2,#f4f6f8);font-size:14px">
+         <b>${esc(s.club.name || '')}</b>${s.club.registrationNumber ? `<span style="color:var(--txt2)"> · stamnummer ${esc(s.club.registrationNumber)}</span>` : ''}
+         <div style="font-size:12px;color:var(--txt2);margin-top:2px">${(s.ploegen || []).length} ploegen bij de bond</div>
+       </div>`
+    : '';
+  // De lijst: elke bondsploeg met een vinkje, en bij de aangevinkte een labelveld. Het labelveld
+  // verschijnt enkel bij wie aangevinkt is — bij één ploeg hoef je meestal niets in te vullen.
+  const lijst = (s.ploegen || []).map(p => {
+    const id = String(p.id);
+    const aan = s.gekozen[id] !== undefined;
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" ${aan ? 'checked' : ''} onchange="rbfaKoppelVink('${esc(id)}')" style="width:20px;height:20px;flex-shrink:0;accent-color:var(--grn)">
+        <span style="flex:1;min-width:0;font-size:15px;font-weight:${aan ? '700' : '500'}">${esc(p.name || ('ploeg ' + id))}</span>
+        <span style="font-size:12px;color:var(--txt2);flex:none">${esc(id)}</span>
+      </label>
+      ${aan ? `<div style="margin:6px 0 2px 30px">
+        <input type="text" value="${esc(s.gekozen[id] || '')}" oninput="rbfaKoppelLabel('${esc(id)}',this.value)"
+               placeholder="ploeg-label, bv. A" autocomplete="off"
+               style="width:100%;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)"></div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<h3 style="margin:0 0 4px">Ploeg van de bond</h3>
+    <p style="font-size:13px;color:var(--txt2);margin:0 0 14px">Voor <b>${esc(s.teamNaam)}</b>. Hiermee haalt de app de kalender op, met het wedstrijdnummer van elke wedstrijd erbij.</p>
+    <div class="fg"><label>Clubnummer</label>
+      <input id="rbfa-club" type="text" inputmode="numeric" value="${esc(s.clubIn || '')}" oninput="rbfaKoppelVeld(this.value)"
+             placeholder="bv. 1641" autocomplete="off" spellcheck="false">
+      <div style="font-size:12px;color:var(--txt2);margin-top:4px">Zoek je club op <b>rbfa.be</b>. In het adres van je clubpagina staat het nummer: rbfa.be/nl/club/<b>1641</b>/ploegen. Het volledige adres plakken mag ook.</div></div>
+    <button class="btn btn-pale" style="margin:0" ${s.bezig ? 'disabled style="margin:0;opacity:.5"' : 'onclick="rbfaKoppelZoek()"'}>${icI(IC.search)} ${s.bezig ? 'Bezig…' : 'Ploegen ophalen'}</button>
+    ${fout}
+    ${clubBlok}
+    ${s.ploegen ? `
+      <div class="sec" style="margin-top:16px">Welke ploegen horen bij ${esc(s.teamNaam)}?</div>
+      <p style="font-size:13px;color:var(--txt2);margin:0 0 6px">Meestal één. Speelt je ploeg bij de bond in twee poules — bij ons één ploeg, daar een A en een B — vink ze dan allebei aan; beide kalenders komen samen in één lijst. Geef ze dan elk het label waarmee je ze in de app van elkaar houdt.</p>
+      <div style="max-height:46vh;overflow-y:auto;margin-bottom:12px">${lijst}</div>` : ''}
+    <button class="btn btn-green" style="margin-top:4px" ${s.ploegen ? 'onclick="rbfaKoppelBewaar()"' : 'disabled style="margin-top:4px;opacity:.5"'}>${icI(IC.check)} ${aantal ? `${aantal} ${aantal === 1 ? 'ploeg' : 'ploegen'} koppelen` : 'Koppeling wissen'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="rbfaKoppelSluit()">Annuleren</button>`;
+}
+
+function rbfaKoppelBewaar() {
+  if (!rbfaSt || !rbfaSt.ploegen) return;
+  const s = rbfaSt;
+  const arr = getTeamsV2();
+  const idx = arr.findIndex(t => t.id === s.teamId);
+  if (idx < 0) { showToast('Die ploeg vind ik niet meer.', 'err'); rbfaKoppelSluit(); return; }
+  // De lijst in de volgorde waarin de bond haar ploegen geeft, niet in de volgorde van aanvinken:
+  // dat leest hetzelfde als het venster.
+  const ploegen = (s.ploegen || [])
+    .filter(p => s.gekozen[String(p.id)] !== undefined)
+    .map(p => {
+      const label = String(s.gekozen[String(p.id)] || '').trim();
+      const naam = String(p.name || '').trim();
+      return Object.assign({ id: String(p.id) }, label ? { label } : {}, naam ? { naam } : {});
+    });
+  const t = arr[idx];
+  // Leeg? Dan de velden wéghalen in plaats van een lege lijst bewaren: een ploeg zonder koppeling
+  // hoort er ook geen te dragen.
+  if (ploegen.length) { t.rbfaTeams = ploegen; t.rbfaClubId = String(s.clubIn || ''); }
+  else { delete t.rbfaTeams; delete t.rbfaClubId; }
+  saveTeamsV2(arr);
+  // Sta je op het scherm "Ploeg bewerken", dan draagt editingTeam een eigen kopie van de ploeg. Die
+  // moet mee, anders toont het scherm de oude koppeling — en, erger, zou een gewone "Ploeg opslaan"
+  // met die oude kopie kunnen vertrekken.
+  if (typeof editingTeam !== 'undefined' && editingTeam && editingTeam.id === s.teamId) {
+    if (ploegen.length) { editingTeam.rbfaTeams = ploegen; editingTeam.rbfaClubId = String(s.clubIn || ''); }
+    else { delete editingTeam.rbfaTeams; delete editingTeam.rbfaClubId; }
+  }
+  rbfaSt = null;
+  closeModal();
+  showToast(ploegen.length
+    ? `${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'} van de bond gekoppeld.`
+    : 'Koppeling met de bond gewist.', 'ok');
+  render();
+}
+
+// De sectie op het ploegscherm. Wordt tijdens het tekenen aangeroepen, dus na het laden van alle
+// bestanden — teams-tournaments.js laadt vóór dit bestand, en dat mag zolang de aanroep op het moment
+// van gebruik gebeurt en niet in een tabel die bij het laden opgebouwd wordt (zie CLAUDE.md).
+//
+// STAAT OP BEIDE GEDAANTEN VAN DAT SCHERM. Het ploegscherm heeft een leesweergave
+// (renderTeamOverview) en een bewerkweergave (renderTeamEdit), en je komt standaard op de eerste
+// terecht — daar hoort dit dus óók te staan, anders bestaat de functie voor wie het potlood niet
+// aantikt gewoon niet. Het venster bewaart zelf, dus het werkt vanuit beide even goed.
+function rbfaTeamSectieHtml(team) {
+  if (!team || team.isNew || !canManage()) return '';
+  const ploegen = rbfaPloegen(team);
+  const knop = `<button class="btn btn-pale btn-sm" style="margin:${ploegen.length ? '10' : '0'}px 0 0" onclick="rbfaKoppelOpen('${esc(team.id)}')">${icI(IC.link)} ${ploegen.length ? 'Aanpassen' : 'Ploeg van de bond kiezen'}</button>`;
+  const body = ploegen.length
+    ? `<div style="font-size:14px">${ploegen.map(p => `<div style="padding:2px 0">${rbfaPloegTxt(p)}</div>`).join('')}</div>
+       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Bij <b>Kalender importeren</b> haalt de app hiermee de kalender op, met het wedstrijdnummer van elke wedstrijd erbij.</p>`
+    : `<p style="font-size:14px;color:var(--txt2);margin:0 0 12px">Koppel deze ploeg aan haar ploeg bij de voetbalbond, en de app haalt de kalender op zonder dat je nog een bestand moet downloaden. Het wedstrijdnummer komt mee, zodat "Wedstrijdinfo ophalen" achteraf meteen weet welke wedstrijd het is.</p>`;
+  return `<div class="sec">Kalender van de voetbalbond</div>
+    <div class="card">${body}${knop}</div>`;
+}
+
+// =============================================================================================
+// DE PLOEGEN VAN DE CLUB NAAST DE PLOEGENLIJST VAN DE BOND
+// =============================================================================================
+// Laag 2, vanuit Clubbeheer. Het venster hierboven koppelt ÉÉN ploeg; dit legt de volledige
+// ploegenlijst van de club naast die van de bond, en laat per bondsploeg kiezen: bij welke ploeg in
+// de app ze hoort, of dat ze hier nog niet bestaat en aangemaakt moet worden. Dat laatste was Tims
+// vraag: aan het begin van een seizoen staan er dertig ploegen bij de bond en nul in de app.
+//
+// WAT DIT SCHRIJFT, EN MET WELK RECHT. Twee dingen, en beide mocht een clubbeheerder al:
+//   1. De koppeling op de kern van een ploeg van zijn club. De regel op `teams/$teamId` geeft hem
+//      schrijfrecht op een BESTAANDE ploeg van zijn club zolang `info/clubId` ongewijzigd blijft
+//      (fase 2d); `roster` heeft enkel een eigen `.read`, dus het schrijfrecht erft van de ouder.
+//      Wij werken gericht bij op `teams/<ploeg>/roster/<kern>/rbfaTeams`. De ploeg-id's komen
+//      uitsluitend uit `clubs/<club>/teams`, en de regels rekenen de clubbeheerdersclaim nóg eens na
+//      op de ploeg zelf — er gaat dus niets over een clubgrens, ook niet bij een fout van ons.
+//   2. Een ploeg aanmaken, via dezelfde createTeam als "Nieuwe ploeg in deze club".
+// Er is GEEN regelwijziging voor nodig en er komt geen nieuw recht bij.
+//
+// EEN VALKUIL DIE APART AFGEHANDELD WORDT. `saveTeamsV2` schrijft de HELE kernlijst van de ACTIEVE
+// ploeg weg (cloudOnLocalTeamsSave doet één `teamRef('roster').set(arr)`). Koppel je de actieve ploeg
+// hier met een gerichte write, dan kan een latere gewone opslag dat overschrijven met de verouderde
+// kopie die in het geheugen zat. Voor de actieve ploeg gaan we daarom langs de lokale weg
+// (getTeamsV2 + saveTeamsV2), voor elke andere ploeg gericht. Zie rbfaKoppelingWegschrijven.
+
+// De wedstrijdvorm en het aantal blokken die een NIEUWE ploeg meekrijgt, geraden uit de naam die de
+// bond haar geeft. Enkel een startwaarde — ze staat op het ploegscherm en per wedstrijd aanpasbaar —
+// maar een 11v11-ploeg met vier kwarten is zo verkeerd dat 'geen gok' hier de slechtere keuze is.
+// De gok staat zichtbaar in de rij vóór je op Toepassen tikt.
+// Belgische jeugdreeksen: U6-U7 3v3, U8-U9 5v5, U10-U13 8v8, vanaf U14 (en bij de kernploegen) 11v11.
+function rbfaVormGok(naam) {
+  const m = String(naam || '').match(/\bU\s?(\d{1,2})\b/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (n <= 7) return { matchType: '3v3', periodKey: 'kwarten' };
+    if (n <= 9) return { matchType: '5v5', periodKey: 'kwarten' };
+    if (n <= 13) return { matchType: '8v8', periodKey: 'kwarten' };
+    return { matchType: '11v11', periodKey: 'helften' };
+  }
+  // "Eerste Elftal", "Reserven", "G-voetbal" en al de rest: geen leeftijd om op te gaan. De
+  // kernploegen spelen 11v11; voor de rest is 8v8 de standaard van de app zelf.
+  if (/eerste\s*elftal|reserven|beloften|dames|vrouwen/i.test(naam)) return { matchType: '11v11', periodKey: 'helften' };
+  return { matchType: '8v8', periodKey: 'kwarten' };
+}
+
+// Alle KERNEN van alle (niet-gearchiveerde) ploegen van de club, met hun huidige koppeling.
+// Een kern, niet een ploeg: `m.teamId` op een wedstrijd is een kern-id, en de koppeling hoort dus bij
+// de kern. Meestal heeft een cloudploeg er precies één (createTeam maakt er één aan), maar wie op het
+// lokale Ploegen-scherm een tweede aanmaakte heeft er twee — dan komen die hier als twee rijen.
+async function rbfaKernenVanClub(clubId) {
+  const lees = async (pad, leeg) => {
+    try { const v = (await fbOnce(fbdb.ref(pad))).val(); return (v === null || v === undefined) ? leeg : v; }
+    catch (e) { return leeg; }
+  };
+  const teams = await lees('clubs/' + clubId + '/teams', {});
+  const ids = Object.keys(teams || {});
+  const uit = [];
+  await Promise.all(ids.map(async tid => {
+    const [naam, gearchiveerd, roster] = await Promise.all([
+      lees('teams/' + tid + '/info/name', ''),
+      lees('teams/' + tid + '/info/archived', false),
+      lees('teams/' + tid + '/roster', null),
+    ]);
+    if (!naam || gearchiveerd) return;   // een gearchiveerde ploeg biedt zich hier niet aan
+    // De kern staat als lijst óf als object, afhankelijk van wie ze het laatst wegschreef
+    // (createTeam schrijft een object met één push-key, saveTeamsV2 een array). Overal in de app
+    // wordt dat zo genormaliseerd; de SLEUTEL houden we erbij, want daarop schrijven we straks
+    // gericht terug.
+    const paren = roster
+      ? (Array.isArray(roster)
+          ? roster.map((k, i) => [String(i), k])
+          : Object.keys(roster).map(k => [k, roster[k]]))
+      : [];
+    paren.forEach(([sleutel, kern]) => {
+      if (!kern || !kern.id) return;
+      uit.push({
+        teamId: tid, ploegNaam: naam, sleutel,
+        kernId: String(kern.id), kernNaam: String(kern.name || naam),
+        meerdereKernen: paren.length > 1,
+        rbfaClubId: String(kern.rbfaClubId || ''),
+        rbfaTeams: rbfaPloegen(kern),
+      });
+    });
+  }));
+  uit.sort((a, b) => (a.kernNaam || '').localeCompare(b.kernNaam || '', 'nl'));
+  return uit;
+}
+
+// De koppeling op één kern wegschrijven. `ploegen` is de volledige, gewenste lijst — een lege lijst
+// haalt de koppeling weg.
+async function rbfaKoppelingWegschrijven(kern, clubNr, ploegen) {
+  const heeft = ploegen && ploegen.length;
+  // DE ACTIEVE PLOEG langs de gewone lokale weg: dan klopt de lijst in het geheugen meteen én kan een
+  // volgende "Ploeg opslaan" de koppeling niet overschrijven met een verouderde kopie. Precies
+  // dezelfde weg als het venster van laag 2's kleine broer (rbfaKoppelBewaar).
+  if (cloudReady && activeTeamId && kern.teamId === activeTeamId) {
+    const arr = getTeamsV2();
+    const idx = arr.findIndex(t => t && t.id === kern.kernId);
+    if (idx >= 0) {
+      if (heeft) { arr[idx].rbfaTeams = ploegen; arr[idx].rbfaClubId = String(clubNr || ''); }
+      else { delete arr[idx].rbfaTeams; delete arr[idx].rbfaClubId; }
+      saveTeamsV2(arr);
+      return;
+    }
+    // Staat de kern (nog) niet in de lokale lijst — bv. een ploeg die net aangemaakt is en waarvan de
+    // luisteraar nog niets binnenbracht — dan valt hij door naar de gerichte write hieronder.
+  }
+  // EEN ANDERE PLOEG VAN DE CLUB: gericht bijwerken, enkel deze twee velden. Nooit de hele kern
+  // wegschrijven: daar zitten de spelers in, en die hebben we hier niet vers in handen.
+  const pad = 'teams/' + kern.teamId + '/roster/' + kern.sleutel;
+  await fbdb.ref(pad).update({
+    rbfaTeams: heeft ? ploegen : null,
+    rbfaClubId: heeft ? String(clubNr || '') : null,
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// HET VENSTER
+// ---------------------------------------------------------------------------------------------
+let rbfaCkSt = null;
+
+async function rbfaClubKoppelOpen(clubId) {
+  if (!fbdb || !currentUser) { showToast('Hiervoor is verbinding nodig.', 'err'); return; }
+  if (!(myClubs && myClubs[clubId]) && !isOwner) { showToast('Enkel een clubbeheerder kan dit.', 'err'); return; }
+  rbfaCkSt = {
+    clubId, clubNaam: '', clubIn: '', club: null, bondPloegen: null,
+    kernen: null, keuze: {}, bezig: true, fout: '', bezigTxt: 'Ploegen van de club ophalen…',
+  };
+  rbfaCkRender();
+  try {
+    const [naam, kernen] = await Promise.all([
+      (async () => { try { return (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val() || ''; } catch (e) { return ''; } })(),
+      rbfaKernenVanClub(clubId),
+    ]);
+    rbfaCkSt.clubNaam = naam || 'deze club';
+    rbfaCkSt.kernen = kernen;
+    // Het clubnummer van de bond staat nergens op de CLUB bewaard — op `clubs/<id>` mag enkel de
+    // maker van de app schrijven (het logo uitgezonderd), dus een clubbeheerder kan daar niets
+    // kwijt. Het staat wél op elke kern die al gekoppeld is; daar halen we het vandaan. Zo hoeft
+    // niemand het een tweede keer op te zoeken.
+    const gekend = kernen.map(k => k.rbfaClubId).filter(Boolean);
+    rbfaCkSt.clubIn = gekend[0] || '';
+    // Wat er al gekoppeld is, is de beginstand van de keuzes.
+    kernen.forEach(k => k.rbfaTeams.forEach(p => {
+      rbfaCkSt.keuze[p.id] = { naar: k.kernId, label: p.label || '', naam: '' };
+    }));
+  } catch (e) {
+    rbfaCkSt.fout = 'De ploegen van de club ophalen is niet gelukt. Probeer het opnieuw.';
+  }
+  rbfaCkSt.bezig = false; rbfaCkSt.bezigTxt = '';
+  rbfaCkRender();
+  if (rbfaCkSt.clubIn && !rbfaCkSt.fout) rbfaCkZoek();
+}
+function rbfaCkRender() { if (rbfaCkSt) openModal(rbfaCkHtml()); }
+function rbfaCkSluit() { rbfaCkSt = null; closeModal(); }
+function rbfaCkVeld(v) { if (rbfaCkSt) rbfaCkSt.clubIn = v; }
+
+async function rbfaCkZoek() {
+  if (!rbfaCkSt || rbfaCkSt.bezig) return;
+  const veld = document.getElementById('rbfa-ck-club');
+  if (veld) rbfaCkSt.clubIn = veld.value;
+  const nr = rbfaClubNummerUit(rbfaCkSt.clubIn);
+  if (!nr) { rbfaCkSt.fout = 'Hier vind ik geen clubnummer in. Tik het nummer in, of plak het volledige adres van je clubpagina.'; rbfaCkRender(); return; }
+  rbfaCkSt.fout = ''; rbfaCkSt.bezig = true; rbfaCkSt.bezigTxt = 'Ploegen bij de bond ophalen…';
+  rbfaCkSt.club = null; rbfaCkSt.bondPloegen = null;
+  rbfaCkRender();
+  try {
+    const club = await rbfaClubInfo(nr);
+    if (!club) throw new Error(`Club ${nr} bestaat niet bij de bond. Kijk het nummer na in het adres van je clubpagina.`);
+    const ploegen = await rbfaClubPloegen(nr);
+    if (!ploegen || !ploegen.length) throw new Error(`Bij ${club.name || ('club ' + nr)} staat geen enkele ploeg. Kijk het clubnummer na.`);
+    rbfaCkSt.clubIn = nr; rbfaCkSt.club = club; rbfaCkSt.bondPloegen = ploegen;
+  } catch (e) {
+    rbfaCkSt.fout = (e && e.message) || 'Het ophalen is niet gelukt.';
+  }
+  rbfaCkSt.bezig = false; rbfaCkSt.bezigTxt = '';
+  rbfaCkRender();
+}
+
+// De keuzelijst per bondsploeg: niets doen, een bestaande kern, of aanmaken.
+function rbfaCkKies(bondId, waarde) {
+  if (!rbfaCkSt) return;
+  bondId = String(bondId);
+  if (!waarde) { delete rbfaCkSt.keuze[bondId]; rbfaCkRender(); return; }
+  const bond = (rbfaCkSt.bondPloegen || []).find(p => String(p.id) === bondId) || {};
+  const vorig = rbfaCkSt.keuze[bondId] || {};
+  rbfaCkSt.keuze[bondId] = {
+    naar: waarde,
+    label: vorig.label !== undefined && vorig.label !== '' ? vorig.label : rbfaLabelVoorstel(bond.name),
+    // Bij "aanmaken" is de naam van de bondsploeg het voorstel — je kan ze nog wijzigen.
+    naam: waarde === '#nieuw' ? (vorig.naam || String(bond.name || '')) : '',
+  };
+  rbfaCkRender();
+}
+// Geen hertekening bij het typen: dat zou de cursor uit het veld halen.
+function rbfaCkLabel(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.label = v; }
+function rbfaCkNaam(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.naam = v; }
+
+// Hoeveel bondsploegen wijzen naar dezelfde kern? Twee is het geval van Tim (U11 A en U11 B bij de
+// bond, één U11IP bij ons); meer dan twee mag ook, maar dan hoort er een label bij elk.
+function rbfaCkPerKern() {
+  const per = {};
+  Object.keys(rbfaCkSt.keuze).forEach(bondId => {
+    const k = rbfaCkSt.keuze[bondId];
+    if (!k || !k.naar) return;
+    if (!per[k.naar]) per[k.naar] = [];
+    per[k.naar].push(bondId);
+  });
+  return per;
+}
+
+function rbfaCkHtml() {
+  const s = rbfaCkSt;
+  const fout = s.fout
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(220,60,60,.12);color:var(--rd);font-size:14px;font-weight:600">${icI(IC.warn)}${esc(s.fout)}</div>`
+    : '';
+  if (s.bezig) {
+    return `<h3 style="margin:0 0 4px">Ploegen van de voetbalbond</h3>
+      <p style="font-size:14px;color:var(--txt2);margin:14px 0">${esc(s.bezigTxt || 'Bezig…')}</p>`;
+  }
+  const kernen = s.kernen || [];
+  const perKern = s.bondPloegen ? rbfaCkPerKern() : {};
+  const teKoppelen = Object.keys(s.keuze).filter(b => s.keuze[b].naar && s.keuze[b].naar !== '#nieuw').length;
+  const teMaken = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw').length;
+
+  const clubBlok = s.club
+    ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bg2,#f4f6f8);font-size:14px">
+         <b>${esc(s.club.name || '')}</b>${s.club.registrationNumber ? `<span style="color:var(--txt2)"> · stamnummer ${esc(s.club.registrationNumber)}</span>` : ''}
+         <div style="font-size:12px;color:var(--txt2);margin-top:2px">${(s.bondPloegen || []).length} ploegen bij de bond · ${kernen.length} ${kernen.length === 1 ? 'ploeg' : 'ploegen'} in de app</div>
+       </div>`
+    : '';
+
+  // Welke bondsploeg is de EERSTE van haar groep, gelezen in de volgorde van het scherm? Daar komt de
+  // uitleg over het label te staan, één keer per groep. Niet via perKern[..][0]: dat is een lijst van
+  // nummerachtige sleutels uit Object.keys, en die geeft JavaScript in numerieke volgorde terug — de
+  // uitleg landde daardoor onder een willekeurige rij van de groep in plaats van onder de eerste.
+  const eersteVanGroep = {};
+  (s.bondPloegen || []).forEach(p => {
+    const k = s.keuze[String(p.id)];
+    if (!k || !k.naar) return;
+    if (eersteVanGroep[k.naar] === undefined) eersteVanGroep[k.naar] = String(p.id);
+  });
+
+  // Eén rij per bondsploeg.
+  const rijen = (s.bondPloegen || []).map(p => {
+    const id = String(p.id);
+    const k = s.keuze[id] || null;
+    const naar = k ? k.naar : '';
+    const nieuw = naar === '#nieuw';
+    // Het labelveld hoort er zodra er MEER DAN ÉÉN bondsploeg bij dezelfde ploeg hoort — dan moet je
+    // ze van elkaar kunnen houden. Maar ook wanneer er al een label staat, ook bij één bondsploeg:
+    // anders verdwijnt het veld zodra je de tweede losmaakt, en kan je dat label nergens meer wissen.
+    const samen = (naar && !nieuw && ((perKern[naar] || []).length > 1 || !!String(k.label || '').trim()));
+    const gok = nieuw ? rbfaVormGok(k.naam || p.name) : null;
+    const opties = `<option value="" ${!naar ? 'selected' : ''}>— niets doen —</option>`
+      + kernen.map(kn => `<option value="${esc(kn.kernId)}" ${naar === kn.kernId ? 'selected' : ''}>${esc(kn.kernNaam)}${kn.meerdereKernen ? ` (in ${esc(kn.ploegNaam)})` : ''}</option>`).join('')
+      + `<option value="#nieuw" ${nieuw ? 'selected' : ''}>+ Ploeg aanmaken in de app</option>`;
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="flex:1;min-width:0;font-size:15px;font-weight:${naar ? '700' : '500'}">${esc(p.name || ('ploeg ' + id))}</span>
+        <span style="font-size:12px;color:var(--txt2);flex:none">${esc(id)}</span>
+      </div>
+      <select onchange="rbfaCkKies('${esc(id)}',this.value)" style="margin-top:6px;width:100%">${opties}</select>
+      ${nieuw ? `<input type="text" value="${esc(k.naam || '')}" oninput="rbfaCkNaam('${esc(id)}',this.value)"
+             placeholder="naam van de nieuwe ploeg" autocomplete="off"
+             style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
+        <div style="font-size:12px;color:var(--txt2);margin-top:4px">Wordt aangemaakt als <b>${esc(gok.matchType.replace('v', ' tegen '))}</b> · <b>${PERIOD_TYPES[gok.periodKey].count} ${esc(PERIOD_TYPES[gok.periodKey].plural)}</b>, geraden uit de naam. Aan te passen bij "Ploeg bewerken".</div>` : ''}
+      ${(naar && samen) ? `<input type="text" value="${esc(k.label || '')}" oninput="rbfaCkLabel('${esc(id)}',this.value)"
+             placeholder="ploeg-label, bv. A" autocomplete="off"
+             style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
+        ${/* De uitleg enkel bij de EERSTE van een groep. Ze stond onder elke rij van dezelfde ploeg,
+             en dan lees je twee keer hetzelfde vlak onder elkaar. */''}
+        ${(eersteVanGroep[naar] === id && (perKern[naar] || []).length > 1) ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Meer dan één bondsploeg hoort bij <b>${esc((kernen.find(x => x.kernId === naar) || {}).kernNaam || 'deze ploeg')}</b>, dus hier hoort een label bij om ze in de app van elkaar te houden.</div>` : ''}` : ''}
+    </div>`;
+  }).join('');
+
+  const knopTxt = (teKoppelen || teMaken)
+    ? [teKoppelen ? `${teKoppelen} koppelen` : '', teMaken ? `${teMaken} aanmaken` : ''].filter(Boolean).join(' · ')
+    : 'Alle koppelingen wissen';
+
+  return `<h3 style="margin:0 0 4px">Ploegen van de voetbalbond</h3>
+    <p style="font-size:13px;color:var(--txt2);margin:0 0 14px">Voor <b>${esc(s.clubNaam)}</b>. Zeg per ploeg van de bond bij welke ploeg in de app ze hoort — of laat ze hier meteen aanmaken als ze nog niet bestaat.</p>
+    <div class="fg"><label>Clubnummer bij de bond</label>
+      <input id="rbfa-ck-club" type="text" inputmode="numeric" value="${esc(s.clubIn || '')}" oninput="rbfaCkVeld(this.value)"
+             placeholder="bv. 1641" autocomplete="off" spellcheck="false">
+      <div style="font-size:12px;color:var(--txt2);margin-top:4px">Zoek je club op <b>rbfa.be</b>. In het adres van je clubpagina staat het nummer: rbfa.be/nl/club/<b>1641</b>/ploegen.</div></div>
+    <button class="btn btn-pale" style="margin:0" onclick="rbfaCkZoek()">${icI(IC.search)} Ploegen ophalen</button>
+    ${fout}
+    ${clubBlok}
+    ${s.bondPloegen ? `
+      ${kernen.length ? '' : `<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(230,150,30,.14);font-size:13px">${icI(IC.warn)} Er staat nog geen enkele ploeg in de app voor deze club. Kies bij de ploegen die je nodig hebt <b>"+ Ploeg aanmaken in de app"</b>.</div>`}
+      <div class="sec" style="margin-top:16px">Ploeg per ploeg</div>
+      <div style="max-height:44vh;overflow-y:auto;margin-bottom:12px">${rijen}</div>
+      <button class="btn btn-green" onclick="rbfaCkToepassen()">${icI(IC.check)} ${esc(knopTxt)}</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="rbfaCkSluit()">Annuleren</button>`;
+}
+
+async function rbfaCkToepassen() {
+  if (!rbfaCkSt || !rbfaCkSt.bondPloegen || rbfaCkSt.bezig) return;
+  const s = rbfaCkSt;
+  const clubNr = String(s.clubIn || '');
+  const bondNaam = (id) => {
+    const p = (s.bondPloegen || []).find(x => String(x.id) === String(id));
+    return p ? String(p.name || '') : '';
+  };
+  // Eerst nakijken of elke aan te maken ploeg een naam heeft: halverwege stoppen is hier het
+  // slechtste wat er kan gebeuren.
+  const zonderNaam = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw' && !String(s.keuze[b].naam || '').trim());
+  if (zonderNaam.length) {
+    s.fout = `Geef elke nieuwe ploeg een naam (${zonderNaam.map(bondNaam).filter(Boolean).join(', ') || zonderNaam.join(', ')}).`;
+    rbfaCkRender(); return;
+  }
+  s.bezig = true; s.fout = ''; s.bezigTxt = 'Bezig…'; rbfaCkRender();
+
+  let gemaakt = 0, gekoppeld = 0, gewist = 0;
+  const misluktBij = [];
+  try {
+    // ---- 1. De nieuwe ploegen aanmaken. Eén per één, want elke aanmaak is een reeks writes en bij
+    // een fout willen we weten waar het stopte. `stil` houdt de app op dit scherm.
+    for (const bondId of Object.keys(s.keuze)) {
+      const k = s.keuze[bondId];
+      if (!k || k.naar !== '#nieuw') continue;
+      const naam = String(k.naam || '').trim();
+      const gok = rbfaVormGok(naam || bondNaam(bondId));
+      s.bezigTxt = `"${naam}" aanmaken…`; rbfaCkRender();
+      // joinAsMember false: de clubbeheerder beheert deze ploegen via zijn clubrol, zoals bij
+      // "Nieuwe ploeg in deze club" de niet-aangevinkte keuze. Hij kan zich er later bij zetten met
+      // "Bij mijn ploegen" op het clubscherm — dertig ploegen in "Jouw ploegen" duwen zou het
+      // ploegkeuzescherm onbruikbaar maken.
+      const res = await createTeam(naam, s.clubId, false, gok.matchType, '', gok.periodKey, 0, true);
+      if (!res || !res.teamId) { misluktBij.push(naam); continue; }
+      gemaakt++;
+      // De verse ploeg wordt vanaf nu een gewone bestemming: één kern, waarvan createTeam ons het
+      // id gaf, dus zonder terug te moeten ophalen.
+      const kern = { teamId: res.teamId, sleutel: res.rosterId, kernId: res.rosterId,
+        kernNaam: naam, ploegNaam: naam, meerdereKernen: false, rbfaClubId: '', rbfaTeams: [] };
+      s.kernen.push(kern);
+      k.naar = kern.kernId;
+    }
+
+    // ---- 2. De gewenste koppeling per kern samenstellen. Over ÁLLE kernen lopen, niet enkel over de
+    // gewijzigde: een kern waarvan de laatste bondsploeg weggehaald werd, moet haar koppeling kwijt.
+    const perKern = rbfaCkPerKern();
+    for (const kern of s.kernen) {
+      const bondIds = perKern[kern.kernId] || [];
+      // In de volgorde waarin de bond haar ploegen geeft, zodat het leest zoals het venster.
+      const gewenst = (s.bondPloegen || [])
+        .filter(p => bondIds.includes(String(p.id)))
+        .map(p => {
+          const k = s.keuze[String(p.id)] || {};
+          const label = String(k.label || '').trim();
+          const naam = String(p.name || '').trim();
+          return Object.assign({ id: String(p.id) }, label ? { label } : {}, naam ? { naam } : {});
+        });
+      // Niets veranderd? Dan ook niets schrijven — elke overbodige write op een ándere ploeg is een
+      // write die fout kan lopen.
+      const nu = kern.rbfaTeams || [];
+      const zelfde = nu.length === gewenst.length && nu.every((p, i) =>
+        p.id === gewenst[i].id && (p.label || '') === (gewenst[i].label || '') && (p.naam || '') === (gewenst[i].naam || ''))
+        && (!gewenst.length || String(kern.rbfaClubId || '') === clubNr);
+      if (zelfde) continue;
+      s.bezigTxt = `"${kern.kernNaam}" bijwerken…`; rbfaCkRender();
+      try {
+        await rbfaKoppelingWegschrijven(kern, clubNr, gewenst);
+        if (gewenst.length) gekoppeld++; else gewist++;
+        kern.rbfaTeams = gewenst;
+        kern.rbfaClubId = gewenst.length ? clubNr : '';
+      } catch (e) {
+        misluktBij.push(kern.kernNaam);
+      }
+    }
+  } catch (e) {
+    s.bezig = false; s.bezigTxt = '';
+    s.fout = (e && e.code === 'PERMISSION_DENIED')
+      ? 'Je hebt hier geen toestemming voor. Enkel de clubbeheerder van deze club kan dit — contacteer de clubbeheerder of de maker van de app.'
+      : ((e && e.message) || 'Het opslaan is niet gelukt.');
+    rbfaCkRender();
+    return;
+  }
+  s.bezig = false; s.bezigTxt = '';
+
+  // Wat er misliep, blijft op het scherm staan; wat lukte, is gebeurd en wordt gemeld. Nooit
+  // "gelukt" zeggen over een half gelukte beweging.
+  const delen = [];
+  if (gemaakt) delen.push(`${gemaakt} ${gemaakt === 1 ? 'ploeg' : 'ploegen'} aangemaakt`);
+  // "bijgewerkt" en niet "gekoppeld": in deze telling zitten zowel nieuwe koppelingen als ploegen
+  // waar er al één stond en die nu een bondsploeg meer of minder heeft.
+  if (gekoppeld) delen.push(`${gekoppeld} koppeling${gekoppeld === 1 ? '' : 'en'} bijgewerkt`);
+  if (gewist) delen.push(`${gewist} koppeling${gewist === 1 ? '' : 'en'} gewist`);
+  if (misluktBij.length) {
+    s.fout = `Niet gelukt bij: ${misluktBij.join(', ')}.${delen.length ? ' De rest is wel gelukt.' : ''} Probeer het opnieuw of kijk je verbinding na.`;
+    rbfaCkRender();
+    if (delen.length) showToast(delen.join(' · ') + '.', 'ok');
+    return;
+  }
+  rbfaCkSt = null;
+  closeModal();
+  showToast(delen.length ? delen.join(' · ') + '.' : 'Niets gewijzigd.', 'ok');
+  // Het clubscherm opnieuw opbouwen: de nieuwe ploegen horen er meteen bij te staan.
+  if (typeof loadClubBeheerView === 'function') loadClubBeheerView();
 }

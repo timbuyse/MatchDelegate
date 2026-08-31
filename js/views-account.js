@@ -152,6 +152,11 @@ async function loadClubBeheerView() {
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <button class="btn btn-green" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
+      ${/* De ploegen van de club naast de ploegenlijst van de voetbalbond leggen: in één beweging
+            koppelen wat er al staat, en aanmaken wat er nog niet is. Staat in import-cal.js, bij de
+            kalenderimport die de koppeling gebruikt; dit bestand laadt vóór dat bestand, maar de
+            aanroep gebeurt pas bij het aantikken. */ ''}
+      <button class="btn btn-pale" style="margin-top:8px" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
       ${/* Wie de club beheert stond nergens in dit scherm — enkel de eigenaar zag het, in een heel
             ander scherm. Hier alleen ter informatie: aanstellen blijft bij de maker van de app. */ ''}
@@ -1874,10 +1879,18 @@ function genInviteToken() {
   return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 // ---- Ploeg aanmaken ----
-async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation, defaultPeriodKey, defaultQuarterDuration) {
+// `stil` (optioneel, achtste parameter) is er voor wie MEERDERE ploegen in één beweging aanmaakt:
+// het slaat de schermsprong onderaan over. Zonder dat sprong de app bij twintig ploegen twintig keer
+// van scherm (of, bij joinAsMember, twintig keer van actieve ploeg — met elke keer een herlaadbeurt
+// van kern en wedstrijden). Zie rbfaCkToepassen in import-cal.js.
+//
+// GEEFT HET NIEUWE PLOEG- EN KERN-ID TERUG. Wie meteen iets op die verse ploeg wil schrijven, hoeft
+// de kern dan niet eerst terug te gaan ophalen. Zuiver toevoegend: geen enkele bestaande aanroeper
+// leest de teruggeefwaarde.
+async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultFormation, defaultPeriodKey, defaultQuarterDuration, stil) {
   if (joinAsMember === undefined) joinAsMember = true; // standaard: maker wordt ploegbeheerder (lid)
-  if (!currentUser || !fbdb) return;
-  name = (name || '').trim(); if (!name) return;
+  if (!currentUser || !fbdb) return null;
+  name = (name || '').trim(); if (!name) return null;
   // Standaard wedstrijdvorm + opstelling (staan klaar bij een nieuwe wedstrijd, per wedstrijd aanpasbaar).
   const dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
   const dForms = FORMATIONS[dMatchType] || [];
@@ -1922,12 +1935,16 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
   if (joinAsMember) {
     await fbdb.ref('users/' + uid + '/teams/' + teamId).set('admin');
     userTeams[teamId] = 'admin';
-    await selectTeam(teamId);
-  } else {
+    // `stil`: bij het aanmaken van een reeks ploegen NIET van actieve ploeg wisselen. Dat wisselen
+    // trekt kern en wedstrijden opnieuw binnen, dus twintig keer wisselen kost twintig herlaadbeurten
+    // — en aan het eind sta je toch in de laatst aangemaakte ploeg in plaats van waar je was.
+    if (!stil) await selectTeam(teamId);
+  } else if (!stil) {
     // Clubbeheerder beheert de ploeg via zijn clubrol, niet als lid → terug naar het cluboverzicht,
     // waar de nieuwe ploeg nu verschijnt.
     go('clubbeheer');
   }
+  return { teamId, rosterId: initialRosterId };
 }
 
 // ---- Ploeg vervoegen via uitnodigingscode ----
