@@ -117,6 +117,13 @@ function impLijstHtml() {
   // soort (uit de reeks — vriendschappelijk, beker of competitie). Een veld voor de hele import zou
   // die per-wedstrijdwaarde alleen maar kunnen overschrijven.
   const isRbfa = impSt.bron === 'rbfa';
+  // Hoeveel wedstrijden van deze kalender staan al in de app én hebben een nummer bij de bond? Dat
+  // zijn de wedstrijden waar "Alleen het wedstrijdnummer erbij zetten" iets aan verandert. Zie
+  // impEnkelNummers voor waarom die weg bestaat.
+  const nrKandidaten = isRbfa ? rs.filter(r => r.rbfaMatchId && r.bestaat && !r.nrAlGoed).length : 0;
+  // Alles staat er al, en dus staat er niets aangevinkt: precies de toestand waarin de groene knop
+  // "Niets aangevinkt" zegt en het scherm als een doodlopende weg leest (Tim, 31-08-2026).
+  const allesBestaat = rs.length > 0 && rs.every(r => r.bestaat) && !aan;
   const telTxt = `${rs.length} ${rs.length === 1 ? 'wedstrijd' : 'wedstrijden'} gevonden`
     + (impSt.overgeslagen ? ` · ${impSt.overgeslagen} ${isRbfa ? 'onleesbare regel(s) overgeslagen' : 'andere agenda-items overgeslagen'}` : '')
     + ((isRbfa && impSt.rbfaSamengevoegd) ? ` · ${impSt.rbfaSamengevoegd} keer dezelfde wedstrijd in twee kalenders` : '')
@@ -180,11 +187,20 @@ function impLijstHtml() {
       <button class="btn btn-gray" style="margin:0;flex:1;padding:10px" onclick="impAlles(false)">Alles uit</button>
     </div>
     <div id="imp-lijst">${rs.map(impRegelHtml).join('')}</div>
+    ${allesBestaat ? `<div class="nudge" style="margin-top:14px">${icI(IC.warn)} <b>${rs.length === 1 ? 'Deze wedstrijd staat al in de app.' : `Deze ${rs.length} wedstrijden staan allemaal al in de app.`}</b>
+      Daarom staat er niets aangevinkt: het inlezen overschrijft nooit uit zichzelf wat je zelf ingaf.
+      ${nrKandidaten
+        ? 'Wil je enkel het <b>wedstrijdnummer van de bond</b> erbij, gebruik dan de knop onderaan — die raakt niets anders aan. '
+        : (isRbfa ? 'Het <b>wedstrijdnummer van de bond</b> staat er ook al bij, dus daarvoor hoef je niets te doen. ' : '')}Wil je ook datum, uur, thuis/uit en de tegenstander vernieuwen, tik dan op <b>Alles aan</b>.</div>` : ''}
     <button class="btn btn-green" style="margin-top:14px" onclick="impVoerUit()" ${aan ? '' : 'disabled style="margin-top:14px;opacity:.5"'}>
       ${icI(IC.check)} ${aan ? `${aan} ${aan === 1 ? 'wedstrijd' : 'wedstrijden'} importeren` : 'Niets aangevinkt'}</button>
     ${/* Wat er bij een bestaande wedstrijd écht overschreven wordt. De bondskalender kent geen
          terrein, dus die noemt "plaats" hier niet — en raakt het veld ook niet aan (impVoerUit). */''}
-    ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit${isRbfa ? ' en het wedstrijdnummer' : ' en plaats'}. Selectie, opstelling en plan blijven staan.</div>` : ''}`
+    ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit${isRbfa ? ' en het wedstrijdnummer' : ' en plaats'}. Selectie, opstelling en plan blijven staan.</div>` : ''}
+    ${/* DE SMALLE WEG (Tim, 31-08-2026): alleen het wedstrijdnummer, zonder iets anders aan te raken.
+         Zie impEnkelNummers. Staat onder de gewone knop, want dat blijft de gewone weg. */''}
+    ${nrKandidaten ? `<button class="btn btn-pale" style="margin-top:10px" onclick="impEnkelNummers()">${icI(IC.link)} Alleen het wedstrijdnummer erbij zetten (${nrKandidaten})</button>
+    <div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:6px">Tegenstander, datum, uur en thuis/uit blijven staan zoals jij ze hebt. Werkt ook bij een wedstrijd die al gespeeld is, en je hoeft niets aan te vinken. Daarna weet <b>Wedstrijdinfo ophalen</b> meteen welke wedstrijd het is.</div>` : ''}`
     : `<div class="empty"><div class="ei">${IC.search}</div><p>Geen wedstrijden herkend in ${isRbfa ? 'deze kalender' : 'dit bestand'}.${impSt.bron === 'tabel' ? '<br>Kijk hierboven na welke kolom de datum en de tegenstander bevat.' : ''}</p></div>`}
     <button class="btn btn-gray" style="margin-top:10px" onclick="impAnderBestand()">${isRbfa ? 'Andere bron kiezen' : 'Ander bestand kiezen'}</button>`;
 }
@@ -824,8 +840,12 @@ async function impMarkeerDubbels() {
   // met verslag en gebeurtenissen. Gemeten: een afgesloten wedstrijd verhuisde via het agenda-nummer
   // van 6 september naar 5 juli, met haar 1-0 en drie gebeurtenissen erin.
   const statusVan = new Map();
+  // Welk wedstrijdnummer staat er NU al op? Nodig om "Alleen het wedstrijdnummer erbij zetten" een
+  // eerlijk aantal te laten tonen: een wedstrijd die het nummer al draagt, valt daar niets aan te doen.
+  const nrVan = new Map();
   alle.forEach(m => {
     statusVan.set(m.id, m.status || 'planned');
+    nrVan.set(m.id, String(m.rbfaMatchId || ''));
     if (m.tournamentId) return;                        // tornooiwedstrijden staan buiten de kalender
     bestaand.set(impDubbelSleutel(m.teamId || '', m.subteam || '', m.date || '', m.opponent || ''), m.id);
     if (m.importUid) bestaand.set('uid|' + m.importUid, m.id);
@@ -865,6 +885,9 @@ async function impMarkeerDubbels() {
     // alleen zegt niet dat er een verslag aan hangt. `r.gespeeld` houdt "Alles aan" er ook van af.
     r.bestaatStatus = r.bestaat ? (statusVan.get(r.bestaat) || '') : '';
     r.gespeeld = r.bestaatStatus === 'done' || r.bestaatStatus === 'live';
+    // Draagt de bestaande wedstrijd dit nummer al? Dan hoeft ze niet meegeteld te worden bij de smalle
+    // weg (zie impEnkelNummers) — anders belooft die knop meer dan ze doet.
+    r.nrAlGoed = !!(r.bestaat && r.rbfaMatchId && nrVan.get(r.bestaat) === String(r.rbfaMatchId));
     // Een bestaande wedstrijd staat standaard uit: niets overschrijven wat je niet zelf vraagt.
     r.aan = !r.bestaat;
   });
@@ -952,6 +975,55 @@ async function impVoerUit() {
   impSt = null;
   await go('matches');
   showToast(`${nieuw} ${nieuw === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd${bijgewerkt ? ` · ${bijgewerkt} bijgewerkt` : ''}.`);
+}
+
+// ALLEEN HET WEDSTRIJDNUMMER ERBIJ (Tim, 31-08-2026). De gewone import zet een bestaande wedstrijd
+// standaard UIT — niets overschrijven wat je zelf ingaf. Lees je een kalender een tweede keer in, dan
+// staat er dus niets aan en zegt de groene knop "Niets aangevinkt" in het grijs. Dat leest als een
+// doodlopende weg, terwijl je meestal maar één ding wil: het nummer van de bond erbij, zodat
+// "Wedstrijdinfo ophalen" nooit meer een geplakte link nodig heeft.
+//
+// DEZE WEG RAAKT ALLEEN `rbfaMatchId`. Tegenstander, datum, uur en thuis/uit blijven staan zoals jij
+// ze hebt — de bond schrijft een tegenstander voluit in hoofdletters ("SPORTKRING ROESELARE") en die
+// wil je niet ongevraagd terug over je eigen "SK Roeselare". Omdat er niets van jou overschreven kan
+// worden, mag ze twee dingen die de gewone import bewust niet doet: ze werkt ook op een GESPEELDE
+// wedstrijd (juist dáár wil je een verslag bij halen) en ze kijkt niet naar de vinkjes.
+async function impEnkelNummers() {
+  if (!canManage()) { showToast('Enkel een beheerder kan importeren.', 'err'); return; }
+  if (!impSt || impSt.bron !== 'rbfa') return;
+  const team = teamById(impSt.teamId);
+  if (!team) {
+    showToast(getTeamsV2().length ? 'Kies eerst je eigen ploeg.' : 'Maak eerst een ploeg aan — een wedstrijd hoort altijd bij een ploeg.', 'err');
+    return;
+  }
+  // Zelfde vorm als bij de gewone import, zodat het ongedaan-maken hieronder er niets van hoeft te
+  // weten: één sleutel in `oud`, en `null` betekent "stond er niet" (dan wordt het veld verwijderd).
+  const undo = { when: Date.now(), teamId: activeTeamId || '',
+    ploeg: (cloudReady ? (teamNames[activeTeamId] || '') : (team ? team.name : '')) || '',
+    aangemaakt: [], bijgewerkt: [] };
+  let gezet = 0, alGoed = 0;
+  for (const r of (impSt.regels || [])) {
+    if (!r.rbfaMatchId || !r.bestaat) continue;
+    const m = await dbGet(r.bestaat);
+    if (!m) continue;
+    if (String(m.rbfaMatchId || '') === String(r.rbfaMatchId)) { alGoed++; continue; }
+    undo.bijgewerkt.push({ id: m.id, oud: { rbfaMatchId: (m.rbfaMatchId === undefined) ? null : m.rbfaMatchId } });
+    m.rbfaMatchId = String(r.rbfaMatchId);
+    await dbSave(m);
+    gezet++;
+  }
+  if (undo.bijgewerkt.length) {
+    try { localStorage.setItem(IMP_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
+  }
+  if (!gezet) {
+    showToast(alGoed
+      ? `Het wedstrijdnummer stond al op ${alGoed === 1 ? 'die wedstrijd' : 'alle ' + alGoed + ' wedstrijden'}.`
+      : 'Geen enkele wedstrijd uit deze kalender staat al in de app. Gebruik dan de gewone import hierboven.', alGoed ? 'ok' : 'err');
+    return;
+  }
+  impSt = null;
+  await go('matches');
+  showToast(`Wedstrijdnummer erbij gezet op ${gezet} ${gezet === 1 ? 'wedstrijd' : 'wedstrijden'}${alGoed ? ` · ${alGoed} had het al` : ''}.`);
 }
 
 // ---------------------------------------------------------------------------------------------

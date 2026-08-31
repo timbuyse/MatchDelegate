@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.29.0
+
+**Een kalender een tweede keer inlezen is geen doodlopende weg meer, en je kan nu enkel het
+wedstrijdnummer erbij zetten.** Lees je de kalender van de bond opnieuw in en staan alle wedstrijden
+al in de app, dan stond er niets aangevinkt — bewust, want het inlezen mag nooit uit zichzelf
+overschrijven wat je zelf ingaf — en zei de groene knop "Niets aangevinkt" in het grijs. Er stond
+nergens wat je dan wél kon doen.
+
+- **Nieuwe knop "Alleen het wedstrijdnummer erbij zetten".** Die raakt uitsluitend het wedstrijdnummer
+  van de bond aan: tegenstander, datum, uur en thuis/uit blijven staan zoals jij ze hebt. Omdat er
+  niets van jou overschreven kan worden, werkt ze ook op een wedstrijd die **al gespeeld** is — juist
+  daar wil je een verslag bij halen — en hoef je niets aan te vinken. Het aantal op de knop is exact:
+  wedstrijden die het nummer al dragen worden niet meegeteld.
+- **En een uitleg wanneer alles er al staat**, met de twee wegen erin: enkel het nummer, of "Alles
+  aan" als je ook datum, uur, thuis/uit en de tegenstander wil vernieuwen.
+
+Waarom dat nummer telt: zodra het op een wedstrijd staat, weet **Wedstrijdinfo ophalen** meteen welke
+wedstrijd het is en hoef je nooit meer een link te plakken. Het inlezen blijft 24 uur ongedaan te
+maken, en dat zet dan alleen het nummer terug — de rest is nooit aangeraakt.
+
+---
+
 ## v1.28.0
 
 **Alles wat op het wedstrijdblad van de bond staat, komt nu mee — ook de wissels en de speelminuten.**
