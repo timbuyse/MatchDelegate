@@ -1486,6 +1486,10 @@ async function rbfaClubKoppelOpen(clubId) {
   rbfaCkSt = {
     clubId, clubNaam: '', clubIn: '', club: null, bondPloegen: null,
     kernen: null, keuze: {}, bezig: true, fout: '', bezigTxt: 'Ploegen van de club ophalen…',
+    // De ploegen die dit venster nog moet AANMAKEN, elk met een eigen sleutel (n1, n2, …). Een
+    // bondsploeg wijst ernaar met `naar: '#nieuw:n1'`, precies zoals ze naar een bestaande kern
+    // wijst met haar kern-id — zie de toelichting bij rbfaCkNieuwId.
+    nieuw: {}, nieuwTeller: 0,
   };
   rbfaCkRender();
   try {
@@ -1503,7 +1507,7 @@ async function rbfaClubKoppelOpen(clubId) {
     rbfaCkSt.clubIn = gekend[0] || '';
     // Wat er al gekoppeld is, is de beginstand van de keuzes.
     kernen.forEach(k => k.rbfaTeams.forEach(p => {
-      rbfaCkSt.keuze[p.id] = { naar: k.kernId, label: p.label || '', naam: '' };
+      rbfaCkSt.keuze[p.id] = { naar: k.kernId, label: p.label || '' };
     }));
   } catch (e) {
     rbfaCkSt.fout = 'De ploegen van de club ophalen is niet gelukt. Probeer het opnieuw.';
@@ -1574,27 +1578,97 @@ function rbfaLabelVoorstel(naam) {
   return m ? m[1].toUpperCase() : '';
 }
 
-// De keuzelijst per bondsploeg: niets doen, een bestaande kern, of aanmaken.
+// EEN NOG-TE-MAKEN PLOEG IS EEN VOLWAARDIGE BESTEMMING, GEEN VLAG (Tim, 31-08-2026). Voordien stond
+// er in `naar` de vlag '#nieuw', en een vlag is geen adres: twee bondsploegen die beide "aanmaken"
+// kozen, waren twee losse aanmaakopdrachten met elk hun eigen naamveld, en rbfaCkPerKern zag ze niet
+// als één groep — dus vroeg de app geen ploeg-label. Precies het geval van de opstart: bij de bond
+// staan U11 A en U11 B, bij ons wordt dat één U11IP met de labels A en B.
+// Nu krijgt elke nog-te-maken ploeg een eigen sleutel in `s.nieuw` en wijst een bondsploeg ernaar met
+// '#nieuw:<sleutel>'. Alles wat op `naar` groepeert — rbfaCkPerKern, eersteVanGroep, het labelveld —
+// werkt daardoor ongewijzigd, en de naam hoort bij de PLOEG in plaats van bij de rij.
+function rbfaCkNieuwId(naar) {
+  const s = String(naar || '');
+  return s.indexOf('#nieuw:') === 0 ? s.slice(7) : '';
+}
+function rbfaCkNieuwOptieTxt(naam) {
+  const n = String(naam || '').trim();
+  return n ? `nieuwe ploeg: ${n}` : 'nieuwe ploeg (nog zonder naam)';
+}
+// Welke nog-te-maken ploegen zijn ook echt gekozen, in de volgorde van het scherm? Alleen die worden
+// aangemaakt: een plekje waar niemand meer naar wijst, bestaat niet.
+function rbfaCkNieuwGebruikt() {
+  const s = rbfaCkSt;
+  if (!s) return [];
+  const uit = [];
+  (s.bondPloegen || []).forEach(p => {
+    const id = rbfaCkNieuwId((s.keuze[String(p.id)] || {}).naar);
+    if (id && s.nieuw[id] && uit.indexOf(id) < 0) uit.push(id);
+  });
+  return uit;
+}
+// Zet je een rij terug op "niets doen", dan blijft er een plekje achter waar niemand naar wijst. Dat
+// mag niet in de keuzelijst van de andere rijen blijven staan.
+function rbfaCkOpkuisNieuw() {
+  const s = rbfaCkSt;
+  if (!s || !s.nieuw) return;
+  const gebruikt = rbfaCkNieuwGebruikt();
+  Object.keys(s.nieuw).forEach(id => { if (gebruikt.indexOf(id) < 0) delete s.nieuw[id]; });
+}
+// Hoe heet de bestemming van een rij? Een bestaande kern draagt haar naam, een nog-te-maken ploeg de
+// naam die je net getikt hebt.
+function rbfaCkDoelNaam(naar) {
+  const s = rbfaCkSt;
+  const nid = rbfaCkNieuwId(naar);
+  if (nid) return String(((s.nieuw || {})[nid] || {}).naam || '').trim() || 'de nieuwe ploeg';
+  const kn = (s.kernen || []).find(x => x.kernId === naar);
+  return (kn && kn.kernNaam) || 'deze ploeg';
+}
+
+// De keuzelijst per bondsploeg: niets doen, een bestaande kern, een ploeg die dit venster al gaat
+// aanmaken, of een nieuwe ploeg aanmaken.
 function rbfaCkKies(bondId, waarde) {
   if (!rbfaCkSt) return;
+  const s = rbfaCkSt;
   bondId = String(bondId);
-  if (!waarde) { delete rbfaCkSt.keuze[bondId]; rbfaCkRender(); return; }
-  const bond = (rbfaCkSt.bondPloegen || []).find(p => String(p.id) === bondId) || {};
-  const vorig = rbfaCkSt.keuze[bondId] || {};
-  rbfaCkSt.keuze[bondId] = {
-    naar: waarde,
+  if (!waarde) { delete s.keuze[bondId]; rbfaCkOpkuisNieuw(); rbfaCkRender(); return; }
+  const bond = (s.bondPloegen || []).find(p => String(p.id) === bondId) || {};
+  const vorig = s.keuze[bondId] || {};
+  let naar = waarde;
+  if (waarde === '#nieuw') {
+    // Een NIEUW plekje. Wie een tweede bondsploeg bij dezelfde nog-te-maken ploeg wil, kiest die
+    // ploeg verderop in de keuzelijst — niet nog eens "aanmaken".
+    const sleutel = 'n' + (++s.nieuwTeller);
+    // De naam van de bondsploeg is het voorstel; je kan ze nog wijzigen.
+    s.nieuw[sleutel] = { naam: String(bond.name || '') };
+    naar = '#nieuw:' + sleutel;
+  }
+  s.keuze[bondId] = {
+    naar,
     label: vorig.label !== undefined && vorig.label !== '' ? vorig.label : rbfaLabelVoorstel(bond.name),
-    // Bij "aanmaken" is de naam van de bondsploeg het voorstel — je kan ze nog wijzigen.
-    naam: waarde === '#nieuw' ? (vorig.naam || String(bond.name || '')) : '',
   };
+  rbfaCkOpkuisNieuw();
   rbfaCkRender();
 }
 // Geen hertekening bij het typen: dat zou de cursor uit het veld halen.
 function rbfaCkLabel(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.label = v; }
-function rbfaCkNaam(bondId, v) { const k = rbfaCkSt && rbfaCkSt.keuze[String(bondId)]; if (k) k.naam = v; }
+// De naam hoort bij de nog-te-maken PLOEG, niet bij de rij — er is er dus één, ook als er drie
+// bondsploegen naar wijzen. Omdat er niet hertekend wordt, dragen de keuzelijsten van de andere rijen
+// nog de oude naam: die tekst hier meteen bijwerken, anders lees je verderop een naam die niet meer
+// klopt tot de volgende keuze.
+function rbfaCkNieuwNaam(sleutel, v) {
+  const n = rbfaCkSt && rbfaCkSt.nieuw && rbfaCkSt.nieuw[sleutel];
+  if (!n) return;
+  n.naam = v;
+  const txt = rbfaCkNieuwOptieTxt(v);
+  Array.from(document.querySelectorAll('#modal option')).forEach(o => {
+    if (o.value === '#nieuw:' + sleutel) o.textContent = txt;
+  });
+}
 
-// Hoeveel bondsploegen wijzen naar dezelfde kern? Twee is het geval van Tim (U11 A en U11 B bij de
-// bond, één U11IP bij ons); meer dan twee mag ook, maar dan hoort er een label bij elk.
+// Hoeveel bondsploegen wijzen naar dezelfde bestemming? Twee is het geval van Tim (U11 A en U11 B bij
+// de bond, één U11IP bij ons); meer dan twee mag ook, maar dan hoort er een label bij elk. Een
+// bestemming is een kern-id óf '#nieuw:<sleutel>' — een nog-te-maken ploeg groepeert hier dus
+// vanzelf mee, en dat is precies waarom het labelveld daar nu ook verschijnt.
 function rbfaCkPerKern() {
   const per = {};
   Object.keys(rbfaCkSt.keuze).forEach(bondId => {
@@ -1617,8 +1691,10 @@ function rbfaCkHtml() {
   }
   const kernen = s.kernen || [];
   const perKern = s.bondPloegen ? rbfaCkPerKern() : {};
-  const teKoppelen = Object.keys(s.keuze).filter(b => s.keuze[b].naar && s.keuze[b].naar !== '#nieuw').length;
-  const teMaken = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw').length;
+  const teKoppelen = Object.keys(s.keuze).filter(b => s.keuze[b].naar && !rbfaCkNieuwId(s.keuze[b].naar)).length;
+  // Per nog-te-maken PLOEG, niet per bondsploeg: twee bondsploegen bij één nieuwe ploeg is één ploeg
+  // aanmaken, en de knop moet dat ook zo zeggen.
+  const teMaken = rbfaCkNieuwGebruikt().length;
 
   const clubBlok = s.club
     ? `<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bg2,#f4f6f8);font-size:14px">
@@ -1638,27 +1714,38 @@ function rbfaCkHtml() {
     if (eersteVanGroep[k.naar] === undefined) eersteVanGroep[k.naar] = String(p.id);
   });
 
+  // De nog-te-maken ploegen staan in élke keuzelijst, zodat een tweede bondsploeg naar dezelfde
+  // nieuwe ploeg kan wijzen. In de volgorde van het scherm, want zo staan ze er ook.
+  const nieuwe = rbfaCkNieuwGebruikt();
+
   // Eén rij per bondsploeg.
   const rijen = (s.bondPloegen || []).map(p => {
     const id = String(p.id);
     const k = s.keuze[id] || null;
     const naar = k ? k.naar : '';
-    const nieuw = naar === '#nieuw';
+    const nieuwId = rbfaCkNieuwId(naar);
     // Het labelveld hoort er zodra er MEER DAN ÉÉN bondsploeg bij dezelfde ploeg hoort — dan moet je
     // ze van elkaar kunnen houden. Maar ook wanneer er al een label staat, ook bij één bondsploeg:
     // anders verdwijnt het veld zodra je de tweede losmaakt, en kan je dat label nergens meer wissen.
-    const samen = (naar && !nieuw && ((perKern[naar] || []).length > 1 || !!String(k.label || '').trim()));
-    const gok = nieuw ? rbfaVormGok(k.naam || p.name) : null;
+    // GELDT NET ZO GOED VOOR EEN NOG-TE-MAKEN PLOEG: die stond hier vroeger uitgesloten, en dat was
+    // precies de klacht — twee bondsploegen op één nieuwe ploeg kregen geen labelveld.
+    const samen = (naar && ((perKern[naar] || []).length > 1 || !!String(k.label || '').trim()));
+    // De naam van een nieuwe ploeg staat op de EERSTE rij van haar groep, één keer. Twee naamvelden
+    // voor dezelfde ploeg is de verwarring die dit venster juist moet wegnemen.
+    const naamHier = !!nieuwId && eersteVanGroep[naar] === id;
+    const nieuwNaam = nieuwId ? String((s.nieuw[nieuwId] || {}).naam || '') : '';
+    const gok = naamHier ? rbfaVormGok(nieuwNaam || p.name) : null;
     const opties = `<option value="" ${!naar ? 'selected' : ''}>— niets doen —</option>`
       + kernen.map(kn => `<option value="${esc(kn.kernId)}" ${naar === kn.kernId ? 'selected' : ''}>${esc(kn.kernNaam)}${kn.meerdereKernen ? ` (in ${esc(kn.ploegNaam)})` : ''}</option>`).join('')
-      + `<option value="#nieuw" ${nieuw ? 'selected' : ''}>+ Ploeg aanmaken in de app</option>`;
+      + nieuwe.map(nid => `<option value="#nieuw:${esc(nid)}" ${nieuwId === nid ? 'selected' : ''}>${esc(rbfaCkNieuwOptieTxt((s.nieuw[nid] || {}).naam))}</option>`).join('')
+      + `<option value="#nieuw">+ Ploeg aanmaken in de app</option>`;
     return `<div style="padding:9px 0;border-bottom:1px solid var(--bdr)">
       <div style="display:flex;align-items:baseline;gap:8px">
         <span style="flex:1;min-width:0;font-size:15px;font-weight:${naar ? '700' : '500'}">${esc(p.name || ('ploeg ' + id))}</span>
         <span style="font-size:12px;color:var(--txt2);flex:none">${esc(id)}</span>
       </div>
       <select onchange="rbfaCkKies('${esc(id)}',this.value)" style="margin-top:6px;width:100%">${opties}</select>
-      ${nieuw ? `<input type="text" value="${esc(k.naam || '')}" oninput="rbfaCkNaam('${esc(id)}',this.value)"
+      ${naamHier ? `<input type="text" value="${esc(nieuwNaam)}" oninput="rbfaCkNieuwNaam('${esc(nieuwId)}',this.value)"
              placeholder="naam van de nieuwe ploeg" autocomplete="off"
              style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
         <div style="font-size:12px;color:var(--txt2);margin-top:4px">Wordt aangemaakt als <b>${esc(gok.matchType.replace('v', ' tegen '))}</b> · <b>${PERIOD_TYPES[gok.periodKey].count} ${esc(PERIOD_TYPES[gok.periodKey].plural)}</b>, geraden uit de naam. Aan te passen bij "Ploeg bewerken".</div>` : ''}
@@ -1667,7 +1754,7 @@ function rbfaCkHtml() {
              style="width:100%;margin-top:6px;padding:8px 10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;color:var(--txt);background:var(--card)">
         ${/* De uitleg enkel bij de EERSTE van een groep. Ze stond onder elke rij van dezelfde ploeg,
              en dan lees je twee keer hetzelfde vlak onder elkaar. */''}
-        ${(eersteVanGroep[naar] === id && (perKern[naar] || []).length > 1) ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Meer dan één bondsploeg hoort bij <b>${esc((kernen.find(x => x.kernId === naar) || {}).kernNaam || 'deze ploeg')}</b>, dus hier hoort een label bij om ze in de app van elkaar te houden.</div>` : ''}` : ''}
+        ${(eersteVanGroep[naar] === id && (perKern[naar] || []).length > 1) ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Meer dan één bondsploeg hoort bij <b>${esc(rbfaCkDoelNaam(naar))}</b>, dus hier hoort een label bij om ze in de app van elkaar te houden.</div>` : ''}` : ''}
     </div>`;
   }).join('');
 
@@ -1687,6 +1774,7 @@ function rbfaCkHtml() {
     ${s.bondPloegen ? `
       ${kernen.length ? '' : `<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(230,150,30,.14);font-size:13px">${icI(IC.warn)} Er staat nog geen enkele ploeg in de app voor deze club. Kies bij de ploegen die je nodig hebt <b>"+ Ploeg aanmaken in de app"</b>.</div>`}
       <div class="sec" style="margin-top:16px">Ploeg per ploeg</div>
+      ${nieuwe.length ? `<div style="font-size:12px;color:var(--txt2);margin:0 0 8px">Hoort een tweede ploeg van de bond bij dezelfde nieuwe ploeg? Kies die nieuwe ploeg dan in de keuzelijst — niet nog eens "aanmaken".</div>` : ''}
       <div style="max-height:44vh;overflow-y:auto;margin-bottom:12px">${rijen}</div>
       <button class="btn btn-green" onclick="rbfaCkToepassen()">${icI(IC.check)} ${esc(knopTxt)}</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="rbfaCkSluit()">Annuleren</button>`;
@@ -1700,11 +1788,31 @@ async function rbfaCkToepassen() {
     const p = (s.bondPloegen || []).find(x => String(x.id) === String(id));
     return p ? String(p.name || '') : '';
   };
+  // Bij welke bondsploeg(en) hoort een nog-te-maken ploeg? Dat is waarop je haar op het scherm
+  // terugvindt, dus daarmee benoemen we ze in een melding.
+  const nieuwWaar = (sleutel) => Object.keys(s.keuze)
+    .filter(b => s.keuze[b].naar === '#nieuw:' + sleutel)
+    .map(bondNaam).filter(Boolean).join(' + ');
+  const nieuwe = rbfaCkNieuwGebruikt();
   // Eerst nakijken of elke aan te maken ploeg een naam heeft: halverwege stoppen is hier het
   // slechtste wat er kan gebeuren.
-  const zonderNaam = Object.keys(s.keuze).filter(b => s.keuze[b].naar === '#nieuw' && !String(s.keuze[b].naam || '').trim());
+  const zonderNaam = nieuwe.filter(n => !String((s.nieuw[n] || {}).naam || '').trim());
   if (zonderNaam.length) {
-    s.fout = `Geef elke nieuwe ploeg een naam (${zonderNaam.map(bondNaam).filter(Boolean).join(', ') || zonderNaam.join(', ')}).`;
+    s.fout = `Geef elke nieuwe ploeg een naam (${zonderNaam.map(nieuwWaar).filter(Boolean).join(', ') || zonderNaam.join(', ')}).`;
+    rbfaCkRender(); return;
+  }
+  // TWEE NIEUWE PLOEGEN MET DEZELFDE NAAM is bijna altijd de vergissing die dit venster net moet
+  // wegnemen: je bedoelde één ploeg voor twee ploegen van de bond. Daarom stoppen we hier en zeggen
+  // we waar de weg wél loopt, in plaats van stil twee gelijknamige ploegen achter te laten.
+  const perNaam = {};
+  nieuwe.forEach(n => {
+    const sl = String(s.nieuw[n].naam || '').trim().toLowerCase();
+    (perNaam[sl] = perNaam[sl] || []).push(n);
+  });
+  const dubbel = Object.keys(perNaam).find(n => perNaam[n].length > 1);
+  if (dubbel) {
+    const naam = String(s.nieuw[perNaam[dubbel][0]].naam || '').trim();
+    s.fout = `Je maakt twee keer een ploeg met de naam "${naam}" aan. Hoort meer dan één ploeg van de bond bij dezelfde nieuwe ploeg, kies dan bij de tweede in de keuzelijst "nieuwe ploeg: ${naam}" in plaats van nog eens aanmaken.`;
     rbfaCkRender(); return;
   }
   s.bezig = true; s.fout = ''; s.bezigTxt = 'Bezig…'; rbfaCkRender();
@@ -1714,11 +1822,11 @@ async function rbfaCkToepassen() {
   try {
     // ---- 1. De nieuwe ploegen aanmaken. Eén per één, want elke aanmaak is een reeks writes en bij
     // een fout willen we weten waar het stopte. `stil` houdt de app op dit scherm.
-    for (const bondId of Object.keys(s.keuze)) {
-      const k = s.keuze[bondId];
-      if (!k || k.naar !== '#nieuw') continue;
-      const naam = String(k.naam || '').trim();
-      const gok = rbfaVormGok(naam || bondNaam(bondId));
+    // PER NIEUWE PLOEG, niet per bondsploeg: wijzen U11 A en U11 B beide naar dezelfde nog-te-maken
+    // ploeg, dan wordt die hier één keer aangemaakt en krijgen beide rijen daarna hetzelfde kern-id.
+    for (const sleutel of nieuwe) {
+      const naam = String((s.nieuw[sleutel] || {}).naam || '').trim();
+      const gok = rbfaVormGok(naam);
       s.bezigTxt = `"${naam}" aanmaken…`; rbfaCkRender();
       // joinAsMember false: de clubbeheerder beheert deze ploegen via zijn clubrol, zoals bij
       // "Nieuwe ploeg in deze club" de niet-aangevinkte keuze. Hij kan zich er later bij zetten met
@@ -1732,7 +1840,15 @@ async function rbfaCkToepassen() {
       const kern = { teamId: res.teamId, sleutel: res.rosterId, kernId: res.rosterId,
         kernNaam: naam, ploegNaam: naam, meerdereKernen: false, rbfaClubId: '', rbfaTeams: [] };
       s.kernen.push(kern);
-      k.naar = kern.kernId;
+      // ÉLKE bondsploeg die naar dit plekje wees, wijst nu naar de echte kern — met haar eigen label,
+      // want dat staat op de rij en niet op de ploeg. Lukt de aanmaak níet, dan slaan we dit over: de
+      // verwijzing blijft dan '#nieuw:<sleutel>', ronde 2 hieronder kent die bestemming niet (ze
+      // staat niet in s.kernen) en laat die rijen dus onaangeroerd op het scherm staan. Zo belandt
+      // een tweede bondsploeg nooit stil bij een andere ploeg.
+      Object.keys(s.keuze).forEach(b => {
+        if (s.keuze[b].naar === '#nieuw:' + sleutel) s.keuze[b].naar = kern.kernId;
+      });
+      delete s.nieuw[sleutel];
     }
 
     // ---- 2. De gewenste koppeling per kern samenstellen. Over ÁLLE kernen lopen, niet enkel over de

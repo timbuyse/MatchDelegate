@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.27.7
+
+**Twee ploegen van de bond kunnen nu naar één ploeg die je in dezelfde beweging laat aanmaken.** Bij
+de opstart van een club is dat het normale geval: bij de bond staan **U11 A** en **U11 B**, bij ons
+wordt dat **één** ploeg met de labels A en B. Zette je U11 A op "Ploeg aanmaken in de app", dan was er
+voor U11 B geen keuze meer — die ploeg bestond nog niet, en nog eens "aanmaken" leverde een tweede
+ploeg met dezelfde naam. En omdat de app die twee rijen niet als één groep zag, vroeg ze ook geen
+ploeg-label.
+
+Een nog-te-maken ploeg staat nu in élke keuzelijst, dus de tweede of derde bondsploeg kan er gewoon
+naartoe. Het labelveld verschijnt bij elke rij van die groep, de uitleg staat er één keer, en de naam
+hoort bij de ploeg in plaats van bij de rij — dus één naamveld, niet twee.
+
+Mislukt het aanmaken, dan blijven beide rijen staan waar ze stonden: een tweede bondsploeg belandt
+nooit stil bij een andere ploeg. Twee keer dezelfde naam aanmaken wordt geweigerd, met een melding die
+naar de juiste keuze in de lijst wijst.
+
+---
+
 ## v1.27.6
 
 **"Nieuwe ploeg" en "Ploegen van de voetbalbond" staan nu bovenaan in Clubbeheer.** Ze stonden onder
