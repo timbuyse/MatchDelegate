@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.26.1
+
+**De handleiding zegt nu ook waar je die wedstrijdpagina vindt.** Het ophalen stond er al in
+beschreven, maar niet het eerste wat je moet doen: op voetbalvlaanderen.be doorklikken naar je club,
+dan de ploeg, dan de wedstrijd zelf. Er staat nu bij hoe je herkent dat je op de goede pagina zit,
+hoe je het adres op een telefoon kopieert, en dat opkuisen niet hoeft — een volledige link, alleen
+het wedstrijdnummer, of een zin met de link erin werken alle drie.
+
+---
+
 ## v1.26.0
 
 **Wedstrijdinfo ophalen van de openbare wedstrijdpagina.** Een wedstrijd die niemand live gevolgd
