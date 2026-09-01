@@ -2603,18 +2603,30 @@ function renderTeamSelect() {
         <div class="ts-hdr-name">MatchDelegate</div>
         <p>${esc((currentUser && (currentUser.displayName || currentUser.email)) || '')}</p>
       </div>
+      ${/* APP-BEHEER BOVENAAN VOOR DE EIGENAAR (Tim, 01-09-2026). Het stond enkel onderaan dit scherm,
+           en met 26 ploegen in de lijst scrol je daar elke keer naartoe. Deze kopregel heeft wél plaats
+           (logo, naam, tandwiel), in tegenstelling tot die van het beginscherm — daar is nagemeten dat
+           een vierde knop de ploegnaam onleesbaar maakt.
+           Enkel bij `isOwner`: is er nog géén eigenaar, dan blijft de weg onderaan staan, want daar
+           hoort de uitleg bij die je bij een claim nodig hebt. Zo is er altijd precies één ingang. */ ''}
+      ${isOwner ? `<span class="cloud-chip owner" onclick="_beheerFrom='teamselect';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
-      ${teamIds.length > 0 ? `<div class="sec" style="margin-bottom:10px">Jouw ploegen</div>` : ''}
+      ${/* OP DE REGEL VAN DE KOP (Tim, 01-09-2026). Stond onderaan, onder de hele ploegenlijst — en met
+            26 ploegen scrol je daar elke keer naartoe voor een handeling van één tik. De kop en de knop
+            passen samen ruim op 375 px (gemeten: knop 123 px op een regel van 335, kop niet afgekapt).
+            NIET "+ Ploeg", en dat is geen woordenspel. Die knop heette ooit "Ploeg toevoegen" en dat is
+            bewust teruggedraaid: je maakt hier geen ploeg, je gaat er een VOLGEN met een code van een
+            trainer. Aanmaken gebeurt in Clubbeheer. Juist voor wie een club beheert — en dus wél
+            ploegen kan aanmaken — zou "+ Ploeg" naar de verkeerde plek wijzen.
+            De knop staat er ALTIJD, ook zonder ploegen: dan is hij het enige wat je hier kan doen. De
+            kop staat er dan niet; de lege lijst zegt zelf al wat je te doen staat. */ ''}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="sec" style="margin:0;flex:1;min-width:0">${teamIds.length > 0 ? 'Jouw ploegen' : ''}</div>
+        <button class="btn btn-gray btn-sm" style="width:auto;margin:0;padding:6px 12px;flex-shrink:0" onclick="showJoinTeamModal()">+ Ploeg volgen</button>
+      </div>
       ${teamRows}
-      ${/* Heette "Ploeg toevoegen", maar dat beloofde iets anders dan de knop doet: je maakt hier
-            geen ploeg, je gaat er een volgen met een code die je van een trainer kreeg. Aanmaken
-            gebeurt in Clubbeheer. Kop, knop en venster zeggen nu alle drie hetzelfde woord —
-            eerst waren dat "toevoegen", "bekijken" en "vervoegen". */ ''}
-      <div class="sec" style="margin-top:20px;margin-bottom:10px">Een ploeg volgen</div>
-      <button class="btn btn-gray" onclick="showJoinTeamModal()">${icI(IC.link)} Ploeg volgen via code</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kreeg je een code van een trainer? Dan komt die ploeg hierboven bij je lijst.${Object.keys(myClubs || {}).length ? ' Een <b>nieuwe</b> ploeg maak je aan bij Clubbeheer.' : ''}</p>
       ${(() => {
         // Terugvalknop: enkel voor beheerde clubs die hierboven géén klikbare kop kregen.
         const zonderKop = Object.keys(myClubs || {}).filter(cid => !clubKoppen[cid]);
@@ -2622,7 +2634,11 @@ function renderTeamSelect() {
         return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
       <button class="btn btn-org" onclick="_clubBeheerId='${zonderKop[0]}';go('clubbeheer')">${icI(IC.players)} ${zonderKop.length > 1 ? 'Mijn clubs beheren' : 'Mijn club beheren'}</button>`;
       })()}
-      ${showAppBeheer ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
+      ${/* Voor de eigenaar staat de ingang nu als kroontje bovenaan (zie de kopregel hierboven), dus
+           hier blijft enkel het geval waarin er nog géén eigenaar is: dat is de claim, en die heeft
+           zijn uitleg nodig. `showAppBeheer` is `!ownerUid || isOwner` — de eigenaar valt er hier dus
+           uit, anders staan er twee knoppen naar hetzelfde scherm op één pagina. */ ''}
+      ${(showAppBeheer && !isOwner) ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
       <button class="btn btn-dark" onclick="_beheerFrom='teamselect';go('beheer')">${icI(IC.shield)} App-beheer</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs en clubbeheerders, alle gebruikers, wie er nu online is, onderhoud.</p>` : ''}
       <div style="display:flex;gap:8px;margin-top:20px">
@@ -2737,7 +2753,11 @@ async function doCreateTeam() {
 
 function showJoinTeamModal() {
   openModal(`<h3>${icI(IC.link)} Ploeg volgen</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Vraag de uitnodigingscode aan de beheerder van de ploeg.</p>
+    ${/* De hint over Clubbeheer stond op het ploegkeuzescherm, onder de knop. Die knop staat sinds
+         v1.32.0 op de regel van de kop en heeft geen plaats meer voor een uitleg eronder — dus staat ze
+         hier, waar ze bovendien pas te lezen valt op het moment dat je twijfelt. Enkel voor wie een club
+         beheert: alleen die kan een nieuwe ploeg aanmaken. */ ''}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">Vraag de uitnodigingscode aan de beheerder van de ploeg.${Object.keys(myClubs || {}).length ? '<br>Een <b>nieuwe</b> ploeg maak je niet hier, maar bij Clubbeheer.' : ''}</p>
     <div class="fg"><label>Uitnodigingscode</label><input id="join-token" type="text" placeholder="bv. AB12CD" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;font-size:22px;text-align:center" autofocus></div>
     <div class="auth-err" id="jt-err"></div>
     <button class="btn btn-green" onclick="doJoinTeam()">Volgen</button>
@@ -3957,6 +3977,11 @@ const views = {
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
+        ${/* HIER PAST GEEN VIERDE KNOP (gemeten 01-09-2026). Een kroontje voor App-beheer erbij — 33 px
+             plus 10 px tussenruimte — kneep de ploegnaam van 49 naar 10 px: zelfs "U11IP" stond er dan
+             niet meer voluit. Deze regel heeft op 375 px géén slack, zie ook de noot bij .hdr-club-sub
+             in index.html. De ingang van de eigenaar staat daarom bovenaan het ploegkeuzescherm, bij de
+             andere beheer-ingangen (renderTeamSelect). */ ''}
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>

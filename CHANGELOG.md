@@ -9,6 +9,36 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.32.0
+
+**Het ploegkeuzescherm opgeruimd: twee handelingen die onderaan zaten, staan nu bovenaan.** Met 26
+ploegen in de lijst scrolde je voor beide elke keer langs alles heen.
+
+**App-beheer als kroontje, rechtsboven.** Voor ploegbeheer is er de groene chip **Beheer** rechtsboven
+op het beginscherm; App-beheer zat alleen onderaan dit scherm. Het kroontje staat nu naast het
+tandwiel, dus meteen zichtbaar zodra je op **Ploeg** tikt. Alleen de eigenaar ziet het, en dan valt de
+knop onderaan weg: één ingang, niet twee.
+
+Waarom niet in de kopregel van het **beginscherm**, waar de chip Beheer staat: daar is geen plaats. Met
+de ploegnaam, de knop Ploeg, de chip Beheer en het tandwiel is die regel op een telefoon van 375 px
+vol. Nagemeten: een kroontje erbij kneep de ploegnaam van 49 naar 10 pixels — zelfs "U11IP" stond er
+dan niet meer voluit. De kopregel van het ploegkeuzescherm heeft die ruimte wél.
+
+**"+ Ploeg volgen" op de regel van "Jouw ploegen".** De knop, de kop "Een ploeg volgen" en het regeltje
+eronder zijn weg uit het lichaam van het scherm; er staat nu één knopje rechts naast de kop. De uitleg
+staat waar je ze nodig hebt: in het venster zelf, samen met een nieuwe regel voor wie een club
+beheert — *"Een nieuwe ploeg maak je niet hier, maar bij Clubbeheer."*
+
+Ze heet bewust **niet** "+ Ploeg". Die knop heette ooit "Ploeg toevoegen" en dat is eerder al
+teruggedraaid, omdat het iets anders belooft dan het doet: je maakt hier geen ploeg, je gaat er een
+**volgen** met een code die je van een trainer krijgt. Juist voor wie een club beheert — en dus wél
+ploegen kan aanmaken — zou "+ Ploeg" naar de verkeerde plek wijzen.
+
+Is er nog géén eigenaar ingesteld, dan blijft de weg naar App-beheer onderaan staan met zijn uitleg —
+dat is de plek waar je je als maker van de app aanmeldt, en die vraagt meer dan een pictogram.
+
+---
+
 ## v1.31.0
 
 **"Bij de bond nakijken": één knop die al je onafgewerkte wedstrijden afgaat.** De bond verwerkt een
