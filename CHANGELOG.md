@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.35.0
+
+**Wat levert het tornooiplan op?** Op de tornooifiche staat een nieuw blok **"Speeltijd over het
+tornooi"**: per speler hoe vaak hij in de basis staat en hoeveel hij in totaal speelt, over alle
+wedstrijden die je al ingaf. Precies de vraag waar een tornooi om draait — is de verdeling eerlijk —
+en die kon je tot nu alleen per wedstrijdje afzonderlijk bekijken.
+
+Gespeeld en gepland blijven **apart**: van een afgewerkte wedstrijd zijn de echte minuten bekend, van
+een wedstrijd die nog moet komen is er alleen het plan. Die twee in één getal gieten zou een plan als
+gemeten tijd laten lezen. Je ziet dus *"gespeeld 10' · gepland 40' · samen 50'"*, met *"2/3 basis"*
+ernaast. Zijn alle wedstrijden gespeeld, dan valt de plankolom weg; is er nog niets gespeeld, de andere.
+
+Daaronder staat in het klein **de spreiding over de wedstrijden**: `1 10' | 2 20' | 3 20'`, genummerd in
+de volgorde van de dag. Een wedstrijd die nog moet komen staat lichter dan een gespeelde, en het uur en
+de tegenstander staan in de tooltip. Veertig minuten over twee wedstrijden is iets anders dan veertig in
+één, en dat zag je aan een totaal niet.
+
+**En de geplande speelminuten stonden niet bij een tornooiwedstrijd.** Op het planscherm van een gewone
+wedstrijd staat "Speeltijd volgens dit plan" — bij een tornooiwedstrijd niet. Dat was geen keuze maar
+een dubbele rem: het blok werd alleen getekend bij een wedstrijd van **twee of meer blokken**, en een
+tornooiwedstrijd is er standaard één van twintig minuten. Nu staat het er ook, en bij één blok toont het
+enkel de minuten — "1 van 1 blok" zegt niets, de minuten wel.
+
+---
+
 ## v1.34.0
 
 **Een tornooi op "Concept" zetten: nog niet gedeeld met de rest van de ploeg.** Voor even oefenen met

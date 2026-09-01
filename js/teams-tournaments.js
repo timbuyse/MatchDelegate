@@ -875,6 +875,91 @@ function renderTournamentList() {
   </div>`;
 }
 
+// ---------------------------------------------------------------------------------------------
+// WAT HET TORNOOIPLAN OPLEVERT (Tim, 01-09-2026)
+// ---------------------------------------------------------------------------------------------
+// Per wedstrijd staat er een plan, maar over het tornooi heen zag je de verdeling nergens — en dat is
+// juist waar het bij een tornooi om gaat: staat iedereen even vaak in de basis, en komt iedereen aan
+// speeltijd. Eén tabel over alle wedstrijden die al ingegeven zijn, gespeeld of niet.
+//
+// GESPEELD EN GEPLAND BLIJVEN APART. Van een afgewerkte wedstrijd zijn de échte minuten bekend
+// (calcMinutes); van een wedstrijd die nog moet komen is er enkel het plan (planSpeeltijd). Die twee in
+// één getal gieten zou een plan als gemeten tijd laten lezen — precies wat Tim op 29-08-2026 uit de
+// statistieken heeft laten halen. Ze staan dus naast elkaar, met het totaal erachter.
+function trnPlanRijen(matches) {
+  const per = new Map();
+  // Sleutel over wedstrijden heen: de speler in de kern, met de naam als terugval voor een losse of
+  // gastspeler. Binnen één tornooi komt iedereen uit dezelfde dagselectie, dus dit valt niet uiteen.
+  const sleutel = p => p.rosterId || (p.name || '').trim().toLowerCase();
+  // PER WEDSTRIJD ERBIJ (Tim, 01-09-2026). Alleen een totaal verbergt de spreiding: veertig minuten
+  // over twee wedstrijden is iets anders dan veertig in één. De wedstrijden zijn genummerd in de
+  // volgorde waarin ze gespeeld worden — `matches` komt al op datum en uur gesorteerd binnen.
+  (matches || []).forEach((m, idx) => {
+    const gespeeld = m.status === 'done';
+    // `quarters` kan uit de cloud terugkomen als undefined (Firebase bewaart geen lege lijst), en
+    // calcMinutes loopt daar stuk op zijn for-of. Dan is er gewoon niets gemeten.
+    const mins = (gespeeld && Array.isArray(m.quarters)) ? calcMinutes(m) : null;
+    const plan = gespeeld ? null : planSpeeltijd(m);
+    (m.players || []).forEach(p => {
+      if (!magOpHetVeld(m, p)) return;   // uitgesloten of niet aanwezig: geen speeltijd om te tellen
+      const k = sleutel(p);
+      if (!per.has(k)) per.set(k, { naam: (p.name || '').trim(), nummer: p.number || '', basis: 0, mee: 0, gespeeldMin: 0, geplandMin: 0, perWed: [] });
+      const r = per.get(k);
+      if (!r.naam && p.name) r.naam = p.name.trim();
+      if (!r.nummer && p.number) r.nummer = p.number;
+      r.mee++;
+      if (p.starting) r.basis++;
+      const min = gespeeld
+        ? (mins ? Math.round(((mins[p.id] && mins[p.id].ms) || 0) / 60000) : 0)
+        : Math.round((plan.perSpeler[p.id] || 0));
+      if (gespeeld) r.gespeeldMin += min; else r.geplandMin += min;
+      r.perWed.push({ nr: idx + 1, min, gespeeld, tegen: (m.opponent || '').trim(), tijd: (m.time || '').trim() });
+    });
+  });
+  return [...per.values()]
+    .map(r => Object.assign(r, { totaalMin: r.gespeeldMin + r.geplandMin, perWed: r.perWed.sort((a, b) => a.nr - b.nr) }))
+    .sort((a, b) => b.totaalMin - a.totaalMin || b.basis - a.basis || a.naam.localeCompare(b.naam, 'nl'));
+}
+function trnPlanHtml(matches) {
+  const rijen = trnPlanRijen(matches);
+  if (!rijen.length) return '';
+  const nGespeeld = (matches || []).filter(m => m.status === 'done').length;
+  const nTeGaan = (matches || []).length - nGespeeld;
+  const nWed = (matches || []).length;
+  const rij = r => {
+    const delen = [];
+    if (nGespeeld) delen.push(`gespeeld <b>${r.gespeeldMin}'</b>`);
+    if (nTeGaan) delen.push(`gepland <b>${r.geplandMin}'</b>`);
+    if (nGespeeld && nTeGaan) delen.push(`samen <b>${r.totaalMin}'</b>`);
+    // De wedstrijden op een rij, klein. Een geplande staat lichter dan een gespeelde — anders lees je
+    // een plan als een uitslag. Het nummer is de volgorde van de dag; het uur en de tegenstander staan
+    // in de tooltip, want daar is op deze regel geen plaats voor.
+    const perWed = r.perWed.map(w => {
+      const titel = `Wedstrijd ${w.nr}${w.tijd ? ' · ' + w.tijd : ''}${w.tegen ? ' · ' + w.tegen : ''}${w.gespeeld ? '' : ' · nog te spelen'}`;
+      return `<span title="${esc(titel)}" style="${w.gespeeld ? '' : 'opacity:.6;'}white-space:nowrap"><span style="font-weight:700">${w.nr}</span> ${w.min}'</span>`;
+    }).join('<span style="color:var(--bdr)"> | </span>');
+    return `<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+      <span style="flex:1;min-width:0;font-size:14px">${r.nummer ? `<span style="color:var(--txt2);font-size:12px">${esc(String(r.nummer))}</span> ` : ''}${esc(r.naam || 'Speler')}
+        <br><small style="color:var(--txt2)">${delen.join(' · ')}</small>
+        ${r.perWed.length > 1 ? `<br><small style="color:var(--txt2);font-size:11px">${perWed}</small>` : ''}</span>
+      ${/* Mét noemer: "2 basis" zegt niet van hoeveel wedstrijden. `mee` is het aantal wedstrijden
+           waarvoor hij beschikbaar in de selectie stond — dat kan minder zijn dan het totaal wanneer
+           hij ergens als niet-aanwezig gemarkeerd staat. */ ''}
+      <span class="ts-role ${r.basis ? 'admin' : 'viewer'}" style="flex-shrink:0">${r.basis}/${r.mee} basis</span>
+    </div>`;
+  };
+  // Eén regel die zegt waar de cijfers over gaan, want "gepland" is geen gemeten tijd. Zelfde
+  // voorbehoud als bij "Speeltijd volgens dit plan" op het planscherm.
+  const uitleg = nTeGaan
+    ? `Over de <b>${nWed}</b> ${nWed === 1 ? 'wedstrijd' : 'wedstrijden'} die je al ingaf${nGespeeld ? `, waarvan <b>${nGespeeld}</b> gespeeld` : ''}. De geplande minuten zijn een plan, niet de wedstrijd: geplande wissels gaan nooit vanzelf af.`
+    : `Over de <b>${nWed}</b> gespeelde ${nWed === 1 ? 'wedstrijd' : 'wedstrijden'} van dit tornooi.`;
+  return `<details class="card" style="margin-bottom:12px">
+    <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijd over het tornooi</summary>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 6px">${uitleg}</p>
+    ${rijen.map(rij).join('')}
+  </details>`;
+}
+
 // Zonder tornooi in het geheugen (bv. na een refresh op deze pagina) stond hier een kale regel
 // "Niet gevonden." zonder hoofding: geen terugknop, dus een doodlopend scherm.
 function trnNotFound(titel) {
@@ -990,6 +1075,10 @@ async function loadTournamentDetail() {
     <div class="card">${infoRows}${squadRow}${squadBlock}</div>
     ${squadWarning}
     ${statsHtml}
+    ${/* Volgt dezelfde publiek/privé-keuze als de sectie Speelminuten in het wedstrijdverslag: een
+         tabel met de speeltijd van elke speler over de hele dag is precies waar die schakelaar over
+         gaat. Zie statSectionVisible in stats-settings.js. */ ''}
+    ${(typeof statSectionVisible !== 'function' || statSectionVisible('minutes')) ? trnPlanHtml(matches) : ''}
     ${reportBtn}
     ${newMatchBtn}
     <div class="sec">Wedstrijden (${matches.length})</div>

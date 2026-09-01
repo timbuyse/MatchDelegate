@@ -1714,8 +1714,13 @@ function prepPlanningHtml(m, ro) {
   if (total < 2) {
     // Eén blok heeft nog altijd twee momenten (de start en na de wissels), dus de strook hoort er ook
     // hier te staan — anders was er geen enkele manier meer om naar dat tweede veld te gaan.
+    // OOK HIER "SPEELTIJD VOLGENS DIT PLAN" (Tim, 01-09-2026). Dit tak-je gaf het blok niet mee, en dat
+    // was geen keuze maar een vergetelheid: een TORNOOIWEDSTRIJD bestaat standaard uit één blok, dus
+    // precies daar zag je de geplande minuten nooit — terwijl een tornooi juist de plek is waar de
+    // verdeling over de spelers telt.
     return `<div class="card">${potlood ? `<div class="lc-nav"><span class="lc-nav-lbl">Opstelling</span>${potlood}</div>` : ''}
-      ${planTijdlijnHtml(m, 1, _prepPlanNa)}${slide(1)}</div>`;
+      ${planTijdlijnHtml(m, 1, _prepPlanNa)}${slide(1)}</div>
+      ${planSpeeltijdHtml(m)}`;
   }
   return `<div class="card"><div class="lc-wrap" id="pp-wrap">
     <div class="lc-nav">
@@ -2237,7 +2242,12 @@ function planSpeeltijdHtml(m) {
   const rijen = planSpeeltijdRijen(m);
   if (!rijen.length) return '';
   const { totaal, duur } = planSpeeltijd(m);
-  if (totaal < 2) return '';
+  // OOK BIJ ÉÉN BLOK (Tim, 01-09-2026). Hier stond `if (totaal < 2) return ''`, en dat is te streng
+  // geworden: bij één blok zegt "1 van 1 blok" niets, maar de MINUTEN zeggen wel iets — en een
+  // tornooiwedstrijd is standaard precies dat, één blok van twintig minuten. Dus: bij één blok laten we
+  // de blokkenteller weg en tonen we enkel de minuten. Zonder blokduur (`duur` 0) valt er ook niets te
+  // rekenen, en dan blijft er bij één blok helemaal niets over om te tonen.
+  if (totaal < 2 && !duur) return '';
   const laagst = rijen[rijen.length - 1].blokken, hoogst = rijen[0].blokken;
   // Enkel de kleur verschilt: wie het minst speelt licht op, zodat je het in één oogopslag ziet
   // zonder dat er een oordeel bij staat — de verdeling is de keuze van de trainer.
@@ -2249,7 +2259,7 @@ function planSpeeltijdHtml(m) {
   return `<details class="card" style="padding:12px">
     <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijd volgens dit plan</summary>
     <p style="font-size:12px;color:var(--txt2);margin:8px 0 6px">Hoeveel elke speler volgens dit plan zou spelen, met de geplande wissels meegerekend op hun minuut.${geschat ? ` Voor een wissel zonder eigen minuut rekenen we op de helft van het ${pSingLow(m)}.` : ''} Geplande wissels gaan nooit vanzelf af — dit is het plan, niet de wedstrijd.</p>
-    ${rijen.map(r => `<div class="prow" style="padding:5px 0;align-items:center">${numDot(r.speler, 'pnum')}<div style="flex:1;font-size:14px">${esc(r.naam)}</div><div style="font-size:13px;${kleur(r)}">${planBlokTekst(r.blokken)} van ${totaal}${duur ? ` · ${r.min}'` : ''}</div></div>`).join('')}
+    ${rijen.map(r => `<div class="prow" style="padding:5px 0;align-items:center">${numDot(r.speler, 'pnum')}<div style="flex:1;font-size:14px">${esc(r.naam)}</div><div style="font-size:13px;${kleur(r)}">${totaal > 1 ? `${planBlokTekst(r.blokken)} van ${totaal}${duur ? ' · ' : ''}` : ''}${duur ? `${r.min}'` : ''}</div></div>`).join('')}
   </details>`;
 }
 // De plan-entries dragen enkel id + plaats; voor het tekenen hebben we ook naam en rugnummer nodig.
