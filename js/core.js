@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.33.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.34.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1348,6 +1348,40 @@ function deleteTournament(id) {
   cloudOnLocalTournamentDelete(id);
 }
 function tournamentById(id) { return getTournaments().find(t => t.id === id) || null; }
+// ---------------------------------------------------------------------------------------------
+// CONCEPT: EEN TORNOOI DAT NOG NIET GEDEELD IS (Tim, 01-09-2026)
+// ---------------------------------------------------------------------------------------------
+// Waarvoor: even oefenen met de app, of een selectie klaarzetten die de andere trainers nog niet
+// mogen zien. Zodra het tornooi begint haal je het vinkje weg en is alles gewoon van de ploeg.
+//
+// EERLIJK OVER WAT DIT IS: een gordijn in de app, geen slot in de databank. Het tornooi blijft in
+// `teams/<ploeg>/tournaments` staan en is dus met een Firebase-client rechtstreeks te lezen door elk
+// ploeglid. Tim weet dat en wil het zo (01-09-2026: "dan moet je al rechtstreeks in de firebase
+// terecht maar dat gaat niemand doen"). Bij de schakelaar staat het er ook zo bij. Wil je er ooit een
+// écht slot van maken, dan moet het tornooi naar een eigen tak met eigen regels — en dan moeten de
+// WEDSTRIJDEN mee, want die staan in de gewone wedstrijdenlijst van de ploeg.
+//
+// NAAR BOVEN TOE BLIJFT ALLES ZICHTBAAR (Tims regel): de clubbeheerder van deze ploeg en de eigenaar
+// van de app zien een concept wél, mét het label erbij. Anders ziet een clubbeheerder een tornooi dat
+// voor de trainers niet bestaat, zonder te weten waarom.
+function trnIsConcept(t) { return !!(t && t.concept); }
+// Mag de huidige gebruiker dit tornooi zien?
+function trnZichtbaar(t) {
+  if (!trnIsConcept(t)) return true;
+  // Zonder cloud is er één gebruiker op dit toestel; er valt niets voor iemand te verbergen.
+  if (!cloudReady) return true;
+  if (isOwner || isClubAdmin) return true;
+  const uid = currentUser && currentUser.uid;
+  // `conceptBy` leeg = van vóór deze versie of lokaal gezet: dan niet verbergen. Iets onvindbaar maken
+  // is erger dan iets te veel tonen — zelfde afweging als in tournamentInActiveTeam.
+  return !t.conceptBy || t.conceptBy === uid;
+}
+// Hoort deze wedstrijd bij een tornooi in concept? Zo ja, dan telt ze VOOR NIEMAND mee in de
+// statistieken (Tims keuze) — ook niet voor wie het tornooi wél ziet. Twee mensen die verschillende
+// cijfers zien voor dezelfde ploeg levert enkel "mijn statistieken kloppen niet"-vragen op.
+function matchInConceptTornooi(m) {
+  return !!(m && m.tournamentId && trnIsConcept(tournamentById(m.tournamentId)));
+}
 // Een tornooi is afgesloten zodra het expliciet afgesloten werd. Zonder dat veld (alle bestaande
 // tornooien) valt het terug op de oude regel: de datum bepaalt of het bij de gespeelde hoort.
 function tournamentClosed(t) { return !!(t && t.status === 'done'); }

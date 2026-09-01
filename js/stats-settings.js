@@ -60,7 +60,11 @@ function bouwSpeeldagIndex(alle) {
   const perSpeler = new Map();      // op welke datums stond hij in een selectie
   const perSpeelNr = new Map();     // en op welke ingevulde speeldagen
   for (const m of (alle || [])) {
+    // Een wedstrijd van een tornooi in CONCEPT hoort hier niet in: anders geldt iemand die in zo'n
+    // oefentornooi opgesteld stond als "die speeldag elders gespeeld", en mist hij de échte wedstrijd
+    // van die dag niet meer. Een concept telt voor niemand mee (zie trnIsConcept in core.js).
     if (!m || !m.date || (typeof matchCancelled === 'function' && matchCancelled(m))) continue;
+    if (typeof matchInConceptTornooi === 'function' && matchInConceptTornooi(m)) continue;
     const sd = speeldagSleutel(m);
     for (const p of (m.players || [])) {
       if (p.absent) continue;   // in de selectie staan maar niet komen opdagen is geen speeldag elders
@@ -653,7 +657,10 @@ async function loadPlayerDetail() {
   // dan simpelweg niet in de kiezer, en het tornooiblok hieronder kwam nooit in beeld.
   const inTournamentSquad = t => tournamentSquadMee(t).some(s => rosterId ? s.srcId === rosterId : (s.name || '').trim() === name);
   const tInTeam = t => { if (!playerDetailTeamName) return true; const tm = teamById(t.teamId); return (tm && tm.name === playerDetailTeamName) || t.teamName === playerDetailTeamName; };
-  const myTournaments = getTournaments().filter(t => tInTeam(t) && inTournamentSquad(t));
+  // `trnIsConcept` erbij en niet `trnZichtbaar`: een tornooi in concept telt VOOR NIEMAND mee in de
+  // cijfers, ook niet voor wie het ziet (Tims keuze — zie core.js). Anders zou het spelerdetail een
+  // tornooi tonen dat in de seizoenscijfers nergens meegerekend is.
+  const myTournaments = getTournaments().filter(t => !trnIsConcept(t) && tInTeam(t) && inTournamentSquad(t));
   const seasons = [...new Set([...allDone.map(seasonOf), ...myTournaments.map(seasonOf)])].sort().reverse();
   // 'Onbekend' achteraan, niet als default — zie loadStats().
   const _unkIdx2 = seasons.indexOf('Onbekend');

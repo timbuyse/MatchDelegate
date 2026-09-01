@@ -845,7 +845,7 @@ function tournamentInActiveTeam(t) {
 }
 function renderTournamentList() {
   const today = new Date().toISOString().split('T')[0];
-  const all = getTournaments().filter(tournamentInActiveTeam).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const all = getTournaments().filter(t => tournamentInActiveTeam(t) && trnZichtbaar(t)).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const planned = all.filter(t => !tournamentClosed(t) && (!t.date || t.date >= today));
   const done    = all.filter(t => tournamentClosed(t) || (t.date && t.date < today)).reverse();
   const newBtn = canManage() ? `<button class="btn btn-green" onclick="newTournament()">${icI(IC.medal)} + Nieuw tornooi</button>` : '';
@@ -853,7 +853,7 @@ function renderTournamentList() {
     const team = teamById(t.teamId);
     return `<div class="team-row" style="border-left-color:${borderColor}" onclick="goTournament('${t.id}')">
       <div>
-        <div class="tn">${icI(IC.medal)} ${esc(t.name)}</div>
+        <div class="tn">${icI(IC.medal)} ${esc(t.name)}${trnIsConcept(t) ? ' <span class="ts-role viewer" style="vertical-align:middle">' + icI(IC.eyeOff) + 'Concept</span>' : ''}</div>
         <div class="tc">${t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}${t.location ? ' · ' + esc(t.location) : ''}${team ? ' · ' + esc(team.name) : ''}${tournamentClosed(t) ? ' · afgesloten' : ''}</div>
       </div>
       <span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span>
@@ -885,6 +885,11 @@ function trnNotFound(titel) {
 function renderTournament() {
   const t = currentTournament;
   if (!t) return trnNotFound('Tornooi');
+  // POORTWACHTER, niet enkel de lijst filteren. Een tornooi dat op concept gezet wordt, zit al in de
+  // lokale opslag van de andere beheerders (het synchroniseert naar iedereen) — dus wie het scherm net
+  // open had, of er via de terugknop op terugkomt, moet hier tegen een muur lopen. Zelfde reden als de
+  // guards in go() voor importvv en importpsd.
+  if (!trnZichtbaar(t)) return trnNotFound('Tornooi');
   setTimeout(loadTournamentDetail, 0);
   const editBtn = canManage() ? `<button class="hdr-btn" onclick="editTournament('${t.id}')">${icI(IC.edit)}</button>` : '';
   return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
@@ -955,6 +960,21 @@ async function loadTournamentDetail() {
   // aanpasbaar — een naam of selectie rechtzetten mag zonder eerst te heropenen.
   const closedBanner = gesloten
     ? `<div class="viewer-banner">${icI(IC.done)} Afgesloten${t.closedAt ? ' op ' + fmtDate(t.closedAt) : ''}${canManage() ? ' — geen wedstrijden meer toe te voegen' : ''}</div>` : '';
+  // CONCEPT: nog niet gedeeld met de andere ploegbeheerders. Zie trnIsConcept in core.js voor wat dit
+  // wél en niet is — en zeg dat laatste ook op het scherm, anders houdt iemand het over een jaar voor
+  // een slot op de gegevens.
+  // GEEN WOORD OVER DE STATISTIEKEN IN DEZE BALK (Tim, 01-09-2026). Dat stond er eerst bij, maar het
+  // enige waar een tornooi in de cijfers voor meetelt is "geselecteerd voor een tornooi" — en dan is
+  // "telt voor niemand mee in de statistieken" een grote belofte over iets kleins. Het gedrag blijft
+  // (zie trnIsConcept in core.js), de melding niet.
+  const isConcept = trnIsConcept(t);
+  const conceptBanner = isConcept
+    ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.eyeOff)} <b>Concept — nog niet gedeeld.</b> Andere ploegbeheerders en kijkers zien dit tornooi niet. De clubbeheerder en de eigenaar van de app zien het wél.${canManage() ? `<br><span style="font-size:12px">Het is een keuze in de app, geen slot op de gegevens.</span>` : ''}</div>`
+    : '';
+  // Tweede argument = "zet het OP concept". Dus false om te delen.
+  const conceptBtn = !canManage() ? '' : (isConcept
+    ? `<button class="btn btn-green" style="margin-top:8px;width:100%" onclick="trnZetConcept('${t.id}', false)">${icI(IC.eye)} Delen met de ploeg</button>`
+    : `<button class="btn btn-pale" style="margin-top:8px;width:100%" onclick="trnZetConcept('${t.id}', true)">${icI(IC.eyeOff)} Op concept zetten — nog niet delen</button>`);
   const newMatchBtn = (canManage() && !noSquad && !gesloten) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
   const closeBtn = !canManage() ? '' : (gesloten
     ? `<button class="btn btn-orgpale" style="margin-top:12px;width:100%" onclick="reopenTournament('${t.id}')">${icI(IC.undo)} Tornooi heropenen</button>`
@@ -965,6 +985,7 @@ async function loadTournamentDetail() {
     ? matches.map(m => `<div>${matchItemHtml(m)}${(canManage() && !gesloten) ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
     : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad && !gesloten ? ' Voeg er een toe!' : ''}</p></div>`;
   el.innerHTML = `
+    ${conceptBanner}
     ${closedBanner}
     <div class="card">${infoRows}${squadRow}${squadBlock}</div>
     ${squadWarning}
@@ -974,6 +995,7 @@ async function loadTournamentDetail() {
     <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}
     ${closeBtn}
+    ${conceptBtn}
     ${canManage() ? `<div class="danger"><button class="btn btn-red" onclick="deleteTournamentConfirm('${t.id}')">${icI(IC.trash)} Tornooi verwijderen</button></div>` : ''}`;
 }
 
@@ -1103,6 +1125,7 @@ function tournamentReportData(t, matches) {
 function renderTournamentReport() {
   const t = currentTournament;
   if (!t) return trnNotFound('Tornooiverslag');
+  if (!trnZichtbaar(t)) return trnNotFound('Tornooiverslag');   // zelfde poortwachter als renderTournament
   setTimeout(loadTournamentReport, 0);
   return `<div class="hdr"><button class="back" onclick="goTournament('${t.id}')">‹</button>
     <div><h1>${icI(IC.clipboard)} Tornooiverslag</h1><div class="hdr-sub">${esc(t.name)}${t.date ? ' · ' + fmtDate(new Date(t.date + 'T00:00:00').getTime()) : ''}</div></div>
@@ -1553,6 +1576,27 @@ async function reopenTournament(id) {
   if (currentTournament && currentTournament.id === id) currentTournament = t;
   render();
   showToast('Tornooi heropend.', 'ok');
+}
+// Op concept zetten of weer delen. Bewaart WIE het op concept zette: die persoon blijft het zien,
+// terwijl een andere ploegbeheerder die hetzelfde tornooi opent niets meer vindt. Zie trnIsConcept en
+// trnZichtbaar in core.js — en `concept` expliciet weggooien bij het delen, zodat de cloud-merge het
+// als een echte wijziging ziet (zelfde reden als bij reopenTournament hierboven).
+async function trnZetConcept(id, opConcept) {
+  if (!canManage()) { showToast('Enkel een beheerder kan dit wijzigen.', 'err'); return; }
+  const t = tournamentById(id); if (!t) return;
+  if (opConcept) {
+    t.concept = true;
+    t.conceptBy = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || '';
+  } else {
+    t.concept = false;
+    t.conceptBy = null;
+  }
+  saveTournament(t);
+  if (currentTournament && currentTournament.id === id) currentTournament = t;
+  render();
+  showToast(opConcept
+    ? 'Op concept gezet. Enkel jij, de clubbeheerder en de eigenaar van de app zien dit tornooi nog.'
+    : 'Gedeeld met de ploeg — iedereen ziet het nu.', 'ok');
 }
 async function deleteTournamentConfirm(id) {
   const t = tournamentById(id); if (!t) return;

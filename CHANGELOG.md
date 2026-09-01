@@ -9,6 +9,42 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.34.0
+
+**Een tornooi op "Concept" zetten: nog niet gedeeld met de rest van de ploeg.** Voor even oefenen met
+de app, of voor een selectie die de andere trainers nog niet mogen zien. Zodra het tornooi begint haal
+je het vinkje weg en is alles gewoon van de ploeg.
+
+Onderaan de tornooifiche staat **"Op concept zetten — nog niet delen"**. Zolang dat aan staat:
+
+| | Ziet het tornooi |
+|---|---|
+| Jij, die het op concept zette | ja, met het label **Concept** |
+| De clubbeheerder | ja, met datzelfde label |
+| De eigenaar van de app | ja |
+| Andere ploegbeheerders | nee |
+| Kijkers | nee |
+
+Naar boven toe blijft dus alles zichtbaar — mét het label, want een clubbeheerder die een tornooi ziet
+dat voor de trainers niet bestaat, hoort te weten waarom.
+
+Onder water telt het ook nergens mee zolang het concept is: een oefentornooi maakt niemand "die
+speeldag elders opgesteld", het duikt niet op bij "geselecteerd voor een tornooi" in het spelerdetail,
+en het staat niet in de clubexport. Dat staat bewust **niet** in de melding op het scherm — het enige
+waar een tornooi in de cijfers echt voor meetelt is die selectie, en daar hoort geen grote belofte over
+statistieken bij.
+
+Het verdwijnt uit de tornooilijst, van de tegel op het beginscherm, uit "eerstvolgende tornooi", van de
+agenda en uit het spelerdetail. En wie de fiche of het verslag al open had, loopt tegen "dit tornooi is
+niet gevonden" — anders bleef het staan tot hij wegnavigeerde.
+
+**Eerlijk over wat het is:** dit is een keuze in de app, geen slot op de gegevens. Het tornooi blijft in
+de databank staan en is met de juiste hulpmiddelen door elk ploeglid te lezen. Dat staat ook zo op het
+scherm bij de schakelaar. Wil je er ooit een echt slot van maken, dan moeten de wedstrijden van dat
+tornooi mee verhuizen — die staan in de gewone wedstrijdenlijst van de ploeg.
+
+---
+
 ## v1.33.0
 
 **"Alle gebruikers" kan nu ook per gebruiker in plaats van per ploeg.** Bovenaan staat een schakelaar

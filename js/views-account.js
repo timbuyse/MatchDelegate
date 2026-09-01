@@ -1650,9 +1650,13 @@ async function showPloegExport() {
   // cleanupOrphanMatches), dus zonder deze filter zouden wedstrijden van een andere ploeg op
   // hetzelfde toestel mee in het bestand belanden.
   const eigen = wedstrijden.filter(m => (m.teamName && m.teamName === naam) || (!m.teamName && m.teamId && m.teamId === activeTeamId));
+  // Een tornooi in CONCEPT hoort niet in een bestand dat naar een bestuur gaat: het telt voor niemand
+  // mee (zie trnIsConcept in core.js). Zijn wedstrijden vallen daarmee ook weg — ze zijn enkel via hun
+  // tornooi te herkennen, dus dat gebeurt hieronder op `tournamentId`.
   const tornooien = {};
-  try { (getTournaments() || []).forEach(t => { if (t && t.id) tornooien[t.id] = t; }); } catch (e) {}
-  const ploegen = [{ id: activeTeamId || 'lokaal', naam, spelers: (kern && kern.players) || [], tornooien, wedstrijden: eigen }];
+  try { (getTournaments() || []).forEach(t => { if (t && t.id && !trnIsConcept(t)) tornooien[t.id] = t; }); } catch (e) {}
+  const zonderConcept = eigen.filter(m => !matchInConceptTornooi(m));
+  const ploegen = [{ id: activeTeamId || 'lokaal', naam, spelers: (kern && kern.players) || [], tornooien, wedstrijden: zonderConcept }];
   const seizoenen = ceSeizoenen(ploegen);
   ceState = { clubId: null, ploegen, seizoen: seizoenen[0] || 'alle', ploegModus: true };
   ceVenster();
@@ -4245,7 +4249,9 @@ async function loadHome() {
   const rosters = getTeamsV2();
   const teamCount = rosters.length;
   const playerCount = rosters.reduce((n, t) => n + ((t.players || []).length), 0);
-  const trnCount = getTournaments().length;
+  // `trnZichtbaar`: een tornooi in concept hoort niet mee te tellen voor wie het niet mag zien —
+  // anders staat er "3 tornooien" op de tegel en vind je er maar twee in de lijst (zie core.js).
+  const trnCount = getTournaments().filter(trnZichtbaar).length;
   // In de cloud toont elke ploeg zijn eigen spelers; van ploeg wisselen gaat via de ⇄-knop bovenaan.
   // De tegel heet "Ploeg" en niet "Spelers": erachter zitten ook de trainers, de ploegverantwoordelijken
   // en de standaardinstellingen voor een nieuwe wedstrijd. Het getal eronder blijft wél het aantal
@@ -4359,7 +4365,7 @@ async function loadHome() {
   // Eerstvolgende tornooi
   // Een afgesloten tornooi hoort hier niet meer bij, ook al ligt de datum nog in de toekomst: het
   // is bewust opgeborgen. Zelfde regel als in de tornooilijst (zie tournamentClosed).
-  let upcomingTrn = getTournaments().filter(t => !tournamentClosed(t) && (t.date || '') >= new Date().toISOString().split('T')[0]);
+  let upcomingTrn = getTournaments().filter(t => trnZichtbaar(t) && !tournamentClosed(t) && (t.date || '') >= new Date().toISOString().split('T')[0]);
   if (homeFilter !== 'all') upcomingTrn = upcomingTrn.filter(t => { const team = teamById(t.teamId); return team && team.name === homeFilter; });
   upcomingTrn.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   upcomingTrn = upcomingTrn.slice(0, 1);
@@ -4689,6 +4695,7 @@ async function loadAgenda() {
   else if (homeFilter !== 'all' && !teams.includes(homeFilter)) homeFilter = 'all';
   const list = homeFilter === 'all' ? all : all.filter(m => m.teamName === homeFilter);
   const trns = getTournaments().filter(t => {
+    if (!trnZichtbaar(t)) return false;   // tornooi in concept: niet op de agenda van een ander
     if (!cloudReady) return homeFilter === 'all' || (t.teamName || '') === homeFilter;
     return tournamentInActiveTeam(t);
   });
