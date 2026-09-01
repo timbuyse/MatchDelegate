@@ -1061,6 +1061,11 @@ async function loadTournamentDetail() {
     ? `<button class="btn btn-green" style="margin-top:8px;width:100%" onclick="trnZetConcept('${t.id}', false)">${icI(IC.eye)} Delen met de ploeg</button>`
     : `<button class="btn btn-pale" style="margin-top:8px;width:100%" onclick="trnZetConcept('${t.id}', true)">${icI(IC.eyeOff)} Op concept zetten — nog niet delen</button>`);
   const newMatchBtn = (canManage() && !noSquad && !gesloten) ? `<button class="btn btn-org" style="margin-bottom:12px" onclick="addTournamentMatch('${t.id}')">${icI(IC.ball)} + Wedstrijd toevoegen</button>` : '';
+  // HET TORNOOIPLAN OP PAPIER (Tim, 01-09-2026): alle wedstrijdplannen achter elkaar plus de speeltijd
+  // van de hele dag. Boven "Wedstrijd toevoegen", waar Tim het vroeg. Enkel zinvol met wedstrijden, en
+  // enkel voor wie de ploeg bijhoudt — het is het blad voor de bank, niet iets voor een kijker.
+  const planPdfBtn = (matches.length && canManage())
+    ? `<button class="btn btn-pale" style="margin-bottom:12px" onclick="exportTornooiplanPDF('${t.id}')">${icI(IC.download)} Tornooiplan downloaden (PDF)</button>` : '';
   const closeBtn = !canManage() ? '' : (gesloten
     ? `<button class="btn btn-orgpale" style="margin-top:12px;width:100%" onclick="reopenTournament('${t.id}')">${icI(IC.undo)} Tornooi heropenen</button>`
     : `<button class="btn btn-pale" style="margin-top:12px;width:100%" onclick="closeTournamentConfirm('${t.id}')">${icI(IC.done)} Tornooi afsluiten</button>`);
@@ -1080,6 +1085,7 @@ async function loadTournamentDetail() {
          gaat. Zie statSectionVisible in stats-settings.js. */ ''}
     ${(typeof statSectionVisible !== 'function' || statSectionVisible('minutes')) ? trnPlanHtml(matches) : ''}
     ${reportBtn}
+    ${planPdfBtn}
     ${newMatchBtn}
     <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}

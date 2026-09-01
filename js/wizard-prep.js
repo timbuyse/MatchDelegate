@@ -1851,7 +1851,11 @@ function renderPrep() {
          wissen — een omweg die niemand zelf bedenkt, en die precies het geval trof waarin je het blad
          alsnog krijgt. Nu blijft ze staan en waarschuwt psdStart() wat er vervangen wordt. De nadruk
          (btn-orgpale) hoort enkel bij een lege wedstrijd: dáár is inlezen de gewone weg. */ ''}
-    <button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>
+    ${/* NIET BIJ EEN TORNOOIWEDSTRIJD (Tim, 01-09-2026). Daar komt de selectie van de TORNOOIDAG
+         (tournamentSquadMee) en geldt ze voor alle wedstrijden van die dag; een PSD-blad inlezen zou
+         hier spelers zetten die bij de eerstvolgende bewerking langs de tornooiwizard weer wegvallen.
+         Zelfde grens als vvMagSelectie in import-vv.js en als "Selectie aanpassen" op het verslag. */ ''}
+    ${m.tournamentId ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
@@ -1955,8 +1959,11 @@ function modalEditMatchMenu() {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${item(IC.calendar, 'Info bewerken', 'Tegenstander, datum, uur, formaat en de rest van de wedstrijdgegevens.', 'editMatchWizard(match)')}
     ${item(IC.players, 'Selectie', 'Wie speelt, wie op de bank zit en wie niet beschikbaar is.', 'startSelectieWizard()')}
-    ${/* Ook mét selectie (Tim, 30-08-2026) — psdStart() waarschuwt dan wat er vervangen wordt. */ ''}
-    ${item(IC.upload, 'Voorbereiding van de trainer', heeftSel
+    ${/* Ook mét selectie (Tim, 30-08-2026) — psdStart() waarschuwt dan wat er vervangen wordt.
+         MAAR NIET BIJ EEN TORNOOIWEDSTRIJD (Tim, 01-09-2026): daar komt de selectie van de tornooidag
+         en zou een ingelezen blad bij de eerstvolgende bewerking langs de tornooiwizard weer
+         verdwijnen. Houd dit gelijk met de knop in het voorbereidingsscherm hierboven. */ ''}
+    ${m.tournamentId ? '' : item(IC.upload, 'Voorbereiding van de trainer', heeftSel
       ? 'Lees het PSD-blad van de trainer in. Let op: dat vervangt de selectie en de opstelling die er nu staan.'
       : 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de

@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.36.0
+
+**Het tornooiplan op papier.** Op de tornooifiche staat, boven "Wedstrijd toevoegen", de knop
+**"Tornooiplan downloaden (PDF)"**. Wat het wedstrijdplan is voor één wedstrijd, is dit voor een hele
+tornooidag: alle wedstrijdplannen achter elkaar — per wedstrijd het uur, de tegenstander, de opstelling
+bij de start, de opstelling na de geplande wissels, wie er wisselt en wie op de bank zit — en achteraan
+één tabel met de speeltijd van de hele dag.
+
+Die tabel geeft per speler hoe vaak hij in de basis staat, hoeveel hij gespeeld heeft, hoeveel er nog
+gepland is, het totaal, en de spreiding per wedstrijd (`1: 20' 2: 20'* 3: 20'*`). De minuten met een
+sterretje zijn gepland, niet gespeeld — dat staat er ook zo bij. Eén blad dat mee naar de kantine gaat.
+
+De opmaak van elk blok komt uit dezelfde functie als het wedstrijdplan van één wedstrijd. Twee bijna
+identieke lay-outs los onderhouden loopt na de eerste wijziging uit elkaar.
+
+**Twee kleinere dingen die daarbij bovenkwamen:**
+
+- Bij een **deel dat al gespeeld is** stond in het plan "Geen wissels gepland voor dit deel", ook als er
+  tijdens de wedstrijd wél gewisseld was. Het veld toont daar de echte opstelling, de wissellijst leest
+  het plan — en dan beweert die regel iets naast een veld dat het tegendeel laat zien. Ze staat er nu
+  alleen nog bij een deel dat nog moet komen.
+- De knop **"Voorbereiding van de trainer (PDF)"** is weg bij een **tornooiwedstrijd**, in het
+  voorbereidingsscherm en in het bewerkmenu. Daar komt de selectie van de tornooidag en geldt ze voor
+  alle wedstrijden van die dag; een ingelezen PSD-blad zou bij de eerstvolgende bewerking langs de
+  tornooiwizard weer verdwijnen. Bij een gewone wedstrijd blijft alles zoals het was.
+
+---
+
 ## v1.35.0
 
 **Wat levert het tornooiplan op?** Op de tornooifiche staat een nieuw blok **"Speeltijd over het

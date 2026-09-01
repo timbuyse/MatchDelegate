@@ -1596,6 +1596,125 @@ function planPosWisselsVanDeel(m, q) {
     return s.pB ? `${fieldName(m, s.pA)} met ${fieldName(m, s.pB)}` : '';
   }).filter(Boolean);
 }
+// ÉÉN BLOK VAN HET PLAN OP PAPIER, als eigen functie (v1.36.0). Stond tot dan als de body van de
+// `for (let q ...)`-lus in exportWedstrijdplanPDF. Het tornooiplan hieronder tekent exact hetzelfde
+// blok, maar per WEDSTRIJD in plaats van per deel — en negentig regels zorgvuldige opmaak twee keer
+// onderhouden loopt gegarandeerd uit elkaar. `kopTekst` is het enige wat verschilt: "Kwart 2" in het
+// wedstrijdplan, "Wedstrijd 3 · 11:00 · Olsa Brakel" in het tornooiplan.
+function pdfPlanDeelBlok(doc, L, m, q, kopTekst) {
+  const { MG, CW } = L;
+  // De breedte is zo gekozen dat er ALTIJD twee delen op een pagina passen — ook op de eerste, waar de
+  // kop al ruimte inneemt. Per deel kost dit ongeveer 73 pt naast het veld (kop, labels, bank,
+  // witruimte); bij 168 pt breed is een veld 247 pt hoog, dus twee delen ≈ 640 pt tegenover de ~680 pt
+  // die er onder de kop overblijft.
+  const veldW = 168;
+  const veldH = veldW / 326 * 480;
+  const midX = MG + veldW, midW = CW - veldW * 2;
+  const bankW = veldW;
+  // Elke opstelling heeft zijn eigen bank: wie op dát moment niet op het veld staat. De bank onder het
+  // linkerveld is dus een andere dan die onder het rechterveld — precies de spelers die door de
+  // wissels van plaats ruilden.
+  const bankTekst = veld => {
+    const opVeld = new Set(veld.map(p => p.id));
+    const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
+    return bank.length ? 'Bank: ' + bank.map(p => fieldName(m, p.id)).join(', ') : 'Geen bankspelers.';
+  };
+  const start = planStartVanDeel(m, q);
+  const wissels = planWisselsVanDeel(m, q);
+  const posWissels = planPosWisselsVanDeel(m, q);
+  const iets = wissels.length || posWissels.length;
+  // Enkel een tweede veld als er iets te wisselen valt: anders staat er twee keer hetzelfde.
+  const na = iets ? _pasGeplandToe(m, start.map(p => ({ ...p })), q, null) : null;
+  const capId = captainAtStartOfQuarter(m, q);
+  // Hoeveel regels neemt de bank in? Bepaalt mee of dit deel nog op de pagina past.
+  doc.setFontSize(8.5);
+  const bankL = doc.splitTextToSize(bankTekst(start), bankW);
+  const bankR = na ? doc.splitTextToSize(bankTekst(na), bankW) : [];
+  const bankH = Math.max(bankL.length, bankR.length) * 10 + 6;
+  L.ensure(6 + veldH + 20 + bankH + (na ? 10 : 28));
+  L.heading(kopTekst, 6 + veldH + 20 + bankH);
+  const yVeld = L.y;
+  const xL = na ? MG : MG + (CW - veldW) / 2;
+  const xR = MG + CW - veldW;
+  if (na) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+    doc.text('BIJ DE START', xL + veldW / 2, yVeld, { align: 'center' });
+    doc.text('NA DE GEPLANDE WISSELS', xR + veldW / 2, yVeld, { align: 'center' });
+  }
+  drawPitchPdf(doc, m, start, xL, yVeld + 6, veldW, capId, q);
+  if (na) drawPitchPdf(doc, m, na, xR, yVeld + 6, veldW, capId, q);
+
+  // ---- Tussen de twee velden: wat er gebeurt ----
+  if (na) {
+    const size = 8.5, regelH = 10.5, kopH = 12;
+    // Twee kolommen: links wie eraf gaat, rechts wie erin komt. Zo lees je een wissel als één
+    // beweging i.p.v. als twee regels onder elkaar. De kolommen zijn niet half-om-half verdeeld maar
+    // precies zo breed als de langste naam, en het geheel staat gecentreerd tussen de twee velden —
+    // anders plakt de linkerkolom tegen het veld met een gat in het midden.
+    const naamB = midW / 2 - 16;
+    doc.setFontSize(size);
+    const wRegels = wissels.map(w => ({
+      uit: doc.splitTextToSize(w.uit, naamB), in: doc.splitTextToSize(w.in, naamB),
+    }));
+    const breedste = rs => Math.max(0, ...rs.map(r => doc.getTextWidth(r)));
+    const bUit = Math.max(0, ...wRegels.map(w => breedste(w.uit)));
+    const bIn = Math.max(0, ...wRegels.map(w => breedste(w.in)));
+    const kolGap = 12, pijlB = 8;
+    const blokB = pijlB + bUit + kolGap + pijlB + bIn;
+    const x0 = midX + Math.max(3, (midW - blokB) / 2);
+    const pxUit = x0, nxUit = x0 + pijlB;
+    const pxIn = x0 + pijlB + bUit + kolGap, nxIn = pxIn + pijlB;
+    const pRegels = posWissels.map(t => doc.splitTextToSize(t, midW - 6));
+    let blokH = 14;                                 // de kop "Geplande wissels"
+    if (wRegels.length) blokH += 10 + wRegels.reduce((n, w) => n + Math.max(w.uit.length, w.in.length) * regelH + 3, 0);
+    if (pRegels.length) blokH += kopH + pRegels.reduce((n, r) => n + r.length * regelH, 0) + 3;
+    let ty = yVeld + 6 + Math.max(0, (veldH - blokH) / 2) + 10;
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(245, 130, 31);
+    doc.text('Geplande wissels', midX + midW / 2, ty, { align: 'center' });
+    ty += 14;
+    if (wRegels.length) {
+      // Kolomkopjes, zodat ook zonder de kleur van de pijltjes duidelijk is wat wat is.
+      doc.setFont(undefined, 'bold'); doc.setFontSize(6.5); doc.setTextColor(107, 114, 128);
+      doc.text('OUT', nxUit, ty);
+      doc.text('IN', nxIn, ty);
+      ty += 10;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(size);
+      wRegels.forEach(w => {
+        // Rood pijltje omlaag = eraf, groen omhoog = erin. Zelfde vorm als elders in de PDF.
+        doc.setTextColor(23, 23, 23);
+        pijlPdf(doc, pxUit, ty - 3, size, [220, 38, 38], true);
+        doc.text(w.uit, nxUit, ty);
+        pijlPdf(doc, pxIn, ty - 3, size, [22, 163, 74], false);
+        doc.text(w.in, nxIn, ty);
+        ty += Math.max(w.uit.length, w.in.length) * regelH + 3;
+      });
+    }
+    if (pRegels.length) {
+      doc.setFont(undefined, 'bold'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
+      doc.text('POSITIEWISSELS', midX + midW / 2, ty, { align: 'center' });
+      ty += kopH;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(size); doc.setTextColor(23, 23, 23);
+      pRegels.forEach(r => { doc.text(r, midX + midW / 2, ty, { align: 'center' }); ty += r.length * regelH; });
+    }
+  }
+
+  // ---- Bank onder elk veld ----
+  // Ruim onder het diagram: op een vorige versie plakte de bankregel tegen het veld.
+  const by = yVeld + 6 + veldH + 20;
+  doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
+  doc.text(bankL, xL, by);
+  if (na) doc.text(bankR, xR, by);
+  // NIET BIJ EEN DEEL DAT AL GESPEELD IS (v1.36.0). Het veld toont dan de ECHTE opstelling
+  // (planStartVanDeel valt voor een gespeeld blok terug op pitchPlayersAtPeriodStart), maar de
+  // wissellijst leest nog altijd `plannedSubs`. Bij een wedstrijd waar wél gewisseld is maar niets
+  // gepland stond, beweerde deze regel dus "geen wissels" naast een veld dat het tegendeel laat zien.
+  // Zelfde toets als planStartVanDeel gebruikt om "gespeeld" te bepalen.
+  if (!na && (m.quarters || []).length < q) {
+    doc.setFontSize(9);
+    doc.text('Geen wissels gepland voor dit deel.', MG + CW / 2, by + Math.max(1, bankL.length) * 10 + 8, { align: 'center' });
+  }
+  L.y = by + bankH + (na ? 10 : 20);
+}
 async function exportWedstrijdplanPDF() {
   const m = match; if (!m) return;
   showToast('PDF wordt gemaakt...', 'ok');
@@ -1627,115 +1746,10 @@ async function exportWedstrijdplanPDF() {
   L.y += 22;
 
   // ---- Per deel ----
+  // Twee velden naast elkaar met de wissels ertussen; de opmaak staat in pdfPlanDeelBlok, dat het
+  // tornooiplan hieronder óók gebruikt.
   const totaal = plannedPartsCount(m);
-  // Twee velden naast elkaar met de wissels ertussen. De breedte is zo gekozen dat er ALTIJD twee
-  // delen op een pagina passen — ook op de eerste, waar de kop al ruimte inneemt. Per deel kost dit
-  // ongeveer 73 pt naast het veld (kop, labels, bank, witruimte); bij 168 pt breed is een veld
-  // 247 pt hoog, dus twee delen ≈ 640 pt tegenover de ~680 pt die er onder de kop overblijft.
-  const veldW = 168;
-  const veldH = veldW / 326 * 480;
-  const midX = MG + veldW, midW = CW - veldW * 2;
-  // Elke opstelling heeft zijn eigen bank: wie op dát moment niet op het veld staat. De bank onder
-  // het linkerveld is dus een andere dan die onder het rechterveld — precies de spelers die door de
-  // wissels van plaats ruilden.
-  const bankTekst = veld => {
-    const opVeld = new Set(veld.map(p => p.id));
-    const bank = sortedByName((m.players || []).filter(p => magOpHetVeld(m, p) && !opVeld.has(p.id)));
-    return bank.length ? 'Bank: ' + bank.map(p => fieldName(m, p.id)).join(', ') : 'Geen bankspelers.';
-  };
-  const bankW = veldW;
-  for (let q = 1; q <= totaal; q++) {
-    const start = planStartVanDeel(m, q);
-    const wissels = planWisselsVanDeel(m, q);
-    const posWissels = planPosWisselsVanDeel(m, q);
-    const iets = wissels.length || posWissels.length;
-    // Enkel een tweede veld als er iets te wisselen valt: anders staat er twee keer hetzelfde.
-    const na = iets ? _pasGeplandToe(m, start.map(p => ({ ...p })), q, null) : null;
-    const capId = captainAtStartOfQuarter(m, q);
-    // Hoeveel regels neemt de bank in? Bepaalt mee of dit deel nog op de pagina past.
-    doc.setFontSize(8.5);
-    const bankL = doc.splitTextToSize(bankTekst(start), bankW);
-    const bankR = na ? doc.splitTextToSize(bankTekst(na), bankW) : [];
-    const bankH = Math.max(bankL.length, bankR.length) * 10 + 6;
-    L.ensure(6 + veldH + 20 + bankH + (na ? 10 : 28));
-    L.heading(`${pSing(m)} ${q}`, 6 + veldH + 20 + bankH);
-    const yVeld = L.y;
-    const xL = na ? MG : MG + (CW - veldW) / 2;
-    const xR = MG + CW - veldW;
-    if (na) {
-      doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
-      doc.text('BIJ DE START', xL + veldW / 2, yVeld, { align: 'center' });
-      doc.text('NA DE GEPLANDE WISSELS', xR + veldW / 2, yVeld, { align: 'center' });
-    }
-    drawPitchPdf(doc, m, start, xL, yVeld + 6, veldW, capId, q);
-    if (na) drawPitchPdf(doc, m, na, xR, yVeld + 6, veldW, capId, q);
-
-    // ---- Tussen de twee velden: wat er gebeurt ----
-    if (na) {
-      const size = 8.5, regelH = 10.5, kopH = 12;
-      // Twee kolommen: links wie eraf gaat, rechts wie erin komt. Zo lees je een wissel als één
-      // beweging i.p.v. als twee regels onder elkaar. De kolommen zijn niet half-om-half verdeeld
-      // maar precies zo breed als de langste naam, en het geheel staat gecentreerd tussen de twee
-      // velden — anders plakt de linkerkolom tegen het veld met een gat in het midden.
-      const naamB = midW / 2 - 16;
-      doc.setFontSize(size);
-      const wRegels = wissels.map(w => ({
-        uit: doc.splitTextToSize(w.uit, naamB), in: doc.splitTextToSize(w.in, naamB),
-      }));
-      const breedste = rs => Math.max(0, ...rs.map(r => doc.getTextWidth(r)));
-      const bUit = Math.max(0, ...wRegels.map(w => breedste(w.uit)));
-      const bIn = Math.max(0, ...wRegels.map(w => breedste(w.in)));
-      const kolGap = 12, pijlB = 8;
-      const blokB = pijlB + bUit + kolGap + pijlB + bIn;
-      const x0 = midX + Math.max(3, (midW - blokB) / 2);
-      const pxUit = x0, nxUit = x0 + pijlB;
-      const pxIn = x0 + pijlB + bUit + kolGap, nxIn = pxIn + pijlB;
-      const pRegels = posWissels.map(t => doc.splitTextToSize(t, midW - 6));
-      let blokH = 14;                                 // de kop "Geplande wissels"
-      if (wRegels.length) blokH += 10 + wRegels.reduce((n, w) => n + Math.max(w.uit.length, w.in.length) * regelH + 3, 0);
-      if (pRegels.length) blokH += kopH + pRegels.reduce((n, r) => n + r.length * regelH, 0) + 3;
-      let ty = yVeld + 6 + Math.max(0, (veldH - blokH) / 2) + 10;
-      doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(245, 130, 31);
-      doc.text('Geplande wissels', midX + midW / 2, ty, { align: 'center' });
-      ty += 14;
-      if (wRegels.length) {
-        // Kolomkopjes, zodat ook zonder de kleur van de pijltjes duidelijk is wat wat is.
-        doc.setFont(undefined, 'bold'); doc.setFontSize(6.5); doc.setTextColor(107, 114, 128);
-        doc.text('OUT', nxUit, ty);
-        doc.text('IN', nxIn, ty);
-        ty += 10;
-        doc.setFont(undefined, 'normal'); doc.setFontSize(size);
-        wRegels.forEach(w => {
-          // Rood pijltje omlaag = eraf, groen omhoog = erin. Zelfde vorm als elders in de PDF.
-          doc.setTextColor(23, 23, 23);
-          pijlPdf(doc, pxUit, ty - 3, size, [220, 38, 38], true);
-          doc.text(w.uit, nxUit, ty);
-          pijlPdf(doc, pxIn, ty - 3, size, [22, 163, 74], false);
-          doc.text(w.in, nxIn, ty);
-          ty += Math.max(w.uit.length, w.in.length) * regelH + 3;
-        });
-      }
-      if (pRegels.length) {
-        doc.setFont(undefined, 'bold'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
-        doc.text('POSITIEWISSELS', midX + midW / 2, ty, { align: 'center' });
-        ty += kopH;
-        doc.setFont(undefined, 'normal'); doc.setFontSize(size); doc.setTextColor(23, 23, 23);
-        pRegels.forEach(r => { doc.text(r, midX + midW / 2, ty, { align: 'center' }); ty += r.length * regelH; });
-      }
-    }
-
-    // ---- Bank onder elk veld ----
-    // Ruim onder het diagram: op de vorige versie plakte de bankregel tegen het veld.
-    let by = yVeld + 6 + veldH + 20;
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128);
-    doc.text(bankL, xL, by);
-    if (na) doc.text(bankR, xR, by);
-    if (!na) {
-      doc.setFontSize(9);
-      doc.text('Geen wissels gepland voor dit deel.', MG + CW / 2, by + Math.max(1, bankL.length) * 10 + 8, { align: 'center' });
-    }
-    L.y = by + bankH + (na ? 10 : 20);
-  }
+  for (let q = 1; q <= totaal; q++) pdfPlanDeelBlok(doc, L, m, q, `${pSing(m)} ${q}`);
 
   // ---- Speeltijd volgens dit plan (v1.4.0) ----
   // Dezelfde tabel als op het planscherm, met dezelfde berekening (planSpeeltijdRijen), zodat het
@@ -1769,6 +1783,116 @@ async function exportWedstrijdplanPDF() {
   L.footer(voetLogo);
   const bestand = pdfMatchBestandsnaam(m, 'wedstrijdplan');
   doc.save(`${bestand}.pdf`);
+}
+
+// ---------------------------------------------------------------------------------------------
+// HET TORNOOIPLAN OP PAPIER (Tim, 01-09-2026)
+// ---------------------------------------------------------------------------------------------
+// Wat het wedstrijdplan is voor één wedstrijd, is dit voor een tornooidag: alle wedstrijdplannen
+// achter elkaar, en achteraan de speeltijd van alle wedstrijden samen. Eén blad dat mee naar de
+// kantine gaat. GEEN scherm: het plannen zelf blijft per wedstrijd, dit is enkel de uitdraai.
+//
+// HERGEBRUIK, GEEN TWEEDE OPMAAK. Elk blok wordt getekend door pdfPlanDeelBlok, dezelfde functie als
+// het wedstrijdplan — anders lopen twee bijna identieke lay-outs na de eerste wijziging uit elkaar.
+// De nummering volgt exact de volgorde van loadTournamentDetail, zodat "Wedstrijd 3" in deze PDF
+// dezelfde is als de 3 in "Speeltijd over het tornooi" op het scherm.
+async function exportTornooiplanPDF(id) {
+  const t = (typeof tournamentById === 'function' && tournamentById(id)) || currentTournament;
+  if (!t) { showToast('Dit tornooi is niet gevonden.', 'err'); return; }
+  // Een tornooi in concept van iemand anders hoort ook niet als PDF naar buiten te kunnen.
+  if (typeof trnZichtbaar === 'function' && !trnZichtbaar(t)) return;
+  showToast('PDF wordt gemaakt...', 'ok');
+  try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
+  let alle = [];
+  try { alle = (await dbAll()).filter(Boolean); } catch (e) { alle = []; }
+  const matches = alle.filter(x => x.tournamentId === t.id)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || ((a.createdAt || 0) - (b.createdAt || 0)));
+  if (!matches.length) { showToast('Dit tornooi heeft nog geen wedstrijden om in een plan te zetten.', 'err'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  // Zelfde vangnet als in de andere PDF's: alles wat het lettertype niet kent, eerst door pdfSafe.
+  const _docText = doc.text.bind(doc);
+  doc.text = (text, ...rest) => _docText(Array.isArray(text) ? text.map(x => typeof x === 'string' ? pdfSafe(x) : x) : (typeof text === 'string' ? pdfSafe(text) : text), ...rest);
+  const L = createPdfLayout(doc);
+  const { MG, CW } = L;
+
+  // ---- Kop ----
+  const clubLogo = await rasterizeToPngFit(getActiveClubLogo(), 40, 40, PDF_LOGO_DICHTHEID);
+  if (clubLogo) { try { doc.addImage(clubLogo.uri, 'PNG', MG, L.y, clubLogo.w, clubLogo.h, 'clublogo', PDF_BEELD_COMPRESSIE); } catch (e) {} }
+  const kopInspring = clubLogo ? clubLogo.w + 10 : 0;
+  const tx = MG + kopInspring, tw = CW - kopInspring;
+  const voetLogo = await rasterizeToPngFit(APP_LOGO_TRANSPARANT, 13, 13, PDF_LOGO_DICHTHEID);
+  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(23, 23, 23);
+  const titelRegels = doc.splitTextToSize(`Tornooiplan · ${t.name || 'Tornooi'}`, tw);
+  doc.text(titelRegels, tx, L.y + 13);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(107, 114, 128);
+  let my = L.y + 13 + (titelRegels.length - 1) * 16 + 14;
+  const team = (typeof teamById === 'function' && teamById(t.teamId)) || null;
+  const metaDelen = [
+    t.date ? fmtDate(new Date(t.date + 'T00:00:00').getTime()) : '',
+    t.location || '', team ? team.name : (t.teamName || ''),
+    `${matches.length} ${matches.length === 1 ? 'wedstrijd' : 'wedstrijden'}`,
+    t.trainer || '',
+  ].filter(Boolean);
+  const meta = doc.splitTextToSize(metaDelen.join(' · '), tw);
+  doc.text(meta, tx, my);
+  my += meta.length * 13;
+  L.y = Math.max(L.y + 56, my + 4);
+  doc.setDrawColor(245, 130, 31); doc.setLineWidth(2); doc.line(MG, L.y, MG + CW, L.y);
+  L.y += 22;
+
+  // ---- Per wedstrijd, en binnen een wedstrijd per deel ----
+  // Een tornooiwedstrijd is meestal één blok; heeft ze er meer, dan komt het deelnummer erbij zodat
+  // de kop nooit twee keer hetzelfde zegt.
+  matches.forEach((m, i) => {
+    const nr = i + 1;
+    const uitslag = (m.status === 'done' && !geenUitslag(m))
+      ? ` · ${isAway(m) ? `${m.scoreThem}-${m.scoreUs}` : `${m.scoreUs}-${m.scoreThem}`}`
+      : '';
+    const kopBasis = [`Wedstrijd ${nr}`, (m.time || '').trim(), (m.opponent || '').trim()].filter(Boolean).join(' · ') + uitslag;
+    const delen = plannedPartsCount(m);
+    for (let q = 1; q <= delen; q++) {
+      pdfPlanDeelBlok(doc, L, m, q, delen > 1 ? `${kopBasis} — ${pSing(m)} ${q}` : kopBasis);
+    }
+  });
+
+  // ---- Speeltijd over het tornooi ----
+  // Dezelfde cijfers als het blok op de tornooifiche (trnPlanRijen), zodat het blad dat je meeneemt
+  // niet iets anders zegt dan de app. Gespeeld en gepland blijven twee kolommen: een plan naast
+  // gemeten tijd optellen zou het plan als gemeten tijd laten lezen.
+  if (typeof trnPlanRijen === 'function') {
+    const rijen = trnPlanRijen(matches);
+    if (rijen.length) {
+      const nGespeeld = matches.filter(m => m.status === 'done').length;
+      const nTeGaan = matches.length - nGespeeld;
+      const kolommen = ['Speler', 'Basis'];
+      if (nGespeeld) kolommen.push('Gespeeld');
+      if (nTeGaan) kolommen.push('Gepland');
+      if (nGespeeld && nTeGaan) kolommen.push('Samen');
+      kolommen.push('Per wedstrijd');
+      L.tableBlock('Speeltijd over het tornooi', {
+        head: [kolommen],
+        body: rijen.map(r => {
+          const rij = [r.naam, `${r.basis}/${r.mee}`];
+          if (nGespeeld) rij.push(`${r.gespeeldMin}'`);
+          if (nTeGaan) rij.push(`${r.geplandMin}'`);
+          if (nGespeeld && nTeGaan) rij.push(`${r.totaalMin}'`);
+          // De spreiding over de dag, met een sterretje bij wat nog gepland is — in een PDF is er geen
+          // kleurverschil om op te vallen, dus staat het er als teken bij, met de uitleg eronder.
+          rij.push(r.perWed.map(w => `${w.nr}: ${w.min}'${w.gespeeld ? '' : '*'}`).join('  '));
+          return rij;
+        }),
+        styles: { fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [245, 246, 245], textColor: [107, 114, 128], fontStyle: 'bold' },
+      }, 24, `Per speler hoe vaak hij in de basis staat en hoeveel hij speelt over de ${matches.length === 1 ? 'wedstrijd' : matches.length + ' wedstrijden'} van dit tornooi.`
+        + (nTeGaan ? ` De minuten met een sterretje zijn gepland, niet gespeeld: geplande wissels gaan nooit vanzelf af.` : ''));
+    }
+  }
+
+  L.footer(voetLogo);
+  const naam = (t.name || 'tornooi').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase();
+  doc.save(`tornooiplan-${naam || 'tornooi'}${t.date ? '-' + t.date : ''}.pdf`);
 }
 
 async function exportPDF() {
