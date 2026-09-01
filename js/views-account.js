@@ -727,6 +727,21 @@ function lastSeenRegel(uid) {
   const t = _lastSeenVal[uid];
   return t ? ` · <span style="color:var(--txt2)">laatst actief: ${lastSeenTekst(t)}</span>` : '';
 }
+// PER PLOEG OF PER GEBRUIKER (Tim, 01-09-2026). Het scherm was altijd per ploeg opgebouwd, en dan lees
+// je een persoon die bij vijf ploegen zit vijf keer — terwijl de vraag aan de telefoon meestal is "wat
+// ziet díe persoon eigenlijk?". Nu is het een schakelaar.
+//
+// DIT KOST GEEN ENKELE EXTRA OPHAALBEURT. Alles wat de per-gebruiker-indeling nodig heeft, staat al in
+// wat loadAllUsersView ophaalt: `memberInfo` (naam + e-mail per ploeg), `members` (de rol), `lastSeen`,
+// de clubnamen en `usersByEmail` (ook wie bij géén ploeg zit). Het is dus puur hergroeperen — daarom
+// worden BEIDE lijsten bij het laden opgebouwd en in `_allUsersHtml` bewaard, en wisselt de schakelaar
+// alleen wat er getekend wordt. Zo blijft de zuinigheid van v1.22.x overeind (786 KB → een paar KB).
+//
+// PER PLOEG BLIJFT DE STANDAARD, en niet uit gewoonte: dit is het enige scherm waar de eigenaar een
+// LEDENLOZE ploeg ziet staan en kan verwijderen (ownerDeleteTeam). Die ploegen bestaan per definitie
+// niet in een lijst per gebruiker.
+let allUsersModus = 'ploeg';     // 'ploeg' | 'gebruiker'
+let _allUsersHtml = null;        // { kop, ploeg, gebruiker } — opgebouwd bij het laden
 // ALLEEN OPHALEN WAT DIT SCHERM TOONT (v1.22.x).
 // Tot hier begon dit scherm met één `teams`-oproep: de hele ploegenboom. Gemeten op de echte
 // databank (29-08-2026): 786 KB binnengehaald voor 2 KB die er ook echt op het scherm belandt —
@@ -871,14 +886,131 @@ async function loadAllUsersView() {
     </div>`;
     const waarschuwing = ploegenVolledig ? '' :
       `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De ploegenlijst kon niet opgevraagd worden. Hieronder staan enkel de ploegen die we langs een andere weg kennen — <b>er kunnen ploegen ontbreken</b>. Herlaad het scherm om het opnieuw te proberen.</p></div>`;
-    const kop = gebruik + waarschuwing + `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button></div>`;
-    el.innerHTML = kop + (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
+    const kop = gebruik + waarschuwing;
+    _allUsersHtml = {
+      kop,
+      ploeg: (sections.length ? sections.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse,
+      gebruiker: allUsersPerGebruikerHtml({ ploegen, miAlle, clubVanPloeg, ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders }),
+    };
+    allUsersTeken();
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
     el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
   }
 }
-// Filtert de ploeg-secties op naam/e-mail; een matchende sectie klapt open, de rest verdwijnt.
+// De schakelaar plus "Alles openklappen", op één regel. Wordt bij elke tekening opnieuw gemaakt zodat
+// de actieve kant meeloopt met `allUsersModus`.
+function allUsersKopBalkHtml() {
+  const btn = (m, label) => `<button type="button" class="${allUsersModus === m ? 'act' : ''}" onclick="allUsersZetModus('${m}')">${label}</button>`;
+  // EIGEN REGEL VOOR DE SCHAKELAAR. Naast "Alles openklappen" hield elke kant maar ~85 px over en brak
+  // "Per gebruiker" over twee regels (gemeten op 375 px). Nu volle breedte, en de openklap-knop eronder
+  // rechts — waar ze vóór v1.33.0 ook stond.
+  return `<div class="tgl" style="margin:0 0 8px">${btn('ploeg', 'Per ploeg')}${btn('gebruiker', 'Per gebruiker')}</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+    <button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button>
+  </div>`;
+}
+function allUsersTeken() {
+  const el = document.getElementById('allusers-view-list');
+  if (!el || !_allUsersHtml) return;
+  el.innerHTML = _allUsersHtml.kop + allUsersKopBalkHtml()
+    + (allUsersModus === 'gebruiker' ? _allUsersHtml.gebruiker : _allUsersHtml.ploeg);
+  // De zoekterm hoort te blijven staan bij het wisselen: je zoekt iemand, wisselt van indeling en wil
+  // hem daar ook zien. Het veld staat buiten de hertekende lijst, dus we passen het filter opnieuw toe.
+  const zoek = document.getElementById('allusers-search');
+  if (zoek && zoek.value) filterAllUsersView(zoek.value);
+}
+function allUsersZetModus(m) {
+  allUsersModus = (m === 'gebruiker') ? 'gebruiker' : 'ploeg';
+  allUsersTeken();
+}
+
+// ÉÉN KAART PER PERSOON. Bron: precies dezelfde gegevens als de indeling per ploeg — zie de uitleg bij
+// `allUsersModus`. De accountindex (`usersByEmail`) krijgt voorrang op `memberInfo` voor naam en
+// e-mail: die index wordt bij élke aanmelding herschreven, terwijl de ledeninformatie van een ploeg
+// dateert van het moment dat iemand lid werd.
+function allUsersPerGebruikerHtml(d) {
+  const per = new Map();
+  const zorg = uid => {
+    if (!per.has(uid)) per.set(uid, { uid, naam: '', email: '', bevestigd: true, ploegen: [] });
+    return per.get(uid);
+  };
+  (d.ploegen || []).forEach(p => {
+    const info = (d.miAlle && d.miAlle[p.tid]) || {};
+    const titel = (d.clubVanPloeg[p.tid] ? d.clubVanPloeg[p.tid] + ' · ' : '') + (p.naam || p.tid);
+    Object.keys(p.members || {}).forEach(uid => {
+      const u = zorg(uid);
+      if (!u.naam) u.naam = (info[uid] || {}).name || '';
+      if (!u.email) u.email = (info[uid] || {}).email || '';
+      u.ploegen.push({ titel, rol: p.members[uid] });
+    });
+  });
+  // De accountindex vult aan: verse naam en e-mail, plus iedereen die bij géén enkele ploeg zit.
+  if (d.ubeGelukt) {
+    Object.keys(d.ube || {}).forEach(uid => {
+      const v = d.ube[uid] || {};
+      const u = zorg(uid);
+      if (v.name) u.naam = v.name;
+      if (v.email) u.email = v.email;
+      u.bevestigd = !!v.verified;
+    });
+  }
+  // Op naam, met e-mail als terugval. Wie géén van beide heeft, gaat naar ACHTEREN: een lege sleutel
+  // sorteert vooraan en dan opent de lijst met "(geen naam)" — het minst nuttige wat er staat.
+  const sleutel = u => (u.naam || u.email || '').trim();
+  const lijst = [...per.values()].sort((a, b) => {
+    const ka = sleutel(a), kb = sleutel(b);
+    if (!ka !== !kb) return ka ? -1 : 1;
+    return ka.localeCompare(kb, 'nl');
+  });
+  const kaarten = lijst.map(u => {
+    // Beheerder eerst, dan op naam: bij iemand met tien ploegen wil je meteen zien waar hij mag schrijven.
+    const ploegen = u.ploegen.slice().sort((a, b) =>
+      (a.rol === 'admin' ? 0 : 1) - (b.rol === 'admin' ? 0 : 1) || a.titel.localeCompare(b.titel, 'nl'));
+    const nAdmin = ploegen.filter(p => p.rol === 'admin').length;
+    const nKijk = ploegen.length - nAdmin;
+    const merken = [
+      u.uid === (currentUser && currentUser.uid) ? '<span class="ts-role admin">jijzelf</span>' : '',
+      (d.clubBeheerders && d.clubBeheerders.has(u.uid)) ? `<span class="ts-role admin">${icI(IC.shield)} Clubbeheerder</span>` : '',
+      (d.goedgekeurd || {})[u.uid] ? `<span class="ts-role admin">${icI(IC.check)} Mag ploegen aanmaken</span>` : '',
+      (d.aanvragen || {})[u.uid] ? `<span class="ts-role viewer">${icI(IC.hourglass)} Aanvraag open</span>` : '',
+    ].filter(Boolean).join(' ');
+    const adres = (u.email
+      ? esc(u.email) + (u.bevestigd ? '' : ' <span style="color:var(--org2)">· e-mail nog niet bevestigd</span>')
+      : '<span style="color:var(--org2)">geen e-mailadres bekend</span>') + lastSeenRegel(u.uid);
+    const telBadge = ploegen.length
+      ? `<span class="ts-role ${nAdmin ? 'admin' : 'viewer'}" style="flex-shrink:0">${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'}</span>`
+      : `<span class="ts-role viewer" style="flex-shrink:0">geen ploeg</span>`;
+    const rijen = ploegen.length
+      ? ploegen.map(p => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+          <span style="flex:1;font-size:14px">${esc(p.titel)}</span>
+          ${p.rol === 'admin'
+            ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
+            : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`}
+        </div>`).join('')
+      : `<p style="color:var(--txt2);font-size:13px;margin:0">Bij geen enkele ploeg — deze persoon ziet dus nog niets in de app.</p>`;
+    const samenvatting = ploegen.length
+      ? `<p style="color:var(--txt2);font-size:12px;margin:0 0 8px">${nAdmin ? nAdmin + '× ploegbeheerder' : ''}${(nAdmin && nKijk) ? ' · ' : ''}${nKijk ? nKijk + '× kijker' : ''}</p>`
+      : '';
+    const zoekBlob = ((u.naam || '') + ' ' + (u.email || '') + ' '
+      + ploegen.map(p => p.titel).join(' ') + (ploegen.length ? '' : ' zonder ploeg')).toLowerCase();
+    return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
+      <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
+        ${telBadge}
+      </summary>
+      <div style="margin-top:10px">
+        ${merken ? `<div style="margin-bottom:8px">${merken}</div>` : ''}
+        ${samenvatting}${rijen}
+      </div>
+    </details>`;
+  });
+  const noot = d.ubeGelukt ? '' :
+    `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De gebruikersindex kon niet gelezen worden, dus deze lijst toont <b>enkel wie bij minstens één ploeg zit</b>. Accounts zonder ploeg ontbreken.</p></div>`;
+  return noot + (kaarten.length ? kaarten.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen gebruikers.</p>');
+}
+
+// Filtert de secties op naam/e-mail; een matchende sectie klapt open, de rest verdwijnt.
 function filterAllUsersView(q) {
   const query = (q || '').trim().toLowerCase();
   document.querySelectorAll('.allusers-team').forEach(sec => {

@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.33.0
+
+**"Alle gebruikers" kan nu ook per gebruiker in plaats van per ploeg.** Bovenaan staat een schakelaar
+**Per ploeg / Per gebruiker**. Het scherm was altijd per ploeg opgebouwd, en dan lees je iemand die bij
+vijf ploegen zit vijf keer — terwijl de vraag aan de telefoon meestal is *"wat ziet die persoon
+eigenlijk?"*.
+
+Per gebruiker staat er één kaart per persoon: **naam, e-mailadres en wanneer hij laatst actief was**, en
+opengeklapt daaronder **elke ploeg waar hij toegang heeft, met zijn rol** (ploegbeheerder of kijker),
+plus een samenvatting als "2× ploegbeheerder · 1× kijker". Ploegbeheerder staat bovenaan, want daar mag
+hij schrijven. De merktekens die je al kende komen mee: *jijzelf*, *Clubbeheerder*, *Mag ploegen
+aanmaken*, *Aanvraag open*, en *e-mail nog niet bevestigd*.
+
+**Accounts zonder ploeg staan in dezelfde lijst**, met "geen ploeg" en de regel *"Bij geen enkele ploeg
+— deze persoon ziet dus nog niets in de app."* In de indeling per ploeg blijven die onderaan in hun
+eigen blok staan, zoals voordien.
+
+Twee dingen die met opzet zo zijn. **Per ploeg blijft de standaard**, want dat is het enige overzicht
+waar een ploeg **zonder leden** in staat — en dat is de plek waar je ze kan verwijderen. En het
+**kost geen enkele extra ophaalbeurt**: alles wat de nieuwe indeling nodig heeft, werd al opgehaald, dus
+het is puur hergroeperen. Beide lijsten worden bij het laden opgebouwd en de schakelaar wisselt alleen
+wat er getekend wordt — de zuinigheid van v1.22.x (786 KB → een paar KB) blijft dus overeind. Je
+zoekterm blijft ook staan wanneer je van indeling wisselt.
+
+---
+
 ## v1.32.0
 
 **Het ploegkeuzescherm opgeruimd: twee handelingen die onderaan zaten, staan nu bovenaan.** Met 26
