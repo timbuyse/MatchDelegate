@@ -1768,9 +1768,32 @@ function renderPrep() {
   const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go(matchTerug())`;
   return `
+  ${/* HET OOGJE IN DE KOPREGEL (Tim, 01-09-2026). Dit stond eerst als knop op volle breedte tussen de
+       handelingen, en dat woog te zwaar voor iets wat je zelden aanraakt. Nu enkel het pictogram, met
+       de uitleg in de tooltip — zelfde taal als de oogjes bij de statistieksecties (stat-eye in
+       stats-settings.js), waar het over precies dezelfde vraag gaat: ziet een kijker dit?
+       Open oog = de kijkers zien deze wedstrijd, doorstreept = nog niet.
+       Enkel bij een GEPLANDE wedstrijd en enkel met cloud — zie matchVerborgenVoorKijkers in core.js
+       voor waarom het vlaggetje daarna niets meer doet. */ ''}
+  ${(() => {
+    if (ro || m.status !== 'planned' || !cloudReady) return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
-  </div>
+  </div>`;
+    const verborgen = matchVerborgenVoorKijkers(m);
+    const titel = verborgen
+      ? 'Niet aan kijkers getoond — tik om ze wél te tonen'
+      : 'Zichtbaar voor kijkers — tik om ze nog niet te tonen';
+    return `
+  <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
+    <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
+    ${/* `hdr-gear` en niet `hdr-btn`: dat laatste is een GEVULDE oranje knop en dus juist prominent.
+         hdr-gear is de kale pictogramstijl van het tandwiel — wit, doorschijnend, geen vlak. Is de
+         wedstrijd verborgen, dan wordt het oogje goud en volledig dekkend: dat is de uitzondering en
+         mag opvallen. */ ''}
+    <button class="hdr-gear" title="${titel}" aria-label="${titel}" style="${verborgen ? 'color:#f7c948;opacity:1' : ''}" onclick="matchZetVerborgen('${m.id}', ${verborgen ? 'false' : 'true'})">${icI(verborgen ? IC.eyeOff : IC.eye)}</button>
+  </div>`;
+  })()}
   <div class="content">
     ${/* Net "opnieuw begonnen"? Dan hoort de weg terug hier te staan, op het scherm waar je landt —
          en enkel bij die ene wedstrijd, niet als algemene melding. Zie doResetMatch(). */ ''}
@@ -1782,9 +1805,9 @@ function renderPrep() {
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="resetUndo()">${icI(IC.undo)} Zet alles terug zoals het was</button>
         <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="resetUndoVergeten()">Nee, het is goed zo</button></div>`;
     })()}
-    ${/* Bovenaan, want het is een toestand van de wedstrijd en niet iets wat je onderaan gaat zoeken.
-         Enkel voor wie het kan wijzigen: een kijker ziet deze wedstrijd toch niet. */ ''}
-    ${(matchVerborgenVoorKijkers(m) && !ro) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.eyeOff)} <b>Nog niet aan kijkers getoond.</b> De kijkers van deze ploeg zien deze wedstrijd niet in hun lijst. Zodra je ze start, is ze automatisch zichtbaar.</div>` : ''}
+    ${/* Eén regeltje, geen balk (Tim wou dit minder prominent). Het oogje in de kopregel draagt de
+         toestand; deze regel zegt wat ze betekent, want dat kan een pictogram niet. */ ''}
+    ${(matchVerborgenVoorKijkers(m) && !ro) ? `<p style="font-size:12px;color:var(--org2);margin:0 0 10px">${icI(IC.eyeOff)} Nog niet aan kijkers getoond — bij de aftrap wordt ze automatisch zichtbaar.</p>` : ''}
     ${/* Geannuleerd: geen startknop en geen volgende stap meer — enkel de vaststelling en de weg
          terug. De wedstrijd zelf blijft volledig bewaard (selectie, opstelling, plan), dus ongedaan
          maken zet ze weer op gepland zoals ze was. */ ''}
@@ -1863,7 +1886,6 @@ function renderPrep() {
          aftrap is ze altijd zichtbaar (zie matchVerborgenVoorKijkers in core.js), dus een schakelaar
          daarna zou een keuze voorstellen die niets meer doet. En enkel bij een ploeg met kijkers in de
          cloud — lokaal is er niemand voor wie je iets kan verbergen. */ ''}
-    ${(m.status === 'planned' && cloudReady) ? `<button class="btn ${matchVerborgenVoorKijkers(m) ? 'btn-orgpale' : 'btn-pale'}" style="margin-top:8px" onclick="matchZetVerborgen('${m.id}', ${matchVerborgenVoorKijkers(m) ? 'false' : 'true'})">${icI(matchVerborgenVoorKijkers(m) ? IC.eye : IC.eyeOff)} ${matchVerborgenVoorKijkers(m) ? 'Zichtbaar maken voor kijkers' : 'Nog niet aan kijkers tonen'}</button>` : ''}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>

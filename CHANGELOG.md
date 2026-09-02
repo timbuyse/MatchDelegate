@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.37.1
+
+**"Nog niet aan kijkers tonen" is een oogje geworden.** Het stond als knop op volle breedte tussen de
+handelingen op het voorbereidingsscherm, en dat woog te zwaar voor iets wat je zelden aanraakt. Nu staat
+er rechtsboven in de kopregel enkel een **oogje**, zonder tekst — dezelfde taal als de oogjes bij de
+statistieksecties, waar het over precies dezelfde vraag gaat: *ziet een kijker dit?*
+
+Open oog = de kijkers zien deze wedstrijd. Doorstreept en goud = nog niet. Wat het betekent staat in de
+tooltip, en zolang de wedstrijd verborgen is staat er één regeltje onder de kopregel in plaats van de
+oranje balk van daarvoor.
+
+---
+
 ## v1.37.0
 
 **Een kijker ziet minder.** Drie dingen veranderen, en er komt één schakelaar bij.
