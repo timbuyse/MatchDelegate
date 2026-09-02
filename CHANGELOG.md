@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.37.0
+
+**Een kijker ziet minder.** Drie dingen veranderen, en er komt één schakelaar bij.
+
+**Een geplande wedstrijd kan een kijker niet meer openen.** Ze blijft in de lijst staan — je moet
+kunnen zien dát er zaterdag gevoetbald wordt — maar daarachter zit het werk van de trainer: de
+selectie, de opstelling, de wissels die klaarstaan. Tikt een kijker er toch op, dan zegt de app waarom
+in plaats van niets te doen. Een wedstrijd die **bezig** is kan hij nog volgen, en een **afgesloten**
+wedstrijd gewoon openen en nalezen. Dat is ook een slot en niet enkel een knop: via de terugknop van de
+telefoon of een oude geschiedenis kom je er niet meer binnen.
+
+**Geen PDF meer voor een kijker** — niet van een wedstrijdverslag, niet van een tornooiverslag. Bekijken
+in de app kan wel, en **Delen** blijft: dat is een bericht met de uitslag, geen document.
+
+**En een geplande wedstrijd kan helemaal verborgen worden.** Op het voorbereidingsscherm staat
+**"Nog niet aan kijkers tonen"**: zolang dat aan staat, staat de wedstrijd niet in de lijst van de
+kijkers. Voor de beheerders staat ze er wél, met het label **Niet voor kijkers**. Handig voor een
+wedstrijd die nog niet vaststaat.
+
+Dat vlaggetje geldt **enkel in de planningsfase**: zodra de wedstrijd start, is ze automatisch
+zichtbaar. Je hoeft dus niet te onthouden dat je het nog moet uitzetten. Daarom staat de schakelaar ook
+alleen bij een geplande wedstrijd — later zou hij een keuze voorstellen die niets meer doet.
+
+De **statistieken** blijven precies zoals ze waren: het scherm staat open voor kijkers en de oogjes per
+ploeg bepalen welke blokken ze zien. Ook de tegel **Ploeg** verandert niet.
+
+---
+
 ## v1.36.0
 
 **Het tornooiplan op papier.** Op de tornooifiche staat, boven "Wedstrijd toevoegen", de knop

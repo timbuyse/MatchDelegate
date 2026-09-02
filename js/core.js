@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.36.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.37.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3997,6 +3997,36 @@ function canSeeStats() { return !isGuest && !viewerMode && (isAdmin || isOwner |
 // Eén plek voor die regel, want ze geldt nu op de statistiekenpagina, in het tornooiverslag en in
 // het wedstrijdverslag — op het scherm én in de PDF's, die een kijker allemaal kan openen.
 function statSectionVisible(key) { return canSeeStats() || statSectionPublic(key); }
+// ---------------------------------------------------------------------------------------------
+// WAT EEN KIJKER VAN EEN WEDSTRIJD MAG ZIEN (Tim, 01-09-2026)
+// ---------------------------------------------------------------------------------------------
+// Twee regels, en ze horen bij elkaar:
+//
+// 1. EEN GEPLANDE WEDSTRIJD OPENT EEN KIJKER NIET. Daar staat het plan: de selectie, de opstelling,
+//    de wissels die je klaarzette. Dat is werk van de trainer en geen mededeling. Ze blijft wél in de
+//    lijst staan — je moet kunnen zien dát er zaterdag gevoetbald wordt.
+// 2. EEN GEPLANDE WEDSTRIJD KAN OOK HELEMAAL VERBORGEN WORDEN met `verborgenVoorKijkers`, voor wanneer
+//    de wedstrijd zelf nog niet vaststaat.
+//
+// HET VLAGGETJE GELDT ENKEL IN DE PLANNINGSFASE (Tims regel). Zodra de wedstrijd start is ze zichtbaar
+// voor iedereen. Dat staat daarom HIER in de leesregel en niet als opruiming bij het starten: status
+// 'live' zetten gebeurt op drie plaatsen (startQuarter, doReopenMatch, doStartPlanned) en één daarvan
+// vergeten zou een wedstrijd stil verborgen houden terwijl ze gespeeld wordt. Een vlaggetje dat na de
+// aftrap blijft staan, doet vanaf dan gewoon niets meer.
+function matchVerborgenVoorKijkers(m) {
+  return !!(m && m.verborgenVoorKijkers && m.status === 'planned');
+}
+// Mag wie nu kijkt deze wedstrijd in de lijsten zien staan? `canLive()` is hier de juiste maatstaf en
+// niet `canManage()`: het gaat om de ROL (beheerder van deze ploeg, niet in kijkmodus, geen gast) en
+// niet om of er verbinding is.
+function matchZichtbaarVoorMij(m) { return canLive() || !matchVerborgenVoorKijkers(m); }
+// En mag hij ze OPENEN? Enkel een wedstrijd die bezig is of afgesloten. Een geannuleerde wedstrijd
+// heeft geen verslag en opent in het wedstrijdscherm — dus voor een kijker ook niet.
+function matchOpenbaarVoorMij(m) {
+  if (canLive()) return true;
+  if (!m || matchCancelled(m)) return false;
+  return m.status === 'live' || m.status === 'done';
+}
 // Enkel de keuze zelf, zonder de beheerder-uitzondering — nodig om een beheerder te kunnen vertellen
 // wat een KIJKER hier wel en niet ziet.
 function statSectionPublic(key) {

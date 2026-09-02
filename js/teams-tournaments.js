@@ -1305,9 +1305,11 @@ async function loadTournamentReport() {
       </div>
       ${r.usesPoints ? `<p style="font-size:11px;color:var(--txt2);text-align:center;margin-top:8px">Punten volgens ${r.pointsLabel} (${r.pointsLegend}) over je eigen wedstrijden — geen officiële eindstand van het tornooi.${r.cleanSheets ? ` De ploeg hield ${r.cleanSheets}× de nul.` : ''}</p>` : ''}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    ${/* GEEN PDF VOOR EEN KIJKER (Tim, 01-09-2026: "enkel in de app kijken") — zelfde grens als op het
+         wedstrijdverslag. "Delen" blijft: dat is een tekstbericht met de uitslagen, geen document. */ ''}
+    <div style="display:grid;grid-template-columns:${canLive() ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:12px">
       <button class="btn btn-green" onclick="shareTournamentReport()">${icI(IC.share)} Delen</button>
-      <button class="btn btn-org" onclick="exportTournamentPDF()">${icI(IC.fileText)} PDF</button>
+      ${canLive() ? `<button class="btn btn-org" onclick="exportTournamentPDF()">${icI(IC.fileText)} PDF</button>` : ''}
     </div>
     ${r.planned ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} ${r.planned} van de ${r.done.length + r.planned} wedstrijden is nog niet afgewerkt — die cijfers zitten hier niet in.</div>` : ''}
     ${sec('Tornooi-info', infoRows || '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>')}
@@ -1398,6 +1400,8 @@ async function shareTournamentReport() {
 // ook daar (en omgekeerd).
 async function exportTournamentPDF() {
   const t = currentTournament; if (!t) return;
+  // Gordel én bretellen: de knop is voor een kijker weg, dit is het slot. Zie exportPDF in detail-pdf.js.
+  if (!canLive()) { showToast('Een PDF maken kan enkel een ploegbeheerder. Je kan het verslag hier in de app bekijken.', 'err'); return; }
   showToast('PDF wordt gemaakt...', 'ok');
   try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
   const all = await dbAll();

@@ -3723,6 +3723,18 @@ async function go(v, id, _histReplace) {
     const andereWedstrijd = !match || match.id !== id;
     match = await dbGet(id);
     if (andereWedstrijd && typeof resetPlanKaart === 'function') resetPlanKaart();
+    // DE POORTWACHTER BIJ DE WEDSTRIJDSCHERMEN (Tim, 01-09-2026). De rij in de lijst is voor een kijker
+    // niet aanklikbaar, maar dat is de knop — dit is het slot. Zonder deze controle kwam je er alsnog
+    // via de terugknop van de telefoon, een oude geschiedenis of de console. Kan de match pas hier
+    // gecontroleerd worden, want ze wordt hierboven pas ingelezen; vandaar de omleiding achteraf en
+    // niet bij de andere guards bovenaan.
+    // Omleiden via go() zelf en niet met een losse render(): dan blijven de geschiedenis, de
+    // aanwezigheidsteller en de volgersbadge kloppen. Geen risico op een lus — 'matches' heeft geen id,
+    // dus dit blok wordt daar niet opnieuw doorlopen.
+    if (['prep', 'live', 'detail'].includes(v) && match && !matchOpenbaarVoorMij(match)) {
+      match = null;
+      return go('matches', undefined, _histReplace);
+    }
   }
   if (v === 'live') {
     startTimer();
@@ -4207,13 +4219,28 @@ function matchItemHtml(m) {
     : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
+  // EEN KIJKER OPENT ENKEL EEN WEDSTRIJD DIE BEZIG OF AFGESLOTEN IS (Tim, 01-09-2026) — zie
+  // matchOpenbaarVoorMij in core.js. Een tik die niets doet leest als een defect, dus in plaats van
+  // de rij dood te maken zegt ze waarom. Dit is de ENIGE plek waar een wedstrijdrij een onclick
+  // krijgt (lijst, beginscherm, agenda en kalender gebruiken allemaal deze functie), dus hier is het
+  // ook de enige plek waar het gecontroleerd moet worden.
+  const magOpen = matchOpenbaarVoorMij(m);
+  const klik = doel => magOpen
+    ? `onclick="go('${doel}','${m.id}')"`
+    : `onclick="showToast('Een geplande wedstrijd is enkel voor de ploegbeheerders. Zodra de wedstrijd begint, kan je ze volgen.','err')"`;
+  // De cursor apart, want de rijen hieronder hebben hun eigen style-attribuut: twee keer `style` op
+  // één element betekent dat de browser het tweede negeert.
+  const cursor = magOpen ? '' : 'cursor:default;';
+  // Het label voor de beheerder bij een wedstrijd die hij voor kijkers verborgen heeft.
+  const verborgenBadge = matchVerborgenVoorKijkers(m)
+    ? `<span class="badge badge-cancel">${icI(IC.eyeOff)} Niet voor kijkers</span>` : '';
   if (st === 'live') {
     const qNum = m.quarters ? m.quarters.length : 0;
     // Welk deel er loopt staat op een eigen regeltje onder "LIVE". Stond het ernaast, dan botste
     // "LIVE · KWART 1" op een telefoon tegen de eerste ploegnaam — er is op één regel geen plaats voor
     // een status, twee ploegnamen én de score. Zo blijft de linkerkolom kort en houdt de score zijn
     // plaats rechts. Weglaten was geen optie: op een tornooidag wil je net zien welk blok loopt.
-    return `<div class="match-item live-border" data-s="${esc(sdata)}" onclick="go('live','${m.id}')" style="padding:14px 16px">
+    return `<div class="match-item live-border" data-s="${esc(sdata)}" ${klik('live')} style="${cursor}padding:14px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%">
         <div style="flex-shrink:0">
           <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
@@ -4230,19 +4257,21 @@ function matchItemHtml(m) {
       </div>
     </div>`;
   }
-  return `<div class="match-item ${border}" data-s="${esc(sdata)}" onclick="go('${target}','${m.id}')">
+  return `<div class="match-item ${border}" data-s="${esc(sdata)}" ${klik(target)} style="${cursor}">
     <div class="mi-info">
       <div class="mi-opp">${esc(m.opponent)}</div>
       <div class="mi-date">${m.teamName?'<b>'+esc(m.teamName)+(m.subteam?' ('+esc(m.subteam)+')':'')+'</b> · ':''}${matchWhen(m)}${!zonderScore&&m.location?' · '+esc(m.location):''}${af&&m.cancelReason?' · '+esc(m.cancelReason):''}</div>
       ${/* De SOORT wedstrijd hoort hier bij: op een kaartje zag je wel "Gepland" en "5v5", maar niet
            of het om competitie, beker of een oefenmatch ging — net wat bepaalt hoe zwaar ze weegt.
            Vrije tekst, dus we tonen wat er staat (ook een eigen soort via "Andere…"); leeg = niets. */ ''}
-      ${badge}${m.competition ? `<span class="badge badge-kind">${esc(m.competition)}</span>` : ''}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
+      ${badge}${verborgenBadge}${m.competition ? `<span class="badge badge-kind">${esc(m.competition)}</span>` : ''}<span class="badge badge-type">${m.matchType||''}</span>${m.numQuarters&&m.quarterDuration?`<span class="badge badge-type">${m.numQuarters} × ${m.quarterDuration}'</span>`:''}
     </div>${right}</div>`;
 }
 // HOME = dashboard: tegels + komende wedstrijd (filterbaar per ploeg) + recent.
 async function loadHome() {
-  const all = await dbAll();
+  // `matchZichtbaarVoorMij` (core.js): een geplande wedstrijd die de beheerder voor kijkers verborgen
+  // heeft, hoort bij een kijker nergens op dit scherm te staan — ook niet in de tellers van de tegels.
+  const all = (await dbAll()).filter(matchZichtbaarVoorMij);
   const el = document.getElementById('home-content');
   if (!el) return;
   const looseMatches = all.filter(m => !m.tournamentId);
@@ -4687,7 +4716,8 @@ async function loadAgenda() {
   // loadMatches en loadHome).
   // Enkel losse wedstrijden: de wedstrijden ván een tornooi zitten in dat tornooi, en zouden die
   // dag anders dubbel tellen.
-  const all = (await dbAll()).filter(m => !m.tournamentId);
+  // Idem als op het beginscherm: een voor kijkers verborgen geplande wedstrijd valt hier weg.
+  const all = (await dbAll()).filter(m => !m.tournamentId && matchZichtbaarVoorMij(m));
   const el = document.getElementById('agenda-content');
   if (!el) return;
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
@@ -4950,7 +4980,8 @@ function bulkUndoBannerHtml() {
     <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="bulkUndoVergeten()">Sluiten</button></div>`;
 }
 async function loadMatches() {
-  const all = (await dbAll()).filter(m => !m.tournamentId);
+  // Idem als op het beginscherm: een voor kijkers verborgen geplande wedstrijd valt hier weg.
+  const all = (await dbAll()).filter(m => !m.tournamentId && matchZichtbaarVoorMij(m));
   const el = document.getElementById('matches-content');
   if (!el) return;
   // Ook zonder één wedstrijd horen de twee aanmaakknoppen hier te staan: wie met een lege app

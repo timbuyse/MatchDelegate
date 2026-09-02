@@ -130,8 +130,11 @@ function renderDetail() {
     ${/* "Export" (ruwe JSON/CSV) is enkel voor wie de wedstrijd beheert (audit 25-08-2026). Die rij
          stond buiten elke rolcontrole, en het JSON-bestand bevat de wedstrijd ONGEFILTERD: de
          notities, de notities per speler en de reden van afwezigheid — precies wat het scherm voor een
-         kijker verbergt. Delen en PDF blijven voor iedereen: dat is een bewuste keuze (de PDF
-         respecteert de oogjes, en een ouder mag de uitslag doorsturen). */ ''}
+         kijker verbergt. */ ''}
+    ${/* PDF NIET MEER VOOR EEN KIJKER (Tim, 01-09-2026: "enkel in de app kijken"). Tot hier bleef die
+         knop staan omdat de PDF de oogjes respecteert. Tim wil hem toch weg: een kijker mag het
+         verslag bekijken, niet meenemen. "Delen" blijft wél — dat is een tekstbericht met de uitslag,
+         geen document, en een ouder mag de uitslag doorsturen. */ ''}
     ${/* ZONDER UITSLAG STAAN HIER ANDERE KNOPPEN (Tim, 24-08-2026). Delen, PDF en Export gaan over
          een verslag dat je doorstuurt — en er valt niets door te sturen van een wedstrijd waarvan
          niemand iets bijhield. Op precies dezelfde plek staan dan de twee dingen die je daar wél
@@ -145,14 +148,14 @@ function renderDetail() {
       <button class="btn btn-green btn-sm" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
       ${/* "Heropenen", zoals in de rij hierboven: één naam voor één knop. */ ''}
       <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>
-    </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr 1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
+    </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
       ${/* KLEINER DAN DE RIJ ERBOVEN (Tim, 30-08-2026). Drie gevulde knoppen op volle breedte wogen
            zwaarder dan de handelingen erboven, terwijl doorsturen niets aan de wedstrijd verandert.
            De iconen krimpen mee: die staan op 1em (zie .ic-i in index.html). */ ''}
       ${/* Zelfde min-width:0 als in de rij hierboven, en dezelfde zijdelingse padding, zodat de twee
            rasters op exact dezelfde plaatsen scheiden. */ ''}
       <button class="btn btn-green btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="shareReport()">${icI(IC.share)} Delen</button>
-      <button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>
+      ${ro ? '' : `<button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>`}
       ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>`}
     <div class="sec">Wedstrijdinfo</div>
@@ -1897,6 +1900,8 @@ async function exportTornooiplanPDF(id) {
 
 async function exportPDF() {
   const m = match; if (!m) return;
+  // Gordel én bretellen (zoals elders in dit bestand): de knop is voor een kijker weg, dit is het slot.
+  if (!canLive()) { showToast('Een PDF maken kan enkel een ploegbeheerder. Je kan het verslag hier in de app bekijken.', 'err'); return; }
   showToast('PDF wordt gemaakt...', 'ok');
   try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
 

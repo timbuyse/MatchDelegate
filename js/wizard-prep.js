@@ -1782,6 +1782,9 @@ function renderPrep() {
         <button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="resetUndo()">${icI(IC.undo)} Zet alles terug zoals het was</button>
         <button class="btn btn-gray btn-sm" style="margin-top:6px;width:100%" onclick="resetUndoVergeten()">Nee, het is goed zo</button></div>`;
     })()}
+    ${/* Bovenaan, want het is een toestand van de wedstrijd en niet iets wat je onderaan gaat zoeken.
+         Enkel voor wie het kan wijzigen: een kijker ziet deze wedstrijd toch niet. */ ''}
+    ${(matchVerborgenVoorKijkers(m) && !ro) ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.eyeOff)} <b>Nog niet aan kijkers getoond.</b> De kijkers van deze ploeg zien deze wedstrijd niet in hun lijst. Zodra je ze start, is ze automatisch zichtbaar.</div>` : ''}
     ${/* Geannuleerd: geen startknop en geen volgende stap meer — enkel de vaststelling en de weg
          terug. De wedstrijd zelf blijft volledig bewaard (selectie, opstelling, plan), dus ongedaan
          maken zet ze weer op gepland zoals ze was. */ ''}
@@ -1856,6 +1859,11 @@ function renderPrep() {
          hier spelers zetten die bij de eerstvolgende bewerking langs de tornooiwizard weer wegvallen.
          Zelfde grens als vvMagSelectie in import-vv.js en als "Selectie aanpassen" op het verslag. */ ''}
     ${m.tournamentId ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
+    ${/* ZICHTBAAR VOOR KIJKERS, JA OF NEE (Tim, 01-09-2026). Enkel bij een GEPLANDE wedstrijd: vanaf de
+         aftrap is ze altijd zichtbaar (zie matchVerborgenVoorKijkers in core.js), dus een schakelaar
+         daarna zou een keuze voorstellen die niets meer doet. En enkel bij een ploeg met kijkers in de
+         cloud — lokaal is er niemand voor wie je iets kan verbergen. */ ''}
+    ${(m.status === 'planned' && cloudReady) ? `<button class="btn ${matchVerborgenVoorKijkers(m) ? 'btn-orgpale' : 'btn-pale'}" style="margin-top:8px" onclick="matchZetVerborgen('${m.id}', ${matchVerborgenVoorKijkers(m) ? 'false' : 'true'})">${icI(matchVerborgenVoorKijkers(m) ? IC.eye : IC.eyeOff)} ${matchVerborgenVoorKijkers(m) ? 'Zichtbaar maken voor kijkers' : 'Nog niet aan kijkers tonen'}</button>` : ''}
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
@@ -3264,6 +3272,24 @@ function gedeeldeSpelers(a, b) {
 }
 async function doStartPlanned() {
   match.status = 'live'; await dbSave(match); await go('live', match.id);
+}
+// Een geplande wedstrijd wel of niet aan de kijkers tonen (Tim, 01-09-2026). `false` schrijft het veld
+// expliciet weg in plaats van het weg te gooien, zodat de cloud-merge het als een echte wijziging ziet
+// — zelfde reden als bij reopenTournament en trnZetConcept.
+// Bij het starten hoeft er niets opgeruimd te worden: matchVerborgenVoorKijkers (core.js) kijkt naar de
+// status, dus vanaf de aftrap doet het vlaggetje niets meer.
+async function matchZetVerborgen(id, verbergen) {
+  if (!canLive()) { showToast('Enkel een ploegbeheerder kan dit wijzigen.', 'err'); return; }
+  const m = (match && match.id === id) ? match : await dbGet(id);
+  if (!m) return;
+  if (m.status !== 'planned') { showToast('Dit kan enkel bij een geplande wedstrijd.', 'err'); return; }
+  m.verborgenVoorKijkers = !!verbergen;
+  await dbSave(m);
+  if (match && match.id === id) match = m;
+  render();
+  showToast(verbergen
+    ? 'De kijkers van deze ploeg zien deze wedstrijd niet meer. Bij de aftrap wordt ze automatisch zichtbaar.'
+    : 'Zichtbaar voor de kijkers van deze ploeg.', 'ok');
 }
 // ----- Afronden: één deur, twee wegen (Tim, 30-08-2026) -----
 // Een wedstrijd die gespeeld is maar die niemand live volgde, kan op twee manieren ingevuld worden:
