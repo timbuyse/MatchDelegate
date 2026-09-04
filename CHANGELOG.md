@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.41.0
+
+**Een nieuwe club was niet te vullen.** Wie een club aanmaakte, vond nergens een knop om er een ploeg
+in te zetten — en dat was geen zoekfout. "Nieuwe ploeg in deze club" stond enkel in **Clubbeheer**, en
+dat scherm werkt op de clubs die je zélf beheert. Een verse club heeft nog geen enkele beheerder, dus
+ze stond daar niet in de lijst, ook niet bij de maker van de app. De club was alleen te vullen door er
+eerst een clubbeheerder op te zetten en die het te laten doen.
+
+Die knop staat nu ook in **App-beheer → Clubs en clubbeheerders**, bij elke club onder haar
+ploegenlijst — daar waar je de club net gemaakt hebt. De rechten veranderen niet: de databank stond dit
+de maker van de app altijd al toe.
+
+Twee dingen die daarbij goed moesten zitten. Het vinkje *"Ik doe zelf het dagelijks beheer van deze
+ploeg"* staat nu **uit** wanneer je de club niet zelf beheert — anders belandt elke ploeg van elke
+klantenclub in je eigen "Jouw ploegen". En na het aanmaken blijf je in App-beheer staan in plaats van
+naar Clubbeheer gestuurd te worden, waar je op *"Je beheert momenteel geen club"* uitkwam.
+
+---
+
 ## v1.40.0
 
 **De app vraagt één keer om een niet-bevestigd e-mailadres te bevestigen.** Wie zijn adres nooit

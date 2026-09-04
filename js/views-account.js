@@ -346,6 +346,16 @@ async function loadClubsAdminView() {
         <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
         <div style="${secMini};margin-top:12px">Ploegen</div>
         ${teamsHtml}
+        ${/* EEN PLOEG AANMAKEN KON HIER NIET (Tim, 04-09-2026: "ik heb nu een nieuwe club aangemaakt.
+              Ik vind nergens waar ik een ploeg kan toevoegen aan die club"). En dat was geen zoekfout:
+              "Nieuwe ploeg in deze club" stond ENKEL in Clubbeheer, en dat scherm werkt op de clubs die
+              JIJ beheert (myClubs = clubs/{id}/admins). Een vers aangemaakte club heeft nog geen enkele
+              beheerder, dus ze kwam daar niet in de lijst voor — ook niet bij de eigenaar. De club was
+              dus alleen te vullen door er eerst een clubbeheerder op te zetten en die het te laten doen.
+              Nu staat de knop ook hier, waar je de club net gemaakt hebt. De databankregels lieten dit
+              altijd al toe voor de eigenaar (teams/$teamId/.write, de owner-tak), dus er verandert niets
+              aan de rechten. */ ''}
+        <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showCreateTeamModal('${cid}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
         ${deleteBtn}
       </div>`;
     }).join('') : '<p style="color:var(--txt2);font-size:14px">Nog geen clubs.</p>';
@@ -2129,7 +2139,11 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
   } else if (!stil) {
     // Clubbeheerder beheert de ploeg via zijn clubrol, niet als lid → terug naar het cluboverzicht,
     // waar de nieuwe ploeg nu verschijnt.
-    go('clubbeheer');
+    // Aangemaakt vanuit App-beheer → Clubs? Dan dáár blijven en enkel hertekenen. Naar Clubbeheer
+    // sturen zou de eigenaar op "Je beheert momenteel geen club" doen belanden, want dat scherm werkt
+    // op myClubs — precies het gat dat deze knop komt dichten.
+    if (view === 'clubsadmin') loadClubsAdminView();
+    else go('clubbeheer');
   }
   return { teamId, rosterId: initialRosterId };
 }
@@ -2876,7 +2890,12 @@ function showCreateTeamModal(clubId) {
   _pendingCreateClubId = clubId || null;
   // In clubcontext: laat de clubbeheerder kiezen of hij deze ploeg zelf mee beheert (als lid) of
   // enkel via zijn clubrol. Standaard aangevinkt, want in de praktijk beheert hij ze vaak zelf.
-  const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join" checked style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
+  // MAAR NIET ALS JE DEZE CLUB ZELF NIET BEHEERT (v1.41.0). Sinds de knop ook in App-beheer → Clubs
+  // staat, maakt de eigenaar hier ploegen aan voor de club van iemand ANDERS. Aangevinkt laten zou
+  // elke ploeg van elke klantenclub in zijn eigen "Jouw ploegen" duwen — en bij de laatste ook nog
+  // van actieve ploeg wisselen. Beheer je de club zelf, dan blijft alles zoals het was.
+  const zelfBeheerder = !!(clubId && myClubs && myClubs[clubId]);
+  const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join"${zelfBeheerder ? ' checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>
