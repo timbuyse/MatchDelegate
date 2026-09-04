@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.40.0
+
+**De app vraagt één keer om een niet-bevestigd e-mailadres te bevestigen.** Wie zijn adres nooit
+bevestigde, kreeg dat alleen te zien in Instellingen → Account — en daar komt een trainer nooit. Nu
+staat er bij zo iemand een kaartje op het startscherm, met de knop om de mail meteen opnieuw te laten
+sturen.
+
+**Eén keer, en dan nooit meer.** Het kaartje wordt afgevinkt zodra het in beeld komt, niet pas als er
+op geklikt wordt — een herinnering die blijft terugkomen is een zeurende balk, en dat was niet de
+bedoeling. Wie het weglegt, vindt de knop nog altijd in Instellingen → Account.
+
+Twee gevallen die het overslaat: een account van minder dan een dag oud (dat kreeg zijn mail net bij
+het registreren) en natuurlijk iedereen die al bevestigd heeft. Klik je de link aan in je
+mailprogramma en kom je terug, dan verdwijnt het kaartje meteen.
+
+> Een beheerder kan die mail **niet** voor iemand anders versturen: een bevestigingsmail kan enkel
+> aangevraagd worden door wie op dat moment zelf aangemeld is. Vandaar dat de app het de betrokkene
+> zelf vraagt.
+
+---
+
 ## v1.39.0
 
 **Staan er rugnummers op het PSD-blad, dan neemt de app ze over voor die wedstrijd.** In v1.38.1 werd

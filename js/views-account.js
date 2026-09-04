@@ -512,6 +512,52 @@ function emailBevestigd(entry) { return !!(entry && entry.verified); }
 const NIET_BEVESTIGD_MSG = 'Dit e-mailadres is nog niet bevestigd. Vraag de persoon om de link in de '
   + 'bevestigingsmail aan te klikken en daarna de app opnieuw te openen. Staat die mail er niet meer, '
   + 'dan kan hij een nieuwe versturen via Instellingen → Account.';
+// ---- EENMALIGE HERINNERING OP HET STARTSCHERM (Tim, 04-09-2026) ----
+// Tim wou een niet-bevestigd adres opnieuw laten bevestigen door de betrokkenen. Zélf een
+// bevestigingsmail versturen kán niet: Firebase laat die enkel aanvragen dóór wie op dat moment
+// aangemeld is (en de console heeft er geen knop voor). De knop bestaat dus al — in Instellingen →
+// Account — maar daar komt een trainer nooit. Daarom vraagt de app het hier zelf, één keer.
+//
+// "Ze mogen dat wel maar éénmalig zien, ok?" — dus afvinken zodra het IN BEELD komt, en niet pas als
+// er op geklikt wordt. Daarin verschilt dit van het welkomstkaartje van een kijker hieronder in
+// loadHome, dat terugkomt tot je op "Begrepen" tikt. `_mailNudge` houdt het binnen deze sessie in
+// beeld staan, ook als het scherm hertekent: verdween het bij de eerste hertekening, dan was
+// "éénmalig" in de praktijk "nooit".
+const MAIL_NUDGE_KEY = 'voetbal_mailnudge';
+let _mailNudge = null;
+function mailNudgeNodig() {
+  // Niets beslissen zolang de gebruiker nog niet gekend is — anders vinken we het af vóór er iemand
+  // is en heeft niemand het ooit gezien.
+  if (!cloudReady || !currentUser || currentUser.isAnonymous || isGuest) return false;
+  if (!currentUser.email || currentUser.emailVerified) return false;
+  if (_mailNudge !== null) return _mailNudge;
+  // Een account van vijf minuten oud heeft zijn mail net bij het registreren gekregen; die hoeft geen
+  // herinnering, en het zou de ENE keer die we hebben verspillen aan het minst nuttige moment.
+  // Onleesbare of ontbrekende datum: dan wél tonen — het gaat net om de oude accounts.
+  const gemaakt = Date.parse(((currentUser.metadata || {}).creationTime) || '');
+  if (gemaakt && Date.now() - gemaakt < 24 * 3600e3) return false;
+  let gezien = '';
+  try { gezien = localStorage.getItem(MAIL_NUDGE_KEY) || ''; } catch (e) {}
+  _mailNudge = gezien !== currentUser.uid;   // per account, zodat een tweede account op dit toestel ook één keer krijgt
+  if (_mailNudge) { try { localStorage.setItem(MAIL_NUDGE_KEY, currentUser.uid); } catch (e) {} }
+  return _mailNudge;
+}
+function mailNudgeWeg(btn) {
+  _mailNudge = false;
+  const kaart = btn && btn.closest ? btn.closest('.card') : null;
+  if (kaart) kaart.remove(); else render();
+}
+function mailNudgeHtml() {
+  if (!mailNudgeNodig()) return '';
+  return `<div class="card" style="border-left:4px solid #fbbf24;margin-bottom:16px">
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px">${icI(IC.mail)} Bevestig je e-mailadres</div>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:10px">Er is nog niet op de bevestigingslink geklikt voor <b>${esc(currentUser.email)}</b> — misschien heb je nooit een mail gekregen. Bevestigen laat de anderen zien dat dit adres echt van jou is, en is nodig om later aangesteld te worden als ploeg- of clubbeheerder.</p>
+    <button class="btn btn-org btn-sm" onclick="resendVerification(this)">${icI(IC.mail)} Stuur me de mail</button>
+    <button class="btn btn-gray btn-sm" style="margin-top:8px" onclick="mailNudgeWeg(this)">Niet nu</button>
+    <p style="font-size:11px;color:var(--txt2);margin:10px 0 0">Je ziet deze vraag maar één keer. Later kan je ze altijd nog versturen via Instellingen → Account.</p>
+  </div>`;
+}
+
 async function doAppointClubAdmin(cid) {
   if (!isOwner || !fbdb) return;
   const email = ((document.getElementById('appoint-email') || {}).value || '').trim().toLowerCase();
@@ -4342,7 +4388,7 @@ async function loadHome() {
     const startBtns = canManage()
       ? `<button class="btn btn-org" style="margin-top:12px" onclick="go('teams')">${icI(IC.players)} Ploeg aanmaken</button>`
       : '';
-    el.innerHTML = offlineBanner + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>${startBtns}`;
+    el.innerHTML = offlineBanner + mailNudgeHtml() + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>${startBtns}`;
     return;
   }
   const guestBanner = isGuest
@@ -4511,7 +4557,7 @@ async function loadHome() {
         ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:40px;height:40px;object-fit:contain">` : ''}
         ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
-  el.innerHTML = offlineBanner + guestBanner + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter;
+  el.innerHTML = offlineBanner + guestBanner + mailNudgeHtml() + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter;
   // "Wat is er nieuw" bij een major-versie — hier en niet in init(), omdat de gebruiker op dit punt
   // écht binnen is (voorbij splash, aanmelden en setup). Eén keer per sessie proberen; de melding
   // zelf beslist of ze getoond wordt (zie toonNieuwAlsNodig in core.js).

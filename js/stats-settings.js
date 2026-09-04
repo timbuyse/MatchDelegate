@@ -959,7 +959,9 @@ async function refreshEmailVerified() {
     writeUserEmailIndex(currentUser);
     // Ook de ledeninformatie van de actieve ploeg, want daar leest de ploegbeheerder het.
     if (activeTeamId && userTeams && userTeams[activeTeamId]) writeMemberInfo(activeTeamId, userTeams[activeTeamId]);
-    if (view === 'settings' || view === 'setup') render();
+    // Ook 'home': sinds v1.40.0 staat de herinnering daar ook, en wie de link in zijn mailprogramma
+    // aanklikt en terugkomt (de visibilitychange hieronder) hoort ze dan meteen weg te zien gaan.
+    if (view === 'settings' || view === 'setup' || view === 'home') render();
     return true;
   } catch (e) { return false; }
 }
