@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.39.0
+
+**Staan er rugnummers op het PSD-blad, dan neemt de app ze over voor die wedstrijd.** In v1.38.1 werd
+die nieuwe kolom **Nº** alleen nog maar onschadelijk gemaakt; nu wordt ze ook gebruikt. Het nummer
+staat in het voorstel vóór de naam, zodat je vooraf ziet wat er overgenomen wordt, en het komt daarna
+terug in de keuzelijsten tijdens de wedstrijd en in het verslag.
+
+Drie keuzes daarbij:
+
+- **Alleen voor die ene wedstrijd.** De spelerslijst van de ploeg blijft onaangeroerd, dus een ploeg
+  hoeft rugnummers niet aan te zetten om ze op één blad te gebruiken.
+- **Een blad zonder nummers veegt niets weg.** Wie in zijn ploeg al een nummer heeft, houdt het.
+- **Nul is geen rugnummer.** Op het blad waarmee dit bovenkwam had één speler een 0 en de acht andere
+  niets — dat is wat ProSoccerData afdrukt voor een nul die in de clubadministratie is blijven staan,
+  geen shirt met 0 erop. Die wordt overgeslagen.
+
+Het nummer wordt op de **vorm** gezocht (een getal van één of twee cijfers, links van de naam) en niet
+op de kolomkop, zodat het blijft werken hoe ProSoccerData die kop ook spelt.
+
+---
+
 ## v1.38.1
 
 **Een speler met een rugnummer op het PSD-blad kwam niet op het veld.** ProSoccerData zet sinds kort

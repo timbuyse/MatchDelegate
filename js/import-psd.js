@@ -444,7 +444,17 @@ function psdLeesTabel(regels) {
       .sort((a, b) => Math.abs(a.x - kop.x) - Math.abs(b.x - kop.x))[0];
     if (!naam) continue;
     const kruis = k => kols[k] !== null && opRij.some(x => /^[xX✓v]$/.test(x.text.trim()) && Math.abs(x.x - kols[k]) < 10);
-    rijen.push({ naam: naam.text.trim(), geboren: r.text.trim(), kapitein: kruis('C'), keeper: kruis('GK'), speelt: kruis('P'), wissel: kruis('S') });
+    // Het rugnummer uit die kolom Nº, als het er staat (Tim, 04-09-2026: "als ze op het blad zijn,
+    // mag de app ze overnemen voor die wedstrijd"). We zoeken op VORM en niet op de kolomkop: een
+    // getal van één of twee cijfers, links van de naam. Zo maakt het niet uit hoe PSD die kop precies
+    // spelt ("Nº", "N°", "Nr") of dat hij hem ooit weglaat.
+    // NUL IS GEEN RUGNUMMER. Op het blad waarmee dit bovenkwam had één speler een 0 en de acht andere
+    // niets — dat is wat PSD afdrukt voor een 0 die in de club-administratie is blijven staan, niet
+    // een shirt met 0 erop. Overnemen zou die ene speler "#0" geven in de keuzelijsten en de PDF.
+    const nr = opRij.filter(x => x.x < naam.x - 5 && /^\d{1,2}$/.test(x.text.trim()))
+      .sort((a, b) => b.x - a.x)[0];
+    const nummer = (nr && nr.text.trim() !== '0') ? nr.text.trim() : '';
+    rijen.push({ naam: naam.text.trim(), nummer, geboren: r.text.trim(), kapitein: kruis('C'), keeper: kruis('GK'), speelt: kruis('P'), wissel: kruis('S') });
   }
   return rijen.length ? { spelers: rijen, rechterrand: rechts } : null;
 }
@@ -898,6 +908,9 @@ function psdVoorstelHtml() {
     const zuster = psdZusterSpeler(id);
     return `<div class="stat-row" style="align-items:center;gap:8px">
       <span style="flex:1;min-width:0">
+        ${/* Staat er een rugnummer op het blad, dan zie je het hier vóór de naam: het wordt straks
+             overgenomen voor deze wedstrijd, dus het hoort in het voorstel te staan. */ ''}
+        ${s.nummer ? `<span style="font-weight:800;color:var(--txt2);margin-right:5px">${esc(s.nummer)}</span>` : ''}
         <span style="font-weight:600">${esc(s.naam)}</span>
         ${rol === 'basis' ? '<span style="font-size:11px;font-weight:700;color:var(--grn);margin-left:6px">BASIS</span>' : rol === 'bank' ? '<span style="font-size:11px;font-weight:700;color:var(--txt2);margin-left:6px">BANK</span>' : ''}
         ${s.keeper ? `<span style="font-size:11px;color:var(--txt2);margin-left:6px">${esc('doelman')}</span>` : ''}
@@ -1055,7 +1068,14 @@ async function psdOvernemen(bevestigd) {
     const rid = psdSt.koppel[i];
     if (!rid) return;
     const p = poolOp(rid);
-    if (p) p.sel = 'bank';
+    if (!p) return;
+    p.sel = 'bank';
+    // Het rugnummer van het blad, ENKEL VOOR DEZE WEDSTRIJD (Tim, 04-09-2026). Het gaat op de
+    // pool-regel staan en die wordt in finishWizard de speler van deze wedstrijd — de kern blijft
+    // onaangeroerd. Zo hoeft een ploeg rugnummers niet aan te zetten om ze op één blad te gebruiken,
+    // en overschrijft een blad zonder nummers ook niets: staat er geen nummer, dan blijft wat de
+    // speler in de kern al had gewoon staan.
+    if (s.nummer) p.number = s.nummer;
   });
   // 2. De startopstelling: wie op het veld staat wordt 'basis' en krijgt zijn roosterplek.
   start.veldNamen.forEach(v => {
