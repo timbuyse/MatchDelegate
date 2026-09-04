@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.38.1
+
+**Een speler met een rugnummer op het PSD-blad kwam niet op het veld.** ProSoccerData zet sinds kort
+een kolom **Nº** links van de naam. Stond daar een nummer, dan las de app dat nummer als de naam van
+die speler — in de spelerslijst verscheen letterlijk een speler die "0" heette.
+
+Het gevolg zat verder dan het leek. Bij elke naam op een getekend veld ("S. Lossy") zoekt de app de
+bijhorende regel in de spelerslijst op. Die regel heette "0", dus ze werd niet gevonden, en een naam
+zonder regel krijgt geen plaats. Je kon hem daarna in de lijst nog aan een speler koppelen, maar zijn
+**plaats op het veld was al verloren** — het leek een koppelfout terwijl het al bij het lezen misging.
+
+Een naam moet nu op een naam lijken: een nummer is er nooit één, ook niet "12" of "99". Op het blad
+waarmee dit bovenkwam staan nu alle negen spelers correct in de lijst, worden ze alle negen
+automatisch gekoppeld, en staat de betrokken speler in alle zeven momenten op zijn plaats. Een blad
+zonder die kolom leest precies zoals voordien.
+
+---
+
 ## v1.38.0
 
 **De naam van een ploeg wijzigt de clubbeheerder, niet de ploegbeheerder.** Tot nu stond "Naam

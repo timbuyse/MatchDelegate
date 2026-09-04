@@ -430,7 +430,18 @@ function psdLeesTabel(regels) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r.text.trim())) continue;   // de geboortedatum merkt een spelersrij
     if (Math.abs(r.x - dat.x) > 40) continue;
     const opRij = regels.filter(x => Math.abs(x.y - r.y) < 3);
-    const naam = opRij.find(x => Math.abs(x.x - kop.x) < 25 && x.x < dat.x - 20);
+    // DE KOLOM "Nº" VOOR DE NAAM (Tim, 04-09-2026). PSD zet er sinds kort het rugnummer in, links
+    // van de naam: kop "Nº" op x=36, "Naam" op x=55. Dat nummer viel binnen de marge van 25 rond de
+    // naamkolom en stond in het bestand VOOR de naam, dus `find` gaf het nummer terug als naam —
+    // één speler heette "0". Erger dan het lijkt: de naam op het getekende veld ("S. Lossy") kan die
+    // rij dan niet meer terugvinden (psdVeldNaamNaarSpeler), dus de speler kwam nergens op het veld
+    // te staan. Je kon hem in de lijst nog koppelen, maar zijn plaats was al weg.
+    // Twee zeven i.p.v. een smallere marge: de naam moet op een NAAM lijken (psdLijktOpNaam weigert
+    // elk nummer, ook "12" of "99"), en van wat overblijft nemen we wat het dichtst bij de kop staat.
+    // Zo maakt het niet uit of het nummer vóór of na de naam in het bestand staat, en blijft een blad
+    // zónder die kolom lezen zoals voordien.
+    const naam = opRij.filter(x => Math.abs(x.x - kop.x) < 25 && x.x < dat.x - 20 && psdLijktOpNaam(x.text))
+      .sort((a, b) => Math.abs(a.x - kop.x) - Math.abs(b.x - kop.x))[0];
     if (!naam) continue;
     const kruis = k => kols[k] !== null && opRij.some(x => /^[xX✓v]$/.test(x.text.trim()) && Math.abs(x.x - kols[k]) < 10);
     rijen.push({ naam: naam.text.trim(), geboren: r.text.trim(), kapitein: kruis('C'), keeper: kruis('GK'), speelt: kruis('P'), wissel: kruis('S') });
