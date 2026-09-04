@@ -1661,8 +1661,10 @@ const HANDLEIDING_PAGINAS = [
       <p>Eén ploeg heeft <b>twee schermen</b>, en de knop waarmee je erin gaat bepaalt welk:</p>
       <ul class="hdl-list">
         <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
-        <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, de <b>ploegnaam</b> wijzigen en de <b>Prullenmand</b>.</li>
+        <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, en de <b>Prullenmand</b>.</li>
       </ul>
+      </ul>
+      <p class="hdl-tip">De <b>naam van de ploeg</b> staat daar niet bij: die wijzigt de <b>clubbeheerder</b>. De naam loopt door alle wedstrijden, de statistieken en de kalender van de bond, dus ze hoort bij de club — net als een ploeg aanmaken, archiveren en het clublogo. Moet ze anders, vraag het aan wie je club beheert.</p>
       <p class="hdl-tip">Een <b>uitnodiging vervalt na twee maanden</b>. In het uitnodigingsvenster staat
         tot wanneer ze geldig is; daarna maak je er met <b>'Nieuwe code'</b> een verse aan. De oude werkt
         dan niet meer.</p>
@@ -1686,11 +1688,11 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Ploegen beheren</div>
       <ul class="hdl-list">
         <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>
-        <li><b>'Openen'</b> bij een ploeg — ga naar het ploegscherm van die ploeg, met haar wedstrijden, spelers en leden.</li>
+        <li><b>'Openen'</b> bij een ploeg — ga naar het ploegscherm van die ploeg, met haar wedstrijden, spelers en leden. Daar zit ook de <b>naam van de ploeg</b>: tik op <b>'Beheer'</b> en dan op <b>'Naam wijzigen'</b>. Alleen jij kan dat — een ploegbeheerder ziet die knop niet.</li>
         <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden. Dit is wat je wil bij een ploeg die niet meer speelt.</li>
         <li><b>'Verwijderen'</b> — definitief wissen. Deze knop staat grijs: enkel de maker van de app kan dat. Vraag het aan hem als het echt moet.</li>
       </ul>
-      <p class="hdl-tip">Aanmaken, archiveren en verwijderen van een hele ploeg staan alle drie hier, in Clubbeheer — niet op het ploegscherm zelf. Zo kan niemand tijdens het dagelijkse werk per ongeluk een ploeg wissen.</p>
+      <p class="hdl-tip">Aanmaken, archiveren en verwijderen van een hele ploeg staan alle drie hier, in Clubbeheer — niet op het ploegscherm zelf. Zo kan niemand tijdens het dagelijkse werk per ongeluk een ploeg wissen. Om dezelfde reden is ook de <b>ploegnaam</b> van jou en niet van de ploegbeheerder.</p>
       <div class="sec">De ploegen aan de voetbalbond koppelen</div>
       <p>Dit is de eerste zet bij de opstart van een club, en het scheelt je nadien veel werk: tik in Clubbeheer op <b>'Ploegen van de voetbalbond'</b>. Je geeft één keer je <b>clubnummer</b> en zegt dan per ploeg van de bond bij welke ploeg in de app ze hoort. Bestaat die er nog niet, dan laat je ze meteen aanmaken.</p>
       <p>Daarna haalt elke ploegbeheerder zijn kalender op met één tik, zonder ergens iets te downloaden — en bij elke wedstrijd komt haar wedstrijdnummer mee, waardoor <b>'Wedstrijdinfo ophalen'</b> achteraf geen link meer nodig heeft. Komt er in de loop van het seizoen een ploeg bij, dan open je dit scherm opnieuw en koppel je alleen die.</p>
@@ -2522,11 +2524,17 @@ async function doDeleteAccount() {
 
 // ---- Naam van ploeg wijzigen ----
 function showRenameTeamModal() {
-  // Hernoemen mag elke ploegbeheerder van DEZE ploeg (isAdmin), niet enkel wie systeembreed
-  // goedgekeurd is om nieuwe ploegen aan te maken (isApprovedAdmin) — de backend-regel
-  // (database.rules.json, teams/$teamId/.write) staat dit ook al toe aan elke team-admin.
-  // Verwijderen blijft bewust strenger (isApprovedAdmin + createdBy), zie confirmDeleteCloudTeam().
-  if (!isAdmin || !activeTeamId || !fbdb) return;
+  // HERNOEMEN MAG ENKEL DE CLUBBEHEERDER (Tim, 04-09-2026). Tot v1.37.1 mocht elke ploegbeheerder
+  // van DEZE ploeg het (isAdmin). Nu isClubAdmin: de clubbeheerder van de club waar deze ploeg in
+  // zit, en de eigenaar van de app (die is overal impliciet clubbeheerder, zie fetchTeamInfo).
+  // Let op de valkuil: binnen een ploeg van zijn club is een clubbeheerder ÓÓK isAdmin
+  // (`isAdmin = (userTeams[teamId] === 'admin') || isClubAdmin` in core.js), dus isAdmin is hier
+  // geen bruikbaar onderscheid meer — het is waar voor allebei.
+  // Deze controle staat er náást het weglaten van de knop in renderTeamOverview: de knop is de deur,
+  // dit is het slot. Wat er NIET is: een regel in database.rules.json — een ploegbeheerder mag
+  // teams/$teamId/info/name daar nog schrijven (de .write op teamniveau). Tim koos daar bewust voor
+  // (04-09-2026): het scherm is dicht, en langs de databank komt een trainer niet.
+  if (!isClubAdmin || !activeTeamId || !fbdb) return;
   const current = getClubName() || '';
   openModal(`<h3>${icI(IC.edit)} Naam ploeg wijzigen</h3>
     <div class="fg"><label>Nieuwe naam</label><input id="rename-team-input" type="text" value="${esc(current)}" autofocus></div>

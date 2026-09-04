@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.38.0
+
+**De naam van een ploeg wijzigt de clubbeheerder, niet de ploegbeheerder.** Tot nu stond "Naam
+wijzigen" op het beheerscherm van de ploeg voor elke ploegbeheerder. Die naam loopt door alle
+wedstrijden, de statistieken en de koppeling met de kalender van de bond, dus ze hoort bij de club —
+dezelfde lijn als een ploeg aanmaken, archiveren en het clublogo, die alle drie al in Clubbeheer
+zitten.
+
+Voor een clubbeheerder verandert er niets: hij komt in elke ploeg van zijn club als beheerder binnen
+en ziet de knop staan waar ze altijd stond. De maker van de app houdt ze overal. De **Prullenmand**
+eronder blijft voor elke ploegbeheerder.
+
+Wie de knop niet meer heeft, leest het waar hij gaat zoeken: het grijze naamveld in "Ploeg bewerken"
+zegt nu *"De ploegnaam wijzigt de clubbeheerder"* in plaats van naar een knop te verwijzen die er niet
+is. De handleiding is op twee plekken mee: bij "Als ploegbeheerder" staat waarom de naam er niet meer
+bij staat, bij "Als clubbeheerder" waar ze wél zit.
+
+---
+
 ## v1.37.1
 
 **"Nog niet aan kijkers tonen" is een oogje geworden.** Het stond als knop op volle breedte tussen de

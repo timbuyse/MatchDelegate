@@ -167,7 +167,16 @@ function renderTeamOverview() {
   const ploegBlok = (cloudPloeg && isAdmin) ? `
     <div class="sec">Deze ploeg</div>
     <div class="card">
-      <button class="btn btn-pale" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam wijzigen</button>
+      ${/* DE NAAM VAN DE PLOEG IS EEN CLUBHANDELING (Tim, 04-09-2026). Stond hier tot v1.37.1 voor
+           elke ploegbeheerder. Nu enkel voor de clubbeheerder van deze club (en de eigenaar, die
+           overal impliciet clubbeheerder is) — een clubbeheerder komt in elke ploeg van zijn club
+           als beheerder binnen (zie fetchTeamInfo in core.js), dus hij ziet de knop hier gewoon
+           staan en er hoefde niets te verhuizen. Dezelfde lijn als archiveren en verwijderen: wat
+           de ploeg ALS GEHEEL raakt, hoort bij de club.
+           Enkel de KNOP, niet het hele blok: de Prullenmand eronder blijft voor elke
+           ploegbeheerder. Wie de knop mist, vindt de weg via het grijze naamveld in "Ploeg
+           bewerken" — daar staat wie het wel kan. */ ''}
+      ${isClubAdmin ? `<button class="btn btn-pale" onclick="showRenameTeamModal()">${icI(IC.edit)} Naam wijzigen</button>` : ''}
       ${/* DE KIJKMODUS-SCHAKELAAR IS WEG (Tim, 24-08-2026). Hij was een val: de schakelaar stond op
            dít scherm, maar zodra de kijkmodus aanstond opende de chip bovenaan het gewone
            ploegscherm i.p.v. het beheerscherm (zie openCloudChip) — de enige weg terug zat dus
@@ -177,7 +186,9 @@ function renderTeamOverview() {
            overal verweven in canLive/canManage/canSeeStats, en het testharnas (rollen.js) gebruikt
            ze om een kijker na te bootsen zonder tweede account. Enkel de knop is weg, dus de modus
            kan niet meer per ongeluk aangezet worden. */ ''}
-      <button class="btn btn-pale" style="margin-top:14px" onclick="_tgvFrom='teamEdit';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>
+      ${/* De ruimte erboven hoort bij de knop die er STOND: zonder de naamknop is de Prullenmand de
+            eerste in de kaart en zou 14 px hem van de rand wegduwen. */ ''}
+      <button class="btn btn-pale"${isClubAdmin ? ' style="margin-top:14px"' : ''} onclick="_tgvFrom='teamEdit';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Verwijderde wedstrijden en tornooien blijven bewaard. Hier zet je ze terug.</p>
       ${/* Archiveren en verwijderen van een hele ploeg staan bewust NIET hier maar in Clubbeheer
             (Tim, 23-08-2026): het zijn clubhandelingen, net als een ploeg aanmaken. Zo staan de drie
@@ -277,7 +288,9 @@ function renderTeamEdit() {
   <div class="content">
     <div class="card">
       <div class="fg"><label>Ploegnaam</label>${(cloudReady && !editingTeam.isNew)
-        ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">De ploegnaam wijzig je met <b>"Naam wijzigen"</b>, onderaan het ploegscherm.</div>`
+        ? `<input id="t-name" value="${esc(editingTeam.name)}" autocomplete="off" readonly style="opacity:.65;cursor:not-allowed;background:var(--bg2,rgba(0,0,0,.04))"><div style="font-size:12px;color:var(--txt2);margin-top:4px">${isClubAdmin
+            ? `De ploegnaam wijzig je met <b>"Naam wijzigen"</b>, op het beheerscherm van de ploeg.`
+            : `De ploegnaam wijzigt de <b>clubbeheerder</b>. Vraag het aan wie de club beheert.`}</div>`
         : `<input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off">`}</div>
     </div>
     <div class="sec">Ploegverantwoordelijken</div>
