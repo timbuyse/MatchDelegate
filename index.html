@@ -239,9 +239,26 @@
     .cal-legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:10px 0 4px;font-size:11px;color:var(--txt2)}
     .cal-legend span{display:flex;align-items:center;gap:4px}
     /* Timer */
-    .timer-card{background:var(--blk2);color:#fff;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
-    .timer-time{font-size:54px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:3px;line-height:1}
-    .qdots{display:flex;justify-content:center;gap:8px;margin-top:10px}
+    .timer-card{position:relative;background:var(--blk2);color:#fff;border-radius:14px;padding:10px 16px;text-align:center;margin-bottom:12px}
+    /* 46 i.p.v. 54 px: samen met de chip op de bolletjesrij is dit wat de klokkaart even hoog maakt
+       als de scorekaart erboven (Tim, 04-09-2026). nowrap omdat "15:00 + 01:40" bij verlenging anders
+       op twee regels valt en de kaart dan alsnog vijftig pixels uitzet. */
+    .timer-time{font-size:46px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:2px;line-height:1;white-space:nowrap}
+    .qdots{display:flex;justify-content:center;gap:8px}
+    /* DE OP/AFTEL-CHIP OP DE BOLLETJESRIJ (v1.43.0). Ze was een knop over de volle breedte — het
+       enige echt hoge stuk van deze kaart — en Tim wou de klokkaart even hoog als de scorekaart
+       erboven. Als chip náást de wedstrijddelen kost ze geen eigen regel meer.
+       NIET IN DE HOEK BOVENAAN, hoe verleidelijk ook: opgemeten botst ze daar met de klok. Bij
+       verlenging leest die "15:00 + 01:40" en dat is 209 px breed, tot 30 px ONDER de chip. */
+    .qdots-rij{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:7px;min-height:24px}
+    .klok-chip{border:none;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;font-family:inherit;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+    .klok-chip.aan{background:var(--grn)}
+    .klok-chip:active{transform:scale(.94)}
+    /* De kopregel van het wedstrijdscherm draagt sinds v1.43.0 twee pictogrammen extra (moment en
+       notitie, die vroeger rechtsonder zweefden). Daar past de wedstrijdtitel niet meer bij op één
+       regel, dus krijgt dit ene scherm smallere marges en compactere pictogrammen. */
+    .hdr.hdr-live{padding-left:14px;padding-right:14px;gap:4px}
+    .hdr-gear.hdr-mini{font-size:18px;padding:5px 3px}
     .qdot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.25)}
     .qdot.done{background:var(--org)}
     .qdot.active{background:var(--grn)}
@@ -364,11 +381,10 @@
        pagina, en helemaal onderaan gescrold zakt een sticky balk terug naar zijn eigen plek — een
        kleine 50px hoger. Deze knoppen staan fixed en blijven waar ze zijn, en verdwenen daardoor
        achter de balk (te zien op het handleidingbeeld van het pauzescherm). */
-    .fab-note{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 12px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--card);border:2px solid var(--bdr);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:51;padding:0;color:var(--txt)}
-    .fab-note:active{transform:scale(.9)}
-    .fab-note svg,.fab-mark svg{width:20px;height:20px;display:block}
-    .fab-mark{position:fixed;bottom:calc(56px + env(safe-area-inset-bottom) + 68px);right:14px;width:44px;height:44px;border-radius:22px;background:var(--ylp,#fef9c3);border:2px solid var(--yl,#ca8a04);color:var(--yl,#ca8a04);cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;z-index:51;padding:0}
-    .fab-mark:active{transform:scale(.9)}
+    /* .fab-note en .fab-mark zijn weg (v1.43.0): de knoppen voor "snelle notitie" en "moment
+       markeren" zweefden rechtsonder over het knoppenraster en staan nu in de kopregel van het
+       wedstrijdscherm. De regel bij @media print hieronder noemt ze nog — dat mag blijven, ze doet
+       niets meer maar breekt ook niets. */
     /* Player input row */
     .pirow{display:grid;grid-template-columns:56px 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
     .pirow input,.pirow select{padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:15px;width:100%;-webkit-appearance:none;background:#fff}

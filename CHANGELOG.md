@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.43.0
+
+**De twee zwevende knopjes staan nu in de kopregel.** "Moment markeren" (het sterretje) en "Snelle
+notitie" (het potlood) hingen vast rechtsonder en vielen daar over de onderste rij van het
+knoppenraster. Sinds dat raster negen kaartjes telt en het scherm niet meer hoeft te scrollen, ligt
+een zwevende knop per definitie bovenop iets. In de kopregel overlappen ze niets en staan ze op elk
+tabblad even goed.
+
+**De klok is nu even hoog als de scorekaart erboven.** De op- en aftelknop liep over de volle breedte
+en was het enige echt hoge stuk van die kaart; hij is een chipje geworden naast de bolletjes van de
+wedstrijddelen. Samen met wat kleinere cijfers komt de klokkaart daarmee op exact dezelfde hoogte uit
+als de scorekaart — opgemeten, ook bij verlenging en bij twee helften.
+
+Het opschrift blijft "Optellen" of "Aftellen"; dat je erop kan tikken om te wisselen staat nu in de
+tooltip in plaats van naast de tekst.
+
+---
+
 ## v1.42.0
 
 **Het wedstrijdscherm is opnieuw ingedeeld.** De knoppen staan nu in drie volle rijen, in deze

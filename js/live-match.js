@@ -91,13 +91,20 @@ function renderLive() {
              oranje klok bij overtijd: updateTimerDisplay houdt de kleur bij, dit is het opschrift. */ ''}
         <div id="timer-pauze" style="${isPaused ? '' : 'display:none;'}font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--org);margin-top:2px">PAUZE</div>
         ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
-        <div class="qdots">${dots}</div>
         ${/* Twee dingen rechtgezet op 24-08-2026: (1) het opschrift was de HUIDIGE stand ("Optellen
              aan") terwijl je bij een knop het gevolg van je tik verwacht — nu staat de stand er met
              "tik om te wisselen" erbij; (2) zonder blokduur kan er niets afgeteld worden (timerText
              negeert aftellen dan), en toch werd de knop groen met "Aftellen aan". Nu staat hij er
-             enkel als er een blokduur is. */ ''}
-        ${match.quarterDuration ? `<button onclick="toggleCountdown()" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;background:${countdownOn()?'var(--grn)':'rgba(255,255,255,.15)'};color:#fff">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen':'Optellen'} <span style="font-weight:400;opacity:.75">· tik om te wisselen</span></button>` : ''}
+             enkel als er een blokduur is.
+             SINDS v1.43.0 EEN CHIP NAAST DE BOLLETJES i.p.v. een knop over de volle breedte, op één
+             regel met de wedstrijddelen (Tim, 04-09-2026: de klokkaart moest even hoog worden als de
+             scorekaart erboven). Die knop was het enige echt hoge stuk van deze kaart; als chip kost
+             hij geen eigen regel meer. Het opschrift blijft woordelijk hetzelfde — enkel "· tik om
+             te wisselen" valt weg, want dat is de uitleg die nu in de tooltip staat. */ ''}
+        <div class="qdots-rij">
+          <div class="qdots">${dots}</div>
+          ${match.quarterDuration ? `<button class="klok-chip${countdownOn() ? ' aan' : ''}" onclick="toggleCountdown()" title="Tik om te wisselen tussen op- en aftellen">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen':'Optellen'}</button>` : ''}
+        </div>
       </div>
       ${(!isDone && !ro) ? `<div class="qctrl">
         ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start wedstrijd</button>` : ''}
@@ -311,7 +318,7 @@ function renderLive() {
   }
 
   return `
-  <div class="hdr"><button class="back" onclick="confirmLeave()">‹</button>
+  <div class="hdr hdr-live"><button class="back" onclick="confirmLeave()">‹</button>
     ${/* esc() en geen lege delen (audit 25-08-2026): bij een tornooiwedstrijd erft location een door
          de gebruiker getypte tekst, en overal elders in dit bestand staat esc(). Zonder locatie las
          de kop bovendien "undefined · …". */ ''}
@@ -319,6 +326,16 @@ function renderLive() {
     ${/* "Afsluiten" stond hier — pal naast de plek waar je duim de hele wedstrijd komt. Eén mistik
          en de wedstrijd is dicht. Nu staat hier het onschuldige "Info" (wedstrijdinfo bewerken) en
          is Afsluiten verhuisd naar onderaan het tabblad Verloop, bewust wat weggestoken. */ ''}
+    ${/* DE TWEE ZWEEFKNOPJES STAAN NU HIER (Tim, 04-09-2026). Ze hingen vast rechtsonder
+         (.fab-note / .fab-mark) en vielen daar over de onderste rij van het knoppenraster — sinds
+         dat raster negen kaartjes telt en het scherm niet meer hoeft te scrollen, ligt een zwevende
+         knop per definitie bovenop iets. Gemeten: het midden van elk kaartje bleef raakbaar, maar
+         "Meer" en "Vrije trap" zaten er half onder.
+         In de kopregel overlappen ze niets, ze staan op elk tabblad even goed, en het is dezelfde
+         stijl als het oogje op het voorbereidingsscherm. Zelfde voorwaarde als voordien (`!ro`), dus
+         ook na het afsluiten kan je nog een notitie kwijt. */ ''}
+    ${!ro ? `<button class="hdr-gear hdr-mini" onclick="markMoment()" title="Moment markeren" aria-label="Moment markeren">${icI(IC.motm)}</button>
+    <button class="hdr-gear hdr-mini" onclick="modalQuickNote()" title="Snelle notitie" aria-label="Snelle notitie">${icI(IC.edit)}</button>` : ''}
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
   ${/* ER IS NOG IEMAND BEZIG (Tims keuze, 25-08-2026). Zie andereBeheerderActief in core.js: er kwam
@@ -331,7 +348,7 @@ function renderLive() {
   ${/* Stonden tot 24-08-2026 niet in de pauze (`!isBetween`), net het moment waarop je iets wil
        opschrijven: wat er in het vorige deel gebeurde, of een afspraak voor het volgende. Ná het
        afsluiten bleven ze wél staan, dus het was ook niet consequent. */ ''}
-  ${!ro ? `<button class="fab-note" onclick="modalQuickNote()" title="Snelle notitie">${IC.edit}</button><button class="fab-mark" onclick="markMoment()" title="Moment markeren">${IC.motm}</button>` : ''}
+  ${/* De zwevende knoppen zijn naar de kopregel verhuisd — zie daar. */ ''}
   <div class="ltabs">
     ${ro ? '' : `<button class="ltab ${tab==='wedstrijd'?'act':''}" onclick="setTab('wedstrijd')"><span class="ti">${IC.ball}</span>Wedstrijd</button>`}
     <button class="ltab ${tab==='opstelling'?'act':''}" onclick="setTab('opstelling')"><span class="ti">${IC.shirt}</span>Opstelling${canStartNext ? '<span class="ltab-dot" title="Wissels voor het volgende deel regel je hier"></span>' : ''}</button>
@@ -1499,8 +1516,12 @@ async function markMoment() {
     const stamp = `[${fmtTime(getGameTimeMs(match))}] ★`;
     match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
     await dbSave(match);
-    const btn = document.querySelector('.fab-mark');
-    if (btn) { btn.innerHTML = IC.check; setTimeout(() => { btn.innerHTML = IC.motm; }, 800); }
+    // Het vinkje van 800 ms is de ENIGE bevestiging dat je moment genoteerd is — er komt geen
+    // melding en er verschijnt niets op het scherm. Zocht tot v1.43.0 `.fab-mark`, de zwevende knop
+    // rechtsonder; die is naar de kopregel verhuisd en heette daarna niet meer zo. Zonder deze
+    // aanpassing gebeurde er dus zichtbaar níets meer bij het aantikken.
+    const btn = document.querySelector('.hdr [aria-label="Moment markeren"]');
+    if (btn) { btn.innerHTML = icI(IC.check); setTimeout(() => { btn.innerHTML = icI(IC.motm); }, 800); }
   } finally { _noteBusy = false; }
 }
 function modalEditMatchInfo() {
