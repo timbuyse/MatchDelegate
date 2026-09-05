@@ -241,7 +241,16 @@ function renderLive() {
       ${/* Is de richtminuut van een klaargezette wissel voorbij, dan springt deze knop eruit — het
            seintje zelf (piep + melding) komt van checkPlannedSubAlert, dit is wat er blijft staan
            zolang je hem niet doorgevoerd hebt (v1.4.0). */ ''}
-      <button class="btn ${plannedSubsDue(match).length ? 'btn-orn' : 'btn-orgpale'} btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}${plannedSubsDue(match).length ? ' · nu' : ''}</button>`}
+      ${/* DE NOTITIEKNOP STAAT HIER (Tim, 04-09-2026), naast de geplande wissels. Ze zweefde eerst
+           rechtsonder over het raster en stond kort als potlood in de kopregel; als knop mét het woord
+           erop is ze eindelijk vindbaar. LET OP: hiermee staat ze enkel nog op het WEDSTRIJDtabblad,
+           terwijl de zweefknop op alle drie de tabbladen stond. Tim koos die plek uitdrukkelijk.
+           Twee kolommen: "Geplande wissels" moet zijn telletje en zijn "· nu" kwijt kunnen, dus die
+           krijgt de brede helft niet — beide even breed werkt, de tekst blijft kort genoeg. */ ''}
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:6px;margin-bottom:14px">
+        <button class="btn ${plannedSubsDue(match).length ? 'btn-orn' : 'btn-orgpale'} btn-sm" style="margin:0;width:100%" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}${plannedSubsDue(match).length ? ' · nu' : ''}</button>
+        <button class="btn btn-pale btn-sm" style="margin:0;width:auto" onclick="modalQuickNote()">${icI(IC.edit)} Notitie</button>
+      </div>`}
       ${/* OOK IN DE PAUZE (audit 25-08-2026). Deze knop hing aan canEvent, en dat is false zodra de
            pauze begint — net het moment waarop een delegé nakijkt wat hij ingetikt heeft.
            undoKandidaat vindt op dat moment nog netjes de laatste gebeurtenis van het deel dat pas
@@ -318,7 +327,7 @@ function renderLive() {
   }
 
   return `
-  <div class="hdr hdr-live"><button class="back" onclick="confirmLeave()">‹</button>
+  <div class="hdr"><button class="back" onclick="confirmLeave()">‹</button>
     ${/* esc() en geen lege delen (audit 25-08-2026): bij een tornooiwedstrijd erft location een door
          de gebruiker getypte tekst, en overal elders in dit bestand staat esc(). Zonder locatie las
          de kop bovendien "undefined · …". */ ''}
@@ -326,16 +335,10 @@ function renderLive() {
     ${/* "Afsluiten" stond hier — pal naast de plek waar je duim de hele wedstrijd komt. Eén mistik
          en de wedstrijd is dicht. Nu staat hier het onschuldige "Info" (wedstrijdinfo bewerken) en
          is Afsluiten verhuisd naar onderaan het tabblad Verloop, bewust wat weggestoken. */ ''}
-    ${/* DE TWEE ZWEEFKNOPJES STAAN NU HIER (Tim, 04-09-2026). Ze hingen vast rechtsonder
-         (.fab-note / .fab-mark) en vielen daar over de onderste rij van het knoppenraster — sinds
-         dat raster negen kaartjes telt en het scherm niet meer hoeft te scrollen, ligt een zwevende
-         knop per definitie bovenop iets. Gemeten: het midden van elk kaartje bleef raakbaar, maar
-         "Meer" en "Vrije trap" zaten er half onder.
-         In de kopregel overlappen ze niets, ze staan op elk tabblad even goed, en het is dezelfde
-         stijl als het oogje op het voorbereidingsscherm. Zelfde voorwaarde als voordien (`!ro`), dus
-         ook na het afsluiten kan je nog een notitie kwijt. */ ''}
-    ${!ro ? `<button class="hdr-gear hdr-mini" onclick="markMoment()" title="Moment markeren" aria-label="Moment markeren">${icI(IC.motm)}</button>
-    <button class="hdr-gear hdr-mini" onclick="modalQuickNote()" title="Snelle notitie" aria-label="Snelle notitie">${icI(IC.edit)}</button>` : ''}
+    ${/* HIER STOND KORT (v1.43.0) EEN STERRETJE EN EEN POTLOOD — de twee knoppen die daarvóór
+         rechtsonder zweefden. Tim wou ze een versie later anders: het sterretje ("moment markeren")
+         is helemaal weg, en de notitie staat nu als knop naast "Geplande wissels" onder het raster.
+         De kopregel is daardoor weer wat ze was: terug, titel, Info. */ ''}
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
   ${/* ER IS NOG IEMAND BEZIG (Tims keuze, 25-08-2026). Zie andereBeheerderActief in core.js: er kwam
@@ -1509,21 +1512,12 @@ async function saveQuickNote() {
     await dbSave(match); closeModal();
   } finally { _noteBusy = false; }
 }
-async function markMoment() {
-  if (_noteBusy) return;
-  _noteBusy = true;
-  try {
-    const stamp = `[${fmtTime(getGameTimeMs(match))}] ★`;
-    match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
-    await dbSave(match);
-    // Het vinkje van 800 ms is de ENIGE bevestiging dat je moment genoteerd is — er komt geen
-    // melding en er verschijnt niets op het scherm. Zocht tot v1.43.0 `.fab-mark`, de zwevende knop
-    // rechtsonder; die is naar de kopregel verhuisd en heette daarna niet meer zo. Zonder deze
-    // aanpassing gebeurde er dus zichtbaar níets meer bij het aantikken.
-    const btn = document.querySelector('.hdr [aria-label="Moment markeren"]');
-    if (btn) { btn.innerHTML = icI(IC.check); setTimeout(() => { btn.innerHTML = icI(IC.motm); }, 800); }
-  } finally { _noteBusy = false; }
-}
+// "MOMENT MARKEREN" IS WEG (Tim, 04-09-2026). markMoment() zette een regel `[12:34] ★` bij de
+// notities en had als enige bevestiging dat zijn eigen knop 0,8 s in een vinkje veranderde — geen
+// melding, niets op het scherm. Een sterretje zonder woord erbij zegt achteraf weinig; wie een
+// moment wil vastleggen typt er nu één zin bij met "Notitie". De functie is verwijderd omdat de
+// knop haar enige ingang was; in de git-geschiedenis staat ze bij v1.43.0 als iemand ze terugwil.
+// Bestaande wedstrijden houden hun ★-regels gewoon: het is vrije tekst in `notes`.
 function modalEditMatchInfo() {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';

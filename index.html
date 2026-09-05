@@ -254,11 +254,10 @@
     .klok-chip{border:none;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;font-family:inherit;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
     .klok-chip.aan{background:var(--grn)}
     .klok-chip:active{transform:scale(.94)}
-    /* De kopregel van het wedstrijdscherm draagt sinds v1.43.0 twee pictogrammen extra (moment en
-       notitie, die vroeger rechtsonder zweefden). Daar past de wedstrijdtitel niet meer bij op één
-       regel, dus krijgt dit ene scherm smallere marges en compactere pictogrammen. */
-    .hdr.hdr-live{padding-left:14px;padding-right:14px;gap:4px}
-    .hdr-gear.hdr-mini{font-size:18px;padding:5px 3px}
+    /* (Hier stonden in v1.43.0 `.hdr-live` en `.hdr-mini`: krappere marges en kleinere pictogrammen,
+       nodig toen de kopregel van het wedstrijdscherm er twee knoppen bij kreeg. Die knoppen zijn een
+       versie later weer weg — het sterretje geschrapt, de notitie naar beneden — dus de kopregel is
+       weer de gewone.) */
     .qdot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.25)}
     .qdot.done{background:var(--org)}
     .qdot.active{background:var(--grn)}

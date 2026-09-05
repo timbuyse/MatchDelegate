@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.43.1
+
+**"Moment markeren" is weg**, en de **notitie** staat nu als knop **naast "Geplande wissels"**, onder
+het knoppenraster.
+
+Het sterretje zette een regel bij de notities met alleen een tijdstip en een ★ erin. Dat zegt achteraf
+weinig — wie een moment wil vastleggen, typt er nu met **Notitie** meteen een zin bij. Wat je vroeger
+met dat sterretje noteerde, blijft gewoon staan bij die wedstrijden.
+
+De kopregel van het wedstrijdscherm is daarmee weer wat ze altijd was: terug, de wedstrijd, en Info.
+
+---
+
 ## v1.43.0
 
 **De twee zwevende knopjes staan nu in de kopregel.** "Moment markeren" (het sterretje) en "Snelle
