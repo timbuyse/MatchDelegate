@@ -43,15 +43,41 @@ function renderLive() {
     ? `<span id="live-volgers" style="margin-left:9px;font-weight:700;opacity:.85">${(() => { const n = volgersVanMatch(match.id); return n ? `${icI(IC.eye)}${n}` : ''; })()}</span>`
     : '';
   const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge;
-  const miniScore = `<div class="scoreboard" style="margin-bottom:12px">
+  // DE SCOREKOP OP OPSTELLING EN VERLOOP IS EEN BALK GEWORDEN (Tim, 04-09-2026). Ze was tot nu exact
+  // dezelfde kop als op het wedstrijdtabblad — cijfers van 64 punten, opgemeten 153 px. Daardoor viel
+  // op een telefoon de onderrand van het veld weg en zag je de bank helemaal niet. De balk is 61 px:
+  // 92 px winst, en dat is net wat het veld tekortkwam.
+  // DE BALK IS ZELF DE WEG TERUG. Tim vroeg een aparte knop "Terug naar de wedstrijd" boven het veld;
+  // die kost 48 px en dan blijft er van de winst nog 44 over. Met "‹ Wedstrijd" links ín de balk doet
+  // één regel beide dingen. Enkel wanneer dat tabblad er ís: een kijker heeft geen wedstrijdtabblad
+  // (zie de .ltabs onderaan), dus voor hem zou het een knop naar het niets zijn.
+  // VOOR EEN KIJKER BLIJFT DE KOP GROOT (Tim, 04-09-2026: "voor kijkers mag die zo groot blijven").
+  // Dat is hier geen stijlkeuze maar een noodzaak: regel 36 hierboven duwt een kijker van het
+  // wedstrijdtabblad af (`if (ro && tab === 'wedstrijd') tab = 'log'`), en zijn tabbalk toont enkel
+  // Opstelling en Verloop. Deze kop is dus de ENIGE plek waar hij de stand ziet. Wie bijhoudt heeft
+  // het wedstrijdtabblad mét klok en knoppen, en wint hier dus plaats voor het veld.
+  const miniStatus = (isDone ? `${icI(IC.done)} Afgelopen`
+    : (isBetween ? `${icI(IC.timer)} Pauze`
+      : (qNum > 0 ? `${pSing(match)} ${qNum}/${match.numQuarters}` : 'Nog niet gestart'))) + syncDot + volgersBadge;
+  const miniScore = ro
+    ? `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
+      </div>`
+    : `<div class="sb-mini">
+        <button class="sb-terug" onclick="setTab('wedstrijd')" aria-label="Terug naar de wedstrijd">‹ Wedstrijd</button>
+        <span class="sb-mid"><span class="sb-nm">${esc(isAway(match)?match.opponent:tName(match))} · ${esc(isAway(match)?tName(match):match.opponent)}</span>${scoreHtml(match,'us')}</span>
+        <span class="sb-st">${miniStatus}</span>
       </div>`;
   let tabContent = '';
   if (tab === 'wedstrijd') {
+    // KLEINER, WANT HIER STAAN ER OOK NOG EEN KLOK EN NEGEN KNOPPEN ONDER (Tim, 04-09-2026).
+    // Onvoorwaardelijk `sb-klein`, en dat is geen vergetelheid: op dit tabblad komt ALLEEN wie de
+    // wedstrijd bijhoudt. Een kijker wordt er hierboven van afgeduwd (regel `if (ro && tab ===
+    // 'wedstrijd') tab = 'log'`), en voor hem blijft de kop groot in miniScore.
     tabContent = `
-      <div class="scoreboard">
+      <div class="scoreboard sb-klein">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
@@ -169,35 +195,46 @@ function renderLive() {
           return `<button class="btn btn-pale btn-sm" style="width:100%;margin-top:8px" onclick="modalKwartDuur(${qNum})">${icI(IC.edit)} Duur van ${pSingLow(match)} ${qNum} aanpassen (${min} min)</button>`;
         })()}
       </div>`; })() : ''}
-      ${ro ? '' : (() => { const simple = simpleEventsOn(); return `<div class="evtbtns">
+      ${/* NEGEN KNOPPEN, IN TIMS VOLGORDE (04-09-2026). Drie volle rijen; de volgorde is zijn keuze:
+           goal-wissel-hoekschop / gele kaart-blessure-vrije trap / rode kaart-penalty-meer.
+           WAT HIER VERANDERDE, EN WAAROM:
+           · "Meer opties tonen" is weg. Die knop was de enige schakelaar voor rode kaart en penalty,
+             en stond naast een knop die al "Meer" heet — twee dingen met dezelfde belofte. Nu staat
+             alles vast in beeld. Opgemeten: negen kaartjes op deze grootte nemen GEEN extra plaats in
+             (247 px) tegenover zeven met een brede Meer-knop (253 px), want die offert een hele rij op.
+           · Wissel en Opstelling zijn ÉÉN kaartje geworden, dat naar het tabblad Opstelling springt.
+             Daar wissel je écht: bankspeler tikken, dan een speler op het veld — met de bank al
+             gesorteerd op minst gespeeld. Twee spelers op het veld tikken is de positiewissel.
+             Het aparte wisselvenster (modalSub) blijft bestaan waar het nodig is: na een blessure en
+             bij een event dat je achteraf aan een eerder deel toevoegt.
+           · Hoekschop en vrije trap stonden enkel onder "Meer", terwijl je ze tijdens het spel nodig
+             hebt. Blessure staat er nog: "blessure en dan wissel" is aan de zijlijn dagelijks werk.
+           Dat sommige hiervan ÓÓK onder "Meer" staan is geen dubbel werk: modalExtra is tegelijk het
+           menu achter "Event toevoegen" (modalAddPostEvent), en daar is het voor rode kaart,
+           hoekschop, blessure en afgekeurd doelpunt de enige weg. Haal daar dus niets weg. */ ''}
+      ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
-        <div class="evtbtn es ${dis}" onclick="modalSub()"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
-        ${/* Sinds 2B (22-08-2026): alles met pláátsen — verzetten, ruilen, wisselen via het veld,
-             bijzetten — gebeurt op het tabblad Opstelling. De knop heet daarom exact zoals dat
-             tabblad. modalPosSwap() blijft bestaan voor events achteraf (via "Meer"). */ ''}
         ${/* Bewust zonder ${dis}: naar het tabblad springen kan ook in de pauze — daar leeft het. */ ''}
-        <div class="evtbtn" onclick="setTab('opstelling')"><span class="ei">${IC.shirt}</span><span class="el">Opstelling</span></div>
+        <div class="evtbtn es" onclick="setTab('opstelling')"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
+        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">Hoekschop</span></div>
         ${/* KAARTEN OOK BIJ 3v3 EN 5v5 (Tims keuze, 25-08-2026). De gele kaart viel bij die twee
              spelvormen weg, maar "Meer" bood de rode onvoorwaardelijk aan en "Event toevoegen" beide
              — dus de beperking gold enkel op dit scherm en was daardoor vooral verwarrend. Tim koos
              voor overal toelaten in plaats van overal weglaten. */ ''}
         <div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
-        ${/* Blessure staat nu in de eenvoudige rij (Tims keuze, 25-08-2026): "blessure en dan wissel"
-             is aan de zijlijn een van de meest voorkomende handelingen, en de uitleg bij de instelling
-             beweerde al dat hij erin zat. Rood en penalty blijven onder "Meer". */ ''}
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
-        ${simple ? '' : `<div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>
-        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>`}
+        <div class="evtbtn efk ${dis}" onclick="modalFreekick()"><span class="ei">${IC.bolt}</span><span class="el">Vrije trap</span></div>
+        <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>
+        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>
-      <button class="btn btn-pale btn-sm" style="margin-top:2px" onclick="toggleSimpleEvents()">${simple ? `${icI(IC.plus)} Meer opties tonen` : `${icI(IC.close)} Minder opties tonen`}</button>
       ${/* Klaargezette wissels: altijd bereikbaar, met een telletje zodat je ziet dat er iets
            wacht. Ze gaan nooit vanzelf af — zie modalPlannedSubs(). Het telletje toont enkel wat je
            in dít deel kan doorvoeren (plannedCountNu), niet je hele plan voor de wedstrijd. */ ''}
       ${/* Is de richtminuut van een klaargezette wissel voorbij, dan springt deze knop eruit — het
            seintje zelf (piep + melding) komt van checkPlannedSubAlert, dit is wat er blijft staan
            zolang je hem niet doorgevoerd hebt (v1.4.0). */ ''}
-      <button class="btn ${plannedSubsDue(match).length ? 'btn-orn' : 'btn-orgpale'} btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}${plannedSubsDue(match).length ? ' · nu' : ''}</button>`; })()}
+      <button class="btn ${plannedSubsDue(match).length ? 'btn-orn' : 'btn-orgpale'} btn-sm" style="margin-top:6px;margin-bottom:14px" onclick="modalPlannedSubs()">${icI(IC.clipboard)} Geplande wissels${plannedCountNu(match) ? ` (${plannedCountNu(match)})` : ''}${plannedSubsDue(match).length ? ' · nu' : ''}</button>`}
       ${/* OOK IN DE PAUZE (audit 25-08-2026). Deze knop hing aan canEvent, en dat is false zodra de
            pauze begint — net het moment waarop een delegé nakijkt wat hij ingetikt heeft.
            undoKandidaat vindt op dat moment nog netjes de laatste gebeurtenis van het deel dat pas
@@ -3272,6 +3309,18 @@ async function confirmGoal() {
 let _eventBusy = false;
 
 // Hoekschop: één tik per ploeg (geen nemer/type meer — overbodig voor jeugd).
+// Hoekschop: eerst voor wie. Nieuw sinds de knop in het raster staat (Tim, 04-09-2026) — vanuit
+// "Meer" stonden er twee aparte regels ("voor <ploeg>" en "tegen") en werd er meteen weggeschreven.
+// Bewust GEEN nemer en GEEN soort: dat is de keuze van de audit van 25-08-2026 (zie logCorner) en
+// die blijft. Eén tik voor wie, en klaar — aan de zijlijn moet dit in twee tikken kunnen.
+function modalCorner() {
+  if (!match) return;
+  openModal(`<h3>${icI(IC.corner)} Hoekschop</h3>
+    <div class="sec" style="margin-top:0">Voor wie?</div>
+    <div class="mopt" onclick="logCorner('us')">${icI(IC.corner)} ${esc(tName(match))}</div>
+    <div class="mopt" onclick="logCorner('them')">${icI(IC.corner)} ${esc(match.opponent || 'Tegenstander')}</div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
 async function logCorner(team) {
   if (_eventBusy) return;
   _eventBusy = true;

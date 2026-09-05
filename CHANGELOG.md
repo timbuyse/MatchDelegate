@@ -9,6 +9,40 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.42.0
+
+**Het wedstrijdscherm is opnieuw ingedeeld.** De knoppen staan nu in drie volle rijen, in deze
+volgorde:
+
+| | | |
+|---|---|---|
+| Goal | Wissel | Hoekschop |
+| Gele kaart | Blessure | Vrije trap |
+| Rode kaart | Penalty | Meer |
+
+**Hoekschop en vrije trap stonden enkel onder "Meer"**, terwijl je ze tijdens het spel nodig hebt.
+Hoekschop vraagt nu enkel voor wie, en klaar. Vrije trap vraagt voor wie en daarna wie hem neemt —
+dat venster bestond al, het stond alleen te ver weg.
+
+**"Meer opties tonen" is weg.** Die knop stond pal naast een knop die al "Meer" heet, en was de enige
+schakelaar voor rode kaart en penalty. Die staan nu gewoon in beeld. Het kostte niets: negen kaartjes
+op deze grootte nemen zelfs iets minder plaats in dan zeven met een brede Meer-knop eronder.
+
+**Wissel en Opstelling zijn één kaartje geworden.** Het brengt je naar het tabblad Opstelling, want
+daar gebeurt alles met plaatsen: tik een bankspeler en dan een speler op het veld om te wisselen, of
+twee spelers op het veld om ze van positie te wisselen. De bank staat er gesorteerd met de minst
+gespeelde bovenaan.
+
+**De scorekop op Opstelling en Verloop is een balk geworden**, met links **"‹ Wedstrijd"** om terug te
+keren. Dat scheelt 92 pixels, en dat is net wat het veld tekortkwam: nu valt de onderrand niet meer
+weg en zie je er de bank onder staan. Op het wedstrijdtabblad zelf is de scorekaart wat kleiner
+geworden, zodat de klok en de negen knoppen samen op één scherm passen.
+
+**Voor kijkers blijft de score groot.** Zij hebben geen wedstrijdtabblad — die kop is de enige plek
+waar zij de stand zien.
+
+---
+
 ## v1.41.0
 
 **Een nieuwe club was niet te vullen.** Wie een club aanmaakte, vond nergens een knop om er een ploeg

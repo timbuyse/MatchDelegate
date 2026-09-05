@@ -1471,9 +1471,14 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <ol class="hdl-list">
         <li>Tik op <b>'► Start wedstrijd'</b>.</li>
-        <li>Registreer events via de knoppen:<br>
-          <b>Goal</b> · <b>Wissel</b> · <b>Positie</b> · <b>Gele kaart</b> · <b>Rode kaart</b> · <b>Penalty</b> · <b>Blessure</b> · <b>Meer</b> (met o.a. <b>Vrije trap</b>)
+        <li>Registreer events via de negen knoppen:<br>
+          <b>Goal</b> · <b>Wissel</b> · <b>Hoekschop</b><br>
+          <b>Gele kaart</b> · <b>Blessure</b> · <b>Vrije trap</b><br>
+          <b>Rode kaart</b> · <b>Penalty</b> · <b>Meer</b><br>
+          <span style="color:var(--txt2)">Onder <b>Meer</b> zitten de dingen die je zelden nodig hebt: een speler die de wedstrijd verlaat, een afgekeurd doelpunt en de kapitein wijzigen.</span>
         </li>
+        <li><b>Wissel</b> brengt je naar het tabblad <b>Opstelling</b>, want daar gebeurt alles met
+          plaatsen. Bovenaan dat tabblad staat <b>'‹ Wedstrijd'</b> om weer terug te keren.</li>
         <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
           staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
           veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te

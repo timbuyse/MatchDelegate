@@ -3621,12 +3621,11 @@ function beep() {
 }
 function countdownOn() { return localStorage.getItem('voetbal_countdown') === '1'; }
 function toggleCountdown() { localStorage.setItem('voetbal_countdown', countdownOn() ? '0' : '1'); render(); }
-// Eenvoudige modus: toont enkel de meest gebruikte eventknoppen — Goal, Wissel, Opstelling, Gele
-// kaart, Blessure en Meer. Rode kaart en Penalty zitten onder "Meer". Deze regel beschreef tot
-// 25-08-2026 een rij waarin Blessure NIET stond; Tim koos ervoor hem er echt bij te zetten.
-// Standaard AAN — minder drempel voor een ouder/afgevaardigde die niet elke actie kent.
-function simpleEventsOn() { return localStorage.getItem('voetbal_simple_events') !== '0'; }
-function toggleSimpleEvents() { localStorage.setItem('voetbal_simple_events', simpleEventsOn() ? '0' : '1'); render(); }
+// DE "EENVOUDIGE MODUS" IS WEG (v1.42.0). simpleEventsOn/toggleSimpleEvents verborgen rode kaart en
+// penalty achter de knop "Meer opties tonen", die pal naast een knop stond die al "Meer" heet — twee
+// dingen met dezelfde belofte (Tim, 04-09-2026). Sinds het raster negen kaartjes telt staat alles
+// vast in beeld en valt er niets meer te schakelen. De sleutel `voetbal_simple_events` kan op
+// toestellen blijven staan; niemand leest ze nog.
 function timerText(m) {
   const elapsed = getQElapsed(m), durMs = (m.quarterDuration || 0) * 60000;
   if (durMs && elapsed >= durMs) return fmtTime(durMs) + ' + ' + fmtTime(elapsed - durMs);
