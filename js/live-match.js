@@ -2001,9 +2001,12 @@ function _qlLatereConflicten(m, deel) {
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
   for (const e of evs) {
     if (e.type !== 'substitution') { if (e.playerId) opVeld.delete(e.playerId); continue; }
-    // Enkel wat NA de grens komt die we net herschreven hebben, wordt getoetst — wat ervóór ligt is
-    // niet ons werk en mag zijn eigen scheefheid houden.
-    const naDeGrens = e.quarterNum > deel || (e.quarterNum === deel && !e.atBreak);
+    // ENKEL DE WISSELS TIJDENS HET SPEL (`!atBreak`). Een PAUZEwissel is de opstelling van dat
+    // kwart, geen gebeurtenis op een moment — die wordt herrekend (zie _qlZetGrens), niet beschermd.
+    // Tot v1.46.1 stonden die er wél in, en dan weigerde de app een reparatie in kwart 2 omdat een
+    // pauzewissel van kwart 4 "niet meer kon" — precies waar Tim tegenaan liep. Wat vóór de
+    // herschreven grens ligt, is niet ons werk en mag zijn eigen scheefheid houden.
+    const naDeGrens = !e.atBreak && e.quarterNum >= deel;
     if (naDeGrens) {
       if (e.playerInId && opVeld.has(e.playerInId)) fout.push(`${pName(m, e.playerInId)} valt in ${pSingLow(m)} ${e.quarterNum} in, maar staat dan al op het veld`);
       else if (e.playerOutId && !opVeld.has(e.playerOutId)) fout.push(`${pName(m, e.playerOutId)} gaat er in ${pSingLow(m)} ${e.quarterNum} af, maar staat dan niet op het veld`);
@@ -2013,46 +2016,38 @@ function _qlLatereConflicten(m, deel) {
   }
   return fout;
 }
-async function _saveQlOpstelling() {
-  if (!_ql || !canLive() || !match) return;
-  const deel = _ql.deel;
-  const nogTeDoen = Object.keys(_ql.plaats).filter(id => !_ql.plaats[id]);
-  if (nogTeDoen.length) {
-    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} op een plek of tik ${nogTeDoen.length === 1 ? 'hem' : 'ze'} naar de bank.`, 'err');
-    return;
-  }
-  const doel = { ..._ql.plaats };                       // spelerId -> gridcode
-  const doelIds = new Set(Object.keys(doel));
-  // ADDEVENT MOET WETEN OVER WELK DEEL DIT GAAT. Zonder dit valt hij terug op match.currentQuarter —
-  // bij een afgesloten wedstrijd het LAATSTE deel — en belandden de wissels van deel 3 op de grens
-  // van deel 4. Met `atBreak` erbij zet addEvent de tijd exact op de start van dít deel.
-  const bewaardQ = _postEventQuarter, bewaardBreak = _postEventAtBreak;
-  _postEventQuarter = deel; _postEventAtBreak = false; _postEventMinute = null;
-  // ALLES WAT WE GAAN AANRAKEN EERST APART LEGGEN. Loopt de wedstrijd hierdoor in de knoop met een
-  // latere wissel, dan zetten we haar exact terug zoals ze was — liever niets doen dan een halve
-  // reconstructie achterlaten.
-  const terug = {
-    events: JSON.parse(JSON.stringify(match.events || [])),
-    players: JSON.parse(JSON.stringify(match.players || [])),
-    deleted: (match.deletedEventIds || []).slice(),
-    keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
-  };
-  // Wat er AL scheef stond, mag deze reparatie niet blokkeren: we weigeren straks enkel op een
-  // tegenspraak die er nu nog niet is. Anders zou één oude scheve wissel dit venster voorgoed
-  // dichtzetten voor die wedstrijd — precies wanneer je het nodig hebt.
-  const conflictenVoor = _qlLatereConflicten(match, deel);
+// Schrijft de pauzewijzigingen van ÉÉN kwartgrens zo dat de opstelling bij de start van dat deel
+// gelijk wordt aan `doel` (spelerId -> roosterplek). Verwacht dat alles vóór die grens al vast staat,
+// dus roep dit op in volgorde van de delen.
+// `weggelaten` vult zich met namen die niet meer mee mochten doen (de wedstrijd verlaten, rood,
+// afwezig gemeld): die kunnen niet in een opstelling staan, en het zou oneerlijk zijn ze er stil in
+// te laten of er stil uit te laten vallen.
+// ADDEVENT MOET WETEN OVER WELK DEEL DIT GAAT. Zonder `_postEventQuarter` valt hij terug op
+// match.currentQuarter — bij een afgesloten wedstrijd het LAATSTE deel — en belandden de wissels van
+// deel 3 op de grens van deel 4. Met `atBreak` erbij zet addEvent de tijd exact op de start van dít deel.
+function _qlZetGrens(m, deel, doelRuw, weggelaten) {
+  _postEventQuarter = deel;
   // 1. De bestaande pauzewijzigingen van dit deel weg. Enkel wissels en positiewissels: een kaart of
   //    een blessure op de kwartgrens is een gebeurtenis, geen opstellingskeuze.
-  const oud = (match.events || []).filter(e => e.atBreak && e.quarterNum === deel
+  const oud = (m.events || []).filter(e => e.atBreak && e.quarterNum === deel
     && (e.type === 'substitution' || e.type === 'posSwap'));
-  oud.forEach(e => tombstoneEvent(match, e.id));
-  match.events = (match.events || []).filter(e => !oud.includes(e));
-  // 2. Het veld waarmee dit deel nu begint = het einde van het vorige deel.
-  const basis = pitchPlayersAtPeriodStart(match, deel);
+  oud.forEach(e => tombstoneEvent(m, e.id));
+  m.events = (m.events || []).filter(e => !oud.includes(e));
+  // 2. Wie mag hier eigenlijk nog meedoen? Iemand die de wedstrijd verlaten heeft of rood kreeg, kan
+  //    niet in de opstelling van een later deel staan.
+  const doel = {};
+  Object.keys(doelRuw).forEach(id => {
+    const p = (m.players || []).find(x => x.id === id);
+    if (p && !magNogMeedoen(m, p, deel)) { if (weggelaten) weggelaten.push(`${pName(m, id)} (${pSingLow(m)} ${deel})`); return; }
+    doel[id] = doelRuw[id];
+  });
+  const doelIds = new Set(Object.keys(doel));
+  // 3. Het veld waarmee dit deel nu begint = het einde van het vorige deel.
+  const basis = pitchPlayersAtPeriodStart(m, deel);
   const huidig = {};                                    // spelerId -> gridcode, wordt meegerekend
   basis.forEach(p => { const c = spelerGridCode(p); if (c) huidig[p.id] = c; });
   const basisIds = new Set(basis.map(p => p.id));
-  // 3a. De wissels. Wie weg moet en wie erbij komt, op elkaar gelegd zodat de invaller de plek van de
+  // 4a. De wissels. Wie weg moet en wie erbij komt, op elkaar gelegd zodat de invaller de plek van de
   //     uitgaande overneemt — dat is precies wat de replay met een wissel doet.
   const eraf = [...basisIds].filter(id => !doelIds.has(id));
   const erin = [...doelIds].filter(id => !basisIds.has(id));
@@ -2069,7 +2064,7 @@ async function _saveQlOpstelling() {
     if (uit) delete huidig[uit];
     if (inn) huidig[inn] = uitCode || doel[inn];
   }
-  // 3b. De positiewissels. Wie nog niet op zijn doelplek staat, wordt geruild met de bewoner van die
+  // 4b. De positiewissels. Wie nog niet op zijn doelplek staat, wordt geruild met de bewoner van die
   //     plek (of verhuisd als ze leeg is). Elke stap zet minstens één speler definitief goed, dus dit
   //     loopt af — het is de gewone ontbinding van een verwisseling in ruilen.
   for (const id of Object.keys(doel)) {
@@ -2085,6 +2080,60 @@ async function _saveQlOpstelling() {
       huidig[id] = doel[id];
     }
   }
+}
+async function _saveQlOpstelling() {
+  if (!_ql || !canLive() || !match) return;
+  const deel = _ql.deel;
+  const nogTeDoen = Object.keys(_ql.plaats).filter(id => !_ql.plaats[id]);
+  if (nogTeDoen.length) {
+    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} op een plek of tik ${nogTeDoen.length === 1 ? 'hem' : 'ze'} naar de bank.`, 'err');
+    return;
+  }
+  const doel = { ..._ql.plaats };                       // spelerId -> gridcode
+  // ALLES WAT WE GAAN AANRAKEN EERST APART LEGGEN. Loopt de wedstrijd hierdoor in de knoop, dan
+  // zetten we haar exact terug zoals ze was — liever niets doen dan een halve reconstructie
+  // achterlaten.
+  const terug = {
+    events: JSON.parse(JSON.stringify(match.events || [])),
+    players: JSON.parse(JSON.stringify(match.players || [])),
+    deleted: (match.deletedEventIds || []).slice(),
+    keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
+  };
+  // Wat er AL scheef stond, mag deze reparatie niet blokkeren: we weigeren straks enkel op een
+  // tegenspraak die er nu nog niet is. Anders zou één oude scheve wissel dit venster voorgoed
+  // dichtzetten voor die wedstrijd — precies wanneer je het nodig hebt.
+  const conflictenVoor = _qlLatereConflicten(match, deel);
+  // DE LATERE KWARTEN HOUDEN HUN UITKOMST, NIET HUN WIJZIGING (Tim, 06-09-2026). Hij kreeg bij een
+  // echte wedstrijd te horen dat een latere wissel niet meer kon, en vroeg: "zou dat een wissel in de
+  // pauze zijn, die dan irrelevant wordt?" Dat was het, en het was een fout in mijn wachter: een
+  // pauzewissel IS de opstelling van dat kwart, geen gebeurtenis op een moment. Die hoort dus
+  // HERREKEND te worden en niet beschermd.
+  // Daarom leggen we van elk later kwart eerst vast WIE ER STOND EN WAAR — de absolute opstelling —
+  // en schrijven we daarna elke grens opnieuw zodat die opstelling er weer uitkomt. Wat je verwacht:
+  // "ik zet kwart 2 recht, en kwart 3 en 4 blijven eruitzien zoals ze eruitzagen."
+  // ALLEEN KWARTEN MET EEN EIGEN OPSTELLING, en dat is de kern van de zaak. Een kwart zonder
+  // pauzewijzigingen ERFT van het vorige — dat is wat "zoals het vorige kwart" betekent. Pin je dat
+  // ook vast, dan verzint de app daar wissels om de oude toestand te bewaren, en dan volgt zo'n kwart
+  // je correctie juist NIET meer. Gemeten bij het testen: kwart 3 erfde, en na de reparatie van
+  // kwart 2 stond er plots een verzonnen wissel op de grens van kwart 3.
+  // Dus: had het kwart een eigen keuze, dan houdt het zijn uitkomst; erfde het, dan blijft het erven.
+  const heeftEigenOpstelling = q => (match.events || []).some(e => e.atBreak && e.quarterNum === q
+    && (e.type === 'substitution' || e.type === 'posSwap'));
+  const laterDelen = ((match.quarters || []).map(q => q.num))
+    .filter(n => n > deel && heeftEigenOpstelling(n)).sort((a, b) => a - b);
+  const laterDoel = {};
+  laterDelen.forEach(q => {
+    const kaart = {};
+    pitchPlayersAtPeriodStart(match, q).forEach(p => { const c = spelerGridCode(p); if (c) kaart[p.id] = c; });
+    laterDoel[q] = kaart;
+  });
+  const bewaardQ = _postEventQuarter, bewaardBreak = _postEventAtBreak;
+  _postEventAtBreak = false; _postEventMinute = null;
+  const weggelaten = [];
+  // Deze grens eerst, dan de latere in volgorde: elke grens rekent op het veld zoals het er ná de
+  // vorige uitkomt, dus de volgorde is niet vrij.
+  _qlZetGrens(match, deel, doel, weggelaten);
+  laterDelen.forEach(q => _qlZetGrens(match, q, laterDoel[q], weggelaten));
   _postEventQuarter = bewaardQ; _postEventAtBreak = bewaardBreak;
   // 4. Alles opnieuw afspelen en de keeperminuten herrekenen — zelfde afsluiting als saveEditEvent.
   rebuildPositions(match, playersAtPeriodStart(match, 1));
@@ -2104,6 +2153,13 @@ async function _saveQlOpstelling() {
   }
   _ql = null;
   await dbSave(match); closeModal(); render();
+  // Viel er iemand uit een LATERE opstelling omdat hij toen niet meer mee mocht doen (de wedstrijd
+  // verlaten, rood, afwezig gemeld)? Dat is geen fout maar het moet gezegd worden: dat deel staat nu
+  // met een speler minder, en dat wil je zelf nakijken.
+  if (weggelaten.length) {
+    showToast(`Opgelet: ${[...new Set(weggelaten)].join(', ')} kon in dat deel niet meer meedoen en staat daar niet in de opstelling. Kijk die ${pSingLow(match)}en na.`, 'err');
+    return;
+  }
   meldVastgelegd(`Opstelling van ${pSingLow(match)} ${deel}`);
 }
 async function saveNotes() {

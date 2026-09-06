@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.46.2
+
+**"Dit botst met een latere wissel" kwam veel te vaak.** Tim liep er bij een echte wedstrijd tegenaan
+en stelde meteen de juiste vraag: *"zou dat een wissel in de pauze zijn, die dan irrelevant wordt?"*
+Dat was het.
+
+Een pauzewissel is geen gebeurtenis — hij **is** de opstelling van dat kwart. De app behandelde hem
+als een echte wissel die geldig moest blijven, en weigerde dus je correctie in kwart 2 omdat een
+pauzewissel van kwart 4 "niet meer kon". Die had gewoon herrekend moeten worden.
+
+**Nu houden de latere kwarten hun uitkomst.** Zet je kwart 2 recht, dan blijft kwart 4 eruitzien zoals
+het eruitzag — de app schrijft de wijzigingen op die grens zelf opnieuw. Geen weigering meer.
+
+**Een kwart dat erfde, blijft erven.** Had een kwart geen eigen opstelling (je koos daar "zoals het
+vorige kwart"), dan volgt het je correctie mee. Anders zou de app daar wissels verzinnen om een oude
+toestand te bewaren die je nooit gekozen had.
+
+De waarschuwing bestaat nog wel, maar alleen voor wat ze hoort te zijn: een echte wissel **tijdens het
+spel** die tegenstrijdig wordt. En staat er in een later kwart iemand die de wedstrijd toen al
+verlaten had, dan zegt de app dat erbij in plaats van hem stil te laten staan.
+
+---
+
 ## v1.46.1
 
 **Een potloodje op de "Startopstelling"-regel in de eventlijst.** Dezelfde ingang als hierboven, maar
