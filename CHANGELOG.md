@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.46.4
+
+**Terugvegen sluit nu het venster dat open staat.** Stond er een venster open — bijvoorbeeld dat van
+een doelpunt tijdens een wedstrijd — en veegde je terug, dan ging het scherm eronder terug terwijl het
+venster bleef staan. Je stond dan op het verslag met het doelpuntvenster van een lopende wedstrijd nog
+voor je neus.
+
+Nu doet de terugveeg wat je bedoelt: het venster gaat dicht en je blijft waar je was. Een tweede keer
+vegen brengt je pas naar het vorige scherm. Bij een bevestigingsvenster geldt terugvegen als
+**annuleren** — er gebeurt niets.
+
+Op een telefoon is dat de enige terugknop die er is, dus dit was geen kleine hinder.
+
+---
+
 ## v1.46.3
 
 **Een "wat is er nieuw"-melding.** Sinds v1.26 kregen de gebruikers niets meer te horen, en er is

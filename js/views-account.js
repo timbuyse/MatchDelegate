@@ -3832,6 +3832,20 @@ async function go(v, id, _histReplace) {
 }
 window.addEventListener('popstate', async e => {
   const s = e.state;
+  // STAAT ER EEN VENSTER OPEN? Dan bedoelt de terugveeg DAT venster (Tim, 06-09-2026). Tot nu
+  // navigeerde het scherm eronder terug terwijl het venster bleef staan: je stond op het verslag met
+  // het doelpuntvenster van een lopende wedstrijd nog open. Een telefoon heeft geen andere terugknop,
+  // dus dit is de enige weg die een gebruiker daar kent.
+  // Sluiten is precies wat er al gebeurt als je náást het venster tikt (zie openModal), dus er is
+  // niets extra op te ruimen.
+  const mod = document.getElementById('modal');
+  if (mod && !mod.classList.contains('hidden')) {
+    closeModal();
+    // De stap die de browser net zette weer terugnemen, anders staat het scherm eronder wél al terug
+    // en levert de volgende terugveeg je twee stappen op.
+    try { history.pushState({ v: view, id: (match && match.id) || null }, ''); } catch (err) {}
+    return;
+  }
   if (!s || !s.v) return;
   // Navigeer intern zonder opnieuw een history-entry te maken.
   await go(s.v, s.id || undefined, true);
