@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.46.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.46.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -787,6 +787,22 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  // Goedgekeurd door Tim, 06-09-2026. Twee punten: de opstelling per kwart achteraf aanpassen staat
+  // VOORAAN (zijn keuze), en het herschikte wedstrijdscherm plus de bevestigingen samen als tweede.
+  // Er stond sinds 1.26 niets meer, dus dit is ook het eerste dat de gebruikers horen over het nieuwe
+  // knoppenraster — en dát gaan ze zeker merken.
+  // "Events" en niet "Verloop": in het VERSLAG heet dat blok Events (zie renderDetail); Verloop is de
+  // naam van het tabblad op het wedstrijdscherm. Tim wees me daar terecht op.
+  '1.46': {
+    titel: 'Twee dingen zijn nieuw',
+    kop: 'Pas de opstelling per kwart achteraf aan',
+    intro: 'Achteraf moet je een fout kunnen rechtzetten. En tijdens een wedstrijd moet je snel kunnen mikken. Daar gaat deze versie over.',
+    kopPunten: 'Wat je nu kan',
+    punten: [
+      'De opstelling van elk kwart achteraf aanpassen. Kijk in het verslag bij "Events": naast de startopstelling van elk kwart staat een potloodje. Tik het aan, je ziet het veld zoals dat kwart begon, en je zet het goed — net als in de pauze: een speler en dan een lege plek, twee spelers om te ruilen, of iemand van de bank om te wisselen. De speelminuten volgen mee.',
+      'Het wedstrijdscherm is opgeruimd, en elke registratie wordt bevestigd. Alle knoppen staan vast in beeld, in drie rijen: hoekschop en vrije trap zaten verstopt onder "Meer" en staan nu vooraan, rode kaart en penalty hoef je niet meer open te klikken. "Wissel" brengt je naar het tabblad Opstelling, waar je met twee tikken wisselt: een bankspeler, dan een speler op het veld. En na elke registratie zie je een groene melding — "Doelpunt vastgelegd · Jan" — zodat je zonder te kijken weet dat je tik geland is.',
+    ],
+  },
   // DE TEKST VAN 1.15 STAAT HIER BEWUST NOG EENS IN (Tim, 31-08-2026). notesSleutel() valt terug op
   // de LAATSTE tekst van dezelfde major, dus zodra '1.26' bestaat krijgt niemand '1.15' nog te zien
   // — ook een nieuwe gebruiker niet. De trainersvoorbereiding is te belangrijk om zo stil te

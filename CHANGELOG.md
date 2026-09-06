@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.46.3
+
+**Een "wat is er nieuw"-melding.** Sinds v1.26 kregen de gebruikers niets meer te horen, en er is
+intussen veel veranderd aan het wedstrijdscherm — dat gaan ze merken. De melding heeft twee punten:
+de opstelling per kwart achteraf aanpassen (vooraan, want dat is het nieuwe gereedschap), en het
+opgeruimde wedstrijdscherm met de bevestiging na elke registratie.
+
+Ze verschijnt alleen bij wie de app al gebruikte: "nieuw sinds vorige keer" slaat nergens op bij een
+eerste installatie.
+
+---
+
 ## v1.46.2
 
 **"Dit botst met een latere wissel" kwam veel te vaak.** Tim liep er bij een echte wedstrijd tegenaan
