@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.47.0
+
+**Ook de aftrap is nu recht te zetten, ook als er al gewisseld is.** Daarmee werkt het potloodje
+overal hetzelfde: elk blok, de aftrap incluis.
+
+"Startopstelling herplaatsen" weigerde tot nu zodra er één wissel of positiewissel gelogd was, en dat
+was terecht — het venster schreef alleen de nieuwe plaatsen weg en rekende de rest van de wedstrijd
+niet opnieuw door. Sinds v1.46.0 bestaat dat doorrekenen wel, dus het slot kon eraf.
+
+Een verlegging van de aftrap **loopt door de hele wedstrijd**: zet je de rechtsachter en de centrale
+verdediger om, dan stonden ze zo van begin tot eind. Wat een later blok zelf nog verzette, blijft
+staan. En de speelminuten bewegen niet — dit venster verandert alleen plaatsen, nooit wie er speelt.
+
+Het venster opent nu ook met de opstelling van de **aftrap** in beeld. Dat leek al zo, maar zodra er
+gewisseld was toonde het de plaatsen van het láátste blok.
+
+**Twee fouten die alleen een grote testreeks vond.** Een speler die in een blok een rode kaart kreeg
+of naar huis ging, verdween uit de opstelling van dát blok — terwijl hij het gewoon begonnen was en er
+minuten van speelde. Dat gebeurde bij de aftrap (hij viel uit de startopstelling) en bij een later
+blok (hij verloor zijn minuten: 23 werd 15). De app vroeg zich af of iemand *nog* mocht meedoen,
+terwijl de vraag is of hij er bij de **start van dat blok** stond.
+
+---
+
 ## v1.46.4
 
 **Terugvegen sluit nu het venster dat open staat.** Stond er een venster open — bijvoorbeeld dat van

@@ -1568,9 +1568,19 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden.</li>
         <li><b>'Spelernotities'</b> en <b>'Rugnummers'</b> — per speler, enkel voor deze wedstrijd.</li>
         <li><b>'Startopstelling herplaatsen'</b> — pas de plaatsen van de aftrap aan.</li>
+        <li><b>'Opstelling van een deel rechtzetten'</b> — pas de opstelling van een later blok aan.</li>
         <li><b>'Gebruik als template'</b> — een nieuwe wedstrijd met dezelfde ploeg en opstelling.</li>
       </ul>
-      <p class="hdl-tip"><b>'Startopstelling herplaatsen'</b> werkt zolang er nog geen wissels of positiewissels gebeurd zijn. Daarna zou het de reconstructie per deel omgooien; gebruik dan <b>Positiewissel</b> in de wedstrijd zelf.</p>
+      <div class="sec">Een opstelling achteraf aanpassen</div>
+      <p>Elke opstelling is achteraf recht te zetten, ook al zijn er wissels gebeurd. De snelste weg
+        loopt via <b>Events</b>: naast de startopstelling van elk blok staat een <b>potloodje</b>. Tik
+        het aan en je ziet het veld zoals dat blok begon; je zet het goed zoals in de pauze — een
+        speler en dan een lege plek, twee spelers om te ruilen, of iemand van de bank om te wisselen.</p>
+      <p class="hdl-tip">De app rekent daarna de rest van de wedstrijd opnieuw door, dus <b>de
+        speelminuten volgen mee</b>. Blokken waar je zelf een opstelling koos, blijven eruitzien zoals
+        ze eruitzagen; een blok waar je <b>'zoals het vorige'</b> koos, volgt je aanpassing mee. Botst
+        het met een wissel die later tijdens het spel gebeurde, dan zegt de app welke — en er verandert
+        dan niets.</p>
       <div class="sec">Iemand uit de selectie halen</div>
       <p>Speel je met twee ploegen tegelijk, dan neem je vaak een ruimere selectie op dan er nodig is. Wie uiteindelijk de hele tijd bij de andere wedstrijd bleef, telt hier anders mee als <b>geselecteerd</b>. Met <b>'Selectie aanpassen'</b> haal je hem er achteraf alsnog uit: hij komt weer bij <b>niet geselecteerd</b> te staan, ook in de statistieken.</p>
       <p class="hdl-tip">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij. Bij een <b>tornooiwedstrijd</b> kan het niet — daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.</p>

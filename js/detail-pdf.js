@@ -324,11 +324,9 @@ function cloneMatchBtnHtml(m) {
 function modalDetailEditMenu() {
   const m = match; if (!m || !canLive()) return;   // gordel én bretellen, net als de andere vensters
   const heeftFormatie = (FORMATIONS[m.matchType] || []).length > 0;
-  // Dezelfde grens als _epMag in live-match.js — houd die twee gelijk, anders staat het item grijs
-  // terwijl het venster het wél zou doen (of omgekeerd, en dan krijg je een melding in plaats van een
-  // scherm). Staat er nog geen enkele plek, dan mag het herplaatsen wél, ook met wissels.
-  const alGewisseld = heeftPlekkenOpHetVeld(m)
-    && (m.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap');
+  // `alGewisseld` bestaat niet meer als BLOKKADE (v1.47.0): het herplaatsen van de aftrap weigerde
+  // zodra er gewisseld was, omdat het de latere delen niet herrekende. Sinds v1.46.0 doet het dat wél
+  // (rebuildPositions + de latere grenzen opnieuw schrijven), dus dit item staat nooit meer grijs.
   openModal(`<h3>${icI(IC.edit)} Bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">Wat wil je aanpassen?</p>
     ${/* DE UITSLAG ACHTERAF NOG WIJZIGEN (v1.6.0). Enkel wanneer er géén speeltijd bijgehouden is:
@@ -362,18 +360,14 @@ function modalDetailEditMenu() {
     ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
          de ploeg overstapt op spelen zonder vaste nummers. */ ''}
     ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
-    ${/* "Startopstelling herplaatsen" verlegt de plaatsen van de aftrap. Zodra er een wissel of
-         positiewissel gelogd is, weigert modalEditPositions dat (het zou de reconstructie per deel
-         corrumperen). Als grijs item mét de reden erbij, i.p.v. als losse regel tekst zoals vroeger:
-         zo staat het antwoord waar je de knop zoekt. */ ''}
+    ${/* "Startopstelling herplaatsen" verlegt de plaatsen van de AFTRAP. Sinds v1.47.0 mag dat altijd:
+         de latere delen worden herrekend, net zoals bij het rechtzetten van een deelopstelling. */ ''}
     ${heeftFormatie ? menuItemHtml(IC.compass,
       heeftPlekkenOpHetVeld(m) ? 'Startopstelling herplaatsen' : 'Startopstelling ingeven',
-      alGewisseld
-        ? 'Kan niet meer: er zijn al wissels of positiewissels gebeurd. Eén speler verplaatsen doe je met Positiewissel in het livescherm.'
-        : heeftPlekkenOpHetVeld(m)
-          ? 'Zet de spelers van de aftrap op een andere plek op het veld.'
-          : 'Er staat nog niemand op het veld. Zet de basisspelers zelf op hun plek — het wedstrijdblad van de bond zegt niet waar ze stonden.',
-      'modalEditPositions()', alGewisseld) : ''}
+      heeftPlekkenOpHetVeld(m)
+        ? `Zet de spelers van de aftrap op een andere plek. De ${pSingLow(m)}en erna volgen mee; wat je daar zelf koos blijft staan.`
+        : 'Er staat nog niemand op het veld. Zet de basisspelers zelf op hun plek — het wedstrijdblad van de bond zegt niet waar ze stonden.',
+      'modalEditPositions()') : ''}
     ${/* DE OPSTELLING VAN EEN LATER DEEL (v1.46.0, Tim: "ik heb per ongeluk bij kwart 3 gekozen voor
          'start als op kwart 2'"). Het item hierboven gaat over de AFTRAP en weigert zodra er
          gewisseld is; dit gaat over de grens tussen twee delen, en dat mag altijd — de wedstrijd

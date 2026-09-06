@@ -1687,7 +1687,17 @@ let _ep = null;   // { plaats: {playerId: code|null}, sel: {kind:'field'|'bench'
 // magOpHetVeld erbij (audit 25-08-2026): wie afwezig gemeld is of na een rode kaart uitgesloten,
 // stond hier bij "Nog te plaatsen" en blokkeerde daardoor het opslaan — voor iemand die er niet is.
 // startQuarter filtert bij het vastleggen van de startopstelling op dezelfde regel.
-function _epStarters() { return (match.players || []).filter(p => p.starting && magOpHetVeld(match, p)); }
+// WIE STOND ER BIJ DE AFTRAP OP HET VELD. Dit hing op `starting && magOpHetVeld`, en dat is een
+// andere vraag: magOpHetVeld zegt of iemand NOG mag meedoen. Kreeg een basisspeler in het eerste
+// deel rood (of ging hij weg), dan viel hij hier weg — het venster toonde hem niet, en het opslaan
+// gooide hem uit de startopstelling. Gemeten met de fuzzer op zaad 800004: kwart 1 verloor zo een
+// speler, en dat werd blijvend opgeslagen.
+// Vóór v1.47.0 was dat onbereikbaar (het slot weigerde zodra er events waren); door dat slot weg te
+// halen heb ik het pad geopend, dus hoort dit hier recht te staan.
+// pitchPlayersAtPeriodStart(1) is de juiste bron: wie de aftrap begon, mét zijn plek, en zonder wie
+// afwezig gemeld is. Het zijn kopieën, geen echte spelerobjecten — dit venster muteert de spelers
+// niet meer, het schrijft de startopstelling en laat rebuildPositions de rest doen.
+function _epStarters() { return pitchPlayersAtPeriodStart(match, 1); }
 // Mag de startopstelling nog herplaatst worden? Zodra er wissels of positiewissels gelogd zijn, hangt
 // de reconstructie van de latere kwarten aan de oorspronkelijke posities (zie de snapshots in de
 // events en playersAtPeriodStart) — dan blokkeren we, met de weg die dan wél klopt.
@@ -1699,24 +1709,36 @@ function _epStarters() { return (match.players || []).filter(p => p.starting && 
 // LET OP wat je dan krijgt: de basisspelers staan waar jij ze zet, maar een INVALLER heeft nog steeds
 // geen plek (het blad zegt niet waar hij ging staan) en belandt op zijn lijn. Dat is de eerlijke
 // weergave, niet een tekort van deze wijziging.
-function _epMag() {
-  if (heeftPlekkenOpHetVeld(match) && (match.events || []).some(e => e.type === 'substitution' || e.type === 'posSwap')) {
-    closeModal();
-    // Zelfde rechtzetting als hierboven: niet naar een knopnaam verwijzen die niet bestaat, maar naar
-    // de weg die er wél is (tik de speler aan op het tabblad Opstelling, dan zijn nieuwe plek).
-    showToast('Er zijn al wissels of positiewissels gebeurd, dus de startopstelling kan hier niet meer herplaatst worden. Verplaats iemand via het tabblad Opstelling: tik de speler aan en dan zijn nieuwe plek.', 'err');
-    return false;
-  }
-  return true;
-}
+// DIT SLOT IS WEG (v1.47.0). Het weigerde het herplaatsen van de aftrap zodra er één wissel of
+// positiewissel gelogd was, en dat was terecht: dit venster schreef alleen de nieuwe posities op de
+// spelers en speelde de wedstrijd niet opnieuw af. De momentopnames in de latere wissel-events bleven
+// dan naar de oude plaatsen wijzen — de schade van 22-08-2026 (twee shirts op één plek, doorgesleept
+// naar élk volgend deel).
+// Sinds v1.46.0 bestaat precies het gereedschap dat toen ontbrak: de wedstrijd voorwaarts opnieuw
+// afspelen (rebuildPositions), met de momentopnames onderweg hersteld. _saveEpPositions doet dat nu,
+// samen met het vastpinnen van latere delen die hun eigen opstelling hadden en dezelfde wachter tegen
+// een echte wissel die tegenstrijdig wordt. Daarmee werkt het potloodje overal hetzelfde — Tims vraag
+// van 06-09-2026.
+function _epMag() { return !!match; }
 // INGANG 1: iedereen op zijn huidige plek.
+// WAAR STOND IEDEREEN BIJ DE AFTRAP? Niet uit `p.x/p.y` lezen: dat zijn de EINDposities van de
+// wedstrijd (rebuildPositions schrijft ze daar terug). Zolang er geen wissels waren is dat hetzelfde
+// — precies het geval dat het oude slot toeliet — maar met wissels niet, en dan opende dit venster
+// met de opstelling van het láátste deel terwijl het "Startopstelling" heet. Gemeten: een ruil uit
+// kwart 3 verhuisde daardoor naar de aftrap en draaide zichzelf om.
+function _epStartCodes() {
+  const codes = {};
+  pitchPlayersAtPeriodStart(match, 1).forEach(p => { const c = spelerGridCode(p); if (c) codes[p.id] = c; });
+  return codes;
+}
 function modalEditPositions() {
   if (!canLive() || !match) return;
   if (!_epMag()) return;
+  const startCodes = _epStartCodes();
   const plaats = {};
   const gezien = new Set();
   _epStarters().forEach(p => {
-    const code = spelerGridCode(p);
+    const code = startCodes[p.id];
     // Botsen twee spelers op dezelfde plek (oude data), dan houdt de eerste ze en moet de tweede
     // opnieuw geplaatst worden — zichtbaar in "Nog te plaatsen" i.p.v. stil boven op elkaar.
     plaats[p.id] = (code && gridPlek(code) && !gezien.has(code)) ? (gezien.add(code), code) : null;
@@ -1735,8 +1757,11 @@ function applyFormationPositions() {
   const vrij = new Set(voorstel.map(p => p.code));
   const plaats = {};
   const starters = _epStarters();
+  // Ook hier de plek van de AFTRAP als ijkpunt, niet die van het einde van de wedstrijd — zie
+  // _epStartCodes. Dit bepaalt welke aanbevolen plek het dichtst bij iemand ligt.
+  const startCodes = _epStartCodes();
   const afstand = (p, plek) => {
-    const eigen = gridPlek(spelerGridCode(p));
+    const eigen = gridPlek(startCodes[p.id]);
     if (!eigen) return 0;
     return Math.abs(eigen.x - plek.x) + Math.abs(eigen.y - plek.y);
   };
@@ -1833,19 +1858,58 @@ async function _saveEpPositions() {
     showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} eerst op een plek.`, 'err');
     return;
   }
-  _epStarters().forEach(p => {
+  // ALLES WAT WE AANRAKEN EERST APART LEGGEN — zelfde voorzorg als bij een deelopstelling: liever
+  // niets doen dan een halve reconstructie achterlaten.
+  const terug = {
+    events: JSON.parse(JSON.stringify(match.events || [])),
+    players: JSON.parse(JSON.stringify(match.players || [])),
+    startLineup: match.startLineup ? JSON.parse(JSON.stringify(match.startLineup)) : match.startLineup,
+    deleted: (match.deletedEventIds || []).slice(),
+    keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
+  };
+  const conflictenVoor = _qlLatereConflicten(match, 1);
+  // HIER WORDT NIETS VASTGEPIND, en dat is met opzet — anders dan bij het rechtzetten van een
+  // DEELopstelling. Het verschil: dit venster verandert alleen PLAATSEN, nooit wie er speelt. Het
+  // herplaatst dezelfde basisspelers, dus de speelminuten kunnen er niet door bewegen.
+  // Een verlegging van de aftrap hoort dus door de hele wedstrijd te lopen: rebuildPositions speelt
+  // de wissels en positiewissels van elk later deel bovenop de NIEUWE plaatsen opnieuw af, en dat is
+  // precies waar die replay voor gemaakt is. Zet je de rechtsachter en de centrale verdediger om,
+  // dan stonden ze zo de hele wedstrijd — tenzij een later deel ze zelf nog verzette, en dat blijft
+  // gewoon staan omdat die positiewissel opnieuw wordt toegepast.
+  // Ik heb het eerst mét vastpinnen gebouwd en dat bleef fout: de correctie bleef dan in kwart 1
+  // hangen, want een deel met een pauzeWISSEL kreeg zijn hele opstelling vastgezet — ook de plaatsen
+  // die daar enkel uit het vorige deel overgewaaid waren.
+  // DE STARTOPSTELLING KOMT UIT WAT JE GETEKEND HEBT, NIET UIT m.players. Dat is de fout waar het
+  // oude slot toevallig voor behoedde, en ze kostte me een halve test: `m.players` draagt de
+  // EINDposities van de wedstrijd (rebuildPositions schrijft ze daar terug). Zolang er geen wissels
+  // waren, is dat hetzelfde als de aftrap — precies het geval dat het slot toeliet. Met wissels is
+  // het dat niet: iemand die in kwart 3 van plaats ruilde stond in m.players op zijn LAATSTE plek, en
+  // die belandde dan in de startopstelling. De ruil van kwart 3 werd zo een tweede keer toegepast en
+  // draaide zichzelf om. Gemeten: de momentopnames van dat event stonden nadien omgekeerd.
+  match.startLineup = _epStarters().map(p => {
     const plek = gridPlek(_ep.plaats[p.id]);
-    if (plek) zetOpGridPlek(p, plek, match);
-  });
-  // De vastgelegde startopstelling volgt mee: dit venster herplaatst per definitie de aftrap (het
-  // weigert zodra er wissels zijn), dus het bewaarde feit is nu dit.
-  if (Array.isArray(match.startLineup)) {
-    match.startLineup = match.players
-      .filter(p => p.starting && typeof p.x === 'number')
-      .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: spelerGridCode(p) || null }));
+    if (!plek) return null;
+    return { id: p.id, x: plek.x, y: plek.y, line: plek.line,
+      posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code };
+  }).filter(Boolean);
+  // En dan alles voorwaarts opnieuw afspelen. Dít is wat het oude slot onmogelijk maakte.
+  rebuildPositions(match, playersAtPeriodStart(match, 1));
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+  recomputeOnField(match);
+  // Loopt er hierdoor een echte wissel TIJDENS het spel in de knoop? Dan alles terugzetten.
+  const conflicten = _qlLatereConflicten(match, 1).filter(c => !conflictenVoor.includes(c));
+  if (conflicten.length) {
+    match.events = terug.events; match.players = terug.players;
+    match.startLineup = terug.startLineup;
+    match.deletedEventIds = terug.deleted; if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
+    rebuildPositions(match, playersAtPeriodStart(match, 1));
+    recomputeOnField(match);
+    showToast(`Dit botst met een latere wissel: ${conflicten[0]}. Zet die eerst recht bij Events, of kies hier een andere plek. Er is niets gewijzigd.`, 'err');
+    return;
   }
   _ep = null;
   await dbSave(match); closeModal(); render();
+  meldVastgelegd('Startopstelling');
 }
 // ===================== DE OPSTELLING VAN ÉÉN DEEL RECHTZETTEN (v1.46.0) =====================
 // Tim, 06-09-2026: "ik heb per ongeluk bij kwart 3 gekozen voor 'start als op kwart 2'. En dat
@@ -1891,6 +1955,22 @@ function bewerkDeelOpstelling(q) {
   if (Number(q) <= 1) modalEditPositions();
   else modalDeelOpstelling(Number(q));
 }
+// MAG DEZE SPELER IN DE OPSTELLING BIJ DE START VAN DIT DEEL STAAN?
+// Niet met magNogMeedoen te beantwoorden, en dat kostte me twee fouten die de fuzzer vond. Die
+// functie leunt op magOpHetVeld, en dáár betekent "uitgesloten" ooit-in-deze-wedstrijd-rood —
+// zonder tijdvenster. Voor een speler die halverwege deel 2 rood kreeg, luidde het antwoord dus
+// "nee" voor deel 2, terwijl hij dat deel gewoon begon en er acht minuten van speelde. Gevolg:
+// hij verdween uit de opstelling van deel 2 en verloor die minuten (gemeten: 23' -> 15').
+// Het vertrek heeft in magNogMeedoen wél een tijdvenster (`voorDeel`), de rode kaart niet. Hier
+// dus zelf de vraag stellen op hetzelfde ijkpunt als al de rest: is hij vóór de START van dit deel
+// weggegaan of uitgesloten? Tijdens het deel telt niet — dan stond hij er nog.
+function _qlMagInOpstelling(m, id, deel) {
+  const p = (m.players || []).find(x => x.id === id);
+  if (!p || p.absent) return false;
+  const grens = gameTimeMsAtStartOfQuarter(m, deel);
+  return !(m.events || []).some(e => (e.type === 'red_card' || (e.type === 'injury' && e.leavesField))
+    && e.playerId === id && (e.gameTimeMs || 0) < grens);
+}
 function qlSpelerVeld(id) { return (match.players || []).find(p => p.id === id); }
 // De spelers van de doelopstelling, met x/y uit hun gekozen roosterplek — renderPitch leest de plek
 // uit x/y (zie spelerGridCode), niet uit een code.
@@ -1904,8 +1984,10 @@ function _qlOpVeld() {
 // De bank van dat moment: wie mocht meedoen en niet in de doelopstelling staat. magNogMeedoen met
 // het deel erbij, zodat iemand die pas later vertrok hier nog gewoon kiesbaar is.
 function _qlBank() {
+  // Dezelfde vraag als in _qlMagInOpstelling en om dezelfde reden: wie halverwege dít deel rood
+  // kreeg, mocht er bij de start nog staan en hoort dus kiesbaar te blijven.
   return (match.players || [])
-    .filter(p => !_ql.plaats[p.id] && magNogMeedoen(match, p, _ql.deel))
+    .filter(p => !_ql.plaats[p.id] && _qlMagInOpstelling(match, p.id, _ql.deel))
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
 }
 function modalDeelOpstelling(deel) {
@@ -2037,8 +2119,7 @@ function _qlZetGrens(m, deel, doelRuw, weggelaten) {
   //    niet in de opstelling van een later deel staan.
   const doel = {};
   Object.keys(doelRuw).forEach(id => {
-    const p = (m.players || []).find(x => x.id === id);
-    if (p && !magNogMeedoen(m, p, deel)) { if (weggelaten) weggelaten.push(`${pName(m, id)} (${pSingLow(m)} ${deel})`); return; }
+    if (!_qlMagInOpstelling(m, id, deel)) { if (weggelaten) weggelaten.push(`${pName(m, id)} (${pSingLow(m)} ${deel})`); return; }
     doel[id] = doelRuw[id];
   });
   const doelIds = new Set(Object.keys(doel));
