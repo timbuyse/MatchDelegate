@@ -1165,6 +1165,9 @@ function _lcNav(dir) {
 function renderLineupCarousel(m) {
   const total = Math.max(1, m.quarters.length);
   _lcIdx = 0;
+  // GEEN POTLOODJE HIER (Tim, 06-09-2026). Het stond hier kort, maar hij bedoelde het naast de
+  // "Startopstelling"-regel in de eventlijst — daar staat het nu, in startLineupHtml
+  // (views-account.js). Dit diagram blijft dus zuiver om te kijken en te bladeren.
   // Ook bij één deel via de reconstructie: m.players draagt de FINALE posities, dus een
   // uitgewisselde basisspeler stond daar nog op zijn oude plek terwijl een positiewissel iemand
   // anders naar diezelfde plek verschoof — twee bollen op elkaar. Speelt vooral bij

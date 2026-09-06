@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.46.1
+
+**Een potloodje op de "Startopstelling"-regel in de eventlijst.** Dezelfde ingang als hierboven, maar
+op de plek waar je het ziet: in het verloop staat per kwart één samengevouwen regel met de opstelling
+van dat kwart, en die krijgt nu een potlood — precies zoals elk ander event in die lijst. Eén tik en
+je zet die opstelling recht.
+
+Er staat geen kruisje naast: een opstelling wég maken betekent niets, je zet ze recht. Een kijker ziet
+het potlood niet, en op een afdruk staat het er niet.
+
+Bij **kwart 1** opent het potlood de aftrap, en die houdt zijn bestaande regel: zodra er gewisseld is,
+kan de startopstelling niet meer herplaatst worden. Je krijgt dan de uitleg te zien in plaats van een
+venster.
+
+---
+
 ## v1.46.0
 
 **De opstelling van een kwart is achteraf recht te zetten.** Koos je bij de start van een kwart per

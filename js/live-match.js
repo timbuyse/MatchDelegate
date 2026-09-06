@@ -1882,6 +1882,15 @@ let _ql = null;   // { deel, plaats: {spelerId: gridcode}, sel: {kind,id} | null
 function deelOpstellingDelen(m) {
   return ((m && m.quarters) || []).map(q => q.num).filter(n => n >= 2);
 }
+// Het potloodje naast de opstelling in het verslag (Tim, 06-09-2026: "net zoals je een event bewerkt
+// kan je dan ook een startopstelling van een kwart bewerken"). Eén ingang die zich richt naar het
+// deel dat je op dat moment bekijkt: deel 1 is de AFTRAP en heeft zijn eigen venster, dat zelf
+// weigert zodra er gewisseld is; vanaf deel 2 gaat het over de kwartgrens.
+function bewerkDeelOpstelling(q) {
+  if (!canLive() || !match) return;
+  if (Number(q) <= 1) modalEditPositions();
+  else modalDeelOpstelling(Number(q));
+}
 function qlSpelerVeld(id) { return (match.players || []).find(p => p.id === id); }
 // De spelers van de doelopstelling, met x/y uit hun gekozen roosterplek — renderPitch leest de plek
 // uit x/y (zie spelerGridCode), niet uit een code.

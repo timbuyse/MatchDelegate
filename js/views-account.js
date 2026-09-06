@@ -3537,9 +3537,19 @@ function startLineupHtml(m, qn) {
   const rijen = startLineupRijen(m, qn);
   if (!rijen.length) return '';
   const bank = bankBijStart(m, qn);
+  // HET POTLOODJE OP DEZE REGEL (Tim, 06-09-2026: "naast de startopstelling van een deel in de 'alle
+  // events' lijst"). Deze regel IS de opstelling van dat deel — de samengevouwen pauzewijzigingen —
+  // dus hier hoort hetzelfde gebaar als bij elk ander event in de lijst: zelfde `evt-edit`, zelfde
+  // plaats, zelfde pictogram. Alleen een verwijderknop staat er niet naast: een opstelling wég maken
+  // betekent niets, je zet ze recht.
+  // canLive() en niet een meegegeven vlag: dat is dezelfde maatstaf die renderEventLog zelf gebruikt
+  // (elog_ro), en zo kan deze functie van overal aangeroepen worden zonder dat er iets uit de pas loopt.
+  const potlood = (typeof canLive === 'function' && canLive() && qn)
+    ? `<button class="evt-edit no-print" onclick="bewerkDeelOpstelling(${qn})" title="Deze opstelling aanpassen">${icI(IC.edit)}</button>`
+    : '';
   return `<li class="startlineup"><span class="emin">${icI(IC.shirt)}</span><span class="etxt"><b>Startopstelling</b><span class="sl-lijst">${rijen
     .map(r => `<span class="sl-item">${esc(r.naam)}${r.plek ? `<span class="sl-plek">${esc(r.plek)}</span>` : ''}</span>`)
-    .join('')}</span>${bank.length ? `<span class="sl-bank">Bank: ${bank.map(esc).join(', ')}</span>` : ''}</span></li>`;
+    .join('')}</span>${bank.length ? `<span class="sl-bank">Bank: ${bank.map(esc).join(', ')}</span>` : ''}</span>${potlood}</li>`;
 }
 // HTML-event-log voor het scherm (detail + live-log), met kwart-kop + tussenstand + verwijderknop.
 function renderEventLog(m) {
