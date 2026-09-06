@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.46.0
+
+**De opstelling van een kwart is achteraf recht te zetten.** Koos je bij de start van een kwart per
+ongeluk "zoals het vorige kwart", dan stond die opstelling verkeerd in het verslag en was ze niet meer
+te herstellen — behalve met drie handelingen per speler, waarvan er één achter een knop zat die
+niemand vindt.
+
+In het verslag, achter **Bewerken**, staat nu **"Opstelling van een deel rechtzetten"**. Je kiest het
+kwart, ziet het veld zoals dat kwart volgens de app begon, en tikt het goed — dezelfde bediening als
+in de pauze: een speler en dan een lege plek, twee spelers om te ruilen, of iemand van de bank om te
+wisselen. Bij het opslaan legt de app zelf de juiste wijzigingen op die kwartgrens vast en rekent de
+rest van de wedstrijd opnieuw door.
+
+**De speelminuten volgen mee.** Stond er in dat kwart iemand anders op het veld, dan verandert zijn
+speeltijd — want dat was dan ook zo.
+
+**Botst het met een latere wissel, dan gebeurt er niets.** Breng je iemand in die later in de
+wedstrijd nóg eens invalt, dan zou die latere wissel wel iemand van het veld halen maar niemand
+bijzetten — een kwart met één speler te weinig, zonder waarschuwing. De app zegt nu welke wissel
+botst en laat de wedstrijd onaangeroerd.
+
+De aftrap zelf blijft zijn eigen ingang houden ("Startopstelling herplaatsen").
+
+---
+
 ## v1.45.0
 
 **Je krijgt nu een groene melding na elke registratie.** Tot nu zei het scherm alleen iets als er

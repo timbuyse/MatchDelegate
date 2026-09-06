@@ -374,6 +374,14 @@ function modalDetailEditMenu() {
           ? 'Zet de spelers van de aftrap op een andere plek op het veld.'
           : 'Er staat nog niemand op het veld. Zet de basisspelers zelf op hun plek — het wedstrijdblad van de bond zegt niet waar ze stonden.',
       'modalEditPositions()', alGewisseld) : ''}
+    ${/* DE OPSTELLING VAN EEN LATER DEEL (v1.46.0, Tim: "ik heb per ongeluk bij kwart 3 gekozen voor
+         'start als op kwart 2'"). Het item hierboven gaat over de AFTRAP en weigert zodra er
+         gewisseld is; dit gaat over de grens tussen twee delen, en dat mag altijd — de wedstrijd
+         wordt na het opslaan opnieuw afgespeeld. Enkel zichtbaar vanaf twee gespeelde delen, want
+         bij één deel is de aftrap de enige opstelling die er is. */ ''}
+    ${deelOpstellingDelen(m).length ? menuItemHtml(IC.shirt, 'Opstelling van een deel rechtzetten',
+      `Zo begon een ${pSingLow(m)} volgens de app. Klopt dat niet — bv. omdat je bij de start "zoals het vorige ${pSingLow(m)}" koos — dan zet je het hier recht. De speelminuten volgen mee.`,
+      'modalDeelOpstelling()') : ''}
     ${menuItemHtml(IC.copy, m.tournamentId ? 'Kloon als nieuwe tornooiwedstrijd' : 'Gebruik als template',
       m.tournamentId
         ? 'Een nieuwe wedstrijd in ditzelfde tornooi, met dezelfde selectie.'

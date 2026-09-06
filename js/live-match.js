@@ -1847,6 +1847,256 @@ async function _saveEpPositions() {
   _ep = null;
   await dbSave(match); closeModal(); render();
 }
+// ===================== DE OPSTELLING VAN ÉÉN DEEL RECHTZETTEN (v1.46.0) =====================
+// Tim, 06-09-2026: "ik heb per ongeluk bij kwart 3 gekozen voor 'start als op kwart 2'. En dat
+// klopte niet." Dat was tot nu niet meer recht te zetten met één handeling.
+//
+// WAAROM DAT ZO WAS. De opstelling van een deel bestaat niet als plaatje. Ze is de som van de
+// wijzigingen OP DIE KWARTGRENS: elke wissel en elke positiewissel die de start uitvoerde, met
+// `atBreak: true` en `quarterNum` = dat deel (zie startQuarter). Koos je "zoals het vorige deel",
+// dan staan er GEEN wijzigingen — er valt dus niets te bewerken, er staat iets niet.
+// Repareren kon enkel per speler: event toevoegen in dat deel, en dan in het potloodmenu op "Dit
+// hoorde bij de opstelling van deel N" duwen. Drie stappen per speler, en die laatste knop vindt
+// niemand vanzelf.
+//
+// HOE DIT WERKT. Je krijgt het veld zoals dat deel begon (pitchPlayersAtPeriodStart, hetzelfde
+// beeld als in het verslag) en tikt het goed, met dezelfde bediening als de pauze-opstelling. Bij
+// het opslaan:
+//   1. de bestaande atBreak-wissels van dat deel gaan weg (mét tombstone, anders brengt de merge
+//      van een tweede toestel ze terug);
+//   2. daarna is het veld bij de start van dat deel per definitie het einde van het vorige deel —
+//      dat is de BASIS waartegen we het verschil bepalen;
+//   3. het verschil wordt weggeschreven als nieuwe atBreak-events: eerst de wissels, dan de
+//      positiewissels;
+//   4. rebuildPositions speelt de hele wedstrijd opnieuw af, rebuildKeeperByQ herrekent de
+//      keeperminuten. Exact wat het bewerken van een event ook doet.
+//
+// DE VOLGORDE WISSELS-DAN-POSITIEWISSELS IS GEEN STIJLKEUZE. Alle atBreak-events dragen dezelfde
+// gameTimeMs (de start van het deel), en de replay sorteert daarop. Array.sort is stabiel, dus de
+// invoegvolgorde beslist — net zoals startQuarter er al op rekent. Wissels eerst, want een invaller
+// neemt de plek van wie eraf gaat, en de positiewissels vertrekken van dát veld.
+let _ql = null;   // { deel, plaats: {spelerId: gridcode}, sel: {kind,id} | null }
+
+// Welke delen kan je rechtzetten? Vanaf deel 2 — deel 1 is de aftrap, en die heeft zijn eigen
+// venster ("Startopstelling herplaatsen", modalEditPositions).
+function deelOpstellingDelen(m) {
+  return ((m && m.quarters) || []).map(q => q.num).filter(n => n >= 2);
+}
+function qlSpelerVeld(id) { return (match.players || []).find(p => p.id === id); }
+// De spelers van de doelopstelling, met x/y uit hun gekozen roosterplek — renderPitch leest de plek
+// uit x/y (zie spelerGridCode), niet uit een code.
+function _qlOpVeld() {
+  return Object.keys(_ql.plaats).map(id => {
+    const p = qlSpelerVeld(id), plek = gridPlek(_ql.plaats[id]);
+    if (!p || !plek) return null;
+    return Object.assign({}, p, { x: plek.x, y: plek.y, line: plek.line, posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code });
+  }).filter(Boolean);
+}
+// De bank van dat moment: wie mocht meedoen en niet in de doelopstelling staat. magNogMeedoen met
+// het deel erbij, zodat iemand die pas later vertrok hier nog gewoon kiesbaar is.
+function _qlBank() {
+  return (match.players || [])
+    .filter(p => !_ql.plaats[p.id] && magNogMeedoen(match, p, _ql.deel))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
+}
+function modalDeelOpstelling(deel) {
+  if (!canLive() || !match) return;
+  const delen = deelOpstellingDelen(match);
+  if (!delen.length) { showToast('Er is nog maar één deel gespeeld — gebruik "Startopstelling herplaatsen".', 'err'); return; }
+  const n = delen.includes(Number(deel)) ? Number(deel) : delen[0];
+  const start = pitchPlayersAtPeriodStart(match, n);
+  const plaats = {};
+  const gezien = new Set();
+  start.forEach(p => {
+    const code = spelerGridCode(p);
+    // Botsen twee spelers op dezelfde plek (oude, scheve data), dan houdt de eerste ze en moet de
+    // tweede opnieuw geplaatst worden — zichtbaar in "Nog te plaatsen" i.p.v. stil op elkaar.
+    if (code && gridPlek(code) && !gezien.has(code)) { gezien.add(code); plaats[p.id] = code; }
+    else plaats[p.id] = null;
+  });
+  _ql = { deel: n, plaats, sel: null };
+  _renderQlModal();
+}
+function _qlTap(kind, id) {
+  if (!_ql) return;
+  const sel = _ql.sel;
+  if (kind === 'field' || kind === 'bench') {
+    if (sel && sel.id === id) { _ql.sel = null; _renderQlModal(); return; }
+    // Twee spelers aangetikt: op het veld is dat een ruil, met de bank een wissel. In beide gevallen
+    // wisselen ze gewoon van plaats in de kaart — of van plaats en bank.
+    if (sel) {
+      const a = sel.id, b = id;
+      const codeA = _ql.plaats[a] || null, codeB = _ql.plaats[b] || null;
+      if (sel.kind === 'bench' && kind === 'bench') { _ql.sel = { kind, id }; _renderQlModal(); return; }
+      if (codeA === null && codeB === null) { _ql.sel = { kind, id }; _renderQlModal(); return; }
+      if (codeA === null) { delete _ql.plaats[b]; _ql.plaats[a] = codeB; }
+      else if (codeB === null) { delete _ql.plaats[a]; _ql.plaats[b] = codeA; }
+      else { _ql.plaats[a] = codeB; _ql.plaats[b] = codeA; }
+      _ql.sel = null; _renderQlModal(); return;
+    }
+    _ql.sel = { kind, id }; _renderQlModal(); return;
+  }
+  if (kind === 'plek') {
+    if (!sel) { showToast('Tik eerst de speler die je daar wil zetten.', 'err'); return; }
+    // Staat er (na een eerdere tik) toch iemand op die plek, dan wordt het een ruil.
+    const bewoner = Object.keys(_ql.plaats).find(x => _ql.plaats[x] === id && x !== sel.id);
+    const oud = _ql.plaats[sel.id] || null;
+    _ql.plaats[sel.id] = id;
+    if (bewoner) { if (oud) _ql.plaats[bewoner] = oud; else delete _ql.plaats[bewoner]; }
+    _ql.sel = null; _renderQlModal();
+  }
+}
+function _renderQlModal() {
+  const opVeld = _qlOpVeld();
+  const bank = _qlBank();
+  const nogTeDoen = Object.keys(_ql.plaats).filter(id => !_ql.plaats[id]).map(id => qlSpelerVeld(id)).filter(Boolean);
+  const delen = deelOpstellingDelen(match);
+  const label = pSing(match);
+  const veldGroot = (MATCH_TYPES[match.matchType] || {}).field || opVeld.length;
+  openModal(`<h3>${icI(IC.shirt)} Opstelling van ${pSingLow(match)} ${_ql.deel}</h3>
+    ${delen.length > 1 ? `<div class="tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">${delen.map(n =>
+      `<button class="tgl-btn${n === _ql.deel ? ' act' : ''}" onclick="modalDeelOpstelling(${n})">${esc(label)} ${n}</button>`).join('')}</div>` : ''}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Zo begon ${pSingLow(match)} ${_ql.deel}. Tik een <b>speler</b> en dan een <b>lege plek</b> of een <b>andere speler</b>. Tik iemand van de <b>bank</b> om te wisselen.</p>
+    ${renderPitch(match, opVeld, captainAtStartOfQuarter(match, _ql.deel), null, { fn: '_qlTap', selId: _ql.sel ? _ql.sel.id : null, plek: true })}
+    <div class="sec">Bank (${bank.length})</div>
+    <div class="place-chips">${bank.length
+      ? bank.map(p => `<span class="place-chip ${_ql.sel && _ql.sel.id === p.id ? 'sel' : ''}" onclick="_qlTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
+    ${nogTeDoen.length ? `<div class="sec" style="color:var(--org2,#b45309)">Nog te plaatsen (${nogTeDoen.length})</div>
+    <div class="place-chips">${nogTeDoen.map(p => `<span class="place-chip ${_ql.sel && _ql.sel.id === p.id ? 'sel' : ''}" onclick="_qlTap('field','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')}</div>` : ''}
+    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">${opVeld.length} ${opVeld.length === 1 ? 'speler' : 'spelers'} op het veld${veldGroot && opVeld.length !== veldGroot ? ` — deze wedstrijd is ${match.matchType}` : ''}. De speelminuten volgen wat je hier zet.</p>
+    <button class="btn btn-green" style="margin-top:10px" onclick="_saveQlOpstelling()">${icI(IC.check)} Opslaan</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_ql=null;closeModal()">Annuleren</button>`);
+}
+// Welke LATERE wissels worden tegenstrijdig door de nieuwe opstelling? Dit is de wachter die het
+// augustus-incident van 2026 zou hebben voorkomen (twee shirts op één plek, doorgesleept naar élk
+// volgend deel). Gevonden bij het testen van dit venster: breng je in deel 2 iemand in die in deel 4
+// nóg eens invalt, dan haalt die latere wissel wél iemand van het veld maar zet er niemand bij —
+// kwart 4 hield zeven spelers over, zonder één foutmelding.
+// Daarom achteraf nagerekend op de HERBOUWDE wedstrijd, niet vooraf geraden: per wissel na dit deel
+// moet wie erin komt van de bank komen, en wie eraf gaat op het veld staan.
+// ÉÉN VOORWAARTSE DOORLOOP, en niet playersAtPeriodStart per event. Dat was mijn eerste versie en
+// ze was fout: die functie rekent de pauzewissels van hetzelfde deel al mee (zie de
+// atBreak-uitzondering daar), dus de wissel die je nakijkt zat al in de opstelling waartegen je hem
+// toetst — élke wedstrijd leek een tegenspraak te hebben en het venster weigerde alles, ook een
+// zuivere positieruil. Hier lopen we de wissels één keer in volgorde af en toetsen elk event tegen
+// het veld van vlak dáárvoor.
+function _qlLatereConflicten(m, deel) {
+  const fout = [];
+  const opVeld = new Set();
+  if (Array.isArray(m.startLineup) && m.startLineup.length) m.startLineup.forEach(s => opVeld.add(s.id));
+  else (m.players || []).forEach(p => { if (p.starting) opVeld.add(p.id); });
+  (m.players || []).forEach(p => { if (p.absent) opVeld.delete(p.id); });
+  const evs = (m.events || [])
+    .filter(e => e.quarterNum != null && (e.type === 'substitution' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField)))
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+  for (const e of evs) {
+    if (e.type !== 'substitution') { if (e.playerId) opVeld.delete(e.playerId); continue; }
+    // Enkel wat NA de grens komt die we net herschreven hebben, wordt getoetst — wat ervóór ligt is
+    // niet ons werk en mag zijn eigen scheefheid houden.
+    const naDeGrens = e.quarterNum > deel || (e.quarterNum === deel && !e.atBreak);
+    if (naDeGrens) {
+      if (e.playerInId && opVeld.has(e.playerInId)) fout.push(`${pName(m, e.playerInId)} valt in ${pSingLow(m)} ${e.quarterNum} in, maar staat dan al op het veld`);
+      else if (e.playerOutId && !opVeld.has(e.playerOutId)) fout.push(`${pName(m, e.playerOutId)} gaat er in ${pSingLow(m)} ${e.quarterNum} af, maar staat dan niet op het veld`);
+    }
+    if (e.playerOutId) opVeld.delete(e.playerOutId);
+    if (e.playerInId) opVeld.add(e.playerInId);
+  }
+  return fout;
+}
+async function _saveQlOpstelling() {
+  if (!_ql || !canLive() || !match) return;
+  const deel = _ql.deel;
+  const nogTeDoen = Object.keys(_ql.plaats).filter(id => !_ql.plaats[id]);
+  if (nogTeDoen.length) {
+    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} op een plek of tik ${nogTeDoen.length === 1 ? 'hem' : 'ze'} naar de bank.`, 'err');
+    return;
+  }
+  const doel = { ..._ql.plaats };                       // spelerId -> gridcode
+  const doelIds = new Set(Object.keys(doel));
+  // ADDEVENT MOET WETEN OVER WELK DEEL DIT GAAT. Zonder dit valt hij terug op match.currentQuarter —
+  // bij een afgesloten wedstrijd het LAATSTE deel — en belandden de wissels van deel 3 op de grens
+  // van deel 4. Met `atBreak` erbij zet addEvent de tijd exact op de start van dít deel.
+  const bewaardQ = _postEventQuarter, bewaardBreak = _postEventAtBreak;
+  _postEventQuarter = deel; _postEventAtBreak = false; _postEventMinute = null;
+  // ALLES WAT WE GAAN AANRAKEN EERST APART LEGGEN. Loopt de wedstrijd hierdoor in de knoop met een
+  // latere wissel, dan zetten we haar exact terug zoals ze was — liever niets doen dan een halve
+  // reconstructie achterlaten.
+  const terug = {
+    events: JSON.parse(JSON.stringify(match.events || [])),
+    players: JSON.parse(JSON.stringify(match.players || [])),
+    deleted: (match.deletedEventIds || []).slice(),
+    keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
+  };
+  // Wat er AL scheef stond, mag deze reparatie niet blokkeren: we weigeren straks enkel op een
+  // tegenspraak die er nu nog niet is. Anders zou één oude scheve wissel dit venster voorgoed
+  // dichtzetten voor die wedstrijd — precies wanneer je het nodig hebt.
+  const conflictenVoor = _qlLatereConflicten(match, deel);
+  // 1. De bestaande pauzewijzigingen van dit deel weg. Enkel wissels en positiewissels: een kaart of
+  //    een blessure op de kwartgrens is een gebeurtenis, geen opstellingskeuze.
+  const oud = (match.events || []).filter(e => e.atBreak && e.quarterNum === deel
+    && (e.type === 'substitution' || e.type === 'posSwap'));
+  oud.forEach(e => tombstoneEvent(match, e.id));
+  match.events = (match.events || []).filter(e => !oud.includes(e));
+  // 2. Het veld waarmee dit deel nu begint = het einde van het vorige deel.
+  const basis = pitchPlayersAtPeriodStart(match, deel);
+  const huidig = {};                                    // spelerId -> gridcode, wordt meegerekend
+  basis.forEach(p => { const c = spelerGridCode(p); if (c) huidig[p.id] = c; });
+  const basisIds = new Set(basis.map(p => p.id));
+  // 3a. De wissels. Wie weg moet en wie erbij komt, op elkaar gelegd zodat de invaller de plek van de
+  //     uitgaande overneemt — dat is precies wat de replay met een wissel doet.
+  const eraf = [...basisIds].filter(id => !doelIds.has(id));
+  const erin = [...doelIds].filter(id => !basisIds.has(id));
+  const paren = Math.max(eraf.length, erin.length);
+  for (let i = 0; i < paren; i++) {
+    const uit = eraf[i] || null, inn = erin[i] || null;
+    // De plek van de uitgaande NU lezen, vóór hij uit de kaart verdwijnt: de invaller neemt ze over.
+    const uitCode = uit ? (huidig[uit] || null) : null;
+    const extra = { playerOutId: uit, playerInId: inn, atBreak: true };
+    // Komt hij erbij zonder tegenhanger, dan moet de plek uit het event zelf komen (v0.49.0).
+    if (!uit && inn) extra.naarPlek = doel[inn];
+    if (inn) extra.posBefore = null;                    // rebuildPositions herstelt dit snapshot zelf
+    addEvent('substitution', extra);
+    if (uit) delete huidig[uit];
+    if (inn) huidig[inn] = uitCode || doel[inn];
+  }
+  // 3b. De positiewissels. Wie nog niet op zijn doelplek staat, wordt geruild met de bewoner van die
+  //     plek (of verhuisd als ze leeg is). Elke stap zet minstens één speler definitief goed, dus dit
+  //     loopt af — het is de gewone ontbinding van een verwisseling in ruilen.
+  for (const id of Object.keys(doel)) {
+    if (huidig[id] === doel[id]) continue;
+    const bewoner = Object.keys(huidig).find(x => x !== id && huidig[x] === doel[id]);
+    if (bewoner) {
+      addEvent('posSwap', { pA: id, pB: bewoner, atBreak: true, posA: null, posB: null });
+      const was = huidig[id];
+      huidig[id] = doel[id];
+      if (was) huidig[bewoner] = was; else delete huidig[bewoner];
+    } else {
+      addEvent('posSwap', { pA: id, pB: null, naarPlek: doel[id], atBreak: true, posA: null, posB: null });
+      huidig[id] = doel[id];
+    }
+  }
+  _postEventQuarter = bewaardQ; _postEventAtBreak = bewaardBreak;
+  // 4. Alles opnieuw afspelen en de keeperminuten herrekenen — zelfde afsluiting als saveEditEvent.
+  rebuildPositions(match, playersAtPeriodStart(match, 1));
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+  recomputeOnField(match);
+  // 5. Loopt er hierdoor een latere wissel in de knoop? Dan alles terugzetten en zeggen wat er
+  //    botst. Weigeren is hier beter dan doorzetten: een tegenstrijdige wissel sleept zich door élk
+  //    volgend deel, en dat is precies het soort schade dat achteraf niemand nog kan uitpluizen.
+  const conflicten = _qlLatereConflicten(match, deel).filter(c => !conflictenVoor.includes(c));
+  if (conflicten.length) {
+    match.events = terug.events; match.players = terug.players;
+    match.deletedEventIds = terug.deleted; if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
+    rebuildPositions(match, playersAtPeriodStart(match, 1));
+    recomputeOnField(match);
+    showToast(`Dit botst met een latere wissel: ${conflicten[0]}. Zet die eerst recht in Verloop, of kies hier een andere speler. Er is niets gewijzigd.`, 'err');
+    return;
+  }
+  _ql = null;
+  await dbSave(match); closeModal(); render();
+  meldVastgelegd(`Opstelling van ${pSingLow(match)} ${deel}`);
+}
 async function saveNotes() {
   const t = document.getElementById('note-area');
   if (t) match.notes = t.value;
