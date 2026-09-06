@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.48.0
+
+**Een event toevoegen bij het juiste kwart, in één klik.** Onderaan elk deel in de
+eventlijst van een wedstrijd staat nu een knop **"+ Event toevoegen"**. Die opent
+hetzelfde venster als voorheen, maar met dát deel al gekozen. De oude weg (Bewerken →
+"Event toevoegen") blijft bestaan en opent nog altijd op het laatste deel.
+
+Waarom: om een gemist doelpunt of een kaart uit kwart 2 na te dragen, moest je eerst
+het bewerkmenu zoeken en dan in het venster het deel omzetten — terwijl je al bij dat
+kwart in de lijst stond.
+
+De knop staat er niet bij de groep "Overig" (events zonder deel), niet voor kijkers, en
+niet op de afdruk of in de PDF.
+
+---
+
 ## v1.47.0
 
 **Ook de aftrap is nu recht te zetten, ook als er al gewisseld is.** Daarmee werkt het potloodje

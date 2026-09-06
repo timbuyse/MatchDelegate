@@ -5870,10 +5870,16 @@ async function confirmFreekick() {
 }
 
 // Event toevoegen achteraf (detail view): kies eerst het kwart, dan het event-type
-function modalAddPostEvent() {
+// `vanDeel` (v1.48.0): het deel dat meteen gekozen moet staan. Komt van de knop "+ Event toevoegen"
+// onderaan elk deel in de eventlijst (Tim, 06-09-2026: "de weg nu via bewerken is wat omslachtig...
+// zorg dat die bij elk kwart ook op het juiste kwart staat meteen"). Laat je het weg, dan blijft het
+// laatste deel voorgekozen — zoals altijd voor de weg via het menu.
+function modalAddPostEvent(vanDeel) {
   if (!canLive() || !match) return;   // rollentest 24-08-2026: gordel EN bretellen
   const quarters = match.quarters || [];
-  const lastQ = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
+  const laatste = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
+  const gevraagd = Number(vanDeel);
+  const lastQ = quarters.some(q => q.num === gevraagd) ? gevraagd : laatste;
   _postEventQuarter = lastQ !== null ? lastQ : 'unknown';
   _postEventMinute = null;
   _postEventAtBreak = false;

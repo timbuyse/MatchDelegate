@@ -3601,7 +3601,15 @@ function renderEventLog(m) {
     const items = pauzeItems.map(li).join('') + startRegel + (list.length
       ? list.map(li).join('')
       : ((startRegel || pauzeItems.length) ? '' : '<li class="qgroup-empty">Geen events in dit deel (of alles weggefilterd).</li>'));
-    return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul></div>`;
+    // "+ EVENT TOEVOEGEN" ONDERAAN ELK DEEL (Tim, 06-09-2026: "de weg nu via bewerken is wat
+    // omslachtig"). Het venster stond enkel achter Bewerken en opende altijd op het LAATSTE deel,
+    // dus voor een gemiste kaart in kwart 2 moest je eerst het menu zoeken en dan het deel omzetten.
+    // Deze knop geeft het deel meteen mee (modalAddPostEvent(qn)) — je staat al bij dat deel, dus de
+    // app hoort niet te vragen welk deel je bedoelt.
+    // Enkel wanneer we het deel kénnen: de groep "Overig" (events zonder deel) heeft er geen.
+    const toevoegen = (elog_ro || g.qn == null) ? ''
+      : `<button class="btn btn-pale btn-sm no-print qgroup-add" onclick="modalAddPostEvent(${g.qn})">${icI(IC.plus)} Event toevoegen</button>`;
+    return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul>${toevoegen}</div>`;
   }).join('');
 }
 
