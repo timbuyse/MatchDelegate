@@ -407,7 +407,7 @@ function modalDetailEditMenu() {
 // Woorden voor wat er in het verloop op iemands naam staat. Bewust in gebruikerstaal en zonder
 // tegenstander-types: die dragen geen eigen speler-id, dus ze komen hier nooit langs.
 const SEL_EVT_WOORD = {
-  goal_us: 'doelpunt', own_goal: 'eigen doelpunt', substitution: 'wissel', posSwap: 'positiewissel',
+  goal_us: 'doelpunt', own_goal: 'owngoal', substitution: 'wissel', posSwap: 'positiewissel',
   yellow_card: 'gele kaart', red_card: 'rode kaart', penalty_us: 'strafschop', freekick_us: 'vrije trap',
   corner_us: 'hoekschop', injury: 'blessure', captain_change: 'kapiteinswissel', shot: 'doelpoging',
   save: 'redding', disallowed_us: 'afgekeurd doelpunt',

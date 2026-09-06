@@ -3328,8 +3328,8 @@ function evtLabelBasis(e, m) {
   switch(e.type) {
     case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}`;
-    case 'own_goal': return `${icI(IC.goal)} Eigen doel (${pn(e.playerId)})`;
-    case 'own_goal_them': return `${icI(IC.goal)} Eigen doel tegenstander`;
+    case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})`;
+    case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander`;
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
@@ -3387,8 +3387,8 @@ function evtLabelPlainBasis(e, m) {
   switch(e.type) {
     case 'goal_us': { let s = `Doelpunt ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
     case 'goal_them': return `Doelpunt ${oppName(m)}`;
-    case 'own_goal': return `Eigen doel (${pName(m,e.playerId)})`;
-    case 'own_goal_them': return 'Eigen doel tegenstander';
+    case 'own_goal': return `Owngoal (${pName(m,e.playerId)})`;
+    case 'own_goal_them': return 'Owngoal tegenstander';
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.

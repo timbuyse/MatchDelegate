@@ -1888,7 +1888,7 @@ function shareWhatsApp(m) {
   };
   const goalLines = goalEvents.map(e => {
     const min = minVoor(e);
-    if (e.type === 'own_goal_them') return `  ⚽ ${min}Eigen doel tegenstander`;
+    if (e.type === 'own_goal_them') return `  ⚽ ${min}Owngoal tegenstander`;
     const scorer = e.playerId ? pName(m, e.playerId) : '?';
     const assist = e.assistId ? ` (assist ${pName(m, e.assistId)})` : '';
     const isPen = e.type === 'penalty_us' ? ' (pen.)' : '';
@@ -1897,7 +1897,7 @@ function shareWhatsApp(m) {
 
   // Eigen doelen door onze spelers
   const ownGoals = m.events.filter(e => e.type === 'own_goal');
-  const ownGoalLines = ownGoals.map(e => `  🔴 ${minVoor(e)}Eigen doel ${pName(m, e.playerId)}`);
+  const ownGoalLines = ownGoals.map(e => `  🔴 ${minVoor(e)}Owngoal ${pName(m, e.playerId)}`);
 
   // Kaarten
   const yellowCards = m.events.filter(e => e.type === 'yellow_card');
@@ -2086,7 +2086,7 @@ function exportMatchCSV() {
   // EVENTS
   const typeLabels = {
     goal_us: 'Doelpunt', goal_them: 'Doelpunt tegen',
-    own_goal: 'Eigen doel', own_goal_them: 'Eigen doel (teg.)',
+    own_goal: 'Owngoal', own_goal_them: 'Owngoal (teg.)',
     yellow_card: 'Gele kaart', red_card: 'Rode kaart',
     yellow_card_them: 'Gele kaart tegen', red_card_them: 'Rode kaart tegen',
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
@@ -2118,7 +2118,7 @@ function exportMatchCSV() {
       if (e.assistId) extraInfo = 'Assist: ' + pName(m, e.assistId);
       if (e.scored === true) extraInfo = 'Goal';
       if (e.scored === false) extraInfo = 'Gemist';
-      if (e.isOwnGoal) extraInfo = 'Eigen doel';
+      if (e.isOwnGoal) extraInfo = 'Owngoal';
       if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
     }
     if (e.type === 'note' && e.text) extraInfo = e.text;
@@ -2700,23 +2700,41 @@ async function saveEditEvent(id) {
   await dbSave(match); closeModal(); render();
 }
 // Extra registraties: schoten, reddingen, afgekeurd doelpunt.
+// DIT VENSTER IS TWEE MENU'S TEGELIJK, en dat is de sleutel tot alles hieronder:
+//   · de knop "Meer" in het knoppenraster van het lopende wedstrijdscherm;
+//   · "Meer…" onderaan "Event toevoegen" (modalAddPostEvent), waarmee je achteráf iets aan een
+//     eerder deel hangt.
+// Sinds het raster negen kaartjes telt (v1.42.0) stonden vrije trap, penalty, rode kaart, blessure
+// en hoekschop hier dúbbel — maar enkel voor de eerste weg. Langs de tweede weg is dit voor rode
+// kaart, blessure en hoekschop de ENIGE ingang: "Event toevoegen" heeft daar zelf geen knop voor,
+// en zijn knop "Kaart" geeft alleen een GELE. Ze zomaar schrappen zou dus stil iets wegnemen.
+// Vandaar: tijdens de wedstrijd tonen we enkel wat niet in het raster staat (Tims keuze B,
+// 04-09-2026), achteraf staat alles er.
+// HOE WE DAT WETEN: `_postEventQuarter` is gezet zodra je via "Event toevoegen" binnenkomt en
+// blijft dat, want postEvt() sluit het venster niet. Vanuit het raster is hij null — closeModal()
+// zet hem leeg, en er stond geen venster open. Raak die volgorde niet aan zonder dit na te kijken.
 function modalExtra() {
+  const achteraf = _postEventQuarter !== null;
   const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
   openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
+    ${achteraf ? `
     <div class="sec" style="margin-top:0">${icI(IC.bolt)} Vrije trap</div>
     ${opt(`${icI(IC.bolt)} Vrije trap`, "modalFreekick()")}
     <div class="sec">${icI(IC.penalty)} Penalty</div>
     ${opt(`${icI(IC.penalty)} Penalty`, "modalPenalty()")}
     <div class="sec">${icI(IC.cardR)} Rode kaart</div>
-    ${opt(`${icI(IC.cardR)} Rode kaart`, "modalCard('red')")}
-    <div class="sec">${icI(IC.injury)} Blessure of vertrek</div>
-    ${opt(`${icI(IC.injury)} Blessure`, "modalInjury()")}
+    ${opt(`${icI(IC.cardR)} Rode kaart`, "modalCard('red')")}` : ''}
+    <div class="sec"${achteraf ? '' : ' style="margin-top:0"'}>${icI(IC.injury)} ${achteraf ? 'Blessure of vertrek' : 'Vertrek'}</div>
+    ${achteraf ? opt(`${icI(IC.injury)} Blessure`, "modalInjury()") : ''}
     ${/* Eigen ingang, want dit is geen blessure: een speler die naar huis gaat of naar het tweede
-         veld. Stond alleen als vierde keuze binnen het blessurevenster en was daardoor onvindbaar. */ ''}
+         veld. Stond alleen als vierde keuze binnen het blessurevenster en was daardoor onvindbaar.
+         Blijft ook tijdens de wedstrijd staan: er is wel een tweede weg (het kruisje bij een speler
+         op het tabblad Opstelling), maar die begint bij de SPELER en deze bij de handeling. */ ''}
     ${opt(`${icI(IC.close)} Speler verlaat de wedstrijd`, "modalInjury(null,'vertrokken')")}
+    ${achteraf ? `
     <div class="sec">${icI(IC.corner)} Hoekschop</div>
     ${opt(`${icI(IC.corner)} Hoekschop voor ${esc(tName(match))}`, "logCorner('us')")}
-    ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}
+    ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}` : ''}
     <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
     ${opt(`${icI(IC.disallowed)} Afgekeurd voor ${esc(tName(match))}`, "modalDisallowed('us')")}
     ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "modalDisallowed('them')")}
@@ -3064,16 +3082,34 @@ function recomputeCaptain(m, removed) {
   const changes = (m.events || []).filter(e => e.type === 'captain_change').sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
   m.captainId = changes.length ? changes[changes.length - 1].playerId : ((removed && removed.fromId) || null);
 }
+// ÉÉN GROENE MELDING NA ELKE REGISTRATIE (Tim, 04-09-2026: "wat ik mis is feedback na een actie").
+// Vóór dit bestond, gaf GEEN ENKELE registratie een bevestiging: wel foutmeldingen als er iets
+// ontbrak, en een animatie bij een kaart en bij de score — maar tik je een hoekschop, een vrije trap
+// of een wissel in, dan sloot het venster en zei het scherm niets. Aan de zijlijn, met een half oog
+// op het veld, weet je dan niet of je tik geland is.
+// Altijd dezelfde vorm — WAT er vastligt, en daarachter het detail dat je wil kunnen nalezen — zodat
+// het één taal blijft en je aan de kleur alleen al ziet dat het goed ging. Rood blijft voor wat
+// misging; dit is uitdrukkelijk 'ok'.
+function meldVastgelegd(wat, detail) {
+  showToast(detail ? `${wat} vastgelegd · ${detail}` : `${wat} vastgelegd`, 'ok');
+}
+// De naam van de tegenstander zoals die op het scherm staat, voor in die meldingen.
+function tegenstanderNaam(m) { return (m && m.opponent) ? m.opponent : 'tegenstander'; }
 async function setMatchCaptain(id) {
   const prev = match.captainId;
   match.captainId = id;
   if (id && id !== prev) addEvent('captain_change', { playerId: id, fromId: prev || null });
   await dbSave(match); closeModal(); render();
+  if (id && id !== prev) showToast(`Kapitein gewijzigd · ${pName(match, id)}`, 'ok');
 }
-async function logExtra(type, extra = {}) {
+// `wat` en `detail` gaan naar de groene bevestiging; laat `wat` weg en er komt er geen.
+async function logExtra(type, extra = {}, wat, detail) {
   if (_eventBusy) return; // dubbeltik-guard (bv. afgekeurd doelpunt): anders twee identieke events
   _eventBusy = true;
-  try { addEvent(type, extra); await dbSave(match); closeModal(); render(); }
+  try {
+    addEvent(type, extra); await dbSave(match); closeModal(); render();
+    if (wat) meldVastgelegd(wat, detail);
+  }
   finally { _eventBusy = false; }
 }
 function modalDisallowed(side) {
@@ -3081,7 +3117,7 @@ function modalDisallowed(side) {
   const label = side === 'us' ? `voor ${esc(tName(match))}` : 'tegen';
   openModal(`<h3>${icI(IC.disallowed)} Afgekeurd doelpunt ${label}</h3>
     <div class="fg"><label>Reden (optioneel)</label><input id="disallowed-reason" type="text" placeholder="bv. buitenspel" value="buitenspel" autocomplete="off"></div>
-    <button class="btn btn-org" onclick="logExtra('${type}',{reason:(document.getElementById('disallowed-reason').value||'').trim()})">Registreren</button>
+    <button class="btn btn-org" onclick="logExtra('${type}',{reason:(document.getElementById('disallowed-reason').value||'').trim()},'Afgekeurd doelpunt','${side === 'us' ? jsq(tName(match)) : jsq(tegenstanderNaam(match))}')">Registreren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 // WAT KAN JE ONGEDAAN MAKEN? (Tim, 23-08-2026) Enkel wat je ZELF net loggde in het deel dat nu
@@ -3197,7 +3233,7 @@ function modalGoal() {
       <div class="sec">Welke speler scoorde?</div>
       <div id="goal-players" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
         ${on.map(p=>`<button type="button" class="gp-btn" data-id="${p.id}" onclick="selectGoalPlayer('${p.id}',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join('')}
-        <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">eigen doel teg.</span></button>
+        <button type="button" class="gp-btn" data-id="own_them" onclick="selectGoalPlayer('own_them',this)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:3px"><span style="font-size:13px;font-weight:900;color:var(--txt2);line-height:1">OG</span><span style="font-size:10px;color:var(--txt2);text-align:center">owngoal teg.</span></button>
       </div>
       <div id="assist-section" class="hidden">
         <div class="sec">Assist door? (optioneel)</div>
@@ -3211,7 +3247,7 @@ function modalGoal() {
       <div class="sec">Soort tegendoel?</div>
       <div class="tgl" id="goal-own-tgl">
         <button class="act" onclick="tglOwnGoal(false,this)">Tegendoel</button>
-        <button onclick="tglOwnGoal(true,this)">Eigen doel (onze speler)</button>
+        <button onclick="tglOwnGoal(true,this)">Owngoal (onze speler)</button>
       </div>
       <div id="own-goal-players" class="hidden">
         <div class="sec">Welke speler?</div>
@@ -3311,6 +3347,13 @@ async function confirmGoal() {
       else { addEvent('goal_them'); match.scoreThem++; }
     }
     await dbSave(match); closeModal(); render();
+    // De score springt al even in beeld (goal-anim hieronder), maar die zegt niet WAT je ingetikt
+    // hebt — een eigen doelpunt van de tegenstander laat dezelfde teller stijgen als een doelpunt
+    // van jouw spits. Vandaar dat de melding de vier gevallen uit elkaar houdt.
+    // "Owngoal" en niet "eigen doel(punt)" (Tim, 06-09-2026). Het woord dat aan de lijn gebruikt
+    // wordt, en het scheelt bovendien maar één blik van "Doelpunt" en "Tegendoelpunt".
+    if (goalTeam === 'us') meldVastgelegd('Doelpunt', goalIsOwnGoal ? `owngoal van ${tegenstanderNaam(match)}` : pName(match, goalPlayerId));
+    else meldVastgelegd(goalIsOwnGoal ? 'Owngoal' : 'Tegendoelpunt', goalIsOwnGoal ? pName(match, goalPlayerId) : tegenstanderNaam(match));
   } finally { _goalBusy = false; }
   requestAnimationFrame(() => {
     const sb = document.querySelector('.scoreboard .sb-score');
@@ -3339,7 +3382,10 @@ function modalCorner() {
 async function logCorner(team) {
   if (_eventBusy) return;
   _eventBusy = true;
-  try { addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render(); }
+  try {
+    addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render();
+    meldVastgelegd('Hoekschop', team === 'us' ? tName(match) : tegenstanderNaam(match));
+  }
   finally { _eventBusy = false; }
 }
 
@@ -3434,8 +3480,14 @@ async function confirmSub() {
         return;
       }
       await dbSave(match); closeModal(); render();
+      // Een pauzewissel gaat niet meteen door maar staat klaar voor het volgende deel — zeg dat er
+      // ook zo bij, anders lijkt het alsof er al gewisseld is.
+      meldVastgelegd('Pauzewissel', `${pName(match, subIn)} in voor ${pName(match, subOut)}`);
       return;
     }
+    // De namen NU pakken: na dbSave/render worden subOut en subIn elders leeggemaakt, en dan staat
+    // er "undefined in voor undefined" in de melding.
+    const naamIn = pName(match, subIn), naamUit = pName(match, subOut);
     const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
     if (_postEventQuarter != null) {
       // Retro-wissel toegevoegd aan een afgelopen deel: NIET de live-veldstaat muteren of het
@@ -3458,6 +3510,7 @@ async function confirmSub() {
       syncKeeper(); // keeper volgt automatisch de doellijn
     }
     await dbSave(match); closeModal(); render();
+    meldVastgelegd('Wissel', `${naamIn} in voor ${naamUit}`);
   } finally { _eventBusy = false; }
 }
 
@@ -5085,6 +5138,7 @@ function tglCardTeam(team, btn) {
 async function logCard(color, pid) {
   if (_eventBusy) return;
   _eventBusy = true;
+  let tweedeGeel = false;
   try {
     if (color === 'red') { addEvent('red_card', { playerId: pid }); const p = match.players.find(x=>x.id===pid); if (p) p.onField = false; }
     else {
@@ -5099,6 +5153,7 @@ async function logCard(color, pid) {
         addEvent('red_card', { playerId: pid, autoSecondYellow: true });
         const p = match.players.find(x => x.id === pid);
         if (p) p.onField = false;
+        tweedeGeel = true;
         showToast(`2e gele kaart → ${p ? p.name : 'Speler'} krijgt automatisch rood en verlaat het veld.`, 'err');
       }
     }
@@ -5111,6 +5166,9 @@ async function logCard(color, pid) {
     }
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
+    // Bij een tweede geel staat er hierboven al een rode melding over de automatische rode kaart —
+    // die is belangrijker dan de bevestiging, en twee meldingen na elkaar overschrijven elkaar toch.
+    if (!tweedeGeel) meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', pName(match, pid));
   } finally { _eventBusy = false; }
 }
 // Het kaartje op de knop laten oplichten — hetzelfde seintje voor een eigen kaart en een kaart voor
@@ -5133,6 +5191,7 @@ async function logCardThem(color) {
     addEvent(color === 'red' ? 'red_card_them' : 'yellow_card_them', nr ? { oppNumber: nr } : {});
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
+    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
 
@@ -5166,6 +5225,9 @@ async function logPenalty(scored) {
     if (penTeam === 'us') { addEvent('penalty_us', { scored, playerId: penPlayerId || null }); if (scored) match.scoreUs++; }
     else { addEvent('penalty_them', { scored }); if (scored) match.scoreThem++; }
     await dbSave(match); closeModal(); render();
+    // Gescoord of gemist hoort erbij: het is dezelfde knop en het verschil bepaalt de stand.
+    const wie = penTeam === 'us' ? (penPlayerId ? pName(match, penPlayerId) : tName(match)) : tegenstanderNaam(match);
+    meldVastgelegd('Strafschop', `${wie} · ${scored ? 'gescoord' : 'gemist'}`);
   } finally { _eventBusy = false; }
 }
 
@@ -5335,8 +5397,14 @@ async function confirmInjury() {
       _pasNextLineupAan(match, match.nextLineup.filter(e => e.id !== injPlayerId));
     }
     await dbSave(match);
+    // De naam vóór het openen van het volgende venster pakken: dat zet injPlayerId opnieuw.
+    const naam = pName(match, injPlayerId);
     if (leavesField && stondOpHetVeld) { modalSubAfterInjury(injPlayerId, injType === 'vertrokken' ? 'vertrokken' : undefined); }
     else { closeModal(); render(); }
+    // Ook wanneer het wisselvenster meteen opengaat: dan is dit de bevestiging van de blessure zelf,
+    // en de wissel krijgt daarna zijn eigen melding. Kiest hij "Geen wissel", dan heeft hij er toch
+    // één gezien — zonder dit zou juist die weg helemaal stil blijven.
+    meldVastgelegd(injType === 'vertrokken' ? 'Vertrek' : 'Blessure', naam);
   } finally { _eventBusy = false; }
 }
 // `reden` = 'vertrokken' wanneer de speler niet geblesseerd is maar weggaat (naar het tweede veld
@@ -5401,6 +5469,7 @@ async function confirmFreekick() {
     if (fkTeam === 'us') addEvent('freekick_us', { playerId: fkPlayerId || null });
     else addEvent('freekick_them');
     await dbSave(match); closeModal(); render();
+    meldVastgelegd('Vrije trap', fkTeam === 'us' ? (fkPlayerId ? pName(match, fkPlayerId) : tName(match)) : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
 

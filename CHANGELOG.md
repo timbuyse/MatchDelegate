@@ -9,6 +9,49 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.45.0
+
+**Je krijgt nu een groene melding na elke registratie.** Tot nu zei het scherm alleen iets als er
+iets *mis* was — je tikte een hoekschop, een vrije trap of een wissel in, het venster sloot, en
+verder niets. Aan de zijlijn, met een half oog op het veld, wist je dan niet of je tik geland was.
+
+Elke registratie bevestigt nu wat er vastligt:
+
+> Doelpunt vastgelegd · Jan Byl<br>
+> Wissel vastgelegd · Stan in voor Jan<br>
+> Hoekschop vastgelegd · U11IP<br>
+> Strafschop vastgelegd · Jan Byl · gemist<br>
+> Blessure vastgelegd · Jan Byl
+
+**"Eigen doel" heet nu overal "owngoal"** — in het wedstrijdvenster, in het verloop, in het verslag
+dat je deelt, in de PDF en in de export. Het is het woord dat aan de lijn gebruikt wordt, en het
+scheelt in één blik van "Doelpunt" en "Tegendoelpunt". Er verandert niets aan wat er opgeslagen staat:
+bestaande wedstrijden tonen gewoon het nieuwe woord.
+
+Dat geldt ook voor wat je **achteraf** toevoegt, en voor de kapiteinswissel. Een **pauzewissel** zegt
+er uitdrukkelijk "pauzewissel" bij, want die gaat pas bij de start van het volgende deel door.
+
+Bij een **tweede gele kaart** blijft de bestaande waarschuwing staan — dat die speler automatisch rood
+krijgt en het veld verlaat is belangrijker dan een bevestiging, dus daar komt er geen tweede melding
+overheen.
+
+---
+
+## v1.44.0
+
+**"Meer" is tijdens de wedstrijd een kort lijstje geworden.** Er stonden tien keuzes in, waarvan er
+vijf sinds de herindeling gewoon in het knoppenraster staan: vrije trap, penalty, rode kaart, blessure
+en hoekschop. Tijdens het spel toont "Meer" nu alleen nog wat je nergens anders vindt:
+
+> Speler verlaat de wedstrijd · Afgekeurd doelpunt (voor / tegen) · Kapitein wijzigen
+
+**Er gaat niets verloren.** Datzelfde venster is namelijk óók het menu "Meer…" onderaan **"Event
+toevoegen"**, waarmee je achteraf iets aan een eerder deel hangt — en dáár blijven alle tien de keuzes
+staan. Dat is nodig ook: voor een rode kaart, een blessure of een hoekschop die je achteraf ingeeft,
+is dat de enige weg. De knop "Kaart" bij "Event toevoegen" geeft namelijk alleen een gele.
+
+---
+
 ## v1.43.1
 
 **"Moment markeren" is weg**, en de **notitie** staat nu als knop **naast "Geplande wissels"**, onder
