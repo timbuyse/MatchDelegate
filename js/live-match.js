@@ -1756,7 +1756,14 @@ function applyFormationPositions() {
     .map(c => gridPlek(c)).filter(Boolean);
   const vrij = new Set(voorstel.map(p => p.code));
   const plaats = {};
-  const starters = _epStarters();
+  // WIE ER NU IN DE KAART STAAT, niet wie er volgens de opgeslagen wedstrijd aftrapt (v1.49.0).
+  // Sinds de bank in dit venster staat, kan je eerst iemand inwisselen en dán op deze knop duwen —
+  // dan moet de formatie op JOUW elftal toegepast worden. Zonder een open venster (theoretisch, de
+  // knop staat er alleen in) valt hij terug op de opgeslagen aftrap.
+  const startKopie = {};
+  _epStarters().forEach(p => { startKopie[p.id] = p; });
+  const starters = (_ep ? Object.keys(_ep.plaats) : Object.keys(startKopie))
+    .map(id => startKopie[id] || (match.players || []).find(p => p.id === id)).filter(Boolean);
   // Ook hier de plek van de AFTRAP als ijkpunt, niet die van het einde van de wedstrijd — zie
   // _epStartCodes. Dit bepaalt welke aanbevolen plek het dichtst bij iemand ligt.
   const startCodes = _epStartCodes();
@@ -1785,43 +1792,95 @@ function applyFormationPositions() {
   _ep = { plaats, sel: null };
   _renderEpModal();
 }
-// Tikken, met dezelfde regels als in de planner: speler + lege plek = verhuizen, speler + speler =
-// van plaats wisselen, tweemaal dezelfde speler = selectie weg.
-function _epTap(kind, id) {
-  if (!_ep) return;
-  const sel = _ep.sel;
-  if (kind !== 'plek' && sel && sel.id === id) { _ep.sel = null; _renderEpModal(); return; }
-  if (kind === 'plek') {
-    if (!sel) return;                                  // geen speler in de hand: niets te verhuizen
-    const bewoner = Object.keys(_ep.plaats).find(pid => _ep.plaats[pid] === id);
-    const oude = _ep.plaats[sel.id] || null;
-    _ep.plaats[sel.id] = id;
-    // Bezette plek: ze ruilen. Kwam de verhuizer nergens vandaan, dan moet de bewoner opnieuw
-    // geplaatst worden — hij komt in "Nog te plaatsen" te staan, niet stil onder de ander.
-    if (bewoner && bewoner !== sel.id) _ep.plaats[bewoner] = oude;
-    _ep.sel = null; _renderEpModal(); return;
+// ÉÉN BEDIENING VOOR DE TWEE OPSTELLINGSVENSTERS (v1.49.0). Tot nu had de aftrap zijn eigen
+// tikregels, omdat er geen bank was: je kon er enkel spelers verplaatsen en ruilen. Nu de bank er
+// ook bij de aftrap staat (Tim, 06-09-2026: "bij startopstelling verplaatsen blijken de bankspelers
+// er niet te staan"), moeten beide vensters zich identiek gedragen — anders leert iemand het ene en
+// struikelt hij over het andere. `st` is _ep of _ql; beide dragen { plaats, sel }.
+//
+// DE KAART BEPAALT WIE ER SPEELT. Een sleutel in `plaats` betekent "die staat in deze opstelling":
+// met een roosterplek erbij staat hij op het veld, met `null` moet hij nog geplaatst worden. Wie
+// géén sleutel heeft, zit op de bank. Iemand naar de bank tikken is dus zijn sleutel weghalen.
+//
+// Geeft `true` terug wanneer er iets veranderd is en er hertekend moet worden.
+function _opstTap(st, kind, id) {
+  if (!st) return false;
+  const sel = st.sel;
+  if (kind === 'field' || kind === 'bench') {
+    if (sel && sel.id === id) { st.sel = null; return true; }   // tweemaal dezelfde: selectie weg
+    if (sel) {
+      const a = sel.id, b = id;
+      const codeA = st.plaats[a] || null, codeB = st.plaats[b] || null;
+      // Twee bankspelers, of twee spelers die allebei nog geen plek hebben: er valt niets te
+      // ruilen, dus verspringt gewoon de selectie.
+      if (sel.kind === 'bench' && kind === 'bench') { st.sel = { kind, id }; return true; }
+      if (codeA === null && codeB === null) { st.sel = { kind, id }; return true; }
+      if (codeA === null) { delete st.plaats[b]; st.plaats[a] = codeB; }
+      else if (codeB === null) { delete st.plaats[a]; st.plaats[b] = codeA; }
+      else { st.plaats[a] = codeB; st.plaats[b] = codeA; }
+      st.sel = null; return true;
+    }
+    st.sel = { kind, id }; return true;
   }
-  if (!sel) { _ep.sel = { kind, id }; _renderEpModal(); return; }
-  // Twee spelers: van plaats wisselen.
-  const a = sel.id, b = id;
-  const pa = _ep.plaats[a] || null, pb = _ep.plaats[b] || null;
-  _ep.plaats[a] = pb; _ep.plaats[b] = pa;
-  _ep.sel = null; _renderEpModal();
+  if (kind === 'plek') {
+    if (!sel) { showToast('Tik eerst de speler die je daar wil zetten.', 'err'); return false; }
+    // Staat er (na een eerdere tik) toch iemand op die plek, dan wordt het een ruil.
+    const bewoner = Object.keys(st.plaats).find(x => st.plaats[x] === id && x !== sel.id);
+    const oud = st.plaats[sel.id] || null;
+    st.plaats[sel.id] = id;
+    if (bewoner) { if (oud) st.plaats[bewoner] = oud; else delete st.plaats[bewoner]; }
+    st.sel = null; return true;
+  }
+  return false;
+}
+function _epSpeler(id) { return (match.players || []).find(p => p.id === id); }
+// WIE JE UIT EEN OPSTELLING HAALT, LAAT ZIJN GEBEURTENISSEN STAAN (v1.49.0). Haal je een basisspeler
+// eruit die in dat deel een kaart kreeg of scoorde, dan blijft dat event op zijn naam terwijl hij
+// nergens meer speelt. De wedstrijd is dan intern nog consistent — vandaar dat we niet weigeren —
+// maar in de eventlijst staat een rode kaart voor iemand die niet meespeelde, en dat is precies het
+// soort scheefheid dat je zelf wil zien in plaats van maanden later tegen te komen.
+// Enkel wie NERGENS meer speelt: kwam hij later gewoon in, dan is er niets aan de hand.
+// selectieBezwaren (detail-pdf.js) noemt alles wat er op iemands naam staat, inclusief kapitein en
+// "stond in doel" — precies de lijst die we hier willen; de speelminuten zelf laten we eruit.
+function _opstResten(m, eruitIds) {
+  if (!eruitIds || !eruitIds.length || typeof selectieBezwaren !== 'function') return [];
+  const mins = calcMinutes(m);
+  return eruitIds.map(id => {
+    const p = (m.players || []).find(x => x.id === id);
+    if (!p || (((mins[id] || {}).ms) || 0) >= 1000) return null;
+    const bez = selectieBezwaren(m, p, mins).filter(t => !/gespeeld/.test(t));
+    return bez.length ? `${pName(m, id)} (${bez.join(', ')})` : null;
+  }).filter(Boolean);
+}
+function _epTap(kind, id) { if (_opstTap(_ep, kind, id)) _renderEpModal(); }
+// De bank bij de AFTRAP: iedereen uit de selectie die niet in de kaart staat. Het ijkpunt is deel 1,
+// dus enkel wie afwezig gemeld is valt weg — een rode kaart in kwart 1 viel per definitie ná de
+// aftrap en mag hier dus gewoon staan (dat is de fout die de fuzzer bij v1.47.0 vond).
+function _epBank() {
+  return (match.players || [])
+    .filter(p => !(p.id in _ep.plaats) && _qlMagInOpstelling(match, p.id, 1))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
+}
+function _epNogTeDoen() {
+  return Object.keys(_ep.plaats).filter(id => !_ep.plaats[id]).map(_epSpeler).filter(Boolean);
 }
 function _epVeldSpelers() {
-  return _epStarters().filter(p => _ep.plaats[p.id]).map(p => {
-    const plek = gridPlek(_ep.plaats[p.id]);
+  return Object.keys(_ep.plaats).map(id => {
+    const p = _epSpeler(id), plek = gridPlek(_ep.plaats[id]);
+    if (!p || !plek) return null;
     return Object.assign({}, p, { x: plek.x, y: plek.y, line: plek.line,
       posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code });
-  });
+  }).filter(Boolean);
 }
 function _renderEpModal() {
   if (!_ep) return;
   const veld = _epVeldSpelers();
-  const nogTeDoen = _epStarters().filter(p => !_ep.plaats[p.id]);
+  const nogTeDoen = _epNogTeDoen();
+  const bank = _epBank();
   const selId = _ep.sel ? _ep.sel.id : null;
+  const veldGroot = (MATCH_TYPES[match.matchType] || {}).field || veld.length;
   const chips = nogTeDoen.length
-    ? nogTeDoen.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
+    ? nogTeDoen.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('field','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
     : `<span style="color:var(--grn);font-weight:700;font-size:14px">${icI(IC.check)} Iedereen staat op het veld</span>`;
   // Kop en uitleg volgen of er al plekken STAAN (v1.30.0). Bij een wedstrijd waarvan de gegevens van
   // het wedstrijdblad van de bond komen, staat er nog niemand op het veld — dan is "zo stonden ze bij
@@ -1829,13 +1888,20 @@ function _renderEpModal() {
   // in modalDetailEditMenu (detail-pdf.js).
   const eersteKeer = !heeftPlekkenOpHetVeld(match);
   document.getElementById('modal').innerHTML = `<div class="modal-ov"><div class="modal">
-    <h3>${icI(IC.shirt)} Startopstelling ${eersteKeer ? 'ingeven' : 'herplaatsen'}</h3>
+    ${/* "aanpassen", niet meer "herplaatsen" (v1.49.0): je verzet hier niet enkel plaatsen, je kan ook
+         iemand van de bank inbrengen. Houd dit gelijk met het menu-item in modalDetailEditMenu. */ ''}
+    <h3>${icI(IC.shirt)} Startopstelling ${eersteKeer ? 'ingeven' : 'aanpassen'}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">${eersteKeer
       ? 'Er staat nog niemand op het veld. Tik een speler uit de lijst onderaan en dan zijn plek. Wie erna inviel blijft zonder plek — het wedstrijdblad zegt niet waar hij ging staan.'
-      : 'Zo stonden ze bij de aftrap. Tik een speler en dan een andere plek om hem te verzetten, of twee spelers om ze van plaats te wisselen.'}</p>
+      : 'Zo stonden ze bij de aftrap. Tik een <b>speler</b> en dan een <b>andere plek</b> of een <b>andere speler</b>. Tik iemand van de <b>bank</b> om te wisselen.'}</p>
     <div class="card" style="padding:8px">${renderPitch(match, veld, match.captainId, null, { fn: '_epTap', selId, plek: true })}</div>
+    <div class="sec" style="margin-top:8px">Bank (${bank.length})</div>
+    <div class="place-chips">${bank.length
+      ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
+      : '<span style="color:var(--txt2);font-size:14px">Niemand op de bank.</span>'}</div>
     <div class="sec" style="margin-top:8px">Nog te plaatsen (${nogTeDoen.length})</div>
     <div class="place-chips">${chips}</div>
+    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">${veld.length} ${veld.length === 1 ? 'speler' : 'spelers'} op het veld${veldGroot && veld.length !== veldGroot ? ` — deze wedstrijd is ${match.matchType}` : ''}. De speelminuten volgen wat je hier zet.</p>
     ${/* ELF SPELERS ÉÉN PER ÉÉN PLAATSEN IS TWEEËNTWINTIG TIKKEN (v1.30.0). applyFormationPositions
          bestond al, maar was alleen bereikbaar nadat je het formatielabel wijzigde. Bij een wedstrijd
          waar nog niemand staat — de bondsimport — is dat juist de knop die je wil: één tik voor een
@@ -1851,11 +1917,11 @@ function _renderEpModal() {
 }
 async function _saveEpPositions() {
   if (!_ep || !canLive()) return;
-  const nogTeDoen = _epStarters().filter(p => !_ep.plaats[p.id]);
+  const nogTeDoen = _epNogTeDoen();
   // WEIGEREN bij een onvolledige opstelling. Dit is het slot dat er niet was: opslaan wiste eerst
   // alle posities, dus een half gevuld veld liet spelers zonder plaats achter.
   if (nogTeDoen.length) {
-    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} eerst op een plek.`, 'err');
+    showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} op een plek of tik ${nogTeDoen.length === 1 ? 'hem' : 'ze'} naar de bank.`, 'err');
     return;
   }
   // ALLES WAT WE AANRAKEN EERST APART LEGGEN — zelfde voorzorg als bij een deelopstelling: liever
@@ -1864,21 +1930,52 @@ async function _saveEpPositions() {
     events: JSON.parse(JSON.stringify(match.events || [])),
     players: JSON.parse(JSON.stringify(match.players || [])),
     startLineup: match.startLineup ? JSON.parse(JSON.stringify(match.startLineup)) : match.startLineup,
-    deleted: (match.deletedEventIds || []).slice(),
+    // undefined blijft undefined (v1.49.0): stond de tombstonelijst er nog niet, dan mag een GEWEIGERDE
+    // bewerking er ook geen lege achterlaten. Gemeten met de fuzzer: dat was het enige verschil dat
+    // "er is niets gewijzigd" nog niet letterlijk waarmaakte.
+    deleted: match.deletedEventIds ? match.deletedEventIds.slice() : undefined,
     keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
   };
   const conflictenVoor = _qlLatereConflicten(match, 1);
-  // HIER WORDT NIETS VASTGEPIND, en dat is met opzet — anders dan bij het rechtzetten van een
-  // DEELopstelling. Het verschil: dit venster verandert alleen PLAATSEN, nooit wie er speelt. Het
-  // herplaatst dezelfde basisspelers, dus de speelminuten kunnen er niet door bewegen.
-  // Een verlegging van de aftrap hoort dus door de hele wedstrijd te lopen: rebuildPositions speelt
-  // de wissels en positiewissels van elk later deel bovenop de NIEUWE plaatsen opnieuw af, en dat is
-  // precies waar die replay voor gemaakt is. Zet je de rechtsachter en de centrale verdediger om,
-  // dan stonden ze zo de hele wedstrijd — tenzij een later deel ze zelf nog verzette, en dat blijft
-  // gewoon staan omdat die positiewissel opnieuw wordt toegepast.
+  // VERZET JE ENKEL PLAATSEN, OF WISSEL JE OOK IEMAND? Dat onderscheid bepaalt alles hieronder, en
+  // het bestaat sinds de bank hier staat (v1.49.0).
+  const nu = new Set(_epStarters().map(p => p.id));
+  const straks = new Set(Object.keys(_ep.plaats));
+  const personeel = nu.size !== straks.size || [...straks].some(id => !nu.has(id));
+  // ENKEL PLAATSEN: HIER WORDT NIETS VASTGEPIND, en dat is met opzet — anders dan bij het rechtzetten
+  // van een DEELopstelling. Het herplaatst dezelfde basisspelers, dus de speelminuten kunnen er niet
+  // door bewegen. Een verlegging van de aftrap hoort dan door de hele wedstrijd te lopen:
+  // rebuildPositions speelt de wissels en positiewissels van elk later deel bovenop de NIEUWE
+  // plaatsen opnieuw af, en dat is precies waar die replay voor gemaakt is. Zet je de rechtsachter en
+  // de centrale verdediger om, dan stonden ze zo de hele wedstrijd — tenzij een later deel ze zelf
+  // nog verzette, en dat blijft gewoon staan omdat die positiewissel opnieuw wordt toegepast.
   // Ik heb het eerst mét vastpinnen gebouwd en dat bleef fout: de correctie bleef dan in kwart 1
   // hangen, want een deel met een pauzeWISSEL kreeg zijn hele opstelling vastgezet — ook de plaatsen
   // die daar enkel uit het vorige deel overgewaaid waren.
+  //
+  // WISSEL JE IEMAND, DAN WÉL — zelfde behandeling als bij een deelopstelling, en om een harde reden.
+  // Zet je bij de aftrap A eruit en B erin, dan haalt een PAUZEwissel in kwart 2 ("A eraf, C erin")
+  // daar iemand van het veld die er niet meer staat: C komt erbij, niemand gaat eraf, en dat kwart
+  // speelt met één man te veel. Geen enkele foutmelding — precies het soort schade dat achteraf
+  // niemand nog kan uitpluizen. De wachter hieronder ziet dat niet: een pauzewissel IS de opstelling
+  // van dat kwart en wordt daar bewust niet op getoetst (zie _qlLatereConflicten, de fout die Tim in
+  // v1.46.2 vond). Dus leggen we van elk later kwart dat een EIGEN opstelling heeft vast wie er stond
+  // en waar, en schrijven we die grens daarna opnieuw. Wat je verwacht: "ik zet de aftrap recht, en
+  // de rest van de wedstrijd blijft eruitzien zoals ze eruitzag."
+  // Een kwart ZONDER eigen pauzewijzigingen erft van het vorige — dat blijft erven, en volgt je
+  // correctie dus gewoon. Pin je dat ook vast, dan verzint de app daar wissels om de oude toestand te
+  // bewaren.
+  const heeftEigenOpstelling = q => (match.events || []).some(e => e.atBreak && e.quarterNum === q
+    && (e.type === 'substitution' || e.type === 'posSwap'));
+  const laterDelen = personeel
+    ? ((match.quarters || []).map(q => q.num)).filter(n => n > 1 && heeftEigenOpstelling(n)).sort((a, b) => a - b)
+    : [];
+  const laterDoel = {};
+  laterDelen.forEach(q => {
+    const kaart = {};
+    pitchPlayersAtPeriodStart(match, q).forEach(p => { const c = spelerGridCode(p); if (c) kaart[p.id] = c; });
+    laterDoel[q] = kaart;
+  });
   // DE STARTOPSTELLING KOMT UIT WAT JE GETEKEND HEBT, NIET UIT m.players. Dat is de fout waar het
   // oude slot toevallig voor behoedde, en ze kostte me een halve test: `m.players` draagt de
   // EINDposities van de wedstrijd (rebuildPositions schrijft ze daar terug). Zolang er geen wissels
@@ -1886,12 +1983,26 @@ async function _saveEpPositions() {
   // het dat niet: iemand die in kwart 3 van plaats ruilde stond in m.players op zijn LAATSTE plek, en
   // die belandde dan in de startopstelling. De ruil van kwart 3 werd zo een tweede keer toegepast en
   // draaide zichzelf om. Gemeten: de momentopnames van dat event stonden nadien omgekeerd.
-  match.startLineup = _epStarters().map(p => {
-    const plek = gridPlek(_ep.plaats[p.id]);
+  match.startLineup = Object.keys(_ep.plaats).map(id => {
+    const plek = gridPlek(_ep.plaats[id]);
     if (!plek) return null;
-    return { id: p.id, x: plek.x, y: plek.y, line: plek.line,
+    return { id, x: plek.x, y: plek.y, line: plek.line,
       posNum: matchGridNummer(match, plek.code) || '', posCodeVeld: plek.code };
   }).filter(Boolean);
+  // HET VLAGGETJE `starting` MOET MEE. De bewaarde startopstelling is de waarheid voor het veld en de
+  // tekening, maar de SPEELMINUTEN tellen vanaf `p.starting` (calcMinutes), net als recomputeOnField
+  // en de statistiek "aantal keer basis". Lopen die twee uit elkaar, dan staat er iemand op het veld
+  // die nul minuten telt — het soort scheefheid dat pas weken later opvalt.
+  // Wie afwezig gemeld is, blijft ongemoeid: die komt in dit venster niet voor (niet op het veld,
+  // niet op de bank), dus we hebben geen mening over zijn vlaggetje.
+  (match.players || []).forEach(p => { if (!p.absent) p.starting = straks.has(p.id); });
+  // De latere grenzen opnieuw schrijven zodat die kwarten hun uitkomst houden — enkel bij een
+  // personeelswissel, en in volgorde: elke grens rekent op het veld zoals het er ná de vorige uitkomt.
+  const bewaardQ = _postEventQuarter, bewaardBreak = _postEventAtBreak, bewaardMin = _postEventMinute;
+  _postEventAtBreak = false; _postEventMinute = null;
+  const weggelaten = [];
+  laterDelen.forEach(q => _qlZetGrens(match, q, laterDoel[q], weggelaten));
+  _postEventQuarter = bewaardQ; _postEventAtBreak = bewaardBreak; _postEventMinute = bewaardMin;
   // En dan alles voorwaarts opnieuw afspelen. Dít is wat het oude slot onmogelijk maakte.
   rebuildPositions(match, playersAtPeriodStart(match, 1));
   if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
@@ -1901,14 +2012,26 @@ async function _saveEpPositions() {
   if (conflicten.length) {
     match.events = terug.events; match.players = terug.players;
     match.startLineup = terug.startLineup;
-    match.deletedEventIds = terug.deleted; if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
+    if (terug.deleted === undefined) delete match.deletedEventIds; else match.deletedEventIds = terug.deleted;
+    if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
     rebuildPositions(match, playersAtPeriodStart(match, 1));
     recomputeOnField(match);
-    showToast(`Dit botst met een latere wissel: ${conflicten[0]}. Zet die eerst recht bij Events, of kies hier een andere plek. Er is niets gewijzigd.`, 'err');
+    showToast(`Dit botst met een latere wissel: ${conflicten[0]}. Zet die eerst recht bij Events, of kies hier iemand anders. Er is niets gewijzigd.`, 'err');
     return;
   }
   _ep = null;
   await dbSave(match); closeModal(); render();
+  // Viel er iemand uit een LATERE opstelling omdat hij toen niet meer mee mocht doen? Zelfde melding
+  // als bij een deelopstelling: geen fout, maar dat deel staat nu met een speler minder.
+  if (weggelaten.length) {
+    showToast(`Opgelet: ${[...new Set(weggelaten)].join(', ')} kon in dat deel niet meer meedoen en staat daar niet in de opstelling. Kijk die ${pSingLow(match)}en na.`, 'err');
+    return;
+  }
+  const resten = _opstResten(match, [...nu].filter(id => !straks.has(id)));
+  if (resten.length) {
+    showToast(`Opgelet: ${resten.join(' · ')} speelt nu niet meer mee, maar heeft dat nog op zijn naam. Kijk het na bij Events.`, 'err');
+    return;
+  }
   meldVastgelegd('Startopstelling');
 }
 // ===================== DE OPSTELLING VAN ÉÉN DEEL RECHTZETTEN (v1.46.0) =====================
@@ -1948,8 +2071,10 @@ function deelOpstellingDelen(m) {
 }
 // Het potloodje naast de opstelling in het verslag (Tim, 06-09-2026: "net zoals je een event bewerkt
 // kan je dan ook een startopstelling van een kwart bewerken"). Eén ingang die zich richt naar het
-// deel dat je op dat moment bekijkt: deel 1 is de AFTRAP en heeft zijn eigen venster, dat zelf
-// weigert zodra er gewisseld is; vanaf deel 2 gaat het over de kwartgrens.
+// deel dat je op dat moment bekijkt: deel 1 is de AFTRAP en heeft zijn eigen venster (met de
+// formatieknop en de teksten voor een wedstrijd waar nog niemand staat); vanaf deel 2 gaat het over
+// de kwartgrens. Sinds v1.49.0 kan je in allebei ook iemand van de bank inbrengen, met dezelfde
+// bediening — het verschil zit enkel in wat er opgeslagen wordt.
 function bewerkDeelOpstelling(q) {
   if (!canLive() || !match) return;
   if (Number(q) <= 1) modalEditPositions();
@@ -1986,8 +2111,11 @@ function _qlOpVeld() {
 function _qlBank() {
   // Dezelfde vraag als in _qlMagInOpstelling en om dezelfde reden: wie halverwege dít deel rood
   // kreeg, mocht er bij de start nog staan en hoort dus kiesbaar te blijven.
+  // `in` en niet de waarde (v1.49.0): een speler in de kaart ZONDER plek (scheve data, of eentje die
+  // je net van zijn plek tikte) staat er wel degelijk in — hij hoort in "Nog te plaatsen", niet
+  // tegelijk ook op de bank. Met de oude waarheidstest stond hij in allebei de lijstjes.
   return (match.players || [])
-    .filter(p => !_ql.plaats[p.id] && _qlMagInOpstelling(match, p.id, _ql.deel))
+    .filter(p => !(p.id in _ql.plaats) && _qlMagInOpstelling(match, p.id, _ql.deel))
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
 }
 function modalDeelOpstelling(deel) {
@@ -2008,35 +2136,9 @@ function modalDeelOpstelling(deel) {
   _ql = { deel: n, plaats, sel: null };
   _renderQlModal();
 }
-function _qlTap(kind, id) {
-  if (!_ql) return;
-  const sel = _ql.sel;
-  if (kind === 'field' || kind === 'bench') {
-    if (sel && sel.id === id) { _ql.sel = null; _renderQlModal(); return; }
-    // Twee spelers aangetikt: op het veld is dat een ruil, met de bank een wissel. In beide gevallen
-    // wisselen ze gewoon van plaats in de kaart — of van plaats en bank.
-    if (sel) {
-      const a = sel.id, b = id;
-      const codeA = _ql.plaats[a] || null, codeB = _ql.plaats[b] || null;
-      if (sel.kind === 'bench' && kind === 'bench') { _ql.sel = { kind, id }; _renderQlModal(); return; }
-      if (codeA === null && codeB === null) { _ql.sel = { kind, id }; _renderQlModal(); return; }
-      if (codeA === null) { delete _ql.plaats[b]; _ql.plaats[a] = codeB; }
-      else if (codeB === null) { delete _ql.plaats[a]; _ql.plaats[b] = codeA; }
-      else { _ql.plaats[a] = codeB; _ql.plaats[b] = codeA; }
-      _ql.sel = null; _renderQlModal(); return;
-    }
-    _ql.sel = { kind, id }; _renderQlModal(); return;
-  }
-  if (kind === 'plek') {
-    if (!sel) { showToast('Tik eerst de speler die je daar wil zetten.', 'err'); return; }
-    // Staat er (na een eerdere tik) toch iemand op die plek, dan wordt het een ruil.
-    const bewoner = Object.keys(_ql.plaats).find(x => _ql.plaats[x] === id && x !== sel.id);
-    const oud = _ql.plaats[sel.id] || null;
-    _ql.plaats[sel.id] = id;
-    if (bewoner) { if (oud) _ql.plaats[bewoner] = oud; else delete _ql.plaats[bewoner]; }
-    _ql.sel = null; _renderQlModal();
-  }
-}
+// Tikken: op het veld is twee spelers aantikken een ruil, met de bank een wissel. De regels staan in
+// _opstTap, gedeeld met het aftrapvenster (v1.49.0) — zie daar.
+function _qlTap(kind, id) { if (_opstTap(_ql, kind, id)) _renderQlModal(); }
 function _renderQlModal() {
   const opVeld = _qlOpVeld();
   const bank = _qlBank();
@@ -2171,13 +2273,18 @@ async function _saveQlOpstelling() {
     return;
   }
   const doel = { ..._ql.plaats };                       // spelerId -> gridcode
+  // Wie stond er in dit deel en staat er straks niet meer? Nodig voor de waarschuwing onderaan.
+  const eruit = pitchPlayersAtPeriodStart(match, deel).map(p => p.id).filter(id => !(id in doel));
   // ALLES WAT WE GAAN AANRAKEN EERST APART LEGGEN. Loopt de wedstrijd hierdoor in de knoop, dan
   // zetten we haar exact terug zoals ze was — liever niets doen dan een halve reconstructie
   // achterlaten.
   const terug = {
     events: JSON.parse(JSON.stringify(match.events || [])),
     players: JSON.parse(JSON.stringify(match.players || [])),
-    deleted: (match.deletedEventIds || []).slice(),
+    // undefined blijft undefined (v1.49.0): stond de tombstonelijst er nog niet, dan mag een GEWEIGERDE
+    // bewerking er ook geen lege achterlaten. Gemeten met de fuzzer: dat was het enige verschil dat
+    // "er is niets gewijzigd" nog niet letterlijk waarmaakte.
+    deleted: match.deletedEventIds ? match.deletedEventIds.slice() : undefined,
     keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
   };
   // Wat er AL scheef stond, mag deze reparatie niet blokkeren: we weigeren straks enkel op een
@@ -2226,7 +2333,8 @@ async function _saveQlOpstelling() {
   const conflicten = _qlLatereConflicten(match, deel).filter(c => !conflictenVoor.includes(c));
   if (conflicten.length) {
     match.events = terug.events; match.players = terug.players;
-    match.deletedEventIds = terug.deleted; if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
+    if (terug.deleted === undefined) delete match.deletedEventIds; else match.deletedEventIds = terug.deleted;
+    if (terug.keeperByQ !== undefined) match.keeperByQ = terug.keeperByQ;
     rebuildPositions(match, playersAtPeriodStart(match, 1));
     recomputeOnField(match);
     showToast(`Dit botst met een latere wissel: ${conflicten[0]}. Zet die eerst recht in Verloop, of kies hier een andere speler. Er is niets gewijzigd.`, 'err');
@@ -2239,6 +2347,11 @@ async function _saveQlOpstelling() {
   // met een speler minder, en dat wil je zelf nakijken.
   if (weggelaten.length) {
     showToast(`Opgelet: ${[...new Set(weggelaten)].join(', ')} kon in dat deel niet meer meedoen en staat daar niet in de opstelling. Kijk die ${pSingLow(match)}en na.`, 'err');
+    return;
+  }
+  const resten = _opstResten(match, eruit);
+  if (resten.length) {
+    showToast(`Opgelet: ${resten.join(' · ')} speelt nu niet meer mee, maar heeft dat nog op zijn naam. Kijk het na bij Events.`, 'err');
     return;
   }
   meldVastgelegd(`Opstelling van ${pSingLow(match)} ${deel}`);

@@ -360,12 +360,13 @@ function modalDetailEditMenu() {
     ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
          de ploeg overstapt op spelen zonder vaste nummers. */ ''}
     ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
-    ${/* "Startopstelling herplaatsen" verlegt de plaatsen van de AFTRAP. Sinds v1.47.0 mag dat altijd:
-         de latere delen worden herrekend, net zoals bij het rechtzetten van een deelopstelling. */ ''}
+    ${/* "Startopstelling aanpassen" gaat over de AFTRAP. Sinds v1.47.0 mag dat altijd (de latere delen
+         worden herrekend), en sinds v1.49.0 kan je er ook iemand van de bank inbrengen — vandaar
+         "aanpassen" in plaats van "herplaatsen". */ ''}
     ${heeftFormatie ? menuItemHtml(IC.compass,
-      heeftPlekkenOpHetVeld(m) ? 'Startopstelling herplaatsen' : 'Startopstelling ingeven',
+      heeftPlekkenOpHetVeld(m) ? 'Startopstelling aanpassen' : 'Startopstelling ingeven',
       heeftPlekkenOpHetVeld(m)
-        ? `Zet de spelers van de aftrap op een andere plek. De ${pSingLow(m)}en erna volgen mee; wat je daar zelf koos blijft staan.`
+        ? `Zet de spelers van de aftrap op een andere plek, of wissel iemand van de bank erin. De ${pSingLow(m)}en erna volgen mee; wat je daar zelf koos blijft staan.`
         : 'Er staat nog niemand op het veld. Zet de basisspelers zelf op hun plek — het wedstrijdblad van de bond zegt niet waar ze stonden.',
       'modalEditPositions()') : ''}
     ${/* DE OPSTELLING VAN EEN LATER DEEL (v1.46.0, Tim: "ik heb per ongeluk bij kwart 3 gekozen voor

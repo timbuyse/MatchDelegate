@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.49.0
+
+**De bank staat nu ook in het venster van de startopstelling.** Tot nu kon je bij de aftrap alleen
+spelers verplaatsen; wie op de bank zat, stond er niet bij. Nu wel: tik iemand van de bank en dan een
+speler op het veld, en ze wisselen — dezelfde bediening als bij de opstelling van een later kwart.
+Het menu-item heet daarom **'Startopstelling aanpassen'** in plaats van 'herplaatsen'.
+
+De speelminuten verhuizen mee, over de hele wedstrijd. De kwarten waarin je zelf een opstelling koos,
+blijven eruitzien zoals ze eruitzagen; een kwart dat 'zoals het vorige' overnam, volgt je correctie.
+Botst het met een wissel die later tijdens het spel gebeurde, dan zegt de app welke en verandert er
+niets.
+
+Twee kleinere dingen erbij:
+
+- Haal je iemand uit een opstelling die nog een **kaart, een doelpunt of iets anders op zijn naam**
+  heeft staan, dan waarschuwt de app daarvoor. Er wordt niets geweigerd en niets gewist — je krijgt
+  te horen dat het er nog staat, zodat je het zelf kan nakijken.
+- In het venster van een kwart stond een speler zonder plek tegelijk bij **Bank** én bij **Nog te
+  plaatsen**. Dat is nu één plaats.
+
+---
+
 ## v1.48.0
 
 **Een event toevoegen bij het juiste kwart, in één klik.** Onderaan elk deel in de
