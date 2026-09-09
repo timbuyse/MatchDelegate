@@ -1000,8 +1000,9 @@ async function loadTournamentDetail() {
   const el = document.getElementById('trn-content');
   if (!el) return;
   const all = await dbAll();
-  const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const matches = sorteerTornooiWedstrijden(all.filter(m => m.tournamentId === t.id));
   const done = matches.filter(m => m.status === 'done');
+  const teGaan = matches.filter(m => m.status !== 'done');
   const team = teamById(t.teamId);
   // Zie matchResultaat in core.js: een gewonnen strafschoppenreeks telt als winst.
   const w = done.filter(m => matchResultaat(m) === 'W').length;
@@ -1084,9 +1085,20 @@ async function loadTournamentDetail() {
     : `<button class="btn btn-pale" style="margin-top:12px;width:100%" onclick="closeTournamentConfirm('${t.id}')">${icI(IC.done)} Tornooi afsluiten</button>`);
   // Dagoverzicht: pas zinvol zodra er één wedstrijd afgewerkt is. Ook voor kijkers zichtbaar.
   const reportBtn = done.length ? `<button class="btn btn-green" style="margin-bottom:12px" onclick="goTournamentReport('${t.id}')">${icI(IC.clipboard)} Tornooiverslag</button>` : '';
-  const matchList = matches.length
-    ? matches.map(m => `<div>${matchItemHtml(m)}${(canManage() && !gesloten) ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`).join('')
-    : `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad && !gesloten ? ' Voeg er een toe!' : ''}</p></div>`;
+  // GESPEELDE WEDSTRIJDEN ONDERAAN, ONDER EEN EIGEN KOPJE (Tim, 09-09-2026). Op een tornooidag kijk je
+  // naar wat er nog komt; wat achter je ligt hoort niet bovenaan de lijst te staan.
+  // Alleen splitsen als de splitsing iets zegt: staat er nog niets gespeeld, of is alles gespeeld,
+  // dan blijft het één kopje "Wedstrijden" — een enkel kopje "Gespeeld" voegt niets toe en een lijst
+  // met twee kopjes waarvan één leeg leest als een defect.
+  // Een GEANNULEERDE wedstrijd is niet gespeeld en zakt dus niet: die blijft op zijn uur staan, waar
+  // je hem verwacht.
+  const rij = m => `<div>${matchItemHtml(m)}${(canManage() && !gesloten) ? `<button class="btn btn-orgpale btn-sm" style="margin:-6px 0 10px;width:100%" onclick="cloneTournamentMatch('${m.id}','${t.id}')">${icI(IC.copy)} Kloon als nieuwe wedstrijd</button>` : ''}</div>`;
+  const kop = (tekst, n) => `<div class="sec">${tekst} (${n})</div>`;
+  const matchList = !matches.length
+    ? kop('Wedstrijden', 0) + `<div class="empty" style="padding:20px 0"><div class="ei" style="font-size:36px">${IC.ball}</div><p>Nog geen wedstrijden.${canManage() && !noSquad && !gesloten ? ' Voeg er een toe!' : ''}</p></div>`
+    : (done.length && teGaan.length)
+      ? kop('Nog te spelen', teGaan.length) + teGaan.map(rij).join('') + kop('Gespeeld', done.length) + done.map(rij).join('')
+      : kop('Wedstrijden', matches.length) + matches.map(rij).join('');
   el.innerHTML = `
     ${conceptBanner}
     ${closedBanner}
@@ -1100,7 +1112,6 @@ async function loadTournamentDetail() {
     ${reportBtn}
     ${planPdfBtn}
     ${newMatchBtn}
-    <div class="sec">Wedstrijden (${matches.length})</div>
     ${matchList}
     ${closeBtn}
     ${conceptBtn}
@@ -1246,7 +1257,7 @@ async function loadTournamentReport() {
   const el = document.getElementById('trn-report');
   if (!el) return;
   const all = await dbAll();
-  const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const matches = sorteerTornooiWedstrijden(all.filter(m => m.tournamentId === t.id));
   const r = tournamentReportData(t, matches);
   if (!r.done.length) {
     el.innerHTML = `<div class="empty"><div class="ei">${IC.clipboard}</div><p>Nog geen afgewerkte wedstrijden.<br>Het verslag verschijnt zodra er een wedstrijd afgelopen is.</p></div>`;
@@ -1380,7 +1391,7 @@ async function loadTournamentReport() {
 async function shareTournamentReport() {
   const t = currentTournament; if (!t) return;
   const all = await dbAll();
-  const matches = all.filter(m => m.tournamentId === t.id).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const matches = sorteerTornooiWedstrijden(all.filter(m => m.tournamentId === t.id));
   const r = tournamentReportData(t, matches);
   if (!r.done.length) { showToast('Nog geen afgewerkte wedstrijden om te delen.', 'err'); return; }
   const team = teamById(t.teamId);
@@ -1418,8 +1429,7 @@ async function exportTournamentPDF() {
   showToast('PDF wordt gemaakt...', 'ok');
   try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
   const all = await dbAll();
-  const matches = all.filter(x => x.tournamentId === t.id)
-    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt - b.createdAt));
+  const matches = sorteerTornooiWedstrijden(all.filter(x => x.tournamentId === t.id));
   const r = tournamentReportData(t, matches);
   if (!r.done.length) { showToast('Nog geen afgewerkte wedstrijden om te rapporteren.', 'err'); return; }
 

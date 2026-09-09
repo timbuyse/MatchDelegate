@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.50.0
+
+**De wedstrijden van een tornooi staan nu op uur.** Ze worden gesorteerd van eerst te spelen naar
+laatst, ongeacht in welke volgorde je ze hebt toegevoegd. Voordien werd alleen naar de datum gekeken,
+en die is op een tornooidag voor alle wedstrijden dezelfde — dus stonden ze in de volgorde waarin je
+ze had ingevoerd.
+
+**Wat gespeeld is, schuift naar onderaan** onder een eigen kopje **'Gespeeld'**. Bovenaan staat
+**'Nog te spelen'**: dat is waar je op een tornooidag naar kijkt. Is er nog niets gespeeld, of is
+alles gespeeld, dan blijft het één lijst onder 'Wedstrijden'.
+
+Een wedstrijd zonder uur komt achteraan die dag; vul je bij geen enkele wedstrijd een uur in, dan
+blijft de lijst staan zoals ze stond. Een **geannuleerde** wedstrijd is niet gespeeld en blijft dus
+op zijn uur staan.
+
+Dezelfde volgorde geldt nu ook in het **tornooiverslag**, in het gedeelde bericht en in beide **PDF's**
+(tornooiplan en tornooiverslag). Die nummeren de wedstrijden van de dag ("wedstrijd 3"), en die
+nummering volgde de oude volgorde — nu verwijst ze overal naar dezelfde wedstrijd.
+
+---
+
 ## v1.49.0
 
 **De bank staat nu ook in het venster van de startopstelling.** Tot nu kon je bij de aftrap alleen

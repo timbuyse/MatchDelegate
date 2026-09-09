@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.49.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.50.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1438,6 +1438,45 @@ function tournamentSquadList(t) {
 // Wie effectief meegaat naar het tornooi. Beschikbaarheid (NB) geef je één keer in bij de
 // tornooiselectie; enkel deze spelers mogen dus in de pool van een tornooiwedstrijd komen.
 function tournamentSquadMee(t) { return tournamentSquadList(t).filter(s => s.sel !== 'absent'); }
+// DE VOLGORDE VAN EEN TORNOOIDAG (v1.50.0, Tim: "rangschik de volgorde van de tornooiwedstrijden
+// automatisch op datum/tijdstip van eerst te spelen naar laatst te spelen").
+// HET UUR ZAT ER NIET IN. Er werd gesorteerd op datum en daarna op het moment waarop je de wedstrijd
+// aanmaakte — en op één tornooidag hebben alle wedstrijden dezelfde datum, dus kwam dat neer op "in de
+// volgorde waarin je ze invoerde". trnPlanRijen beweerde in zijn eigen commentaar al dat de rij op
+// datum EN uur stond, en nummerde de wedstrijden ook zo ("wedstrijd 3"): dat klopte dus niet.
+// ÉÉN BRON, want vier plaatsen tellen op deze rij: de tornooipagina, het tornooiverslag, het gedeelde
+// bericht en de twee PDF's. Liepen die uit elkaar, dan verwijst "wedstrijd 3" op papier naar een
+// andere wedstrijd dan op het scherm.
+// Zonder uur valt hij terug op het aanmaakmoment, zodat een tornooi waarin niemand uren invulde
+// precies blijft staan zoals het stond. Geen migratie nodig: dit leest bestaande velden, het schrijft
+// niets.
+function sorteerTornooiWedstrijden(arr) {
+  // "9:00" WORDT "09:00" VOOR DE VERGELIJKING. De app schrijft zelf altijd twee cijfers (het
+  // tijdveld van de browser en de voorvulling in addTournamentMatch doen dat), maar een uur dat uit
+  // een kalenderimport komt hoeft dat niet — en dan zou 9:00 ná 10:00 vallen, want een tekencode is
+  // geen kloktijd. Enkel voor het sorteren: het veld zelf blijft staan zoals het staat.
+  const uur = m => {
+    const t = (m && m.time) ? String(m.time).trim() : '';
+    return /^\d:/.test(t) ? '0' + t : t;
+  };
+  return (arr || []).slice().sort((a, b) => {
+    const dv = (a.date || '').localeCompare(b.date || '');
+    if (dv) return dv;
+    // EEN WEDSTRIJD ZONDER UUR KOMT ACHTERAAN DIE DAG: een gekend uur weegt zwaarder dan een
+    // onbekend. Dit stond eerst met een schuintje ('~') als terugvaluur, omdat dat teken ná de
+    // cijfers staat — maar localeCompare sorteert niet op tekencode: het volgt de taalregels, en die
+    // zetten leestekens VÓÓR de cijfers. Gemeten: de wedstrijd zonder uur kwam bovenaan. Dus de
+    // vraag hier expliciet stellen, en de uren onderling met < vergelijken (dat is wél tekencode, en
+    // voor "HH:MM" is dat precies de kloktijd).
+    const ua = uur(a), ub = uur(b);
+    if (ua !== ub) {
+      if (!ua) return 1;
+      if (!ub) return -1;
+      return ua < ub ? -1 : 1;
+    }
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+}
 // Trainer en ploegverantwoordelijke van een tornooiwedstrijd komen van het TORNOOI, niet van de
 // wedstrijd: op een tornooidag zijn ze voor alle wedstrijden dezelfde. Ze werden bij het aanmaken
 // van de wedstrijd één keer gekopieerd, dus wie ze nadien in het tornooi wijzigde, zag dat nergens

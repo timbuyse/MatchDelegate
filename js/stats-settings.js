@@ -1658,6 +1658,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Kies uit je tornooiselectie wie <b>mee</b> doet aan deze wedstrijd en zet de opstelling; wie je niet op het veld zet, begint op de bank. Daarna houd je de wedstrijd live bij zoals elke andere wedstrijd.</li>
       </ol>
       <p>Bij een gespeelde wedstrijd staat <b>'Kloon als nieuwe wedstrijd'</b>: dat neemt de formatie en de opstelling over, zodat je voor de volgende tegenstander enkel de naam en het uur hoeft in te vullen. Dezelfde knop staat in de wedstrijd zelf als <b>'Kloon als nieuwe tornooiwedstrijd'</b>.</p>
+      <p class="hdl-tip">De wedstrijden staan altijd op <b>uur</b>, van eerst te spelen naar laatst — in welke volgorde je ze ook toevoegt. Wat al <b>gespeeld</b> is, schuift naar onderaan onder een eigen kopje, zodat bovenaan staat wat er nog komt. Vul je bij een wedstrijd geen uur in, dan komt die achteraan die dag.</p>
       <div class="sec">Iemand gaat vroeger naar huis</div>
       <p>Gaat een speler tijdens de dag weg — naar huis, of geblesseerd — meld hem dan meteen af voor
         de <b>rest van het tornooi</b>. Waar je hem ook van het veld haalt (het <b>×</b> naast zijn

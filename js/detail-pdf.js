@@ -1811,8 +1811,7 @@ async function exportTornooiplanPDF(id) {
   try { await loadJsPDF(); } catch (e) { showToast('PDF-bibliotheek laden mislukt. Controleer je verbinding.', 'err'); return; }
   let alle = [];
   try { alle = (await dbAll()).filter(Boolean); } catch (e) { alle = []; }
-  const matches = alle.filter(x => x.tournamentId === t.id)
-    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || ((a.createdAt || 0) - (b.createdAt || 0)));
+  const matches = sorteerTornooiWedstrijden(alle.filter(x => x.tournamentId === t.id));
   if (!matches.length) { showToast('Dit tornooi heeft nog geen wedstrijden om in een plan te zetten.', 'err'); return; }
 
   const { jsPDF } = window.jspdf;
