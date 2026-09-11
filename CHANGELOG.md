@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.51.0
+
+**"Alle gebruikers" verwijdert geen ploegen meer.** Bij elke ploeg stond een rode knop
+**Verwijderen**, en die zat in dezelfde balk die je aantikt om de ploeg open te klappen — één vinger
+naast het pijltje en je stond in het verwijderscherm van een hele ploeg. Die knop is weg. Een ploeg
+verwijderen doe je bij **Clubbeheer**, naast **Archiveren**, waar de twee samen horen.
+
+Zit een ploeg in géén enkele club, dan staat ze ook niet in Clubbeheer. Zo'n ploeg blijft hier wel
+zichtbaar en zegt er nu zelf bij dat ze in geen club zit — dan weet je dat er iets recht te zetten
+valt.
+
+**Rangschikken op naam of op laatst actief.** Een nieuwe schakelaar **'Op naam' / 'Op laatst
+actief'**, die in allebei de indelingen werkt: bij *Per ploeg* binnen elke ploeg, bij *Per gebruiker*
+over de hele lijst, en ook bij *Accounts zonder ploeg*. Wie geen datum heeft, staat onderaan — "laatst
+actief" bestaat pas sinds v1.19.0, dus een leeg veld betekent "sindsdien niet meer geopend", niet
+"nooit gebruiker geweest".
+
+De ploegbeheerders stonden binnen een ploeg altijd bovenaan; die vaste volgorde vervalt nu je zelf
+kiest waarop je sorteert. Naast elke naam staat nog altijd of het een ploegbeheerder of een kijker is.
+
+**De ploegen staan alfabetisch**, eerst op club en dan op ploegnaam. Ze stonden in de volgorde waarin
+de databank ze teruggaf, en dat is voor wie zoekt gewoon willekeur.
+
+---
+
 ## v1.50.0
 
 **De wedstrijden van een tornooi staan nu op uur.** Ze worden gesorteerd van eerst te spelen naar
