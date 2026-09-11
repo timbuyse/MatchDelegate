@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.52.0
+
+**"Alle gebruikers" is nog één lijst: per gebruiker.** De schakelaar *Per ploeg / Per gebruiker* is
+weg. Je krijgt één kaart per persoon, met daarin de ploegen waar hij bij zit en zijn rol per ploeg —
+de vraag die je aan de telefoon stelt is toch bijna altijd "wat ziet díe persoon nu eigenlijk?".
+
+De aparte sectie **Accounts zonder ploeg** verdwijnt daarmee ook: die mensen staan nu gewoon tussen de
+andere kaarten, met het merkje **geen ploeg**.
+
+Onderaan komt er één blokje bij: **Ploegen zonder leden of zonder club**. Dat zijn de twee gevallen
+die anders nergens meer te zien zouden zijn — een lijst per persoon bevat geen ledenloze ploeg, en een
+ploeg zonder club staat ook niet in Clubbeheer. Het blokje verschijnt alleen als er zo'n ploeg is.
+
+---
+
 ## v1.51.0
 
 **"Alle gebruikers" verwijdert geen ploegen meer.** Bij elke ploeg stond een rode knop

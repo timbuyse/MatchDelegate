@@ -684,71 +684,37 @@ function renderAllUsers() {
     <div id="allusers-view-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
   </div>`;
 }
-// ACCOUNTS ZONDER PLOEG (Tims vraag, 28-08-2026). De lijst hierboven wordt per ploeg opgebouwd, dus
-// wie zich aanmeldde maar bij geen enkele ploeg zit, kwam nergens voor — net de persoon die je zoekt
-// wanneer iemand belt met "ik zie niets in de app". Bij het aanmaken van een account bewaart de app
-// naam, e-mail en datum onder `users/{uid}`, dus de gegevens bestaan; enkel het overzicht ontbrak.
-//
-// BRON: `usersByEmail`. Die index wordt bij ELKE aanmelding geschreven (writeUserEmailIndex in
-// core.js) en de eigenaar mag ze volledig lezen — precies waarvoor ze in fase 3 gemaakt is, om
-// iemand op e-mailadres als clubbeheerder te kunnen aanstellen zonder dat hij al een ploeg heeft.
-// Daarom is hier GEEN wijziging aan de beveiligingsregels voor nodig: de tak `users` mag de eigenaar
-// enkel per account lezen, maar die hebben we niet nodig.
-// Lukt het lezen toch niet, dan valt het terug op wie een beheerdersaanvraag deed of goedgekeurd is
-// (ook owner-leesbaar) en zegt het scherm er eerlijk bij dat de lijst dan onvolledig is.
-//
-// De vier takken die hiervoor nodig zijn worden NIET meer hier opgehaald: loadAllUsersView heeft ze
-// al, en dat scheelt vier ophaalbeurten bovenop de rest van dat scherm. Ze komen mee in `bronnen`.
-function losseAccountsSectie(bekendeUids, bronnen) {
-  const goedgekeurd = (bronnen && bronnen.goedgekeurd) || {};
-  const aanvragen = (bronnen && bronnen.aanvragen) || {};
-  const clubBeheerders = (bronnen && bronnen.clubBeheerders) || new Set();
-  let lijst = [], volledig = !!(bronnen && bronnen.ubeGelukt);
-  if (volledig) {
-    const val = (bronnen && bronnen.ube) || {};
-    lijst = Object.keys(val).filter(uid => !bekendeUids.has(uid)).map(uid => {
-      const u = val[uid] || {};
-      return { uid, naam: u.name || '', email: u.email || '', bevestigd: !!u.verified };
-    });
-  } else {
-    const samen = {};
-    for (const bron of [aanvragen, goedgekeurd]) {
-      for (const uid of Object.keys(bron)) {
-        if (bekendeUids.has(uid) || samen[uid]) continue;
-        samen[uid] = { uid, naam: (bron[uid] || {}).name || '', email: (bron[uid] || {}).email || '', bevestigd: true };
-      }
-    }
-    lijst = Object.values(samen);
-  }
-  lijst = allUsersSorteer(lijst);
-  const uitleg = volledig
-    ? 'Deze mensen hebben een account maar zitten bij geen enkele ploeg. Ze zien dus nog niets in de app. Iemand die zich nog nooit aanmeldde, staat er niet bij.'
-    : `Deze lijst is <b>onvolledig</b>: de gebruikersindex kon niet gelezen worden, dus ze toont enkel wie een beheerdersaanvraag deed of goedgekeurd is.`;
-  const rijen = lijst.map(u => {
-    const merken = [
-      u.uid === (currentUser && currentUser.uid) ? '<span class="ts-role admin">jijzelf</span>' : '',
-      clubBeheerders.has(u.uid) ? `<span class="ts-role admin">${icI(IC.shield)} Clubbeheerder</span>` : '',
-      goedgekeurd[u.uid] ? `<span class="ts-role admin">${icI(IC.check)} Mag ploegen aanmaken</span>` : '',
-      aanvragen[u.uid] ? `<span class="ts-role viewer">${icI(IC.hourglass)} Aanvraag open</span>` : '',
-    ].filter(Boolean).join(' ');
-    // Een niet-bevestigd e-mailadres staat erbij omdat je iemand enkel op een BEVESTIGD adres als
-    // club- of ploegbeheerder kan aanstellen — anders zoek je je blind op waarom dat niet lukt.
-    const adres = (u.email
-      ? esc(u.email) + (u.bevestigd ? '' : ' <span style="color:var(--org2)">· e-mail nog niet bevestigd</span>')
-      : 'geen e-mailadres bekend') + lastSeenRegel(u.uid);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-      <span style="flex:1;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
-      ${merken}
-    </div>`;
-  });
-  const zoekBlob = lijst.map(u => ((u.naam || '') + ' ' + (u.email || '')).toLowerCase()).join(' | ') + ' | zonder ploeg';
+// PLOEGEN DIE NERGENS ANDERS TE ZIEN ZIJN (Tim, 11-09-2026). Dit is de rest die overblijft nadat de
+// indeling per ploeg van dit scherm verdween: een lijst per gebruiker bestaat uit mensen, dus een
+// ploeg ZONDER LEDEN valt er per definitie buiten, en een ploeg ZONDER CLUB staat ook niet in
+// Clubbeheer — dat scherm bouwt zijn lijst op uit de ploegenlijst van een club.
+// Het zijn dus precies de twee gevallen die anders stil verdwijnen. Enkel de uitzonderingen staan
+// hier; een gewone ploeg met leden hoort in deze lijst niet thuis en staat er ook niet in.
+// Dichtgeklapt en onderaan: het is een opkuislijst, geen dagelijkse kost. Staat er niets in, dan
+// verschijnt het blokje helemaal niet.
+function allUsersLegePloegenHtml(d) {
+  const rijen = (d.ploegen || []).map(p => {
+    const leden = Object.keys(p.members || {}).length;
+    const clubNaam = d.clubVanPloeg[p.tid] || '';
+    if (leden && clubNaam) return null;                 // gewone ploeg: hoort hier niet
+    const redenen = [];
+    if (!leden) redenen.push('geen leden');
+    if (!clubNaam) redenen.push('in geen enkele club');
+    return { naam: p.naam || p.tid, clubNaam, redenen };
+  }).filter(Boolean).sort((a, b) => ((a.clubNaam ? a.clubNaam + ' · ' : '') + a.naam)
+    .localeCompare((b.clubNaam ? b.clubNaam + ' · ' : '') + b.naam, 'nl'));
+  if (!rijen.length) return '';
+  const html = rijen.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+    <span style="flex:1;font-size:14px"><b>${esc((r.clubNaam ? r.clubNaam + ' · ' : '') + r.naam)}</b><br><small style="color:var(--org2)">${esc(r.redenen.join(' · '))}</small></span>
+  </div>`).join('');
+  const zoekBlob = (rijen.map(r => ((r.clubNaam ? r.clubNaam + ' ' : '') + r.naam).toLowerCase()).join(' | ') + ' | lege ploeg zonder club').toLowerCase();
   return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
     <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-      <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Accounts zonder ploeg <span style="font-weight:400;text-transform:none">(${lijst.length}${volledig ? '' : '+'})</span></span>
+      <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Ploegen zonder leden of zonder club <span style="font-weight:400;text-transform:none">(${rijen.length})</span></span>
     </summary>
     <div style="margin-top:10px">
-      <p style="color:var(--txt2);font-size:12px;margin:0 0 8px">${uitleg}</p>
-      ${rijen.length ? rijen.join('') : '<p style="color:var(--txt2);font-size:13px;margin:0">Iedereen zit bij minstens één ploeg.</p>'}
+      <p style="color:var(--txt2);font-size:12px;margin:0 0 8px">Deze ploegen komen in geen enkele lijst hierboven voor. Een ploeg <b>zonder club</b> staat ook niet in Clubbeheer, en is daar dus niet te archiveren of te verwijderen — zet ze eerst bij een club.</p>
+      ${html}
     </div>
   </details>`;
 }
@@ -814,25 +780,22 @@ function allUsersZetSort(s) {
   allUsersSort = (s === 'actief') ? 'actief' : 'naam';
   allUsersTeken();
 }
-// PER PLOEG OF PER GEBRUIKER (Tim, 01-09-2026). Het scherm was altijd per ploeg opgebouwd, en dan lees
-// je een persoon die bij vijf ploegen zit vijf keer — terwijl de vraag aan de telefoon meestal is "wat
-// ziet díe persoon eigenlijk?". Nu is het een schakelaar.
+// ÉÉN KAART PER PERSOON, EN VERDER NIETS (Tim, 11-09-2026: "die indeling per ploeg mag daar weg").
+// Het scherm was oorspronkelijk per ploeg opgebouwd, en dan lees je iemand die bij vijf ploegen zit
+// vijf keer — terwijl de vraag aan de telefoon bijna altijd "wat ziet díe persoon eigenlijk?" is.
+// v1.33.0 maakte er een schakelaar van; sinds v1.52.0 is de per-ploeg-kant helemaal weg, samen met
+// de aparte sectie "Accounts zonder ploeg" (die mensen staan nu gewoon tussen de kaarten, met het
+// merkje "geen ploeg").
 //
-// DIT KOST GEEN ENKELE EXTRA OPHAALBEURT. Alles wat de per-gebruiker-indeling nodig heeft, staat al in
-// wat loadAllUsersView ophaalt: `memberInfo` (naam + e-mail per ploeg), `members` (de rol), `lastSeen`,
-// de clubnamen en `usersByEmail` (ook wie bij géén ploeg zit). Het is dus puur hergroeperen. Zo blijft
-// de zuinigheid van v1.22.x overeind (786 KB → een paar KB).
+// DIT KOST GEEN ENKELE EXTRA OPHAALBEURT. Alles wat deze indeling nodig heeft, staat al in wat
+// loadAllUsersView ophaalt: `memberInfo` (naam + e-mail per ploeg), `members` (de rol), `lastSeen`,
+// de clubnamen en `usersByEmail` (ook wie bij géén ploeg zit). Het is dus puur hergroeperen. Zo
+// blijft de zuinigheid van v1.22.x overeind (786 KB → een paar KB).
 //
-// DE OPGEHAALDE GEGEVENS WORDEN BEWAARD, NIET DE KANT-EN-KLARE HTML (v1.51.0). Tot hier bouwde het
-// laden beide lijsten één keer op als tekst, en wisselde de schakelaar enkel wélke van de twee er
-// getekend werd. Dat kon niet blijven zodra er ook op naam of op laatst actief gesorteerd kan worden:
-// dan verandert de INHOUD van beide lijsten bij elke tik. Nu bewaren we de ruwe gegevens en wordt de
-// HTML bij elke tekening opnieuw samengesteld — nog altijd zonder één extra ophaalbeurt.
-//
-// PER PLOEG BLIJFT DE STANDAARD, en niet uit gewoonte: dit is het enige scherm waar de eigenaar een
-// LEDENLOZE ploeg of een ploeg zonder club nog ziet staan. Die bestaan per definitie niet in een
-// lijst per gebruiker.
-let allUsersModus = 'ploeg';     // 'ploeg' | 'gebruiker'
+// DE OPGEHAALDE GEGEVENS WORDEN BEWAARD, NIET DE KANT-EN-KLARE HTML (v1.51.0). Tot dan bouwde het
+// laden de lijst één keer op als tekst. Dat kon niet blijven zodra er op naam of op laatst actief
+// gesorteerd kan worden: dan verandert de INHOUD bij elke tik. Nu bewaren we de ruwe gegevens en
+// wordt de HTML bij elke tekening opnieuw samengesteld — nog altijd zonder één extra ophaalbeurt.
 let _allUsersData = null;        // de ruwe gegevens van het laatste laden — zie allUsersTeken
 // ALLEEN OPHALEN WAT DIT SCHERM TOONT (v1.22.x).
 // Tot hier begon dit scherm met één `teams`-oproep: de hele ploegenboom. Gemeten op de echte
@@ -937,80 +900,14 @@ async function loadAllUsersView() {
     el.innerHTML = `<p style="text-align:center;color:var(--org2)">Kon de gebruikers niet laden. Probeer opnieuw.</p>`;
   }
 }
-// DE PLOEGEN, ELK MET HUN LEDEN. Zat tot v1.51.0 middenin loadAllUsersView; het staat hier apart
-// omdat de sorteerschakelaar deze lijst opnieuw moet kunnen opbouwen zonder iets op te halen.
-//
-// GEEN KNOP "VERWIJDEREN" MEER (Tim, 11-09-2026: "ik kan de ploegen verwijderen, dat mag daar niet
-// kunnen"). Ze stond in de balk die je aantikt om een ploeg open te klappen, dus één vinger naast het
-// pijltje bracht je in het verwijderscherm van een hele ploeg. Een ploeg verwijderen hoort thuis bij
-// Clubbeheer, naast Archiveren, waar de twee samen staan. Dit scherm gaat over WIE er is.
-// Wat daarmee vervalt: een ploeg die in géén enkele club zit, staat in Clubbeheer niet in de lijst en
-// is daar dus ook niet te verwijderen. Die ploegen blijven hier wél zichtbaar, en zeggen het er nu
-// zelf bij — dan weet je dat er iets recht te zetten valt.
-function allUsersPloegHtml(d) {
-  const secties = [];                              // { titel, html } — daarna alfabetisch gezet
-  const bekendeUids = new Set();                   // iedereen die ergens lid is — zie losseAccountsSectie
-  (d.ploegen || []).forEach(p => {
-    const tid = p.tid;
-    const members = p.members || {};
-    const info = (d.miAlle && d.miAlle[tid]) || {};
-    const teamNaam = p.naam || tid;
-    const clubNaam = d.clubVanPloeg[tid] || '';
-    const sectieTitel = (clubNaam ? clubNaam + ' · ' : '') + teamNaam;
-    const zonderClub = clubNaam ? '' : `<p style="color:var(--org2);font-size:12px;margin:0 0 8px">Deze ploeg zit in geen enkele club. Ze staat daardoor niet in Clubbeheer, en is daar dus ook niet te archiveren of te verwijderen.</p>`;
-    const uids = Object.keys(members);
-    // Ledenloze ploegen tóch tonen: ze bestaan (een clubbeheerder kan er een aanmaken zonder zelf lid
-    // te worden) en dit is het enige scherm waar je ze ziet staan.
-    if (!uids.length) {
-      secties.push({ titel: sectieTitel, html: `<details class="card allusers-team" data-search="${esc((sectieTitel + (clubNaam ? '' : ' zonder club')).toLowerCase())}" style="margin-bottom:12px">
-        <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(geen leden)</span></span>
-        </summary>
-        <div style="margin-top:10px">${zonderClub}<p style="color:var(--txt2);font-size:13px;margin:0">Deze ploeg heeft geen leden.</p></div>
-      </details>` });
-      return;
-    }
-    uids.forEach(uid => bekendeUids.add(uid));
-    const users = allUsersSorteer(uids.map(uid => ({
-      uid, naam: (info[uid] || {}).name || '(onbekend)', email: (info[uid] || {}).email || '', role: members[uid],
-    })));
-    const rows = users.map(u => {
-      const roleBadge = u.role === 'admin'
-        ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
-        : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-        <span style="flex:1;font-size:14px"><b>${esc(u.naam)}</b><br><small style="color:var(--txt2)">${esc(u.email)}${lastSeenRegel(u.uid)}</small></span>
-        ${roleBadge}
-      </div>`;
-    });
-    const searchBlob = (sectieTitel + (clubNaam ? '' : ' zonder club') + ' | ' + users.map(u => (u.naam + ' ' + u.email).toLowerCase()).join(' | ')).toLowerCase();
-    // DICHT BIJ HET OPENEN (Tim, 28-08-2026). Elke ploeg stond open, en met een club vol ploegen was
-    // dat één lange lijst waarin je moest scrollen om te zien wélke ploegen er zijn. Nu zie je eerst
-    // de ploegen met hun aantal; het zoekveld klapt vanzelf open wat je zoekt.
-    secties.push({ titel: sectieTitel, html: `<details class="card allusers-team" data-search="${esc(searchBlob)}" style="margin-bottom:12px">
-      <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">${esc(sectieTitel)} <span style="font-weight:400;text-transform:none">(${uids.length})</span></span>
-      </summary>
-      <div style="margin-top:10px">${zonderClub}${rows.join('')}</div>
-    </details>` });
-  });
-  // ALFABETISCH OP CLUB EN DAN PLOEG (Tims keuze, 11-09-2026). De ploegen stonden in de volgorde
-  // waarin de databank haar takken teruggeeft — voor wie zoekt is dat willekeur. De titel begint met
-  // de clubnaam, dus één sortering op de titel zet ze meteen per club bij elkaar.
-  secties.sort((a, b) => a.titel.localeCompare(b.titel, 'nl'));
-  const losse = losseAccountsSectie(bekendeUids, d);
-  return (secties.length ? secties.map(s => s.html).join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen ploegen.</p>') + losse;
-}
-// De twee schakelaars plus "Alles openklappen". Wordt bij elke tekening opnieuw gemaakt zodat de
-// actieve kant meeloopt met `allUsersModus` en `allUsersSort`.
+// De sorteerschakelaar plus "Alles openklappen". Wordt bij elke tekening opnieuw gemaakt zodat de
+// actieve kant meeloopt met `allUsersSort`.
 function allUsersKopBalkHtml() {
-  const btn = (m, label) => `<button type="button" class="${allUsersModus === m ? 'act' : ''}" onclick="allUsersZetModus('${m}')">${label}</button>`;
   const sbtn = (s, label) => `<button type="button" class="${allUsersSort === s ? 'act' : ''}" onclick="allUsersZetSort('${s}')">${label}</button>`;
-  // EIGEN REGEL VOOR ELKE SCHAKELAAR. Naast "Alles openklappen" hield elke kant maar ~85 px over en
-  // brak "Per gebruiker" over twee regels (gemeten op 375 px). Nu volle breedte, en de openklap-knop
+  // EIGEN REGEL VOOR DE SCHAKELAAR. Naast "Alles openklappen" hield elke kant maar ~85 px over en brak
+  // het langste opschrift over twee regels (gemeten op 375 px). Nu volle breedte, en de openklap-knop
   // eronder rechts — waar ze vóór v1.33.0 ook stond.
-  return `<div class="tgl" style="margin:0 0 8px">${btn('ploeg', 'Per ploeg')}${btn('gebruiker', 'Per gebruiker')}</div>
-  <div class="tgl" style="margin:0 0 8px">${sbtn('naam', 'Op naam')}${sbtn('actief', 'Op laatst actief')}</div>
+  return `<div class="tgl" style="margin:0 0 8px">${sbtn('naam', 'Op naam')}${sbtn('actief', 'Op laatst actief')}</div>
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
     <button class="btn btn-pale btn-sm" id="allusers-toggle" style="width:auto;margin:0" onclick="allUsersToggleAll(true)">Alles openklappen</button>
   </div>`;
@@ -1019,22 +916,21 @@ function allUsersTeken() {
   const el = document.getElementById('allusers-view-list');
   if (!el || !_allUsersData) return;
   const d = _allUsersData;
-  el.innerHTML = d.kop + allUsersKopBalkHtml()
-    + (allUsersModus === 'gebruiker' ? allUsersPerGebruikerHtml(d) : allUsersPloegHtml(d));
-  // De zoekterm hoort te blijven staan bij het wisselen: je zoekt iemand, wisselt van indeling en wil
-  // hem daar ook zien. Het veld staat buiten de hertekende lijst, dus we passen het filter opnieuw toe.
+  // De ploegen zonder leden of zonder club staan ONDERAAN, en alleen als ze bestaan: het is een
+  // opkuislijst, geen dagelijkse kost. Zie allUsersLegePloegenHtml.
+  el.innerHTML = d.kop + allUsersKopBalkHtml() + allUsersPerGebruikerHtml(d) + allUsersLegePloegenHtml(d);
+  // De zoekterm hoort te blijven staan bij het hertekenen: je zoekt iemand, wisselt van sortering en
+  // wil hem daar ook zien. Het veld staat buiten de hertekende lijst, dus we passen het filter opnieuw toe.
   const zoek = document.getElementById('allusers-search');
   if (zoek && zoek.value) filterAllUsersView(zoek.value);
 }
-function allUsersZetModus(m) {
-  allUsersModus = (m === 'gebruiker') ? 'gebruiker' : 'ploeg';
-  allUsersTeken();
-}
 
-// ÉÉN KAART PER PERSOON. Bron: precies dezelfde gegevens als de indeling per ploeg — zie de uitleg bij
-// `allUsersModus`. De accountindex (`usersByEmail`) krijgt voorrang op `memberInfo` voor naam en
+// ÉÉN KAART PER PERSOON — sinds v1.52.0 de enige indeling van dit scherm; zie de uitleg bij
+// `_allUsersData`. De accountindex (`usersByEmail`) krijgt voorrang op `memberInfo` voor naam en
 // e-mail: die index wordt bij élke aanmelding herschreven, terwijl de ledeninformatie van een ploeg
-// dateert van het moment dat iemand lid werd.
+// dateert van het moment dat iemand lid werd. Wie bij géén enkele ploeg zit, komt uit diezelfde
+// index en staat gewoon tussen de andere kaarten met het merkje "geen ploeg" — daarvoor bestond tot
+// v1.51.0 een aparte sectie onderaan.
 function allUsersPerGebruikerHtml(d) {
   const per = new Map();
   const zorg = uid => {
