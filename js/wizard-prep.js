@@ -24,7 +24,7 @@ function startWizard() {
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
-    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '',
+    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '', terrein: '',
     // Standaard staat de eerste trainer en de eerste ploegverantwoordelijke van de ploeg
     // aangevinkt; de rest vink je er per wedstrijd bij.
     trainer: teamTrainerNames(team)[0] || '',
@@ -185,6 +185,13 @@ function wizStep1() {
           <button type="button" class="${wiz.location==='Thuis'?'act':''}" onclick="wizSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
           <button type="button" class="${wiz.location==='Uit'?'act':''}" onclick="wizSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
         </div></div>
+      ${/* HET ADRES STAAT HIER, NET ONDER THUIS/UIT (Tim, 13-09-2026). Het stond in het blok met de
+           bijkomende gegevens, tussen scheidsrechter en truikleur — terwijl "waar moet ik naartoe" bij
+           een uitmatch het eerste is wat je invult en het eerste wat een ouder wil weten. Het hoort dus
+           bij de vraag erboven: thuis of uit, en waar dan.
+           Het TERREIN blijft wél in het blok hieronder staan: dat is een detail voor ter plaatse
+           ("terrein 2"), geen reisinformatie. */ ''}
+      <div class="fg"><label>Adres</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. Sportstraat 12, 9700 Oudenaarde" autocomplete="off"></div>
       <div class="fg"><label>Format</label>
         <select id="n-type" onchange="wizTypeChange()">
           ${['3v3','5v5','8v8','11v11'].map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}
@@ -213,7 +220,12 @@ function wizStep1() {
           <div class="fg"><label>Truikleur</label><input id="n-jersey" type="text" value="${esc(wiz.jersey)}" placeholder="bv. zwart-groen"></div>
         </div>
         <div class="fg"><label>Scheidsrechter</label><input id="n-ref" type="text" value="${esc(wiz.referee)}" placeholder="Naam"></div>
-        <div class="fg"><label>Locatie</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. sportveld, kunstgras B2"></div>
+        ${/* TERREIN, het tweede deel van wat vroeger één veld "Locatie" was (Tim, 13-09-2026: "Ik wil
+           dat ontdubbelen in Adres en ..."). Het adres staat boven, bij thuis/uit; dit is wat je ter
+           plaatse nodig hebt. Het OUDE veld blijft het ADRES dragen — zo hoeft er aan geen enkele
+           bestaande wedstrijd iets verhuisd te worden, en wat de kalenderimport erin zet (de plaats
+           uit de agenda, meestal een volledig adres) staat meteen onder de juiste naam. */ ''}
+      <div class="fg"><label>Terrein</label><input id="n-terrein" type="text" value="${esc(wiz.terrein || '')}" placeholder="bv. terrein 2, kunstgras B" autocomplete="off"></div>
         ${staffPickerHtml('n', 'trn', teamTrainerNames(selectedTeam), wiz.trainer)}
         ${staffPickerHtml('n', 'resp', teamResponsibleNames(selectedTeam), wiz.responsible)}
       </details>
@@ -246,7 +258,7 @@ function captureStep1() {
   // één blok toonde daardoor "3 delen" en sloeg 1 deel op.
   if (document.getElementById('n-pt') && PERIOD_TYPES[wiz.periodKey]) wiz.numQuarters = PERIOD_TYPES[wiz.periodKey].count;
   const nComp = v('n-comp'); wiz.competition = nComp === '__other__' ? (v('n-comp-custom') || '').trim() : nComp; wiz.matchday = (v('n-md') || '').trim(); wiz.referee = (v('n-ref') || '').trim();
-  wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim();
+  wiz.jersey = (v('n-jersey') || '').trim(); wiz.venue = (v('n-venue') || '').trim(); wiz.terrein = (v('n-terrein') || '').trim();
   wiz.trainer = readStaffPicker('n', 'trn', wiz.trainer);
   wiz.responsible = readStaffPicker('n', 'resp', wiz.responsible);
 }
@@ -289,7 +301,7 @@ function wizSnapshot(w) {
     String(w.teamId || ''), String(w.subteam || ''), String(w.date || ''), String(w.time || ''),
     String(w.location || ''), String(w.periodKey || ''), String(w.quarterDuration || ''),
     String(w.competition || ''), String(w.matchday || ''), String(w.referee || ''),
-    String(w.jersey || ''), String(w.venue || ''),
+    String(w.jersey || ''), String(w.venue || ''), String(w.terrein || ''),
   ]);
 }
 // Is er iets gewijzigd sinds de wizard openging? Op stap 1 staat wat je intikte nog NIET in `wiz` —
@@ -1356,7 +1368,7 @@ async function finishWizard(startNow, zonderOpstelling, formatieBevestigd, veldM
   allP.forEach(x => delete x._pid);
   const common = {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), teamId: wiz.teamId || '', formation: form.name,
-    competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, venue: wiz.venue,
+    competition: wiz.competition, matchday: wiz.matchday, referee: wiz.referee, jersey: wiz.jersey, venue: wiz.venue, terrein: wiz.terrein || '',
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
@@ -1501,7 +1513,7 @@ async function editMatchWizard(m) {
     // stil; nu valt teamName bij het opslaan terug op teamNameFallback (de naam die er stond).
     teamId: team ? team.id : (m.teamId || ''), opponent: m.opponent, subteam: m.subteam || '', date: m.date, time: m.time, location: m.location,
     matchType, periodKey: m.periodKey, quarterDuration: m.quarterDuration,
-    competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '',
+    competition: m.competition || 'Competitie', matchday: m.matchday || '', referee: m.referee || '', jersey: m.jersey || '', venue: m.venue || '', terrein: m.terrein || '',
     trainer: m.trainer || '', responsible: m.responsible || '',
     pool,
     formationIndex: fi, selPlace: null,
@@ -1768,7 +1780,7 @@ function renderPrep() {
   const voorbij = typeof matchNietAfgesloten === 'function' && matchNietAfgesloten(m);
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
-  const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Locatie', m.venue]].filter(([k, v]) => v);
+  const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Adres', m.venue], ['Terrein', m.terrein]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go(matchTerug())`;
   return `
   ${/* HET OOGJE IN DE KOPREGEL (Tim, 01-09-2026). Dit stond eerst als knop op volle breedte tussen de
@@ -2130,7 +2142,7 @@ async function finishStep1Only(alGelezen) {
   const common = {
     teamName: team ? team.name : (wiz.teamNameFallback || 'Ploeg'), teamId: wiz.teamId || '',
     competition: wiz.competition, matchday: wiz.matchday || '', referee: wiz.referee || '',
-    jersey: wiz.jersey || '', venue: wiz.venue || '',
+    jersey: wiz.jersey || '', venue: wiz.venue || '', terrein: wiz.terrein || '',
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,

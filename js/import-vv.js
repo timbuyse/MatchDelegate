@@ -217,6 +217,11 @@ function vvLees(d, wij) {
     strafschoppen: !!uitslag.hasPenalties,
     scheidsrechter: scheids.join(', '),
     andereOfficials: anderen,
+    // GESPLITST SINDS v1.54.0, omdat de app nu een Adres- en een Terreinveld heeft. De bond geeft
+    // alle drie de stukken apart: de naam van het complex, de straat met gemeente, en de code van het
+    // terrein. Die hoorden vroeger in één regel omdat er ook maar één veld was om ze in te zetten.
+    terreinNaam: loc.name || '',
+    pitch: loc.pitchCode ? 'terrein ' + loc.pitchCode : '',
     terrein: [loc.name, loc.pitchCode ? 'terrein ' + loc.pitchCode : ''].filter(Boolean).join(' — '),
     stad: [loc.address, [loc.postalCode, loc.city].filter(Boolean).join(' ')].filter(Boolean).join(', '),
     onzeSpelers: spelers(wij),
@@ -347,7 +352,11 @@ function vvInfoRijen(m, lz) {
   rij('opponent', 'Tegenstander', m.opponent, lz.hunTeam);
   rij('competition', 'Soort', m.competition, lz.soort);
   rij('referee', 'Scheidsrechter', m.referee, lz.scheidsrechter);
-  rij('venue', 'Terrein', m.venue, lz.terrein);
+  // Het adres van het blad kwam tot nu NERGENS in de wedstrijd terecht: het stond enkel ter info op
+  // dit scherm. Nu er een Adresveld is, is het gewoon over te nemen — naam van het complex plus de
+  // straat en de gemeente.
+  rij('venue', 'Adres', m.venue, [lz.terreinNaam, lz.stad].filter(Boolean).join(', '));
+  rij('terrein', 'Terrein', m.terrein, lz.pitch);
   // Bij een tornooiwedstrijd staan drie dingen niet op de wedstrijd zelf. `location` draagt daar de
   // plaats van het tornooi in plaats van Thuis/Uit (een tornooidag is neutraal terrein), en trainer
   // en ploegverantwoordelijke komen van het tornooi (zie matchTrainer/matchResponsible). Ze hier

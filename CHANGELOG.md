@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.54.0
+
+**'Locatie' is gesplitst in 'Adres' en 'Terrein'.** Er was één vrij tekstveld voor allebei, en dat
+werkte tegen zichzelf: wie er een adres in zette, kon er geen terrein meer bij kwijt, en omgekeerd.
+
+- **Adres** — straat, nummer en gemeente. Het staat nu meteen onder **Thuis of uit**, want bij een
+  uitmatch is "waar moet ik naartoe" het eerste wat je invult en het eerste wat een ouder wil weten.
+- **Terrein** — "terrein 2", "kunstgras B". Dat staat bij de details, want dat heb je pas ter plaatse
+  nodig.
+
+Wat er vandaag in je wedstrijden staat, blijft staan en heet voortaan **Adres**. Er verhuist dus
+niets. Stond er bij jou een terreinnaam in, dan verplaats je die zelf naar het nieuwe veld.
+
+**De wedstrijdpagina van de bond vult nu allebei.** Het adres van het complex stond daar altijd al op,
+maar kwam nergens in je wedstrijd terecht — je zag het alleen even op het ophaalscherm. Nu neemt de
+app de naam van het complex met straat en gemeente over als **Adres**, en de terreincode als
+**Terrein**.
+
+---
+
 ## v1.53.1
 
 **Een ploeg uit de prullenmand komt weer netjes bij haar club terecht.** Zette je een verwijderde

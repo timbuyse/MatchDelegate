@@ -1555,7 +1555,7 @@ function clubExportWedstrijdRijen(ploegen) {
         : m.status === 'cancelled' ? 'Geannuleerd' : 'Gepland';
       const gespeeld = m.status === 'done';
       rijen.push([pl.naam, m.subteam || '', seasonOf(m), m.date || '', m.time || '', m.opponent || '',
-        m.location || '', m.venue || '', m.competition || '', m.matchType || '',
+        m.location || '', m.venue || '', m.terrein || '', m.competition || '', m.matchType || '',
         m.numQuarters || '', m.quarterDuration || '', status,
         // Gespeeld zonder uitslag: leeg laten, niet 0 — anders leest het exportbestand als 0-0.
         (gespeeld && !geenUitslag(m)) ? (m.scoreUs != null ? m.scoreUs : '') : '',

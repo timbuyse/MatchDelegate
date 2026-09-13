@@ -1147,7 +1147,8 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Format</b>: bv. 8 tegen 8, 11 tegen 11.</li>
         <li><b>Aantal blokken</b>: bv. 4 kwarten, 2 helften.</li>
         <li><b>Duur van een blok</b>: speelduur in minuten.</li>
-        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, locatie, trainer(s), ploegverantwoordelijke(n), enz. Bij de trainers en de ploegverantwoordelijken vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
+        <li>Het <b>adres</b> staat meteen onder <b>Thuis of uit</b>: straat, nummer en gemeente, zodat iedereen weet waar hij moet zijn. Het <b>terrein</b> ("terrein 2", "kunstgras B") staat bij de details hieronder — dat heb je pas ter plaatse nodig.</li>
+        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, terrein, trainer(s), ploegverantwoordelijke(n), enz. Bij de trainers en de ploegverantwoordelijken vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
       </ul>
       <p class="hdl-tip">Wil je de wedstrijd alvast inplannen en de selectie later invullen? Tik op
         <b>'Opslaan zonder selectie'</b>. Elke stap van de wizard heeft zo'n knop: bovenaan gaat het

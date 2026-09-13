@@ -552,7 +552,7 @@ async function doExtraDeel() {
 const RESET_UNDO_KEY = 'voetbal_resetUndo';
 const RESET_UNDO_GELDIG_MS = 24 * 3600 * 1000;
 function matchOmschrijving(m) {
-  return [tName(m), m.opponent ? 'tegen ' + m.opponent : '', matchWhen(m), m.venue].filter(Boolean).join(' · ');
+  return [tName(m), m.opponent ? 'tegen ' + m.opponent : '', matchWhen(m), m.venue, m.terrein].filter(Boolean).join(' · ');
 }
 function confirmResetMatch() {
   if (!canLive() || !match) return;
@@ -1555,6 +1555,10 @@ function modalEditMatchInfo() {
             <button type="button" class="${match.location==='Thuis'?'act':''}" onclick="eiSetLoc('Thuis',this)">${icI(IC.home)} Thuismatch</button>
             <button type="button" class="${match.location==='Uit'?'act':''}" onclick="eiSetLoc('Uit',this)">${icI(IC.plane)} Uitmatch</button>
           </div></div>`}
+    ${/* Het adres net onder thuis/uit, zoals in de wizard — zie de uitleg daar. Ook bij een
+         tornooiwedstrijd: daar staat hierboven de tornooilocatie, en het adres van dat terrein mag je
+         gewoon zelf ingeven. */ ''}
+    <div class="fg"><label>Adres</label><input id="ei-venue" type="text" value="${esc(match.venue||'')}" placeholder="bv. Sportstraat 12, 9700 Oudenaarde" autocomplete="off"></div>
     ${partsBlock}
     ${(FORMATIONS[match.matchType]||[]).length ? `<div class="fg"><label>Spelvorm (formatie)</label>
       <select id="ei-formation">${(FORMATIONS[match.matchType]||[]).map(f=>`<option value="${esc(f.name)}" ${match.formation===f.name?'selected':''}>${esc(f.name)}</option>`).join('')}
@@ -1575,7 +1579,8 @@ function modalEditMatchInfo() {
         <div class="fg"><label>Truikleur</label><input id="ei-jersey" type="text" value="${esc(match.jersey||'')}" placeholder="bv. zwart-groen" autocomplete="off"></div>
       </div>
       <div class="fg"><label>Scheidsrechter</label><input id="ei-ref" type="text" value="${esc(match.referee||'')}" placeholder="Naam" autocomplete="off"></div>
-      <div class="fg"><label>Locatie</label><input id="ei-venue" type="text" value="${esc(match.venue||'')}" placeholder="bv. sportveld, kunstgras B2" autocomplete="off"></div>
+      ${/* Terrein: het detail voor ter plaatse. Het adres staat boven, bij thuis/uit. */ ''}
+    <div class="fg"><label>Terrein</label><input id="ei-terrein" type="text" value="${esc(match.terrein||'')}" placeholder="bv. terrein 2, kunstgras B" autocomplete="off"></div>
       ${match.tournamentId
         // Op een tornooidag zijn trainer en ploegverantwoordelijke voor alle wedstrijden dezelfde:
         // die geef je één keer bij het tornooi in. Kon je ze hier per wedstrijd overschrijven, dan
@@ -1638,7 +1643,7 @@ async function saveMatchInfo() {
   const compSel = v('ei-comp'); match.competition = compSel === '__other__' ? v('ei-comp-custom').trim() : compSel;
   match.matchday = v('ei-md').trim();
   match.jersey = v('ei-jersey').trim();
-  match.venue = v('ei-venue').trim();
+  match.venue = v('ei-venue').trim(); match.terrein = v('ei-terrein').trim();
   await dbSave(match);
   const slots = formationChanged && (FORMATIONS[match.matchType]||[]).find(f => f.name === match.formation)?.slots;
   // Zodra er wissels/positiewissels gelogd zijn, blokkeert modalEditPositions het collectief
@@ -2579,7 +2584,8 @@ function exportMatchCSV() {
   // plek die isAway() niet volgde en zette "Sportpark Aalter" onder de kop "Thuis/uit".
   if (m.tournamentId) row('Tornooilocatie', m.location || '');
   else row('Thuis/uit', m.location || '');
-  row('Locatie', m.venue || '');
+  row('Adres', m.venue || '');
+  row('Terrein', m.terrein || '');
   row('Wedstrijdtype', m.matchType || '');
   row('Competitie', m.competition || '');
   row('Speeldag', m.matchday || '');

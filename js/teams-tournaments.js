@@ -2274,7 +2274,7 @@ function addTournamentMatch(trnId) {
     periodKey: tournamentPeriods(t).periodKey,
     quarterDuration: tournamentPeriods(t).quarterDuration,
     numQuarters: tournamentPeriods(t).numQuarters,
-    competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '',
+    competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '', terrein: '',
     trainer: t.trainer || '', responsible: t.responsible || '',
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
   };
@@ -2329,7 +2329,7 @@ async function cloneTournamentMatch(matchId, trnId) {
     numQuarters: src.numQuarters || 1,
     competition: src.competition || 'Tornooi',
     matchday: '', referee: src.referee || '', jersey: src.jersey || '',
-    venue: '', trainer: src.trainer || t.trainer || '',
+    venue: '', terrein: src.terrein || '', trainer: src.trainer || t.trainer || '',
     responsible: src.responsible || t.responsible || '',
     pool, poolTeamId: t.teamId, formationIndex: fi, selPlace: null,
   };
