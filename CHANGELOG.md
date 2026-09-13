@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.53.0
+
+**Een gespeelde wedstrijd op slot.** Rechts bovenaan een afgesloten verslag staat nu een **slotje**.
+Tik het aan en alle bewerkknoppen verdwijnen: de potloodjes, de kruisjes, 'Bewerken', '+ Event
+toevoegen', 'Man v/d match' en 'Wedstrijd verwijderen'. Handig voor een verslag dat af is en dat je
+nog vaak opent om iets op te zoeken — een misklik verandert er dan niets meer aan.
+
+Het is een rem voor jezelf, geen slot op de gegevens: **dezelfde tik zet het weer open**. Wat je te
+zien krijgt blijft volledig — je wedstrijdnotities, de spelernotities en de hele tijdlijn staan er
+gewoon — en **Delen**, **PDF** en **Export** blijven werken. Voor een kijker verandert er niets: die
+kon toch al niets wijzigen, en die ziet het slotje dus ook niet. Vergrendelen kan pas zodra de
+wedstrijd afgesloten is.
+
+**In het Bewerken-menu staat 'Info bewerken' nu bovenaan**, in plaats van 'Event toevoegen'. Dat is
+veruit het vaakst waarvoor je dat menu opent.
+
+**'Heropenen' is mee naar dat menu verhuisd.** De knop stond naast 'Bewerken' — en bij een wedstrijd
+zonder uitslag zelfs twee keer — waar ze een derde van een rij innam voor iets dat je zelden doet.
+
+---
+
 ## v1.52.1
 
 **Eén keer terug volstaat weer na het kiezen van een ploeg.** Koos je een ploeg en veegde je daarna

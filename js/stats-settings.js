@@ -1559,18 +1559,29 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
     inhoud: `
       <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
-      <p style="margin-top:10px">Vlak onder de eindscore staan <b>'Bewerken'</b>, <b>'Heropenen'</b> (zet de wedstrijd weer op live, bv. als je te vroeg affloot) en <b>'Strafschoppen'</b>, met daaronder <b>'Delen'</b>, <b>'PDF'</b> en <b>'Export'</b>. Helemaal onderaan staat <b>'Wedstrijd verwijderen'</b>: dat haalt ze uit de lijst, maar ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
+      <p style="margin-top:10px">Vlak onder de eindscore staan <b>'Bewerken'</b> en <b>'Strafschoppen'</b>, met daaronder <b>'Delen'</b>, <b>'PDF'</b> en <b>'Export'</b>. Helemaal onderaan staat <b>'Wedstrijd verwijderen'</b>: dat haalt ze uit de lijst, maar ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
       <ul class="hdl-list">
+        <li><b>'Info bewerken'</b> — tegenstander, datum, uur, scheidsrechter …</li>
         <li><b>'Uitslag aanpassen'</b> — enkel bij een wedstrijd die je niet live gevolgd hebt.</li>
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
-        <li><b>'Info bewerken'</b> — tegenstander, datum, uur, scheidsrechter …</li>
         <li><b>'Wedstrijdinfo ophalen'</b> — vul een wedstrijd aan met wat er op de wedstrijdpagina staat.</li>
         <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden.</li>
         <li><b>'Spelernotities'</b> en <b>'Rugnummers'</b> — per speler, enkel voor deze wedstrijd.</li>
         <li><b>'Startopstelling aanpassen'</b> — verzet de spelers van de aftrap, of wissel iemand van de bank erin.</li>
         <li><b>'Opstelling van een deel rechtzetten'</b> — pas de opstelling van een later blok aan.</li>
         <li><b>'Gebruik als template'</b> — een nieuwe wedstrijd met dezelfde ploeg en opstelling.</li>
+        <li><b>'Heropenen'</b> — zet de wedstrijd weer op live, bv. als je te vroeg affloot.</li>
       </ul>
+      <div class="sec">Een wedstrijd vergrendelen</div>
+      <p>Ben je met een verslag klaar, dan kan je het <b>op slot zetten</b>: tik het <b>slotje</b> rechts
+        bovenaan het verslag aan. Alle bewerkknoppen verdwijnen — de potloodjes, de kruisjes,
+        'Bewerken', 'Event toevoegen' en 'Wedstrijd verwijderen' — zodat je er met een misklik niets
+        meer aan verandert. Handig wanneer je een verslag nog vaak opent om iets op te zoeken.</p>
+      <p class="hdl-tip">Het is geen slot op de gegevens maar een rem voor jezelf: <b>dezelfde tik zet
+        het weer open</b>. Wat je ziet blijft volledig — je notities, de spelernotities en de hele
+        tijdlijn staan er gewoon — en <b>Delen</b>, <b>PDF</b> en <b>Export</b> blijven werken. Voor een
+        kijker verandert er niets: die kon toch al niets wijzigen. Vergrendelen kan pas zodra de
+        wedstrijd afgesloten is.</p>
       <div class="sec">Een opstelling achteraf aanpassen</div>
       <p>Elke opstelling is achteraf recht te zetten, ook al zijn er wissels gebeurd. De snelste weg
         loopt via <b>Events</b>: naast de startopstelling van elk blok staat een <b>potloodje</b>. Tik

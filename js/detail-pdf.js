@@ -5,8 +5,16 @@ function renderDetail() {
   // liep bij élke tekening van dit scherm, zonder rolcontrole en zonder await: een kijker die een
   // verslag opende, schreef de wedstrijd weg en pushte ze naar de cloud (dbSave zet updatedAt, wat de
   // samenvoeging met een medebeheerder beïnvloedt). Nu alleen voor wie de wedstrijd mag bijhouden.
-  if (canLive() && ensurePosNums(match)) dbSave(match);
+  if (magWijzigen(match) && ensurePosNums(match)) dbSave(match);
   const ro = !canLive(); // kijker of gast: alleen-lezen — zelfde maatstaf als het livescherm (25-08-2026)
+  // TWEE VERSCHILLENDE VRAGEN, EN DAAROM TWEE VLAGGEN (v1.53.0).
+  //   ro  = "ben je kijker of gast?"  -> bepaalt wat je te ZIEN en mee te NEMEN krijgt: je eigen
+  //         notities, de spelernotities, de PDF en de export.
+  //   vast = "mag je nog WIJZIGEN?"   -> bepaalt elke knop die iets aan de wedstrijd verandert.
+  // Een vergrendelde wedstrijd zet enkel die tweede om. Je blijft dus je eigen notities zien en je
+  // kan er nog altijd een PDF van maken — een slot gaat over wijzigen, niet over wat van jou is.
+  const opSlot = matchVergrendeld(match);
+  const vast = ro || opSlot;
   const mins = calcMinutes(match);
   const qSummary = match.quarters.map(q => {
     // getQElapsed kijkt ALTIJD naar het laatste blok (audit 25-08-2026). Voor een blok zonder
@@ -42,7 +50,7 @@ function renderDetail() {
       ${/* canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
            offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
            een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
-      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(canLive() && q.endTime)
+      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
         ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
       ${/* evtLabelBasis en niet evtLabel (Tim, 30-08-2026): die laatste plakt sinds v1.23.3 de
            tussenstand achter elk doelpunt, en op déze kaart staat de stand al twee kolommen naar
@@ -54,10 +62,23 @@ function renderDetail() {
   }).join('');
 
   const detailBack = match.tournamentId ? `goTournament('${match.tournamentId}')` : `go(matchTerug())`;
+  // HET SLOTJE IN DE KOP (Tims keuze, 13-09-2026). Eén tik, en je ziet meteen óf een wedstrijd op slot
+  // staat zonder een menu te moeten openen — het gesloten slot kleurt oranje, het open slot staat er
+  // grijs. Enkel bij een AFGESLOTEN wedstrijd, en enkel voor wie mag bijhouden: voor een kijker
+  // verandert er niets, die kon toch al niets wijzigen.
+  // hdr-gear en niet hdr-btn: dat laatste is een gevulde oranje knop, en die schreeuwt hier te hard.
+  const slotBtn = (canLive() && match.status === 'done')
+    ? `<button class="hdr-gear no-print" onclick="toggleMatchSlot()" title="${opSlot ? 'Vergrendeld — tik om te ontgrendelen' : 'Vergrendelen: geen wijzigingen meer'}"${opSlot ? ' style="color:var(--org2)"' : ''}>${icI(opSlot ? IC.lock : IC.lockOpen)}</button>`
+    : '';
   return `
   <div class="hdr"><button class="back" onclick="${detailBack}">‹</button>
-    <div><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
+    <div style="flex:1;min-width:0"><h1>${matchTitle(match)}</h1><div class="hdr-sub">${match.location} · ${matchWhen(match)} · ${match.matchType}</div></div>
+    ${slotBtn}
   </div>
+  ${/* De balk enkel voor wie het slot ook kán omzetten. Een kijker kon hier sowieso al niets
+       wijzigen, dus "vergrendeld" zegt hem niets — het zou alleen maar de vraag oproepen wat hij
+       fout deed. Zelfde reden als bij het slotje in de kop hierboven. */ ''}
+  ${(opSlot && canLive()) ? `<div class="content" style="padding-bottom:0"><div class="viewer-banner">${icI(IC.lock)} <b>Vergrendeld.</b> Er zijn geen wijzigingen meer mogelijk. Tik het slotje bovenaan aan om dat weer open te zetten.</div></div>` : ''}
   <div class="content">
     <div class="card" style="text-align:center">
       <div style="font-size:13px;color:var(--txt2);margin-bottom:4px">Eindscore</div>
@@ -84,7 +105,7 @@ function renderDetail() {
       <div class="card">
         ${!toonShootout(match) ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} De stand is niet gelijk (${esc(scoreTxt(match))}), dus deze reeks staat niet bij de uitslag. Een strafschoppenreeks beslist enkel een gelijkspel — wis ze hieronder als ze hier niet hoort.</div>` : ''}
         ${penaltyReeksHtml(match)}
-        ${ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
+        ${vast ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
         </div>`}
@@ -112,11 +133,12 @@ function renderDetail() {
          evenveel gelijke kolommen als er knoppen zijn; bij een afgesloten wedstrijd zijn dat er drie
          boven én onder, en vallen ze samen. `min-width:0` is nodig omdat een rasterkolom anders niet
          onder de breedte van zijn inhoud krimpt en de rij tóch te breed wordt. */ ''}
-    ${ro ? '' : (() => {
+    ${vast ? '' : (() => {
       const af = match.status === 'done' && !geenUitslag(match);
       const stijl = 'margin:0;font-size:13px;padding:9px 4px;gap:5px;min-width:0';
       const knoppen = [`<button class="btn btn-pale btn-sm" style="${stijl}" onclick="modalDetailEditMenu()">${icI(IC.edit)} Bewerken</button>`];
-      if (af) knoppen.push(`<button class="btn btn-orgpale btn-sm" style="${stijl}" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>`);
+      // "Heropenen" STAAT NU IN HET BEWERKEN-MENU (Tim, 13-09-2026). Het is een bewerking zoals de
+      // rest, en hier nam het een derde van een rij in beslag voor iets dat je zelden doet.
       // "Penalty's" en niet "Strafschoppen" (Tim, 30-08-2026). Zodra de drie knoppen even breed zijn
       // krijgt elk er 105 px op een telefoon van 360 px, en "Strafschoppen" heeft er 129 nodig — 24 px
       // te veel, dus niet op te lossen met een kleinere letter of minder marge binnen de knop.
@@ -144,10 +166,11 @@ function renderDetail() {
          dezelfde vraag als op een geplande wedstrijd ("hoe vul ik deze gespeelde wedstrijd in?"), dus
          hoort er hetzelfde menu achter. De naam blijft wél zeggen wat je hier komt doen: bij een
          wedstrijd op "– . –" is een uitslag alsnog ingeven de reden waarom je kijkt. */ ''}
-    ${geenUitslag(match) ? (ro ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" class="no-print">
-      <button class="btn btn-green btn-sm" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
-      ${/* "Heropenen", zoals in de rij hierboven: één naam voor één knop. */ ''}
-      <button class="btn btn-orgpale btn-sm" onclick="confirmReopenMatch()">${icI(IC.live)} Heropenen</button>
+    ${geenUitslag(match) ? (vast ? '' : `<div class="no-print">
+      ${/* "Heropenen" is mee naar het Bewerken-menu verhuisd (Tim, 13-09-2026), dus hier blijft één
+           knop over — en dan is een raster van twee kolommen met een gat ernaast lelijker dan gewoon
+           de volle breedte. */ ''}
+      <button class="btn btn-green btn-sm" style="width:100%" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
     </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
       ${/* KLEINER DAN DE RIJ ERBOVEN (Tim, 30-08-2026). Drie gevulde knoppen op volle breedte wogen
            zwaarder dan de handelingen erboven, terwijl doorsturen niets aan de wedstrijd verandert.
@@ -161,7 +184,7 @@ function renderDetail() {
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
       ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Locatie',match.venue],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
-      <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${ro?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
+      <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${vast?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     ${(() => {
       const ev = match.events;
@@ -196,7 +219,9 @@ function renderDetail() {
     ${!canLive() ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
     <div class="card">
       <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
-      <button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>
+      ${/* De notities zelf BLIJVEN staan bij een vergrendelde wedstrijd (Tims keuze, 13-09-2026):
+           het slot gaat over wijzigen, niet over wat van jou is. Enkel de knop valt weg. */ ''}
+      ${vast ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
     </div>`}
     ${selectionCardHtml(match)}
     ${/* GEEN VELD TEKENEN DAT WE NIET KUNNEN VULLEN (Tim, 31-08-2026). Een speler zonder plek belandt
@@ -211,7 +236,7 @@ function renderDetail() {
       ? `<div class="card">${renderLineupCarousel(match)}</div>`
       : `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
           ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
-          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${canLive() ? ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.' : ''}</p></div>`}
+          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`}
     ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
     ${!statSectionVisible('minutes') ? '' : `
     <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
@@ -291,7 +316,7 @@ function renderDetail() {
          bovenaan, en heropenen staat daar in dezelfde rij: het stond hier én daar, en twee wegen naar
          dezelfde knop is er één te veel. Verwijderen blijft wél apart hier: dat is het einde van het
          scherm, achter een rode lijn, waar je het verwacht en niet per ongeluk aantikt. */ ''}
-    ${ro ? '' : `<div class="no-print">
+    ${vast ? '' : `<div class="no-print">
       <div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>
     </div>`}
     ${viewerVisibilityHintHtml(['selected', 'minutes'])}
@@ -310,6 +335,24 @@ function renderDetail() {
 // wedstrijd (geen tournamentId, geen tornooimodus), en dat is op een tornooidag nooit wat je wil.
 // Daar bestaat "Kloon als nieuwe wedstrijd" voor, die de kloon in hetzelfde tornooi houdt — die
 // bieden we hier ook aan, zodat je er niet voor terug moet naar de tornooipagina.
+// HET SLOT OM- EN AFZETTEN (Tim, 13-09-2026). Bewust zonder bevestigingsvenster: het is met dezelfde
+// tik weer ongedaan te maken, en een venster voor iets dat niets vernietigt is één tik te veel.
+// canLive() en niet magWijzigen(): die laatste is bij een vergrendelde wedstrijd per definitie false,
+// en dan zou je het slot er nooit meer af krijgen.
+async function toggleMatchSlot() {
+  const m = match;
+  if (!m || !canLive()) return;
+  if (m.status !== 'done') { showToast('Vergrendelen kan pas als de wedstrijd afgesloten is.', 'err'); return; }
+  const aan = !matchVergrendeld(m);
+  // `false` en niet het veld wissen: een ontbrekend veld en `false` betekenen hier hetzelfde, maar bij
+  // het samenvoegen met een ander toestel is "uitdrukkelijk uit" ondubbelzinniger dan "staat er niet".
+  m.vergrendeld = aan;
+  await dbSave(m);
+  render();
+  showToast(aan
+    ? 'Vergrendeld — er zijn geen wijzigingen meer mogelijk.'
+    : 'Ontgrendeld — je kan de wedstrijd weer aanpassen.', 'ok');
+}
 function cloneMatchBtnHtml(m) {
   if (!m) return '';
   return m.tournamentId
@@ -322,7 +365,7 @@ function cloneMatchBtnHtml(m) {
 // dezelfde gedachte: eerst wat er gebeurd is (uitslag, gebeurtenissen), dan de gegevens van de
 // wedstrijd, dan wie meespeelde, dan waar ze stonden, en helemaal onderaan het klonen.
 function modalDetailEditMenu() {
-  const m = match; if (!m || !canLive()) return;   // gordel én bretellen, net als de andere vensters
+  const m = match; if (!m || !magWijzigen(m)) return;   // gordel én bretellen, net als de andere vensters
   const heeftFormatie = (FORMATIONS[m.matchType] || []).length > 0;
   // `alGewisseld` bestaat niet meer als BLOKKADE (v1.47.0): het herplaatsen van de aftrap weigerde
   // zodra er gewisseld was, omdat het de latere delen niet herrekende. Sinds v1.46.0 doet het dat wél
@@ -336,10 +379,13 @@ function modalDetailEditMenu() {
          volgde — de klok komt van het wedstrijdblad van de bond. Zonder deze uitzondering verdween
          "Uitslag aanpassen" zodra je één keer speelminuten van het blad overnam, en dan was de score
          van een niet-gevolgde wedstrijd niet meer recht te zetten. */ ''}
+    ${/* "INFO BEWERKEN" BOVENAAN (Tim, 13-09-2026). Het stond onder "Event toevoegen", terwijl de
+         tegenstander, de datum of het uur rechtzetten veruit het vaakst is waarvoor je dit menu
+         opent — en het enige item dat ook bij een wedstrijd zonder één gebeurtenis zin heeft. */ ''}
+    ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
     ${(!m.tournamentId && !geenUitslag(m) && (getGameTimeMs(m) === 0 || m.klokVanBlad))
       ? menuItemHtml(IC.bolt, 'Uitslag aanpassen', 'De score en de doelpuntenmakers van deze wedstrijd rechtzetten.', 'modalQuickResult()') : ''}
     ${menuItemHtml(IC.log, 'Event toevoegen', 'Een doelpunt, kaart of andere gebeurtenis die je tijdens de wedstrijd gemist hebt.', 'modalAddPostEvent()')}
-    ${menuItemHtml(IC.clipboard, 'Info bewerken', 'Tegenstander, datum, uur, scheidsrechter en de rest van de wedstrijdgegevens.', 'modalEditMatchInfo()')}
     ${/* Dezelfde ingang als bij een geplande wedstrijd (zie modalEditMatchMenu en import-vv.js).
          Juist hier hoort ze thuis: een wedstrijd die niemand volgde, wordt achteraf afgesloten en
          staat dan leeg terwijl de wedstrijdpagina intussen alles heeft. Vult enkel aan — wat er al
@@ -382,6 +428,14 @@ function modalDetailEditMenu() {
         ? 'Een nieuwe wedstrijd in ditzelfde tornooi, met dezelfde selectie.'
         : 'Een nieuwe wedstrijd beginnen met dezelfde ploeg, selectie en opstelling.',
       m.tournamentId ? `cloneTournamentMatch('${m.id}','${m.tournamentId}')` : 'cloneMatch()')}
+    ${/* HEROPENEN HOORT HIER (Tim, 13-09-2026). Het stond als eigen knop naast "Bewerken", waar het
+         een derde van de rij innam voor iets dat je zelden doet — en bij een wedstrijd zonder uitslag
+         stond het er zelfs twee keer. Onderaan het menu, want het is de zwaarste van de reeks: de
+         wedstrijd gaat weer op "bezig" en de klok loopt verder.
+         Enkel bij een AFGESLOTEN wedstrijd: een wedstrijd die al bezig is, valt niet te heropenen. */ ''}
+    ${m.status === 'done' ? menuItemHtml(IC.live, 'Heropenen',
+      'Zet deze wedstrijd terug op "bezig" om verder bij te houden. De klok loopt weer vanaf waar ze stond.',
+      'confirmReopenMatch()') : ''}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
 
@@ -601,6 +655,7 @@ function cloneMatch() {
   go('new');
 }
 function confirmDelete() {
+  if (slotWeigert()) return;
   // Verwijderen hoort bij beheren, niet bij een wedstrijd volgen: het vraagt dus een verbinding.
   // Deze controle ontbrak, waardoor de rode knop offline als ENIGE gewoon doorging terwijl Bewerken
   // en Annuleren daar stil niets deden (audit 23-08-2026). Ook een eigen melding in plaats van een

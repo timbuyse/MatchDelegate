@@ -1125,6 +1125,7 @@ function pasKwartDuurToe(m, qNum, nieuweMs) {
   return { delta, geknipt };
 }
 function modalKwartDuur(qNum) {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;
   const q = (match.quarters || []).find(x => x.num === qNum);
   if (!q || !q.endTime) {
@@ -1190,6 +1191,7 @@ async function doKwartDuur(qNum, nieuweMin) {
 // Voordien deed heropenen altijd +1, waardoor een per ongeluk afgesloten wedstrijd van één blok
 // stil een wedstrijd van twee delen werd — met een "deel 2" in het verslag en in beide PDF's.
 function confirmReopenMatch() {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const label = pSingLow(match);
   const laatste = match.quarters[match.quarters.length - 1];
@@ -1471,11 +1473,13 @@ async function stopShootout() {
 }
 // Ingang achteraf, vanuit het verslag: reeks alsnog ingeven of corrigeren.
 function shootoutVanuitVerslag() {
+  if (slotWeigert()) return;
   if (!canLive()) return;
   if (match.shootout) modalShootout(); else startShootout();
 }
 // De hele reeks weghalen (bv. verkeerd ingegeven).
 function confirmWisShootout() {
+  if (slotWeigert()) return;
   openModal(`<h3>${icI(IC.trash)} Strafschoppen wissen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De reeks verdwijnt. De uitslag <b>${esc(scoreTxt(match))}</b> blijft zoals ze is.</p>
     <button class="btn btn-red" onclick="doWisShootout()">${icI(IC.trash)} Wissen</button>
@@ -1487,6 +1491,7 @@ async function doWisShootout() {
   finally { _eventBusy = false; }
 }
 function modalNotes() {
+  if (slotWeigert()) return;
   openModal(`<h3>${icI(IC.edit)} Notities</h3>
     <div class="fg"><textarea id="note-area" rows="6" placeholder="Aanvullingen over de wedstrijd...">${esc(match.notes||'')}</textarea></div>
     <button class="btn btn-green" onclick="saveNotes()">${icI(IC.check)}Opslaan</button>
@@ -1732,6 +1737,7 @@ function _epStartCodes() {
   return codes;
 }
 function modalEditPositions() {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;
   if (!_epMag()) return;
   const startCodes = _epStartCodes();
@@ -2076,6 +2082,7 @@ function deelOpstellingDelen(m) {
 // de kwartgrens. Sinds v1.49.0 kan je in allebei ook iemand van de bank inbrengen, met dezelfde
 // bediening — het verschil zit enkel in wat er opgeslagen wordt.
 function bewerkDeelOpstelling(q) {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;
   if (Number(q) <= 1) modalEditPositions();
   else modalDeelOpstelling(Number(q));
@@ -2119,6 +2126,7 @@ function _qlBank() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
 }
 function modalDeelOpstelling(deel) {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;
   const delen = deelOpstellingDelen(match);
   if (!delen.length) { showToast('Er is nog maar één deel gespeeld — gebruik "Startopstelling herplaatsen".', 'err'); return; }
@@ -2362,12 +2370,13 @@ async function saveNotes() {
   await dbSave(match); closeModal(); render();
 }
 function modalMotm() {
+  if (slotWeigert()) return;
   openModal(`<h3>${icI(IC.motm)} Man van de match</h3>
     ${match.players.map(p => `<div class="mopt ${match.motmId===p.id?'sel':''}" onclick="setMotm('${p.id}')">${numDot(p, 'mopt-num')}${esc(p.name)}</div>`).join('')}
     <div class="mopt mopt-skip" onclick="setMotm(null)">Geen / wissen</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
 }
-async function setMotm(id) { match.motmId = id; await dbSave(match); closeModal(); render(); }
+async function setMotm(id) { if (slotWeigert()) return; match.motmId = id; await dbSave(match); closeModal(); render(); }
 function shareWhatsApp(m) {
   if (!m) return;
   const home = !isAway(m);
@@ -2743,6 +2752,7 @@ function addEvent(type, extra={}) {
 }
 // Events corrigeren / verwijderen
 function confirmDeleteEvent(id) {
+  if (slotWeigert()) return;
   const e = match.events.find(x => x.id === id); if (!e) return;
   openModal(`<h3>Event verwijderen?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${evtLabel(e, match)}"<br>De score en opstelling worden herberekend.</p>
@@ -2753,6 +2763,7 @@ function confirmDeleteEvent(id) {
 // ook als geheel te verdwijnen. Eén schakel eruit halen laat een herschikking achter die niemand
 // zo bedoeld heeft.
 function confirmDeleteEvents(ids) {
+  if (slotWeigert()) return;
   const evs = (ids || []).map(id => match.events.find(x => x.id === id)).filter(Boolean);
   if (!evs.length) return;
   if (evs.length === 1) return confirmDeleteEvent(evs[0].id);
@@ -2970,6 +2981,7 @@ async function doDeleteEvent(id, stil) {
 }
 // Een bestaand event bewerken (speler/assist/minuut/details).
 function modalEditEvent(id) {
+  if (slotWeigert()) return;
   const e = match.events.find(x => x.id === id); if (!e) return;
   const minute = eventMin(e, match);
   const opts = (sel, withNone) => `${withNone ? '<option value="">—</option>' : ''}${match.players.map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('')}`;
@@ -5988,6 +6000,7 @@ async function confirmFreekick() {
 // zorg dat die bij elk kwart ook op het juiste kwart staat meteen"). Laat je het weg, dan blijft het
 // laatste deel voorgekozen — zoals altijd voor de weg via het menu.
 function modalAddPostEvent(vanDeel) {
+  if (slotWeigert()) return;
   if (!canLive() || !match) return;   // rollentest 24-08-2026: gordel EN bretellen
   const quarters = match.quarters || [];
   const laatste = quarters.length > 0 ? quarters[quarters.length - 1].num : null;

@@ -3484,7 +3484,7 @@ function startLineupHtml(m, qn) {
   // betekent niets, je zet ze recht.
   // canLive() en niet een meegegeven vlag: dat is dezelfde maatstaf die renderEventLog zelf gebruikt
   // (elog_ro), en zo kan deze functie van overal aangeroepen worden zonder dat er iets uit de pas loopt.
-  const potlood = (typeof canLive === 'function' && canLive() && qn)
+  const potlood = (typeof magWijzigen === 'function' && magWijzigen(m) && qn)
     ? `<button class="evt-edit no-print" onclick="bewerkDeelOpstelling(${qn})" title="Deze opstelling aanpassen">${icI(IC.edit)}</button>`
     : '';
   return `<li class="startlineup"><span class="emin">${icI(IC.shirt)}</span><span class="etxt"><b>Startopstelling</b><span class="sl-lijst">${rijen
@@ -3496,6 +3496,13 @@ function renderEventLog(m) {
   const groups = eventsByQuarter(m);
   if (!groups.length) return '<p style="color:var(--txt2);font-size:14px">Geen events.</p>';
   const elog_ro = !canLive();   // zelfde maatstaf als het livescherm en het verslag (audit 25-08-2026)
+  // TWEE VERSCHILLENDE VRAGEN (v1.53.0), net als in renderDetail:
+  //   elog_ro   = "ben je kijker of gast?" -> bepaalt WAT er in de lijst staat (een kijker ziet geen
+  //               positiewissels en geen blokgrenzen, en een doelpunt leest anders).
+  //   elog_vast = "mag je nog wijzigen?"   -> bepaalt enkel de potloodjes en de kruisjes.
+  // Bij een VERGRENDELDE wedstrijd gaat alleen die tweede om: je blijft de volledige tijdlijn zien
+  // zoals een beheerder ze hoort te zien, je kan er niets meer in veranderen.
+  const elog_vast = !magWijzigen(m);
   // Kaarten volgen het oogje 'cards' (Tims keuze, 25-08-2026): zonder dit stonden ze mét naam in de
   // tijdlijn van elk verslag, ook wanneer je het kaartenblok voor kijkers verborgen had. Enkel voor
   // wie alleen mag lezen — een beheerder ziet altijd alles.
@@ -3532,7 +3539,7 @@ function renderEventLog(m) {
       const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
       // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
       // reeks, want de delen ervan hebben los geen betekenis.
-      const knoppen = elog_ro ? ''
+      const knoppen = elog_vast ? ''
         : (e.type === 'posSwapReeks'
           ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
           : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
@@ -3547,7 +3554,7 @@ function renderEventLog(m) {
     // Deze knop geeft het deel meteen mee (modalAddPostEvent(qn)) — je staat al bij dat deel, dus de
     // app hoort niet te vragen welk deel je bedoelt.
     // Enkel wanneer we het deel kénnen: de groep "Overig" (events zonder deel) heeft er geen.
-    const toevoegen = (elog_ro || g.qn == null) ? ''
+    const toevoegen = (elog_vast || g.qn == null) ? ''
       : `<button class="btn btn-pale btn-sm no-print qgroup-add" onclick="modalAddPostEvent(${g.qn})">${icI(IC.plus)} Event toevoegen</button>`;
     return `<div class="qgroup"><div class="qgroup-head"><span>${head}</span>${score}</div><ul class="elog">${items}</ul>${toevoegen}</div>`;
   }).join('');

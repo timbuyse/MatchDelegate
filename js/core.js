@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.52.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.53.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -469,6 +469,10 @@ const IC = {
   moon:      _svg('<path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>'),
   bell:      _svg('<path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6"/><path d="M9 17v1a3 3 0 0 0 6 0v-1"/>'),
   lock:      _svg('<path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2z"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0"/><path d="M8 11v-4a4 4 0 1 1 8 0v4"/>'),
+  // lock-open uit dezelfde set als de rest (tabler-icons, outline). Broncode opgehaald, niet
+  // nagetekend — zie de afspraak daarover. Verschilt van `lock` in precies één ding: de beugel staat
+  // open (het derde pad loopt naar boven weg in plaats van dicht).
+  lockOpen:  _svg('<path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2l0-6"/><path d="M11 16a1 1 0 1 0 2 0a1 1 0 1 0-2 0"/><path d="M8 11v-5a4 4 0 0 1 8 0"/>'),
   shieldLock: _svg('<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-8.5 15a12 12 0 0 1-8.5-15a12 12 0 0 0 8.5-3"/><path d="M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"/><path d="M12 12l0 2.5"/>'),
   download:  _svg('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 11l5 5l5-5"/><path d="M12 4l0 12"/>'),
   upload:    _svg('<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 9l5-5l5 5"/><path d="M12 4l0 12"/>'),
@@ -4086,6 +4090,36 @@ function statSectionVisible(key) { return canSeeStats() || statSectionPublic(key
 // aftrap blijft staan, doet vanaf dan gewoon niets meer.
 function matchVerborgenVoorKijkers(m) {
   return !!(m && m.verborgenVoorKijkers && m.status === 'planned');
+}
+// EEN GESPEELDE WEDSTRIJD OP SLOT (Tim, 13-09-2026: "je zou als ploegbeheerder een wedstrijd moeten
+// kunnen vergrendelen na dat hij gespeeld is ... dan kan je geen wijzigingen meer aanbrengen. Maar je
+// kan ook makkelijk ontgrendelen").
+//
+// ENKEL BIJ EEN AFGESLOTEN WEDSTRIJD, en dat staat hier en niet bij de knop. Een slot op een
+// wedstrijd die nog moet beginnen of nog bezig is, zou betekenen dat je ze langs de lijn niet meer
+// kan bijhouden — precies wat deze app moet kunnen. Zet je een vergrendelde wedstrijd toch weer op
+// "bezig" (Heropenen), dan valt het slot dus vanzelf weg; het vlaggetje blijft staan en telt weer
+// zodra ze opnieuw afgesloten is.
+// Een ontbrekend veld = niet vergrendeld, dus alle bestaande wedstrijden blijven zoals ze waren.
+function matchVergrendeld(m) { return !!(m && m.vergrendeld && m.status === 'done'); }
+// MAG IK DEZE WEDSTRIJD NOG WIJZIGEN? Dit is de maatstaf voor élke knop die iets aan de wedstrijd
+// verandert — en bewust NIET voor wat er te zien of mee te nemen is.
+//
+// canLive() blijft wat het was: de ROL (beheerder van deze ploeg, niet in kijkmodus, geen gast). Het
+// slot erin verwerken zou te ver dragen: canLive() bepaalt ook of een wedstrijd in de lijsten staat
+// (matchZichtbaarVoorMij) en of je ze mag openen (matchOpenbaarVoorMij), en een vergrendelde
+// wedstrijd zou dan uit je eigen lijst kunnen verdwijnen. Het bepaalt óók of je een PDF mag maken en
+// of je eigen notities in beeld komen — en dat hoort een slot niet af te nemen: vergrendelen gaat
+// over wijzigen, niet over wat van jou is.
+function magWijzigen(m) { return canLive() && !matchVergrendeld(m); }
+// GORDEL ÉN BRETELLEN, zoals bij de andere vensters. De knoppen zijn weg zodra het slot erop zit,
+// maar een scherm dat nog van vóór het vergrendelen dateert — of de terugknop van de telefoon, of de
+// console — mag er niet alsnog langs. Eén regel bovenaan elke handler die iets wegschrijft.
+// Zegt ook wáárom er niets gebeurt: een tik die stil niets doet, leest als een defect.
+function slotWeigert(m) {
+  if (!matchVergrendeld(m || (typeof match !== 'undefined' ? match : null))) return false;
+  showToast('Deze wedstrijd is vergrendeld. Tik het slotje bovenaan aan om ze te kunnen wijzigen.', 'err');
+  return true;
 }
 // Mag wie nu kijkt deze wedstrijd in de lijsten zien staan? `canLive()` is hier de juiste maatstaf en
 // niet `canManage()`: het gaat om de ROL (beheerder van deze ploeg, niet in kijkmodus, geen gast) en
