@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.52.1
+
+**Eén keer terug volstaat weer na het kiezen van een ploeg.** Koos je een ploeg en veegde je daarna
+terug, dan kwam je op hetzelfde scherm uit en moest je een tweede keer terug voor je op het
+ploegkeuzescherm stond.
+
+Oorzaak: de clubgegevens van een ploeg (naam, logo, kleurthema) komen een tel na het openen binnen uit
+de cloud. Die staan in de kop van het scherm, dus dat moet opnieuw getekend worden — maar de app deed
+dat door opnieuw naar het beginscherm te *navigeren*, en de browser noteert dat als een extra stap.
+Kwam het logo apart binnen, dan waren het er zelfs drie. Het scherm wordt nu gewoon hertekend.
+
+---
+
 ## v1.52.0
 
 **"Alle gebruikers" is nog één lijst: per gebruiker.** De schakelaar *Per ploeg / Per gebruiker* is

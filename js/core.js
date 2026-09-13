@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.52.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.52.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3414,7 +3414,23 @@ function applyCloudClub(val) {
   if (val.logo) localStorage.setItem('voetbal_club_logo', val.logo);
   if (val.theme) localStorage.setItem('voetbal_theme', val.theme); else localStorage.removeItem('voetbal_theme');
   applyStoredTheme();
-  if (view === 'home' || view === 'setup') { go('home'); } else cloudRefreshUI();
+  // HERTEKENEN, NIET OPNIEUW NAVIGEREN (Tim, 13-09-2026: "als ik op een ploegscherm kom en ik klik op
+  // terug dan moet ik twee keer terug gaan alvorens ik terug naar het ploegkeuzescherm ga").
+  // Dit is een LISTENER op de clubgegevens van de actieve ploeg: hij vuurt meteen na cloudListen()
+  // en daarna bij elke wijziging. Stond je op het beginscherm, dan deed hij go('home') — en go()
+  // schrijft een stap in de geschiedenis van de browser. Je koos dus een ploeg, de clubinfo kwam een
+  // tel later binnen, en er stond een tweede 'home' achter je. De eerste terugveeg bracht je dan naar
+  // hetzelfde scherm (er verandert niets zichtbaars) en pas de tweede naar het ploegkeuzescherm.
+  // Gemeten 13-09-2026: 3 stappen na het kiezen van een ploeg, 4 na de eerste keer dat de listener
+  // vuurde, 5 na de tweede — dus met het logo dat apart binnenkomt liep het zelfs op tot drie tikken.
+  // render() doet precies wat hier nodig was en niets meer: het bouwt het HELE scherm opnieuw op,
+  // kop inbegrepen — en daar staan de clubnaam en het logo. cloudRefreshUI() volstaat hier níét, want
+  // dat vult voor het beginscherm alleen het inhoudsblok (loadHome) en laat de kop ongemoeid. Dat is
+  // ook de reden waarom hier ooit go('home') stond.
+  // Voor 'setup' blijft het wél een echte navigatie: zodra de clubgegevens er zijn, is dat scherm af.
+  if (view === 'home') render();
+  else if (view === 'setup') go('home');
+  else cloudRefreshUI();
 }
 // DE KLOK VAN EEN BLOK VOLGT ZIJN EIGEN START- EN EINDSIGNAAL (29-08-2026)
 //
