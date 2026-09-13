@@ -2174,6 +2174,16 @@ async function tgvHerstelPloeg(i) {
       for (const [uid2, rol] of Object.entries((e.team || {}).members || {})) {
         try { await fbdb.ref('users/' + uid2 + '/teams/' + p.tid).set(rol); } catch (x) {}
       }
+      // DE CLUB-INDEX HOORT ER OOK BIJ (Tim, 13-09-2026: een teruggezette testploeg stond wél in zijn
+      // ploegkeuzescherm maar niet in Clubbeheer, "ik kan ook nergens die ploeg wissen").
+      // Een ploeg staat op twee plaatsen: bij de ploeg zelf `info.clubId`, en bij de club een lijstje
+      // van haar ploegen. Verwijderen haalde die tweede netjes weg (zie doOwnerDeleteTeam), maar
+      // terugzetten schreef ze niet terug. De ploeg bestond dus wél en de leden zagen ze ook, maar
+      // Clubbeheer bouwt zijn lijst op uit dat clublijstje — en daar stond ze niet meer in. Gevolg:
+      // nergens te archiveren en nergens te verwijderen.
+      // De back-up bevat de hele ploeg, dus `info.clubId` staat er gewoon in.
+      const clubId = ((e.team || {}).info || {}).clubId;
+      if (clubId) { try { await fbdb.ref('clubs/' + clubId + '/teams/' + p.tid).set(true); } catch (x) {} }
       await fbdb.ref('deletedTeams/' + p.tid).remove();
       showToast('Ploeg teruggezet. Herlaad de app om ze te zien.', 'ok');
       loadTeruggevonden();

@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.53.1
+
+**Een ploeg uit de prullenmand komt weer netjes bij haar club terecht.** Zette je een verwijderde
+ploeg terug, dan stond ze wél weer in je ploegkeuzescherm maar niet in **Clubbeheer** — en dus was ze
+nergens te archiveren of te verwijderen.
+
+Oorzaak: een ploeg staat op twee plaatsen. Bij de ploeg zelf staat bij welke club ze hoort, en bij de
+club staat een lijstje van haar ploegen. Verwijderen haalde de ploeg netjes uit dat clublijstje, maar
+terugzetten schreef ze er niet in terug. Dat gebeurt nu wel.
+
+**En een ploeg die al zo vastzat, is met één tik recht te zetten.** In App-beheer → Alle gebruikers
+staat onderaan het blokje **'Ploegen zonder leden of los van hun club'**. Een ploeg die van haar club
+losgeraakt is, staat daar nu bij — met de knop **'Terug in de club'**. Daarna vind je ze gewoon weer in
+Clubbeheer, waar je haar kan archiveren of verwijderen.
+
+Dat blokje keek voorheen of de app de clubnaam van een ploeg kénde. Dat is net niet dezelfde vraag:
+een losgeraakte ploeg draagt die naam gewoon nog mee, en viel er daardoor doorheen. Nu telt of de club
+haar in haar ploegenlijst heeft staan.
+
+---
+
 ## v1.53.0
 
 **Een gespeelde wedstrijd op slot.** Rechts bovenaan een afgesloten verslag staat nu een **slotje**.

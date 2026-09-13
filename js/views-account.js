@@ -692,31 +692,58 @@ function renderAllUsers() {
 // hier; een gewone ploeg met leden hoort in deze lijst niet thuis en staat er ook niet in.
 // Dichtgeklapt en onderaan: het is een opkuislijst, geen dagelijkse kost. Staat er niets in, dan
 // verschijnt het blokje helemaal niet.
+// LOSGERAAKT VAN ZIJN CLUB is de derde soort (Tim, 13-09-2026). Een ploeg staat op twee plaatsen: bij
+// de ploeg zelf staat bij welke club ze hoort, en bij de club staat een lijstje van haar ploegen.
+// Raken die twee uit elkaar — wat gebeurde bij het terugzetten uit de prullenmand — dan draagt de
+// ploeg haar clubnaam gewoon nog mee, maar kent de club haar niet meer. Ze staat dan wél in "Jouw
+// ploegen" en níét in Clubbeheer, en is dus nergens te archiveren of te verwijderen.
+// De toets is daarom `inClubLijst` (staat ze in het lijstje van de club) en niet "kennen we de naam
+// van haar club" — met die tweede vraag valt zo'n ploeg juist door de mazen.
 function allUsersLegePloegenHtml(d) {
+  const inLijst = d.inClubLijst || new Set();
   const rijen = (d.ploegen || []).map(p => {
     const leden = Object.keys(p.members || {}).length;
     const clubNaam = d.clubVanPloeg[p.tid] || '';
-    if (leden && clubNaam) return null;                 // gewone ploeg: hoort hier niet
+    const losgeraakt = !inLijst.has(p.tid);
+    if (leden && !losgeraakt) return null;              // gewone ploeg: hoort hier niet
     const redenen = [];
     if (!leden) redenen.push('geen leden');
-    if (!clubNaam) redenen.push('in geen enkele club');
-    return { naam: p.naam || p.tid, clubNaam, redenen };
+    if (losgeraakt) redenen.push(clubNaam ? `staat niet in de ploegenlijst van ${clubNaam}` : 'in geen enkele club');
+    return { tid: p.tid, naam: p.naam || p.tid, clubNaam, redenen,
+      herstelClubId: losgeraakt ? ((d.eigenClubId || {})[p.tid] || '') : '' };
   }).filter(Boolean).sort((a, b) => ((a.clubNaam ? a.clubNaam + ' · ' : '') + a.naam)
     .localeCompare((b.clubNaam ? b.clubNaam + ' · ' : '') + b.naam, 'nl'));
   if (!rijen.length) return '';
+  // De herstelknop enkel wanneer de ploeg zélf nog zegt bij welke club ze hoort. Weet ze dat niet
+  // meer, dan valt er niets te herstellen zonder te gokken — en dat doen we niet met andermans data.
   const html = rijen.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-    <span style="flex:1;font-size:14px"><b>${esc((r.clubNaam ? r.clubNaam + ' · ' : '') + r.naam)}</b><br><small style="color:var(--org2)">${esc(r.redenen.join(' · '))}</small></span>
+    <span style="flex:1;min-width:0;font-size:14px"><b>${esc((r.clubNaam ? r.clubNaam + ' · ' : '') + r.naam)}</b><br><small style="color:var(--org2)">${esc(r.redenen.join(' · '))}</small></span>
+    ${r.herstelClubId ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="herstelClubKoppeling('${r.tid}','${r.herstelClubId}','${jsq(r.naam)}')">${icI(IC.link)} Terug in de club</button>` : ''}
   </div>`).join('');
   const zoekBlob = (rijen.map(r => ((r.clubNaam ? r.clubNaam + ' ' : '') + r.naam).toLowerCase()).join(' | ') + ' | lege ploeg zonder club').toLowerCase();
   return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
     <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-      <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Ploegen zonder leden of zonder club <span style="font-weight:400;text-transform:none">(${rijen.length})</span></span>
+      <span style="flex:1;font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Ploegen zonder leden of los van hun club <span style="font-weight:400;text-transform:none">(${rijen.length})</span></span>
     </summary>
     <div style="margin-top:10px">
-      <p style="color:var(--txt2);font-size:12px;margin:0 0 8px">Deze ploegen komen in geen enkele lijst hierboven voor. Een ploeg <b>zonder club</b> staat ook niet in Clubbeheer, en is daar dus niet te archiveren of te verwijderen — zet ze eerst bij een club.</p>
+      <p style="color:var(--txt2);font-size:12px;margin:0 0 8px">Deze ploegen komen in geen enkele lijst hierboven voor, en een ploeg die niet in de ploegenlijst van haar club staat, staat ook niet in <b>Clubbeheer</b> — daar is ze dus niet te archiveren of te verwijderen. Met <b>Terug in de club</b> zet je dat recht; daarna staat ze gewoon weer in Clubbeheer.</p>
       ${html}
     </div>
   </details>`;
+}
+// De koppeling herstellen: de ploeg terug in de ploegenlijst van haar eigen club schrijven. Meer is
+// het niet — de ploeg zelf wist altijd al bij welke club ze hoorde, enkel de lijst aan de clubkant
+// was haar kwijt. Zelfde schrijfactie als bij het aanmaken van een ploeg (zie doCreateTeam), dus er
+// is geen enkele wijziging aan de rechten voor nodig.
+async function herstelClubKoppeling(tid, clubId, naam) {
+  if (!isOwner || !fbdb || !tid || !clubId) return;
+  try {
+    await fbdb.ref('clubs/' + clubId + '/teams/' + tid).set(true);
+    showToast(`"${naam}" staat weer bij haar club. Je vindt ze nu in Clubbeheer.`, 'ok');
+    loadAllUsersView();
+  } catch (e) {
+    showToast('Terugzetten in de club mislukt. Probeer het opnieuw.', 'err');
+  }
 }
 // Alles in één beweging open- of dichtklappen — met veel ploegen scheelt dat een hoop getik.
 function allUsersToggleAll(open) {
@@ -876,11 +903,23 @@ async function loadAllUsersView() {
       ]);
       return { tid, naam, members };
     }));
+    // WIE STAAT ER VOLGENS DE CLUB IN HAAR PLOEGENLIJST? Dat is iets ánders dan "we kennen de naam
+    // van zijn club", en precies dat verschil is de storing van 13-09-2026: een teruggezette ploeg
+    // draagt haar clubnaam gewoon nog mee, maar staat niet meer in het lijstje van de club. Hier
+    // vastleggen, vóór de terugval hieronder die naam van de ploegkant aanvult — anders is het
+    // onderscheid weg en lijkt zo'n ploeg gewoon netjes bij haar club te horen.
+    const inClubLijst = new Set(Object.keys(clubVanPloeg));
     // Een ploeg die wél een club heeft maar (nog) niet in de ploegenlijst van die club staat, zou
-    // hierboven zonder clubnaam blijven. Zeldzaam, dus halen we die ene naam pas op als het gebeurt.
-    await Promise.all(ploegen.filter(p => !clubVanPloeg[p.tid]).map(async p => {
-      const cn = await stil('teams/' + p.tid + '/info/clubName', '');
+    // hierboven zonder clubnaam blijven. Zeldzaam, dus halen we die naam pas op als het gebeurt —
+    // en meteen ook het clubnummer, want daarmee is de koppeling te herstellen.
+    const eigenClubId = {};
+    await Promise.all(ploegen.filter(p => !inClubLijst.has(p.tid)).map(async p => {
+      const [cn, cid] = await Promise.all([
+        stil('teams/' + p.tid + '/info/clubName', ''),
+        stil('teams/' + p.tid + '/info/clubId', ''),
+      ]);
       if (cn) clubVanPloeg[p.tid] = cn;
+      if (cid) eigenClubId[p.tid] = cid;
     }));
 
     // WORDT DE APP GEBRUIKT? Dat stond hier als twee losse getallen ("vandaag/deze week actief"),
@@ -893,7 +932,7 @@ async function loadAllUsersView() {
     const waarschuwing = ploegenVolledig ? '' :
       `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De ploegenlijst kon niet opgevraagd worden. Hieronder staan enkel de ploegen die we langs een andere weg kennen — <b>er kunnen ploegen ontbreken</b>. Herlaad het scherm om het opnieuw te proberen.</p></div>`;
     const kop = gebruik + waarschuwing;
-    _allUsersData = { kop, ploegen, miAlle, clubVanPloeg, ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders };
+    _allUsersData = { kop, ploegen, miAlle, clubVanPloeg, inClubLijst, eigenClubId, ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders };
     allUsersTeken();
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
