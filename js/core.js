@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.54.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.55.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3497,6 +3497,17 @@ function herstelKlokUitEvents(m) {
 // Verwerkt precies één wedstrijd uit de cloud (via child_added/child_changed) — zelfde
 // logica als voorheen in de over-alles-lopende applyCloudMatches, maar nu per item, zodat
 // één cloud-wijziging niet langer het hele seizoen opnieuw verwerkt (zie B14).
+// ELK VELD WAARIN EEN GEBEURTENIS NAAR EEN SPELER VERWIJST. Eén lijst, want vergeet er één en je
+// mist precies de verwijzingen die je zoekt — bij het herstel van 15-09-2026 was dat `assistId`, en
+// dan blijven er vier doelpunten zonder assistgever achter terwijl alles "opgelost" lijkt.
+// detail-pdf.js gebruikt dezelfde lijst (SEL_EVT_VELDEN); dit bestand laadt eerst.
+const EVENT_SPELER_VELDEN = ['playerId', 'playerInId', 'playerOutId', 'assistId', 'fromId', 'pA', 'pB'];
+// Naar welke spelers verwijzen de gebeurtenissen van deze wedstrijd?
+function eventSpelerIds(m) {
+  const uit = new Set();
+  ((m && m.events) || []).forEach(e => EVENT_SPELER_VELDEN.forEach(v => { if (e && e[v]) uit.add(e[v]); }));
+  return uit;
+}
 async function applyCloudMatch(id, m) {
   if (!db || !m) return;
   m.id = id; m.fromCloud = true;
@@ -3602,6 +3613,39 @@ async function applyCloudMatch(id, m) {
       }
     }
   }
+  // ===== WACHTER 1: EEN WEDSTRIJD ZONDER BLOKKEN OVERSCHRIJFT ER GEEN MÉT BLOKKEN =====
+  // (Tim, 15-09-2026. Een toestel dat deze wedstrijd nog in de VOORBEREIDING had staan, kreeg
+  // ploegbeheerder-rechten en duwde die versie door: vier blokken naar nul, afgesloten naar gepland,
+  // startopstelling weg. De gebeurtenissen overleefden wel — de merge hieronder doet zijn werk — maar
+  // een wedstrijd met 44 gebeurtenissen en geen enkel blok toont een leeg verslag.)
+  //
+  // HET ONDERSCHEID ZIT IN DE GRAFSTENEN, en daarom werkt deze wachter. De twee wegen die een blok
+  // écht terugnemen — "Opnieuw beginnen" (doResetMatch) en "Toch nog niet gestart"
+  // (doTerugNaarPauze) — zetten een grafsteen op elk event dat ze weghalen. Een terugname brengt dus
+  // per definitie merkjes mee die onze events dekken. De kapotte kopie van 15-09-2026 had er nul.
+  // Blijft er na het filteren hierboven lokaal nog een gebeurtenis over die NIET getombsteend is,
+  // terwijl de binnenkomende kopie geen enkel blok heeft, dan is dat geen terugname maar een
+  // achterstand. Dan houden we wat we hebben en duwen we het terug.
+  const lokaalLevend = (existing && Array.isArray(existing.events))
+    ? existing.events.filter(e => e && e.id && !tomb.has(e.id)) : [];
+  if (existing && lokaalLevend.length && (existing.quarters || []).length && !(m.quarters || []).length) {
+    existing.deletedEventIds = [...tomb];
+    // Wat de cloud wél heeft en wij niet, nemen we mee — we willen enkel de regressie tegenhouden,
+    // niet het werk van de ander weggooien.
+    const hier = new Set(existing.events.map(e => e && e.id));
+    const erbij = (m.events || []).filter(e => e && e.id && !hier.has(e.id) && !tomb.has(e.id));
+    if (erbij.length) {
+      existing.events = [...existing.events.filter(e => e && !tomb.has(e.id)), ...erbij]
+        .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+    }
+    recomputeScore(existing); recomputeOnField(existing);
+    await dbPutLocal(existing);
+    // Enkel een beheerder kan terugduwen; bij een kijker blijft het bij "hou lokaal wat je hebt",
+    // en dat is precies genoeg om te vermijden dat zijn scherm leegloopt.
+    cloudOnLocalMatchSave(existing);
+    cloudRefreshUI();
+    return;
+  }
   // Merge: lokale events die nog niet in de cloud zitten bewaren (co-admin conflict-fix)
   let eventsGemerged = false;
   if (existing && Array.isArray(existing.events) && existing.events.length) {
@@ -3615,6 +3659,33 @@ async function applyCloudMatch(id, m) {
       // verouderd object) → gemergde versie terugpushen zodat alle toestellen convergeren.
       // Geen lus-gevaar: na de echo zijn er geen localOnly-events meer en stopt dit vanzelf.
       cloudOnLocalMatchSave(m);
+    }
+  }
+  // ===== WACHTER 2: SPELERS NOOIT OVERNEMEN ALS DE GEBEURTENISSEN DAARDOOR IN HET NIETS WIJZEN =====
+  // (Zelfde storing van 15-09-2026, en dit is de helft die de schade eigenlijk aanrichtte.) De
+  // gebeurtenissen worden hierboven netjes verenigd, maar `m.players` komt INTEGRAAL van de andere
+  // kant. Kwam die kopie uit de voorbereidingsfase, dan heeft de app daar de selectie opnieuw
+  // opgebouwd en draagt elke speler een NIEUW id. Resultaat: 44 gebeurtenissen die verwijzen naar
+  // negen spelers die niet meer in de lijst staan. De gegevens zijn er dan nog, maar het verslag is
+  // leeg — geen doelpuntenmakers, geen speelminuten, geen opstelling. Precies wat Tim zag.
+  //
+  // Het zijn dezelfde kinderen; alleen de id's verschillen. Dekt ONZE lijst alle verwijzingen en die
+  // van de ander niet, dan houden we de onze. Dat is de enige keuze die niets kapotmaakt: elke
+  // verwijzing blijft geldig, en de namen zijn identiek.
+  // Dan horen de startopstelling en de keeperminuten mee: die dragen dezelfde id's, dus ze los van
+  // elkaar overnemen zou het gat gewoon verplaatsen.
+  if (existing && Array.isArray(existing.players) && existing.players.length) {
+    const nieuweIds = new Set((m.players || []).map(p => p && p.id));
+    const wees = [...eventSpelerIds(m)].filter(pid => !nieuweIds.has(pid));
+    if (wees.length) {
+      const onzeIds = new Set(existing.players.map(p => p && p.id));
+      if (wees.every(pid => onzeIds.has(pid))) {
+        m.players = existing.players;
+        if (Array.isArray(existing.startLineup) && existing.startLineup.length
+          && !(m.startLineup || []).every(s => s && onzeIds.has(s.id))) m.startLineup = existing.startLineup;
+        if (existing.keeperByQ) m.keeperByQ = existing.keeperByQ;
+        recomputeOnField(m);
+      }
     }
   }
   // OOK DE PLAATSEN HERBOUWEN (v1.6.2) — punt 22 van de openstaande lijst.

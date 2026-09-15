@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.55.0
+
+**Een achterlopend toestel kan een gespeelde wedstrijd niet meer leegmaken.** Op 15 september viel een
+afgesloten wedstrijd van U11IP terug op *niet afgesloten*, met een leeg verslag. Wat er gebeurde: een
+toestel had die wedstrijd nog in de voorbereidingsfase staan, kreeg ploegbeheerder-rechten, en duwde
+die versie door — geen blokken, geen startopstelling, en een spelerslijst waarin elke speler een nieuw
+kenmerk droeg. De 44 gebeurtenissen bleven bewaard, maar verwezen naar spelers die niet meer in de
+lijst stonden. Vandaar een verslag zonder doelpuntenmakers, zonder speelminuten en zonder opstelling.
+
+Er staan nu twee wachters op:
+
+- **Een wedstrijd zonder blokken overschrijft er geen mét blokken.** Neem je een blok écht terug (met
+  'Opnieuw beginnen' of 'Toch nog niet gestart'), dan merkt de app elke gebeurtenis die daarbij
+  wegvalt — daaraan herkent ze het verschil tussen een bewuste terugname en een toestel dat achterloopt.
+  Een echte terugname gaat dus gewoon door.
+- **De spelerslijst van een ander toestel wordt niet overgenomen** wanneer de gebeurtenissen daardoor
+  naar niemand meer zouden verwijzen. Het zijn dezelfde spelers; alleen hun kenmerk verschilt. Een
+  speler die er bij de ander echt bij gekomen is, komt nog gewoon mee.
+
+---
+
 ## v1.54.0
 
 **'Locatie' is gesplitst in 'Adres' en 'Terrein'.** Er was één vrij tekstveld voor allebei, en dat

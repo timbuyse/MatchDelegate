@@ -472,7 +472,9 @@ const SEL_EVT_WOORD = {
 // Elk veld waarin een gebeurtenis naar een speler kan verwijzen. Ook playerOutId, assistId, fromId en
 // pB horen erbij: dat zijn de plekken waar iemand als TWEEDE man in een gebeurtenis staat, en precies
 // daar zou een verwijzing naar een gewiste speler achterblijven.
-const SEL_EVT_VELDEN = ['playerId', 'playerInId', 'playerOutId', 'assistId', 'fromId', 'pA', 'pB'];
+// Staat sinds 15-09-2026 in core.js als EVENT_SPELER_VELDEN: de samenvoeging heeft dezelfde lijst
+// nodig, en twee kopieën die uit elkaar lopen is precies hoe je een veld vergeet.
+const SEL_EVT_VELDEN = EVENT_SPELER_VELDEN;
 // Wat heeft deze speler in deze wedstrijd op zijn naam staan? Een lege lijst = hij deed niets, en dan
 // (en alleen dan) mag hij nog uit de selectie.
 function selectieBezwaren(m, p, mins) {
