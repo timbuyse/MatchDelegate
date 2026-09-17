@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.56.0
+
+**De statistieken openen op alle wedstrijden van dit seizoen.** Tot nu sprong de soortfilter meteen op
+*Competitie*, wat een beker- of oefenmatch stil buiten de cijfers hield zonder dat je daarom vroeg. Je
+ziet nu standaard alles wat je ploeg dit seizoen gespeeld heeft.
+
+Naast de filterkaartjes staat een extra kaartje **Competitie**: één tik en je ziet enkel de
+competitiecijfers, nog een tik op **Alle wedstrijden** en je bent terug. Datzelfde kaartje staat ook op
+de detailpagina van een speler. Het verschijnt enkel wanneer er in dat seizoen ook echt
+competitiewedstrijden zijn — behalve wanneer de filter er al op staat, want dan is het net de weg
+terug.
+
+---
+
 ## v1.55.0
 
 **Een achterlopend toestel kan een gespeelde wedstrijd niet meer leegmaken.** Op 15 september viel een

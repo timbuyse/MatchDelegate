@@ -1,7 +1,7 @@
 // ===================== SEIZOENSSTATISTIEKEN =====================
 let statsFilter = 'all', seasonFilter = null;
-// null = de gebruiker koos nog niets, dus loadStats bepaalt de standaard (competitie, met terugval
-// op alles als er nog geen competitiewedstrijd gespeeld is). Zie de uitleg daar.
+// null = de gebruiker koos nog niets, dus loadStats bepaalt de standaard (sinds v1.56.0: alle
+// wedstrijden). Zie de uitleg daar.
 let kindFilter = null; // soort wedstrijd — zie MATCH_KINDS in core.js
 // Welke statistieksecties standaard zichtbaar zijn voor kijkers (vóór de beheerder iets kiest).
 // De samenvattingskaart bovenaan staat hier niet in — die is altijd publiek.
@@ -145,14 +145,26 @@ function statsFilterLabel() {
 // Een filtertekentje met daarnaast de actieve filters als kaartjes (Tim, 23-08-2026). Zo zie je in
 // één oogopslag waar de cijfers over gaan — seizoen en soort staan er altijd, want die twee bepalen
 // altijd wat je ziet. Tikken op het teken of op een kaartje opent hetzelfde paneel.
-function statsFilterKnopHtml(seasons) {
+function statsFilterKnopHtml(seasons, heeftComp) {
   const arg = JSON.stringify(seasons || []).replace(/"/g, '&quot;');
   const soort = (!kindFilter || kindFilter === 'all') ? 'Alle wedstrijden' : (kindFilter === 'other' ? 'Andere' : kindFilter);
   const chip = t => `<span class="start-chip on" onclick="modalStatsFilter(${arg})">${esc(t)}</span>`;
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
     <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalStatsFilter(${arg})">${icI(IC.filter)}</button>
-    ${seasonFilter ? chip(seasonFilter) : ''}${chip(soort)}${statsSubteam !== 'all' ? chip('Ploeg ' + statsSubteam) : ''}
+    ${seasonFilter ? chip(seasonFilter) : ''}${chip(soort)}${statsSubteam !== 'all' ? chip('Ploeg ' + statsSubteam) : ''}${statsSnelSoortHtml(heeftComp)}
   </div>`;
+}
+// SNELKAARTJE COMPETITIE (Tim, 17-09-2026). De cijfers openen sinds v1.56.0 op ALLE wedstrijden van
+// dit seizoen; wie enkel de competitie wil, zet dat hier met één tik om in plaats van via het
+// filterpaneel. Staat de filter al op Competitie, dan brengt datzelfde plekje je terug naar alles —
+// zo is het kaartje in beide richtingen dezelfde handeling, en niet een knop die maar één kant op
+// werkt. Pale (zonder `on`), want dit is geen actieve filter maar een voorstel; de groene kaartjes
+// ernaast tonen wél wat er nu geldt.
+// Zonder competitiewedstrijden in beeld valt het weg: een snelkaartje naar een leeg scherm is geen
+// snelkaartje. Het staat er dus niet in een seizoen dat nog moet beginnen.
+function statsSnelSoortHtml(heeftComp) {
+  if (kindFilter === 'Competitie') return `<span class="start-chip" onclick="setKindFilter('all')">Alle wedstrijden</span>`;
+  return heeftComp ? `<span class="start-chip" onclick="setKindFilter('Competitie')">Competitie</span>` : '';
 }
 function modalStatsFilter(seasons) {
   const soorten = [['all', 'Alle wedstrijden'], ...MATCH_KINDS.map(k => [k, k]), ['other', 'Andere']];
@@ -202,11 +214,11 @@ function wisStatsFilter() { statsSubteam = 'all'; kindFilter = 'all'; closeModal
 function kindLabelLow() { return (!kindFilter || kindFilter === 'all') ? 'alle wedstrijden' : (kindFilter === 'other' ? 'andere soort' : kindFilter.toLowerCase()); }
 // In het spelerdetail staat de soort onder de seizoenskiezer, als knop met dezelfde tekst als op de
 // statistiekenpagina. Het seizoen zit daar in zijn eigen kiezer, dus dit paneel toont enkel de soort.
-function spelerSoortKnopHtml() {
+function spelerSoortKnopHtml(heeftComp) {
   const soort = (!kindFilter || kindFilter === 'all') ? 'Alle wedstrijden' : (kindFilter === 'other' ? 'Andere' : kindFilter);
   return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
     <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalStatsFilter([])">${icI(IC.filter)}</button>
-    <span class="start-chip on" onclick="modalStatsFilter([])">${esc(soort)}</span>
+    <span class="start-chip on" onclick="modalStatsFilter([])">${esc(soort)}</span>${statsSnelSoortHtml(heeftComp)}
   </div>`;
 }
 // Seizoen van een wedstrijd (Belgisch voetbalseizoen: juli–juni).
@@ -302,16 +314,17 @@ async function loadStats() {
   // Tornooiwedstrijden tellen niet mee in de algemene statistieken (zelfde aanpak als de "Wedstrijden"-lijst).
   // De soortfilter zit bewust NIET in `candidates` hierboven: de seizoenslijst mag niet verspringen
   // (of verdwijnen) omdat je even op "Beker" filtert — dan kon je niet meer terug van seizoen wisselen.
-  // STANDAARD OP COMPETITIE (Tim, 23-08-2026). Statistieken gaan over hoe je het in de competitie
-  // doet; een oefenmatch of een bekeravond hoort daar niet zomaar in mee te tellen. Maar zolang er
-  // in dit seizoen nog geen competitiewedstrijd gespeeld is, zou "Competitie" een lege pagina geven
-  // — dan blijft het "alle wedstrijden". Enkel de EERSTE keer: zodra je zelf iets kiest (ook
-  // "alle"), blijft die keuze staan zolang de app open is.
-  if (kindFilter === null) {
-    const inSeizoen = candidates.filter(m => seasonOf(m) === seasonFilter);
-    kindFilter = inSeizoen.some(m => matchKindOf(m) === 'Competitie') ? 'Competitie' : 'all';
-  }
+  // STANDAARD OP ALLE WEDSTRIJDEN (Tim, 17-09-2026; was sinds 23-08-2026 "Competitie"). Je opent de
+  // cijfers om te zien wat je ploeg gedaan heeft, en dat is alles wat ze gespeeld heeft — een
+  // oefenmatch of een bekeravond hoort daar niet stil buiten te vallen zonder dat je erom vroeg.
+  // Wie enkel de competitie wil, staat één tik ver: `statsSnelSoortHtml` zet het kaartje klaar.
+  // Enkel de EERSTE keer: zodra je zelf iets kiest, blijft die keuze staan zolang de app open is.
+  if (kindFilter === null) kindFilter = 'all';
   _statsBron = candidates;
+  // Voor het snelkaartje: heeft dit seizoen überhaupt competitiewedstrijden? Bewust op `candidates`
+  // (dus vóór de soort- en ploeglabelfilter), anders verdwijnt het kaartje net wanneer je het nodig
+  // hebt — namelijk terwijl je op een andere soort staat te kijken.
+  const heeftComp = candidates.some(m => seasonOf(m) === seasonFilter && matchKindOf(m) === 'Competitie');
   const list = candidates.filter(m => seasonOf(m) === seasonFilter && kindMatches(m)
     && (statsSubteam === 'all' || (m.subteam || '').trim() === statsSubteam));
   // ZEG HET WANNEER ER WEDSTRIJDEN BUITEN VALLEN (audit 25-08-2026). `candidates` eist status 'done',
@@ -329,7 +342,7 @@ async function loadStats() {
   const filterBar = `${(!cloudReady && teams.length > 1) ? `<div class="filterbar"><select onchange="setStatsFilter(this.value)">
       <option value="all" ${statsFilter==='all'?'selected':''}>Alle ploegen</option>
       ${teams.map(t => `<option value="${esc(t)}" ${statsFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
-    </select></div>` : ''}${candidates.length ? statsFilterKnopHtml(seasons) : ''}`;
+    </select></div>` : ''}${candidates.length ? statsFilterKnopHtml(seasons, heeftComp) : ''}`;
   if (!list.length) {
     const leeg = kindFilter === 'all'
       ? 'Nog geen wedstrijden.'
@@ -677,9 +690,12 @@ async function loadPlayerDetail() {
   }
   // Het seizoen blijft hier een eigen keuze (een speler heeft niet in elk seizoen gespeeld), de
   // soort is dezelfde gedeelde keuze als op de statistiekenpagina — zie setKindFilter.
+  // Het snelkaartje "Competitie" telt hier op de wedstrijden van DEZE speler in dit seizoen: staat
+  // hij enkel op bekeravonden, dan is een tik naar de competitie een lege pagina.
+  const heeftCompSpeler = allDone.some(m => seasonOf(m) === playerDetailSeason && matchKindOf(m) === 'Competitie');
   const filterBar = seasons.length ? `<div class="filterbar"><select onchange="setPlayerDetailSeason(this.value)">
       ${seasons.map(s => `<option value="${s}" ${playerDetailSeason===s?'selected':''}>Seizoen ${s}</option>`).join('')}
-    </select></div>` + spelerSoortKnopHtml() : '';
+    </select></div>` + spelerSoortKnopHtml(heeftCompSpeler) : '';
   // Een tornooi heeft geen "soort", dus bij een actieve soortfilter hoort dit kadertje er niet bij
   // (0 = het blok wordt niet gerenderd) — anders lees je een bekerfilter met tornooien erin.
   const tournamentCount = (kindFilter && kindFilter !== 'all') ? 0
@@ -1631,6 +1647,8 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
         <li><b>Posities</b> en <b>Kaarten</b>.</li>
       </ul>
+      <div class="sec">Welke wedstrijden tellen mee?</div>
+      <p>Bovenaan staan kaartjes met het <b>seizoen</b> en de <b>soort wedstrijd</b>. Je opent altijd op het huidige seizoen met <b>alle wedstrijden</b> erin. Ernaast staat het kaartje <b>Competitie</b>: één tik en je ziet enkel de competitiecijfers, nog een tik op <b>Alle wedstrijden</b> en je bent terug. Achter het filtertekentje kan je ook op beker, vriendschappelijk of een ploeglabel filteren.</p>
       <div class="sec">Wat mag een kijker zien?</div>
       <p>Bij elke sectie staat voor jou als beheerder een <b>oog-icoontje</b>. Tik erop om die sectie vrij te geven aan kijkers, of ze weer privé te zetten. Standaard zijn Topschutters, Assists en Clean sheets publiek en de rest privé. Een kijker ziet onderaan de melding dat er meer statistieken bestaan voor ploegbeheerders. Het <b>individuele spelersdetail</b> blijft altijd voorbehouden aan ploegbeheerders.</p>
       <div class="sec">Per speler</div>
