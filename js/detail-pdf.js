@@ -402,6 +402,12 @@ function modalDetailEditMenu() {
       ? 'Kan niet bij een tornooiwedstrijd: daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'
       : 'Haal spelers uit de selectie die uiteindelijk niets deden — bv. wie de hele tijd bij de andere wedstrijd bleef.',
       'modalSelectieVerslag()', !!m.tournamentId)}
+    ${/* Zelfde ingang als bij een geplande wedstrijd (modalEditMatchMenu) en als het oogje in de
+         kopregel van het voorbereidingsscherm. Ook ná de wedstrijd zinvol: het verslag blijft anders
+         gewoon leesbaar voor wie je er net buiten wou houden.
+         Enkel voor de eigenaar (magKijkerBlokkeren): bij een gespeelde wedstrijd bestaat enkel nog het
+         deel per persoon, en dat is aan hem voorbehouden. */ ''}
+    ${(cloudReady && magKijkerBlokkeren()) ? menuItemHtml(IC.eye, 'Wie ziet deze wedstrijd?', 'Eén bepaalde kijker deze wedstrijd en dit verslag niet laten zien.', `modalWieZietWedstrijd('${m.id}')`) : ''}
     ${menuItemHtml(IC.edit, 'Spelernotities', 'Een notitie per speler, enkel zichtbaar voor beheerders.', 'modalPlayerNotes()')}
     ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
          de ploeg overstapt op spelen zonder vaste nummers. */ ''}

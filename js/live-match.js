@@ -339,6 +339,20 @@ function renderLive() {
          rechtsonder zweefden. Tim wou ze een versie later anders: het sterretje ("moment markeren")
          is helemaal weg, en de notitie staat nu als knop naast "Geplande wissels" onder het raster.
          De kopregel is daardoor weer wat ze was: terug, titel, Info. */ ''}
+    ${/* HET OOGJE OOK HIER (Tim, 18-09-2026). De kopregel is bewust kaal gehouden, en dit is de enige
+         uitzondering die ik erbij zet: "verhinderen dat iemand meekijkt" gaat juist over de wedstrijd
+         die nu bezig is, en dit is het enige scherm dat er dan nog is. Kale pictogramstijl zoals het
+         slotje in het verslag, goud zodra er iemand buitenstaat.
+         Enkel voor de eigenaar: bij een lopende wedstrijd bestaat de schakelaar voor álle kijkers niet
+         meer (die geldt enkel vóór de aftrap), dus voor een gewone ploegbeheerder zou dit oogje een
+         leeg venster openen. */ ''}
+    ${(!ro && cloudReady && magKijkerBlokkeren()) ? (() => {
+      const nBuiten = (match.kijkersGeblokkeerd || []).length;
+      const t = nBuiten
+        ? `${nBuiten === 1 ? 'Eén kijker ziet' : nBuiten + ' kijkers zien'} deze wedstrijd niet — tik om te wijzigen`
+        : 'Wie ziet deze wedstrijd? — tik om een kijker uit te sluiten';
+      return `<button class="hdr-gear" title="${t}" aria-label="${t}" style="${nBuiten ? 'color:#f7c948;opacity:1' : ''}" onclick="modalWieZietWedstrijd('${match.id}')">${icI(nBuiten ? IC.eyeOff : IC.eye)}</button>`;
+    })() : ''}
     ${(!isDone && !ro) ? `<button class="hdr-btn" onclick="modalEditMatchInfo()">Info</button>` : ''}
   </div>
   ${/* ER IS NOG IEMAND BEZIG (Tims keuze, 25-08-2026). Zie andereBeheerderActief in core.js: er kwam

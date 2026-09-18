@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.57.0
+
+**Eén bepaalde kijker een wedstrijd niet laten zien.** Tot nu gold zichtbaarheid voor alle kijkers
+samen, en enkel zolang een wedstrijd nog gepland stond. Het oogje in de kopregel opent nu een venster
+met twee schakelaars: *alle kijkers* (wat er al was) en *per kijker*. Zet je daar iemand uit, dan staat
+die wedstrijd nergens meer in zijn app — niet in de lijst, niet te openen, ook niet achteraf als
+verslag, en ook niet meer in zijn seizoenscijfers. Hij krijgt daar geen melding van en ziet niet dát
+er iets weg is.
+
+Het werkt in elke fase: vóór, tijdens en na de wedstrijd. Het oogje staat daarom ook in de kopregel
+van het lopende wedstrijdscherm, en hetzelfde venster zit in het menu **Bewerken** van een geplande én
+van een afgewerkte wedstrijd.
+
+**Enkel de eigenaar van de app** kan iemand per persoon uitzetten. Een ploegbeheerder ziet in dat
+venster alleen de schakelaar voor alle kijkers, precies zoals voordien. Het staat ook bewust **niet in
+de handleiding**: die is voor iedereen leesbaar, en een gordijn dat zichzelf aankondigt is geen
+gordijn.
+
+**Wat dit niet is: een slot.** In de databank zijn de wedstrijden van een ploeg leesbaar voor elk lid
+van die ploeg; dat is één regel voor de hele ploeg. Het uitzetten gebeurt dus op het toestel van de
+kijker zelf. De app gooit de wedstrijd daar wel echt van het toestel af in plaats van ze enkel te
+verbergen, en er staan gebruikerscodes in het lijstje en geen namen — maar wie technisch aangelegd is
+en bewust gaat zoeken, kan zo'n wedstrijd alsnog vinden. Hoort iemand er echt niet meer bij, dan
+blijft *Verwijderen* bij Leden de juiste weg.
+
+---
+
 ## v1.56.0
 
 **De statistieken openen op alle wedstrijden van dit seizoen.** Tot nu sprong de soortfilter meteen op

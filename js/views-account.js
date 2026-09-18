@@ -2479,6 +2479,98 @@ async function promoteMember(uid, bevestigd) {
 // verwijdert, komt in `teams/{id}/removed/{uid}`, en de regels weigeren de self-join zolang hij daar
 // staat. De naam blijft mee bewaard zodat de beheerder in de ledenlijst ziet wie hij ooit weerde en
 // hem met één tik weer kan toelaten (zie herstelToegang) — anders zou iemand voorgoed buiten staan.
+// ===================== WIE ZIET DEZE WEDSTRIJD? =====================
+// Tim, 18-09-2026: "kan ik 1 kijker verhinderen om een wedstrijd live te volgen" — "per persoon,
+// maar ze mogen het niet weten". Twee schakelaars in één venster, want het is één vraag:
+//   · voor ALLE kijkers tegelijk (het bestaande `verborgenVoorKijkers`, enkel vóór de aftrap);
+//   · per persoon (`kijkersGeblokkeerd`, in elke fase).
+// De leesregel en de grens van wat dit is, staan bij matchGeblokkeerdVoorMij in core.js.
+//
+// ENKEL DE EIGENAAR (Tim, 18-09-2026). Het deel PER PERSOON is voorbehouden aan de eigenaar van de
+// app, niet aan elke ploegbeheerder. Reden: iemand stil buiten een wedstrijd zetten is een zware
+// handeling die niemand hoort te kunnen zonder dat er over gesproken is, en ze is per definitie niet
+// zichtbaar voor wie ze ondergaat. De schakelaar voor ALLE kijkers blijft wel van elke ploegbeheerder
+// — dat is gewoon "deze wedstrijd staat nog niet vast".
+function magKijkerBlokkeren() { return !!isOwner; }
+// De ledenlijst wordt één keer opgehaald en daarna hergebruikt: elke tik tekent dit venster opnieuw,
+// en drie Firebase-beurten per tik is zonde voor een lijst die tussen twee tikken niet verandert.
+let _blokLeden = null;   // { teamId, leden: [{uid, naam, email}] }
+async function modalWieZietWedstrijd(id) {
+  if (!canLive()) { showToast('Enkel een ploegbeheerder kan dit wijzigen.', 'err'); return; }
+  const m = (match && match.id === id) ? match : await dbGet(id);
+  if (!m) return;
+  const tid = activeTeamId;
+  const geblokt = Array.isArray(m.kijkersGeblokkeerd) ? m.kijkersGeblokkeerd : [];
+  const verborgen = matchVerborgenVoorKijkers(m);
+  // Het venster meteen tonen, ook terwijl de namen nog onderweg zijn: de schakelaar voor alle
+  // kijkers werkt al en die hangt niet van de ledenlijst af.
+  const kop = `<h3>${icI(IC.eye)} Wie ziet deze wedstrijd?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${magKijkerBlokkeren()
+      ? 'Wie je hier uitzet, vindt deze wedstrijd nergens meer terug. Hij krijgt geen melding en ziet niet dát er iets weg is.'
+      : (m.status === 'planned'
+        ? 'Een wedstrijd die nog niet vaststaat, hou je hier uit de lijst van je kijkers tot de aftrap.'
+        : 'Een wedstrijd die begonnen is, zien alle kijkers van je ploeg.')}</p>
+    ${(m.status === 'planned' && cloudReady) ? `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div><b>Alle kijkers</b><br><small style="color:var(--txt2)">${verborgen ? 'Deze wedstrijd staat nog bij niemand in de lijst. Bij de aftrap wordt ze vanzelf zichtbaar.' : 'De kijkers van je ploeg zien dat deze wedstrijd eraan komt.'}</small></div>
+      <div><button class="btn ${verborgen ? 'btn-orn' : 'btn-pale'} btn-sm" style="width:auto;margin:0" onclick="matchZetVerborgen('${m.id}', ${verborgen ? 'false' : 'true'}, true)">${icI(verborgen ? IC.eyeOff : IC.eye)} ${verborgen ? 'Nog niet tonen' : 'Zichtbaar'}</button></div>
+    </div>` : ''}
+    ${magKijkerBlokkeren() ? '<div class="sec">Per kijker</div>' : ''}`;
+  const slot = `<button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`;
+  // Voor wie geen eigenaar is, houdt het hier op: die ziet enkel de schakelaar voor alle kijkers.
+  // Bij een wedstrijd die al begonnen is, valt die weg en zegt de regel hierboven waarom.
+  if (!magKijkerBlokkeren()) { openModal(kop + slot); return; }
+  if (!cloudReady || !tid || !fbdb) {
+    openModal(kop + `<p style="text-align:center;color:var(--txt2);font-size:13px">Zonder verbinding met de cloud heeft deze ploeg geen kijkers.</p>` + slot);
+    return;
+  }
+  if (!_blokLeden || _blokLeden.teamId !== tid) {
+    openModal(kop + `<p style="text-align:center;color:var(--txt2)">Laden...</p>` + slot);
+    try {
+      const [miSnap, memSnap] = await Promise.all([
+        fbOnce(fbdb.ref('memberInfo/' + tid)),
+        fbOnce(fbdb.ref('teams/' + tid + '/members')),
+      ]);
+      const info = miSnap.val() || {};
+      const members = memSnap.val() || {};
+      const leden = Object.keys(members).filter(u => members[u] !== 'admin').map(u => ({
+        uid: u, naam: (info[u] || {}).name || '(naam nog niet gekend)', email: (info[u] || {}).email || ''
+      })).sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+      _blokLeden = { teamId: tid, leden };
+    } catch (e) {
+      openModal(kop + `<p style="text-align:center;color:var(--txt2);font-size:13px">De ledenlijst kon niet opgehaald worden.</p>` + slot);
+      return;
+    }
+  }
+  // Iemand die geblokkeerd staat maar niet (meer) in de ledenlijst voorkomt, hoort hier toch zichtbaar
+  // te blijven: anders staat er stil een blokkade op een naam die je nergens meer kan weghalen.
+  const lijst = [..._blokLeden.leden];
+  geblokt.forEach(u => { if (!lijst.some(l => l.uid === u)) lijst.push({ uid: u, naam: '(geen lid meer van deze ploeg)', email: '' }); });
+  const rijen = lijst.length ? lijst.map(l => {
+    const uit = geblokt.indexOf(l.uid) >= 0;
+    return `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div><b>${esc(l.naam)}</b>${l.email ? `<br><small style="color:var(--txt2)">${esc(l.email)}</small>` : ''}</div>
+      <div><button class="btn ${uit ? 'btn-red' : 'btn-pale'} btn-sm" style="width:auto;margin:0" onclick="matchZetKijkerBlok('${m.id}','${l.uid}',${uit ? 'false' : 'true'})">${icI(uit ? IC.eyeOff : IC.eye)} ${uit ? 'Ziet ze niet' : 'Ziet ze'}</button></div>
+    </div>`;
+  }).join('') : `<p style="text-align:center;color:var(--txt2);font-size:13px">Deze ploeg heeft nog geen kijkers.</p>`;
+  openModal(kop + rijen + slot);
+}
+// Eén kijker aan- of uitzetten voor deze wedstrijd. De lijst wordt altijd als geheel herschreven —
+// dus ook een lege lijst, net zoals matchZetVerborgen `false` wegschrijft: de cloud-samenvoeging moet
+// het als een echte wijziging zien.
+async function matchZetKijkerBlok(id, uid, blokkeren) {
+  // Gordel én bretellen: de knoppen bestaan niet voor wie geen eigenaar is, maar een scherm dat nog
+  // open stond of de console mag er niet alsnog langs.
+  if (!magKijkerBlokkeren() || !canLive()) { showToast('Dit kan enkel de eigenaar van de app.', 'err'); return; }
+  const m = (match && match.id === id) ? match : await dbGet(id);
+  if (!m || !uid) return;
+  const lijst = (Array.isArray(m.kijkersGeblokkeerd) ? m.kijkersGeblokkeerd : []).filter(u => u && u !== uid);
+  if (blokkeren) lijst.push(uid);
+  m.kijkersGeblokkeerd = lijst;
+  await dbSave(m);
+  if (match && match.id === id) match = m;
+  render();              // het oogje in de kopregel mee laten kleuren; de modal staat in een eigen laag
+  modalWieZietWedstrijd(id);
+}
 async function removeMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
   showConfirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg en kunnen zichzelf niet opnieuw toevoegen met een oude uitnodigingslink.', async () => {

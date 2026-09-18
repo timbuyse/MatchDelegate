@@ -1796,9 +1796,18 @@ function renderPrep() {
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
   </div>`;
     const verborgen = matchVerborgenVoorKijkers(m);
+    // Sinds v1.57.0 opent het oogje een VENSTER in plaats van meteen om te schakelen: er staan nu
+    // twee schakelaars achter (alle kijkers tegelijk, of één persoon), en die passen niet in één tik.
+    // Het oogje kleurt goud zodra er iets beperkt is — voor alle kijkers óf voor één.
+    // De telling per persoon enkel voor de eigenaar: een ploegbeheerder kan daar toch niets aan doen
+    // (magKijkerBlokkeren in views-account.js), en dan hoort het ook niet in zijn tooltip te staan.
+    const perPersoon = magKijkerBlokkeren() ? (m.kijkersGeblokkeerd || []).length : 0;
+    const beperkt = verborgen || !!perPersoon;
     const titel = verborgen
-      ? 'Niet aan kijkers getoond — tik om ze wél te tonen'
-      : 'Zichtbaar voor kijkers — tik om ze nog niet te tonen';
+      ? 'Niet aan kijkers getoond — tik om te wijzigen'
+      : (perPersoon
+        ? `${perPersoon === 1 ? 'Eén kijker ziet' : perPersoon + ' kijkers zien'} deze wedstrijd niet — tik om te wijzigen`
+        : 'Zichtbaar voor kijkers — tik om te wijzigen');
     return `
   <div class="hdr"><button class="back" onclick="${prepBack}">‹</button>
     <div><h1>${matchTitle(m)}</h1><div class="hdr-sub">${af ? `${icI(IC.close)} Geannuleerd` : `${icI(IC.calendar)} Gepland`} · ${m.location} · ${matchWhen(m)} · ${m.matchType}</div></div>
@@ -1806,7 +1815,7 @@ function renderPrep() {
          hdr-gear is de kale pictogramstijl van het tandwiel — wit, doorschijnend, geen vlak. Is de
          wedstrijd verborgen, dan wordt het oogje goud en volledig dekkend: dat is de uitzondering en
          mag opvallen. */ ''}
-    <button class="hdr-gear" title="${titel}" aria-label="${titel}" style="${verborgen ? 'color:#f7c948;opacity:1' : ''}" onclick="matchZetVerborgen('${m.id}', ${verborgen ? 'false' : 'true'})">${icI(verborgen ? IC.eyeOff : IC.eye)}</button>
+    <button class="hdr-gear" title="${titel}" aria-label="${titel}" style="${beperkt ? 'color:#f7c948;opacity:1' : ''}" onclick="modalWieZietWedstrijd('${m.id}')">${icI(beperkt ? IC.eyeOff : IC.eye)}</button>
   </div>`;
   })()}
   <div class="content">
@@ -2026,6 +2035,11 @@ function modalEditMatchMenu() {
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
+    ${/* Dezelfde ingang als het oogje in de kopregel — wie hier zoekt, vindt het hier (Tims regel bij
+         "Wedstrijdinfo ophalen"). Enkel mét cloud: zonder verbinding heeft een ploeg geen kijkers. */ ''}
+    ${cloudReady ? item(IC.eye, 'Wie ziet deze wedstrijd?', magKijkerBlokkeren()
+      ? 'Deze wedstrijd nog niet aan de kijkers tonen, of één bepaalde kijker ze niet laten zien.'
+      : 'Deze wedstrijd nog niet aan de kijkers van je ploeg tonen.', `modalWieZietWedstrijd('${m.id}')`) : ''}
     ${item(IC.timer, 'Uitslag ingeven', 'De wedstrijd niet live volgen, maar achteraf enkel de uitslag ingeven.', 'modalQuickResult()')}
     ${/* De openbare wedstrijdpagina van de bond uitlezen (zie import-vv.js). Staat hier onder
          "Uitslag ingeven", want het is dezelfde soort handeling: een wedstrijd die je niet gevolgd
@@ -3315,7 +3329,9 @@ async function doStartPlanned() {
 // — zelfde reden als bij reopenTournament en trnZetConcept.
 // Bij het starten hoeft er niets opgeruimd te worden: matchVerborgenVoorKijkers (core.js) kijkt naar de
 // status, dus vanaf de aftrap doet het vlaggetje niets meer.
-async function matchZetVerborgen(id, verbergen) {
+// `inVenster` staat aan wanneer de schakelaar in het venster "Wie ziet deze wedstrijd?" aangetikt is
+// (views-account.js): dan wordt dat venster opnieuw getekend in plaats van dat er een melding komt.
+async function matchZetVerborgen(id, verbergen, inVenster) {
   if (!canLive()) { showToast('Enkel een ploegbeheerder kan dit wijzigen.', 'err'); return; }
   const m = (match && match.id === id) ? match : await dbGet(id);
   if (!m) return;
@@ -3324,6 +3340,7 @@ async function matchZetVerborgen(id, verbergen) {
   await dbSave(m);
   if (match && match.id === id) match = m;
   render();
+  if (inVenster) { modalWieZietWedstrijd(id); return; }
   showToast(verbergen
     ? 'De kijkers van deze ploeg zien deze wedstrijd niet meer. Bij de aftrap wordt ze automatisch zichtbaar.'
     : 'Zichtbaar voor de kijkers van deze ploeg.', 'ok');

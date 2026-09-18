@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.56.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.57.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3514,6 +3514,22 @@ async function applyCloudMatch(id, m) {
   if (!Array.isArray(m.events)) m.events = [];
   if (!Array.isArray(m.players)) m.players = [];
   if (!Array.isArray(m.quarters)) m.quarters = [];
+  // BEN IK VOOR DEZE WEDSTRIJD BUITENGESLOTEN? Dan houdt dit toestel er niets van bij. Dit staat
+  // vóór de hele samenvoeging hieronder, want er valt niets samen te voegen: deze kopie hoort hier
+  // niet te liggen. Enkel voor een kijker (matchGeblokkeerdVoorMij is onwaar voor wie de ploeg
+  // beheert), en zonder één melding — zie de uitleg daar.
+  // Wordt de blokkade later weer opgeheven, dan verandert de wedstrijd in de cloud en komt ze langs
+  // dezelfde weg gewoon opnieuw binnen.
+  if (matchGeblokkeerdVoorMij(m)) {
+    await dbDelLocal(id);
+    // Stond ze net open? Dan terug naar de lijst. Stil, via go() zodat geschiedenis en tellers
+    // kloppen — dezelfde weg als de poortwachter in go() zelf.
+    if (typeof match !== 'undefined' && match && match.id === id && ['prep', 'live', 'detail'].includes(view)) {
+      match = null;
+      go('matches', undefined, true);
+    } else cloudRefreshUI();
+    return;
+  }
   const existing = await dbGet(id);
   // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
   // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
@@ -4162,6 +4178,34 @@ function statSectionVisible(key) { return canSeeStats() || statSectionPublic(key
 function matchVerborgenVoorKijkers(m) {
   return !!(m && m.verborgenVoorKijkers && m.status === 'planned');
 }
+// ÉÉN KIJKER BUITEN ÉÉN WEDSTRIJD HOUDEN (Tim, 18-09-2026: "per persoon, maar ze mogen het niet
+// weten"). `verborgenVoorKijkers` hierboven geldt voor ALLE kijkers en enkel zolang de wedstrijd nog
+// niet begonnen is; dit is de tegenhanger per persoon, en die geldt in élke fase — anders duikt de
+// wedstrijd bij de aftrap alsnog op bij wie ze net niet mag zien.
+//
+// ER KOMT NERGENS EEN MELDING. Geen grijze regel, geen "geen toegang": de wedstrijd staat gewoon niet
+// in zijn lijst. Dat is Tims uitdrukkelijke vraag, en het is ook het enige wat werkt — een melding
+// vertelt precies wat je wil verzwijgen.
+//
+// WAT DIT WEL EN NIET IS. De wedstrijden van een ploeg zijn in de databank leesbaar voor elk lid van
+// die ploeg; dat is één regel die voor de hele ploeg geldt en er is geen manier om er per persoon één
+// wedstrijd uit te lichten zonder de hele opslag om te bouwen. Het wegfilteren gebeurt dus op het
+// toestel van de kijker, wat betekent dat dit lijstje mee naar dat toestel reist. Vandaar twee
+// dingen: er staan gebruikerscodes in en geen namen (de namen staan in een tak die enkel beheerders
+// lezen), en applyCloudMatch gooit de wedstrijd bij zo'n kijker ook echt van het toestel af in plaats
+// van ze enkel te verbergen. Het blijft een gordijn en geen slot — zie de changelog van v1.57.0.
+function matchKijkerGeblokkeerd(m, uid) {
+  return !!(uid && m && Array.isArray(m.kijkersGeblokkeerd) && m.kijkersGeblokkeerd.indexOf(uid) >= 0);
+}
+// HIER STAAT BEWUST `isAdmin` EN NIET `canLive()`. Die laatste is onwaar zodra een beheerder in
+// KIJKMODUS staat, en dan zou een beheerder die ooit kijker was — en dus nog in zo'n lijstje kan
+// staan — zijn eigen wedstrijd van zijn toestel zien verdwijnen. Het gaat hier om de rol, niet om
+// wat je op dit moment aan het bekijken bent.
+function matchGeblokkeerdVoorMij(m) {
+  if (!m || isAdmin || isOwner) return false;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
+  return matchKijkerGeblokkeerd(m, uid);
+}
 // EEN GESPEELDE WEDSTRIJD OP SLOT (Tim, 13-09-2026: "je zou als ploegbeheerder een wedstrijd moeten
 // kunnen vergrendelen na dat hij gespeeld is ... dan kan je geen wijzigingen meer aanbrengen. Maar je
 // kan ook makkelijk ontgrendelen").
@@ -4195,12 +4239,13 @@ function slotWeigert(m) {
 // Mag wie nu kijkt deze wedstrijd in de lijsten zien staan? `canLive()` is hier de juiste maatstaf en
 // niet `canManage()`: het gaat om de ROL (beheerder van deze ploeg, niet in kijkmodus, geen gast) en
 // niet om of er verbinding is.
-function matchZichtbaarVoorMij(m) { return canLive() || !matchVerborgenVoorKijkers(m); }
+function matchZichtbaarVoorMij(m) { return canLive() || (!matchVerborgenVoorKijkers(m) && !matchGeblokkeerdVoorMij(m)); }
 // En mag hij ze OPENEN? Enkel een wedstrijd die bezig is of afgesloten. Een geannuleerde wedstrijd
 // heeft geen verslag en opent in het wedstrijdscherm — dus voor een kijker ook niet.
 function matchOpenbaarVoorMij(m) {
   if (canLive()) return true;
   if (!m || matchCancelled(m)) return false;
+  if (matchGeblokkeerdVoorMij(m)) return false;
   return m.status === 'live' || m.status === 'done';
 }
 // Enkel de keuze zelf, zonder de beheerder-uitzondering — nodig om een beheerder te kunnen vertellen
