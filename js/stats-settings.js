@@ -528,12 +528,26 @@ async function loadStats() {
   // perfect uit. Nu: alle wedstrijden van deze ploeg (binnen de filters) vanaf de eerste waarin hij
   // voorkomt — iemand die in januari bij de ploeg kwam, krijgt september niet als gemist — en zonder
   // de wedstrijden waarop hij die speeldag elders opgesteld stond of afgemeld was met "speelt elders".
+  // Dat startpunt zelf wordt buiten de filter om bepaald; zie het blok hieronder.
   // Wedstrijden zonder datum blijven buiten de noemer: zonder datum is er geen speeldag om tegen te
   // vergelijken.
+  // VANAF WANNEER HOORT HIJ ERBIJ? DAT LEZEN WE BUITEN DE FILTER OM (Tim, 19-09-2026).
+  // Dit liep over `sortedList`, dus over de wedstrijden die je filter toont. Stond je op "Competitie"
+  // en speelde een speler eerst enkel vriendschappelijke wedstrijden mee, dan was de eerste
+  // competitiewedstrijd waarin hij zat ook zijn "begin" — en werd elke competitiespeeldag daarvóór
+  // overgeslagen alsof hij toen nog niet bij de ploeg was. Gemeten op Tims eigen gegevens: een speler
+  // die op 22-08 al meespeelde, niet gekozen werd voor speeldag 1 en wel voor speeldag 2, stond op
+  // 1/1 = 100% in plaats van 1/2.
+  // Nu: de eerste vermelding over ALLE wedstrijden van deze ploeg in dit seizoen. De noemer zelf
+  // blijft wél de gefilterde speeldagen — kijk je naar de competitie, dan tellen enkel
+  // competitiespeeldagen mee. Enkel het startpunt komt van buiten de filter.
+  // Dit kan geen spelers doen verschijnen die er niet stonden: de lijst hieronder loopt over `players`,
+  // en die is opgebouwd uit de gefilterde wedstrijden. Het kan enkel de noemer van wie er al staat
+  // vroeger laten beginnen.
   const spelerKey = (rosterId, name) => rosterId || (name || 'Speler').trim();
   const eersteDatum = new Map();
-  for (const m of sortedList) {
-    if (!m.date) continue;
+  for (const m of candidates) {
+    if (!m.date || seasonOf(m) !== seasonFilter) continue;
     const noem = (rid, nm) => { const k = spelerKey(rid, nm); const b = eersteDatum.get(k); if (!b || m.date < b) eersteDatum.set(k, m.date); };
     for (const p of (m.players || [])) noem(p.rosterId, p.name);
     for (const a of (m.absentPlayers || [])) { const ab = typeof a === 'string' ? { name: a, rosterId: null } : a; noem(ab.rosterId, ab.name); }
@@ -793,7 +807,13 @@ async function loadPlayerDetail() {
   const ploegLijst = all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2)
     && seasonOf(m2) === playerDetailSeason && kindMatches(m2) && m2.date);
   const speeldagElders = bouwSpeeldagIndex(all);
-  const vermeld = ploegLijst.filter(m2 => (m2.players || []).some(isHem)
+  // Het startpunt buiten de soortfilter om, net als op de statistiekenpagina (Tim, 19-09-2026): zie de
+  // uitleg bij `eersteDatum` in loadStats. Deze twee schermen moeten hetzelfde percentage geven, dus
+  // hier mag dezelfde vergissing niet blijven staan. De noemer hieronder blijft wél `ploegLijst`, dus
+  // de gefilterde speeldagen.
+  const seizoenLijst = all.filter(m2 => m2.status === 'done' && !m2.tournamentId && inTeam(m2)
+    && seasonOf(m2) === playerDetailSeason && m2.date);
+  const vermeld = seizoenLijst.filter(m2 => (m2.players || []).some(isHem)
     || (m2.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).some(isHem));
   const vanaf = vermeld.length ? vermeld.map(m2 => m2.date).sort()[0] : null;
   // PER SPEELDAG, zelfde regel als op de statistiekenpagina (Tim, 27-08-2026): twee wedstrijden die

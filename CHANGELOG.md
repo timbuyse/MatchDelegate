@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.59.1
+
+**"Geselecteerd" telde een gemiste speeldag niet mee wanneer die vóór de eerste wedstrijd van je
+filter viel.** De app rekent een speler pas mee vanaf de eerste wedstrijd waarin hij voorkomt — zo
+krijgt wie in januari bij de ploeg komt september niet als gemist. Dat startpunt werd alleen gezocht
+binnen de wedstrijden die je filter toonde. Stond je op *Competitie* en speelde een speler eerst enkel
+vriendschappelijke wedstrijden mee, dan gold zijn eerste competitiewedstrijd als zijn begin, en viel
+elke competitiespeeldag daarvóór weg.
+
+Gemeten op een echte ploeg: een speler die op 22 augustus al meespeelde, niet gekozen werd voor
+speeldag 1 en wel voor speeldag 2, stond op **1/1 (100%)** in plaats van **1/2 (50%)**.
+
+Het startpunt komt nu van alle wedstrijden van die ploeg in dat seizoen. De noemer blijft wél de
+speeldagen binnen je filter: kijk je naar de competitie, dan tellen enkel competitiespeeldagen mee.
+Dezelfde rechtzetting op de detailpagina van een speler, zodat die twee schermen hetzelfde
+percentage geven.
+
+---
+
 ## v1.59.0
 
 **Winst, gelijk en verlies per speler.** Op de detailpagina van een speler staat er een derde rij
