@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.59.0
+
+**Winst, gelijk en verlies per speler.** Op de detailpagina van een speler staat er een derde rij
+cijfers bij, met dezelfde woorden en kleuren als de samenvatting van de ploeg bovenaan de
+statistiekenpagina. Geteld over de wedstrijden waarin hij **effectief speelde** — niet over de
+wedstrijden waarvoor hij enkel geselecteerd was — en met dezelfde regel als overal elders: een
+gewonnen strafschoppenreeks telt als winst. Onder de cijfers staat waarover ze gaan, en of er
+wedstrijden buiten vallen omdat er geen uitslag van bijgehouden is.
+
+---
+
 ## v1.58.0
 
 **De blokduur van een gespeelde wedstrijd is nu ook nog aan te passen.** Stond een wedstrijd als

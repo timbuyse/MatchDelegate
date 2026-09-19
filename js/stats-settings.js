@@ -737,6 +737,14 @@ async function loadPlayerDetail() {
   // strafschopdoelpunt (dat óók bij zijn doelpunten telt) als een rake strafschop uit een reeks
   // (die nooit bij de doelpunten telt — de reeks staat buiten de score).
   let penGenomen = 0, penGescoord = 0;
+  // WINST/GELIJK/VERLIES VAN DEZE SPELER (Tim, 19-09-2026). Geteld over de wedstrijden waarin hij
+  // ÉCHT SPEELDE (pms > 0), dus dezelfde noemer als "Gespeeld" bovenaan dit scherm — niet over de
+  // wedstrijden waarvoor hij enkel geselecteerd was. "Hij heeft gewonnen" gaat over meedoen; wie de
+  // hele wedstrijd op de bank zat, heeft die winst niet gespeeld.
+  // matchResultaat is de ENIGE bron voor W/G/V (zie core.js): een gewonnen strafschoppenreeks telt
+  // dus ook hier als winst. Die functie geeft null bij een wedstrijd zonder uitslag, en die valt
+  // hieronder apart — anders zou zo'n wedstrijd stil als gelijkspel meetellen.
+  let pW = 0, pG = 0, pV = 0, pZonderUitslag = 0;
   const rows = [];
   for (const m of doneList) {
     const pl = findPlayer(m);
@@ -766,7 +774,12 @@ async function loadPlayerDetail() {
     // keeperByQ i.p.v. eind-positie — zie toelichting bij wasKeeperAtAll().
     const wasKeeper = m.keeperByQ && Object.keys(m.keeperByQ).length ? wasKeeperAtAll(m, pl.id) : pl.line === 'Doel';
     // Zelfde regel als op de statistiekenpagina: zonder uitslag geen clean sheet (zie daar).
-    if (pms > 0) { mp++; ms += pms; if (wasKeeper) { keeperApps++; if (m.scoreThem === 0 && !geenUitslag(m)) cs++; } }
+    if (pms > 0) {
+      mp++; ms += pms;
+      if (wasKeeper) { keeperApps++; if (m.scoreThem === 0 && !geenUitslag(m)) cs++; }
+      const res = matchResultaat(m);
+      if (res === 'W') pW++; else if (res === 'G') pG++; else if (res === 'V') pV++; else pZonderUitslag++;
+    }
     goals += g; assists += a; yc += y; rc += r;
     rows.push({ m, pms, g, a, y, r });
   }
@@ -856,6 +869,20 @@ async function loadPlayerDetail() {
         <div class="stat-box"><div class="v">${mp ? Math.round(ms / mp / 60000) : 0}'</div><div class="l">Gem./match</div></div>
         <div class="stat-box"><div class="v">${pct != null ? pct + '%' : '–'}</div><div class="l">Geselecteerd</div></div>
       </div>
+      ${/* Zelfde drie vakjes, kleuren en woorden als de samenvatting van de ploeg bovenaan de
+           statistiekenpagina — daar staat het over het seizoen, hier over deze speler. Enkel wanneer
+           hij ook echt gespeeld heeft: drie nullen bij iemand met nul wedstrijden is ruis. */ ''}
+      ${mp ? `<div class="stat-big" style="margin-top:10px">
+        <div class="stat-box"><div class="v" style="color:var(--grn)">${pW}</div><div class="l">Winst</div></div>
+        <div class="stat-box"><div class="v">${pG}</div><div class="l">Gelijk</div></div>
+        <div class="stat-box"><div class="v" style="color:var(--rd)">${pV}</div><div class="l">Verlies</div></div>
+      </div>
+      ${/* Eén regel, met twee dingen erin. Het eerste zegt waarover deze drie cijfers gaan — zonder dat
+           las "Winst 2" als twee van de zes wedstrijden van de ploeg. Het tweede staat er enkel bij
+           wanneer er echt iets buiten valt: dan tellen de drie vakjes niet op tot "Gespeeld", en dan
+           hoor je te weten waar dat verschil zit (zelfde gedachte als de regel over niet-afgesloten
+           wedstrijden op de statistiekenpagina). */ ''}
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">Over de ${mp === 1 ? 'wedstrijd' : mp + ' wedstrijden'} waarin hij effectief speelde.${pZonderUitslag ? ` ${pZonderUitslag === 1 ? 'Eén daarvan telt' : pZonderUitslag + ' daarvan tellen'} hier niet mee: geen uitslag bijgehouden.` : ''}</p>` : ''}
     </div>
     ${tournamentBlock}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
