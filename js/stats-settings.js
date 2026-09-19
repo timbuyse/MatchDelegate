@@ -861,6 +861,14 @@ async function loadPlayerDetail() {
       if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
       const p = (m.players || []).find(x => x.globalId === resolvedGlobalId);
       if (!p) continue;
+      // EEN GASTOPTREDEN IS GEEN CARRIÈRE (Tim, 19-09-2026: "waarom staat dit er 2 keer"). Een speler
+      // die één keer bij een andere ploeg van de club meespeelde, stond zowel onder "Ook gastspeler
+      // bij" als onder "Carrière — eerder bij": het eerste blok zoekt op rosterId binnen dit seizoen,
+      // dit blok op globalId over alle seizoenen, en één gastwedstrijd voldoet aan allebei. Sinds
+      // gasten hun échte kenmerk meedragen (v1.17.0) is dat het normale geval geworden.
+      // `p.guest` is precies het verschil tussen de twee: bij een carrière stond hij in de gewone
+      // selectie van die ploeg, als gast niet.
+      if (p.guest) continue;
       const mins = calcMinutes(m);
       if (!(mins[p.id] && mins[p.id].ms > 0)) continue;
       const c = careerElsewhere[m.teamName] || (careerElsewhere[m.teamName] = { mp: 0, goals: 0, assists: 0 });

@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.60.1
+
+**Een gastoptreden stond twee keer op de spelerspagina.** Wie één keer bij een andere ploeg van de
+club meespeelde, zag die wedstrijd zowel onder *Ook gastspeler bij* als onder *Carrière — eerder bij*.
+Dat tweede blok is bedoeld voor spelers die echt verhuisd zijn via "Speler overzetten", maar het
+herkende een gastoptreden niet als zodanig. Een wedstrijd waarin iemand als **gast** genoteerd staat,
+telt daar niet meer mee.
+
+---
+
 ## v1.60.0
 
 **Een losse naam in een verslag alsnog aan de juiste speler hangen.** Zette je iemand bij met *Speler
