@@ -841,15 +841,29 @@ async function loadPlayerDetail() {
   // ploeg-overschrijdend hetzelfde bij een echte gastbeurt, zie addGuestsModal in wizard-prep.js);
   // op naam matchen zou spelers met dezelfde naam bij onverwante ploegen foutief kunnen samenvoegen.
   // Enkel wedstrijden van ploegen die dit toestel al lokaal kent zijn hier zichtbaar.
-  const guestElsewhere = {};
+  // DRIE SOORTEN OPTREDENS BIJ EEN ÁNDERE PLOEG, en het scherm moet ze uit elkaar houden (Tim,
+  // 19-09-2026). Open je dezelfde speler vanaf de ploeg waar hij net GAST was, dan draait alles om:
+  // zijn eigen ploeg stond er dan als "ook gastspeler bij" én als "carrière", terwijl hij daar gewoon
+  // in de kern zit en nooit verhuisd is. Wat de drie uit elkaar houdt:
+  //   · hij staat in die wedstrijd als GAST genoteerd        -> hij ging daar helpen
+  //   · geen gast, en HETZELFDE kernkenmerk als hier         -> dat is zijn eigen ploeg
+  //   · geen gast, een ANDER kernkenmerk (zelfde globalId)   -> een vorige ploeg, dus carrière
+  // Dat laatste klopt omdat "Speler overzetten" hem een nieuwe plek in de nieuwe kern geeft: de oude
+  // wedstrijden houden het oude kenmerk, en enkel globalId verbindt de twee.
+  const guestElsewhere = {};   // waar hij ging helpen
+  const ownElsewhere = {};     // zijn eigen ploeg — enkel zichtbaar vanaf een ploeg waar hij gast was
   if (rosterId && playerDetailTeamName) {
     for (const m of all) {
       if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
       if (seasonOf(m) !== playerDetailSeason || !kindMatches(m)) continue;
-      if ((m.players || []).some(p => p.rosterId === rosterId)) guestElsewhere[m.teamName] = (guestElsewhere[m.teamName] || 0) + 1;
+      const p = (m.players || []).find(x => x.rosterId === rosterId);
+      if (!p) continue;
+      const pot = p.guest ? guestElsewhere : ownElsewhere;
+      pot[m.teamName] = (pot[m.teamName] || 0) + 1;
     }
   }
   const guestEntries = Object.entries(guestElsewhere).sort((a, b) => b[1] - a[1]);
+  const ownEntries = Object.entries(ownElsewhere).sort((a, b) => b[1] - a[1]);
   // Carrière bij eerdere ploegen (na een formele overzetting via de eigenaarstool): matcht op
   // globalId, over ALLE seizoenen heen (i.t.t. guestElsewhere hierboven, dat bewust wél per
   // seizoen filtert — een overzetting hoort juist bij een seizoensovergang). Enkel wedstrijden
@@ -869,6 +883,11 @@ async function loadPlayerDetail() {
       // `p.guest` is precies het verschil tussen de twee: bij een carrière stond hij in de gewone
       // selectie van die ploeg, als gast niet.
       if (p.guest) continue;
+      // En zijn EIGEN ploeg is evenmin een vorige ploeg. Bekeken vanaf een ploeg waar hij gast was,
+      // zijn dat gewone wedstrijden zonder gastmerkje — de vorige regel vangt ze dus niet. Hetzelfde
+      // kernkenmerk betekent dezelfde plek in dezelfde kern, en dus geen overzetting; die geeft hem
+      // een nieuwe plek in de nieuwe kern. Ze staan hierboven onder "Eigen ploeg".
+      if (rosterId && p.rosterId === rosterId) continue;
       const mins = calcMinutes(m);
       if (!(mins[p.id] && mins[p.id].ms > 0)) continue;
       const c = careerElsewhere[m.teamName] || (careerElsewhere[m.teamName] = { mp: 0, goals: 0, assists: 0 });
@@ -913,6 +932,10 @@ async function loadPlayerDetail() {
       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">Over de ${mp === 1 ? 'wedstrijd' : mp + ' wedstrijden'} waarin hij effectief speelde.${pZonderUitslag ? ` ${pZonderUitslag === 1 ? 'Eén daarvan telt' : pZonderUitslag + ' daarvan tellen'} hier niet mee: geen uitslag bijgehouden.` : ''}</p>` : ''}
     </div>
     ${tournamentBlock}
+    ${/* Zijn eigen ploeg, en dus enkel te zien wanneer je hem opent bij een ploeg waar hij kwam
+         helpen. Bewust bovenaan de drie: dat is het antwoord op "wie is deze jongen eigenlijk". */ ''}
+    ${ownEntries.length ? `<div class="sec">${icI(IC.players)} Eigen ploeg</div><div class="card">${ownEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Hij hoort bij ${ownEntries.length === 1 ? 'deze ploeg' : 'deze ploegen'} en kwam hier als gast meespelen.</p></div>` : ''}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
     ${/* Strafschoppen: tijdens de wedstrijd en in een reeks samengeteld. Enkel tonen wie er ooit

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.60.2
+
+**De spelerspagina klopt nu ook wanneer je hem opent bij de ploeg waar hij kwam helpen.** Een gast
+zag daar zijn eigen ploeg staan als *Ook gastspeler bij* én als *Carrière — eerder bij*, terwijl hij
+daar gewoon in de kern zit en nooit verhuisd is. Beide blokken waren geschreven vanuit het standpunt
+"dit is zijn eigen ploeg".
+
+Er zijn nu drie duidelijk gescheiden blokken. **Eigen ploeg** — waar hij thuishoort, te zien vanaf een
+ploeg waar hij als gast meespeelde. **Ook gastspeler bij** — waar hij ging helpen. **Carrière — eerder
+bij** — enkel na een echte overzetting. Het verschil wordt afgelezen aan twee dingen die de app al
+bewaarde: of hij in die wedstrijd als gast genoteerd staat, en of het om dezelfde plek in dezelfde
+kern gaat.
+
+---
+
 ## v1.60.1
 
 **Een gastoptreden stond twee keer op de spelerspagina.** Wie één keer bij een andere ploeg van de
