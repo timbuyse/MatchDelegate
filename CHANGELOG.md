@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.58.0
+
+**De blokduur van een gespeelde wedstrijd is nu ook nog aan te passen.** Stond een wedstrijd als
+*4 × 15 min* geregistreerd terwijl er *4 × 20* gespeeld is, dan kon je dat achteraf nergens meer
+rechtzetten: het aantal blokken en de duur verdwenen samen uit **Info bewerken** zodra er gespeeld
+was. De duur staat er nu weer, het aantal blokken blijft vast — daaraan raken terwijl er al kwarten
+gespeeld zijn, laat blokken zonder kloktijden achter.
+
+De duur die je daar zet, is de **voorziene** lengte van een blok. Ze staat zo op de PDF, en ze bepaalt
+mee hoe de minuut bij elke gebeurtenis gelezen wordt: een doelpunt dat als *15'+4'* stond, leest na de
+omzetting naar 20 minuten als *19'*. De **speelminuten per speler** veranderen er niet door — die
+komen uit de klok van elk blok. Liep een blok in werkelijkheid anders, dan blijft het pennetje bij dat
+blok op het verslag de juiste weg: dat verschuift de gebeurtenissen en de speelminuten wél mee.
+
+---
+
 ## v1.57.0
 
 **Eén bepaalde kijker een wedstrijd niet laten zien.** Tot nu gold zichtbaarheid voor alle kijkers

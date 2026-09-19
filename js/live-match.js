@@ -1540,14 +1540,34 @@ async function saveQuickNote() {
 function modalEditMatchInfo() {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   const notStarted = (match.currentQuarter || 0) === 0 && match.status !== 'done';
+  // DE BLOKDUUR BLIJFT ALTIJD AANPASBAAR, HET AANTAL BLOKKEN NIET (Tim, 19-09-2026: een wedstrijd die
+  // als 4×15 geregistreerd werd terwijl er 4×20 gespeeld is). Die twee velden stonden samen achter
+  // `notStarted`, en dat is voor het aantal blokken terecht — daaraan raken terwijl er al kwarten
+  // gespeeld zijn, laat blokken zonder kloktijden achter of gooit er net weg.
+  //
+  // WAT DE DUUR BIJ EEN GESPEELDE WEDSTRIJD WÉL DOET (Tim wees me hierop, 19-09-2026: "dan gaan de
+  // minuten toch anders staan, 15'+4 wordt dan toch 19?"). Klopt, en dat is net de bedoeling. De
+  // blokduur is de NOMINALE lengte waarmee eventMinGlobal de doorlopende wedstrijdtijd rekent: elk
+  // blok begint waar het vorige nominaal eindigde, en wat daarbuiten valt wordt "15'+4'". Zet je een
+  // wedstrijd die als 4×15 geregistreerd stond op 4×20, dan leest diezelfde gebeurtenis voortaan als
+  // 19' — wat ze ook hoort te zijn wanneer er echt twintig minuten gespeeld is.
+  // De SPEELMINUTEN PER SPELER veranderen er niet door: die komen uit de echte kloktijden van elk
+  // blok (kwartDuurMs). Liep een blok in werkelijkheid anders, dan is het pennetje bij dat blok op
+  // het verslag de juiste weg (modalKwartDuur) — dat verschuift de gebeurtenissen en de speelminuten
+  // wél mee.
+  const duurVeld = `<div class="fg"><label>Duur van een blok</label>
+        <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
+        <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>`;
   const partsBlock = notStarted ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>
         <select id="ei-pt" onchange="eiPeriodChange()"><option value="1" ${match.numQuarters===1?'selected':''}>1 blok</option>${['helften','delen','kwarten'].map(k=>`<option value="${k}" ${match.numQuarters!==1&&match.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
-      <div class="fg"><label>Duur van een blok</label>
-        <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
-        <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>
-    </div>` : '';
+      ${duurVeld}
+    </div>` : `
+    <div class="fg" style="margin-bottom:0"><label>Aantal blokken</label>
+      <input type="text" value="${esc(pCount(match))}" disabled style="opacity:.6"></div>
+    ${duurVeld}
+    <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Het aantal blokken ligt vast zodra er gespeeld is. De duur die je hier zet, is de <b>voorziene</b> lengte van een blok. Ze bepaalt mee hoe de minuut bij elke gebeurtenis gelezen wordt: zet je 4 × 15 om naar 4 × 20, dan wordt een doelpunt dat als 15'+4' stond voortaan 19'. De <b>speelminuten per speler</b> veranderen er niet door — die komen uit de klok van elk blok. Liep een blok in werkelijkheid anders, zet dat dan recht met het pennetje bij dat blok op het verslag.</p>`;
   openModal(`<h3>${icI(IC.edit)} Wedstrijdinfo bewerken</h3>
     <input type="hidden" id="ei-loc" value="${esc(match.location||'')}">
     <div class="fg"><label>Ploeg-label (optioneel)</label><input id="ei-subteam" type="text" value="${esc(match.subteam||'')}" placeholder="bv. A of B — enkel invullen als je ploeg in meerdere delen speelt" autocomplete="off"></div>
@@ -1641,8 +1661,11 @@ async function saveMatchInfo() {
     const raw = v('ei-pt');
     if (raw === '1') { match.periodKey = 'delen'; match.numQuarters = 1; }
     else if (PERIOD_TYPES[raw]) { match.periodKey = raw; match.numQuarters = PERIOD_TYPES[raw].count; }
-    match.quarterDuration = readDur('ei-qd', 'ei-qd-custom', match.quarterDuration);
   }
+  // Los van het aantal blokken: de duur staat er sinds v1.58.0 ook bij een gespeelde wedstrijd, dus
+  // ze wordt apart uitgelezen. Enkel dit veld; aan de kloktijden van de gespeelde blokken komt hier
+  // niets — zie de uitleg bij modalEditMatchInfo.
+  if (document.getElementById('ei-qd')) match.quarterDuration = readDur('ei-qd', 'ei-qd-custom', match.quarterDuration);
   const formEl = document.getElementById('ei-formation');
   const prevFormation = match.formation;
   if (formEl) match.formation = formEl.value;
