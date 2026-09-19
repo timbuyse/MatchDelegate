@@ -408,6 +408,12 @@ function modalDetailEditMenu() {
          Enkel voor de eigenaar (magKijkerBlokkeren): bij een gespeelde wedstrijd bestaat enkel nog het
          deel per persoon, en dat is aan hem voorbehouden. */ ''}
     ${(cloudReady && magKijkerBlokkeren()) ? menuItemHtml(IC.eye, 'Wie ziet deze wedstrijd?', 'Eén bepaalde kijker deze wedstrijd en dit verslag niet laten zien.', `modalWieZietWedstrijd('${m.id}')`) : ''}
+    ${/* Enkel wanneer er ook echt een losse naam in staat — anders is het een menu-item dat bij elke
+         wedstrijd belooft dat er iets recht te zetten valt. De kandidatenlijst rekent hier zonder de
+         zusterploegen (die staan pas ná een cloud-lezing klaar), dus dit kan hooguit één item te veel
+         tonen; het venster zelf meldt dan dat er niets te koppelen is. */ ''}
+    ${gastKoppelKandidaten(m, clubZustersGekend() || []).length
+      ? menuItemHtml(IC.link, 'Speler koppelen', 'Een losse naam in dit verslag alsnog aan de juiste speler hangen — bv. een gast die eigenlijk bij een andere ploeg van je club speelt.', 'modalGastKoppel()') : ''}
     ${menuItemHtml(IC.edit, 'Spelernotities', 'Een notitie per speler, enkel zichtbaar voor beheerders.', 'modalPlayerNotes()')}
     ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
          de ploeg overstapt op spelen zonder vaste nummers. */ ''}
@@ -505,6 +511,108 @@ function selectieBezwaren(m, p, mins) {
   if (m.motmId === p.id) uit.push('man van de match');
   if (typeof wasKeeperAtAll === 'function' && wasKeeperAtAll(m, p.id)) uit.push('stond in doel');
   return uit;
+}
+// ===================== EEN LOSSE NAAM ALSNOG AAN EEN SPELER HANGEN =====================
+// Tim, 19-09-2026: "Er is een gast toegevoegd aan een wedstrijd van de U12 maar dat is een speler van
+// de U11. Kan ik die achteraf koppelen?" Tot nu niet. Wie je met "Speler van een andere ploeg"
+// bijzette, droeg het kenmerk van die speler meteen mee; wie je als "Losse speler" intikte, bleef
+// voor de app een aparte persoon — en zijn optreden kwam dus nooit op zijn eigen spelerspagina
+// terecht. De enige reparatie die bestond, zit in de dubbeldetectie bij het aanvullen van een KERN,
+// en die raakt bewust alleen wedstrijden van de ploeg waaraan je toevoegt (zie dubbelKoppelWedstrijden
+// in teams-tournaments.js). Voor dit geval — een wedstrijd van DEZE ploeg met daarin iemand van een
+// zusterploeg — was er niets.
+//
+// Enkel wedstrijden van de actieve ploeg, en dat is hier vanzelf zo: dit venster hangt aan het
+// verslag dat je open hebt. Die grendel is belangrijk genoeg om te benoemen — dbSave() zet een
+// wedstrijd altijd bij de ACTIEVE ploeg, dus schrijven in de wedstrijd van een andere ploeg zou ze
+// van ploeg laten verspringen.
+let _gkSt = null;   // { matchId, spelerId, ploegId }
+// Wie in deze wedstrijd hangt aan niets? Dat is niet "heeft geen rosterId": een losse speler uit de
+// wizard krijgt wél een id, alleen hoort dat bij niemand. De toets is dus of dat id terugkomt in een
+// kern die we kennen — de eigen ploeg of een zusterploeg.
+function gastKoppelKandidaten(m, zusters) {
+  const eigen = teamById(m.teamId) || (getTeamsV2().find(t => t.name === m.teamName) || null);
+  const gekend = new Set();
+  ((eigen && eigen.players) || []).forEach(p => { if (p && p.id) gekend.add(p.id); });
+  (zusters || []).forEach(t => (t.players || []).forEach(p => { if (p && p.id) gekend.add(p.id); }));
+  return (m.players || []).filter(p => p && (!p.rosterId || !gekend.has(p.rosterId)));
+}
+async function modalGastKoppel() {
+  const m = match; if (!m || !magWijzigen(m)) return;
+  openModal(`<h3>${icI(IC.link)} Speler koppelen</h3><p style="text-align:center;color:var(--txt2);margin:16px 0">Ploegen laden…</p>`);
+  let zusters = [];
+  try { zusters = await clubZusterPloegen(); } catch (e) {}
+  _gkSt = { matchId: m.id, spelerId: null, ploegId: null, zusters };
+  _gkTeken();
+}
+function _gkTeken() {
+  const m = match; if (!m || !_gkSt) return;
+  const slot = `<button class="btn btn-gray" style="margin-top:10px" onclick="_gkSt=null;closeModal()">Sluiten</button>`;
+  const kand = gastKoppelKandidaten(m, _gkSt.zusters);
+  if (!kand.length) {
+    openModal(`<h3>${icI(IC.link)} Speler koppelen</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin:16px 0">Iedereen in deze wedstrijd hangt al aan een speler uit je eigen kern of uit een andere ploeg van je club. Er valt hier niets te koppelen.</p>` + slot);
+    return;
+  }
+  // STAP 1 — om wie gaat het?
+  if (!_gkSt.spelerId) {
+    openModal(`<h3>${icI(IC.link)} Speler koppelen</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Deze namen staan los in dit verslag: de app kent ze niet als een speler uit een kern. Hang je er een aan de juiste speler, dan telt deze wedstrijd mee op <b>zijn</b> spelerspagina.</p>
+      ${kand.map(p => `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+        <div><b>${esc(p.name || 'Speler')}</b>${p.fromName ? `<br><small style="color:var(--txt2)">${esc(p.fromName)}</small>` : ''}</div>
+        <div><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="_gkKiesSpeler('${p.id}')">${icI(IC.link)} Koppelen</button></div>
+      </div>`).join('')}` + slot);
+    return;
+  }
+  // STAP 2 — aan wie?
+  const sp = (m.players || []).find(p => p.id === _gkSt.spelerId);
+  if (!sp) { _gkSt.spelerId = null; _gkTeken(); return; }
+  const eigen = teamById(m.teamId) || (getTeamsV2().find(t => t.name === m.teamName) || null);
+  // De eigen ploeg staat er ook bij: een losse naam kan evengoed iemand uit je eigen kern zijn die
+  // met de hand ingetikt is. Dan is hij geen gast en hoort dat merkje weg — zie _gkDoe.
+  const ploegen = [...(eigen && (eigen.players || []).length ? [{ id: eigen.id, name: (eigen.name || m.teamName || 'Eigen ploeg') + ' (eigen ploeg)', players: eigen.players, eigen: true }] : []), ..._gkSt.zusters];
+  if (!ploegen.length) {
+    openModal(`<h3>${icI(IC.link)} ${esc(sp.name || 'Speler')}</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin:16px 0">We vinden geen ploegen om uit te kiezen. Zonder verbinding met je club kunnen de kernen van de andere ploegen niet opgehaald worden.</p>
+      <button class="btn btn-gray" onclick="_gkSt.spelerId=null;_gkTeken()">Terug</button>` + slot);
+    return;
+  }
+  if (!ploegen.some(t => t.id === _gkSt.ploegId)) _gkSt.ploegId = ploegen[0].id;
+  const t = ploegen.find(x => x.id === _gkSt.ploegId);
+  // Wie al aan deze wedstrijd hangt, valt weg: hem nog eens koppelen zou dezelfde speler twee keer in
+  // één selectie zetten.
+  const bezet = new Set((m.players || []).filter(p => p.id !== sp.id).map(p => p.rosterId).filter(Boolean));
+  const vrij = (t.players || []).filter(p => !bezet.has(p.id));
+  openModal(`<h3>${icI(IC.link)} ${esc(sp.name || 'Speler')}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie is dit? De naam in dit verslag blijft staan zoals ze is — enkel de koppeling wordt gelegd.</p>
+    <div class="fg"><label>Ploeg</label><select onchange="_gkSt.ploegId=this.value;_gkTeken()">${ploegen.map(x => `<option value="${esc(x.id)}" ${x.id === t.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+    ${vrij.length ? pgGrid(vrij.map(p => pgBtn(p, 'addp-pb', `_gkDoe('${p.id}')`)).join(''))
+      : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin:4px 0 14px">Iedereen van deze ploeg zit al in deze wedstrijd.</p>`}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_gkSt.spelerId=null;_gkTeken()">Terug</button>` + slot);
+}
+function _gkKiesSpeler(id) { if (_gkSt) { _gkSt.spelerId = id; _gkTeken(); } }
+async function _gkDoe(rosterId) {
+  const m = match; if (!m || !_gkSt) return;
+  if (slotWeigert(m)) return;
+  if (!magWijzigen(m)) { showToast('Enkel een ploegbeheerder kan dit wijzigen.', 'err'); return; }
+  const sp = (m.players || []).find(p => p.id === _gkSt.spelerId);
+  const eigen = teamById(m.teamId) || (getTeamsV2().find(t => t.name === m.teamName) || null);
+  const ploegen = [...(eigen ? [{ id: eigen.id, name: eigen.name || m.teamName || '', players: eigen.players || [], eigen: true }] : []), ..._gkSt.zusters];
+  const t = ploegen.find(x => x.id === _gkSt.ploegId);
+  const r = t && (t.players || []).find(p => p.id === rosterId);
+  if (!sp || !r) { showToast('Die speler staat niet meer in het rooster.', 'err'); return; }
+  sp.rosterId = r.id;
+  if (r.globalId) sp.globalId = r.globalId; else delete sp.globalId;
+  // Het GASTMERKJE volgt de ploeg waaraan je koppelt. Bij een zusterploeg blijft "gast" staan met haar
+  // naam erbij; blijkt het iemand uit je eigen kern, dan is hij geen gast en hoort dat merkje weg.
+  // De NAAM in het verslag blijft wat ze was: dat is wat er die dag genoteerd is, en die overschrijven
+  // zou een correctie van vandaag in een verslag van toen schrijven.
+  if (t.eigen) { delete sp.guest; delete sp.fromName; }
+  else { sp.guest = true; sp.fromName = t.name || ''; }
+  await dbSave(m);
+  _gkSt = null;
+  closeModal(); render();
+  showToast(`${sp.name || 'Speler'} is gekoppeld aan ${r.name}${t.eigen ? '' : ' van ' + (t.name || 'een andere ploeg')}.`, 'ok');
 }
 let _selWeg = null;   // werkkopie: de id's die je in dit venster uit de selectie wil halen
 function modalSelectieVerslag() {

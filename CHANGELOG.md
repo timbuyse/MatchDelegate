@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.60.0
+
+**Een losse naam in een verslag alsnog aan de juiste speler hangen.** Zette je iemand bij met *Speler
+van een andere ploeg*, dan wist de app meteen wie het was. Tikte je de naam in met *Losse speler*, dan
+bleef hij voor de app een aparte persoon — en kwam die wedstrijd nooit op zijn eigen spelerspagina
+terecht. Achteraf viel daar niets meer aan te doen.
+
+In het menu **Bewerken** van een verslag staat nu **Speler koppelen**. Het venster toont de namen in
+die wedstrijd die aan niemand hangen; je kiest er een, dan de ploeg (je eigen kern of een andere ploeg
+van je club) en de juiste speler. De naam in het verslag blijft staan zoals ze genoteerd is — enkel de
+koppeling wordt gelegd. Blijkt het iemand uit je eigen kern, dan verdwijnt het merkje *gast*.
+
+Het item staat er alleen wanneer er in die wedstrijd ook echt een losse naam staat.
+
+---
+
 ## v1.59.1
 
 **"Geselecteerd" telde een gemiste speeldag niet mee wanneer die vóór de eerste wedstrijd van je
