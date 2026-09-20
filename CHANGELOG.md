@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.61.0
+
+**Wie twee wedstrijden van dezelfde speeldag meespeelde, krijgt dat nu ook te zien.** Een speeldag kan
+uit meer dan één wedstrijd bestaan: twee ploegen die tegelijk spelen, een zaterdag en een zondag, of
+een wedstrijd die uitgesteld werd naar de woensdag erna. Wie er twee van meespeelde, kreeg tot nu
+evenveel krediet als wie er één speelde — bij **Geselecteerd** stond er dan 7/7 terwijl hij acht keer
+opgeroepen was.
+
+Zo'n speeldag weegt voortaan **per speler**: twee gespeeld is 2 van de 2, één gespeeld is 1 van de 1,
+en niet gekozen is 0 van de 1. Dat laatste blijft bewust één gemiste dag en geen twee — je bent die
+ronde niet gekozen, en dat is één keuze van de trainer. Zo maakt het ook niet meer uit of die twee
+wedstrijden op zaterdag en zondag vallen dan wel op zondag en een uitgestelde woensdag.
+
+Het percentage verandert enkel voor wie echt twee wedstrijden van dezelfde speeldag speelde; voor alle
+anderen blijft alles staan zoals het stond.
+
+---
+
 ## v1.60.2
 
 **De spelerspagina klopt nu ook wanneer je hem opent bij de ploeg waar hij kwam helpen.** Een gast

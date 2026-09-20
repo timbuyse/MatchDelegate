@@ -35,6 +35,11 @@ function speeldagSleutel(m) {
 // Deelt een lijst wedstrijden op in speeldagen volgens diezelfde regel: binnen één dag van elkaar, of
 // hetzelfde ingevulde speeldagnummer. Twee wedstrijden die tegelijk gespeeld worden, zijn zo één
 // speeldag — en dus één kans om geselecteerd te worden, niet twee.
+//
+// HOEVEEL ZO'N SPEELDAG VOOR ÉÉN SPELER WEEGT, staat hier NIET: dat is per speler (zie de telling in
+// loadStats). Wie twee wedstrijden van dezelfde speeldag meespeelde, telt 2 van de 2; wie er één
+// speelde 1 van de 1; wie er geen speelde 0 van de 1. Zo maakt het niet uit of die twee wedstrijden
+// op zaterdag en zondag vallen of op zondag en een uitgestelde woensdag (Tim, 20-09-2026).
 function speeldagGroepen(lijst) {
   const items = (lijst || []).filter(m => m && m.date);
   const ouder = items.map((_, i) => i);
@@ -570,8 +575,20 @@ async function loadStats() {
     let mee = 0, gemist = 0;
     for (const g of speeldagen) {
       if (g.maxDatum < vanaf) continue;
-      // In de selectie van minstens één wedstrijd van die speeldag → hij deed mee die dag.
-      if (g.matches.some(m => (m.players || []).some(p => spelerKey(p.rosterId, p.name) === k && !p.absent))) { mee++; continue; }
+      // HOEVEEL WEDSTRIJDEN VAN DEZE SPEELDAG DEED HIJ MEE? (Tim, 20-09-2026: "voor hij die 2 keer
+      // meedoet moet teller en noemer dan toch +2 gaan? Niet voor de andere spelers.")
+      // Een speeldag kan meer dan één wedstrijd bevatten: twee ploegen die tegelijk spelen, een
+      // zaterdag en een zondag, of een uitgestelde wedstrijd met hetzelfde speeldagnummer. Wie er
+      // twee van meespeelde, kreeg tot nu evenveel krediet als wie er één speelde — en wie er geen
+      // speelde, één gemiste dag. Nu weegt zo'n speeldag PER SPELER:
+      //   · twee gespeeld -> 2 van de 2      · één gespeeld -> 1 van de 1      · geen -> 0 van de 1
+      // Zo maakt het niet meer uit of die twee wedstrijden op zaterdag en zondag vallen dan wel op
+      // zondag en een uitgestelde woensdag — het gaat om wat hij effectief deed.
+      // Wie er geen speelde krijgt bewust ÉÉN gemiste dag en niet twee: hij is die ronde niet gekozen,
+      // en dat is één keuze van de trainer. Dat was de hele reden om in speeldagen te rekenen
+      // (v1.14.0): wie nergens gekozen werd, stond anders op 0/2 terwijl er maar één ronde was.
+      const aantalMee = g.matches.filter(m => (m.players || []).some(p => spelerKey(p.rosterId, p.name) === k && !p.absent)).length;
+      if (aantalMee) { mee += aantalMee; continue; }
       // Elders opgesteld of afgemeld met "speelt elders": geen gemiste kans, maar ook geen selectie.
       if (g.matches.some(m => opDezelfdeSpeeldagElders(r.rosterId, r.name, m))) continue;
       if (eldersGemeld(g, k)) continue;
@@ -825,7 +842,10 @@ async function loadPlayerDetail() {
   if (vanaf) {
     for (const g of speeldagGroepen(ploegLijst)) {
       if (g.maxDatum < vanaf) continue;
-      if (g.matches.some(m => (m.players || []).some(p => isHem(p) && !p.absent))) { dagenMee++; continue; }
+      // Per speler geteld, zelfde regel als op de statistiekenpagina — zie de uitleg daar. Deze twee
+      // schermen horen hetzelfde percentage te geven.
+      const aantalMee = g.matches.filter(m => (m.players || []).some(p => isHem(p) && !p.absent)).length;
+      if (aantalMee) { dagenMee += aantalMee; continue; }
       if (g.matches.some(m => speeldagElders(rosterId, name, m))) continue;   // die speeldag elders
       const eldersGemeld = g.matches.some(m => {
         const rec = (m.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a).find(isHem);
@@ -1722,7 +1742,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Topschutters</b> en <b>Assists</b>.</li>
         <li><b>Clean sheets</b> — per keeper, op basis van de minuten die hij effectief in doel stond.</li>
         <li><b>Meeste speelminuten</b> en <b>Fair-play · minste speeltijd</b> — die tweede rekent de <i>gemiddelde</i> speeltijd per selectie, dus wie vaak geselecteerd wordt maar weinig speelt, staat bovenaan. Bedoeld om eerlijke speelkansen op te volgen.</li>
-        <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
+        <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Speelde iemand er <b>twee van dezelfde speeldag</b>, dan telt dat ook als twee: bij hem staat er dan 2 van de 2, bij wie er één speelde 1 van de 1, en bij wie niet gekozen werd 0 van de 1. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
         <li><b>Posities</b> en <b>Kaarten</b>.</li>
       </ul>
       <div class="sec">Welke wedstrijden tellen mee?</div>
