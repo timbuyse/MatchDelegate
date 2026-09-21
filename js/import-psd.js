@@ -65,13 +65,29 @@ async function psdInflateMet(u8, formaat) {
 // byte van de stream en het woord 'endstream' staat een regeleinde. Vandaar dat we de staart
 // afknippen, en bij een mislukking nog een paar bytes korter proberen. De laatste poging is
 // 'deflate-raw': een enkele maker schrijft de zlib-kop niet mee.
-async function psdInflate(u8) {
+//
+// `lengte` IS DE OPGEGEVEN /Length EN GAAT VOOR (Tim, 21-09-2026: "deze pdf wordt niet goed
+// ingelezen"). Het afknippen van de staart is een gok, en die gok kan er een ECHTE byte af halen:
+// eindigt de ingepakte stroom zelf op een spatie of een regeleinde, dan knipt hij daar gewoon in. Op
+// Tims blad van 21-09 gebeurde dat bij de middelste pagina — /Length 6374, de laatste byte een
+// spatie, dus de gok kwam op 6373 uit en geen enkele van de varianten hierna probeerde nog 6374. Die
+// pagina viel stil weg en de wissels van 15', 30' en 45' met haar. Of dat gebeurt, hangt volledig van
+// het toeval af; hetzelfde blad van een andere wedstrijd las wél goed.
+// Het veld zelf mag een verwijzing naar een ander object zijn ("/Length 15 0 R") en is dan geen
+// getal — vandaar dat de aanroeper enkel een RECHTSTREEKS getal doorgeeft, en dat het gissen als
+// terugval blijft staan.
+async function psdInflate(u8, lengte) {
   let eind = u8.length;
   while (eind > 0 && [0x0a, 0x0d, 0x20, 0x09, 0x00].includes(u8[eind - 1])) eind--;
+  // Ook een paar bytes LANGER dan de gok proberen, voor het geval /Length ontbreekt of niet klopt.
+  const kandidaten = [];
+  if (Number.isFinite(lengte) && lengte > 0 && lengte <= u8.length) kandidaten.push(lengte);
+  [eind, u8.length, eind + 1, eind + 2, eind - 1, eind - 2].forEach(n => {
+    if (n > 0 && n <= u8.length && !kandidaten.includes(n)) kandidaten.push(n);
+  });
   const fouten = [];
   for (const formaat of ['deflate', 'deflate-raw']) {
-    for (const n of [eind, u8.length, eind - 1, eind - 2]) {
-      if (n <= 0 || n > u8.length) continue;
+    for (const n of kandidaten) {
       try { return await psdInflateMet(u8.subarray(0, n), formaat); } catch (e) { fouten.push(e); }
     }
   }
@@ -107,8 +123,11 @@ async function psdStream(s, u8, off, nr) {
   else if (body[j] === '\n' || body[j] === '\r') j += 1;
   const k = body.lastIndexOf('endstream');
   const bytes = u8.subarray(st + j, st + (k < 0 ? body.length : k));
-  if (/\/FlateDecode/.test(body.slice(0, i))) {
-    try { return await psdInflate(bytes); } catch (e2) { return null; }
+  const kop = body.slice(0, i);
+  // Enkel een RECHTSTREEKS getal: "/Length 15 0 R" verwijst naar een ander object en zegt hier niets.
+  const lm = kop.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
+  if (/\/FlateDecode/.test(kop)) {
+    try { return await psdInflate(bytes, lm ? parseInt(lm[1], 10) : null); } catch (e2) { return null; }
   }
   return bytes;
 }
@@ -357,10 +376,12 @@ async function psdLeesPdf(arrayBuffer) {
   // opgeslagen is wel — en dan is het eerlijker om dat te zeggen dan om een halve opstelling te tonen.
   if (/\/ObjStm\b/.test(s) && !Object.keys(off).length) throw new Error('Deze PDF is op een manier opgeslagen die we niet kunnen lezen.');
   const paginas = [];
+  let paginaObjecten = 0;
   const nrs = Object.keys(off).map(n => parseInt(n, 10)).sort((a, b) => a - b);
   for (const nr of nrs) {
     const body = psdBody(s, off, nr);
     if (!/\/Type\s*\/Page\b/.test(body) || /\/Type\s*\/Pages\b/.test(body)) continue;
+    paginaObjecten++;
     const mb = body.match(/\/MediaBox\s*\[\s*[-\d.]+\s+[-\d.]+\s+([\d.]+)\s+([\d.]+)\s*\]/);
     const hoogte = mb ? parseFloat(mb[2]) : 842;
     // De fonts van deze pagina.
@@ -383,6 +404,14 @@ async function psdLeesPdf(arrayBuffer) {
     if (content) paginas.push({ regels: psdRegels(psdContentItems(content, fonts, hoogte)) });
   }
   if (!paginas.length) throw new Error('We vinden geen leesbare tekst in deze PDF.');
+  // EEN HALF BLAD IS ERGER DAN GEEN BLAD (Tim, 21-09-2026). Viel er een pagina uit, dan las de app
+  // gewoon door: je kreeg de selectie en de startopstelling, en de wissels van de ontbrekende pagina
+  // verdwenen zonder één woord. Op het scherm is dat niet te zien — je weet niet dat er iets miste.
+  // Nu stopt het hier, met de vraag om het door te sturen: dat is precies hoe deze fout gevonden is.
+  if (paginas.length < paginaObjecten) {
+    const weg = paginaObjecten - paginas.length;
+    throw new Error(`We konden ${weg === 1 ? 'één pagina' : weg + ' pagina\'s'} van dit blad niet uitpakken (van de ${paginaObjecten}). Overnemen met een pagina minder zou een onvolledig wedstrijdplan geven. Stuur het bestand door, dan kijken we wat eraan scheelt.`);
+  }
   return paginas;
 }
 

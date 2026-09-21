@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.61.1
+
+**Een pagina van de wedstrijdvoorbereiding kon stil wegvallen.** Bij het uitpakken van een PDF knipt
+de app eerst de witruimte achteraan weg — tussen de gegevens en het eindwoord staat altijd een
+regeleinde. Eindigt de ingepakte pagina zelf op een spatie, dan werd die mee weggeknipt, en met één
+byte te weinig weigert het uitpakken. Op zo'n blad viel de middelste pagina weg, met de wissels van
+15', 30' en 45' erin. Of het gebeurt hangt volledig van het toeval af: hetzelfde blad van een andere
+wedstrijd las wél goed.
+
+De app gebruikt nu eerst de lengte die in het bestand zelf vermeld staat, en gaat pas daarna gissen.
+
+**En ze leest niet meer door met een halve voorbereiding.** Lukt een pagina toch niet, dan stopt het
+inlezen met de melding welke pagina ontbreekt. Voordien kreeg je gewoon de selectie en de
+startopstelling, en verdwenen de wissels van die pagina zonder één woord — op het scherm was dat niet
+te zien.
+
+---
+
 ## v1.61.0
 
 **Wie twee wedstrijden van dezelfde speeldag meespeelde, krijgt dat nu ook te zien.** Een speeldag kan
