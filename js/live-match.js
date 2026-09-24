@@ -1,4 +1,42 @@
 // ===================== LIVE MATCH =====================
+// DE KLOKKAART, ÉÉN KEER GESCHREVEN (Tim, 23-09-2026: "een kijker ziet geen timer bij een live match.
+// Dat moet er wel staan, ook met optie aftellen of optellen").
+// Ze stond alleen op het tabblad WEDSTRIJD, en juist dat tabblad bestaat niet voor een kijker — die
+// wordt er bovenaan renderLive van afgeduwd. Hij zag dus wel de stand en "Kwart 2 van 4", maar nergens
+// hoe ver dat kwart stond. Nu tekent deze functie de kaart voor allebei, zodat de twee niet uit elkaar
+// kunnen groeien.
+// Veilig voor een kijker: `toggleCountdown` schrijft enkel in de opslag van dit toestel (localStorage),
+// niet in de wedstrijd, en `updateTimerDisplay` tikt elke halve seconde op de id's hieronder — die
+// draaide al voor iedereen, ze vond enkel niets om bij te werken.
+// De id's komen dus maar ÉÉN keer in beeld: de kijker heeft geen wedstrijdtabblad, wie bijhoudt ziet
+// deze kaart enkel dáár.
+function timerKaartHtml(m, dots, gepauzeerd) {
+  const pct = Math.min(100, (getQElapsed(m) / ((m.quarterDuration || 1) * 60000)) * 100).toFixed(1);
+  return `<div class="timer-card">
+    <div class="timer-time" id="timer-time">${timerText(m)}</div>
+    ${/* EEN STILGEZETTE KLOK MOET ERUITZIEN ALS EEN STILGEZETTE KLOK (Tims keuze, 24-08-2026).
+         De cijfers waren identiek aan een lopende klok; het enige verschil zat in de knop, die
+         "Hervatten" zei. Wie na een blessure vergeet te hervatten, merkt dat pas veel later — en dan
+         klopt de speeltijd van iedereen op het veld niet meer. Zelfde mechaniek als de oranje klok bij
+         overtijd: updateTimerDisplay houdt de kleur bij, dit is het opschrift. */ ''}
+    <div id="timer-pauze" style="${gepauzeerd ? '' : 'display:none;'}font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--org);margin-top:2px">PAUZE</div>
+    ${m.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${pct}%"></div></div>` : ''}
+    ${/* Twee dingen rechtgezet op 24-08-2026: (1) het opschrift was de HUIDIGE stand ("Optellen aan")
+         terwijl je bij een knop het gevolg van je tik verwacht — nu staat de stand er met "tik om te
+         wisselen" erbij; (2) zonder blokduur kan er niets afgeteld worden (timerText negeert aftellen
+         dan), en toch werd de knop groen met "Aftellen aan". Nu staat hij er enkel als er een blokduur
+         is.
+         SINDS v1.43.0 EEN CHIP NAAST DE BOLLETJES i.p.v. een knop over de volle breedte, op één regel
+         met de wedstrijddelen (Tim, 04-09-2026: de klokkaart moest even hoog worden als de scorekaart
+         erboven). Die knop was het enige echt hoge stuk van deze kaart; als chip kost hij geen eigen
+         regel meer. Het opschrift blijft woordelijk hetzelfde — enkel "· tik om te wisselen" valt weg,
+         want dat is de uitleg die nu in de tooltip staat. */ ''}
+    <div class="qdots-rij">
+      <div class="qdots">${dots}</div>
+      ${m.quarterDuration ? `<button class="klok-chip${countdownOn() ? ' aan' : ''}" onclick="toggleCountdown()" title="Tik om te wisselen tussen op- en aftellen">${icI(IC.stopwatch)} ${countdownOn() ? 'Aftellen' : 'Optellen'}</button>` : ''}
+    </div>
+  </div>`;
+}
 function renderLive() {
   // Met een uitweg (audit 25-08-2026): dit was een scherm zonder hoofding, zonder tabbalk en zonder
   // terugknop. Kan gebeuren wanneer een medebeheerder de wedstrijd verwijdert terwijl jij erin staat.
@@ -59,12 +97,17 @@ function renderLive() {
   const miniStatus = (isDone ? `${icI(IC.done)} Afgelopen`
     : (isBetween ? `${icI(IC.timer)} Pauze`
       : (qNum > 0 ? `${pSing(match)} ${qNum}/${match.numQuarters}` : 'Nog niet gestart'))) + syncDot + volgersBadge;
+  // DE KLOK STAAT BIJ EEN KIJKER ONDER DE SCOREKAART, op élk tabblad dat hij heeft (Opstelling en
+  // Verloop) — hij heeft geen wedstrijdtabblad om ze in weg te stoppen. Enkel zolang de wedstrijd
+  // loopt: bij een afgelopen wedstrijd zegt de regel erboven al "Afgelopen", en een bevroren klok
+  // voegt daar niets aan toe.
+  const kijkerKlok = (ro && !isDone) ? timerKaartHtml(match, dots, isPaused) : '';
   const miniScore = ro
     ? `<div class="scoreboard" style="margin-bottom:12px">
         <div class="sb-teams"><span>${esc(isAway(match)?match.opponent:tName(match))}</span><span>${esc(isAway(match)?tName(match):match.opponent)}</span></div>
         <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
-      </div>`
+      </div>${kijkerKlok}`
     : `<div class="sb-mini">
         <button class="sb-terug" onclick="setTab('wedstrijd')" aria-label="Terug naar de wedstrijd">‹ Wedstrijd</button>
         <span class="sb-mid"><span class="sb-nm">${esc(isAway(match)?match.opponent:tName(match))} · ${esc(isAway(match)?tName(match):match.opponent)}</span>${scoreHtml(match,'us')}</span>
@@ -82,30 +125,7 @@ function renderLive() {
         <div class="sb-score">${scoreHtml(match,'us')}</div>
         <div class="sb-info">${statusLine}</div>
       </div>
-      <div class="timer-card">
-        <div class="timer-time" id="timer-time">${timerText(match)}</div>
-        ${/* EEN STILGEZETTE KLOK MOET ERUITZIEN ALS EEN STILGEZETTE KLOK (Tims keuze, 24-08-2026).
-             De cijfers waren identiek aan een lopende klok; het enige verschil zat in de knop, die
-             "Hervatten" zei. Wie na een blessure vergeet te hervatten, merkt dat pas veel later —
-             en dan klopt de speeltijd van iedereen op het veld niet meer. Zelfde mechaniek als de
-             oranje klok bij overtijd: updateTimerDisplay houdt de kleur bij, dit is het opschrift. */ ''}
-        <div id="timer-pauze" style="${isPaused ? '' : 'display:none;'}font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--org);margin-top:2px">PAUZE</div>
-        ${match.quarterDuration ? `<div class="timer-progress-wrap"><div class="timer-progress-bar" id="timer-progress-bar" style="width:${Math.min(100,(getQElapsed(match)/((match.quarterDuration||1)*60000))*100).toFixed(1)}%"></div></div>` : ''}
-        ${/* Twee dingen rechtgezet op 24-08-2026: (1) het opschrift was de HUIDIGE stand ("Optellen
-             aan") terwijl je bij een knop het gevolg van je tik verwacht — nu staat de stand er met
-             "tik om te wisselen" erbij; (2) zonder blokduur kan er niets afgeteld worden (timerText
-             negeert aftellen dan), en toch werd de knop groen met "Aftellen aan". Nu staat hij er
-             enkel als er een blokduur is.
-             SINDS v1.43.0 EEN CHIP NAAST DE BOLLETJES i.p.v. een knop over de volle breedte, op één
-             regel met de wedstrijddelen (Tim, 04-09-2026: de klokkaart moest even hoog worden als de
-             scorekaart erboven). Die knop was het enige echt hoge stuk van deze kaart; als chip kost
-             hij geen eigen regel meer. Het opschrift blijft woordelijk hetzelfde — enkel "· tik om
-             te wisselen" valt weg, want dat is de uitleg die nu in de tooltip staat. */ ''}
-        <div class="qdots-rij">
-          <div class="qdots">${dots}</div>
-          ${match.quarterDuration ? `<button class="klok-chip${countdownOn() ? ' aan' : ''}" onclick="toggleCountdown()" title="Tik om te wisselen tussen op- en aftellen">${icI(IC.stopwatch)} ${countdownOn()?'Aftellen':'Optellen'}</button>` : ''}
-        </div>
-      </div>
+      ${timerKaartHtml(match, dots, isPaused)}
       ${(!isDone && !ro) ? `<div class="qctrl">
         ${canStartFirst ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start wedstrijd</button>` : ''}
         ${canStartNext ? `<button class="qbtn qbtn-start" onclick="startQuarter()" style="grid-column:1/-1">${icI(IC.playFilled)} Start ${pSingLow(match)} ${qNum+1}</button>` : ''}
@@ -221,8 +241,11 @@ function renderLive() {
            hoekschop, blessure en afgekeurd doelpunt de enige weg. Haal daar dus niets weg. */ ''}
       ${ro ? '' : `<div class="evtbtns">
         <div class="evtbtn eg ${dis}" onclick="modalGoal()"><span class="ei">${IC.goal}</span><span class="el">Goal</span></div>
-        ${/* Bewust zonder ${dis}: naar het tabblad springen kan ook in de pauze — daar leeft het. */ ''}
-        <div class="evtbtn es" onclick="setTab('opstelling')"><span class="ei">${IC.swap}</span><span class="el">Wissel</span></div>
+        ${/* Bewust zonder ${dis}: naar het tabblad springen kan ook in de pauze — daar leeft het.
+             VÓÓR DE AFTRAP HEET HET KAARTJE "Opstelling" (Tim, 24-09-2026): wisselen kan dan nog niet,
+             en het tabblad biedt op dat moment de startopstelling aan. Eén woord dat klopt met wat er
+             achter zit, in plaats van een belofte die pas na de aftrap waar wordt. */ ''}
+        <div class="evtbtn es" onclick="setTab('opstelling')"><span class="ei">${IC.swap}</span><span class="el">${qNum === 0 ? 'Opstelling' : 'Wissel'}</span></div>
         <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">Hoekschop</span></div>
         ${/* KAARTEN OOK BIJ 3v3 EN 5v5 (Tims keuze, 25-08-2026). De gele kaart viel bij die twee
              spelvormen weg, maar "Meer" bood de rode onvoorwaardelijk aan en "Event toevoegen" beide
@@ -309,10 +332,23 @@ function renderLive() {
            niet op kon tikken — gemeten: 26 aantikbare plekken tijdens het spel, 0 tijdens een pauze —
            terwijl de knoppen voor doelpunt, kaart en wissel gewoon bleven werken. Een stilgelegd spel
            is juist wanneer je wisselt. */ ''}
-      ${canStartNext ? pauseLineupHtml(match)
+      ${/* VÓÓR DE AFTRAP STOND HIER EEN DOOD VELD (Tim, 24-09-2026: "als je een wedstrijd start maar
+           de eerste knop, dus de klok loopt nog niet, dan zie je de tabbladen al ... je kan wel op de
+           knop Wissel klikken maar er gebeurt niks aanklikbaar").
+           Klopt, en wisselen KAN daar ook niet: er is nog geen minuut gespeeld, dus er valt niemand
+           uit te halen. Wat je op dat moment wél wil, is aanpassen WIE er aftrapt — en dat venster
+           bestaat al (modalEditPositions, met de bank erin sinds v1.49.0). Het was vanaf dit scherm
+           alleen nergens bereikbaar, dus liep je vast op een veld waar niets gebeurde.
+           Bewust het gewone veld eronder laten staan: je wil eerst zien wie er staat. */ ''}
+      ${(!ro && !isDone && qNum === 0) ? `<div class="card">
+          ${renderPitch(match, on)}
+          <p style="font-size:12px;color:var(--txt2);margin:10px 0 8px;text-align:center">De wedstrijd is nog niet begonnen. Wisselen kan zodra de klok loopt; tot dan pas je hier aan wie er aftrapt.</p>
+          <button class="btn btn-pale" onclick="modalEditPositions()">${icI(IC.compass)} Startopstelling aanpassen</button>
+        </div>`
+        : (canStartNext ? pauseLineupHtml(match)
         : ((!ro && !isDone && (match.quarterStatus === 'running' || match.quarterStatus === 'paused'))
           ? liveLineupHtml(match)
-          : `<div class="card">${renderPitch(match, on)}</div>`)}
+          : `<div class="card">${renderPitch(match, on)}</div>`))}
       ${canStartNext
         ? `<details class="card" style="padding:12px">
              <summary style="cursor:pointer;font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt2)">Speeltijden, bank en planning</summary>

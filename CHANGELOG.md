@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.62.0
+
+**Een kijker ziet nu de klok van een lopende wedstrijd.** Die stond enkel op het tabblad *Wedstrijd*,
+en juist dat tabblad bestaat niet voor een kijker — hij wordt er meteen van afgeduwd. Hij zag dus wel
+de stand en "Kwart 2 van 4", maar nergens hoe ver dat kwart stond.
+
+De klok staat bij hem onder de scorekaart, op allebei zijn tabbladen (Opstelling en Verloop), met het
+voortgangsbalkje en het opschrift **PAUZE** wanneer de klok stilstaat. De schakelaar tussen **Optellen**
+en **Aftellen** staat er ook: die keuze geldt enkel op zijn eigen toestel en raakt de wedstrijd niet.
+
+Bij een afgesloten wedstrijd valt de klok weg — daar staat "Afgelopen", en een bevroren klok voegt
+daar niets aan toe.
+
+**En vóór de aftrap staat er geen dood veld meer.** Start je een wedstrijd maar loopt de klok nog niet,
+dan kreeg je op het tabblad *Opstelling* een veld waar niets aan te tikken viel. Het kaartje **Wissel**
+sprong er wel naartoe, maar daar viel niets te doen — en wisselen kan op dat moment ook niet, want er
+is nog geen minuut gespeeld.
+
+Daar staat nu bij wat je wél kan: **Startopstelling aanpassen**, het venster waarin je de spelers
+verzet of iemand van de bank laat aftrappen. Zolang de wedstrijd niet begonnen is, heet dat kaartje op
+het wedstrijdscherm ook **Opstelling** in plaats van Wissel.
+
+---
+
 ## v1.61.1
 
 **Een pagina van de wedstrijdvoorbereiding kon stil wegvallen.** Bij het uitpakken van een PDF knipt
