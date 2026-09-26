@@ -602,8 +602,20 @@ async function loadStats() {
   el.innerHTML = filterBar
     + nietAfgeslotenRegel
     + `<div class="card">
+      ${/* TWEE RIJEN, EN DAT IS DE BEDOELING (Tim, 26-09-2026: "bij de statistieken staat zo breed het
+           aantal verloren, maar ik wil dat even groot als gelijk en winst. Zet dan liever het aantal
+           gespeelde even breed").
+           Deze vier vakjes stonden in één `.stat-big`, die terugvouwt zodra ze niet passen — en met
+           `min-width:90px` plus de tussenruimtes passen er op een telefoon maar drie. Het vierde,
+           Verlies, viel dus alleen op een tweede regel en rekte daar over de volle breedte: het
+           somberste cijfer kreeg het grootste vak. Nu staat Gespeeld bewust alleen bovenaan — dat is
+           de noemer waar de drie andere zich toe verhouden — en delen Winst, Gelijk en Verlies de
+           regel eronder in gelijke stukken. Zo hangt de indeling ook niet meer af van de
+           schermbreedte. */ ''}
       <div class="stat-big" style="margin-bottom:10px">
         <div class="stat-box"><div class="v">${list.length}</div><div class="l">Gespeeld</div></div>
+      </div>
+      <div class="stat-big" style="margin-bottom:10px">
         <div class="stat-box"><div class="v" style="color:var(--grn)">${w}</div><div class="l">Winst</div></div>
         <div class="stat-box"><div class="v">${d}</div><div class="l">Gelijk</div></div>
         <div class="stat-box"><div class="v" style="color:var(--rd)">${l}</div><div class="l">Verlies</div></div>

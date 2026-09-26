@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.63.2
+
+**Winst, gelijk en verlies staan weer even breed.** In de samenvatting bovenaan de statistieken stonden
+vier vakjes op één regel. Op een telefoon passen er maar drie, dus viel *Verlies* alleen op een tweede
+regel en rekte het daar over de volle breedte — het somberste cijfer kreeg het grootste vak. **Gespeeld**
+staat nu bewust alleen bovenaan, en de drie uitslagen delen de regel eronder in gelijke stukken. De
+indeling hangt daarmee ook niet meer af van de schermbreedte.
+
+---
+
 ## v1.63.1
 
 **De kaart met de stand per kwart nog eens bijgesteld.** De blokduur stond sinds de vorige versie onder
