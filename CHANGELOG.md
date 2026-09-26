@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.63.0
+
+**Wie de wedstrijd bijhield staat nu op het verslag.** Bij de wedstrijdinfo, en ook op de PDF en in het
+exportbestand, staat **Bijgehouden door** met de naam van wie langs de lijn meetikte. Die wordt
+vastgelegd bij de aftrap; een wedstrijd die je achteraf invulde krijgt geen naam, want daar hield
+niemand ze bij. De naam zelf wordt bij de wedstrijd bewaard, zodat ook een kijker ze ziet.
+
+**De PDF begon vaak met een bijna lege eerste pagina.** De velddiagrammen werden altijd op de volle
+paginahoogte geschaald, ook wanneer er onder de selectie nog maar een deel van de pagina over was. Zo
+kwam een rij van twee velden 28 punten tekort en sprong het hele blok naar pagina 2, met de selectie
+alleen achter op pagina 1. De diagrammen volgen nu de ruimte die er op die pagina nog is, met een
+ondergrens zodat een veld nooit onleesbaar klein wordt. Alle rijen houden dezelfde maat.
+
+**De kaart met de stand per kwart is opnieuw ingedeeld.** De kolom met de blokduur eiste alle ruimte op
+voor drie woorden, terwijl de doelpunten zich met de rest moesten behelpen. De duur staat nu onder het
+kwartnummer en de doelpunten krijgen de breedte. Daarbij:
+
+- een **gekleurd streepje** links van elk doelpunt: groen voor ons, rood voor de tegenstander;
+- de spelersnamen staan er **verkort** zoals op het veld ("Ben H.") in plaats van voluit. Overal
+  elders — tijdlijn, deelbericht, PDF, export — blijft de volledige naam staan.
+
+---
+
 ## v1.62.0
 
 **Een kijker ziet nu de klok van een lopende wedstrijd.** Die stond enkel op het tabblad *Wedstrijd*,

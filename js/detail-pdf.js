@@ -41,23 +41,44 @@ function renderDetail() {
     // daarom al "(dit kwart: x-y)" bij; precies deze kaart had die toevoeging niet gekregen.
     const vorige = q.num > 1 ? scoreUpToQuarter(match, q.num - 1) : { us: 0, them: 0 };
     const dit = { us: cum.us - vorige.us, them: cum.them - vorige.them };
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bdr)">
-      <div style="min-width:32px"><div style="font-weight:800">${pAbbr(match)}${q.num}</div>${((dit.us || dit.them) && match.quarters.length > 1) ? `<div style="font-size:10px;color:var(--txt2);white-space:nowrap;font-variant-numeric:tabular-nums">${isAway(match) ? `${dit.them}-${dit.us}` : `${dit.us}-${dit.them}`}</div>` : ''}</div>
-      <div style="font-weight:900;min-width:54px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
-      ${/* De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep
-           langer door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de
-           latere blokken mee, want gameTimeMs is cumulatieve speeltijd. */ ''}
-      ${/* canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr)">
+      ${/* De duur staat sinds v1.63.0 hier ONDER het kwartnummer en niet meer als vierde kolom. Op een
+           telefoon hield die kolom 76 px bezet (het pennetje erbij), en dat ging rechtstreeks van de
+           doelpunten af — gemeten 130 px voor de doelpunten tegenover 182 nu. Het is bovendien de
+           kolom die je het zeldzaamst nodig hebt: de duur lees je hier, je wijzigt ze hooguit één keer.
+           De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep langer
+           door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de latere
+           blokken mee, want gameTimeMs is cumulatieve speeltijd.
+           canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
            offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
            een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
-      <div style="flex:1;font-size:13px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
-        ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
+      <div style="flex:0 0 auto"><div style="font-weight:800">${pAbbr(match)}${q.num}</div>${((dit.us || dit.them) && match.quarters.length > 1) ? `<div style="font-size:10px;color:var(--txt2);white-space:nowrap;font-variant-numeric:tabular-nums">${isAway(match) ? `${dit.them}-${dit.us}` : `${dit.us}-${dit.them}`}</div>` : ''}
+        <div style="font-size:11px;color:var(--txt2);white-space:nowrap;margin-top:2px">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
+          ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div></div>
+      <div style="font-weight:900;min-width:50px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       ${/* evtLabelBasis en niet evtLabel (Tim, 30-08-2026): die laatste plakt sinds v1.23.3 de
            tussenstand achter elk doelpunt, en op déze kaart staat de stand al twee kolommen naar
            links — zowel doorlopend als "dit kwart". Hetzelfde cijfer drie keer op één regel is
            ruis, zeker op een telefoon. In de tijdlijn en het deelbericht blijft de stand wél staan;
            daar is er niets anders dat ze toont. Idem in de PDF-tabel hieronder. */ ''}
-      <div style="font-size:13px;text-align:right">${goals.map(e=>`<span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e,match)}</span> ${evtLabelBasis(e,match)}`).join('<br>')||'–'}</div>
+      ${/* DE DOELPUNTEN KRIJGEN DE RUIMTE, NIET DE DUUR (Tim, 26-09-2026: "die kolom minuten aanpassen
+           is zo breed en die rechterkolom zo smal"). De duurkolom stond op `flex:1` en eiste dus al het
+           overschot op voor drie woorden, terwijl de doelpunten — het enige wat hier écht staat —
+           zich moesten behelpen met de rest. Nu omgekeerd: de duur is zo breed als ze nodig heeft, de
+           doelpunten nemen de rest. Ze staan meteen ook LINKS uitgelijnd; rechts uitlijnen liet een
+           naam die over twee regels brak als een rafelrand eindigen.
+           WIENS DOELPUNT IS DIT (zelfde vraag van Tim). "Doelpunt Ben Heyerick" en "Doelpunt SV
+           Wevelgem City" lezen op een telefoon als hetzelfde soort regel. Een gekleurd streepje links
+           zegt het zonder één extra woord: groen voor ons, rood voor de tegenstander. Let op de twee
+           soorten die tegen de verwachting in gaan — een owngoal van ONS telt voor HEN, en een
+           owngoal van hen voor ons. */ ''}
+      <div style="flex:1;min-width:0;font-size:13px">${goals.map(e => {
+        const ons = (e.type === 'goal_us' || e.type === 'own_goal_them' || (e.type === 'penalty_us' && e.scored));
+        return `<div style="display:flex;gap:7px;align-items:flex-start;margin:1px 0">
+          <span style="flex:0 0 3px;align-self:stretch;min-height:14px;border-radius:2px;background:${ons ? 'var(--grn)' : 'var(--rd)'}"></span>
+          <span style="flex:1;min-width:0"><span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e, match)}</span> ${evtLabelBasis(e, match, true)}</span>
+        </div>`;
+      }).join('') || '<span style="color:var(--txt2)">–</span>'}</div>
     </div>`;
   }).join('');
 
@@ -183,7 +204,7 @@ function renderDetail() {
     </div>`}
     <div class="sec">Wedstrijdinfo</div>
     <div class="card">
-      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')],['Bijgehouden door',match.bijgehoudenDoor]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${vast?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
     </div>
     ${(() => {
@@ -1404,12 +1425,24 @@ async function pdfMatchBody(doc, L, m) {
     // halve pagina), zodat de info erboven en het veld samen op één pagina staan en de tabellen
     // erna gewoon doorlopen. Blijft er te weinig over voor een leesbaar veld, dan begint het op een
     // nieuwe pagina met die bovengrens als maat.
-    let maxImgH = availH;
-    if (items.length === 1) {
-      const cap = Math.min(availH, (PH - MG * 2) * 0.55);
-      const rest = (PH - MG) - L.y - 30 - labelH - benchH - 14;   // 30 = hoogte van de sectiekop
-      maxImgH = rest >= 300 ? Math.min(cap, rest) : cap;
-    }
+    // DIT GOLD ENKEL VOOR ÉÉN DIAGRAM, EN DAT WAS DE FOUT (Tim, 26-09-2026: "heel vaak is enkel de
+    // selectie op de eerste pagina zichtbaar en de velddiagrammen niet").
+    // Bij meerdere delen werd de maat altijd uit de VOLLE paginahoogte afgeleid, wat ook maar de
+    // ruimte was die er op dit moment nog over was. Een rij van twee velden werd zo 549 punten hoog,
+    // terwijl er onder de selectie nog 542 over waren — 28 punten tekort, dus het hele blok sprong
+    // naar de volgende pagina en pagina 1 bleef met de selectie alleen achter. Gemeten op Tims eigen
+    // wedstrijden: U11IP en U17G van 19-09 hadden allebei een pagina 1 van nog geen 2 KB.
+    // Nu volgt de maat voor élk aantal diagrammen de ruimte die er op DEZE pagina nog is, met een
+    // ondergrens zodat een veld nooit onleesbaar klein wordt. Past die ondergrens niet meer, dan
+    // begint het blok alsnog op een nieuwe pagina — met de gewone maat.
+    // Eén maat voor alle rijen: ze wordt hier één keer bepaald, dus een tweede rij op een volgende
+    // pagina krijgt dezelfde velden als de eerste. Twee formaten door elkaar leest als een fout.
+    const cap = items.length === 1 ? Math.min(availH, (PH - MG * 2) * 0.55) : availH;
+    const rest = (PH - MG) - L.y - 30 - labelH - benchH - 14;   // 30 = hoogte van de sectiekop
+    // Bij één diagram ligt de ondergrens hoger: dat veld staat alleen op zijn rij en mag niet als
+    // postzegel op een halflege pagina eindigen.
+    const ondergrens = items.length === 1 ? 300 : 260;
+    const maxImgH = rest >= ondergrens ? Math.min(cap, rest) : cap;
     const imgW = Math.min((CW - (perRow - 1) * gap) / perRow, maxImgH / PITCH_PDF_RATIO);
     const imgH = imgW * PITCH_PDF_RATIO;
     const benchSize = Math.max(7, imgW / 326 * 12), benchLineH = benchSize * 1.25;
@@ -2081,7 +2114,7 @@ async function exportPDF() {
   // `venue` alleen erbij als het iets toevoegt: bij een tornooiwedstrijd is de locatie gelijk aan
   // m.location, dat al in de metaregel hierboven staat — dan stond ze er twee keer.
   const sameVenue = (m.venue || '').trim().toLowerCase() === (m.location || '').trim().toLowerCase();
-  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), matchTrainer(m) && (trainerLabel(matchTrainer(m)) + ': ' + matchTrainer(m)), matchResponsible(m) && (responsibleLabel(matchResponsible(m)) + ': ' + matchResponsible(m)), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Adres: ' + m.venue), m.terrein && ('Terrein: ' + m.terrein), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | '))].filter(Boolean);
+  const infoBits = [m.subteam && ('Ploeg: ' + m.subteam), m.formation && ('Opstelling: ' + m.formation), m.competition, m.matchday && ('Speeldag ' + m.matchday), matchTrainer(m) && (trainerLabel(matchTrainer(m)) + ': ' + matchTrainer(m)), matchResponsible(m) && (responsibleLabel(matchResponsible(m)) + ': ' + matchResponsible(m)), m.referee && ('Scheidsrechter: ' + m.referee), m.jersey && ('Truikleur: ' + m.jersey), (m.venue && !sameVenue) && ('Adres: ' + m.venue), m.terrein && ('Terrein: ' + m.terrein), allCaptains(m).length && ('Kapitein(s): ' + allCaptains(m).map(id => pName(m, id)).join(' | ')), m.bijgehoudenDoor && ('Bijgehouden door: ' + m.bijgehoudenDoor)].filter(Boolean);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });

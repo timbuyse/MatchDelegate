@@ -1675,6 +1675,7 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
     inhoud: `
       <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
+      <p style="margin-top:10px">Bij de wedstrijdinfo staat <b>'Bijgehouden door'</b>: de naam van wie de wedstrijd langs de lijn volgde. Die wordt vastgelegd bij de aftrap en staat ook op de PDF. Bij een wedstrijd die je achteraf invulde staat er niets — daar hield niemand ze bij.</p>
       <p style="margin-top:10px">Vlak onder de eindscore staan <b>'Bewerken'</b> en <b>'Strafschoppen'</b>, met daaronder <b>'Delen'</b>, <b>'PDF'</b> en <b>'Export'</b>. Helemaal onderaan staat <b>'Wedstrijd verwijderen'</b>: dat haalt ze uit de lijst, maar ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
       <ul class="hdl-list">
         <li><b>'Info bewerken'</b> — tegenstander, datum, uur, scheidsrechter …</li>

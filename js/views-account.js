@@ -3394,8 +3394,15 @@ function groepeerPosSwaps(list) {
 // beslist zelf of er iets bij hoort en geeft anders een lege string, dus dit werkt ook meteen voor
 // een soort die er later bijkomt.
 function evtLabel(e, m) { return evtLabelBasis(e, m) + standAchterEvent(m, e); }
-function evtLabelBasis(e, m) {
-  const pn = id => esc(pName(m, id));
+// `kort` zet de namen in de VERKORTE vorm van het veld ("Ben H."), met dezelfde bron als het
+// velddiagram (fieldDisplayNames) — dus ook dezelfde letter wanneer twee spelers dezelfde voornaam
+// hebben. Tim, 26-09-2026, over de kaart met de stand per kwart: "misschien de namen schrijven zoals
+// op het veld, dus niet voluit". Daar staan vier namen onder elkaar in een smalle kolom; voluit breekt
+// elke regel in tweeën. Overal elders (tijdlijn, deelbericht, PDF, export) blijft de volle naam staan:
+// daar is de ruimte er, en een verslag dat je doorstuurt hoort de hele naam te dragen.
+function evtLabelBasis(e, m, kort) {
+  const dns = kort ? fieldDisplayNames((m && m.players) || []) : null;
+  const pn = id => esc((dns && dns.get(id)) || pName(m, id));
   switch(e.type) {
     case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}`;

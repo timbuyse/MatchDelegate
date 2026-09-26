@@ -777,6 +777,19 @@ async function startQuarter(zonderControle) {
       .filter(p => p.starting && magOpHetVeld(match, p) && typeof p.x === 'number')
       .map(p => ({ id: p.id, x: p.x, y: p.y, line: p.line, posNum: p.posNum, posCodeVeld: spelerGridCode(p) || null }));
   }
+  // WIE HIELD DEZE WEDSTRIJD BIJ (Tim, 26-09-2026: "ik wil dat de naam die de match registreerde ook
+  // op het verslag komt" — "wie registreerde is wie hem live bijhield").
+  // Hier vastgelegd en nergens anders: wie op de aftrap tikt, is degene die aan de zijlijn staat. Een
+  // wedstrijd die achteraf ingevuld werd, komt hier nooit langs en krijgt dus ook geen naam — daar ís
+  // niemand die ze bijhield, en dan hoort er niets te staan.
+  // Eén keer schrijven: neemt een medebeheerder later over, dan blijft de naam van wie begon staan.
+  // DE NAAM ZELF wordt bewaard, niet de gebruikerscode. Het verslag is ook voor kijkers, en die kunnen
+  // de ledenlijst van de ploeg niet uitlezen — een code zou bij hen een code blijven. Het is meteen de
+  // naam van TOEN: wie zich later hernoemt, herschrijft daarmee geen oud verslag.
+  if (match.currentQuarter === 1 && !match.bijgehoudenDoor) {
+    const naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+    if (naam) match.bijgehoudenDoor = naam;
+  }
   // DRIE RONDES, en de volgorde is wezenlijk (v0.49.0):
   //   1. de wissels waar iemand het veld verlaat — dat maakt plaatsen vrij;
   //   2. de positiewissels van wie blijft — nu kan iedereen naar zijn doelplek;
@@ -2678,6 +2691,8 @@ function exportMatchCSV() {
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));
   row('Score', geenUitslag(m) ? SCORE_GEEN : `${m.scoreUs ?? 0} - ${m.scoreThem ?? 0}`);
   row('Man v/d match', m.motmId ? pName(m, m.motmId) : '');
+  // Wie de wedstrijd live bijhield (v1.63.0). Leeg bij een wedstrijd die achteraf ingevuld werd.
+  row('Bijgehouden door', m.bijgehoudenDoor || '');
   blank();
 
   // EVENTS
