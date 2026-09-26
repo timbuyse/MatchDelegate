@@ -42,19 +42,7 @@ function renderDetail() {
     const vorige = q.num > 1 ? scoreUpToQuarter(match, q.num - 1) : { us: 0, them: 0 };
     const dit = { us: cum.us - vorige.us, them: cum.them - vorige.them };
     return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr)">
-      ${/* De duur staat sinds v1.63.0 hier ONDER het kwartnummer en niet meer als vierde kolom. Op een
-           telefoon hield die kolom 76 px bezet (het pennetje erbij), en dat ging rechtstreeks van de
-           doelpunten af — gemeten 130 px voor de doelpunten tegenover 182 nu. Het is bovendien de
-           kolom die je het zeldzaamst nodig hebt: de duur lees je hier, je wijzigt ze hooguit één keer.
-           De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep langer
-           door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de latere
-           blokken mee, want gameTimeMs is cumulatieve speeltijd.
-           canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
-           offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
-           een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
-      <div style="flex:0 0 auto"><div style="font-weight:800">${pAbbr(match)}${q.num}</div>${((dit.us || dit.them) && match.quarters.length > 1) ? `<div style="font-size:10px;color:var(--txt2);white-space:nowrap;font-variant-numeric:tabular-nums">${isAway(match) ? `${dit.them}-${dit.us}` : `${dit.us}-${dit.them}`}</div>` : ''}
-        <div style="font-size:11px;color:var(--txt2);white-space:nowrap;margin-top:2px">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
-          ? ` <button class="evt-edit no-print" style="vertical-align:middle" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div></div>
+      <div style="flex:0 0 auto"><div style="font-weight:800">${pAbbr(match)}${q.num}</div>${((dit.us || dit.them) && match.quarters.length > 1) ? `<div style="font-size:10px;color:var(--txt2);white-space:nowrap;font-variant-numeric:tabular-nums">${isAway(match) ? `${dit.them}-${dit.us}` : `${dit.us}-${dit.them}`}</div>` : ''}</div>
       <div style="font-weight:900;min-width:50px;font-variant-numeric:tabular-nums">${isAway(match) ? `${cum.them}–<span style="color:var(--grn)">${cum.us}</span>` : `<span style="color:var(--grn)">${cum.us}</span>–${cum.them}`}</div>
       ${/* evtLabelBasis en niet evtLabel (Tim, 30-08-2026): die laatste plakt sinds v1.23.3 de
            tussenstand achter elk doelpunt, en op déze kaart staat de stand al twee kolommen naar
@@ -79,6 +67,22 @@ function renderDetail() {
           <span style="flex:1;min-width:0"><span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e, match)}</span> ${evtLabelBasis(e, match, true)}</span>
         </div>`;
       }).join('') || '<span style="color:var(--txt2)">–</span>'}</div>
+      ${/* DE DUUR WEER RECHTS, ALS EIGEN KOLOM (Tim, 26-09-2026, na een eerste poging: "dit is niet
+           mooi en handig, de rechterkolom mag iets smaller"). Ze stond even ONDER het kwartnummer om de
+           doelpunten breder te maken, maar het pennetje is een knop van 36 px (bewust: een vingertop,
+           zie .evt-edit) en die tilde de hele rij op — bij een kwart met één doelpunt werd de linkerkant
+           hoger dan de inhoud. Terug rechts dus: de linkerkolom is weer twee regeltjes, de rij is zo
+           hoog als haar doelpunten, en de doelpuntenkolom eindigt vóór de rand in plaats van ertegen.
+           `flex:0 0 auto`, dus ze neemt wat ze nodig heeft en geen punt meer — dat was de fout die deze
+           hele reeks begon.
+           De duur is aanpasbaar zolang dit blok afgesloten is: je stopte te vroeg, of het liep langer
+           door dan je afsloot. Zie modalKwartDuur — dat schuift ook de gebeurtenissen van de latere
+           blokken mee, want gameTimeMs is cumulatieve speeltijd.
+           canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
+           offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
+           een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
+        ? `<button class="evt-edit no-print" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
     </div>`;
   }).join('');
 

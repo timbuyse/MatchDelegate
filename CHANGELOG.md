@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.63.1
+
+**De kaart met de stand per kwart nog eens bijgesteld.** De blokduur stond sinds de vorige versie onder
+het kwartnummer, maar het potloodje ernaast is een knop van een vingertop groot en die tilde de hele
+rij op: een kwart met één doelpunt werd links hoger dan zijn eigen inhoud. De duur staat weer rechts
+als eigen kolom, zo breed als ze nodig heeft. Daardoor is de linkerkant weer twee regeltjes, is een rij
+zo hoog als haar doelpunten, en eindigt de doelpuntenkolom vóór de rand in plaats van ertegen.
+
+---
+
 ## v1.63.0
 
 **Wie de wedstrijd bijhield staat nu op het verslag.** Bij de wedstrijdinfo, en ook op de PDF en in het
