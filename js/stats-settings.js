@@ -833,7 +833,7 @@ async function loadPlayerDetail() {
     </div>` : '';
     el.innerHTML = filterBar + `<div class="empty"><div class="ei">${IC.chart}</div><p>${leeg}</p></div>` + nbBlok + tournamentBlock; return;
   }
-  let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '', pos = '';
+  let goals = 0, assists = 0, ms = 0, mp = 0, yc = 0, rc = 0, cs = 0, keeperApps = 0, squad = 0, absent = 0, number = '';
   // Strafschoppen van deze speler, tijdens de wedstrijd én in een reeks samengeteld (Tim, 23-08-2026):
   // voor een speler is het dezelfde vaardigheid en hetzelfde lef. In `penGescoord` zit dus zowel een
   // strafschopdoelpunt (dat óók bij zijn doelpunten telt) als een rake strafschop uit een reeks
@@ -852,13 +852,20 @@ async function loadPlayerDetail() {
   // eigen regel — zelfde regel als op de ploegpagina, zie de uitleg bij WIJZE_PENALTY. Een strafschop
   // uit een REEKS na de wedstrijd telt niet: die staat buiten de score en is dus geen doelpunt.
   const pWijze = {}; let pWijzeTot = 0, pWijzeMet = 0;
+  // Hoe vaak stond hij in welke linie? Enkel de terugval wanneer de kern geen voorkeurspositie kent.
+  const lijnTel = {};
   for (const m of doneList) {
     const pl = findPlayer(m);
     if (!pl) continue;
     // No-show: telt als afwezig i.p.v. geselecteerd — zelfde semantiek als loadStats().
     if (pl.absent) { absent++; continue; }
-    if (pl.number) number = pl.number;
-    if (pl.line) pos = pl.line;
+    // HET RECENTSTE, NIET HET OUDSTE (Tim, 27-09-2026). `doneList` staat van nieuw naar oud, en deze
+    // regel overschreef zichzelf bij elke ronde — dus wat bleef staan kwam uit zijn OUDSTE wedstrijd.
+    // Op de ploegpagina is dat net omgekeerd geregeld, met een opmerking erbij dat de naam de
+    // recentste moet zijn; hier was die nuance er nooit bij gekomen.
+    if (!number && pl.number) number = pl.number;
+    // De LIJN per wedstrijd tellen, voor het geval de kern geen voorkeurspositie kent — zie hieronder.
+    if (pl.line) lijnTel[pl.line] = (lijnTel[pl.line] || 0) + 1;
     const mins = calcMinutes(m);
     const pms = mins[pl.id] ? mins[pl.id].ms : 0;
     let g = 0, a = 0, y = 0, r = 0;
@@ -994,11 +1001,33 @@ async function loadPlayerDetail() {
     }
   }
   const careerEntries = Object.entries(careerElsewhere).sort((a, b) => b[1].mp - a[1].mp);
+  // GEBRUIKT DEZE PLOEG RUGNUMMERS? (Tim, 27-09-2026: "ik zie een rugnummer, ook als ze geen
+  // rugnummers gebruiken.") Het nummer hierboven komt uit de WEDSTRIJDEN, niet uit de kern — en een
+  // wedstrijd houdt haar eigen kopie, ook nadat de ploeg de nummers uitzette. Dat is terecht op een
+  // verslag (zie de uitleg bij teamUsesNumbers in core.js), maar dit is het seizoensoverzicht van een
+  // speler: daar is "deze ploeg gebruikt geen nummers" gewoon het antwoord.
+  // Op NAAM zoeken en niet op id: playerDetailTeamName ís een naam, en het id van een kern is niet dat
+  // van de ploeg in de cloud (zie het incident van 21-08-2026). Kennen we de ploeg niet, dan tonen we
+  // het nummer wel — niets weten is geen reden om iets te verbergen.
+  const _pdTeam = getTeamsV2().find(t => (t.name || '') === playerDetailTeamName) || getTeamsV2()[0] || null;
+  const toonNummer = (typeof teamUsesNumbers === 'function') ? teamUsesNumbers(_pdTeam) : true;
+  // DE POSITIE ONDER ZIJN NAAM (Tim, 27-09-2026: "die positie zou toch de meest gespeelde moeten
+  // zijn, of de voorkeurspositie die bij de spelerslijst staat"). Tot nu was het de linie uit één
+  // willekeurige wedstrijd — de oudste, door de lus hierboven.
+  // De VOORKEURSPOSITIE uit de kern wint: dat is een gemaakte keuze, ze staat er met dezelfde woorden
+  // als in de spelerslijst (posDisplay), en ze verspringt niet wanneer je op seizoen of soort filtert.
+  // Staat er geen, dan vertelt de app waar hij het VAAKST stond — met "Meestal" ervoor, zodat het niet
+  // als een voorkeur leest. Bij een gelijk aantal wint de linie van zijn recentste wedstrijd: `lijnTel`
+  // is in die volgorde gevuld en sorteren in JS is stabiel.
+  const _pdRoster = (_pdTeam && rosterId) ? ((_pdTeam.players || []).find(p => p.id === rosterId) || null) : null;
+  const voorkeur = (_pdRoster && typeof posDisplay === 'function') ? posDisplay(_pdRoster) : '';
+  const vaakst = Object.keys(lijnTel).sort((a, b) => lijnTel[b] - lijnTel[a])[0] || '';
+  const posTekst = voorkeur || (vaakst ? 'Meestal ' + vaakst : '');
   el.innerHTML = filterBar + `
     <div class="card">
       <div style="text-align:center;margin-bottom:10px">
         <div style="font-size:20px;font-weight:800">${esc(name)}</div>
-        <div style="font-size:13px;color:var(--txt2)">${number ? ('Rugnr. ' + esc(number) + (pos ? ' · ' : '')) : ''}${pos ? esc(pos) : ''}</div>
+        <div style="font-size:13px;color:var(--txt2)">${(number && toonNummer) ? ('Rugnr. ' + esc(number) + (posTekst ? ' · ' : '')) : ''}${posTekst ? esc(posTekst) : ''}</div>
         ${playerDetailTeamName ? `<div style="font-size:12px;color:var(--txt2);margin-top:6px">Statistieken voor wedstrijden bij <b>${esc(playerDetailTeamName)}</b></div>` : ''}
       </div>
       <div class="stat-big">

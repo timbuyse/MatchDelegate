@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.73.1
+
+**De regel onder de naam van een speler klopt nu.** Daar stond *Rugnr. 7 · Middenveld*, en die twee
+kwamen uit één willekeurige wedstrijd — de oudste van dat seizoen. Drie dingen zijn rechtgezet:
+
+- **Geen rugnummer meer bij een ploeg die er geen gebruikt.** Het nummer komt uit de wedstrijden zelf,
+  en die houden hun eigen kopie ook nadat je de nummers uitzette. Op een wedstrijdverslag is dat
+  terecht — dat is de waarheid van dát verslag — maar op het seizoensoverzicht van een speler niet.
+- **Het rugnummer is dat van zijn recentste wedstrijd**, niet van zijn eerste.
+- **De positie is zijn voorkeurspositie uit de spelerslijst**, met dezelfde woorden als daar
+  (*Verdediger · Rechts*). Staat er geen voorkeur ingevuld, dan zegt de app waar hij het vaakst stond:
+  *Meestal Middenveld*. Zo lees je nooit een gok als een keuze.
+
+---
+
 ## v1.73.0
 
 **Ook een ploegbeheerder kan aan een speler gekoppeld worden.** Een trainer of afgevaardigde is vaak
