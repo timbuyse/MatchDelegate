@@ -86,8 +86,14 @@ function renderDetail() {
            canLive, niet canManage (audit 24-08-2026): modalKwartDuur zelf staat al op canLive, dus
            offline verdween enkel het pennetje — en dit is de énige plek in de app waar je de duur van
            een afgesloten blok kan rechtzetten. Precies langs de lijn, waar de verbinding wegvalt. */ ''}
-      <div style="flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--txt2);white-space:nowrap">${dur == null ? '– min' : Math.round(dur / 60000) + ' min'}${(!vast && q.endTime)
-        ? `<button class="evt-edit no-print" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
+      ${/* EEN APOSTROF EN EEN KLEINER PENNETJE (Tim, 27-09-2026). "16 min" plus een knop van 36 px
+           nam bijna een derde van de regel in, terwijl de doelpunten ernaast moesten inschikken. Het
+           minuutteken zegt hetzelfde in één teken — het staat zo ook overal in het verloop — en
+           `evt-edit-klein` maakt de knop 28 px. Die maat is elders bewust 36 (een vingertop, zie de
+           uitleg bij .evt-del): daar zit je midden in een lopende wedstrijd. Hier zit je rustig een
+           blokduur na te kijken, en dan weegt de plaats op het scherm zwaarder. */ ''}
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--txt2);white-space:nowrap">${dur == null ? '–' : Math.round(dur / 60000) + "'"}${(!vast && q.endTime)
+        ? `<button class="evt-edit evt-edit-klein no-print" onclick="modalKwartDuur(${q.num})" title="Duur aanpassen">${icI(IC.edit)}</button>` : ''}</div>
     </div>`;
   }).join('');
 

@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.5
+
+**De doelpunten krijgen meer plaats op de kaart per kwart.** De duur staat er nu als *16'* in plaats
+van *16 min*, en het potloodje ernaast is kleiner. Samen scheelt dat 29 pixels per regel — die gaan
+integraal naar de doelpuntenkolom, waar de namen anders over twee regels braken.
+
+Elders in de app blijft dat knopje zo groot als het was: daar zit je midden in een lopende wedstrijd
+en moet het raakvlak een vingertop zijn. Een blokduur kijk je rustig na.
+
+---
+
 ## v1.75.4
 
 **Een naam die jij rechtzet, staat nu ook bij *Nu online*.** Dat scherm las enkel wat iemand zelf bij
