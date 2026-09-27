@@ -3414,11 +3414,17 @@ function evtLabel(e, m) { return evtLabelBasis(e, m) + standAchterEvent(m, e); }
 function evtLabelBasis(e, m, kort) {
   const dns = kort ? fieldDisplayNames((m && m.players) || []) : null;
   const pn = id => esc((dns && dns.get(id)) || pName(m, id));
+  // HOE HET DOELPUNT VIEL, achter het doelpunt (Tim, 27-09-2026) — zie GOAL_WIJZEN in core.js.
+  // NIET in de korte vorm, en dat is met opzet: `kort` is de kaart per kwart, waar de doelpunten in
+  // een smalle kolom onder elkaar staan. Daar zou "· Collectieve aanval" elke regel in tweeën breken,
+  // en net die kaart heeft Tim smal willen houden. In de tijdlijn, het verslag, de PDF en het
+  // deelbericht staat het er wel.
+  const hoe = (!kort && e.wijze) ? ` · ${esc(e.wijze)}` : '';
   switch(e.type) {
-    case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s; }
-    case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}`;
-    case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})`;
-    case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander`;
+    case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s + hoe; }
+    case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}${hoe}`;
+    case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})${hoe}`;
+    case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander${hoe}`;
     case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
     case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
@@ -3473,11 +3479,14 @@ function evtLabelBasis(e, m, kort) {
 // Zelfde omhulsel voor de stand als hierboven; zie daar voor het waarom.
 function evtLabelPlain(e, m) { return evtLabelPlainBasis(e, m) + standAchterEvent(m, e); }
 function evtLabelPlainBasis(e, m) {
+  // Zelfde toevoeging als in evtLabelBasis hierboven — pas ze samen aan. De middelste punt zit in
+  // WinAnsi, dus ze komt ook in de PDF goed door.
+  const hoe = e.wijze ? ` · ${e.wijze}` : '';
   switch(e.type) {
-    case 'goal_us': { let s = `Doelpunt ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s; }
-    case 'goal_them': return `Doelpunt ${oppName(m)}`;
-    case 'own_goal': return `Owngoal (${pName(m,e.playerId)})`;
-    case 'own_goal_them': return 'Owngoal tegenstander';
+    case 'goal_us': { let s = `Doelpunt ${pName(m,e.playerId)}`; if (e.assistId) s += ` (assist ${pName(m,e.assistId)})`; return s + hoe; }
+    case 'goal_them': return `Doelpunt ${oppName(m)}${hoe}`;
+    case 'own_goal': return `Owngoal (${pName(m,e.playerId)})${hoe}`;
+    case 'own_goal_them': return `Owngoal tegenstander${hoe}`;
     case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.

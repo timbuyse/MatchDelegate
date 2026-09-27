@@ -2936,6 +2936,9 @@ function exportMatchCSV() {
       if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
     }
     if (e.type === 'note' && e.text) extraInfo = e.text;
+    // Hoe het doelpunt viel, achteraan in dezelfde kolom (zie GOAL_WIJZEN in core.js). Hier BUITEN de
+    // lus hierboven, want een tegendoelpunt heeft geen playerId en zou er anders doorheen vallen.
+    if (e.wijze) extraInfo += (extraInfo ? ' · ' : '') + e.wijze;
     // Een kaart voor de tegenstander heeft geen speler uit onze selectie; het rugnummer is het enige
     // dat we ervan weten, en dat hoort in de spelerskolom en niet bij de extra info.
     if (e.oppNumber) player = 'Tegenstander nr. ' + e.oppNumber;
@@ -3282,6 +3285,11 @@ function modalEditEvent(id) {
   const minute = eventMin(e, match);
   const opts = (sel, withNone) => `${withNone ? '<option value="">—</option>' : ''}${match.players.map(p => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${p.number ? '#' + p.number + ' ' : ''}${esc(p.name)}</option>`).join('')}`;
   const t = e.type; let fields = '';
+  // HOE HET DOELPUNT VIEL, ook achteraf (Tim, 27-09-2026). Een keuzelijst en geen rij knopjes: hier
+  // zit je rustig na te kijken, niet aan de zijlijn. "—" bovenaan, zodat je de keuze ook weer weg kan
+  // halen. Staat bij élk doelpunt, ook een tegendoelpunt — zie GOAL_WIJZEN in core.js.
+  const wijzeVeld = ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'].includes(t)
+    ? `<div class="fg"><label>Hoe viel het?</label><select id="ee-wijze"><option value="">—</option>${GOAL_WIJZEN.map(w => `<option value="${esc(w)}" ${e.wijze === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select></div>` : '';
   if (t === 'goal_us') fields = `<div class="fg"><label>Doelpuntenmaker</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Assist</label><select id="ee-assist">${opts(e.assistId, true)}</select></div>`;
   else if (t === 'yellow_card' || t === 'red_card') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div>`;
   // Kaart voor de tegenstander: geen spelerskeuze (we kennen hun kern niet), enkel het rugnummer dat
@@ -3315,7 +3323,7 @@ function modalEditEvent(id) {
     ${e.atBreak
       ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Pauzewissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
       : `<div class="fg"><label>Minuut binnen dit ${pSingLow(match)}</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
-    ${fields}
+    ${fields}${wijzeVeld}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
     ${startopstellingKnopHtml(e)}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -3467,6 +3475,9 @@ async function saveEditEvent(id) {
   const oldPlayerId = e.playerId;
   if (has('ee-player')) e.playerId = val('ee-player') || null;
   if (has('ee-assist')) e.assistId = val('ee-assist') || null;
+  // "—" gekozen: de sleutel weg i.p.v. een lege string bewaren, zodat een doelpunt zonder keuze
+  // er precies zo uitziet als een doelpunt van vóór deze versie (zie GOAL_WIJZEN in core.js).
+  if (has('ee-wijze')) { const w = val('ee-wijze'); if (w) e.wijze = w; else delete e.wijze; }
   if (has('ee-ctype')) e.cornerType = val('ee-ctype');
   if (has('ee-scored')) e.scored = val('ee-scored') === '1';
   if (has('ee-out')) e.playerOutId = val('ee-out');
@@ -4032,13 +4043,28 @@ function spelersVoorEventKeuze(m, altijdBank) {
 function bankTag(bank, p) {
   return bank.has(p.id) ? '<span style="font-size:9px;font-weight:800;color:var(--txt2);border:1px solid var(--bdr);border-radius:5px;padding:0 4px">bank</span>' : '';
 }
-let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false;
+let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = false, goalWijze = null;
+// Het rijtje "hoe viel het?" onderaan het goal-venster — zie GOAL_WIJZEN in core.js. Staat BUITEN de
+// twee helften van dat venster (ons doelpunt / tegendoelpunt), want de vraag is voor allebei dezelfde
+// en zo hoeft ze maar één keer getekend te worden. Nog eens tikken op hetzelfde woord zet het weer af:
+// dit is optioneel, en een keuze die je niet meer kwijtraakt is een val.
+function goalWijzeHtml() {
+  return `<div class="sec">Hoe viel het? (optioneel)</div>
+    <div class="place-chips" id="goal-wijze">${GOAL_WIJZEN.map(w =>
+      `<span class="place-chip" data-w="${esc(w)}" onclick="selectGoalWijze('${esc(w)}',this)">${esc(w)}</span>`).join('')}</div>`;
+}
+function selectGoalWijze(w, el) {
+  const aan = goalWijze === w;
+  goalWijze = aan ? null : w;
+  document.querySelectorAll('#goal-wijze .place-chip').forEach(o => o.classList.remove('sel'));
+  if (!aan) el.classList.add('sel');
+}
 function modalGoal() {
   const goalCount = id => match.events.filter(e => (e.type==='goal_us'||e.type==='penalty_us') && e.playerId===id).length;
   const keuze = spelersVoorEventKeuze(match);
   // Veldspelers eerst (op doelpuntentotaal), de bank erachter.
   const on = keuze.lijst.slice().sort((a,b) => (keuze.bank.has(a.id)?1:0)-(keuze.bank.has(b.id)?1:0) || goalCount(b.id)-goalCount(a.id) || (Number(a.number)||99)-(Number(b.number)||99));
-  goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false;
+  goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false; goalWijze = null;
   openModal(`
     <h3>${icI(IC.goal)} Goal</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
@@ -4073,6 +4099,7 @@ function modalGoal() {
         </div>
       </div>
     </div>
+    ${goalWijzeHtml()}
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmGoal()">${icI(IC.check)}Bevestigen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -4156,12 +4183,16 @@ async function confirmGoal() {
   } else if (goalIsOwnGoal && !goalPlayerId) { showToast('Kies een speler.', 'err'); return; }
   _goalBusy = true;
   try {
+    // `wijze` alleen meeschrijven als er iets gekozen is: een leeg veld op élk doelpunt zetten maakt
+    // bestaande en nieuwe wedstrijden nodeloos verschillend, terwijl "niets ingevuld" gewoon de
+    // afwezigheid van de sleutel is (zie GOAL_WIJZEN in core.js).
+    const w = goalWijze ? { wijze: goalWijze } : {};
     if (goalTeam === 'us') {
-      if (goalIsOwnGoal) { addEvent('own_goal_them', {}); match.scoreUs++; }
-      else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null }); match.scoreUs++; }
+      if (goalIsOwnGoal) { addEvent('own_goal_them', { ...w }); match.scoreUs++; }
+      else { addEvent('goal_us', { playerId: goalPlayerId, assistId: goalAssistId || null, ...w }); match.scoreUs++; }
     } else {
-      if (goalIsOwnGoal) { addEvent('own_goal', { playerId: goalPlayerId }); match.scoreThem++; }
-      else { addEvent('goal_them'); match.scoreThem++; }
+      if (goalIsOwnGoal) { addEvent('own_goal', { playerId: goalPlayerId, ...w }); match.scoreThem++; }
+      else { addEvent('goal_them', { ...w }); match.scoreThem++; }
     }
     await dbSave(match); closeModal(); render();
     // De score springt al even in beeld (goal-anim hieronder), maar die zegt niet WAT je ingetikt

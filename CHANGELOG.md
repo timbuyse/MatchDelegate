@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.69.0
+
+**Je kan bij een doelpunt zeggen hoe het viel.** Onderaan het goal-venster staat een rijtje woorden:
+*Counter · Individuele actie · Collectieve aanval · Hoekschop · Vrije trap · Ingooi · Afstandsschot*.
+Eén tik, of je laat het staan — het is optioneel en houdt je aan de zijlijn niet op. Nog eens tikken
+op hetzelfde woord zet het weer af.
+
+Het geldt voor **alle** doelpunten, ook die van de tegenstander: hoe je ze tegenkrijgt, zegt evenveel
+als hoe je ze maakt. Bij een strafschop staat het er niet — die zegt zelf al hoe hij viel.
+
+Achteraf invullen of aanpassen kan via het potloodje bij dat doelpunt. Het woord verschijnt achter het
+doelpunt in het verloop, op het verslag en in de PDF, en het staat in de export. Op de kaart per kwart
+bewust niet: die kolom is smal en zou breken. In het deelbericht ook niet — dat is voor de ouders.
+
+Een doelpunt zonder keuze ziet er precies uit als voordien, en aan bestaande wedstrijden verandert er
+niets.
+
+---
+
 ## v1.68.1
 
 **De kaart per kwart staat weer in gewone letters.** Het vet van v1.68.0 hoorde daar niet: op die

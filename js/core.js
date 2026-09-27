@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.68.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.69.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -23,6 +23,15 @@ const MATCH_TYPES = {
 // "WM Cup" erbij op Tims vraag (27-09-2026). Hij staat ACHTERAAN, en dat is wat de keuzelijsten
 // "boven Andere" oplevert: die plakken "Andere…" er zelf achter.
 const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker', 'WM Cup'];
+// HOE VIEL HET DOELPUNT (Tim, 27-09-2026: "een extra infopunt bij een doelpunt, bv. counter,
+// individuele actie, collectieve aanval, hoekschop"). Zeven woorden: zijn vier plus de drie die er in
+// de jeugd nog bij horen. Bewust een VASTE lijst en geen vrije tekst — aan de zijlijn tik je, je typt
+// niet, en alleen met vaste woorden valt er later iets te tellen ("hoe vallen onze doelpunten, en hoe
+// krijgen we ze tegen"). Het veld heet `wijze` en is OPTIONEEL: een wedstrijd zonder die keuze ziet
+// er precies uit zoals voordien, en er verandert niets aan wat er al opgeslagen staat.
+// Voor een doelpunt aan BEIDE kanten (Tims keuze): hoe je ze tegenkrijgt, is voor een trainer even
+// veel waard. Niet bij een strafschop: die zegt zelf al hoe hij viel.
+const GOAL_WIJZEN = ['Counter', 'Individuele actie', 'Collectieve aanval', 'Hoekschop', 'Vrije trap', 'Ingooi', 'Afstandsschot'];
 function matchKindOf(m) {
   const c = ((m && m.competition) || '').trim();
   return MATCH_KINDS.includes(c) ? c : 'other';
