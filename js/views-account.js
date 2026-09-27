@@ -1043,7 +1043,12 @@ function allUsersPerGebruikerHtml(d) {
       + ploegen.map(p => p.titel).join(' ') + (ploegen.length ? '' : ' zonder ploeg')).toLowerCase();
     return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
       <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b>${u.naamAangepast ? ` <small style="color:var(--txt2);font-weight:400">(door jou gezet)</small>` : ''}<br><small style="color:var(--txt2)">${adres}</small></span>
+        ${/* GEEN MERKJE BIJ DE NAAM (Tim, 27-09-2026: "waarom staat daar nu bij, door jou gezet").
+             Het stond er om te kunnen zien welke namen van jou komen en welke uit iemands registratie
+             — maar dat is net de vraag die je stelt op het moment dat je op "Naam wijzigen" tikt, en
+             dáár staat al met zoveel woorden wat hij zelf invulde. In de lijst maakt het de regel
+             alleen langer. `naamAangepast` blijft bestaan voor wie het later wél ergens nodig heeft. */ ''}
+        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
         ${telBadge}
       </summary>
       <div style="margin-top:10px">

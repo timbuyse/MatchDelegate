@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.2
+
+**Het merkje *(door jou gezet)* staat niet meer achter een naam.** Het moest tonen welke namen van jou
+kwamen en welke uit iemands eigen registratie — maar dat is net de vraag die je stelt op het moment
+dat je op *Naam wijzigen* tikt, en daar staat al met zoveel woorden wat hij zelf invulde. In de lijst
+maakte het de regel alleen langer.
+
+---
+
 ## v1.75.1
 
 **Een naam die jij rechtzet, staat nu ook in de ledenlijst van zijn ploegen.** Bewaar je hem bij
