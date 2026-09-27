@@ -308,6 +308,12 @@ async function loadClubsAdminView() {
     try { ubeVal = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {}; } catch (e) {}
     Object.values(miVal).forEach(team => Object.entries(team || {}).forEach(([uid, info]) => { if (!userMap[uid]) userMap[uid] = { name: (info && info.name) || '', email: (info && info.email) || '' }; }));
     Object.entries(ubeVal).forEach(([uid, info]) => { userMap[uid] = { name: (info && info.name) || (userMap[uid] && userMap[uid].name) || '', email: (info && info.email) || (userMap[uid] && userMap[uid].email) || '' }; });
+    // En bovenop dat alles: een naam die de eigenaar zelf rechtzette. Zelfde voorrang als bij Alle
+    // gebruikers en Nu online — zie modalGebruikerNaam. Enkel de eigenaar mag deze tak lezen, dus bij
+    // een weigering blijft het gewoon bij de naam uit de index.
+    let unVal = {};
+    try { unVal = (await fbOnce(fbdb.ref('userNames'))).val() || {}; } catch (e) {}
+    Object.entries(unVal).forEach(([uid, n]) => { const s = (n || '').trim(); if (s) userMap[uid] = Object.assign({ email: '' }, userMap[uid], { name: s }); });
     const userName = uid => { const u = userMap[uid]; return u ? (u.name || u.email || uid) : uid; };
     // Ploegnamen van alle clubploegen ophalen (voor de per-ploeg aanstel-knoppen). Verwijderde
     // ploegen (naam niet gevonden) laten we weg — die tellen ook niet mee voor "leeg" bij verwijderen.
@@ -1143,6 +1149,9 @@ async function bewaarGebruikerNaam(uid, wissen) {
       _allUsersData.userNames = _allUsersData.userNames || {};
       if (naam) _allUsersData.userNames[uid] = naam; else delete _allUsersData.userNames[uid];
     }
+    // "Nu online" haalt die namen één keer op en houdt ze bij; zonder dit zag je daar tot de volgende
+    // app-start nog de oude naam staan.
+    _onlineEigenNamen = null;
     closeModal(); allUsersTeken();
     const waar = zijnPloegen.length ? ` Ook in de ledenlijst van ${zijnPloegen.length === 1 ? 'zijn ploeg' : 'zijn ' + zijnPloegen.length + ' ploegen'}.` : '';
     if (mislukt) showToast(`Naam aangepast, maar bij ${mislukt} ${mislukt === 1 ? 'ploeg' : 'ploegen'} lukte het niet — daar staat nog de oude.`, 'err');
@@ -1182,6 +1191,7 @@ let _onlineRef = null;        // actieve listener op de presence-tak
 let _onlineLaatste = null;    // laatste snapshot, om te kunnen hertekenen zonder nieuw event
 let _onlineTimer = null;      // hertekenen zodat verlopen briefjes vanzelf uit het beeld gaan
 let _onlineNamen = null;      // uid -> {name, email}, eenmalig uit de gebruikersindex
+let _onlineEigenNamen = null; // uid -> naam die de eigenaar rechtzette; wint van de index hierboven
 let _onlineTeamInfo = {};     // teamId -> {naam, club}
 let _onlineMatchNaam = {};    // teamId/matchId -> tegenstander
 function renderOnline() {
@@ -1203,6 +1213,13 @@ async function startOnlineWatch() {
   // waar naam en uid samen staan. In de aanwezigheidstak zelf staat bewust geen naam.
   if (!_onlineNamen) {
     try { _onlineNamen = (await fbOnce(fbdb.ref('usersByEmail'))).val() || {}; } catch (e) { _onlineNamen = {}; }
+  }
+  // EN DE NAMEN DIE JIJ RECHTZETTE (Tim, 27-09-2026: "hier staat nog altijd de naam zoals hij is
+  // ingegeven"). Dit scherm las enkel de accountindex, en daarin staat wat iemand zelf invulde — bij
+  // de een een roepnaam, bij de ander gewoon zijn e-mailadres. Zelfde voorrang als bij Alle
+  // gebruikers, zie modalGebruikerNaam. Stil bij een fout: dan blijft het zoals het was.
+  if (!_onlineEigenNamen) {
+    try { _onlineEigenNamen = (await fbOnce(fbdb.ref('userNames'))).val() || {}; } catch (e) { _onlineEigenNamen = {}; }
   }
   if (view !== 'online') return;   // intussen weggeklikt
   _onlineRef = fbdb.ref('presence');
@@ -1311,7 +1328,9 @@ function tekenOnline() {
       : (info.club ? esc(info.club) + ' · ' : '') + esc(info.naam || tid);
     const rijen = perPloeg[tid].map(({ uid, s }) => {
       const acc = (_onlineNamen && _onlineNamen[uid]) || null;
-      const naam = s.r === 'guest' ? 'Meekijker met een uitnodigingscode' : ((acc && acc.name) || (acc && acc.email) || '(naam onbekend)');
+      const eigen = ((_onlineEigenNamen && _onlineEigenNamen[uid]) || '').trim();
+      const naam = s.r === 'guest' ? 'Meekijker met een uitnodigingscode'
+        : (eigen || (acc && acc.name) || (acc && acc.email) || '(naam onbekend)');
       const opp = s.m ? _onlineMatchNaam[tid + '/' + s.m] : null;
       const bezig = !s.m ? 'in de app'
         : (s.l ? `${icI(IC.ball)} volgt de lopende wedstrijd${opp && opp !== '—' ? ' tegen ' + esc(opp) : ''}`

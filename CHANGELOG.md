@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.4
+
+**Een naam die jij rechtzet, staat nu ook bij *Nu online*.** Dat scherm las enkel wat iemand zelf bij
+het registreren invulde — bij de een een roepnaam, bij de ander gewoon zijn e-mailadres. Nu geldt daar
+dezelfde voorrang als bij *Alle gebruikers*, en de lijst ververst meteen nadat je een naam bewaard
+hebt in plaats van pas bij de volgende app-start. Ook op het scherm *Clubs beheren* werkt de correctie
+nu door.
+
+---
+
 ## v1.75.3
 
 **Bij *Alle gebruikers* staan de naamloze accounts samen onderaan**, in één uitklapper *N zonder
