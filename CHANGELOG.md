@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.73.0
+
+**Ook een ploegbeheerder kan aan een speler gekoppeld worden.** Een trainer of afgevaardigde is vaak
+zelf ouder. Aan wat hij mág zien verandert er niets — hij komt via de statistieken toch al bij elke
+speler — maar zijn kind staat voortaan als tegel op zijn startscherm, één tik van de cijfers. De knop
+*Koppel aan speler* staat nu bij elk lid, ook bij jezelf.
+
+**Strafschoppen tellen mee bij "Hoe de doelpunten vielen".** Ze krijgen daar een eigen regel, bij de
+ploeg én bij de speler. In het goal-venster hoef je er niets voor aan te tikken: een strafschop zegt
+zelf hoe hij viel, dus de app weet het al. Daardoor telt hij ook als ingevuld — er valt niets aan te
+vullen. Een gemiste strafschop is geen doelpunt en blijft er helemaal buiten.
+
+---
+
 ## v1.72.1
 
 **Bij de volgende start verschijnt er een melding over de koppeling met je kind.** Ze vertelt een

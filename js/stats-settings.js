@@ -510,11 +510,16 @@ async function loadStats() {
       let r;
       // HOE DE DOELPUNTEN VIELEN (Tim, 27-09-2026) — het veld `wijze`, zie GOAL_WIJZEN in core.js.
       // In dezelfde lus als de rest, zodat er geen tweede doorloop over alle wedstrijden bijkomt.
-      // De NOEMER telt enkel doelpunten die zo'n woord KUNNEN dragen. Een strafschop krijgt het veld
-      // niet (die zegt zelf al hoe hij viel), dus meetellen zou de slotregel voorgoed doen
-      // onderschatten: "15 van 18" terwijl 17 het hoogst haalbare was.
       // Een owngoal telt aan de kant waar hij de score veranderde — dezelfde regel als overal elders.
+      //
+      // STRAFSCHOPPEN TELLEN HIER WÉL MEE (Tim, 27-09-2026: "niet bij het lijstje van een doelpunt,
+      // maar wel bij de statistieken van hoe er gescoord wordt"). Ze krijgen geen keuze in het
+      // goal-venster — een strafschop zegt zelf hoe hij viel — maar juist daardoor weet de app het
+      // altijd, en dan hoort hij als eigen regel in dit overzicht. Hij telt dus ook als "ingevuld":
+      // er valt niets meer aan te vullen. Een GEMISTE strafschop is geen doelpunt en blijft er buiten.
       if (e.type === 'goal_us' || e.type === 'own_goal_them') { wijzeTot.voor++; if (e.wijze) { wijzeMet.voor++; wijzeVoor[e.wijze] = (wijzeVoor[e.wijze] || 0) + 1; } }
+      if (e.type === 'penalty_us' && e.scored) { wijzeTot.voor++; wijzeMet.voor++; wijzeVoor[WIJZE_PENALTY] = (wijzeVoor[WIJZE_PENALTY] || 0) + 1; }
+      if (e.type === 'penalty_them' && e.scored) { wijzeTot.tegen++; wijzeMet.tegen++; wijzeTegen[WIJZE_PENALTY] = (wijzeTegen[WIJZE_PENALTY] || 0) + 1; }
       if (e.type === 'goal_them' || e.type === 'own_goal') { wijzeTot.tegen++; if (e.wijze) { wijzeMet.tegen++; wijzeTegen[e.wijze] = (wijzeTegen[e.wijze] || 0) + 1; } }
       if (e.type === 'goal_us' && e.playerId) { if ((r = getpById(m, e.playerId))) r.goals++; if (e.assistId && (r = getpById(m, e.assistId))) r.assists++; }
       if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
@@ -564,8 +569,8 @@ async function loadStats() {
                     wijzeTot.tegen ? `<b>${wijzeMet.tegen} van ${wijzeTot.tegen}</b> tegen` : ''].filter(Boolean).join(', ');
   const wijzeBody = wijzeDeel('Gemaakt', wijzeVoor, 'var(--grn)', wijzeMet.voor, wijzeTot.voor)
     + wijzeDeel('Tegen', wijzeTegen, 'var(--rd)', wijzeMet.tegen, wijzeTot.tegen)
-    + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij je invulde hoe ze vielen: ${wijzeZin}. `
-    + `Strafschoppen staan hier niet bij — die zeggen zelf al hoe ze vielen.</p>`;
+    + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij ingevuld is hoe ze vielen: ${wijzeZin}. `
+    + `Strafschoppen worden vanzelf meegeteld — daar valt niets in te vullen.</p>`;
   // DE NOEMER VAN "GESELECTEERD" (Tims keuze, 25-08-2026). Was `squad + absent`, en dat zijn enkel de
   // wedstrijden waarvoor er íets over hem ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet
   // gekozen werd, stond zo op 5/5 = 100% — precies de speler die dit blok moet opsporen zag er
@@ -843,8 +848,9 @@ async function loadPlayerDetail() {
   // hieronder apart — anders zou zo'n wedstrijd stil als gelijkspel meetellen.
   let pW = 0, pG = 0, pV = 0, pZonderUitslag = 0;
   const rows = [];
-  // Hoe HIJ scoorde (Tim, 27-09-2026). Enkel zijn eigen doelpunten uit het spel; een strafschop
-  // draagt geen woord en blijft er dus ook uit de noemer — zelfde regel als op de ploegpagina.
+  // Hoe HIJ scoorde (Tim, 27-09-2026). Zijn eigen doelpunten, mét zijn gescoorde strafschoppen als
+  // eigen regel — zelfde regel als op de ploegpagina, zie de uitleg bij WIJZE_PENALTY. Een strafschop
+  // uit een REEKS na de wedstrijd telt niet: die staat buiten de score en is dus geen doelpunt.
   const pWijze = {}; let pWijzeTot = 0, pWijzeMet = 0;
   for (const m of doneList) {
     const pl = findPlayer(m);
@@ -858,7 +864,7 @@ async function loadPlayerDetail() {
     let g = 0, a = 0, y = 0, r = 0;
     for (const e of m.events) {
       if (e.type === 'goal_us' && e.playerId === pl.id) { g++; pWijzeTot++; if (e.wijze) { pWijzeMet++; pWijze[e.wijze] = (pWijze[e.wijze] || 0) + 1; } }
-      if (e.type === 'penalty_us' && e.scored && e.playerId === pl.id) g++;
+      if (e.type === 'penalty_us' && e.scored && e.playerId === pl.id) { g++; pWijzeTot++; pWijzeMet++; pWijze[WIJZE_PENALTY] = (pWijze[WIJZE_PENALTY] || 0) + 1; }
       // Zelfde assist-criterium als loadStats() (enkel bij een echt doelpunt) — anders spreken
       // het seizoensoverzicht en het spelerdetail elkaar tegen.
       if (e.type === 'goal_us' && e.assistId === pl.id) a++;
@@ -1035,7 +1041,7 @@ async function loadPlayerDetail() {
          Enkel wanneer er iets ingevuld is — bij een speler zonder die woorden hoort hier niets. */ ''}
     ${pWijzeMet ? `<div class="sec">${icI(IC.goal)} Hoe hij scoorde</div><div class="card">
       ${wijzeRijen(pWijze, 'var(--grn)')}
-      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Enkel de doelpunten waarbij je invulde hoe ze vielen: <b>${pWijzeMet} van ${pWijzeTot}</b>. Strafschoppen staan hier niet bij.</p>
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Enkel de doelpunten waarbij ingevuld is hoe ze vielen: <b>${pWijzeMet} van ${pWijzeTot}</b>. Strafschoppen worden vanzelf meegeteld.</p>
     </div>` : ''}
     ${/* Strafschoppen: tijdens de wedstrijd en in een reeks samengeteld. Enkel tonen wie er ooit
          één nam — anders staat er bij elke speler een lege rubriek. */ ''}
@@ -1683,7 +1689,8 @@ const HANDLEIDING_PAGINAS = [
           <b>Vrije trap</b>, <b>Ingooi</b>, <b>Afstandsschot</b> en <b>Rebound</b>. Eén tik, of je
           laat het staan — het is optioneel en houdt je aan de zijlijn niet op. Nog eens tikken op
           hetzelfde woord zet het weer af. Het kan ook bij een <b>tegendoelpunt</b>; bij een
-          strafschop staat het er niet, die zegt zelf al hoe hij viel. Vergeten? Je vult het achteraf
+          strafschop staat het er niet, die zegt zelf al hoe hij viel — in de statistieken krijgt hij
+          wél een eigen regel, zonder dat jij iets moet aanduiden. Vergeten? Je vult het achteraf
           in met het potloodje bij dat doelpunt in het verloop. De app telt die woorden op bij de
           statistieken — zie <b>Statistieken</b>.</li>
         <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
@@ -1836,7 +1843,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Clean sheets</b> — per keeper, op basis van de minuten die hij effectief in doel stond.</li>
         <li><b>Meeste speelminuten</b> en <b>Fair-play · minste speeltijd</b> — die tweede rekent de <i>gemiddelde</i> speeltijd per selectie, dus wie vaak geselecteerd wordt maar weinig speelt, staat bovenaan. Bedoeld om eerlijke speelkansen op te volgen.</li>
         <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Speelde iemand er <b>twee van dezelfde speeldag</b>, dan telt dat ook als twee: bij hem staat er dan 2 van de 2, bij wie er één speelde 1 van de 1, en bij wie niet gekozen werd 0 van de 1. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
-        <li><b>Hoe de doelpunten vielen</b> — twee lijstjes, <b>Gemaakt</b> en <b>Tegen</b>, met per woord hoeveel doelpunten er zo vielen. Het gaat over wat je bij een doelpunt aantikt in het <b>Goal</b>-venster (zie <b>Live wedstrijd bijhouden</b>). Onderaan staat hoeveel doelpunten het écht over gaat — vul je het maar bij de helft in, dan zie je dat meteen. Strafschoppen blijven er helemaal buiten. Dit blok verschijnt alleen als je die woorden ook gebruikt.</li>
+        <li><b>Hoe de doelpunten vielen</b> — twee lijstjes, <b>Gemaakt</b> en <b>Tegen</b>, met per woord hoeveel doelpunten er zo vielen. Het gaat over wat je bij een doelpunt aantikt in het <b>Goal</b>-venster (zie <b>Live wedstrijd bijhouden</b>). <b>Strafschoppen</b> krijgen er vanzelf een eigen regel: die hoef je niet aan te tikken, de app weet het al. Onderaan staat hoeveel doelpunten het écht over gaat — vul je het maar bij de helft in, dan zie je dat meteen. Dit blok verschijnt alleen als er iets in te zien valt.</li>
         <li><b>Posities</b> en <b>Kaarten</b>.</li>
       </ul>
       <div class="sec">Welke wedstrijden tellen mee?</div>
@@ -1909,8 +1916,9 @@ const HANDLEIDING_PAGINAS = [
         tot wanneer ze geldig is; daarna maak je er met <b>'Nieuwe code'</b> een verse aan. De oude werkt
         dan niet meer.</p>
       <div class="sec">Een ouder koppelen aan zijn kind</div>
-      <p>Bij <b>'Leden'</b> staat naast elke kijker de knop <b>'Koppel aan speler'</b>. Je vinkt aan bij welke speler of spelers die persoon hoort — twee kinderen in dezelfde ploeg mag. Vanaf dan verschijnt op zíjn startscherm een tegel met de naam van zijn kind, en kan hij de persoonlijke cijfers van die speler bekijken.</p>
-      <p>Hij ziet daar de doelpunten, assists, speelminuten, winst-gelijk-verlies, kaarten en de wedstrijden van dat kind. Niet waarom iemand afgemeld was of niet kwam opdagen, en geen notities — dat blijft beheerdersgebied. En hij ziet alleen zijn eigen kind, niet dat van een ander.</p>
+      <p>Bij <b>'Leden'</b> staat naast elk lid de knop <b>'Koppel aan speler'</b>. Je vinkt aan bij welke speler of spelers die persoon hoort — twee kinderen in dezelfde ploeg mag. Vanaf dan verschijnt op zíjn startscherm een tegel met de naam van dat kind, één tik van de persoonlijke cijfers.</p>
+      <p>Bij een <b>kijker</b> is dat meteen zijn enige toegang tot een spelerspagina: hij ziet de doelpunten, assists, speelminuten, winst-gelijk-verlies, kaarten en de wedstrijden van dat kind. Niet waarom iemand afgemeld was of niet kwam opdagen, en geen notities — dat blijft beheerdersgebied. En hij ziet alleen zijn eigen kind, niet dat van een ander.</p>
+      <p>Bij een <b>ploegbeheerder</b> verandert er niets aan wat hij mag zien: hij komt via de statistieken toch al bij elke speler. Voor hem is het een snelkoppeling — en een trainer of afgevaardigde is vaak zelf ouder. Ook jezelf koppelen kan dus.</p>
       <p class="hdl-tip">Een kijker kan zichzelf <b>niet</b> aan een speler koppelen; dat doe jij. Onder de naam van het lid staat wie hij volgt, zodat je het in één blik ziet.</p>
       <p class="hdl-tip">Verwijder je iemand bij <b>'Leden'</b>, dan is dat <b>blijvend</b>: hij kan
         zichzelf niet opnieuw toevoegen, ook niet met een oude uitnodigingslink. Onderaan de ledenlijst

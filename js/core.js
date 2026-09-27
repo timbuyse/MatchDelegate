@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.72.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.73.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -36,6 +36,9 @@ const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker', 'WM Cup'];
 // ouder woord draagt blijft gewoon staan. Een woord WEGhalen is iets anders — dan blijven bestaande
 // doelpunten dat woord dragen terwijl het nergens meer te kiezen valt.
 const GOAL_WIJZEN = ['Counter', 'Individuele actie', 'Collectieve aanval', 'Hoekschop', 'Vrije trap', 'Ingooi', 'Afstandsschot', 'Rebound'];
+// De regel die de statistieken er zélf bij zetten voor een gescoorde strafschop (v1.73.0). Staat
+// bewust NIET in GOAL_WIJZEN: het is geen keuze die je aantikt, de app weet het al uit het event.
+const WIJZE_PENALTY = 'Strafschop';
 function matchKindOf(m) {
   const c = ((m && m.competition) || '').trim();
   return MATCH_KINDS.includes(c) ? c : 'other';
@@ -829,7 +832,7 @@ const RELEASE_NOTES = {
     punten: [
       'Vraag het aan je ploegbeheerder. Alleen hij kan de koppeling leggen; je kan dat zelf niet aanzetten. Heb je twee kinderen in dezelfde ploeg, dan mag dat ook.',
       'Daarna staat je kind op je startscherm. Eén tik op zijn naam en je ziet zijn doelpunten, assists, speelminuten, het gemiddelde per wedstrijd, winst-gelijk-verlies, kaarten en alle wedstrijden waarin hij speelde.',
-      'Ben je ploegbeheerder? Bij Beheer → Leden staat naast elke kijker de knop "Koppel aan speler". Wat die ouder daarna ziet, gaat enkel over zijn eigen kind: redenen van afwezigheid en notities blijven voor jou.',
+      'Ben je ploegbeheerder? Bij Beheer → Leden staat naast elk lid de knop "Koppel aan speler" — ook naast jezelf, want een trainer is vaak zelf ouder. Wat een kijker daarna ziet, gaat enkel over zijn eigen kind: redenen van afwezigheid en notities blijven voor jou.',
     ],
   },
   // Goedgekeurd door Tim, 06-09-2026. Twee punten: de opstelling per kwart achteraf aanpassen staat
@@ -3349,9 +3352,12 @@ function magSpelerZien(rosterId) {
   if (canSeeStats()) return true;
   return !!rosterId && mijnSpelerIds.includes(rosterId);
 }
-// Is dit een kijker die aan minstens één speler hangt? Bepaalt of de tegel op het startscherm
-// verschijnt en of de spelerpagina in haar afgeslankte vorm getekend wordt.
-function isOuder() { return !isGuest && !canSeeStats() && mijnSpelerIds.length > 0; }
+// Hangt er voor MIJ een speler aan deze ploeg? Bepaalt of de tegel op het startscherm verschijnt.
+// OOK VOOR EEN BEHEERDER (Tim, 27-09-2026: "je moet ook ploegbeheerders aan een speler kunnen
+// koppelen natuurlijk"). Voor hem verandert de koppeling niets aan wat hij mág zien — hij komt via de
+// statistieken bij elke speler — maar een trainer is vaak zelf ouder, en dan is die ene tik naar zijn
+// eigen kind precies even handig. Wat hij op die pagina ziet, blijft de volledige beheerdersweergave.
+function heeftGekoppeldeSpeler() { return !isGuest && mijnSpelerIds.length > 0; }
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
   const addL = (path, event, fn) => {

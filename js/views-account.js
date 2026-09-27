@@ -2366,20 +2366,21 @@ async function showMembersModal() {
       // Onbevestigd adres = de naam hierboven steunt op niets. Geen blokkade (jij gaf zelf de
       // uitnodiging en kent de persoon meestal), maar je hoort het wel te zien vóór je promoveert.
       const bevestigd = !!mi.verified;
-      // GEKOPPELDE SPELERS (v1.72.0). Enkel bij een kijker: een beheerder ziet sowieso alles, dus een
-      // koppeling zou daar niets betekenen. De knop staat er alleen wanneer de kern van deze ploeg
-      // hier bekend is — zie kernLijst hierboven.
+      // GEKOPPELDE SPELERS (v1.72.0). OOK BIJ EEN BEHEERDER (Tim, 27-09-2026): een trainer of
+      // afgevaardigde is vaak zelf ouder. Voor hem verandert het niets aan wat hij mág zien — dat is
+      // al alles — maar hij krijgt zijn kind wel als tegel op zijn startscherm, één tik ver.
+      // De knop staat er alleen wanneer de kern van deze ploeg hier bekend is — zie kernLijst.
       const gekoppeld = Object.keys((memberPlayers[uid] || {})).filter(k => memberPlayers[uid][k]);
-      const koppelRegel = (role !== 'admin' && gekoppeld.length)
+      const koppelRegel = gekoppeld.length
         ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.shirt)} Volgt: <b>${gekoppeld.map(r => esc(kernNaam(r))).join(', ')}</b></div>` : '';
-      const koppelBtn = (role !== 'admin' && kernLijst.length)
+      const koppelBtn = kernLijst.length
         ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelSpelers('${uid}')">${icI(IC.shirt)} ${gekoppeld.length ? 'Spelers wijzigen' : 'Koppel aan speler'}</button>` : '';
       const btns = role !== 'admin'
         ? `${koppelBtn}<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
-        : (uid !== currentUser?.uid
+        : `${koppelBtn}${uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
-          : '');
+          : ''}`;
       return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
@@ -2495,9 +2496,9 @@ function modalKoppelSpelers(uid) {
 }
 function _renderKoppelModal(kern) {
   openModal(`<h3>${icI(IC.shirt)} Koppel aan speler</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie je hier aanvinkt, mag deze kijker volgen: hij krijgt de persoonlijke cijfers van die speler te zien. Meerdere mag — bijvoorbeeld twee kinderen in dezelfde ploeg.</p>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie je hier aanvinkt, hoort bij dit lid. Op zijn startscherm komt dan een tegel met die naam, één tik van de persoonlijke cijfers. Meerdere mag — bijvoorbeeld twee kinderen in dezelfde ploeg.</p>
     <div class="place-chips">${kern.map(p => `<span class="place-chip ${_koppelSel.has(p.id) ? 'sel' : ''}" onclick="_koppelTik('${p.id}')">${esc(p.name)}</span>`).join('')}</div>
-    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">Hij ziet de doelpunten, assists, speelminuten en wedstrijden van die speler. Niet waarom iemand afgemeld was, en geen notities — dat blijft voor beheerders.</p>
+    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">Is dit lid een <b>kijker</b>, dan is dit meteen zijn enige toegang tot een spelerspagina: hij ziet de doelpunten, assists, speelminuten en wedstrijden van die speler, maar niet waarom iemand afgemeld was en geen notities. Bij een <b>ploegbeheerder</b> verandert er niets aan wat hij mag zien — voor hem is het gewoon een snelkoppeling naar zijn eigen kind.</p>
     <button class="btn btn-green" style="margin-top:10px" onclick="_koppelBewaar()">${icI(IC.check)} Bewaren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="showMembersModal()">Annuleren</button>`);
   _koppelKern = kern;
@@ -2534,7 +2535,7 @@ function mijnSpelerNamen() {
 // De ploegnaam waarop de spelerpagina filtert, is dezelfde waarop het startscherm filtert.
 function _mijnSpelerPloeg() { return homeFilter === 'all' ? '' : homeFilter; }
 function mijnSpelerTegelHtml() {
-  if (typeof isOuder !== 'function' || !isOuder()) return '';
+  if (typeof heeftGekoppeldeSpeler !== 'function' || !heeftGekoppeldeSpeler()) return '';
   const lijst = mijnSpelerNamen();
   if (!lijst.length) return '';
   const een = lijst.length === 1;
