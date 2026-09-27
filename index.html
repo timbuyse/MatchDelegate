@@ -342,6 +342,14 @@
        align-items:flex-start omdat deze regel over meerdere lijnen loopt, anders zweeft het icoon
        in het midden van een blok van vier regels. */
     .startlineup{align-items:flex-start!important;background:var(--org-pale,#fff3e0);border-radius:8px;padding:8px!important;margin-bottom:2px}
+    /* IN HET DONKER EEN DONKER KADER (Tim, 27-09-2026: "die term startopstelling is niet zichtbaar").
+       `--org-pale` bestaat nergens als kleur, dus dit kader viel altijd terug op dat lichte crème —
+       ook in donkere modus, waar de tekst net wit wordt. Het woord "Startopstelling" stond dus wit op
+       crème. De andere plekken met diezelfde crème zetten er zelf een donkere tekstkleur bij (de
+       offline-balk bijvoorbeeld); alleen dit kader leunde op de erfkleur.
+       De spelerskaartjes erin gebruiken `--card` en blijven dus donkerder dan het kader — zo blijven
+       ze als kaartjes lezen in plaats van weg te vallen. */
+    body.dark .startlineup{background:#26375a}
     .sl-lijst{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:5px}
     .sl-item{display:inline-flex;align-items:center;gap:4px;background:var(--card,#fff);border:1px solid var(--bdr);border-radius:6px;padding:2px 6px;font-size:12.5px}
     .sl-plek{font-weight:800;font-size:10.5px;color:var(--org2,#b45309);letter-spacing:.3px}

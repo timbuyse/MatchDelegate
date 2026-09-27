@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.7
+
+**Het woord "Startopstelling" was onleesbaar in donkere modus.** Dat kader hield zijn lichte
+crèmekleur, ook in het donker — terwijl de tekst daar net wit wordt. Het stond dus wit op crème. In
+donkere modus is het kader nu zelf donker, en de spelerskaartjes erin blijven iets donkerder zodat ze
+als kaartjes blijven lezen. In lichte modus verandert er niets.
+
+---
+
 ## v1.75.6
 
 **De assist staat op een eigen regel op de kaart per kwart, ingesprongen onder de naam.** Hij liep
