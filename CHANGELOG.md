@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.77.0
+
+**"Event toevoegen" en "Meer…" zijn opgeruimd.**
+
+Bij *Event toevoegen* stonden de pauzes als volwaardige knoppen tússen de kwarten: acht stuks bij een
+wedstrijd in vier kwarten, met tekst over drie regels, in een rij die ruw afbrak. Ze kregen evenveel
+gewicht als de kwarten zelf terwijl je ze zelden nodig hebt. Nu staat er één strakke rij met de
+kwarten, en verschijnt er een vinkje *"Het gebeurde in de pauze vóór kwart 3"* zodra je een kwart na
+het eerste kiest. Dezelfde keuzes, een derde van de hoogte.
+
+Het minuutvakje kostte drie regels voor één invulveld. De uitleg staat nu in het vakje zelf:
+*"leeg = einde van kwart 3"*. En kies je *Moment onbekend*, dan verdwijnt dat vakje — een minuut had
+daar toch nergens naartoe gekund.
+
+Bij *Meer…* stond boven elke keuze een tussentitel met exact hetzelfde woord: een kopje "Vrije trap",
+en daaronder een rij "Vrije trap". Bij een afgelopen wedstrijd gaf dat zeventien regels voor tien
+handelingen, waarvan er drie al een eigen knop hadden op het scherm ervoor. Nu dezelfde vierkante
+knoppen als daar, twee per rij, onder twee kopjes die wél iets zeggen: **Gebeurtenissen** en
+**Spelers**. Zeven vakjes in plaats van zeventien regels, en de drie dubbele zijn weg.
+
+**En elke keuzebalk is eindelijk leesbaar in donkere modus.** Thuis/uit, eigen ploeg/tegenstander,
+welk kwart — ze hielden allemaal een harde witte achtergrond met grijze tekst, ook midden in een
+donker scherm. Gemeten contrast 2,5; nu 6,7. De gekozen knop blijft groen.
+
+---
+
 ## v1.76.1
 
 **Het wisselplan toonde een speler die de wedstrijd al verlaten had.** Ging iemand onderweg naar huis

@@ -3591,32 +3591,43 @@ async function saveEditEvent(id) {
 // zet hem leeg, en er stond geen venster open. Raak die volgorde niet aan zonder dit na te kijken.
 function modalExtra() {
   const achteraf = _postEventQuarter !== null;
-  const opt = (label, fn) => `<div class="mopt" onclick="${fn}">${label}</div>`;
-  openModal(`<h3>${icI(IC.more)} Extra registreren</h3>
-    ${achteraf ? `
-    <div class="sec" style="margin-top:0">${icI(IC.bolt)} Vrije trap</div>
-    ${opt(`${icI(IC.bolt)} Vrije trap`, "modalFreekick()")}
-    <div class="sec">${icI(IC.penalty)} Penalty</div>
-    ${opt(`${icI(IC.penalty)} Penalty`, "modalPenalty()")}
-    <div class="sec">${icI(IC.cardR)} Rode kaart</div>
-    ${opt(`${icI(IC.cardR)} Rode kaart`, "modalCard('red')")}` : ''}
-    <div class="sec"${achteraf ? '' : ' style="margin-top:0"'}>${icI(IC.injury)} ${achteraf ? 'Blessure of vertrek' : 'Vertrek'}</div>
-    ${achteraf ? opt(`${icI(IC.injury)} Blessure`, "modalInjury()") : ''}
-    ${/* Eigen ingang, want dit is geen blessure: een speler die naar huis gaat of naar het tweede
-         veld. Stond alleen als vierde keuze binnen het blessurevenster en was daardoor onvindbaar.
-         Blijft ook tijdens de wedstrijd staan: er is wel een tweede weg (het kruisje bij een speler
-         op het tabblad Opstelling), maar die begint bij de SPELER en deze bij de handeling. */ ''}
-    ${opt(`${icI(IC.close)} Speler verlaat de wedstrijd`, "modalInjury(null,'vertrokken')")}
-    ${achteraf ? `
-    <div class="sec">${icI(IC.corner)} Hoekschop</div>
-    ${opt(`${icI(IC.corner)} Hoekschop voor ${esc(tName(match))}`, "logCorner('us')")}
-    ${opt(`${icI(IC.corner)} Hoekschop tegen`, "logCorner('them')")}` : ''}
-    <div class="sec">${icI(IC.disallowed)} Afgekeurd doelpunt</div>
-    ${opt(`${icI(IC.disallowed)} Afgekeurd voor ${esc(tName(match))}`, "modalDisallowed('us')")}
-    ${opt(`${icI(IC.disallowed)} Afgekeurd tegen`, "modalDisallowed('them')")}
-    <div class="sec">${icI(IC.shirt)} Opstelling</div>
-    ${opt(`${icI(IC.shirt)} Kapitein wijzigen`, "modalSetCaptain()")}
+  const gebeurtenissen = [];
+  // DRIE DUBBELE WEG (Tim, 27-09-2026: "ook wat er achter 'meer' zit is onoverzichtelijk").
+  // Vrije trap, Penalty en "Speler verlaat de wedstrijd" hebben bij het achteraf toevoegen al een
+  // eigen knop op het scherm ervóór; ze hier herhalen maakte de lijst langer zonder iets toe te
+  // voegen. Tijdens het spel is dat anders: daar staat "Speler verlaat de wedstrijd" nergens anders
+  // dan bij het kruisje op het tabblad Opstelling, en dat begint bij de SPELER in plaats van bij de
+  // handeling — dus daar blijft hij.
+  if (achteraf) gebeurtenissen.push(
+    extraTegel(IC.cardR, 'Rode kaart', "modalCard('red')"),
+    extraTegel(IC.injury, 'Blessure', 'modalInjury()'),
+    extraTegel(IC.corner, 'Hoekschop', "logCorner('us')"),
+    extraTegel(IC.corner, 'Hoekschop tegen', "logCorner('them')"));
+  gebeurtenissen.push(
+    extraTegel(IC.disallowed, 'Afgekeurd doelpunt', "modalDisallowed('us')"),
+    extraTegel(IC.disallowed, 'Afgekeurd tegen', "modalDisallowed('them')"));
+  const spelers = [];
+  if (!achteraf) spelers.push(extraTegel(IC.close, 'Speler verlaat de wedstrijd', "modalInjury(null,'vertrokken')"));
+  spelers.push(extraTegel(IC.shirt, 'Kapitein wijzigen', 'modalSetCaptain()'));
+  openModal(`<h3>${icI(IC.more)} Extra registreren${retroMomentLabel(match)}</h3>
+    <div class="sec" style="margin-top:0">Gebeurtenissen</div>
+    ${extraGrid(gebeurtenissen)}
+    <div class="sec">Spelers</div>
+    ${extraGrid(spelers)}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+// EEN KOPJE DAT HETZELFDE WOORD ZEGT ALS DE RIJ ERONDER, DAT WAS HET PROBLEEM. Dit venster zette
+// boven elke keuze een tussentitel met exact dezelfde tekst: een kopje "Vrije trap" en daaronder een
+// rij "Vrije trap". Bij een afgelopen wedstrijd gaf dat zeventien regels voor tien handelingen, en je
+// las alles twee keer. Nu dezelfde vierkante knoppen als op het scherm ervóór, twee per rij, onder
+// kopjes die wél iets toevoegen. Zo zien de twee schermen er ook eindelijk hetzelfde uit.
+function extraTegel(icon, label, fn) {
+  return `<button type="button" onclick="${fn}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:14px 6px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);color:var(--txt);cursor:pointer;font-size:13px;font-weight:700;text-align:center;line-height:1.2">${icI(icon)}<span>${esc(label)}</span></button>`;
+}
+// Eén tegel krijgt de volle breedte: een half vakje met een gat ernaast leest als een fout.
+function extraGrid(tegels) {
+  const kolommen = tegels.length === 1 ? '1fr' : '1fr 1fr';
+  return `<div style="display:grid;grid-template-columns:${kolommen};gap:8px">${tegels.join('')}</div>`;
 }
 // Heeft deze speler in deze wedstrijd effectief op het veld gestaan? Zo ja, dan is "niet aanwezig"
 // het verkeerde gereedschap: dat is bedoeld voor wie niet opgedaagd is (0 minuten), en het zou zijn
@@ -6472,21 +6483,30 @@ function modalAddPostEvent(vanDeel) {
   // geen van beide delen: hij stond aan het einde van het vorige niet meer op het veld (misschien al
   // gewisseld) en aan het begin van het volgende ook niet. Zonder deze keuze was zo'n gebeurtenis
   // niet vast te leggen — punt uit de veldtest van 22-08-2026.
+  // DE PAUZE IS EEN VINKJE, GEEN EIGEN KNOP (Tim, 27-09-2026: "dit scherm is wat onoverzichtelijk").
+  // Tot hier stonden de pauzes als volwaardige knoppen tússen de delen: acht stuks bij vier kwarten,
+  // met tekst over drie regels, in een rij die ruw afbrak. Ze kregen evenveel gewicht als de delen
+  // terwijl je ze zelden nodig hebt. Nu één strakke rij delen, en daaronder één regeltje dat enkel
+  // verschijnt zodra je een deel na het eerste kiest. Dezelfde keuze, een derde van de hoogte.
   const label = pSing(match);
-  const qBtns = quarters.map(q => {
-    const act = q.num === lastQ ? ' act' : '';
-    const pauze = q.num > 1
-      ? `<button class="tgl-btn" onclick="selPostQ(${q.num},this,true)">Pauze na ${pSingLow(match)} ${q.num - 1}</button>`
-      : '';
-    return pauze + `<button class="tgl-btn${act}" onclick="selPostQ(${q.num},this)">${label} ${q.num}</button>`;
-  }).join('') + `<button class="tgl-btn${lastQ===null?' act':''}" onclick="selPostQ('unknown',this)">Onbekend</button>`;
+  const qBtns = quarters.map(q =>
+    `<button class="post-q${q.num === lastQ ? ' act' : ''}" onclick="selPostQ(${q.num},this)">${label} ${q.num}</button>`).join('');
   openModal(`
     <h3>${icI(IC.log)} Event toevoegen</h3>
     <div class="sec" style="margin-top:0">Wanneer?</div>
-    <div class="tgl" id="post-q-tgl" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${qBtns}</div>
+    <div class="tgl" style="margin-bottom:6px">${qBtns}</div>
+    <label class="chkrow" id="post-pauze-rij" style="display:${lastQ > 1 ? '' : 'none'};margin:0 0 8px">
+      <input type="checkbox" id="post-pauze" onchange="selPostPauze(this.checked)">
+      <span id="post-pauze-lbl">Het gebeurde in de pauze vóór ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}</span>
+    </label>
+    <div class="tgl" style="margin-bottom:10px">
+      <button class="post-q${lastQ === null ? ' act' : ''}" style="font-size:13px" onclick="selPostQ('unknown',this)">Moment onbekend</button>
+    </div>
     <div class="fg" style="margin-bottom:4px" id="post-min-rij">
-      <label style="font-size:13px;color:var(--txt2)">Minuut binnen dit deel <span style="font-weight:400">(optioneel — laat leeg voor einde deel)</span></label>
-      <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="bv. 12" oninput="selPostMin(this.value)" style="width:100%">
+      ${/* Het label kortgehouden en de uitleg in het vakje zelf: samen scheelde dat twee regels, en
+           de hint staat nu net daar waar je ze nodig hebt. */ ''}
+      <label style="font-size:13px;color:var(--txt2)">Minuut</label>
+      <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="leeg = einde van ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}" oninput="selPostMin(this.value)" style="width:100%">
     </div>
     <p id="post-pauze-uitleg" style="display:none;font-size:12px;color:var(--txt2);margin:-2px 0 8px">In de pauze loopt de klok niet, dus dit wordt vastgelegd op het moment tussen de twee delen. Wie dan vertrekt, houdt de minuten die hij daarvóór speelde.</p>
     <div class="sec">Wat wil je toevoegen?</div>
@@ -6507,18 +6527,46 @@ function modalAddPostEvent(vanDeel) {
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
-function selPostQ(num, btn, atBreak) {
+// De delen staan in twee groepjes (de rij met de delen en de knop "Moment onbekend"), dus de vorige
+// keuze opruimen op de KLASSE en niet binnen één omhulsel.
+function selPostQ(num, btn) {
   _postEventQuarter = num;
-  _postEventAtBreak = !!atBreak;
-  document.querySelectorAll('#post-q-tgl .tgl-btn').forEach(b => b.classList.remove('act'));
+  _postEventAtBreak = false;
+  document.querySelectorAll('.post-q').forEach(b => b.classList.remove('act'));
   btn.classList.add('act');
-  // Een pauze heeft geen minuten: het minuutveld verdwijnt en de eerder ingevulde waarde vervalt,
-  // anders zou een blijven staan getal stil meegenomen worden bij een volgende keuze.
+  const vink = document.getElementById('post-pauze');
+  if (vink) vink.checked = false;
+  // Het vinkje bestaat enkel vanaf het tweede deel: vóór het eerste is er geen pauze.
+  const rij = document.getElementById('post-pauze-rij');
+  const magPauze = typeof num === 'number' && num > 1;
+  if (rij) rij.style.display = magPauze ? '' : 'none';
+  const lbl = document.getElementById('post-pauze-lbl');
+  if (lbl && magPauze) lbl.textContent = `Het gebeurde in de pauze vóór ${pSingLow(match)} ${num}`;
+  const inp = document.getElementById('post-evt-min');
+  if (inp && typeof num === 'number') inp.placeholder = `leeg = einde van ${pSingLow(match)} ${num}`;
+  _postMinRijBij();
+}
+function selPostPauze(aan) {
+  _postEventAtBreak = !!aan;
+  // Een pauze heeft geen minuten: de eerder ingevulde waarde vervalt, anders zou een blijven staan
+  // getal stil meegenomen worden.
+  if (_postEventAtBreak) {
+    _postEventMinute = null;
+    const inp = document.getElementById('post-evt-min');
+    if (inp) inp.value = '';
+  }
+  _postMinRijBij();
+}
+// Een minuut heeft enkel zin binnen een gespeeld deel: niet in een pauze (daar loopt de klok niet)
+// en niet bij een onbekend moment. Dat laatste verborg het vakje voordien niet, dus je kon een
+// minuut invullen die nergens naartoe ging.
+function _postMinRijBij() {
   const rij = document.getElementById('post-min-rij');
   const uitleg = document.getElementById('post-pauze-uitleg');
-  if (rij) rij.style.display = _postEventAtBreak ? 'none' : '';
+  const zinvol = !_postEventAtBreak && _postEventQuarter !== 'unknown';
+  if (rij) rij.style.display = zinvol ? '' : 'none';
   if (uitleg) uitleg.style.display = _postEventAtBreak ? '' : 'none';
-  if (_postEventAtBreak) {
+  if (!zinvol) {
     _postEventMinute = null;
     const inp = document.getElementById('post-evt-min');
     if (inp) inp.value = '';

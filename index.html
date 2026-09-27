@@ -419,6 +419,16 @@
     body.dark .fg input,body.dark .fg select,body.dark .fg textarea,body.dark .pirow input,body.dark .pirow select,body.dark .pirow2 input,body.dark .pirow2 select,body.dark .pn-inp,body.dark .filterbar select,body.dark .start-chip,body.dark .team-chip,body.dark .place-chip{background:#0f1828;color:var(--txt)}
     body.dark .evtbtn{background:#0f1828}
     body.dark .mopt{background:#0f1828}
+    /* Elke keuzebalk in de app (thuis/uit, eigen ploeg/tegenstander, welk kwart …) hield in donkere
+       modus de harde witte achtergrond van `.tgl button` hierboven, met var(--txt2) erop: gemeten
+       contrast 1 op 2,5, dus witte blokken met grijze tekst midden in een donker scherm. Nu de
+       kaartkleur, net als de mopt-rijen hierboven; gemeten 6,7. Zelfde soort fout als
+       "Startopstelling" in v1.75.7: een vaste kleur zonder donkere tegenhanger.
+       `:not(.act)` IS GEEN VERSIERING. Zonder dat stukje weegt deze regel zwaarder dan
+       `.tgl button.act` hierboven — twee klassen plus twee elementen tegen twee klassen plus één —
+       en dan verliest de GEKOZEN knop zijn groen in donkere modus. Het contrastgetal verraadt dat
+       niet (de knop leest gewoon goed), enkel het beeld: nergens nog te zien wat er aanstond. */
+    body.dark .tgl button:not(.act){background:var(--card);color:var(--txt2)}
     body.dark .credit b{color:var(--txt)}
     body.dark .mi-score{color:var(--txt)}
     body.dark .btn-gray{background:#243049;color:var(--txt)}
