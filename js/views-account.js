@@ -3688,9 +3688,15 @@ function renderEventLog(m) {
       const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
       // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
       // reeks, want de delen ervan hebben los geen betekenis.
+      // HET POTLOODJE OP EEN REEKS (Tim, 27-09-2026). Hier stond alleen een kruisje, en dan kan je een
+      // scheve herschikking enkel wegsmijten — opnieuw ingeven liep bovendien dood, zie de uitleg bij
+      // modalPosSwapReeks. Nu opent het potloodje het veld zoals het er op dat moment bij stond.
+      // Enkel voor een reeks TIJDENS het spel: een reeks in de pauze ÍS de opstelling van dat deel en
+      // wordt rechtgezet via het potloodje op de regel "Startopstelling" (zie startLineupHtml).
+      const reeksIds = e.type === 'posSwapReeks' ? e.events.map(x => x.id).join("','") : '';
       const knoppen = elog_vast ? ''
         : (e.type === 'posSwapReeks'
-          ? `<button class="evt-del no-print" onclick="confirmDeleteEvents(['${e.events.map(x => x.id).join("','")}'])" title="Verwijderen">×</button>`
+          ? `${e.atBreak ? '' : `<button class="evt-edit no-print" onclick="modalPosSwapReeks(['${reeksIds}'])" title="Rechtzetten">${icI(IC.edit)}</button>`}<button class="evt-del no-print" onclick="confirmDeleteEvents(['${reeksIds}'])" title="Verwijderen">×</button>`
           : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
       return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinTijd(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
     };

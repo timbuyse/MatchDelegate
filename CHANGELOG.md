@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.67.0
+
+**Positiewisselingen tijdens een kwart kan je nu rechtzetten.** Naast die regel in het verloop staat
+een potloodje. Je krijgt het veld zoals het er op dát moment bij stond — dus ná de wissels van dat
+kwart — en je zet iedereen op zijn plek, net zoals bij de opstelling van een deel. De app rekent zelf
+uit welke ruils daarvoor nodig zijn.
+
+Voordien kon dat niet. Een regel met meerdere positiewisselingen had alleen een kruisje, en opnieuw
+ingeven liep dood: *Event toevoegen → Positiewissel* vertrekt van het veld bij de **start** van het
+blok, dus wie pas tijdens dat kwart inviel, stond er niet eens op.
+
+Wie er speelt verandert in dit venster niet, enkel waar ze staan — daarom staat er geen bank bij. De
+rechtgezette wisselingen blijven op hetzelfde moment staan, dus met hetzelfde minuutgetal ervoor, en
+de keeperminuten volgen mee. Een herschikking in de **pauze** hoort bij de opstelling van dat deel en
+zet je recht met het potloodje bij *Startopstelling*, zoals voordien.
+
+---
+
 ## v1.66.0
 
 **Een vast knopje "Gespeeld" naast het filterteken bij de wedstrijden.** Eén tik en je ziet enkel de
