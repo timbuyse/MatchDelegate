@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.69.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.70.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -31,7 +31,11 @@ const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker', 'WM Cup'];
 // er precies uit zoals voordien, en er verandert niets aan wat er al opgeslagen staat.
 // Voor een doelpunt aan BEIDE kanten (Tims keuze): hoe je ze tegenkrijgt, is voor een trainer even
 // veel waard. Niet bij een strafschop: die zegt zelf al hoe hij viel.
-const GOAL_WIJZEN = ['Counter', 'Individuele actie', 'Collectieve aanval', 'Hoekschop', 'Vrije trap', 'Ingooi', 'Afstandsschot'];
+// "Rebound" erbij op Tims vraag (27-09-2026), achter Afstandsschot omdat hij daar meestal op volgt.
+// Een woord bijzetten mag altijd: het veld is vrije tekst uit deze lijst, dus een doelpunt dat een
+// ouder woord draagt blijft gewoon staan. Een woord WEGhalen is iets anders — dan blijven bestaande
+// doelpunten dat woord dragen terwijl het nergens meer te kiezen valt.
+const GOAL_WIJZEN = ['Counter', 'Individuele actie', 'Collectieve aanval', 'Hoekschop', 'Vrije trap', 'Ingooi', 'Afstandsschot', 'Rebound'];
 function matchKindOf(m) {
   const c = ((m && m.competition) || '').trim();
   return MATCH_KINDS.includes(c) ? c : 'other';

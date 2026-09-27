@@ -112,7 +112,9 @@ function bouwSpeeldagIndex(alle) {
     return false;
   };
 }
-const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false };
+// `goaltypes` staat standaard DICHT voor kijkers: hoe jullie doelpunten vallen en hoe je ze
+// tegenkrijgt, is analyse voor de trainer en geen mededeling aan de ouders. Het oogje zet het open.
+const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false, goaltypes: false };
 // Beheerder zet een sectie publiek/privé voor kijkers. Opgeslagen in teams/{id}/info/statsPublic
 // (leesbaar voor kijkers, schrijfbaar door beheerders). Lokaal meteen bijwerken + herrenderen.
 function toggleStatPublic(key) {
@@ -388,6 +390,9 @@ async function loadStats() {
   // binnen één dag ervoor of erna in de selectie van eender welke wedstrijd stond, was die speeldag
   // opgesteld en mist deze wedstrijd niet. Zo hoeft er nergens een speeldag ingevuld te worden.
   const opDezelfdeSpeeldagElders = bouwSpeeldagIndex(all);
+  // Tellers voor het blok "Hoe de doelpunten vielen" — gevuld in de eventlus verderop.
+  const wijzeVoor = {}, wijzeTegen = {};
+  const wijzeTot = { voor: 0, tegen: 0 }, wijzeMet = { voor: 0, tegen: 0 };
   for (const m of sortedList) {
     // GESPEELD ZONDER UITSLAG (v1.6.0): telt mee in het aantal gespeelde wedstrijden — daarvoor
     // staat ze in deze lijst — maar levert geen doelpunten en geen W/G/V. Zonder deze uitzondering
@@ -491,6 +496,14 @@ async function loadStats() {
     }
     for (const e of m.events) {
       let r;
+      // HOE DE DOELPUNTEN VIELEN (Tim, 27-09-2026) — het veld `wijze`, zie GOAL_WIJZEN in core.js.
+      // In dezelfde lus als de rest, zodat er geen tweede doorloop over alle wedstrijden bijkomt.
+      // De NOEMER telt enkel doelpunten die zo'n woord KUNNEN dragen. Een strafschop krijgt het veld
+      // niet (die zegt zelf al hoe hij viel), dus meetellen zou de slotregel voorgoed doen
+      // onderschatten: "15 van 18" terwijl 17 het hoogst haalbare was.
+      // Een owngoal telt aan de kant waar hij de score veranderde — dezelfde regel als overal elders.
+      if (e.type === 'goal_us' || e.type === 'own_goal_them') { wijzeTot.voor++; if (e.wijze) { wijzeMet.voor++; wijzeVoor[e.wijze] = (wijzeVoor[e.wijze] || 0) + 1; } }
+      if (e.type === 'goal_them' || e.type === 'own_goal') { wijzeTot.tegen++; if (e.wijze) { wijzeMet.tegen++; wijzeTegen[e.wijze] = (wijzeTegen[e.wijze] || 0) + 1; } }
       if (e.type === 'goal_us' && e.playerId) { if ((r = getpById(m, e.playerId))) r.goals++; if (e.assistId && (r = getpById(m, e.assistId))) r.assists++; }
       if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
       if (e.type === 'yellow_card' && e.playerId && (r = getpById(m, e.playerId))) r.yc++;
@@ -527,6 +540,26 @@ async function loadStats() {
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
+  // ---- Hoe de doelpunten vielen ----
+  // Aantallen en geen percentages (Tims keuze bij het ontwerp): bij twintig doelpunten zegt "39%"
+  // minder dan "7 van de 18". Het balkje geeft de verhouding, en dat volstaat om te zien wat eruit
+  // springt. Gemaakt en tegen staan apart, want dat zijn twee verschillende gesprekken.
+  const wijzeRijen = (kaart, kleur) => {
+    const lijst = Object.entries(kaart).sort((a, b) => b[1] - a[1]);
+    if (!lijst.length) return '<p style="color:var(--txt2);font-size:14px">—</p>';
+    const top = lijst[0][1] || 1;
+    return lijst.map(([w, n]) => `<div class="stat-row"><span style="flex:1">${esc(w)}</span>`
+      + `<span style="flex:0 0 90px;height:8px;border-radius:4px;background:var(--bdr);overflow:hidden;margin-right:10px"><span style="display:block;height:100%;width:${Math.round(n / top * 100)}%;background:${kleur}"></span></span>`
+      + `<span style="font-weight:800;min-width:24px;text-align:right">${n}</span></div>`).join('');
+  };
+  // De slotregel telt ENKEL de doelpunten waarvoor het ingevuld is (Tim, 27-09-2026). Zonder die zin
+  // leest "Counter 5" als het volledige beeld, terwijl het er misschien negen waren.
+  const wijzeIets = wijzeMet.voor + wijzeMet.tegen > 0;
+  const wijzeBody = `<div class="sec" style="margin-top:0">Gemaakt (${wijzeMet.voor})</div>${wijzeRijen(wijzeVoor, 'var(--grn)')}`
+    + `<div class="sec">Tegen (${wijzeMet.tegen})</div>${wijzeRijen(wijzeTegen, 'var(--rd)')}`
+    + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij je invulde hoe ze vielen: `
+    + `<b>${wijzeMet.voor} van ${wijzeTot.voor}</b> gemaakt, <b>${wijzeMet.tegen} van ${wijzeTot.tegen}</b> tegen. `
+    + `Strafschoppen staan hier niet bij — die zeggen zelf al hoe ze vielen.</p>`;
   // DE NOEMER VAN "GESELECTEERD" (Tims keuze, 25-08-2026). Was `squad + absent`, en dat zijn enkel de
   // wedstrijden waarvoor er íets over hem ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet
   // gekozen werd, stond zo op 5/5 = 100% — precies de speler die dit blok moet opsporen zag er
@@ -639,6 +672,10 @@ async function loadStats() {
     + ((isMgr && players.length) ? `<p class="stat-hint">${icI(IC.shirt)}<span>Tik op een speler voor zijn persoonlijke statistieken.</span></p>` : '')
     + sect('topscorers', `${icI(IC.ball)} Topschutters`, topList(scorers, p => p.goals, ''))
     + sect('assists', `${icI(IC.assist)} Meeste assists`, topList(assisters, p => p.assists, ''))
+    // Hier en niet onderaan: dit is het "hoe" achter de doelpunten die er net boven staan. Enkel
+    // wanneer er ook echt iets ingevuld is — anders staat er bij elke ploeg die dit niet gebruikt een
+    // leeg blok dat alleen maar vragen oproept.
+    + (wijzeIets ? sect('goaltypes', `${icI(IC.goal)} Hoe de doelpunten vielen`, wijzeBody) : '')
     + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
     + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: zonder gelopen klok is er niet uit af te leiden wie hoe lang speelde.</p>${fairplay.length ? fairplay.map(p=>{
       // (Hier stond van v1.8.0 tot v1.22.0 ook "N× speeltijd volgens het wedstrijdplan". Die minuten

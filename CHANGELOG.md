@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.70.0
+
+**Bij de statistieken staat nu "Hoe de doelpunten vielen".** Het blok staat onder *Meeste assists* —
+daar hoort het, want het is het "hoe" achter de doelpunten erboven. Twee lijstjes: *Gemaakt* en
+*Tegen*, elk met een aantal en een balkje voor de verhouding. Het volgt de filters die er al staan,
+dus "dit seizoen, competitie" werkt meteen.
+
+Onderaan staat er hoeveel doelpunten het écht over gaat: *4 van 5 gemaakt, 3 van 4 tegen*. Zonder die
+regel leest "Counter 5" als het volledige beeld terwijl het er misschien negen waren. Strafschoppen
+blijven er helemaal buiten, ook uit dat totaal — die dragen geen woord, dus meetellen zou het cijfer
+voorgoed doen onderschatten.
+
+Het blok verschijnt alleen als je het ook invult, en staat standaard **dicht voor kijkers**: dit is
+analyse voor de trainer. Met het oogje zet je het open.
+
+**"Rebound" is erbij gekomen** in de lijst met woorden bij een doelpunt.
+
+---
+
 ## v1.69.0
 
 **Je kan bij een doelpunt zeggen hoe het viel.** Onderaan het goal-venster staat een rijtje woorden:
