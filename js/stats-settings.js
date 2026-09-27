@@ -721,7 +721,11 @@ async function loadStats() {
 // ===================== SPELERSDETAIL =====================
 let playerDetailName = null, playerDetailTeamName = null, playerDetailRosterId = null, playerDetailSeason = null, _playerDetailFrom = 'stats';
 function openPlayerDetail(name, teamName, rosterId) {
-  if (!canSeeStats()) return; // enkel beheerders; kijkers/gasten mogen geen spelerdetail zien
+  // Gordel én bretellen, samen met de poortwachter in go(): een beheerder mag elke speler openen, een
+  // gekoppelde kijker (een ouder) enkel zijn eigen speler, een gast niemand. Zie magSpelerZien in
+  // core.js. Deze test staat op het ROOSTERID en niet op de naam: twee spelers kunnen dezelfde naam
+  // dragen, en dan zou een ouder met één tik in het dossier van een ander kind belanden.
+  if (!magSpelerZien(rosterId || null)) return;
   name = (name || '').trim();
   if (!name) return;
   playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = null; _playerDetailFrom = view;
@@ -795,7 +799,11 @@ async function loadPlayerDetail() {
   const doneList = allDone.filter(m => seasonOf(m) === playerDetailSeason && kindMatches(m));
   doneList.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
   if (!doneList.length) {
-    const leeg = kindFilter === 'all'
+    // `null` telt hier als "alle wedstrijden" (v1.72.0). kindFilter begint op null en wordt pas op
+    // 'all' gezet door loadStats — maar een ouder komt via de tegel op het startscherm RECHTSTREEKS
+    // op deze pagina, zonder de statistiekenpagina te openen. Zonder deze nuance las het bericht dan
+    // `Geen wedstrijden van soort "alle wedstrijden"`, wat tegelijk raar en onwaar is.
+    const leeg = (!kindFilter || kindFilter === 'all')
       ? `Nog geen gespeelde wedstrijden voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.`
       : `Geen wedstrijden van soort "${esc(kindLabelLow())}" voor ${esc(name)}${playerDetailSeason?(' in seizoen '+playerDetailSeason):''}.`;
     // Het tornooiblok hoort hier wél bij: een speler kan in een tornooiselectie staan in een seizoen
@@ -811,7 +819,10 @@ async function loadPlayerDetail() {
       && (!playerDetailSeason || seasonOf(m2) === playerDetailSeason) && kindMatches(m2)
       && (m2.absentPlayers || []).map(a => typeof a === 'string' ? { name: a, rosterId: null } : a)
         .some(ab => rosterId ? ab.rosterId === rosterId : (ab.name || '').trim() === name));
-    const nbBlok = nbLijst.length ? `<div class="sec">${icI(IC.clipboard)} Niet beschikbaar</div><div class="card">
+    // NIET VOOR EEN OUDER (v1.72.0). Dit blok zegt voor welke wedstrijden hij afgemeld stond, en dat
+    // hoort bij de afwezigheidsredenen die altijd beheerdersgebied blijven — zie de handleiding onder
+    // "Gegevens en privacy". Een gekoppelde kijker ziet de cijfers van zijn kind, niet deze lijst.
+    const nbBlok = (nbLijst.length && canSeeStats()) ? `<div class="sec">${icI(IC.clipboard)} Niet beschikbaar</div><div class="card">
       <p style="font-size:13px;color:var(--txt2);margin:0 0 8px">${nbLijst.length === 1 ? 'Voor deze wedstrijd was' : 'Voor deze ' + nbLijst.length + ' wedstrijden was'} ${esc(name)} afgemeld. Gespeeld heeft hij dit seizoen nog niet.</p>
       ${nbLijst.sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m2 => `<div class="stat-row"><span style="flex:1">${esc(m2.opponent || 'Wedstrijd')}</span><span style="color:var(--txt2);font-size:13px">${m2.date ? esc(fmtDate(new Date(m2.date + 'T00:00:00').getTime())) : ''}</span></div>`).join('')}
     </div>` : '';
@@ -1268,6 +1279,10 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Als kijker zie je het homescherm met de tegels <b>Wedstrijden</b>, <b>Ploeg</b>, <b>Tornooien</b>, <b>Statistieken</b> en <b>Agenda</b>. Rechtsboven staat de knop <b>'Kijken'</b>. Je kan niets wijzigen.</p>
       <p>Bij <b>Statistieken</b> zie je de secties die de beheerder heeft vrijgegeven; de overige statistieken en het individuele spelersdetail blijven voorbehouden aan ploegbeheerders.</p>
+      <div class="sec">Als ouder: de cijfers van je eigen kind</div>
+      <p>De ploegbeheerder kan jou <b>koppelen aan een speler</b> van de ploeg — je eigen kind dus, of meerdere kinderen. Dan verschijnt er op je homescherm een extra tegel met zijn naam. Eén tik en je staat op zijn pagina: doelpunten, assists, speelminuten, gemiddelde per wedstrijd, winst-gelijk-verlies, kaarten, keeperbeurten en de lijst van zijn wedstrijden.</p>
+      <p>Wat je daar <b>niet</b> ziet: waarom iemand afgemeld was of niet kwam opdagen, en notities bij spelers. Dat blijft voor beheerders. Je ziet ook alleen de speler(s) waaraan je gekoppeld bent, niet die van andere ouders.</p>
+      <p class="hdl-tip">Zie je die tegel niet, vraag het dan aan je ploegbeheerder: de koppeling wordt door hem gelegd, niet door jezelf.</p>
       <p>Een <b>geplande</b> wedstrijd zie je wél in de lijst — je weet dus dat er zaterdag gevoetbald wordt — maar je kan ze niet openen: daarachter zit het werk van de trainer. Zodra de wedstrijd <b>begint</b> kan je ze volgen, en een <b>afgesloten</b> wedstrijd kan je gewoon openen en nalezen.</p>
       <p>Bij een wedstrijd die bezig is staat onder de stand de <b>klok</b> van het blok dat loopt, met het balkje eronder dat aangeeft hoe ver het gevorderd is. Tik op <b>Optellen</b> om te wisselen naar <b>Aftellen</b>, dan zie je hoeveel er nog rest. Die keuze geldt enkel op jouw toestel.</p>
       <p>Van een verslag kan je <b>geen PDF</b> maken; dat kan enkel een ploegbeheerder. Bekijken in de app kan wel, en de knop <b>Delen</b> stuurt de uitslag als bericht door.</p>
@@ -1893,6 +1908,10 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Een <b>uitnodiging vervalt na twee maanden</b>. In het uitnodigingsvenster staat
         tot wanneer ze geldig is; daarna maak je er met <b>'Nieuwe code'</b> een verse aan. De oude werkt
         dan niet meer.</p>
+      <div class="sec">Een ouder koppelen aan zijn kind</div>
+      <p>Bij <b>'Leden'</b> staat naast elke kijker de knop <b>'Koppel aan speler'</b>. Je vinkt aan bij welke speler of spelers die persoon hoort — twee kinderen in dezelfde ploeg mag. Vanaf dan verschijnt op zíjn startscherm een tegel met de naam van zijn kind, en kan hij de persoonlijke cijfers van die speler bekijken.</p>
+      <p>Hij ziet daar de doelpunten, assists, speelminuten, winst-gelijk-verlies, kaarten en de wedstrijden van dat kind. Niet waarom iemand afgemeld was of niet kwam opdagen, en geen notities — dat blijft beheerdersgebied. En hij ziet alleen zijn eigen kind, niet dat van een ander.</p>
+      <p class="hdl-tip">Een kijker kan zichzelf <b>niet</b> aan een speler koppelen; dat doe jij. Onder de naam van het lid staat wie hij volgt, zodat je het in één blik ziet.</p>
       <p class="hdl-tip">Verwijder je iemand bij <b>'Leden'</b>, dan is dat <b>blijvend</b>: hij kan
         zichzelf niet opnieuw toevoegen, ook niet met een oude uitnodigingslink. Onderaan de ledenlijst
         staat <b>'Eerder verwijderd'</b> met wie je weerde en wanneer — daar zet je met één tik de

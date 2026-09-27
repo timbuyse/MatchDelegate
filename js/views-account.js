@@ -2329,9 +2329,20 @@ async function showMembersModal() {
     // Aanvragen apart en tolerant: als deze read faalt (bv. rechtenkwestie) mag dat de rest
     // van de ledenlijst niet laten falen — dan tonen we gewoon geen openstaande aanvragen.
     const reqSnap = await fbOnce(fbdb.ref('teamAdminRequests/' + tid)).catch(() => null);
+    // De koppelingen kijker → speler. Even tolerant als de aanvragen hierboven: staan de regels nog
+    // niet gepubliceerd, dan blijft dit leeg en toont de lijst gewoon geen gekoppelde spelers.
+    const mpSnap = await fbOnce(fbdb.ref('teams/' + tid + '/memberPlayers')).catch(() => null);
     const info = miSnap.val() || {};
     const members = memSnap.val() || {};
     const requests = (reqSnap && reqSnap.val()) || {};
+    const memberPlayers = (mpSnap && mpSnap.val()) || {};
+    // De kern van deze ploeg, om een roosterid als naam te kunnen tonen. ALLEEN voor de ACTIEVE
+    // ploeg: het id van een kern is niet hetzelfde als het ploeg-id in de cloud (ze schelen één
+    // teken — zie het incident van 21-08-2026), dus daarop zoeken geeft stil de verkeerde lijst.
+    // In cloud-modus staat de kern van de actieve ploeg altijd vooraan. Opent een clubbeheerder de
+    // leden van een ándere ploeg, dan is die kern hier niet en blijft het koppelen daar dicht.
+    const kernLijst = (tid === activeTeamId ? (getTeamsV2()[0] || {}).players : null) || [];
+    const kernNaam = rid => (kernLijst.find(p => p.id === rid) || {}).name || '(speler niet meer in de kern)';
     // Haal ontbrekende memberInfo op via users-node (enkel voor leden zonder info)
     const missingUids = Object.keys(members).filter(u => !info[u]);
     await Promise.all(missingUids.map(async u => {
@@ -2355,8 +2366,16 @@ async function showMembersModal() {
       // Onbevestigd adres = de naam hierboven steunt op niets. Geen blokkade (jij gaf zelf de
       // uitnodiging en kent de persoon meestal), maar je hoort het wel te zien vóór je promoveert.
       const bevestigd = !!mi.verified;
+      // GEKOPPELDE SPELERS (v1.72.0). Enkel bij een kijker: een beheerder ziet sowieso alles, dus een
+      // koppeling zou daar niets betekenen. De knop staat er alleen wanneer de kern van deze ploeg
+      // hier bekend is — zie kernLijst hierboven.
+      const gekoppeld = Object.keys((memberPlayers[uid] || {})).filter(k => memberPlayers[uid][k]);
+      const koppelRegel = (role !== 'admin' && gekoppeld.length)
+        ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.shirt)} Volgt: <b>${gekoppeld.map(r => esc(kernNaam(r))).join(', ')}</b></div>` : '';
+      const koppelBtn = (role !== 'admin' && kernLijst.length)
+        ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelSpelers('${uid}')">${icI(IC.shirt)} ${gekoppeld.length ? 'Spelers wijzigen' : 'Koppel aan speler'}</button>` : '';
       const btns = role !== 'admin'
-        ? `<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
+        ? `${koppelBtn}<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
         : (uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
@@ -2366,6 +2385,7 @@ async function showMembersModal() {
           <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
           ${badge}
         </div>
+        ${koppelRegel}
         ${btns ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>` : ''}
       </div>`;
     });
@@ -2458,6 +2478,82 @@ async function demoteMember(uid) {
   }, 'Terugzetten', 'btn-org');
 }
 
+// ===================== EEN KIJKER KOPPELEN AAN ZIJN EIGEN SPELER(S) =====================
+// Tim, 27-09-2026: een ouder die de cijfers van zijn kind mag volgen, zonder ploegbeheerder te
+// worden. De beheerder duidt hier aan wie bij wie hoort; de rest staat bij mijnSpelerIds in core.js.
+// Meerdere spelers kan (twee kinderen in dezelfde ploeg), vandaar vinkjes en geen keuzelijst.
+let _koppelUid = null, _koppelSel = new Set();
+function modalKoppelSpelers(uid) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  const kern = ((getTeamsV2()[0] || {}).players || []).slice()
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
+  if (!kern.length) { showToast('Deze ploeg heeft nog geen spelers in de kern.', 'err'); return; }
+  _koppelUid = uid; _koppelSel = new Set();
+  fbOnce(fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + uid))
+    .then(s => { const v = s.val() || {}; Object.keys(v).forEach(k => { if (v[k]) _koppelSel.add(k); }); _renderKoppelModal(kern); })
+    .catch(() => _renderKoppelModal(kern));   // regels nog niet live: gewoon met een lege selectie beginnen
+}
+function _renderKoppelModal(kern) {
+  openModal(`<h3>${icI(IC.shirt)} Koppel aan speler</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie je hier aanvinkt, mag deze kijker volgen: hij krijgt de persoonlijke cijfers van die speler te zien. Meerdere mag — bijvoorbeeld twee kinderen in dezelfde ploeg.</p>
+    <div class="place-chips">${kern.map(p => `<span class="place-chip ${_koppelSel.has(p.id) ? 'sel' : ''}" onclick="_koppelTik('${p.id}')">${esc(p.name)}</span>`).join('')}</div>
+    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">Hij ziet de doelpunten, assists, speelminuten en wedstrijden van die speler. Niet waarom iemand afgemeld was, en geen notities — dat blijft voor beheerders.</p>
+    <button class="btn btn-green" style="margin-top:10px" onclick="_koppelBewaar()">${icI(IC.check)} Bewaren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="showMembersModal()">Annuleren</button>`);
+  _koppelKern = kern;
+}
+let _koppelKern = [];
+function _koppelTik(id) {
+  if (_koppelSel.has(id)) _koppelSel.delete(id); else _koppelSel.add(id);
+  _renderKoppelModal(_koppelKern);
+}
+async function _koppelBewaar() {
+  if (!isAdmin || !activeTeamId || !fbdb || !_koppelUid) return;
+  // De hele tak in één keer schrijven: zo verdwijnt een vinkje dat je uitzette ook echt, en blijft er
+  // geen `false` achter die elke lezer opnieuw moet wegfilteren.
+  const data = {};
+  _koppelSel.forEach(id => { data[id] = true; });
+  try {
+    await fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + _koppelUid).set(_koppelSel.size ? data : null);
+    _koppelUid = null; _koppelSel = new Set();
+    showMembersModal();
+    showToast('Koppeling bewaard.', 'ok');
+  } catch (e) {
+    // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat, en verzin geen
+    // technische foutmelding — de beheerder kan er zelf niets aan doen.
+    showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live — probeer later opnieuw.', 'err');
+  }
+}
+// De tegel "mijn speler" op het startscherm, en het keuzelijstje bij meer dan één kind.
+// De namen komen uit de kern van de actieve ploeg; een koppeling naar een speler die er niet meer in
+// staat, valt er stil uit — dan hoort er ook geen tegel te zijn.
+function mijnSpelerNamen() {
+  const kern = (getTeamsV2()[0] || {}).players || [];
+  return mijnSpelers().map(id => ({ id, naam: (kern.find(p => p.id === id) || {}).name || '' })).filter(x => x.naam);
+}
+// De ploegnaam waarop de spelerpagina filtert, is dezelfde waarop het startscherm filtert.
+function _mijnSpelerPloeg() { return homeFilter === 'all' ? '' : homeFilter; }
+function mijnSpelerTegelHtml() {
+  if (typeof isOuder !== 'function' || !isOuder()) return '';
+  const lijst = mijnSpelerNamen();
+  if (!lijst.length) return '';
+  const een = lijst.length === 1;
+  const actie = een
+    ? `openPlayerDetail('${jsq(lijst[0].naam)}','${jsq(_mijnSpelerPloeg())}','${jsq(lijst[0].id)}')`
+    : 'modalMijnSpelers()';
+  // Over de volle breedte, net als de agenda eronder: met vier vaste tegels zou een vijfde een gat
+  // naast zich laten staan. En voor een ouder is dít de tegel waarvoor hij de app opent.
+  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span>`
+    + `<span class="tl">${esc(een ? lijst[0].naam : 'Mijn spelers')}</span>`
+    + `${een ? '' : `<span class="tc">${lijst.length} spelers</span>`}</button>`;
+}
+function modalMijnSpelers() {
+  const lijst = mijnSpelerNamen();
+  if (!lijst.length) return;
+  openModal(`<h3>${icI(IC.shirt)} Mijn spelers</h3>
+    <div class="place-chips">${lijst.map(x => `<span class="place-chip" onclick="closeModal();openPlayerDetail('${jsq(x.naam)}','${jsq(_mijnSpelerPloeg())}','${jsq(x.id)}')">${esc(x.naam)}</span>`).join('')}</div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
 async function promoteMember(uid, bevestigd) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
   showConfirm('Wil je deze persoon promoveren tot ploegbeheerder? Ze kunnen dan wedstrijden aanmaken en bewerken.'
@@ -3884,9 +3980,13 @@ async function go(v, id, _histReplace) {
   // wedstrijdenlijst, ook als je vanaf het homescherm kwam (gemeld 22-08-2026). Enkel gezet bij de
   // overgang lijst→wedstrijd; navigatie tússen wedstrijdschermen (prep→live→detail) laat het staan.
   if ((v === 'prep' || v === 'live' || v === 'detail') && (view === 'home' || view === 'matches')) _matchFrom = view;
-  // Kijkers mogen de statistiekenpagina zien (met enkel de publieke secties); het individuele
-  // spelerdetail blijft beheerder-only. Blokkeert ook back-/console-navigatie naar playerDetail.
-  if (v === 'playerDetail' && !canSeeStats()) v = 'home';
+  // Kijkers mogen de statistiekenpagina zien (met enkel de publieke secties). Het individuele
+  // spelerdetail blijft beheerdersgebied, met ÉÉN uitzondering sinds v1.72.0: een kijker die aan een
+  // speler gekoppeld is (een ouder) mag de pagina van díe speler openen, in een afgeslankte vorm —
+  // zie magSpelerZien in core.js en de beperkingen in loadPlayerDetail.
+  // Blokkeert ook back-/console-navigatie naar playerDetail: de toets staat op het roosterid dat
+  // openPlayerDetail net gezet heeft, niet op de knop waarmee je er kwam.
+  if (v === 'playerDetail' && !magSpelerZien(typeof playerDetailRosterId !== 'undefined' ? playerDetailRosterId : null)) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
   if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
   // Kalender importeren kan enkel wie mag beheren. Deze poortwachter ontbrak, en de knop verbergen
@@ -4519,6 +4619,11 @@ async function loadHome() {
     ${teamTile}
     <button class="tile" onclick="go('tournaments')"><span class="tile-fi ic-i" aria-hidden="true">${IC.medal}</span><span class="tl">Tornooien</span><span class="tc">${trnCount} ${trnCount===1?'tornooi':'tornooien'}</span></button>
     <button class="tile" onclick="go('stats')"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span><span class="tl">Statistieken</span><span class="tc">bekijk</span></button>
+    ${/* MIJN SPELER (v1.72.0) — enkel voor een kijker die aan een speler gekoppeld is, dus in de
+          praktijk een ouder. Bij één kind staat zijn naam op de tegel en kom je met één tik op zijn
+          pagina; bij meer kinderen opent er een keuzelijstje. Een beheerder krijgt deze tegel niet:
+          die bereikt elke speler al via de statistieken. Zie mijnSpelerIds in core.js. */ ''}
+    ${mijnSpelerTegelHtml()}
     ${/* Over de volle breedte: een vijfde tegel zou anders een gat naast zich laten. De agenda is
           de enige plek waar wedstrijden en tornooien samen op één kalender staan. */ ''}
     <button class="tile tile-breed" style="grid-column:1/-1" onclick="go('agenda')"><span class="tile-fi ic-i" aria-hidden="true">${IC.calendar}</span><span class="tl">Agenda</span></button>

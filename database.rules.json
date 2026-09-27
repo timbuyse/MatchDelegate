@@ -59,6 +59,27 @@
           }
         },
 
+        // WELKE KIJKER BIJ WELKE SPELER HOORT (v1.72.0). Een ouder wordt aan zijn kind gekoppeld en
+        // mag dan de persoonlijke cijfers van die speler zien. Bewust een EIGEN tak en niet iets in
+        // members: daar staat enkel het woord 'admin' of 'viewer' als waarde.
+        //
+        // Lezen: de beheerder (en de clubbeheerder/eigenaar) ziet de hele tak, zodat de ledenlijst
+        // kan tonen wie aan wie hangt. Elk lid mag daarnaast zijn EIGEN entry lezen — dat is wat de
+        // app nodig heeft om de tegel "mijn speler" te tonen, en meer hoeft een kijker niet te weten.
+        // Schrijven: enkel de beheerder of de clubbeheerder. Een kijker kan zichzelf dus niet aan een
+        // speler hangen; anders zou iedereen elk kind kunnen volgen.
+        //
+        // Dit is een GORDIJN, geen slot: een kijker krijgt de wedstrijden van de ploeg sowieso op zijn
+        // toestel (zie de handleiding onder "Gegevens en privacy"). Deze tak bepaalt wat de app hem
+        // toont, niet wat er technisch bij hem staat.
+        "memberPlayers": {
+          ".read":  "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+          ".write": "auth != null && (root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('owner').val() === auth.uid || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())",
+          "$memberId": {
+            ".read": "auth != null && $memberId === auth.uid"
+          }
+        },
+
         // DE KERN, OOK VOOR EEN BEHEERDER VAN EEN ZUSTERPLOEG (v1.17.0). Bovenop de .read op $teamId
         // hierboven (leden, eigenaar, clubbeheerder): wie beheerder is van een ANDERE ploeg van
         // DEZELFDE club mag hier lezen. Zo kan hij bij het samenstellen van een selectie een speler

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.71.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.72.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3299,7 +3299,33 @@ function stopTeamListeners() {
   knownLiveMatchIds = new Set();
   knownScores = {};
   _presTeamData = {};   // aanwezigheid hoort bij de ploeg waar we naar luisterden
+  mijnSpelerIds = [];   // idem: de koppeling geldt per ploeg
 }
+// ===================== EEN KIJKER GEKOPPELD AAN ZIJN EIGEN SPELER(S) =====================
+// Tim, 27-09-2026: "een kijker koppelen aan een speler van een ploeg, dus als ouder eigenlijk, zodat
+// ze ook de statistieken van die speler kunnen zien." De koppeling staat in een EIGEN tak
+// (`teams/<id>/memberPlayers/<uid>/<rosterId>: true`) en niet bij `members`: daar staat enkel het
+// woord 'admin' of 'viewer' als waarde, en er een object van maken zou de regels én elke lezer breken.
+//
+// HET IS EEN GORDIJN, GEEN SLOT — zelfde eerlijkheid als bij de oogjes van de statistieken en bij het
+// blokkeren van een kijker per wedstrijd: een kijker krijgt de wedstrijden van de ploeg volledig op
+// zijn toestel. Dit bepaalt wat de app hém toont, niet wat er technisch op zijn telefoon staat.
+//
+// STIL LEEG BIJ EEN FOUT. Staan de regels nog niet gepubliceerd, dan weigert Firebase deze lees en
+// blijft de lijst gewoon leeg: de ouder ziet dan geen tegel, en verder werkt alles zoals voordien.
+// Zelfde vangnet als bij de aanwezigheidstak (zie hierboven).
+let mijnSpelerIds = [];
+function mijnSpelers() { return mijnSpelerIds.slice(); }
+// Mag ik de persoonlijke pagina van deze speler openen? Een beheerder altijd; een kijker enkel voor
+// de speler(s) waaraan hij gekoppeld is. Een gast nooit.
+function magSpelerZien(rosterId) {
+  if (isGuest) return false;
+  if (canSeeStats()) return true;
+  return !!rosterId && mijnSpelerIds.includes(rosterId);
+}
+// Is dit een kijker die aan minstens één speler hangt? Bepaalt of de tegel op het startscherm
+// verschijnt en of de spelerpagina in haar afgeslankte vorm getekend wordt.
+function isOuder() { return !isGuest && !canSeeStats() && mijnSpelerIds.length > 0; }
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
   const addL = (path, event, fn) => {
@@ -3354,6 +3380,21 @@ function cloudListen() {
       if (first) { first = false; return; }
       onSelfRoleChanged(s.val());
     });
+  }
+  // Aan welke speler(s) ben IK gekoppeld in deze ploeg? Rechtstreeks en niet via addL, omdat we hier
+  // een tweede callback nodig hebben: zonder die vangt Firebase de weigering niet af en schrijft ze
+  // een rode fout in de log terwijl er niets aan de hand is (rules nog niet live). Zie mijnSpelerIds.
+  if (currentUser && !isGuest) {
+    const spRef = teamRef('memberPlayers/' + currentUser.uid);
+    if (spRef) {
+      spRef.on('value', s => {
+        const v = s.val() || {};
+        mijnSpelerIds = Object.keys(v).filter(k => v[k]);
+        // Het startscherm en de statistieken tonen hierdoor iets anders; de rest van de app niet.
+        if (view === 'home' || view === 'stats' || view === 'playerDetail') render();
+      }, () => { mijnSpelerIds = []; });
+      teamListeners.push({ ref: spRef, event: 'value' });
+    }
   }
 }
 

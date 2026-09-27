@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.72.0
+
+**Een kijker kan gekoppeld worden aan een speler — een ouder aan zijn kind dus.** Bij *Leden* staat
+naast elke kijker de knop **Koppel aan speler**. Je vinkt aan bij wie hij hoort; twee kinderen in
+dezelfde ploeg mag. Onder zijn naam staat daarna wie hij volgt.
+
+Op zijn startscherm verschijnt dan een tegel met de naam van zijn kind. Eén tik en hij staat op de
+persoonlijke pagina: doelpunten, assists, speelminuten, gemiddelde per wedstrijd, winst-gelijk-verlies,
+kaarten, keeperbeurten, hoe hij scoorde en de lijst van zijn wedstrijden.
+
+Wat hij daar **niet** ziet: waarom iemand afgemeld was of niet kwam opdagen. Dat blijft
+beheerdersgebied, zoals de notities. En hij ziet alleen de speler(s) waaraan hij gekoppeld is — voor
+een andere speler loopt de weg dood, ook via de terugknop of een oude link.
+
+Een kijker kan zichzelf niet koppelen; dat doet de ploegbeheerder (of de clubbeheerder).
+
+> **Let op:** dit is een gordijn, geen slot. Een kijker krijgt de wedstrijden van de ploeg sowieso op
+> zijn toestel — dat stond al zo in de handleiding onder *Gegevens en privacy*. De koppeling bepaalt
+> wat de app hem toont, niet wat er technisch bij hem staat. Precies zoals de oogjes bij de
+> statistieken.
+
+Er hoort een nieuw stukje Firebase-regels bij (`teams/<id>/memberPlayers`). Zolang dat niet
+gepubliceerd is, blijft de tegel gewoon weg en zegt het koppelvenster dat het nog niet lukt — er gaat
+niets stuk.
+
+---
+
 ## v1.71.0
 
 **Op de pagina van een speler staat nu ook "Hoe hij scoorde".** Alleen wanneer je bij zijn
