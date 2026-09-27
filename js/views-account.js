@@ -3438,16 +3438,38 @@ function byLastNameNl(a, b) {
   return _lastName(an).localeCompare(_lastName(bn), 'nl') || an.localeCompare(bn, 'nl');
 }
 function sortedByName(list) { return (list || []).slice().sort(byLastNameNl); }
+// UITZONDERING: de keuzeschermen bij een gebeurtenis rangschikken op VOORNAAM. Die knoppen tonen de
+// voornaam (met een beginletter erbij zodra twee spelers dezelfde dragen), dus een lijst op
+// familienaam las als een hoop — de sleutel stond er niet op. Ook waar de volledige naam staat valt
+// het oog op het eerste woord. Gemeld door een gebruiker op 27-09-2026 bij de vrije trap, en het gold
+// even goed bij het doelpunt, de kaart, de strafschop, de blessure en de aanvoerder.
+// De spelerslijst, het verslag, de PDF en de CSV houden de familienaam: daar zoek je een naam op.
+function byFirstNameNl(a, b) {
+  const an = (a && a.name) || '', bn = (b && b.name) || '';
+  return _firstName(an).localeCompare(_firstName(bn), 'nl') || an.localeCompare(bn, 'nl');
+}
+function sortedByFirstName(list) { return (list || []).slice().sort(byFirstNameNl); }
 function playersOnField(m) { return sortedByName(m.players.filter(p => p.onField && !p.absent)); }
 // Bank = wie ingezet kan worden. Een uitgesloten speler (rode kaart) hoort daar niet in: hij mag
 // niet meer op het veld en zou hier aantikbaar staan (zie magOpHetVeld in core.js).
 // magNogMeedoen: ook wie de wedstrijd verlaten heeft valt weg. Dit is de bank van NU (livescherm,
 // wissel na blessure), dus zonder tijdvenster — een vertrek in de toekomst bestaat niet.
 function playersOnBench(m) { return sortedByName(m.players.filter(p => !p.onField && magNogMeedoen(m, p))); }
-// Bij retroactief event: spelers op het veld/bank at het begin van het geselecteerde kwart.
+// Wie er op het veld stond op het moment waarover dit eventvenster gaat.
+//
+// OP DE GEKOZEN MINUUT, NIET BIJ DE START VAN HET DEEL (Tim, 27-09-2026). Dit gaf tot dan onverkort
+// de opstelling waarmee het deel begon, wat je ook invulde bij "Minuut binnen dit deel". Zet je een
+// vrije trap op minuut 12 terwijl er op minuut 5 gewisseld is, dan stond de invaller onderaan met een
+// bankmerkje en de speler die eraf ging gewoon tussen de veldspelers. Dezelfde scheefheid als die van
+// v1.75.8 bij het wisselvenster, maar dan in de zes keuzeschermen — en met hetzelfde rekenwerk
+// rechtgezet: `retroMomentMs` geeft de speeltijd waar de gebeurtenis zal belanden, `_prVeld` speelt
+// het deel tot daar voorwaarts af. Zonder bruikbaar moment (deel "onbekend") blijft het de blokstart.
 function playersOnFieldForEvent(m) {
-  if (_postEventQuarter != null) return playersAtPeriodStart(m, _postEventQuarter);
-  return playersOnField(m);
+  if (_postEventQuarter == null) return sortedByFirstName(m.players.filter(p => p.onField && !p.absent));
+  const tijd = retroMomentMs(m, _postEventQuarter, _postEventMinute);
+  return sortedByFirstName(tijd == null
+    ? playersAtPeriodStart(m, _postEventQuarter)
+    : _prVeld(m, _postEventQuarter, [], tijd, false));
 }
 // Veldbezetting inclusief reeds ingeplande pauzewissels (voor het plannen van meerdere wissels op rij).
 function effectiveOnField(m) {

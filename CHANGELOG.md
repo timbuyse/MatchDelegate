@@ -9,6 +9,38 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.76.0
+
+Vier dingen uit de opmerkingen van een gebruiker over een wedstrijd van vandaag.
+
+**De keuzeschermen bij een gebeurtenis toonden de verkeerde spelers.** Voeg je achteraf een vrije
+trap, een doelpunt, een kaart, een strafschop of een blessure toe op minuut 12, dan kreeg je de
+opstelling waarmee dat kwart *begon*. Wie tijdens dat kwart was ingevallen stond onderaan met een
+bankmerkje, en wie er al af was gewoon tussen de veldspelers. Nu volgt die lijst de minuut die je
+ingeeft — dezelfde rechtzetting als in v1.75.8, maar dan in de zes eventschermen.
+
+**Eén volgorde, op de voornaam.** Die lijsten tonen de voornaam, maar werden gerangschikt op de
+familienaam — zo las een lijst als een hoop. Bij het achteraf toevoegen was er zelfs helemaal geen
+rangschikking en volgde ze de volgorde van je selectie, terwijl de bank eronder wél gesorteerd was.
+Nu overal hetzelfde: veldspelers eerst, alfabetisch op voornaam, de bank erachter. De spelerslijst,
+het verslag, de PDF en de CSV houden de familienaam.
+
+**Het venster zegt nu wanneer.** Bij "Event toevoegen" kies je het deel en de minuut in het scherm
+ervoor, maar eenmaal in het venster zelf herinnerde niets je daar nog aan. In de titel staat het er
+nu bij: *"Vrije trap · Kwart 2 · 12'"*, of *"· pauze voor kwart 2"*.
+
+**Een wissel vlak na de aftrap kan meteen bij de opstelling.** Wie de opstelling nog aan het nakijken
+was toen het kwart al liep, moest de wissel doorvoeren en ze daarna in het verloop met het potloodje
+omhangen. In het wisselvenster staat de eerste minuten na de aftrap nu een vinkje dat hetzelfde doet
+in één handeling. Gebeurde er intussen al iets met dezelfde spelers, dan blijft het een gewone wissel
+en zegt de app waarom.
+
+**En de vrije trap kreeg hetzelfde jasje als de rest.** Het was het enige eventvenster waar je na het
+aantikken van een speler nóg eens op "Bevestigen" moest — een hoekschop, een kaart en een strafschop
+leggen meteen vast. Nu is één tik genoeg.
+
+---
+
 ## v1.75.8
 
 **Een wissel of positiewissel achteraf toevoegen toonde altijd het veld van bij de start van het

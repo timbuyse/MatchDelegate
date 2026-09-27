@@ -3435,6 +3435,53 @@ async function doVerplaatsEvent(id, naarStart) {
     showToast(naarStart ? `Staat nu in de startopstelling van ${pSingLow(match)} ${e.quarterNum}.` : 'Staat weer in het verloop.', 'ok');
   } finally { _eventBusy = false; }
 }
+// ---- Hetzelfde, maar meteen bij het ingeven ----
+// Jochen Hebbrecht, 27-09-2026 (via Tim): "de start van een kwart is vaak krap qua timing. Ik wil
+// eerst mijn basisopstelling controleren en pas daarna het kwart starten." Die correctie kon al, maar
+// enkel achteraf: wissel doorvoeren, dan in het verloop het potloodje zoeken en de knop hierboven
+// gebruiken. Met dit vinkje is het één handeling in plaats van twee.
+// EEN VENSTER VAN DRIE MINUTEN. Altijd tonen maakt er een val van: verderop in het blok zou aanvinken
+// stil ieders speelminuten verschuiven, en dat is precies waar de knop hierboven een eigen
+// waarschuwingsvenster voor heeft.
+const BIJ_START_VENSTER_MS = 3 * 60000;
+let bijStartAan = false;
+function netNaDeAftrap(m) {
+  if (!m || m.quarterStatus !== 'running' || !m.currentQuarter) return false;
+  return (getGameTimeMs(m) - gameTimeMsAtStartOfQuarter(m, m.currentQuarter)) < BIJ_START_VENSTER_MS;
+}
+// Enkel tijdens het spel. In de pauze schrijf je sowieso naar de opstelling van het volgende deel, en
+// bij een event dat je achteraf toevoegt kies je het moment al zelf — daar staat de knop "Pauze na …"
+// voor precies dit geval.
+function bijStartMogelijk() { return _postEventQuarter == null && netNaDeAftrap(match); }
+function setBijStart(aan) { bijStartAan = !!aan; }
+function bijStartVinkjeHtml(qNum) {
+  if (!bijStartMogelijk()) return '';
+  return `<label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:8px 10px;border:1px solid var(--bdr);border-radius:10px;font-size:13px;color:var(--txt2);text-align:left;cursor:pointer">
+    <input type="checkbox" ${bijStartAan ? 'checked' : ''} onchange="setBijStart(this.checked)" style="width:18px;height:18px;flex:none;margin-top:1px">
+    <span>Dit hoorde bij de opstelling van ${pSingLow(match)} ${qNum} — dan komt het niet als aparte regel in het verloop en kloppen de speelminuten.</span>
+  </label>`;
+}
+// Het net aangemaakte event alsnog naar de start van het deel hangen. Eén plek voor de wissel, de
+// positiewissel en de verhuizing, met exact dezelfde stappen als doVerplaatsEvent hierboven.
+// `baseline` moet gehaald zijn VOOR het event bestond — zelfde voorzorg als daar.
+//
+// GEEN MELDING HIERBINNEN: de wissel toont er zelf al een, en die overschreef de waarschuwing zodat
+// je nooit te zien kreeg waarom het vinkje niets deed (gemeten bij het bouwen). De uitkomst gaat als
+// woord terug naar de aanroeper, die er één melding van maakt.
+const BIJ_START_BOTSING = 'Dit kon niet bij de opstelling gezet worden: er gebeurde intussen al iets met dezelfde spelers. Het staat gewoon in het verloop.';
+function bijStartVerwerken(baseline) {
+  if (!bijStartAan) return '';
+  const evs = match.events || [];
+  const e = evs[evs.length - 1];
+  if (!e || !e.quarterNum) return '';
+  if (verplaatsConflicten(e, true).length) return 'botsing';
+  e.atBreak = true;
+  e.gameTimeMs = gameTimeMsAtStartOfQuarter(match, e.quarterNum);
+  rebuildPositions(match, baseline);
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+  recomputeOnField(match);
+  return 'ok';
+}
 async function saveEditEvent(id) {
   const e = match.events.find(x => x.id === id); if (!e) return;
   const posAffecting = e.type === 'substitution' || e.type === 'posSwap';
@@ -3898,7 +3945,7 @@ async function doUnmarkAbsent(pid) {
 function modalSetCaptain() {
   const on = playersOnFieldForEvent(match);
   const cur = match.captainId;
-  openModal(`<h3>${icI(IC.captain)} Kapitein</h3>
+  openModal(`<h3>${icI(IC.captain)} Kapitein${retroMomentLabel(match)}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Kies de huidige kapitein. Dit verandert <b>niet</b> automatisch bij een wissel.</p>
     ${pgGrid(on.map(p => pgBtn(p, 'cap-pb', `setMatchCaptain('${p.id}')`, cur===p.id ? `<span style="font-size:10px;color:var(--grn);font-weight:700">${icI(IC.captain)} nu</span>` : '')).join(''))}
     <button class="btn btn-gray" style="margin-top:12px" onclick="setMatchCaptain(null)">Geen / wissen</button>
@@ -4036,9 +4083,22 @@ function spelersVoorEventKeuze(m, altijdBank) {
   const veldIds = new Set(veld.map(p => p.id));
   // Bij een retro-event blijft de oude, ruimere regel gelden (toen speelde hij misschien nog mee);
   // tijdens het spel mag wie de wedstrijd verlaten heeft er niet meer bij.
-  const rest = sortedByName((m.players || []).filter(p => !veldIds.has(p.id) &&
+  // Op voornaam, net als de veldgroep hierboven — zie sortedByFirstName in views-account.js.
+  const rest = sortedByFirstName((m.players || []).filter(p => !veldIds.has(p.id) &&
     (_postEventQuarter != null ? !p.absent : magNogMeedoen(m, p))));
   return { lijst: [...veld, ...rest], bank: new Set(rest.map(p => p.id)) };
+}
+// Het gekozen moment, voor achter de titel van een eventvenster. Bij "Event toevoegen" kies je het
+// deel en de minuut in het scherm ERVOOR; eenmaal in het venster zelf herinnerde niets je daar nog
+// aan (Tim, 27-09-2026: "merk dat de minuutkeuze bij vrije trap nog ontbreekt"). Alleen de wissel en
+// de positiewissel droegen het deel in hun titel, en ook die zonder minuut. Leeg tijdens het spel:
+// dan is er geen keuze te tonen.
+function retroMomentLabel(m) {
+  if (_postEventQuarter == null) return '';
+  if (_postEventQuarter === 'unknown') return ' · moment onbekend';
+  if (_postEventAtBreak) return ` · pauze voor ${pSingLow(m)} ${_postEventQuarter}`;
+  const n = parseInt(_postEventMinute, 10);
+  return ` · ${pSing(m)} ${_postEventQuarter} · ${(!isNaN(n) && n > 0) ? n + "'" : 'einde'}`;
 }
 // Het merkje op zo'n bankspeler in de keuzeknoppen.
 function bankTag(bank, p) {
@@ -4067,7 +4127,7 @@ function modalGoal() {
   const on = keuze.lijst.slice().sort((a,b) => (keuze.bank.has(a.id)?1:0)-(keuze.bank.has(b.id)?1:0) || goalCount(b.id)-goalCount(a.id) || (Number(a.number)||99)-(Number(b.number)||99));
   goalTeam = 'us'; goalPlayerId = null; goalAssistId = null; goalIsOwnGoal = false; goalWijze = null;
   openModal(`
-    <h3>${icI(IC.goal)} Goal</h3>
+    <h3>${icI(IC.goal)} Goal${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="goal-team">
       <button class="act" onclick="tglGoalTeam('us',this)">${esc(tName(match))}</button>
@@ -4297,12 +4357,12 @@ function modalSub(behoud) {
   const off = match.players.filter(p => !onIds.has(p.id) && magNogMeedoen(match, p, qNum)).slice().sort((a, b) => (mins[a.id]?.ms || 0) - (mins[b.id]?.ms || 0));
   const minMs = off.length ? (mins[off[0].id]?.ms || 0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
-  if (!behoud) { subOut = null; subIn = null; }
+  if (!behoud) { subOut = null; subIn = null; bijStartAan = false; }
   // Een selectie die niet meer klopt (bv. na het wisselen van deel) niet laten hangen.
   if (subOut && !onIds.has(subOut)) subOut = null;
   if (subIn && onIds.has(subIn)) subIn = null;
   const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}`
-    : (_postEventQuarter != null ? `${icI(IC.swap)} Wissel · ${pSing(match)} ${_postEventQuarter}` : `${icI(IC.swap)} Wissel`);
+    : `${icI(IC.swap)} Wissel${retroMomentLabel(match)}`;
   const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
   const klaar = subOut && subIn;
   openModal(`<h3>${title}</h3>
@@ -4315,6 +4375,7 @@ function modalSub(behoud) {
     <p style="text-align:center;font-size:13px;margin-top:12px;color:${klaar ? 'var(--txt)' : 'var(--txt2)'}">${klaar
       ? `<b>${esc(pName(match, subIn))}</b> komt voor <b>${esc(pName(match, subOut))}</b>`
       : (subOut ? 'Kies nu een speler van de bank.' : (subIn ? 'Kies nu wie er van het veld gaat.' : 'Nog niets gekozen.'))}</p>
+    ${bijStartVinkjeHtml(qNum)}
     <button class="btn btn-green" style="margin-top:8px${klaar ? '' : ';opacity:.5'}" onclick="confirmSub()">${cta}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -4366,6 +4427,7 @@ async function confirmSub() {
     // er "undefined in voor undefined" in de melding.
     const naamIn = pName(match, subIn), naamUit = pName(match, subOut);
     const pOut = match.players.find(p => p.id === subOut), pIn = match.players.find(p => p.id === subIn);
+    let omgehangen = false;
     if (_postEventQuarter != null) {
       // Retro-wissel toegevoegd aan een afgelopen deel: NIET de live-veldstaat muteren of het
       // posBefore-snapshot van de huidige staat nemen (die horen bij het huidige/volgende deel).
@@ -4380,14 +4442,21 @@ async function confirmSub() {
     } else {
       // posBefore: zie toelichting bij de pauzewissel-variant in startQuarter().
       const posBefore = pIn ? { x: pIn.x, y: pIn.y, line: pIn.line, posNum: pIn.posNum } : null;
+      // Vóór het event, want bijStartVerwerken() herbouwt straks vanaf dit ijkpunt.
+      const baseline = bijStartAan ? playersAtPeriodStart(match, 1) : null;
       addEvent('substitution', { playerOutId: subOut, playerInId: subIn, posBefore });
       if (pIn && pOut) { pIn.x = pOut.x; pIn.y = pOut.y; pIn.line = pOut.line; pIn.posNum = pOut.posNum; }
       if (pOut) pOut.onField = false;
       if (pIn) pIn.onField = true;
       syncKeeper(); // keeper volgt automatisch de doellijn
+      omgehangen = bijStartVerwerken(baseline);
     }
     await dbSave(match); closeModal(); render();
-    meldVastgelegd('Wissel', `${naamIn} in voor ${naamUit}`);
+    // Bij een botsing geen bevestiging én een waarschuwing na elkaar: de tweede zou de eerste
+    // wegduwen. Eén melding die allebei zegt.
+    if (omgehangen === 'botsing') showToast(`${naamIn} in voor ${naamUit}. ${BIJ_START_BOTSING}`, 'err');
+    else if (omgehangen === 'ok') meldVastgelegd(`Opstelling van ${pSingLow(match)} ${match.currentQuarter}`, `${naamIn} in voor ${naamUit}`);
+    else meldVastgelegd('Wissel', `${naamIn} in voor ${naamUit}`);
   } finally { _eventBusy = false; }
 }
 
@@ -5799,7 +5868,7 @@ function modalPosSwap(behoud) {
   // Retro (via "Event toevoegen" op een afgewerkte wedstrijd): een positiewissel hoort op een
   // tijdstip, net als een wissel — zonder deel kan hij nergens in de reconstructie belanden.
   if (_postEventQuarter === 'unknown') { showToast('Kies eerst een specifiek deel — een positiewissel heeft een tijdstip nodig.', 'err'); return; }
-  if (!behoud) zetPosSwapKeuze(null, null, null);
+  if (!behoud) { zetPosSwapKeuze(null, null, null); bijStartAan = false; }
   const retro = _postEventQuarter != null;
   // Pauze-positiewissel enkel als je écht in de pauze staat: in retro-modus hoort het event in het
   // gekozen (afgelopen) deel, niet in de wachtrij voor het volgende. Zelfde conditie als confirmSub().
@@ -5810,8 +5879,7 @@ function modalPosSwap(behoud) {
   if (posSwapB && !onIds.has(posSwapB)) posSwapB = null;
   const qNum = retro ? _postEventQuarter : (isBetween ? match.currentQuarter + 1 : match.currentQuarter);
   const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
-    : retro ? `${icI(IC.compass)} Positiewissel · ${pSing(match)} ${_postEventQuarter}`
-    : `${icI(IC.compass)} Positiewissel`;
+    : `${icI(IC.compass)} Positiewissel${retroMomentLabel(match)}`;
   const staart = isBetween ? ' Wordt doorgevoerd bij de start van het volgende deel.'
     : retro ? ' Komt in het verloop en telt mee voor de keeperminuten.' : '';
   // Waar ze belanden: A neemt de plek van B en omgekeerd.
@@ -5829,6 +5897,7 @@ function modalPosSwap(behoud) {
       : (klaarRuil
         ? `<b>${esc(fieldName(match, pA.id))}</b> naar <b>${esc(plek(pB))}</b> · <b>${esc(fieldName(match, pB.id))}</b> naar <b>${esc(plek(pA))}</b>`
         : (posSwapA ? 'Tik nu de plek waar hij naartoe gaat.' : 'Nog niemand gekozen.'))}</p>
+    ${bijStartVinkjeHtml(qNum)}
     <button class="btn btn-green" style="margin-top:8px${klaar ? '' : ';opacity:.5'}" onclick="confirmPosSwap()">${icI(IC.check)} Positiewissel doorvoeren</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -5889,12 +5958,16 @@ async function confirmPosSwap() {
     // nadat een van beide spelers via een later event alweer van positie veranderd is.
     const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum };
     const posB = { x: pB.x, y: pB.y, line: pB.line, posNum: pB.posNum };
+    const baseline = bijStartAan ? playersAtPeriodStart(match, 1) : null;   // vóór het event
     addEvent('posSwap', { pA: posSwapA, pB: posSwapB, posA, posB });
     pA.x = posB.x; pA.y = posB.y; pA.line = posB.line; pA.posNum = posB.posNum;
     pB.x = posA.x; pB.y = posA.y; pB.line = posA.line; pB.posNum = posA.posNum;
+    const bijStartUitkomst = bijStartVerwerken(baseline);
     syncKeeper(); // een positiewissel mét de doellijn is een keeperwissel — registreer voor de keeperminuten
     uitgevoerd = true;
     await dbSave(match); closeModal(); render();
+    if (bijStartUitkomst === 'botsing') showToast(BIJ_START_BOTSING, 'err');
+    else if (bijStartUitkomst === 'ok') meldVastgelegd(`Opstelling van ${pSingLow(match)} ${match.currentQuarter}`);
   } finally { _eventBusy = false; if (uitgevoerd) zetPosSwapKeuze(null, null, null); }
 }
 // Een speler naar een LEGE plek: geen ruil, dus geen tweede speler. Het event blijft een `posSwap`
@@ -5946,11 +6019,15 @@ async function confirmPosVerhuis() {
       return;
     }
     const posA = { x: pA.x, y: pA.y, line: pA.line, posNum: pA.posNum, posCodeVeld: pA.posCodeVeld };
+    const baseline = bijStartAan ? playersAtPeriodStart(match, 1) : null;   // vóór het event
     addEvent('posSwap', { pA: posSwapA, pB: null, naarPlek: posSwapDoel, posA, posB: null });
     zetOpGridPlek(pA, doel, match);
     syncKeeper();   // naar (of weg van) het doel is een keeperwissel — zelfde regel als bij een ruil
+    const bijStartUitkomst = bijStartVerwerken(baseline);
     uitgevoerd = true;
     await dbSave(match); closeModal(); render();
+    if (bijStartUitkomst === 'botsing') showToast(BIJ_START_BOTSING, 'err');
+    else if (bijStartUitkomst === 'ok') meldVastgelegd(`Opstelling van ${pSingLow(match)} ${match.currentQuarter}`);
   } finally { _eventBusy = false; if (uitgevoerd) zetPosSwapKeuze(null, null, null); }
 }
 
@@ -5980,7 +6057,7 @@ function modalCard(color) {
   const on = keuze.lijst;
   const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
   const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
-  openModal(`<h3>${ico} ${lbl}</h3>
+  openModal(`<h3>${ico} ${lbl}${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="card-team">
       <button class="act" onclick="tglCardTeam('us',this)">${esc(tName(match))}</button>
@@ -6079,7 +6156,7 @@ function modalPenalty() {
   // Bij een event-achteraf ook de bank kiesbaar (gemerkt) — een penalty is ook een doelpunt.
   const keuze = spelersVoorEventKeuze(match);
   const on = keuze.lijst;
-  openModal(`<h3>${icI(IC.penalty)} Penalty</h3>
+  openModal(`<h3>${icI(IC.penalty)} Penalty${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="pen-team"><button class="act" onclick="tglPen('us',this)">${esc(tName(match))}</button><button onclick="tglPen('them',this)">Tegenstander</button></div>
     <div id="pen-player-section">
@@ -6131,14 +6208,14 @@ function modalInjury(preId, soort) {
   // Wie al vertrokken is, hoort hier niet meer: hem nóg eens laten vertrekken of blesseren kan niet.
   // Bij een event dat je achteraf aan een vroeger blok hangt, was hij toen misschien nog aanwezig.
   const bank = (match.players || []).filter(p => !opVeldIds.has(p.id) && magNogMeedoen(match, p, _postEventQuarter != null ? _postEventQuarter : undefined));
-  const lijst = [...opVeld, ...sortedByName(bank)];
+  const lijst = [...opVeld, ...sortedByFirstName(bank)];
   injPlayerId = (preId && lijst.some(p => p.id === preId)) ? preId : null;
   injType = soort === 'vertrokken' ? 'vertrokken' : 'kramp';
   injTerug = null;
   const weg = injType === 'vertrokken';
   const tb = (t, label) => `<button class="${injType === t ? 'act' : ''}" onclick="tglInjType('${t}',this)">${label}</button>`;
   const merk = p => opVeldIds.has(p.id) ? '' : '<span style="font-size:10px;color:var(--txt2)">bank</span>';
-  openModal(`<h3>${icI(weg ? IC.close : IC.injury)} ${weg ? 'Speler verlaat de wedstrijd' : 'Blessure'}</h3>
+  openModal(`<h3>${icI(weg ? IC.close : IC.injury)} ${weg ? 'Speler verlaat de wedstrijd' : 'Blessure'}${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Welke speler?</div>
     ${bank.length ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">Wie op dat moment op het veld stond, staat vooraan; wie op de bank zat, is gemerkt.</p>` : ''}
     <div id="inj-players">${pgGrid(lijst.map(p=>pgBtn(p,'inj-pb',`selectInjuryPlayer('${p.id}',this)`, merk(p))).join(''))}</div>
@@ -6312,41 +6389,57 @@ function modalSubAfterInjury(outId, reden) {
 }
 
 // ===================== MODAL: FREE KICK =====================
-let fkTeam = 'us', fkPlayerId = null;
+let fkTeam = 'us';
+// HETZELFDE VENSTER ALS DE KAART (gebruikersopmerking 27-09-2026, via Tim). Dit was het enige
+// eventvenster met nog een bevestigingsknop erachter: je tikte een speler aan en moest dan nóg eens
+// op "Bevestigen". Een hoekschop, een kaart en een strafschop leggen meteen vast; enkel het doelpunt
+// houdt zijn knop, en dat is terecht — daar komen de assist en "hoe viel het" nog bij. Bij een vrije
+// trap valt er na de speler niets meer in te vullen, dus die knop was ballast.
+//
+// Meteen ook het enige venster dat de VOLLEDIGE naam toonde, in rijen onder elkaar in plaats van het
+// raster van vier dat alle andere gebruiken. Nu overal hetzelfde: dezelfde korte naam, dezelfde
+// volgorde, tik is ingevoerd.
 function modalFreekick() {
-  fkTeam = 'us'; fkPlayerId = null;
+  fkTeam = 'us';
   // spelersVoorEventKeuze zoals bij doelpunt, kaart en strafschop (audit 25-08-2026): in retro-modus
   // zet die de rest van de selectie erachter met een bank-merkje, zodat ook een speler die pas later
   // inviel kiesbaar is. Deze modal bleef op playersOnFieldForEvent hangen en toonde dus enkel wie het
   // deel begon.
   const keuze = spelersVoorEventKeuze(match);
   const on = keuze.lijst;
-  openModal(`<h3>${icI(IC.bolt)} Vrije trap</h3>
+  openModal(`<h3>${icI(IC.bolt)} Vrije trap${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="fk-team">
       <button class="act" onclick="tglFk('us',this)">${esc(tName(match))}</button>
       <button onclick="tglFk('them',this)">Tegenstander</button>
     </div>
-    <div id="fk-player-section">
+    <div id="fk-us-section">
       <div class="sec">Wie neemt de vrije trap?</div>
-      <div id="fk-players">
-        ${on.map(p=>`<div class="mopt" onclick="selectFkPlayer('${p.id}',this)">${numDot(p, 'mopt-num')}${esc(p.name)} ${bankTag(keuze.bank, p)}</div>`).join('')}
-        <div class="mopt mopt-skip" onclick="selectFkPlayer(null,this)">Niet ingeven</div>
-      </div>
+      ${pgGrid(on.map(p => pgBtn(p, 'fk-pb', `logFreekick('${p.id}')`, bankTag(keuze.bank, p))).join('')
+        + `<button type="button" class="fk-pb" onclick="logFreekick(null)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:18px;color:var(--txt2);line-height:1">—</span><span style="font-size:10px;color:var(--txt2);text-align:center">niet ingeven</span></button>`)}
     </div>
-    <button class="btn btn-green" style="margin-top:12px" onclick="confirmFreekick()">${icI(IC.check)}Bevestigen</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+    ${/* Van een tegenspeler kennen we geen naam, dus daar valt niets aan te tikken: die helft krijgt
+         één knop die meteen vastlegt. Zelfde opbouw als bij de kaart. */ ''}
+    <div id="fk-them-section" class="hidden">
+      <button class="btn btn-green" style="margin-top:12px" onclick="logFreekick(null)">${icI(IC.check)}Vrije trap voor de tegenstander</button>
+    </div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
-function tglFk(team, btn){ fkTeam = team; document.querySelectorAll('#fk-team button').forEach(b=>b.classList.remove('act')); btn.classList.add('act'); const s=document.getElementById('fk-player-section'); if(s) s.style.display = team==='us'?'':'none'; }
-function selectFkPlayer(id, el){ fkPlayerId = id; document.querySelectorAll('#fk-players .mopt').forEach(o=>o.classList.remove('sel')); el.classList.add('sel'); }
-async function confirmFreekick() {
+function tglFk(team, btn) {
+  fkTeam = team;
+  document.querySelectorAll('#fk-team button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  document.getElementById('fk-us-section').classList.toggle('hidden', team !== 'us');
+  document.getElementById('fk-them-section').classList.toggle('hidden', team !== 'them');
+}
+async function logFreekick(pid) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    if (fkTeam === 'us') addEvent('freekick_us', { playerId: fkPlayerId || null });
+    if (fkTeam === 'us') addEvent('freekick_us', { playerId: pid || null });
     else addEvent('freekick_them');
     await dbSave(match); closeModal(); render();
-    meldVastgelegd('Vrije trap', fkTeam === 'us' ? (fkPlayerId ? pName(match, fkPlayerId) : tName(match)) : tegenstanderNaam(match));
+    meldVastgelegd('Vrije trap', fkTeam === 'us' ? (pid ? pName(match, pid) : tName(match)) : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
 

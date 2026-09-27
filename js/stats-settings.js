@@ -1755,11 +1755,18 @@ const HANDLEIDING_PAGINAS = [
           wordt meteen doorgevoerd. Het kan ook via de knoppen <b>'Wissel'</b> en <b>'Meer'</b> →
           <b>'Positiewissel'</b>; daar tik je op het veld de <b>plek</b> aan waar de speler naartoe
           gaat, ook als die leeg is.</li>
+        <li>Was je <b>nog niet klaar met de opstelling</b> toen het kwart al startte? Doe de wissel of
+          de positiewissel gewoon, en vink in dat venster <b>'Dit hoorde bij de opstelling van dit
+          kwart'</b> aan. Dan komt het niet als aparte regel in het verloop en kloppen de speelminuten.
+          Dat vinkje staat er alleen de eerste minuten na de aftrap, want verderop in een kwart is een
+          wissel gewoon een wissel. Merk je het pas later, dan kan het nog altijd: tik in het verloop
+          op het <b>potlood</b> bij die wissel en kies <b>'Dit hoorde bij de opstelling van …'</b>.</li>
         <li>Gaat een speler er <b>ernstig geblesseerd</b> af, dan vraagt de app of hij nog terugkomt.
           Antwoord je <b>nee</b>, dan wordt hij nergens meer opgesteld of ingewisseld — ook niet
           wanneer hij in het plan van de trainer staat voor een volgend deel. Bij kramp of een lichte
           blessure wordt er niets gevraagd; staat zo iemand later toch weer in de opstelling, dan
-          meldt de pauze dat.</li>
+          meldt de pauze dat. Je hoeft daarna <b>geen aparte wissel</b> in te geven: zodra de blessure
+          vastligt, vraagt de app zelf wie er in zijn plaats komt.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
       {{img2}}
