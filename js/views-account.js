@@ -3359,19 +3359,30 @@ function posSwapReeksTekst(m, events, pijl) {
   return bew.map(b => `${b.naam} ${pijl} ${b.plek}`).join(' · ');
 }
 // Opeenvolgende positiewisselingen op hetzelfde moment samenvoegen tot één regel. "Hetzelfde
-// moment" is dezelfde SPEELMINUUT (niet dezelfde milliseconde): twee wissels die je 20 seconden
-// na elkaar intikt horen ook bij dezelfde herschikking. Pauzewissels groeperen enkel met
+// moment" is een VENSTER van drie kwartier minuut, niet dezelfde milliseconde: twee wissels die je
+// 20 seconden na elkaar intikt horen bij dezelfde herschikking. Pauzewissels groeperen enkel met
 // pauzewissels van hetzelfde deel. Alles wat geen posSwap is blijft ongemoeid; de onderliggende
 // events blijven apart bestaan, enkel de weergave voegt samen.
+//
+// EEN VENSTER, GEEN MINUUTVAKJE (Tim, 27-09-2026, met een schermafbeelding van vier regels waar er
+// twee hoorden). Dit toetste of twee wissels in dezelfde HELE minuut vielen, en dat is iets anders
+// dan "kort na elkaar": op 53:48 en 54:06 liggen ze achttien seconden uit elkaar en tóch in twee
+// verschillende minuten. Eén herschikking viel zo uiteen in twee regels, en op het scherm stond er
+// twee keer "Positiewissels" onder elkaar met hetzelfde minuutgetal ervoor.
+//
+// GEMETEN VANAF DE EERSTE VAN DE REEKS, niet vanaf de vorige (`vorige.gameTimeMs` is de tijd van het
+// eerste event en wordt onderweg niet bijgewerkt). Anders kan een reeks van telkens veertig seconden
+// ongemerkt minuten doorlopen en belandt er van alles op één regel wat niets met elkaar te maken
+// heeft. Tims vraag daarover was terecht: twee wissels met twee minuten ertussen blijven apart.
+const POSSWAP_VOUW_MS = 45000;
 function groepeerPosSwaps(list) {
   const uit = [];
-  const minuut = ms => Math.floor((ms || 0) / 60000);
   for (const e of list) {
     const vorige = uit[uit.length - 1];
     const zelfdeMoment = vorige && vorige.type === 'posSwapReeks'
       && !!vorige.atBreak === !!e.atBreak
       && vorige.quarterNum === e.quarterNum
-      && (vorige.atBreak || minuut(vorige.gameTimeMs) === minuut(e.gameTimeMs));
+      && (vorige.atBreak || Math.abs((e.gameTimeMs || 0) - (vorige.gameTimeMs || 0)) <= POSSWAP_VOUW_MS);
     // Een verhuizing naar een lege plek (geen pB) hoort niet in een reeks: die reeks rekent ruilen door
     // om per speler het eindpunt te vinden, en een verhuizing is geen ruil. Ze blijft dus een eigen
     // regel, die posSwapBeweging als één beweging toont.

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.63.3
+
+**Positiewisselingen van hetzelfde moment vielen soms toch uiteen in twee regels.** De tijdlijn vouwde
+ze samen wanneer ze in dezelfde hele minuut vielen, en dat is iets anders dan kort na elkaar: op 53:48
+en 54:06 liggen twee wisselingen achttien seconden uit elkaar en tóch in twee verschillende minuten.
+Eén herschikking stond dan als twee regels onder elkaar, met hetzelfde minuutgetal ervoor.
+
+Ze vouwen nu samen binnen een venster van **45 seconden**, gerekend vanaf de eerste wisseling van de
+reeks. Twee wisselingen met twee minuten ertussen blijven dus gescheiden, en een reeks kan niet stap
+voor stap aangroeien tot iets wat minuten overspant. Een gewone wissel tussen twee positiewisselingen
+breekt de reeks nog altijd, want een reeks wordt doorgerekend om per speler zijn eindplek te vinden en
+dat klopt niet meer zodra er iemand van het veld gaat.
+
+---
+
 ## v1.63.2
 
 **Winst, gelijk en verlies staan weer even breed.** In de samenvatting bovenaan de statistieken stonden
