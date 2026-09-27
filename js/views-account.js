@@ -1090,12 +1090,31 @@ async function bewaarGebruikerNaam(uid, wissen) {
   if (!wissen && !naam) { showToast('Geef een naam in.', 'err'); return; }
   try {
     await fbdb.ref('userNames/' + uid).set(naam || null);
+    // OOK METEEN IN DE LEDENLIJST VAN ZIJN PLOEGEN (Tim, 27-09-2026: "ja ik wil dat ook"). Een
+    // ploegbeheerder leest `memberInfo`, niet deze tak — en hij mag deze tak ook niet lezen, want dan
+    // kon iedereen met een account de namen van de hele app opvragen. Daarom duwen we de naam hier
+    // naar de plek waar zijn lijst toch al kijkt. De eigenaar mag daar schrijven (zie de regels op
+    // memberInfo/$teamId), dus dit vraagt geen enkel extra recht.
+    // Blijft staan bij zijn volgende aanmelding: writeMemberInfo leest sindsdien eerst `userNames`.
+    // Wis je de naam, dan zetten we terug wat hij zélf bij het registreren invulde.
+    const terug = ((( _allUsersData || {}).ube || {})[uid] || {}).name || '';
+    const teZetten = naam || terug;
+    const zijnPloegen = ((_allUsersData || {}).ploegen || []).filter(p => (p.members || {})[uid]);
+    let mislukt = 0;
+    for (const p of zijnPloegen) {
+      try { await fbdb.ref('memberInfo/' + p.tid + '/' + uid + '/name').set(teZetten); }
+      catch (e) { mislukt++; }
+      const mi = ((_allUsersData.miAlle || {})[p.tid] || {})[uid];
+      if (mi) mi.name = teZetten;
+    }
     if (_allUsersData) {
       _allUsersData.userNames = _allUsersData.userNames || {};
       if (naam) _allUsersData.userNames[uid] = naam; else delete _allUsersData.userNames[uid];
     }
     closeModal(); allUsersTeken();
-    showToast(naam ? 'Naam aangepast.' : 'Zijn eigen naam staat er weer.', 'ok');
+    const waar = zijnPloegen.length ? ` Ook in de ledenlijst van ${zijnPloegen.length === 1 ? 'zijn ploeg' : 'zijn ' + zijnPloegen.length + ' ploegen'}.` : '';
+    if (mislukt) showToast(`Naam aangepast, maar bij ${mislukt} ${mislukt === 1 ? 'ploeg' : 'ploegen'} lukte het niet — daar staat nog de oude.`, 'err');
+    else showToast((naam ? 'Naam aangepast.' : 'Zijn eigen naam staat er weer.') + waar, 'ok');
   } catch (e) {
     // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat in gewone woorden.
     showToast('Opslaan lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live.', 'err');

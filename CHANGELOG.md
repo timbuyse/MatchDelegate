@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.1
+
+**Een naam die jij rechtzet, staat nu ook in de ledenlijst van zijn ploegen.** Bewaar je hem bij
+*Alle gebruikers*, dan schrijft de app hem meteen door naar elke ploeg waar die persoon lid is — de
+melding zegt hoeveel dat er zijn. Een ploegbeheerder ziet dus dezelfde naam als jij, zonder dat hij
+iets moet doen.
+
+**En hij blijft staan.** De app schrijft bij elke ploegkeuze de naam van een lid weg, en dat was tot
+nu wat die persoon zélf bij het registreren invulde — jouw correctie verdween daardoor bij zijn
+eerstvolgende aanmelding. Nu kijkt ze eerst of er een rechtgezette naam bestaat.
+
+> Dit vraagt **geen** extra leesrechten. Een ploegbeheerder leest gewoon zijn eigen ledenlijst, zoals
+> altijd. De lijst met rechtgezette namen zelf blijft voor jou alleen — anders kon iedereen met een
+> account de namen van de hele app opvragen.
+
+---
+
 ## v1.75.0
 
 **De ledenlijst kan nu op achternaam.** Bovenaan staat een schakelaar *Op rol · Op achternaam*. "Op

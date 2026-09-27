@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.75.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.75.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3204,11 +3204,22 @@ async function vulClubLogoAan(teamId, clubId) {
 }
 
 // Naam + e-mail van een lid bewaren zodat de beheerder de kijkers kan zien.
-function writeMemberInfo(teamId, role) {
-  if (!currentUser || !fbdb || !teamId) return Promise.resolve();
+// EEN DOOR DE EIGENAAR RECHTGEZETTE NAAM BLIJFT STAAN (v1.75.1). Deze functie loopt bij élke keuze
+// van een ploeg en schreef daar `displayName` — wat de gebruiker zelf bij het registreren invulde.
+// Zette de eigenaar zijn naam recht, dan wiste de eerstvolgende aanmelding die correctie stil weer
+// uit. Nu kijkt ze eerst in `userNames/<uid>`: iedereen mag zijn EIGEN regel daar lezen (zie de
+// rules), dus dit vraagt geen extra rechten. Mislukt die lees, dan blijft alles zoals het was.
+async function writeMemberInfo(teamId, role) {
+  if (!currentUser || !fbdb || !teamId) return;
+  let naam = currentUser.displayName || '';
+  try {
+    const s = await fbOnce(fbdb.ref('userNames/' + currentUser.uid));
+    const v = (s.val() || '').trim();
+    if (v) naam = v;
+  } catch (e) { /* regels nog niet live of geen leesrecht: gewoon zijn eigen naam */ }
   return fbdb.ref('memberInfo/' + teamId + '/' + currentUser.uid).set({
     email: currentUser.email || '',
-    name: currentUser.displayName || '',
+    name: naam,
     // EEN GAST IS OOK EEN LID (v1.74.0). Wie een gastlink of gastcode gebruikt, wordt door
     // joinTeamByToken als gewoon 'viewer' ingeschreven — dat is hoe hij leesrecht op de wedstrijden
     // krijgt. Hij heeft geen naam en geen e-mailadres, dus hij belandde in de ledenlijst als
