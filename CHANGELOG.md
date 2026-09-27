@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.66.0
+
+**Een vast knopje "Gespeeld" naast het filterteken bij de wedstrijden.** Eén tik en je ziet enkel de
+gespeelde wedstrijden; nog een tik en alles staat er weer. Voordien zat die keuze drie tikken diep in
+het filterpaneel.
+
+Het knopje verschijnt alleen als er ook echt gespeelde wedstrijden zijn. Het is geen apart filter maar
+dezelfde keuze op status, dus de teller "x van y", het paneel en *Filter wissen* blijven kloppen — en
+kies je in het paneel iets anders bij Status, dan gaat het knopje vanzelf weer uit.
+
+---
+
 ## v1.65.0
 
 **"WM Cup" is een echte soort wedstrijd geworden.** Ze staat in de keuzelijst onder Beker en boven

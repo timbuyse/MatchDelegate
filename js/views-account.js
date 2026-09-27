@@ -4768,9 +4768,20 @@ const MATCH_FILTER_LABEL = {
 };
 function matchFilterChipsHtml() {
   return Object.keys(MATCH_FILTER_LEEG)
-    .filter(k => matchFilter[k] !== 'all')
+    // "Gespeeld" niet twee keer: daarvoor staat het vaste knopje hieronder al, en dat licht dan op.
+    // Elke andere keuze op status (gepland, live, niet afgesloten, geannuleerd) krijgt wél zijn kaartje.
+    .filter(k => matchFilter[k] !== 'all' && !(k === 'status' && matchFilter[k] === 'done'))
     .map(k => `<span class="start-chip on" onclick="modalMatchFilter()">${esc(MATCH_FILTER_LABEL[k](matchFilter[k]))}</span>`)
     .join('');
+}
+// SNELKNOP "GESPEELD" (Tim, 27-09-2026). De meest gevraagde filter stond drie tikken diep: paneel
+// openen, status kiezen, sluiten. Nu staat ze als knopje naast het filterteken en schakelt ze met één
+// tik aan en uit. Het is geen apart filter maar dezelfde status-keuze, dus het paneel, de teller en
+// "Filter wissen" blijven vanzelf kloppen — en wie in het paneel "Gepland" kiest, ziet het knopje
+// weer uitgaan.
+function toggleGespeeldFilter() {
+  matchFilter.status = (matchFilter.status === 'done') ? 'all' : 'done';
+  loadMatches();
 }
 // De keuzes komen uit de wedstrijden zelf, niet uit een vaste lijst: een seizoen of ploeglabel dat
 // niet voorkomt, hoort niet in het menu te staan. Enkel de soort toont ook de drie standaardwaarden,
@@ -5274,9 +5285,14 @@ async function loadMatches() {
   // — terwijl de tegel op het beginscherm er drie meldde. Dat leest als "mijn wedstrijden zijn
   // verdwenen" (audit 23-08-2026). Filtert de filter álles weg, dan stond er al een knop
   // "Filter wissen"; dit gat zat in het geval dat er nog iets overblijft.
+  // Het vaste knopje "Gespeeld" naast het filterteken — enkel wanneer er ook echt gespeelde
+  // wedstrijden zijn, want een knop die gegarandeerd een lege lijst oplevert helpt niemand.
+  const gespeeldKnop = perPloeg.some(m => m.status === 'done')
+    ? `<span class="start-chip${matchFilter.status === 'done' ? ' on' : ''}" onclick="toggleGespeeldFilter()">${icI(IC.done)} Gespeeld</span>` : '';
   const filterBtn = (perPloeg.length > 3 || n > 0)
     ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <button class="btn btn-pale btn-sm" style="width:auto;padding:6px 11px;margin:0" title="Filter" onclick="modalMatchFilter()">${icI(IC.filter)}${n ? '' : ' Filter'}</button>
+        ${gespeeldKnop}
         ${matchFilterChipsHtml()}
         ${n ? `<span style="font-size:12px;color:var(--txt2)">${list.length} van ${perPloeg.length}</span>` : ''}
       </div>` : '';
