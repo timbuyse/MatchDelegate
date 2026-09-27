@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.74.1
+
+**Geen twee keer "niet gekend" meer.** In het hoekje *zonder naam* is élke regel naamloos — dat er
+geen naam en geen e-mailadres is, hoeft daar niet twee keer per regel te staan. Er staat nu wat die
+persoon wél is: *Gast · volgt mee via een gastlink*, of *Onbekend lid · gast, of iemand die de app
+nooit opende*.
+
+**En elk zo'n regel draagt een kort kenmerk**, zoiets als `#a3f91c`. Zonder naam waren twee gasten
+niet uit elkaar te houden — en bij *Eerder verwijderd* werd *toegang herstellen* dan gokken welke van
+de twee je terugzet. Datzelfde kenmerk staat nu op allebei de plaatsen, en je kan er ook op zoeken.
+
+---
+
 ## v1.74.0
 
 **De ledenlijst is weer leesbaar.** Wie een gastlink gebruikt om een wedstrijd te volgen, wordt door

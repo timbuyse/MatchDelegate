@@ -2369,8 +2369,14 @@ async function showMembersModal() {
       const mi = info[uid] || {};
       const isGast = mi.role === 'guest';
       const naamloos = !mi.name && !mi.email;
-      const naam = mi.name || (isGast ? 'Gast' : '(naam nog niet gekend)');
-      const email = mi.email || (isGast ? 'volgt mee via een gastlink' : '(e-mail nog niet gekend)');
+      // ZEG NIET TWEE KEER DAT ER NIETS IS (Tim, 27-09-2026: "naam niet gekend en mailadres niet
+      // gekend, dat is toch logisch bij gasten"). In de uitklapper hieronder is élke regel naamloos —
+      // dat twee keer per regel herhalen is ruis. In de plaats: wat hij wél is, plus een kort
+      // kenmerk uit zijn gebruikerscode. Dat laatste is het enige waarmee je twee naamloze regels uit
+      // elkaar houdt, en het is ook wat je terugvindt bij "Eerder verwijderd" als je er een weghaalt.
+      const kenmerk = '#' + String(uid).slice(-6);
+      const naam = mi.name || (isGast ? 'Gast' : 'Onbekend lid');
+      const email = mi.email || (isGast ? 'volgt mee via een gastlink' : 'gast, of iemand die de app nooit opende');
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
         : isGast
@@ -2401,9 +2407,9 @@ async function showMembersModal() {
         : `${koppelBtn}${uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
           : ''}`;
-      return { uid, naamloos, html: `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      return { uid, naamloos, html: `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email + ' ' + kenmerk).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
+          <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b>${naamloos ? ` <small style="color:var(--txt2);font-weight:400;font-family:monospace">${esc(kenmerk)}</small>` : ''}<br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
           ${badge}
         </div>
         ${koppelRegel}
@@ -2437,11 +2443,16 @@ async function showMembersModal() {
     const removedUids = Object.keys(removed).filter(u => !members[u]);
     const removedRows = removedUids.map(uid => {
       const r = removed[uid] || {};
-      const naam = r.name || (info[uid] || {}).name || '(naam niet bewaard)';
       const email = r.email || (info[uid] || {}).email || '';
+      // Zonder naam kan je twee geweerde gasten niet uit elkaar houden — en dan is "toegang
+      // herstellen" gokken welke van de twee je terugzet. Hetzelfde kenmerk als in de uitklapper
+      // hierboven, zodat je de regel die je net weghaalde hier terugvindt.
+      const kenmerk = '#' + String(uid).slice(-6);
+      const naamRuw = r.name || (info[uid] || {}).name || '';
+      const naam = naamRuw || 'Zonder naam';
       const wanneer = r.at ? new Date(r.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;opacity:.75">
-        <div><b>${esc(naam)}</b>${email ? `<br><small style="color:var(--txt2)">${esc(email)}</small>` : ''}${wanneer ? `<br><small style="color:var(--txt2)">verwijderd op ${esc(wanneer)}</small>` : ''}</div>
+      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email + ' ' + kenmerk).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;opacity:.75">
+        <div><b>${esc(naam)}</b>${naamRuw ? '' : ` <small style="color:var(--txt2);font-weight:400;font-family:monospace">${esc(kenmerk)}</small>`}${email ? `<br><small style="color:var(--txt2)">${esc(email)}</small>` : ''}${wanneer ? `<br><small style="color:var(--txt2)">verwijderd op ${esc(wanneer)}</small>` : ''}</div>
         <div style="display:flex;gap:6px"><button class="btn btn-pale btn-sm" onclick="herstelToegang('${uid}')">Toegang herstellen</button></div>
       </div>`;
     });
