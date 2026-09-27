@@ -446,7 +446,20 @@
     /* Brede tegel zonder ondertitel (Agenda): icoon en naam naast elkaar, zodat ze lager blijft
        dan de vierkante tegels erboven. */
     .tile-breed{flex-direction:row;justify-content:center;gap:8px;padding:10px 6px}
-    .tile-breed .tile-fi{margin:0;font-size:18px}
+    /* HET TEKEN OP ÉÉN LIJN MET DE NAAM (Tim, 27-09-2026: "staat niet mooi naast de naam, lijkt iets
+       te hoog"). Het hokje eromheen was een blok met line-height 1, en het tekentje erin hing als
+       inline-element aan de basislijn — met daarbovenop de -.1em van .ic-i svg. Naast een woord van
+       14px viel het daardoor een paar pixels te hoog uit. Als flexvakje met align-items:center staat
+       het midden op het hokje, en dat hokje staat door .tile al midden op de rij. */
+    .tile-breed .tile-fi{margin:0;font-size:18px;display:flex;align-items:center}
+    /* En dan nog een halve pixel naar beneden (Tim, 27-09-2026: "lijkt nog een tikkeltje te hoog").
+       De hokjes stonden na de regel hierboven exact op elkaar gecentreerd, maar de INKT niet: de
+       tekening is 10,5px hoog en de letters 10px, en hun optische middens scheelden 0,5px. Gemeten op
+       de bounding box van de tekening tegenover de werkelijke boven- en onderkant van de letters.
+       Als transform en niet als marge: die wordt niet op hele pixels afgerond, dus het blijft een
+       halve pixel op elk scherm. */
+    .tile-breed .tile-fi{transform:translateY(.5px)}
+    .tile-breed .tile-fi svg{vertical-align:0}
     .tile .tc{font-size:12px;color:var(--txt2);font-weight:600}
     /* Live: speeltijd-nudge + keeperkeuze */
     .nudge{background:var(--orgp);color:var(--org2);border:1px solid var(--orgb);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:13px;font-weight:600;line-height:1.4}

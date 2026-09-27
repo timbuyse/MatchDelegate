@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.0
+
+**De ledenlijst kan nu op achternaam.** Bovenaan staat een schakelaar *Op rol · Op achternaam*. "Op
+rol" is wat het altijd was, met de ploegbeheerders eerst; "op achternaam" gebruikt dezelfde regel als
+elke andere lijst in de app, dus je zoekt een naam altijd op dezelfde plaats.
+
+**Als eigenaar kan je de naam van een gebruiker rechtzetten.** Bij *Alle gebruikers* staat onder elke
+persoon de knop *Naam wijzigen*. Namen komen uit wat iemand zélf invulde bij het registreren, en daar
+staat geregeld een roepnaam of niets. Jouw versie krijgt voorrang, ook nadat hij zich opnieuw
+aanmeldt, en er staat *(door jou gezet)* bij zodat je het verschil ziet. Eén tik zet zijn eigen naam
+terug.
+
+> Dit verandert niets aan wat de gebruiker zelf in zijn profiel ziet, en niets aan de ledenlijst van
+> een ploeg. Het is jouw naam bij dat account, voor je eigen overzicht.
+
+**De tegel van je kind draagt een spelerskaart.** Een kaartje met een poppetje en twee regeltjes
+ernaast. Het staafjesteken stond er vlak boven al op *Statistieken*, en twee keer hetzelfde onder
+elkaar las slordig.
+
+**En dat tekentje stond net iets te hoog naast de naam.** Het hing aan een tekstbasislijn met een
+correctie erop, die naast een woord averechts werkt. Gemeten op de letters zelf, niet op de hokjes:
+van een halve pixel te hoog naar precies op het midden. Geldt ook voor de tegel *Agenda*, die
+dezelfde opmaak gebruikt.
+
+Er hoort een nieuw stukje Firebase-regels bij (`userNames`). Zolang dat niet gepubliceerd is, blijft
+*Alle gebruikers* gewoon werken en zegt het naamvenster dat opslaan nog niet lukt.
+
+---
+
 ## v1.74.2
 
 **De tegel met de naam van je kind draagt nu het statistieken-teken.** Er stond een shirt, en dat

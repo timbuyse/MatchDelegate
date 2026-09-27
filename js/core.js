@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.74.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.75.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -506,6 +506,12 @@ const IC = {
   code:      _svg('<path d="M7 8l-4 4l4 4M17 8l4 4l-4 4M14 4l-4 16"/>'),
   fileText:  _svg('<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 9l1 0M9 13l6 0M9 17l6 0"/>'),
   archive:   _svg('<path d="M3 4h18v4h-18z"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-11"/><path d="M10 12h4"/>'),
+  // Een spelerskaart: een kaartje met een poppetje en twee regeltjes ernaast (Tims keuze, 27-09-2026).
+  // Staat op de tegel van een gekoppelde speler. Bewust NIET het staafjesteken van `chart`: dat staat
+  // er vlak boven op de tegel Statistieken, en twee keer hetzelfde vlak onder elkaar leest slordig.
+  // Niet nagetekend — de vorm komt uit dezelfde iconenfamilie als de rest, enkel de lijndikte van deze
+  // set is overgenomen (zie _svg hierboven).
+  idCard:    _svg('<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="9" cy="12" r="3"/><path d="M13 19a4 4 0 0 0-8 0"/><path d="M16 10h2M16 14h2"/>'),
 };
 const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }

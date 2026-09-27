@@ -377,6 +377,22 @@
       }
     },
 
+    "userNames": {
+      // DE NAAM ZOALS DE EIGENAAR ZE ZET (v1.75.0). Namen komen uit usersByEmail, en die vult de
+      // gebruiker zélf in bij het registreren — daar staat geregeld een roepnaam of niets. Die index
+      // is niet te overschrijven (enkel de gebruiker zelf mag erin, en ze bindt het e-mailadres aan
+      // het token), dus dit is een laagje ernaast dat bij het TONEN voorrang krijgt.
+      // Lezen: de eigenaar, want dit voedt enkel zijn scherm "Alle gebruikers". Elke gebruiker mag
+      // zijn eigen regel lezen — zo kan de app later tonen dat er een naam voor hem gezet is, en
+      // levert een mislukte lees geen rode fout op. Schrijven: enkel de eigenaar.
+      ".read":  "auth != null && root.child('owner').val() === auth.uid",
+      ".write": "auth != null && root.child('owner').val() === auth.uid",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 80)"
+      }
+    },
+
     "lastSeen": {
       // Wanneer opende deze persoon de app voor het laatst (v1.19.0)? Eén getal per account, dat de
       // gebruiker zelf schrijft bij het openen. Voedt "vandaag/deze week actief" bij Alle gebruikers.

@@ -849,7 +849,7 @@ async function loadAllUsersView() {
     // `memberInfo` in zijn geheel vervangt de twaalf aparte oproepen van vroeger: de eigenaar mag de
     // hele tak lezen en ze bevat enkel namen en e-mailadressen (een paar KB).
     let ubeGelukt = true;
-    const [teamKeys, clubKeys, miAlle, lastSeen, ube, goedgekeurd, aanvragen] = await Promise.all([
+    const [teamKeys, clubKeys, miAlle, lastSeen, ube, goedgekeurd, aanvragen, userNames] = await Promise.all([
       fbSleutels('teams'),
       fbSleutels('clubs'),
       stil('memberInfo', {}),
@@ -858,6 +858,10 @@ async function loadAllUsersView() {
       fbOnce(fbdb.ref('usersByEmail')).then(s => s.val() || {}).catch(() => { ubeGelukt = false; return {}; }),
       stil('approvedAdmins', {}),
       stil('adminRequests', {}),
+      // DOOR DE EIGENAAR RECHTGEZETTE NAMEN (v1.75.0). Zie userNamesOverride hieronder. `stil`, dus
+      // staan de regels voor deze tak nog niet gepubliceerd, dan blijft het overzicht werken zoals
+      // voordien — je ziet dan gewoon de naam uit de accountindex.
+      stil('userNames', {}),
     ]);
     _lastSeenVal = lastSeen || {};
 
@@ -932,7 +936,7 @@ async function loadAllUsersView() {
     const waarschuwing = ploegenVolledig ? '' :
       `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De ploegenlijst kon niet opgevraagd worden. Hieronder staan enkel de ploegen die we langs een andere weg kennen — <b>er kunnen ploegen ontbreken</b>. Herlaad het scherm om het opnieuw te proberen.</p></div>`;
     const kop = gebruik + waarschuwing;
-    _allUsersData = { kop, ploegen, miAlle, clubVanPloeg, inClubLijst, eigenClubId, ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders };
+    _allUsersData = { kop, ploegen, miAlle, clubVanPloeg, inClubLijst, eigenClubId, ube, ubeGelukt, goedgekeurd, aanvragen, clubBeheerders, userNames: userNames || {} };
     allUsersTeken();
   } catch (e) {
     console.error('loadAllUsersView fout:', e);
@@ -996,6 +1000,14 @@ function allUsersPerGebruikerHtml(d) {
       u.bevestigd = !!v.verified;
     });
   }
+  // EEN DOOR JOU RECHTGEZETTE NAAM WINT (Tim, 27-09-2026: "als eigenaar de naam van een gebruiker
+  // kunnen wijzigen"). Hij moet ná de accountindex komen: die wordt bij élke aanmelding herschreven
+  // met wat de gebruiker zelf in zijn profiel zette, dus zonder deze volgorde zou jouw correctie bij
+  // zijn volgende aanmelding stil weer verdwijnen. Zie modalGebruikerNaam.
+  Object.keys(d.userNames || {}).forEach(uid => {
+    const n = (d.userNames[uid] || '').trim();
+    if (n) { const u = zorg(uid); u.naam = n; u.naamAangepast = true; }
+  });
   // Op naam of op laatst actief, naargelang de schakelaar — zie allUsersSorteer.
   const lijst = allUsersSorteer([...per.values()]);
   const kaarten = lijst.map(u => {
@@ -1031,12 +1043,13 @@ function allUsersPerGebruikerHtml(d) {
       + ploegen.map(p => p.titel).join(' ') + (ploegen.length ? '' : ' zonder ploeg')).toLowerCase();
     return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
       <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
+        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b>${u.naamAangepast ? ` <small style="color:var(--txt2);font-weight:400">(door jou gezet)</small>` : ''}<br><small style="color:var(--txt2)">${adres}</small></span>
         ${telBadge}
       </summary>
       <div style="margin-top:10px">
         ${merken ? `<div style="margin-bottom:8px">${merken}</div>` : ''}
         ${samenvatting}${rijen}
+        <button class="btn btn-pale btn-sm" style="margin-top:10px;width:100%" onclick="modalGebruikerNaam('${u.uid}')">${icI(IC.edit)} Naam wijzigen</button>
       </div>
     </details>`;
   });
@@ -1045,6 +1058,49 @@ function allUsersPerGebruikerHtml(d) {
   return noot + (kaarten.length ? kaarten.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen gebruikers.</p>');
 }
 
+// ===================== DE NAAM VAN EEN GEBRUIKER RECHTZETTEN (eigenaar) =====================
+// Tim, 27-09-2026. Namen komen uit de accountindex, en die vult de gebruiker zélf in bij het
+// registreren — daar staat geregeld een roepnaam, een half adres of niets. Als eigenaar kan je dat nu
+// rechtzetten voor je eigen overzicht.
+//
+// EEN APARTE TAK, want de accountindex is niet te overschrijven: de regels laten daar enkel de
+// gebruiker zelf toe, en met goede reden (hij bindt het e-mailadres aan het token). `userNames/<uid>`
+// is dus een laagje ernaast: jij schrijft, en bij het tonen wint het van de index.
+//
+// WAT HET NIET DOET: het verandert niets aan de naam die de gebruiker zelf in zijn profiel ziet, en
+// niets aan de ledenlijst van een ploeg — die leest `memberInfo`. Het is jouw notitie bij zijn
+// account, geen hernoeming.
+function modalGebruikerNaam(uid) {
+  if (!isOwner || !fbdb || !uid) return;
+  const d = _allUsersData || {};
+  const huidig = ((d.userNames || {})[uid] || '').trim();
+  const uitIndex = (((d.ube || {})[uid] || {}).name || '').trim();
+  openModal(`<h3>${icI(IC.edit)} Naam wijzigen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Zoals hij in <b>Alle gebruikers</b> getoond wordt. ${uitIndex ? `Hij registreerde zich als <b>${esc(uitIndex)}</b>.` : 'Hij vulde zelf geen naam in.'}</p>
+    <div class="fg"><label>Naam</label><input id="gn-naam" type="text" value="${esc(huidig || uitIndex)}" placeholder="Voornaam Naam" autocomplete="off"></div>
+    <p style="font-size:12px;color:var(--txt2);margin:0 0 10px">Dit verandert niets aan wat de gebruiker zelf in zijn profiel ziet, en niets aan de ledenlijst van een ploeg. Het is jouw naam bij dit account.</p>
+    <button class="btn btn-green" onclick="bewaarGebruikerNaam('${uid}')">${icI(IC.check)} Bewaren</button>
+    ${huidig ? `<button class="btn btn-pale" style="margin-top:8px" onclick="bewaarGebruikerNaam('${uid}', true)">${icI(IC.undo)} Terug naar zijn eigen naam</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  setTimeout(() => { const i = document.getElementById('gn-naam'); if (i) { i.focus(); i.select(); } }, 50);
+}
+async function bewaarGebruikerNaam(uid, wissen) {
+  if (!isOwner || !fbdb || !uid) return;
+  const naam = wissen ? '' : ((document.getElementById('gn-naam') || {}).value || '').trim();
+  if (!wissen && !naam) { showToast('Geef een naam in.', 'err'); return; }
+  try {
+    await fbdb.ref('userNames/' + uid).set(naam || null);
+    if (_allUsersData) {
+      _allUsersData.userNames = _allUsersData.userNames || {};
+      if (naam) _allUsersData.userNames[uid] = naam; else delete _allUsersData.userNames[uid];
+    }
+    closeModal(); allUsersTeken();
+    showToast(naam ? 'Naam aangepast.' : 'Zijn eigen naam staat er weer.', 'ok');
+  } catch (e) {
+    // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat in gewone woorden.
+    showToast('Opslaan lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live.', 'err');
+  }
+}
 // Filtert de secties op naam/e-mail; een matchende sectie klapt open, de rest verdwijnt.
 function filterAllUsersView(q) {
   const query = (q || '').trim().toLowerCase();
@@ -2313,11 +2369,18 @@ async function requestCoAdmin() {
 }
 
 // ---- Kijkers van de actieve ploeg tonen (enkel beheerder) ----
+// Hoe de ledenlijst gerangschikt staat. 'rol' is de oude volgorde (beheerders eerst) en blijft de
+// standaard; 'naam' sorteert op achternaam. Niet bewaard tussen sessies — zelfde afweging als bij de
+// filter op de wedstrijdenlijst: een volgorde die je bij het openen niet ziet staan, verwart.
+let membersSort = 'rol';
+function setMembersSort(s) { membersSort = (s === 'naam') ? 'naam' : 'rol'; showMembersModal(); }
 async function showMembersModal() {
   const tid = activeTeamId;
   if (!tid || !isAdmin) return;
   const teamName = getClubName() || 'deze ploeg';
+  const sbtn = (s, l) => `<button type="button" class="${membersSort === s ? 'act' : ''}" onclick="setMembersSort('${s}')">${l}</button>`;
   openModal(`<h3>${icI(IC.players)} Leden — ${esc(teamName)}</h3>
+    <div class="tgl" style="margin:0 0 8px">${sbtn('rol', 'Op rol')}${sbtn('naam', 'Op achternaam')}</div>
     <div class="fg" style="margin-bottom:10px"><input id="members-search" type="text" placeholder="Zoek op naam of e-mail..." oninput="filterMembersList(this.value)"></div>
     <div id="members-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
@@ -2352,9 +2415,14 @@ async function showMembersModal() {
         if (d) info[u] = { name: d.displayName || d.name || '', email: d.email || '' };
       } catch (e) {}
     }));
-    // Sorteer: beheerders eerst, dan kijkers
-    const uids = Object.keys(members).sort((a, b) =>
-      (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
+    // OP ROL OF OP ACHTERNAAM (Tim, 27-09-2026). "Op rol" is wat het altijd was: beheerders eerst.
+    // "Op achternaam" gebruikt dezelfde regel als elke spelerslijst in de app (byLastNameNl): op de
+    // FAMILIENAAM, met de voornaam als tiebreaker — zo zoek je een naam altijd op dezelfde plaats.
+    // Wie geen naam heeft, zakt daar naar onderen; die regels verhuizen toch naar de uitklapper.
+    const memberNaam = u => ((info[u] || {}).name || '').trim();
+    const uids = Object.keys(members).sort((a, b) => membersSort === 'naam'
+      ? (memberNaam(a) ? 0 : 1) - (memberNaam(b) ? 0 : 1) || byLastNameNl({ name: memberNaam(a) }, { name: memberNaam(b) })
+      : (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
     // NAAMLOZE LEDEN APART (Tim, 27-09-2026, met een schermafbeelding van zijn ledenlijst: "die
     // hebben daar geen meerwaarde"). Wie een GASTLINK gebruikt, wordt door joinTeamByToken als gewoon
     // 'viewer' ingeschreven — zo krijgt hij leesrecht — maar hij heeft geen naam en geen e-mailadres.
@@ -2584,11 +2652,11 @@ function mijnSpelerTegelHtml() {
     : 'modalMijnSpelers()';
   // Over de volle breedte, net als de agenda eronder: met vier vaste tegels zou een vijfde een gat
   // naast zich laten staan. En voor een ouder is dít de tegel waarvoor hij de app opent.
-  // HET STATISTIEKEN-ICOON EN NIET HET SHIRT (Tim, 27-09-2026). Achter deze tegel zitten cijfers,
-  // geen opstelling — en het shirt betekent elders in de app "een speler op het veld". Dat het
-  // dezelfde tekening is als de tegel Statistieken erboven, is hier net de bedoeling: het zegt dat je
-  // naar hetzelfde soort scherm gaat, maar dan van één iemand. De naam op de tegel houdt ze uit elkaar.
-  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span>`
+  // EEN SPELERSKAART (Tims keuze, 27-09-2026, uit drie voorstellen). Niet het shirt — dat betekent
+  // elders in de app "een speler op het veld", en achter deze tegel zitten cijfers. En niet de
+  // staafjes van `chart`: die staan vlak erboven op de tegel Statistieken, en twee keer hetzelfde
+  // teken onder elkaar leest slordig.
+  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
     + `<span class="tl">${esc(een ? lijst[0].naam : 'Mijn spelers')}</span>`
     + `${een ? '' : `<span class="tc">${lijst.length} spelers</span>`}</button>`;
 }
