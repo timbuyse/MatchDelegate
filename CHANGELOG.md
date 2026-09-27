@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.3
+
+**Bij *Alle gebruikers* staan de naamloze accounts samen onderaan**, in één uitklapper *N zonder
+naam* — net als in de ledenlijst van een ploeg. Het gaat om gasten die een wedstrijd volgden via een
+gastlink en om mensen die zich registreerden maar nooit verder geraakten. Elk zo'n account krijgt een
+kort kenmerk, zodat je ze uit elkaar houdt, en wie als gast binnenkwam heet gewoon *Gast*.
+
+Zoeken werkt er gewoon door: zit de persoon die je zoekt in dat hoekje, dan klapt het vanzelf open;
+zoek je iemand anders, dan verdwijnt het.
+
+**"E-mailadres niet bevestigd" staat niet meer op de dichtgeklapte regel bij *Alle gebruikers*.** Het
+stond achter élk adres van iemand die zich nooit via de mail bevestigd heeft — en dat zijn er veel —
+waardoor het de e-mail wegduwde en de lijst onrustig maakte. Het staat nu in de kaart zelf, die je
+opent door op de naam te tikken. Daar hoort het ook: je hebt het nodig vlak vóór je iemand rechten
+geeft, en dan sta je met die kaart open.
+
+---
+
 ## v1.75.2
 
 **Het merkje *(door jou gezet)* staat niet meer achter een naam.** Het moest tonen welke namen van jou

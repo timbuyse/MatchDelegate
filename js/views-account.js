@@ -987,6 +987,9 @@ function allUsersPerGebruikerHtml(d) {
       const u = zorg(uid);
       if (!u.naam) u.naam = (info[uid] || {}).name || '';
       if (!u.email) u.email = (info[uid] || {}).email || '';
+      // Het gastmerkje van v1.74.0. Iemand die één keer als gast binnenkwam maar later een echt
+      // account gebruikt, blijft gewoon staan waar hij hoort: naam en e-mail wegen hieronder zwaarder.
+      if ((info[uid] || {}).role === 'guest') u.gast = true;
       u.ploegen.push({ titel, rol: p.members[uid] });
     });
   });
@@ -1010,6 +1013,11 @@ function allUsersPerGebruikerHtml(d) {
   });
   // Op naam of op laatst actief, naargelang de schakelaar — zie allUsersSorteer.
   const lijst = allUsersSorteer([...per.values()]);
+  // NAAMLOZE ACCOUNTS ONDERAAN, SAMEN (Tim, 27-09-2026) — dezelfde opkuis als in de ledenlijst van een
+  // ploeg (v1.74.0), en om dezelfde reden: wie een gastlink gebruikt, krijgt een echt account en dus
+  // een eigen kaart, en het is er één per toestel. Zonder naam én zonder e-mailadres valt er over zo
+  // iemand niets te zeggen, dus hij hoort niet tussen de mensen die je wél kent.
+  const isNaamloos = u => !u.naam && !u.email;
   const kaarten = lijst.map(u => {
     // Beheerder eerst, dan op naam: bij iemand met tien ploegen wil je meteen zien waar hij mag schrijven.
     const ploegen = u.ploegen.slice().sort((a, b) =>
@@ -1022,9 +1030,15 @@ function allUsersPerGebruikerHtml(d) {
       (d.goedgekeurd || {})[u.uid] ? `<span class="ts-role admin">${icI(IC.check)} Mag ploegen aanmaken</span>` : '',
       (d.aanvragen || {})[u.uid] ? `<span class="ts-role viewer">${icI(IC.hourglass)} Aanvraag open</span>` : '',
     ].filter(Boolean).join(' ');
-    const adres = (u.email
-      ? esc(u.email) + (u.bevestigd ? '' : ' <span style="color:var(--org2)">· e-mail nog niet bevestigd</span>')
+    // "NIET BEVESTIGD" PAS ALS JE DE KAART OPENT (Tim, 27-09-2026: "staat in mijn weg bij alle
+    // gebruikers"). Op de dichtgeklapte regel stond het achter élk adres van iemand die zich nooit
+    // via de mail bevestigd heeft, en dat zijn er veel — het duwde de e-mail weg en maakte de lijst
+    // onrustig terwijl het zelden iets is waar je nú iets mee doet. Het hoort thuis waar je het wél
+    // nodig hebt: vlak vóór je iemand promoveert, en dan sta je met de kaart open.
+    const adres = (u.email ? esc(u.email)
       : '<span style="color:var(--org2)">geen e-mailadres bekend</span>') + lastSeenRegel(u.uid);
+    const nietBevestigd = (u.email && !u.bevestigd)
+      ? `<p style="font-size:12px;color:var(--org2);margin:0 0 8px">${icI(IC.warn)} Dit e-mailadres is nooit bevestigd. De naam hierboven steunt dus op niets — hou daar rekening mee vóór je deze persoon rechten geeft.</p>` : '';
     const telBadge = ploegen.length
       ? `<span class="ts-role ${nAdmin ? 'admin' : 'viewer'}" style="flex-shrink:0">${ploegen.length} ${ploegen.length === 1 ? 'ploeg' : 'ploegen'}</span>`
       : `<span class="ts-role viewer" style="flex-shrink:0">geen ploeg</span>`;
@@ -1039,7 +1053,12 @@ function allUsersPerGebruikerHtml(d) {
     const samenvatting = ploegen.length
       ? `<p style="color:var(--txt2);font-size:12px;margin:0 0 8px">${nAdmin ? nAdmin + '× ploegbeheerder' : ''}${(nAdmin && nKijk) ? ' · ' : ''}${nKijk ? nKijk + '× kijker' : ''}</p>`
       : '';
-    const zoekBlob = ((u.naam || '') + ' ' + (u.email || '') + ' '
+    // Zonder naam én zonder e-mail: dan is de gebruikerscode het enige waarmee je twee van die
+    // accounts uit elkaar houdt — zelfde kenmerk als in de ledenlijst van een ploeg.
+    const naamloos = isNaamloos(u);
+    const kenmerk = '#' + String(u.uid).slice(-6);
+    const toonNaam = u.naam || (naamloos ? (u.gast ? 'Gast' : 'Onbekend account') : '(geen naam)');
+    const zoekBlob = ((u.naam || '') + ' ' + (u.email || '') + ' ' + (naamloos ? kenmerk + ' gast ' : '')
       + ploegen.map(p => p.titel).join(' ') + (ploegen.length ? '' : ' zonder ploeg')).toLowerCase();
     return `<details class="card allusers-team" data-search="${esc(zoekBlob)}" style="margin-bottom:12px">
       <summary style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1048,19 +1067,27 @@ function allUsersPerGebruikerHtml(d) {
              — maar dat is net de vraag die je stelt op het moment dat je op "Naam wijzigen" tikt, en
              dáár staat al met zoveel woorden wat hij zelf invulde. In de lijst maakt het de regel
              alleen langer. `naamAangepast` blijft bestaan voor wie het later wél ergens nodig heeft. */ ''}
-        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(u.naam || '(geen naam)')}</b><br><small style="color:var(--txt2)">${adres}</small></span>
+        <span style="flex:1;min-width:0;font-size:14px"><b>${esc(toonNaam)}</b>${naamloos ? ` <small style="color:var(--txt2);font-weight:400;font-family:monospace">${esc(kenmerk)}</small>` : ''}<br><small style="color:var(--txt2)">${naamloos ? (u.gast ? 'volgt mee via een gastlink' : 'geen naam en geen e-mailadres') + lastSeenRegel(u.uid) : adres}</small></span>
         ${telBadge}
       </summary>
       <div style="margin-top:10px">
         ${merken ? `<div style="margin-bottom:8px">${merken}</div>` : ''}
-        ${samenvatting}${rijen}
+        ${nietBevestigd}${samenvatting}${rijen}
         <button class="btn btn-pale btn-sm" style="margin-top:10px;width:100%" onclick="modalGebruikerNaam('${u.uid}')">${icI(IC.edit)} Naam wijzigen</button>
       </div>
     </details>`;
   });
+  // De naamlozen samen onderaan, in één uitklapper. `kaarten` volgt de volgorde van `lijst`, dus de
+  // twee lijstjes hieronder blijven allebei gesorteerd zoals de schakelaar het vraagt.
+  const gewoon = kaarten.filter((_, i) => !isNaamloos(lijst[i]));
+  const naamloosKaarten = kaarten.filter((_, i) => isNaamloos(lijst[i]));
   const noot = d.ubeGelukt ? '' :
     `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De gebruikersindex kon niet gelezen worden, dus deze lijst toont <b>enkel wie bij minstens één ploeg zit</b>. Accounts zonder ploeg ontbreken.</p></div>`;
-  return noot + (kaarten.length ? kaarten.join('') : '<p style="text-align:center;color:var(--txt2)">Nog geen gebruikers.</p>');
+  const naamloosBlok = naamloosKaarten.length ? `<details class="nudge nudge-fold allusers-naamloos" style="margin-bottom:12px">
+    <summary>${icI(IC.eye)} <b>${naamloosKaarten.length} zonder naam</b></summary>
+    <div class="nudge-body"><p style="font-size:12px;color:var(--txt2);margin:0 0 10px">Accounts zonder naam én zonder e-mailadres: gasten die een wedstrijd volgden via een gastlink, en mensen die zich registreerden maar nooit verder geraakten. Eén per toestel, dus bij een club waar veel ouders live meekijken loopt dat op.</p>${naamloosKaarten.join('')}</div>
+  </details>` : '';
+  return noot + (gewoon.length ? gewoon.join('') : (naamloosKaarten.length ? '' : '<p style="text-align:center;color:var(--txt2)">Nog geen gebruikers.</p>')) + naamloosBlok;
 }
 
 // ===================== DE NAAM VAN EEN GEBRUIKER RECHTZETTEN (eigenaar) =====================
@@ -1128,11 +1155,19 @@ async function bewaarGebruikerNaam(uid, wissen) {
 // Filtert de secties op naam/e-mail; een matchende sectie klapt open, de rest verdwijnt.
 function filterAllUsersView(q) {
   const query = (q || '').trim().toLowerCase();
+  let raakInNaamloos = false;
   document.querySelectorAll('.allusers-team').forEach(sec => {
     const isMatch = !query || (sec.getAttribute('data-search') || '').includes(query);
     sec.style.display = isMatch ? '' : 'none';
-    if (query && isMatch) sec.open = true;
+    if (query && isMatch) {
+      sec.open = true;
+      if (sec.closest('.allusers-naamloos')) raakInNaamloos = true;
+    }
   });
+  // Zit de gezochte persoon in het hoekje "zonder naam", dan moet dat open — anders zoek je iemand
+  // en krijg je een leeg scherm terwijl hij er wel degelijk staat. Zonder zoekterm gaat het weer dicht.
+  const vouw = document.querySelector('.allusers-naamloos');
+  if (vouw) { vouw.style.display = (query && !raakInNaamloos) ? 'none' : ''; if (query) vouw.open = raakInNaamloos; else vouw.open = false; }
 }
 // ===================== NU ONLINE (view) =====================
 // Het overzicht waar Tim naar vroeg (29-08-2026): hoeveel mensen hebben de app nu open, en hoeveel
