@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.72.1
+
+**Bij de volgende start verschijnt er een melding over de koppeling met je kind.** Ze vertelt een
+ouder dat hij de cijfers van zijn kind kan volgen en dat hij dat aan zijn ploegbeheerder moet vragen,
+en ze zegt de beheerder waar de knop staat. Onderaan springt *Meer uitleg* naar het hoofdstuk *Als
+kijker* van de handleiding.
+
+Die melding ging tot nu **enkel naar wie ergens een ploeg of club beheert** — een bewuste keuze, want
+ze gaat meestal over gereedschap dat een kijker toch niet heeft. Deze keer is het net omgekeerd: de
+tekst is vóór de kijkers geschreven. Een melding kan daarom aangeven dat ze ook voor hen bedoeld is;
+zonder dat merkje verandert er niets aan de oude regel.
+
+---
+
 ## v1.72.0
 
 **Een kijker kan gekoppeld worden aan een speler — een ouder aan zijn kind dus.** Bij *Leden* staat

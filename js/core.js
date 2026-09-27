@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.72.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.72.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -812,6 +812,26 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  // Goedgekeurd door Tim, 27-09-2026. Dit venster komt bij ÍEDEREEN, dus de tekst spreekt allebei de
+  // kanten aan: de ouder die het moet vragen, en de beheerder die het moet geven. Het eerste punt is
+  // de handeling die de lezer zelf moet stellen — zonder die vraag gebeurt er niets, en dan zou de
+  // melding enkel iets beloven dat niet vanzelf komt.
+  // De knop "Meer uitleg" onderaan opent het hoofdstuk hieronder, op TITEL: hernoem je die pagina,
+  // hernoem ze dan hier mee, anders valt de knop stil weg.
+  '1.72': {
+    titel: 'Nieuw in MatchDelegate',
+    kop: 'Volg de cijfers van je eigen kind',
+    handleiding: 'Als kijker',
+    // Ook naar de kijkers, anders mist deze melding net haar publiek — zie magNieuwsZien.
+    ookKijkers: true,
+    intro: 'Een ouder kan vanaf nu de persoonlijke statistieken van zijn kind bekijken. Daarvoor moet je aan die speler gekoppeld worden — dat gebeurt niet vanzelf.',
+    kopPunten: 'Hoe het werkt',
+    punten: [
+      'Vraag het aan je ploegbeheerder. Alleen hij kan de koppeling leggen; je kan dat zelf niet aanzetten. Heb je twee kinderen in dezelfde ploeg, dan mag dat ook.',
+      'Daarna staat je kind op je startscherm. Eén tik op zijn naam en je ziet zijn doelpunten, assists, speelminuten, het gemiddelde per wedstrijd, winst-gelijk-verlies, kaarten en alle wedstrijden waarin hij speelde.',
+      'Ben je ploegbeheerder? Bij Beheer → Leden staat naast elke kijker de knop "Koppel aan speler". Wat die ouder daarna ziet, gaat enkel over zijn eigen kind: redenen van afwezigheid en notities blijven voor jou.',
+    ],
+  },
   // Goedgekeurd door Tim, 06-09-2026. Twee punten: de opstelling per kwart achteraf aanpassen staat
   // VOORAAN (zijn keuze), en het herschikte wedstrijdscherm plus de bevestigingen samen als tweede.
   // Er stond sinds 1.26 niets meer, dus dit is ook het eerste dat de gebruikers horen over het nieuwe
@@ -917,8 +937,14 @@ const MAJOR_GEZIEN_KEY = 'voetbal_major_gezien';
 // gereedschap, ook al kijkt hij bij deze ploeg enkel mee.
 // viewerMode telt hier bewust niet mee: dat is een beheerder die tijdelijk als kijker kijkt, en die
 // zou zijn enige kans op de melding verliezen.
+// MAAR SOMS GAAT DE MELDING JUIST OVER EEN KIJKER (v1.72.1). De tekst van 1.72 vertelt een ouder dat
+// hij de cijfers van zijn kind kan volgen en dat hij daarvoor bij zijn ploegbeheerder moet zijn —
+// precies de mensen die door de regel hierboven zouden wegvallen. Een tekst kan daarom `ookKijkers`
+// dragen; dan geldt de beperking niet. Zonder die vlag blijft alles zoals Tim het op 27-08 vroeg.
 function magNieuwsZien() {
   if (isGuest) return false;
+  const nt = RELEASE_NOTES[notesSleutel(APP_VERSION)];
+  if (nt && nt.ookKijkers) return true;
   if (!cloudReady) return true;                                  // lokaal, zonder rollen: één gebruiker
   if (isOwner || Object.keys(myClubs || {}).length) return true;  // eigenaar of clubbeheerder
   return Object.values(userTeams || {}).some(r => r === 'admin'); // beheerder van eender welke ploeg
