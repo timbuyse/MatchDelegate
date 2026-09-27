@@ -4649,20 +4649,35 @@ async function loadHome() {
   // tornooidag bleef dus volledig onzichtbaar.
   // looksForgotten() wacht een half uur na het voorziene einde, zodat een normale rust of een blok
   // dat wat uitloopt geen melding geeft.
-  // BEWUST NIET GEFILTERD OP DE PLOEGFILTER (v0.48.0). Voordien wel, en dan werd een doorlopende
-  // klok onvindbaar zodra je beginscherm op een andere ploeg stond — of op dezelfde ploeg met een
-  // ander ploeg-id, wat na het incident van 21-08-2026 kon voorkomen. Op 22-08-2026 liep zo een
-  // wedstrijd een hele nacht door zonder dat ze ergens te zien was. Een tikkende klok is dringend
-  // voor de hele club, niet enkel voor de ploeg waar je nu naar kijkt; daarom staat de ploegnaam
-  // op de knop in plaats van de melding weg te filteren.
+  // WEL DE PLOEGFILTER, MET ÉÉN UITZONDERING (Tim, 27-09-2026: "bij ploeg A moet je geen melding
+  // krijgen dat een wedstrijd loopt bij ploeg B — die wordt dan bijgehouden door anderen").
+  //
+  // Van v0.48.0 tot nu stonden deze twee meldingen bewust OVER ALLE PLOEGEN HEEN. De reden was echt:
+  // op 22-08-2026 liep een wedstrijd een hele nacht door zonder dat ze ergens te zien was, omdat het
+  // beginscherm op een andere ploeg stond. Maar wie dertien ploegen beheert, krijgt zo op élk
+  // startscherm de wedstrijden van alle andere ploegen erbij — en een half uur over tijd is voor een
+  // wedstrijd die gewoon nog bezig is geen nieuws voor wie er niet bij staat.
+  //
+  // Daarom nu: je eigen ploeg zoals altijd, en van een ándere ploeg enkel wanneer de klok ONMOGELIJK
+  // lang loopt (absurdeKlokMs in live-match.js — drie keer de blokduur, of minstens een uur boven op
+  // die duur). Dat is geen wedstrijd meer maar een vergissing, en daar kijkt niemand anders naar.
+  // Het nachtgeval van 22-08 valt daar ruim binnen, dus dat vangnet blijft staan.
+  // `typeof` erbij omdat live-match.js ná dit bestand geladen wordt; dit is een aanroep op het moment
+  // van tekenen, dus dat komt goed — maar een oudere cache mag het startscherm niet doen struikelen.
+  //
+  // De tweede melding (klok stil) blijft puur je eigen ploeg: daar vertekent niets, het is enkel een
+  // verslag dat nog afgewerkt moet worden. Dat is administratie van die ploeg.
+  //
   // canLive, niet canManage (audit 24-08-2026): canManage sluit offline uit, dus precies langs de
   // lijn — waar de verbinding wegvalt — verdwenen de twee meldingen die een tikkende klok of een
   // vastzittende wedstrijd vindbaar maken. Je moest dan al ín die wedstrijd zitten om het te zien.
-  const forgotten = canLive() ? all.filter(looksForgotten) : [];
+  const eigenPloeg = m => homeFilter === 'all' || m.teamName === homeFilter;
+  const klokAbsurd = m => typeof absurdeKlokMs === 'function' && absurdeKlokMs(m) > 0;
+  const forgotten = canLive() ? all.filter(m => looksForgotten(m) && (eigenPloeg(m) || klokAbsurd(m))) : [];
   // Live maar de klok staat stil: geen vertekende minuten, wel een wedstrijd die nog afgewerkt of
   // gedeblokkeerd moet worden (zie vastgelopenLive in live-match.js). Andere tekst, want "de klok
   // loopt door" zou hier gewoon niet waar zijn.
-  const onafgewerkt = canLive() ? all.filter(looksUnfinished) : [];
+  const onafgewerkt = canLive() ? all.filter(m => looksUnfinished(m) && eigenPloeg(m)) : [];
   const openKnop = m => `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="go('live','${m.id}')">${esc(m.teamName || '')}${m.teamName ? ' · ' : ''}${esc(m.opponent || 'Wedstrijd')}${m.date ? ' · ' + fmtDate(new Date(m.date + 'T00:00:00').getTime()) : ''}</button>`;
   const forgottenBanner = (forgotten.length
     ? `<div class="nudge" style="margin-bottom:14px">${icI(IC.warn)} <b>${forgotten.length === 1 ? 'Eén wedstrijd loopt' : forgotten.length + ' wedstrijden lopen'} nog.</b> De klok tikt door, wat de speelminuten vertekent. Sluit ${forgotten.length === 1 ? 'ze' : 'ze allemaal'} af zodra je kan.

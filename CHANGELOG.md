@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.70.1
+
+**De meldingen over een lopende of openstaande wedstrijd volgen nu de ploeg waar je naar kijkt.**
+Wie meerdere ploegen beheert, kreeg op élk startscherm de wedstrijden van alle andere ploegen erbij —
+terwijl die door iemand anders bijgehouden worden en een half uur over tijd daar gewoon nog "bezig"
+betekent.
+
+Eén uitzondering blijft over alle ploegen heen staan: een klok die **onmogelijk** lang loopt, drie
+keer de blokduur of minstens een uur boven op die duur. Dat is geen wedstrijd meer maar een
+vergissing, en daar kijkt niemand anders naar. Zo blijft het vangnet bestaan waarvoor deze melding
+ooit ploegoverschrijdend gezet is: een wedstrijd die een hele nacht doorliep zonder dat iemand ze zag.
+
+De tweede melding — de klok staat stil, de wedstrijd is enkel nooit afgesloten — is voortaan puur van
+je eigen ploeg. Daar vertekent niets aan de speelminuten; het is administratie van die ploeg.
+
+---
+
 ## v1.70.0
 
 **Bij de statistieken staat nu "Hoe de doelpunten vielen".** Het blok staat onder *Meeste assists* —
