@@ -5107,8 +5107,18 @@ function _pasGeplandToe(m, veld, deel, tot) {
     const s = subs[i];
     const idx = veld.findIndex(p => p.id === s.outId);
     const inn = (m.players || []).find(p => p.id === s.inId);
-    // magOpHetVeld dekt ook een uitgesloten invaller: die blijft eraf, dus de plaats blijft leeg.
-    if (idx < 0 || !inn || !magOpHetVeld(m, inn) || veld.some(p => p.id === s.inId)) continue;
+    // magNogMeedoen en niet magOpHetVeld. Die laatste vangt een afwezige en een uitgesloten invaller
+    // af, maar NIET wie de wedstrijd verlaten heeft — en dat is met opzet zo, want diezelfde functie
+    // tekent ook het verleden (zie de toelichting bij magNogMeedoen in core.js: wie in het laatste
+    // blok naar huis ging, hoort in de opstelling van blok 1 gewoon te blijven staan).
+    // Hier gaat het om het TEGENOVERGESTELDE: een wissel die nog moet gebeuren. Stond er voor een
+    // volgend blok nog een wissel klaar die net hém wilde inbrengen, dan tekende het plan hem alsof
+    // hij straks op het veld staat. Het doorvoeren weigerde dat wél (plannedSubProbleem zegt zelfs
+    // "heeft de wedstrijd verlaten"), dus het scherm beloofde iets wat niet kon. Gevonden op
+    // 27-09-2026 met het grote harnas: 3 op 500 wedstrijden, telkens met een vroegtijdig vertrek.
+    // HET DEEL MOET MEE als tijdvenster: zonder dat telt "ooit vertrokken", en dan valt iemand die
+    // pas in blok 4 naar huis gaat al uit het plan van blok 2.
+    if (idx < 0 || !inn || !magNogMeedoen(m, inn, deel) || veld.some(p => p.id === s.inId)) continue;
     veld[idx] = Object.assign({}, inn, { x: veld[idx].x, y: veld[idx].y, line: veld[idx].line, posNum: veld[idx].posNum });
   }
   if (tot && tot.soort === 'sub') return veld;

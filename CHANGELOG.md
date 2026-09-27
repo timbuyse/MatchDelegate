@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.76.1
+
+**Het wisselplan toonde een speler die de wedstrijd al verlaten had.** Ging iemand onderweg naar huis
+of naar een tweede terrein, en stond er voor een volgend deel nog een wissel klaar die net hém wilde
+inbrengen, dan tekende het plan hem alsof hij straks op het veld staat. Bij het doorvoeren weigerde
+de app dat wél — er staat zelfs een waarschuwing bij die wissel — dus het scherm beloofde iets wat
+niet kon gebeuren.
+
+De oorzaak: het plan gebruikte de controle die enkel een afwezige en een uitgesloten speler afvangt.
+Wie vertrok, glipte erdoor. Die controle is met opzet zo mild, want ze tekent ook het verleden: wie
+in het laatste kwart naar huis ging, hoort in de opstelling van kwart 1 gewoon te blijven staan. Het
+plan kijkt naar de toekomst en gebruikt nu de strengere controle, met het deel als ijkpunt zodat
+oudere delen onaangeroerd blijven.
+
+Gevonden met een reeks van 500 nagespeelde wedstrijden, waar het drie keer opdook; na de rechtzetting
+bleven 770 wedstrijden schoon.
+
+---
+
 ## v1.76.0
 
 Vier dingen uit de opmerkingen van een gebruiker over een wedstrijd van vandaag.
