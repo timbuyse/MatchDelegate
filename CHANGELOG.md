@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.74.2
+
+**De tegel met de naam van je kind draagt nu het statistieken-teken.** Er stond een shirt, en dat
+betekent overal elders in de app "een speler op het veld" — achter deze tegel zitten cijfers. Dat het
+hetzelfde teken is als de tegel *Statistieken* erboven, is hier net de bedoeling: je gaat naar
+hetzelfde soort scherm, maar dan van één iemand. De naam houdt ze uit elkaar.
+
+**En onder zijn naam staat enkel de positie, zonder de kant of de rol.** Er stond *Verdediger ·
+Rechts*; dat is de volledige keuze zoals je ze bij spelersbeheer maakt. Als bijschrift onder een naam
+is *Verdediger* wat je wil weten — de rest maakt de regel alleen langer.
+
+---
+
 ## v1.74.1
 
 **Geen twee keer "niet gekend" meer.** In het hoekje *zonder naam* is élke regel naamloos — dat er

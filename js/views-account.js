@@ -2584,7 +2584,11 @@ function mijnSpelerTegelHtml() {
     : 'modalMijnSpelers()';
   // Over de volle breedte, net als de agenda eronder: met vier vaste tegels zou een vijfde een gat
   // naast zich laten staan. En voor een ouder is dít de tegel waarvoor hij de app opent.
-  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.shirt}</span>`
+  // HET STATISTIEKEN-ICOON EN NIET HET SHIRT (Tim, 27-09-2026). Achter deze tegel zitten cijfers,
+  // geen opstelling — en het shirt betekent elders in de app "een speler op het veld". Dat het
+  // dezelfde tekening is als de tegel Statistieken erboven, is hier net de bedoeling: het zegt dat je
+  // naar hetzelfde soort scherm gaat, maar dan van één iemand. De naam op de tegel houdt ze uit elkaar.
+  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.chart}</span>`
     + `<span class="tl">${esc(een ? lijst[0].naam : 'Mijn spelers')}</span>`
     + `${een ? '' : `<span class="tc">${lijst.length} spelers</span>`}</button>`;
 }

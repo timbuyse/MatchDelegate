@@ -1019,8 +1019,12 @@ async function loadPlayerDetail() {
   // Staat er geen, dan vertelt de app waar hij het VAAKST stond — met "Meestal" ervoor, zodat het niet
   // als een voorkeur leest. Bij een gelijk aantal wint de linie van zijn recentste wedstrijd: `lijnTel`
   // is in die volgorde gevuld en sorteren in JS is stabiel.
+  // ENKEL DE POSITIE, ZONDER DE KANT OF DE ROL (Tim, 27-09-2026: "de extra info, rechts bijvoorbeeld,
+  // moet er niet bij"). Bij spelersbeheer staat er `posDisplay` — "Verdediger · Rechts" — want daar
+  // kies je die twee samen. Hier is het een bijschrift onder een naam, en dan is "Verdediger" wat je
+  // wil weten; de kant maakt de regel alleen langer. Dus normPos en niet posDisplay.
   const _pdRoster = (_pdTeam && rosterId) ? ((_pdTeam.players || []).find(p => p.id === rosterId) || null) : null;
-  const voorkeur = (_pdRoster && typeof posDisplay === 'function') ? posDisplay(_pdRoster) : '';
+  const voorkeur = (_pdRoster && typeof normPos === 'function') ? normPos(_pdRoster.pos) : '';
   const vaakst = Object.keys(lijnTel).sort((a, b) => lijnTel[b] - lijnTel[a])[0] || '';
   const posTekst = voorkeur || (vaakst ? 'Meestal ' + vaakst : '');
   el.innerHTML = filterBar + `
