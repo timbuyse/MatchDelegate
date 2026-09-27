@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.73.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.74.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3203,7 +3203,13 @@ function writeMemberInfo(teamId, role) {
   return fbdb.ref('memberInfo/' + teamId + '/' + currentUser.uid).set({
     email: currentUser.email || '',
     name: currentUser.displayName || '',
-    role: role || 'viewer',
+    // EEN GAST IS OOK EEN LID (v1.74.0). Wie een gastlink of gastcode gebruikt, wordt door
+    // joinTeamByToken als gewoon 'viewer' ingeschreven — dat is hoe hij leesrecht op de wedstrijden
+    // krijgt. Hij heeft geen naam en geen e-mailadres, dus hij belandde in de ledenlijst als
+    // "(naam nog niet gekend)" en telde mee als kijker. Dit merkje laat die lijst hem gewoon Gast
+    // noemen. Het staat in memberInfo en niet in members: daar laten de regels enkel 'viewer' toe,
+    // en elke lezer van die tak rekent op 'admin' of iets anders.
+    role: (currentUser.isAnonymous ? 'guest' : (role || 'viewer')),
     // Of dit e-mailadres bevestigd is. Een ploegbeheerder mag de e-mailindex niet lezen (die is
     // enkel voor de eigenaar), dus dit is zijn enige bron om te zien of de naam in zijn ledenlijst
     // ergens op steunt. De rules binden dit veld aan het token, net als in usersByEmail, zodat

@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.74.0
+
+**De ledenlijst is weer leesbaar.** Wie een gastlink gebruikt om een wedstrijd te volgen, wordt door
+de app als gewoon lid ingeschreven — zo krijgt hij leesrecht op de wedstrijden — maar hij heeft geen
+naam en geen e-mailadres. Die regels stapelden zich op tussen je echte leden, en het is er één **per
+toestel**.
+
+Ze staan nu dichtgeklapt onderaan onder **'N zonder naam'**, met de uitleg erbij dat het gasten zijn
+of mensen die op een uitnodiging tikten zonder de app ooit te openen. Klap je het open, dan staat
+elke regel er nog, met één knop: *Verwijderen*. Van iemand zonder naam kan je niet zinnig beslissen
+of hij ploegbeheerder mag worden of bij welk kind hij hoort, dus die knoppen staan daar niet meer.
+
+**En de teller vertelt de waarheid.** "15 kijkers" las als vijftien ouders met een account; er staat
+nu *12 kijkers · 7 ploegbeheerders · 3 zonder naam*.
+
+**Nieuwe gasten heten voortaan gewoon Gast.** Vanaf deze versie schrijft de app een merkje mee, zodat
+de lijst niet meer hoeft te gokken op "geen naam". Voor wie er al staat, blijft die gok gelden — die
+zijn achteraf niet meer te onderscheiden.
+
+---
+
 ## v1.73.1
 
 **De regel onder de naam van een speler klopt nu.** Daar stond *Rugnr. 7 · Middenveld*, en die twee

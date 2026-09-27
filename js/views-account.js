@@ -2355,17 +2355,32 @@ async function showMembersModal() {
     // Sorteer: beheerders eerst, dan kijkers
     const uids = Object.keys(members).sort((a, b) =>
       (members[a] === 'admin' ? 0 : 1) - (members[b] === 'admin' ? 0 : 1));
-    const rows = uids.map(uid => {
+    // NAAMLOZE LEDEN APART (Tim, 27-09-2026, met een schermafbeelding van zijn ledenlijst: "die
+    // hebben daar geen meerwaarde"). Wie een GASTLINK gebruikt, wordt door joinTeamByToken als gewoon
+    // 'viewer' ingeschreven — zo krijgt hij leesrecht — maar hij heeft geen naam en geen e-mailadres.
+    // Hij bleef dus voorgoed als "(naam nog niet gekend)" in de lijst staan en telde mee als kijker,
+    // en het is er één PER TOESTEL. Dezelfde regel kan ook iemand zijn die op een uitnodiging tikte en
+    // de app daarna nooit opende; van buitenaf zijn die twee niet te onderscheiden.
+    // Vandaar: wie een merkje 'guest' draagt heet Gast (zie writeMemberInfo, vanaf v1.74.0), en al wie
+    // naam én e-mail mist, verhuist naar een uitklapper onderaan — mét zijn knoppen, zodat opruimen
+    // kan wanneer jij dat wil.
+    const rijen = uids.map(uid => {
       const role = members[uid];
       const mi = info[uid] || {};
-      const naam = mi.name || '(naam nog niet gekend)';
-      const email = mi.email || '(e-mail nog niet gekend)';
+      const isGast = mi.role === 'guest';
+      const naamloos = !mi.name && !mi.email;
+      const naam = mi.name || (isGast ? 'Gast' : '(naam nog niet gekend)');
+      const email = mi.email || (isGast ? 'volgt mee via een gastlink' : '(e-mail nog niet gekend)');
       const badge = role === 'admin'
         ? `<span class="ts-role admin">${icI(IC.edit)} Ploegbeheerder</span>`
-        : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
+        : isGast
+          ? `<span class="ts-role viewer">${icI(IC.eye)} Gast</span>`
+          : `<span class="ts-role viewer">${icI(IC.eye)} Kijker</span>`;
       // Onbevestigd adres = de naam hierboven steunt op niets. Geen blokkade (jij gaf zelf de
       // uitnodiging en kent de persoon meestal), maar je hoort het wel te zien vóór je promoveert.
-      const bevestigd = !!mi.verified;
+      // Bij een naamloze regel zeggen we het NIET: daar staat toch geen naam die ergens op steunt, en
+      // een waarschuwing over een adres dat niet bestaat leest als een probleem dat het niet is.
+      const bevestigd = !!mi.verified || naamloos;
       // GEKOPPELDE SPELERS (v1.72.0). OOK BIJ EEN BEHEERDER (Tim, 27-09-2026): een trainer of
       // afgevaardigde is vaak zelf ouder. Voor hem verandert het niets aan wat hij mág zien — dat is
       // al alles — maar hij krijgt zijn kind wel als tegel op zijn startscherm, één tik ver.
@@ -2375,21 +2390,28 @@ async function showMembersModal() {
         ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.shirt)} Volgt: <b>${gekoppeld.map(r => esc(kernNaam(r))).join(', ')}</b></div>` : '';
       const koppelBtn = kernLijst.length
         ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelSpelers('${uid}')">${icI(IC.shirt)} ${gekoppeld.length ? 'Spelers wijzigen' : 'Koppel aan speler'}</button>` : '';
-      const btns = role !== 'admin'
+      // Bij een NAAMLOZE regel enkel verwijderen. Van zo iemand weet je niet wie hij is: hem
+      // ploegbeheerder maken of aan een kind koppelen is geen keuze die je op niets wil baseren, en
+      // achter een gastlink zit vaak niet eens een echt account.
+      const btns = naamloos
+        ? `<button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
+        : role !== 'admin'
         ? `${koppelBtn}<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
         : `${koppelBtn}${uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
           : ''}`;
-      return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      return { uid, naamloos, html: `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:15px;font-weight:700"><b>${esc(naam)}</b><br><small style="color:var(--txt2);font-weight:400">${esc(email)}</small>${bevestigd ? '' : `<br><small style="color:var(--org2);font-weight:600">${icI(IC.warn)} e-mailadres niet bevestigd</small>`}</span>
           ${badge}
         </div>
         ${koppelRegel}
         ${btns ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>` : ''}
-      </div>`;
+      </div>` };
     });
+    const rows = rijen.filter(r => !r.naamloos).map(r => r.html);
+    const naamloosRows = rijen.filter(r => r.naamloos).map(r => r.html);
     // Openstaande aanvragen
     const reqUids = Object.keys(requests).filter(u => !members[u] || members[u] !== 'admin');
     const reqRows = reqUids.map(uid => {
@@ -2423,14 +2445,21 @@ async function showMembersModal() {
         <div style="display:flex;gap:6px"><button class="btn btn-pale btn-sm" onclick="herstelToegang('${uid}')">Toegang herstellen</button></div>
       </div>`;
     });
-    const viewers = uids.filter(u => members[u] !== 'admin').length;
+    // De teller telt de naamlozen apart: "15 kijkers" las als vijftien ouders met een account.
+    const naamloosIds = new Set(rijen.filter(r => r.naamloos).map(r => r.uid));
+    const beheerders = uids.filter(u => members[u] === 'admin').length;
+    const viewers = uids.filter(u => members[u] !== 'admin' && !naamloosIds.has(u)).length;
     const el = document.getElementById('members-list');
     if (el) el.innerHTML =
       (reqRows.length ? `<p style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:6px">OPENSTAANDE AANVRAGEN</p>${reqRows.join('')}<hr style="margin:10px 0">` : '')
-      + (rows.length ? rows.join('') : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>')
+      + (rows.length ? rows.join('') : (naamloosRows.length ? '' : '<p style="text-align:center;color:var(--txt2)">Nog niemand vervoegd.</p>'))
+      + (naamloosRows.length ? `<details class="nudge nudge-fold" style="margin-top:10px">
+        <summary>${icI(IC.eye)} <b>${naamloosRows.length} zonder naam</b></summary>
+        <div class="nudge-body"><p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Gasten die een wedstrijd volgden via een gastlink, en mensen die op een uitnodiging tikten maar de app nooit openden. Ze zien wat een kijker ziet. Je hoeft er niets mee te doen; wil je opruimen, dan kan dat hieronder — maar wie je verwijdert, raakt ook met een geldige link niet meer binnen tot je zijn toegang herstelt.</p>${naamloosRows.join('')}</div>
+      </details>` : '')
       + (removedRows.length ? `<hr style="margin:10px 0"><p style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:2px">EERDER VERWIJDERD (${removedRows.length})</p>
         <p style="font-size:12px;color:var(--txt2);margin:0 0 6px">Deze mensen kunnen zichzelf niet opnieuw toevoegen, ook niet met een oude uitnodigingslink.</p>${removedRows.join('')}` : '')
-      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${uids.filter(u=>members[u]==='admin').length} ploegbeheerder${uids.filter(u=>members[u]==='admin').length===1?'':'s'}</p>`;
+      + `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-top:10px">${viewers} kijker${viewers===1?'':'s'} · ${beheerders} ploegbeheerder${beheerders===1?'':'s'}${naamloosRows.length ? ` · ${naamloosRows.length} zonder naam` : ''}</p>`;
   } catch (e) {
     console.error('Leden laden mislukt:', e);
     const el = document.getElementById('members-list');
