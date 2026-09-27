@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.64.0
+
+**Een naam rechtzetten kan nu ook op een gespeelde wedstrijd.** *Namen, nummers & notities* stond enkel
+in het bewerkmenu van een geplande wedstrijd, en daar kom je niet meer bij zodra ze gespeeld is —
+terwijl een naam rechtzetten juist dan aan de orde is. Het staat nu ook in het bewerkmenu van een
+verslag. Het raakt enkel die ene wedstrijd; het rooster van je ploeg blijft ongewijzigd.
+
+**En bij het koppelen van een losse naam vraagt de app welke naam blijft staan.** Wie als "Theo"
+ingetikt was, bleef na het koppelen "Theo" heten terwijl de kern "Théo Leytens" zegt. Verschillen de
+twee namen, dan krijg je nu de keuze: de naam uit de kern overnemen, of laten staan wat er genoteerd
+is — soms is dat met opzet een roepnaam. De koppeling zelf gebeurt hoe dan ook.
+
+---
+
 ## v1.63.3
 
 **Positiewisselingen van hetzelfde moment vielen soms toch uiteen in twee regels.** De tijdlijn vouwde

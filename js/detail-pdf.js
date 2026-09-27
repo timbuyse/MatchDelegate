@@ -442,6 +442,12 @@ function modalDetailEditMenu() {
     ${menuItemHtml(IC.edit, 'Spelernotities', 'Een notitie per speler, enkel zichtbaar voor beheerders.', 'modalPlayerNotes()')}
     ${/* Rugnummers zijn een label, dus ook na de wedstrijd nog aanpasbaar — bv. om ze te wissen als
          de ploeg overstapt op spelen zonder vaste nummers. */ ''}
+    ${/* NAMEN OOK NA DE WEDSTRIJD (Tim, 27-09-2026: een losse speler die achteraf gekoppeld werd,
+         stond nog met enkel zijn voornaam op het verslag). Dit venster stond enkel in het bewerkmenu
+         van een GEPLANDE wedstrijd, en daar kom je niet meer bij zodra ze gespeeld is — terwijl een
+         naam rechtzetten juist dán aan de orde is. Zelfde venster, zelfde werking: het raakt enkel
+         deze wedstrijd, niet het rooster van de ploeg. */ ''}
+    ${menuItemHtml(IC.edit, 'Namen, nummers &amp; notities', 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.', 'modalEditPlayers()')}
     ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
     ${/* "Startopstelling aanpassen" gaat over de AFTRAP. Sinds v1.47.0 mag dat altijd (de latere delen
          worden herrekend), en sinds v1.49.0 kan je er ook iemand van de bank inbrengen — vandaar
@@ -626,12 +632,41 @@ async function _gkDoe(rosterId) {
   const t = ploegen.find(x => x.id === _gkSt.ploegId);
   const r = t && (t.players || []).find(p => p.id === rosterId);
   if (!sp || !r) { showToast('Die speler staat niet meer in het rooster.', 'err'); return; }
+  // DE NAAM: VRAGEN, NIET STIL OVERSCHRIJVEN (Tim, 27-09-2026). Een losse speler die als "Theo"
+  // ingetikt was, bleef na het koppelen "Theo" heten terwijl de kern "Théo Leytens" zegt — en op een
+  // afgesloten verslag was dat nergens meer recht te zetten. Stil overnemen is óók fout: soms staat er
+  // met opzet een roepnaam. Dus één vraag, enkel wanneer de namen echt verschillen.
+  // showConfirm kent maar één knop naast Annuleer, en hier zijn er twee gelijkwaardige antwoorden —
+  // dus een eigen venster. De keuze blijft in _gkSt staan tot je ze maakt.
+  if ((sp.name || '').trim() && (r.name || '').trim() && sp.name.trim() !== r.name.trim()) {
+    _gkSt.klaar = { spelerId: sp.id, rosterId: r.id, ploegId: t.id };
+    openModal(`<h3>${icI(IC.link)} Welke naam?</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:14px">In dit verslag staat <b>${esc(sp.name)}</b>, in de kern van ${esc(t.name || 'die ploeg')} staat <b>${esc(r.name)}</b>. De koppeling gebeurt hoe dan ook; dit gaat enkel over de naam die in dit verslag blijft staan.</p>
+      <button class="btn btn-green" onclick="_gkNaam(true)">${icI(IC.check)} ${esc(r.name)} overnemen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="_gkNaam(false)">${esc(sp.name)} laten staan</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="_gkTeken()">Terug</button>`);
+    return;
+  }
+  await _gkSchrijf(m, sp, r, t, false);
+}
+function _gkNaam(overnemen) {
+  const m = match; if (!m || !_gkSt || !_gkSt.klaar) return;
+  const { spelerId, rosterId, ploegId } = _gkSt.klaar;
+  const sp = (m.players || []).find(p => p.id === spelerId);
+  const eigen = teamById(m.teamId) || (getTeamsV2().find(x => x.name === m.teamName) || null);
+  const ploegen = [...(eigen ? [{ id: eigen.id, name: eigen.name || m.teamName || '', players: eigen.players || [], eigen: true }] : []), ..._gkSt.zusters];
+  const t = ploegen.find(x => x.id === ploegId);
+  const r = t && (t.players || []).find(p => p.id === rosterId);
+  if (!sp || !r) { showToast('Die speler staat niet meer in het rooster.', 'err'); return; }
+  _gkSchrijf(m, sp, r, t, overnemen);
+}
+// Het eigenlijke wegschrijven van een koppeling, los van de vraag over de naam hierboven.
+async function _gkSchrijf(m, sp, r, t, naamOvernemen) {
+  if (naamOvernemen && (r.name || '').trim()) sp.name = r.name.trim();
   sp.rosterId = r.id;
   if (r.globalId) sp.globalId = r.globalId; else delete sp.globalId;
   // Het GASTMERKJE volgt de ploeg waaraan je koppelt. Bij een zusterploeg blijft "gast" staan met haar
   // naam erbij; blijkt het iemand uit je eigen kern, dan is hij geen gast en hoort dat merkje weg.
-  // De NAAM in het verslag blijft wat ze was: dat is wat er die dag genoteerd is, en die overschrijven
-  // zou een correctie van vandaag in een verslag van toen schrijven.
   if (t.eigen) { delete sp.guest; delete sp.fromName; }
   else { sp.guest = true; sp.fromName = t.name || ''; }
   await dbSave(m);
