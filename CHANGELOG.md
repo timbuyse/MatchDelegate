@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.68.1
+
+**De kaart per kwart staat weer in gewone letters.** Het vet van v1.68.0 hoorde daar niet: op die
+kaart is elke regel een doelpunt, dus dan valt er niets meer op. Het gekleurde streepje links zegt al
+van wie het doelpunt is. In *Alle events* blijft het wél vet — daar staat een doelpunt tussen wissels,
+kaarten en positiewisselingen, en dan helpt het.
+
+---
+
 ## v1.68.0
 
 **De doelpunten staan in het vet op de kaart per kwart.** Daar stonden ze in dezelfde letters als het

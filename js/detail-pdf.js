@@ -64,12 +64,12 @@ function renderDetail() {
         const ons = (e.type === 'goal_us' || e.type === 'own_goal_them' || (e.type === 'penalty_us' && e.scored));
         return `<div style="display:flex;gap:7px;align-items:flex-start;margin:1px 0">
           <span style="flex:0 0 3px;align-self:stretch;min-height:14px;border-radius:2px;background:${ons ? 'var(--grn)' : 'var(--rd)'}"></span>
-          ${/* DE DOELPUNTEN IN HET VET (Tim, 27-09-2026), zoals een kijker ze in de tijdlijn ziet. Op
-               deze kaart staat naast de doelpunten nog een kwartnummer, een stand en een duur, alle drie
-               in grijs of klein — de doelpunten verdwenen daartussen terwijl ze de reden zijn dat je
-               naar deze kaart kijkt. Enkel de naam wordt vet; de minuut ervóór blijft klein en grijs,
-               anders wordt de hele kolom één blok zwart. */ ''}
-          <span style="flex:1;min-width:0"><span style="color:var(--txt2);font-size:11px;font-weight:400">${eventMinSummaryText(e, match)}</span> <b>${evtLabelBasis(e, match, true)}</b></span>
+          ${/* HIER GEEN VET (Tim, 27-09-2026, nadat hij het gevraagd had en meteen zelf terugfloot:
+               "daar staan alleen doelpunten, anders is alles vet"). In de tijdlijn werkt vet omdat een
+               doelpunt er tussen wissels, kaarten en positiewisselingen staat; op deze kaart is élke
+               regel een doelpunt, dus dan onderscheidt het niets meer. Het gekleurde streepje links doet
+               hier het werk: groen voor ons, rood voor hen. */ ''}
+          <span style="flex:1;min-width:0"><span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e, match)}</span> ${evtLabelBasis(e, match, true)}</span>
         </div>`;
       }).join('') || '<span style="color:var(--txt2)">–</span>'}</div>
       ${/* DE DUUR WEER RECHTS, ALS EIGEN KOLOM (Tim, 26-09-2026, na een eerste poging: "dit is niet
