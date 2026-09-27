@@ -3013,11 +3013,14 @@ function gameTimeMsAtEndOfQuarter(m, qNum) {
   return Math.max(0, t);
 }
 function addEvent(type, extra={}) {
+  // `leg` i.p.v. een kale push: elke weg hieronder loopt er langs, zodat _onthoudIngreep weet wat je
+  // net vastlegde (zie "ongedaan maken van wat je achteraf deed", verderop in dit bestand).
+  const leg = ev => { match.events.push(ev); _onthoudIngreep(ev); };
   if (_postEventQuarter === 'unknown') {
     // Bewust "Onbekend" gekozen bij "Event toevoegen": geen deel/tijdstip verzinnen — het event
     // komt zonder quarterNum in het verloop onder "Overig" (zelfde patroon als quick-events),
     // i.p.v. stil op de slotminuut van het laatste deel te belanden.
-    match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type, ...extra });
+    leg({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type, ...extra });
     return;
   }
   const qn = _postEventQuarter !== null ? _postEventQuarter : match.currentQuarter;
@@ -3025,7 +3028,7 @@ function addEvent(type, extra={}) {
   // In de pauze vóór dit deel: de speeltijd van de start van het deel, en het event draagt atBreak.
   // atBreak staat vóór ...extra, zodat een aanroeper die het zelf meegeeft (startQuarter) wint.
   if (_postEventAtBreak && _postEventQuarter) {
-    match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: gameTimeMsAtStartOfQuarter(match, _postEventQuarter),
+    leg({ id: uid(), realTime: Date.now(), gameTimeMs: gameTimeMsAtStartOfQuarter(match, _postEventQuarter),
       quarterNum: _postEventQuarter, atBreak: true, type, ...extra });
     return;
   }
@@ -3048,7 +3051,7 @@ function addEvent(type, extra={}) {
   } else {
     gms = getGameTimeMs(match);
   }
-  match.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: gms, quarterNum: qn, type, ...extra });
+  leg({ id: uid(), realTime: Date.now(), gameTimeMs: gms, quarterNum: qn, type, ...extra });
 }
 // Events corrigeren / verwijderen
 function confirmDeleteEvent(id) {
@@ -3487,6 +3490,8 @@ async function saveEditEvent(id) {
   const posAffecting = e.type === 'substitution' || e.type === 'posSwap';
   // C2: baseline (startopstelling) vastleggen terwijl de staat nog consistent is, vóór de bewerking.
   const baseline = posAffecting ? playersAtPeriodStart(match, 1) : null;
+  // Een kopie van het event zoals het NU is, voor het terugzetten (zie _onthoudWijziging onderaan).
+  const vorigeStaat = { ...e };
   const has = i => document.getElementById(i);
   const val = i => { const el = has(i); return el ? el.value : undefined; };
   // Twee keer dezelfde speler is geen positiewissel: rebuildPositions zou zijn positie met zichzelf
@@ -3573,6 +3578,7 @@ async function saveEditEvent(id) {
   // er een naar een andere speler of naar een vroeger tijdstip, dan bleef match.captainId op de oude
   // waarde staan tot iets anders het herrekende.
   if (e.type === 'captain_change') recomputeCaptain(match);   // zonder tweede argument: het event bestaat nog
+  _onthoudWijziging(e, vorigeStaat);
   await dbSave(match); closeModal(); render();
 }
 // Extra registraties: schoten, reddingen, afgekeurd doelpunt.
@@ -4066,6 +4072,118 @@ async function undoLast() {
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
   await dbSave(match); closeModal(); render();
   showUndoToast(`${icI(IC.undo)} Ongedaan: ${evtLabel(removed, match)}`);
+  } finally { _eventBusy = false; }
+}
+// ===================== ONGEDAAN MAKEN VAN WAT JE ACHTERAF DEED =====================
+// Tim, 27-09-2026: "ongedaan maken kan niet als je achteraf iets wijzigt" — op een afgesloten
+// wedstrijd. De knop hierboven hoort bij het LIVE bijhouden: undoKandidaat kijkt enkel in het
+// lopende deel, en bij een afgesloten wedstrijd staat die knop er zelfs helemaal niet. Voegde je
+// achteraf iets toe aan een eerder deel, of paste je een bestaande gebeurtenis aan, dan bleef
+// alleen het kruisje in het verloop over. Dat wist wél een toevoeging, maar een WIJZIGING was niet
+// terug te draaien: je moest zelf nog weten wat er stond.
+//
+// Eén geheugen van de laatste ingreep, enkel in het scherm en niet in de opslag: herlaad je de
+// pagina, dan begint het schoon. Dat is bewust. Dit gaat over "oeps, net verkeerd getikt", niet
+// over een geschiedenis die dagen meegaat — en een knop die na een week nog iets belooft terug te
+// zetten dat intussen vijf keer veranderde, belooft te veel.
+let _laatsteIngreep = null;   // {matchId, soort:'toegevoegd'|'gewijzigd', ids:[...], vorige:{...}|null}
+// Een blessure met de wissel erachter is ÉÉN handeling voor wie het intikt. Dit vlaggetje laat de
+// volgende toevoeging bij de vorige horen, zodat het ongedaan maken ze allebei meeneemt — anders
+// bleef er een invaller in het verloop staan voor iemand die nooit wegging.
+let _ingreepKoppelen = false;
+function _onthoudIngreep(ev) {
+  const koppel = _ingreepKoppelen;
+  _ingreepKoppelen = false;
+  // Enkel wat je ACHTERAF ingeeft. Tijdens het spel bestaat de knop hierboven al, en de
+  // kwartgrenzen en de pauzewissels die de app zelf logt zijn geen ingreep van jou.
+  if (_postEventQuarter === null) return;
+  if (ev.type === 'quarter_start' || ev.type === 'quarter_end') return;
+  // Een pauzewijziging die de APP schrijft, niet jij: het rechtzetten van een deelopstelling
+  // (_qlZetGrens) zet _postEventQuarter zelf en legt er een handvol tegelijk neer. Daarvan één
+  // regel aanbieden om ongedaan te maken zou de opstelling half terugdraaien. Koos JIJ de pauze in
+  // "Event toevoegen", dan staat _postEventAtBreak aan en hoort het er wél bij.
+  if (ev.atBreak && !_postEventAtBreak) return;
+  if (koppel && _laatsteIngreep && _laatsteIngreep.soort === 'toegevoegd'
+      && _laatsteIngreep.matchId === match.id) { _laatsteIngreep.ids.push(ev.id); return; }
+  _laatsteIngreep = { matchId: match.id, soort: 'toegevoegd', ids: [ev.id], vorige: null };
+}
+// `vorige` is een kopie van het event zoals het vóór de bewerking was — de enige manier om een
+// wijziging écht terug te zetten.
+function _onthoudWijziging(ev, vorige) {
+  _ingreepKoppelen = false;
+  _laatsteIngreep = { matchId: (match || {}).id, soort: 'gewijzigd', ids: [ev.id], vorige };
+}
+function ingreepVergeten() { _laatsteIngreep = null; _ingreepKoppelen = false; }
+// De ingreep zoals ze er NU bij staat, of null wanneer er niets meer terug te zetten valt: een
+// andere wedstrijd in beeld, of de gebeurtenis verdween intussen langs een andere weg.
+function laatsteIngreep(m) {
+  if (!_laatsteIngreep || !m || _laatsteIngreep.matchId !== m.id) return null;
+  const evs = _laatsteIngreep.ids.map(id => (m.events || []).find(x => x.id === id)).filter(Boolean);
+  if (!evs.length) { _laatsteIngreep = null; return null; }
+  return { soort: _laatsteIngreep.soort, vorige: _laatsteIngreep.vorige, events: evs };
+}
+// Het balkje bovenaan het verloop. Bewust dáár en niet bij de knoppen: het verloop is het scherm
+// waar je na een toevoeging of een aanpassing naar kijkt, en je ziet de regel en de weg terug naast
+// elkaar. Verschijnt in het live scherm én bij een afgesloten wedstrijd.
+function ingreepBalkHtml(m) {
+  const ing = laatsteIngreep(m);
+  if (!ing) return '';
+  const gewijzigd = ing.soort === 'gewijzigd';
+  const regels = ing.events.map(e =>
+    `<div style="padding:1px 0">${e.atBreak ? 'pauze' : eventMinTijd(e, m)} — ${evtLabel(e, m)}</div>`).join('');
+  return `<div class="no-print" style="border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+    <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${gewijzigd ? 'Net aangepast' : 'Net toegevoegd'}</div>
+    <div style="font-size:13px;margin-bottom:8px">${regels}</div>
+    <button class="btn btn-orgpale btn-sm" style="width:100%" onclick="confirmIngreepOngedaan()">${icI(IC.undo)} ${gewijzigd ? 'Terugzetten zoals het stond' : 'Ongedaan maken'}</button>
+  </div>`;
+}
+function confirmIngreepOngedaan() {
+  if (slotWeigert()) return;
+  const ing = laatsteIngreep(match);
+  if (!ing) { showToast('Er staat niets meer om terug te zetten.', 'err'); render(); return; }
+  const gewijzigd = ing.soort === 'gewijzigd';
+  const wat = gewijzigd
+    ? 'Deze gebeurtenis komt weer te staan zoals ze vóór je aanpassing stond.'
+    : (ing.events.length > 1 ? 'Deze gebeurtenissen verdwijnen uit het verloop.' : 'Deze gebeurtenis verdwijnt uit het verloop.');
+  openModal(`<h3>${icI(IC.undo)} ${gewijzigd ? 'Terugzetten?' : 'Ongedaan maken?'}</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${ing.events.map(e => `"${evtLabel(e, match)}"`).join('<br>')}<br>${wat} De score en de opstelling worden herberekend.</p>
+    <button class="btn btn-red" onclick="ingreepOngedaan()">${icI(IC.undo)} Ja, ${gewijzigd ? 'terugzetten' : 'ongedaan maken'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function ingreepOngedaan() {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const ing = laatsteIngreep(match);
+    if (!ing) { closeModal(); render(); return; }
+    const melding = ing.events.map(e => evtLabel(e, match)).join(' · ');
+    if (ing.soort === 'toegevoegd') {
+      const ids = ing.events.map(e => e.id);
+      ingreepVergeten();
+      await doDeleteEvents(ids);   // tombstone, herberekenen, opslaan en hertekenen zitten daarin
+    } else {
+      const e = ing.events[0];
+      // Exact dezelfde herberekening als saveEditEvent, want dit is diezelfde bewerking in omgekeerde
+      // richting. De basisopstelling vóór de mutatie nemen, anders rekent rebuildPositions op een
+      // toestand die al terug is.
+      const posAffecting = e.type === 'substitution' || e.type === 'posSwap';
+      const baseline = posAffecting ? playersAtPeriodStart(match, 1) : null;
+      // Eerst de sleutels weg die er bij de bewerking BIJ kwamen, dan de oude waarden erover: zonder
+      // dat eerste blijft bijvoorbeeld een pas ingevulde assist gewoon staan.
+      Object.keys(e).forEach(k => { if (!(k in ing.vorige)) delete e[k]; });
+      Object.assign(e, ing.vorige);
+      ingreepVergeten();
+      recomputeScore(match);
+      if (posAffecting) {
+        rebuildPositions(match, baseline);
+        if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+      } else recomputeOnField(match);
+      if (!posAffecting && (e.type === 'red_card' || e.type === 'injury')
+          && match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+      if (e.type === 'captain_change') recomputeCaptain(match);
+      await dbSave(match); closeModal(); render();
+    }
+    showUndoToast(`${icI(IC.undo)} Ongedaan: ${melding}`);
   } finally { _eventBusy = false; }
 }
 function showUndoToast(html) {
@@ -6374,12 +6492,22 @@ async function confirmInjury() {
     await dbSave(match);
     // De naam vóór het openen van het volgende venster pakken: dat zet injPlayerId opnieuw.
     const naam = pName(match, injPlayerId);
-    if (leavesField && stondOpHetVeld) { modalSubAfterInjury(injPlayerId, injType === 'vertrokken' ? 'vertrokken' : undefined); }
+    if (leavesField && stondOpHetVeld) {
+      // De wissel die hierna volgt hoort bij DEZELFDE handeling: samen ongedaan te maken.
+      _ingreepKoppelen = true;
+      modalSubAfterInjury(injPlayerId, injType === 'vertrokken' ? 'vertrokken' : undefined);
+    }
     else { closeModal(); render(); }
     // Ook wanneer het wisselvenster meteen opengaat: dan is dit de bevestiging van de blessure zelf,
     // en de wissel krijgt daarna zijn eigen melding. Kiest hij "Geen wissel", dan heeft hij er toch
     // één gezien — zonder dit zou juist die weg helemaal stil blijven.
-    meldVastgelegd(injType === 'vertrokken' ? 'Vertrek' : 'Blessure', naam);
+    // ZEG WAAROM ER NIETS GEVRAAGD WORDT (Tim, 27-09-2026). Hij miste de vraag wie er in de plaats
+    // kwam en dacht aan een fout; hij had per ongeluk iemand van de bank aangetikt. Dat de app dan
+    // niets vraagt is juist — er staat niemand op het veld die vervangen moet worden — maar ze zweeg
+    // erover, en zwijgen leest als kapot. Eén zinnetje erbij en je ziet meteen wat er gebeurd is.
+    const bankZin = (leavesField && !stondOpHetVeld)
+      ? ` · stond op dat moment al op de bank, dus er komt niemand in zijn plaats` : '';
+    meldVastgelegd(injType === 'vertrokken' ? 'Vertrek' : 'Blessure', naam + bankZin);
   } finally { _eventBusy = false; }
 }
 // `reden` = 'vertrokken' wanneer de speler niet geblesseerd is maar weggaat (naar het tweede veld
@@ -6402,7 +6530,11 @@ function modalSubAfterInjury(outId, reden) {
   const minMs = off.length ? (mins[off[0].id]?.ms||0) : 0;
   const mm = id => playedMin(mins[id]?.ms);
   openModal(`<h3>${icI(IC.swap)} Wissel na ${weg ? 'vertrek' : 'blessure'}</h3>
-    <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">${weg ? icI(IC.close) : '🤕'} ${esc(outPlayer?.name||'?')} verlaat het veld</div>
+    ${/* Hier stond een emoji (🤕) waar overal elders een IC-pictogram staat — het laatste exemplaar in
+         een schermtekst (Tim, 27-09-2026: "ik zie wel een oud emoji"). Een emoji tekent zichzelf per
+         toestel anders en valt uit de toon naast de lijn-iconen. De emoji's in de WhatsApp-tekst
+         blijven wél staan: dat is platte tekst, daar bestaat geen pictogram. */ ''}
+    <div style="background:var(--rdp);color:var(--rd);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;font-size:14px">${icI(weg ? IC.close : IC.injury)} ${esc(outPlayer?.name||'?')} verlaat het veld</div>
     <div class="sec" style="margin-top:0">Wie komt ERIN? <span style="color:var(--txt2);font-weight:400;text-transform:none">(minst gespeeld bovenaan: ●)</span></div>
     <div id="sub-in">${off.length ? pgGrid(off.map(p => { const low=(mins[p.id]?.ms||0)===minMs; return pgBtn(p,'sub-ib',`selectSubIn('${p.id}',this)`,`<span style="font-size:10px;color:${low?'var(--org)':'var(--txt2)'};">${mm(p.id)}'${low?' ●':''}</span>`); }).join('')) : '<p style="color:var(--txt2);font-size:14px;padding:8px 0">Geen bankspelers beschikbaar.</p>'}</div>
     <button class="btn btn-green" style="margin-top:12px" onclick="confirmSub()">${icI(IC.check)}Wissel doorvoeren</button>
@@ -6472,6 +6604,9 @@ async function logFreekick(pid) {
 function modalAddPostEvent(vanDeel) {
   if (slotWeigert()) return;
   if (!canLive() || !match) return;   // rollentest 24-08-2026: gordel EN bretellen
+  // Een nieuwe handeling begint hier: wat je straks ingeeft hoort niet meer bij de vorige. Zonder
+  // dit zou een afgebroken wisselvraag ("Geen wissel") het vlaggetje laten staan.
+  _ingreepKoppelen = false;
   const quarters = match.quarters || [];
   const laatste = quarters.length > 0 ? quarters[quarters.length - 1].num : null;
   const gevraagd = Number(vanDeel);

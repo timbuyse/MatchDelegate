@@ -3986,7 +3986,9 @@ function renderEventLog(m) {
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;
   const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;
-  return filterBar + groups.map(g => {
+  // De weg terug na een toevoeging of een aanpassing achteraf (zie ingreepBalkHtml in live-match.js).
+  // Onder de filterrij, boven het eerste deel: daar kijk je nadat je iets ingaf.
+  return filterBar + (elog_vast ? '' : ingreepBalkHtml(m)) + groups.map(g => {
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}`;
     // Tussenstand ÉN wat er in dit blok zelf gebeurde: "1–1" alleen las als de score van dit kwart,
     // terwijl het de totale stand is. Staat er ALTIJD, ook bij 0–0: eerst stond hij enkel bij blokken

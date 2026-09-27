@@ -9,6 +9,35 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.78.0
+
+**Ongedaan maken van wat je achteraf toevoegt of aanpast.** De knop "Laatste actie ongedaan maken"
+hoort bij het live bijhouden: ze kijkt enkel in het deel dat nu bezig is, en bij een afgesloten
+wedstrijd staat ze er helemaal niet. Voegde je achteraf iets toe aan een eerder deel, of paste je
+een bestaande gebeurtenis aan, dan bleef alleen het kruisje in het verloop over — en dat wist wel
+een toevoeging, maar een **wijziging** was niet terug te draaien: je moest zelf nog weten wat er
+stond (Tim, 27-09-2026).
+
+Nu staat er bovenaan het verloop een balkje **"Net toegevoegd"** of **"Net aangepast"** met de
+regel erin en een knop ernaast. Bij een aanpassing komt de gebeurtenis weer te staan zoals ze
+ervoor stond. Een blessure met de wissel erachter telt als één handeling: die gaan samen weg,
+anders bleef er een invaller staan voor iemand die nooit wegging. Het geheugen zit enkel in het
+scherm en niet in de opslag — herlaad je de app, dan begint het schoon. Wat de app zélf schrijft
+(de kwartgrenzen, en de reeks pauzewissels van "Opstelling van een deel rechtzetten") blijft
+erbuiten: daar één regel van aanbieden zou een opstelling half terugdraaien.
+
+**Gezegd waarom er niemand gevraagd wordt na een blessure.** Tikte je bij een blessure of een
+vertrek iemand aan die op dat moment al op de bank zat, dan sloeg de app de vraag "wie komt erin?"
+over — terecht, er stond niemand op het veld die vervangen moest worden — maar ze zweeg erover, en
+zwijgen leest als kapot. De bevestiging zegt het nu.
+
+**De laatste emoji uit de schermen.** In "Wissel na blessure" stond nog een 🤕 waar overal elders
+een lijnpictogram staat. De emoji's in de WhatsApp-tekst en in de meldingen op je telefoon blijven
+wel staan: dat is platte tekst, daar bestaat geen pictogram voor. In de handleiding stond ook nog
+een pijltje voor "Start wedstrijd" dat al lang niet meer op die knop staat.
+
+---
+
 ## v1.77.0
 
 **"Event toevoegen" en "Meer…" zijn opgeruimd.**

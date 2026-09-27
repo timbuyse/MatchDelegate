@@ -1708,7 +1708,7 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/09b_pauze_opstelling.png',
     inhoud: `
       <ol class="hdl-list">
-        <li>Tik op <b>'► Start wedstrijd'</b>.</li>
+        <li>Tik op <b>'Start wedstrijd'</b>.</li>
         <li>Registreer events via de negen knoppen:<br>
           <b>Goal</b> · <b>Wissel</b> · <b>Hoekschop</b><br>
           <b>Gele kaart</b> · <b>Blessure</b> · <b>Vrije trap</b><br>
@@ -1813,6 +1813,7 @@ const HANDLEIDING_PAGINAS = [
     img2: 'handleiding/screenshots/12_wedstrijd_detail_2.png',
     inhoud: `
       <p>Open een gespeelde wedstrijd voor de volledige samenvatting: eindscore, wedstrijdinfo, opstelling en alle events. Per event kan je bewerken (potlood) of verwijderen (rood kruisje).</p>
+      <p class="hdl-tip">Voegde je net iets toe, of paste je net iets aan? Bovenaan de eventlijst staat dan <b>'Net toegevoegd'</b> of <b>'Net aangepast'</b>, met een knop om het in één tik terug te draaien. Bij een aanpassing komt de gebeurtenis weer te staan zoals ze ervoor stond. Die knop geldt voor je laatste ingreep en verdwijnt zodra je de app opnieuw opent.</p>
       <p style="margin-top:10px">Bij de wedstrijdinfo staat <b>'Bijgehouden door'</b>: de naam van wie de wedstrijd langs de lijn volgde. Die wordt vastgelegd bij de aftrap en staat ook op de PDF. Bij een wedstrijd die je achteraf invulde staat er niets — daar hield niemand ze bij.</p>
       <p style="margin-top:10px">Vlak onder de eindscore staan <b>'Bewerken'</b> en <b>'Strafschoppen'</b>, met daaronder <b>'Delen'</b>, <b>'PDF'</b> en <b>'Export'</b>. Helemaal onderaan staat <b>'Wedstrijd verwijderen'</b>: dat haalt ze uit de lijst, maar ze blijft bewaard in de <b>Prullenmand</b> op het ploegscherm, dus een misklik is recht te zetten. Achter <b>'Bewerken'</b> zit alles wat je nog kan aanpassen:</p>
       <ul class="hdl-list">
