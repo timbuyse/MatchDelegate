@@ -69,7 +69,13 @@ function renderDetail() {
                doelpunt er tussen wissels, kaarten en positiewisselingen staat; op deze kaart is élke
                regel een doelpunt, dus dan onderscheidt het niets meer. Het gekleurde streepje links doet
                hier het werk: groen voor ons, rood voor hen. */ ''}
-          <span style="flex:1;min-width:0"><span style="color:var(--txt2);font-size:11px">${eventMinSummaryText(e, match)}</span> ${evtLabelBasis(e, match, true)}</span>
+          ${/* De minuut staat BUITEN het tekstblok (Tim, 27-09-2026). Anders zou de assist op de
+               tweede regel uitlijnen onder de minuut in plaats van onder "Doelpunt" — en de minuut is
+               niet altijd even breed ("3'" tegenover "30'+2'"), dus met een vaste insprong zou het
+               bij de ene regel wel kloppen en bij de andere niet. Nu draagt het tekstblok zelf de
+               hangende insprong; zie .kwart-doelpunt en .evt-assist in index.html. */ ''}
+          <span style="color:var(--txt2);font-size:11px;flex:0 0 auto">${eventMinSummaryText(e, match)}</span>
+          <span class="kwart-doelpunt" style="flex:1;min-width:0">${evtLabelBasis(e, match, true)}</span>
         </div>`;
       }).join('') || '<span style="color:var(--txt2)">–</span>'}</div>
       ${/* DE DUUR WEER RECHTS, ALS EIGEN KOLOM (Tim, 26-09-2026, na een eerste poging: "dit is niet

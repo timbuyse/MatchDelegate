@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.6
+
+**De assist staat op een eigen regel op de kaart per kwart, ingesprongen onder de naam.** Hij liep
+voordien achter het doelpunt aan en brak dan midden in de haakjes af. Nu:
+
+```
+4'  ⚽ Doelpunt Maxim B.
+       (assist Iluca L.)
+```
+
+Hij begint exact waar het woord *Doelpunt* begint, ook wanneer de minuut breder is — bij *30'+15'*
+schuift alles mee. Overal elders in de app blijft de assist gewoon achter de naam staan.
+
+---
+
 ## v1.75.5
 
 **De doelpunten krijgen meer plaats op de kaart per kwart.** De duur staat er nu als *16'* in plaats

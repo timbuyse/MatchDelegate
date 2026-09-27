@@ -431,6 +431,12 @@
     /* De kleine variant, enkel op de kaart per kwart: daar staat het pennetje naast de duur van een
        blok en duwt het op 36px de doelpuntenkolom weg. Zie de uitleg bij die kaart in detail-pdf.js. */
     .evt-edit-klein{width:28px;height:28px;font-size:13px;border-radius:7px}
+    /* De assist op de kaart per kwart: een eigen regel, ingesprongen tot waar "Doelpunt" begint.
+       Dat laatste doet de hangende insprong op .kwart-doelpunt hieronder — de eerste regel schuift
+       met een negatieve text-indent terug naar links (waar het icoontje staat), en alles wat daarna
+       op een nieuwe regel komt begint netjes op de padding-rand. */
+    .kwart-doelpunt{padding-left:17px;text-indent:-17px}
+    .evt-assist{display:block;text-indent:0;font-size:11px;color:var(--txt2)}
     .searchbar input{width:100%;padding:11px;border:2px solid var(--bdr);border-radius:10px;font-size:15px;background:var(--card);color:var(--txt);-webkit-appearance:none;margin-bottom:10px}
     /* Home dashboard-tegels */
     .home-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px}

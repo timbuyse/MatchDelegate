@@ -3708,7 +3708,15 @@ function evtLabelBasis(e, m, kort) {
   // deelbericht staat het er wel.
   const hoe = (!kort && e.wijze) ? ` · ${esc(e.wijze)}` : '';
   switch(e.type) {
-    case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`; if (e.assistId) s += ` (assist ${pn(e.assistId)})`; return s + hoe; }
+    // DE ASSIST OP EEN EIGEN REGEL IN DE KORTE VORM (Tim, 27-09-2026: "wel ingesprongen, dus begonnen
+    // waar de D van doelpunt start"). Die korte vorm is enkel de kaart per kwart, en daar staat de
+    // doelpuntenkolom smal: "Doelpunt Maxim B. (assist Iluca L.)" brak midden in de haakjes af.
+    // Het is een `span.evt-assist`, en de kaart zet die op een eigen regel met een hangende
+    // insprong — zie de opmaak in index.html en het kader in detail-pdf.js. Overal elders (tijdlijn,
+    // verslag, PDF, deelbericht) blijft de assist gewoon achter de naam staan.
+    case 'goal_us': { let s = `${icI(IC.goal)} Doelpunt ${pn(e.playerId)}`;
+      if (e.assistId) s += kort ? `<span class="evt-assist">(assist ${pn(e.assistId)})</span>` : ` (assist ${pn(e.assistId)})`;
+      return s + hoe; }
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}${hoe}`;
     case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})${hoe}`;
     case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander${hoe}`;
