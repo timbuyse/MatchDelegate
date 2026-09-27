@@ -1214,7 +1214,8 @@ function rbfaNetteTegenstander(naam) {
   return impNetteNaam(s.trim());
 }
 
-// De soort wedstrijd, in de drie woorden die de app kent (MATCH_KINDS in core.js).
+// De soort wedstrijd, in de woorden die de app kent (MATCH_KINDS in core.js). De bond kent enkel deze
+// drie; "WM Cup" en wat er later nog bijkomt, zet je zelf.
 // LET OP — het voorvoegsel van de reeks-id zegt NIET of het een beker is: "Beker van Vlaanderen"
 // staat onder CHP_ (competitie), en alleen de Croky Cup onder CUP_. Gemeten 31-08-2026 bij het
 // eerste elftal. Vandaar dat de naam van de reeks hier meebeslist.

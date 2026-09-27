@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.65.0
+
+**"WM Cup" is een echte soort wedstrijd geworden.** Ze staat in de keuzelijst onder Beker en boven
+*Andere…*, en daarmee ook als eigen filter bij de wedstrijdenlijst en de statistieken.
+
+De keuzelijst stond tot nu op **drie** plaatsen in de code: één keer centraal en twee keer
+uitgeschreven, in de nieuwe-wedstrijdwizard en in het bewerkformulier. Die twee kopieën zijn weg — een
+nieuwe soort verscheen anders wel in de filters maar niet in het menu waar je ze moet kunnen kiezen.
+
+Let op bij bestaande wedstrijden: de app vergelijkt de soort **exact**, hoofdletters inbegrepen. Wie
+via *Andere…* "WM CUP" had ingevuld, blijft onder *Andere* staan tot die tekst gelijkgezet is met de
+lijst.
+
+---
+
 ## v1.64.0
 
 **Een naam rechtzetten kan nu ook op een gespeelde wedstrijd.** *Namen, nummers & notities* stond enkel

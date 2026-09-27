@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.64.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.65.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -11,10 +11,18 @@ const MATCH_TYPES = {
 // uitgeschreven in de wizard, het bewerkscherm, de kalenderimport en het bulk-bewerken — vier
 // kopieën die na de eerste wijziging uit elkaar zouden lopen. Nu één lijst, hier in core.js omdat
 // elk ander bestand hem nodig heeft (kaartje, filter, statistieken).
-// Het veld `m.competition` blijft VRIJE TEKST: de drie hieronder zijn de keuzes die de app aanbiedt,
-// maar je mag via "Andere…" iets eigens invullen (bv. "Oefentornooi"). Alles wat niet in de lijst
-// staat, valt onder 'other'. Tornooiwedstrijden dragen 'Tornooi' en horen ook bij 'other'.
-const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker'];
+// Het veld `m.competition` blijft VRIJE TEKST: wat hieronder staat zijn de keuzes die de app
+// aanbiedt, maar je mag via "Andere…" iets eigens invullen (bv. "Oefentornooi"). Alles wat niet in de
+// lijst staat, valt onder 'other'. Tornooiwedstrijden dragen 'Tornooi' en horen ook bij 'other'.
+//
+// DE VERGELIJKING IS EXACT, hoofdletters inbegrepen (Tim, 27-09-2026). Zijn wedstrijden stonden deels
+// als "WM CUP" en deels als "WM Cup" — met vrije tekst gebeurt dat vanzelf. Enkel de schrijfwijze die
+// hier staat, telt als die soort; de rest valt onder "Andere". Voeg je hier iets toe waarvan er al
+// wedstrijden bestaan, kijk dan eerst na hoe ze er precies in staan.
+//
+// "WM Cup" erbij op Tims vraag (27-09-2026). Hij staat ACHTERAAN, en dat is wat de keuzelijsten
+// "boven Andere" oplevert: die plakken "Andere…" er zelf achter.
+const MATCH_KINDS = ['Competitie', 'Vriendschappelijk', 'Beker', 'WM Cup'];
 function matchKindOf(m) {
   const c = ((m && m.competition) || '').trim();
   return MATCH_KINDS.includes(c) ? c : 'other';

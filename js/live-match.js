@@ -1653,7 +1653,8 @@ function modalEditMatchInfo() {
     <details class="more-details" open>
       <summary>+ Meer details (optioneel)</summary>
       <div class="fg" style="margin-top:12px"><label>Soort</label>
-        ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=match.competition||''; const isCustom=cur&&!std.includes(cur);
+        ${/* MATCH_KINDS en geen eigen lijstje — zie de uitleg bij hetzelfde veld in wizard-prep.js. */ ''}
+        ${(()=>{ const std=MATCH_KINDS; const cur=match.competition||''; const isCustom=cur&&!std.includes(cur);
           return `<select id="ei-comp" onchange="document.getElementById('ei-comp-custom').style.display=this.value==='__other__'?'':'none'">${std.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}<option value="__other__" ${isCustom?'selected':''}>Andere…</option></select>
           <input id="ei-comp-custom" type="text" placeholder="Eigen soort" value="${esc(isCustom?cur:'')}" style="margin-top:6px;${isCustom?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card)">`;
         })()}</div>

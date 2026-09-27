@@ -211,7 +211,11 @@ function wizStep1() {
       <details class="more-details" open>
         <summary>+ Meer details (optioneel)</summary>
         <div class="fg" style="margin-top:12px"><label>Soort</label>
-          ${(()=>{ const std=['Competitie','Vriendschappelijk','Beker']; const cur=wiz.competition||''; const isCustom=cur&&!std.includes(cur);
+          ${/* MATCH_KINDS en geen eigen lijstje (Tim, 27-09-2026). Hier stond de rij soorten een tweede
+               keer uitgeschreven, naast die in core.js — en toen "WM Cup" erbij kwam, verscheen die wél
+               in de filters maar niet in dit keuzemenu. Precies de reden waarom die lijst ooit naar
+               core.js verhuisd is. Hetzelfde geldt voor het bewerkformulier in live-match.js. */ ''}
+          ${(()=>{ const std=MATCH_KINDS; const cur=wiz.competition||''; const isCustom=cur&&!std.includes(cur);
             return `<select id="n-comp" onchange="document.getElementById('n-comp-custom').style.display=this.value==='__other__'?'':'none'">${std.map(c=>`<option ${cur===c?'selected':''}>${c}</option>`).join('')}<option value="__other__" ${isCustom?'selected':''}>Andere…</option></select>
             <input id="n-comp-custom" type="text" placeholder="Eigen soort" value="${esc(isCustom?cur:'')}" style="margin-top:6px;${isCustom?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card)">`;
           })()}</div>
