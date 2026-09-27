@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.75.8
+
+**Een wissel of positiewissel achteraf toevoegen toonde altijd het veld van bij de start van het
+deel.** Gaf je een minuut op, dan veranderde er niets aan het beeld: wie tijdens dat deel was
+ingevallen ontbrak, en wie er al af was stond er nog. Liet je de minuut leeg, dan was het nog
+schever — zo'n gebeurtenis belandt op het einde van het deel, terwijl je het beginveld zag.
+
+Nu tekent dat scherm het veld zoals het er op de gekozen minuut bij stond, met dezelfde rekensom
+als waar de gebeurtenis zelf op terechtkomt. Voeg je iets toe in een pauze, dan blijft dat de
+opstelling waarmee dat deel begint.
+
+---
+
 ## v1.75.7
 
 **Het woord "Startopstelling" was onleesbaar in donkere modus.** Dat kader hield zijn lichte

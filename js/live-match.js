@@ -2464,8 +2464,9 @@ async function _saveQlOpstelling() {
 // verkeerd stonden: "Iluca moet naar 9, Lyam op 10, Kyano 11 en Theo 3." Dat was niet te doen. De
 // samengevoegde regel in het verloop had enkel een kruisje — een reeks heeft geen eigen event om te
 // bewerken — en opnieuw ingeven liep dood op het tweede probleem: "Event toevoegen → Positiewissel"
-// vertrekt van `veldVoorWisselScherm`, en dat toont in retro-modus het veld bij de START van het
-// blok. Wie pas tijdens dat kwart invalt, staat daar niet eens op.
+// vertrok van `veldVoorWisselScherm`, en dat toonde in retro-modus het veld bij de START van het
+// blok. Wie pas tijdens dat kwart inviel, stond daar niet eens op. (Diezelfde scheefheid is in
+// v1.75.8 bij de bron rechtgezet: dat scherm tekent nu het veld van de gekozen minuut.)
 //
 // Daarom hetzelfde gebaar als bij de opstelling van een deel: je krijgt het veld zoals het er op dát
 // moment bij stond, je zet iedereen goed, en de app rekent zelf uit welke ruils daarvoor nodig zijn.
@@ -4241,13 +4242,41 @@ async function logCorner(team) {
 let subOut = null, subIn = null;
 // Wie er op het veld staat op het moment waarover dit scherm gaat, MET de posities van dat moment —
 // nodig om een veld te kunnen tekenen i.p.v. een rij naamkaartjes. Drie situaties:
-//   retro  : een event toevoegen aan een afgelopen deel → de opstelling waarmee dat deel begon
+//   retro  : een event toevoegen aan een afgelopen deel → de opstelling op de gekozen MINUUT
 //   pauze  : de opstelling waarmee het volgende deel begint (inclusief wat er al klaarstaat)
 //   live   : gewoon wie er nu staat
+//
+// OP DE MINUUT, NIET OP DE BLOKSTART (Tim, 27-09-2026: "hij toont een veld maar mij lijkt dat altijd
+// het startveld te zijn, ook als je een minuut ingeeft"). Dat klopte: dit gaf onverkort de opstelling
+// waarmee het deel begon. Voeg je op minuut 12 iets toe terwijl er op minuut 5 gewisseld is, dan stond
+// de invaller er niet op en de gewisselde speler nog wel. En liet je de minuut LEEG, dan was het nog
+// schever: addEvent legt zo'n event op het EINDE van het blok, terwijl je het beginveld zag.
+// Nu wordt exact dezelfde tijd berekend als in addEvent, en het veld van dát moment getekend —
+// `_prVeld` speelt de wissels en positiewissels van dat blok voorwaarts af tot daar (zie v1.67.0).
 function veldVoorWisselScherm(m) {
-  if (_postEventQuarter != null) return pitchPlayersAtPeriodStart(m, _postEventQuarter);
+  if (_postEventQuarter != null) {
+    const tijd = retroMomentMs(m, _postEventQuarter, _postEventMinute);
+    return (tijd == null) ? pitchPlayersAtPeriodStart(m, _postEventQuarter)
+      : _prVeld(m, _postEventQuarter, [], tijd, false);
+  }
   if (m.quarterStatus === 'between') return previewNextLineup(m).filter(p => p.onField && !p.absent);
   return effectiveOnField(m);
+}
+// Het tijdstip waarop een achteraf toegevoegd event zal belanden. Eén kopie van de rekensom uit
+// addEvent, zodat het getekende veld en de werkelijke plaats van het event niet uit elkaar kunnen
+// lopen. Geen deel of een onbekend deel: dan valt er niets te rekenen.
+function retroMomentMs(m, deel, minuut) {
+  if (!deel || deel === 'unknown') return null;
+  const qStart = gameTimeMsAtStartOfQuarter(m, deel);
+  // In de pauze: addEvent legt dat op het begin van het blok, dus daar hoort ook het veld van vóór de
+  // aftrap bij — niet het einde, zoals een lege minuut betekent. Zonder deze regel zou het beeld
+  // opnieuw afwijken van waar het event belandt, nu net andersom.
+  if (_postEventAtBreak) return qStart;
+  const qEinde = Math.max(qStart, gameTimeMsAtEndOfQuarter(m, deel) - 1);
+  if (minuut === null || minuut === undefined || minuut === '') return qEinde;
+  const n = parseInt(minuut, 10);
+  if (isNaN(n) || n < 1) return qEinde;
+  return Math.min(qStart + (n - 1) * 60000, qEinde);
 }
 // Wissel via het veld: tik een speler op het veld (die gaat eraf) en een op de bank (die komt erin).
 // Zelfde bediening als het tabblad Opstelling en de pauze-opstelling, zodat er nog maar één manier
