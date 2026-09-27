@@ -112,6 +112,18 @@ function bouwSpeeldagIndex(alle) {
     return false;
   };
 }
+// De rijtjes van "Hoe de doelpunten vielen" — op de ploegpagina (loadStats) én op de pagina van één
+// speler (loadPlayerDetail), dus hier op één plek. Aantallen en geen percentages (Tims keuze bij het
+// ontwerp): bij twintig doelpunten zegt "39%" minder dan "7 van de 18". Het balkje geeft de
+// verhouding, en dat volstaat om te zien wat eruit springt.
+function wijzeRijen(kaart, kleur) {
+  const lijst = Object.entries(kaart).sort((a, b) => b[1] - a[1]);
+  if (!lijst.length) return '<p style="color:var(--txt2);font-size:14px">—</p>';
+  const top = lijst[0][1] || 1;
+  return lijst.map(([w, n]) => `<div class="stat-row"><span style="flex:1">${esc(w)}</span>`
+    + `<span style="flex:0 0 90px;height:8px;border-radius:4px;background:var(--bdr);overflow:hidden;margin-right:10px"><span style="display:block;height:100%;width:${Math.round(n / top * 100)}%;background:${kleur}"></span></span>`
+    + `<span style="font-weight:800;min-width:24px;text-align:right">${n}</span></div>`).join('');
+}
 // `goaltypes` staat standaard DICHT voor kijkers: hoe jullie doelpunten vallen en hoe je ze
 // tegenkrijgt, is analyse voor de trainer en geen mededeling aan de ouders. Het oogje zet het open.
 const STATS_DEFAULT_PUBLIC = { topscorers: true, assists: true, cleansheets: true, minutes: false, fairplay: false, cards: false, positions: false, selected: false, goaltypes: false };
@@ -540,25 +552,19 @@ async function loadStats() {
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
-  // ---- Hoe de doelpunten vielen ----
-  // Aantallen en geen percentages (Tims keuze bij het ontwerp): bij twintig doelpunten zegt "39%"
-  // minder dan "7 van de 18". Het balkje geeft de verhouding, en dat volstaat om te zien wat eruit
-  // springt. Gemaakt en tegen staan apart, want dat zijn twee verschillende gesprekken.
-  const wijzeRijen = (kaart, kleur) => {
-    const lijst = Object.entries(kaart).sort((a, b) => b[1] - a[1]);
-    if (!lijst.length) return '<p style="color:var(--txt2);font-size:14px">—</p>';
-    const top = lijst[0][1] || 1;
-    return lijst.map(([w, n]) => `<div class="stat-row"><span style="flex:1">${esc(w)}</span>`
-      + `<span style="flex:0 0 90px;height:8px;border-radius:4px;background:var(--bdr);overflow:hidden;margin-right:10px"><span style="display:block;height:100%;width:${Math.round(n / top * 100)}%;background:${kleur}"></span></span>`
-      + `<span style="font-weight:800;min-width:24px;text-align:right">${n}</span></div>`).join('');
-  };
   // De slotregel telt ENKEL de doelpunten waarvoor het ingevuld is (Tim, 27-09-2026). Zonder die zin
   // leest "Counter 5" als het volledige beeld, terwijl het er misschien negen waren.
   const wijzeIets = wijzeMet.voor + wijzeMet.tegen > 0;
-  const wijzeBody = `<div class="sec" style="margin-top:0">Gemaakt (${wijzeMet.voor})</div>${wijzeRijen(wijzeVoor, 'var(--grn)')}`
-    + `<div class="sec">Tegen (${wijzeMet.tegen})</div>${wijzeRijen(wijzeTegen, 'var(--rd)')}`
-    + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij je invulde hoe ze vielen: `
-    + `<b>${wijzeMet.voor} van ${wijzeTot.voor}</b> gemaakt, <b>${wijzeMet.tegen} van ${wijzeTot.tegen}</b> tegen. `
+  // Een kant die er niet is, laten we helemaal weg: bij een ploeg die nog geen tegendoelpunt kreeg
+  // stond er "Tegen (0) —" met eronder "0 van 0 tegen", en dat is drie keer niets zeggen.
+  const wijzeEerste = wijzeTot.voor ? 'Gemaakt' : 'Tegen';   // die kop hoort strak tegen de bovenrand
+  const wijzeDeel = (kop, kaart, kleur, met, tot) => tot
+    ? `<div class="sec"${kop === wijzeEerste ? ' style="margin-top:0"' : ''}>${kop} (${met})</div>${wijzeRijen(kaart, kleur)}` : '';
+  const wijzeZin = [wijzeTot.voor ? `<b>${wijzeMet.voor} van ${wijzeTot.voor}</b> gemaakt` : '',
+                    wijzeTot.tegen ? `<b>${wijzeMet.tegen} van ${wijzeTot.tegen}</b> tegen` : ''].filter(Boolean).join(', ');
+  const wijzeBody = wijzeDeel('Gemaakt', wijzeVoor, 'var(--grn)', wijzeMet.voor, wijzeTot.voor)
+    + wijzeDeel('Tegen', wijzeTegen, 'var(--rd)', wijzeMet.tegen, wijzeTot.tegen)
+    + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij je invulde hoe ze vielen: ${wijzeZin}. `
     + `Strafschoppen staan hier niet bij — die zeggen zelf al hoe ze vielen.</p>`;
   // DE NOEMER VAN "GESELECTEERD" (Tims keuze, 25-08-2026). Was `squad + absent`, en dat zijn enkel de
   // wedstrijden waarvoor er íets over hem ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet
@@ -826,6 +832,9 @@ async function loadPlayerDetail() {
   // hieronder apart — anders zou zo'n wedstrijd stil als gelijkspel meetellen.
   let pW = 0, pG = 0, pV = 0, pZonderUitslag = 0;
   const rows = [];
+  // Hoe HIJ scoorde (Tim, 27-09-2026). Enkel zijn eigen doelpunten uit het spel; een strafschop
+  // draagt geen woord en blijft er dus ook uit de noemer — zelfde regel als op de ploegpagina.
+  const pWijze = {}; let pWijzeTot = 0, pWijzeMet = 0;
   for (const m of doneList) {
     const pl = findPlayer(m);
     if (!pl) continue;
@@ -837,7 +846,7 @@ async function loadPlayerDetail() {
     const pms = mins[pl.id] ? mins[pl.id].ms : 0;
     let g = 0, a = 0, y = 0, r = 0;
     for (const e of m.events) {
-      if (e.type === 'goal_us' && e.playerId === pl.id) g++;
+      if (e.type === 'goal_us' && e.playerId === pl.id) { g++; pWijzeTot++; if (e.wijze) { pWijzeMet++; pWijze[e.wijze] = (pWijze[e.wijze] || 0) + 1; } }
       if (e.type === 'penalty_us' && e.scored && e.playerId === pl.id) g++;
       // Zelfde assist-criterium als loadStats() (enkel bij een echt doelpunt) — anders spreken
       // het seizoensoverzicht en het spelerdetail elkaar tegen.
@@ -1007,6 +1016,16 @@ async function loadPlayerDetail() {
       <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Hij hoort bij ${ownEntries.length === 1 ? 'deze ploeg' : 'deze ploegen'} en kwam hier als gast meespelen.</p></div>` : ''}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
+    ${/* HOE HIJ SCOORDE (Tim, 27-09-2026: "zet het er misschien toch maar bij per speler, maar met een
+         melding, enkel wanneer geregistreerd"). Ik had dit bij het ontwerp bewust weggelaten: een
+         jeugdspeler maakt er een handvol per seizoen, en dan lees je ruis als een patroon. Daarom
+         staat de regel eronder er ook echt: die zegt over hoeveel van zijn doelpunten het gaat, zodat
+         "Counter 2" niet leest als zijn volledige verhaal.
+         Enkel wanneer er iets ingevuld is — bij een speler zonder die woorden hoort hier niets. */ ''}
+    ${pWijzeMet ? `<div class="sec">${icI(IC.goal)} Hoe hij scoorde</div><div class="card">
+      ${wijzeRijen(pWijze, 'var(--grn)')}
+      <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Enkel de doelpunten waarbij je invulde hoe ze vielen: <b>${pWijzeMet} van ${pWijzeTot}</b>. Strafschoppen staan hier niet bij.</p>
+    </div>` : ''}
     ${/* Strafschoppen: tijdens de wedstrijd en in een reeks samengeteld. Enkel tonen wie er ooit
          één nam — anders staat er bij elke speler een lege rubriek. */ ''}
     ${penGenomen ? `<div class="sec">${icI(IC.penalty)} Strafschoppen</div><div class="card">
@@ -1644,6 +1663,14 @@ const HANDLEIDING_PAGINAS = [
         </li>
         <li><b>Wissel</b> brengt je naar het tabblad <b>Opstelling</b>, want daar gebeurt alles met
           plaatsen. Bovenaan dat tabblad staat <b>'‹ Wedstrijd'</b> om weer terug te keren.</li>
+        <li>Onderaan het <b>Goal</b>-venster staat <b>'Hoe viel het?'</b> met een rijtje woorden:
+          <b>Counter</b>, <b>Individuele actie</b>, <b>Collectieve aanval</b>, <b>Hoekschop</b>,
+          <b>Vrije trap</b>, <b>Ingooi</b>, <b>Afstandsschot</b> en <b>Rebound</b>. Eén tik, of je
+          laat het staan — het is optioneel en houdt je aan de zijlijn niet op. Nog eens tikken op
+          hetzelfde woord zet het weer af. Het kan ook bij een <b>tegendoelpunt</b>; bij een
+          strafschop staat het er niet, die zegt zelf al hoe hij viel. Vergeten? Je vult het achteraf
+          in met het potloodje bij dat doelpunt in het verloop. De app telt die woorden op bij de
+          statistieken — zie <b>Statistieken</b>.</li>
         <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
           staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
           veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te
@@ -1794,6 +1821,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Clean sheets</b> — per keeper, op basis van de minuten die hij effectief in doel stond.</li>
         <li><b>Meeste speelminuten</b> en <b>Fair-play · minste speeltijd</b> — die tweede rekent de <i>gemiddelde</i> speeltijd per selectie, dus wie vaak geselecteerd wordt maar weinig speelt, staat bovenaan. Bedoeld om eerlijke speelkansen op te volgen.</li>
         <li><b>Geselecteerd</b> — in hoeveel procent van de <b>speeldagen</b> een speler in de selectie zat. Speel je met twee ploegen tegelijk, dan is dat samen één speeldag: je kan maar in één van beide staan. Wedstrijden horen bij dezelfde speeldag als ze op dezelfde dag of het weekend rond elkaar vallen, of als je er hetzelfde nummer bij <b>Speeldag</b> invulde — handig wanneer er één uitgesteld wordt naar de week erna. Speelde iemand er <b>twee van dezelfde speeldag</b>, dan telt dat ook als twee: bij hem staat er dan 2 van de 2, bij wie er één speelde 1 van de 1, en bij wie niet gekozen werd 0 van de 1. Wie <b>NB</b> stond, telt als gemiste speeldag, behalve met de reden 'speelt elders'.</li>
+        <li><b>Hoe de doelpunten vielen</b> — twee lijstjes, <b>Gemaakt</b> en <b>Tegen</b>, met per woord hoeveel doelpunten er zo vielen. Het gaat over wat je bij een doelpunt aantikt in het <b>Goal</b>-venster (zie <b>Live wedstrijd bijhouden</b>). Onderaan staat hoeveel doelpunten het écht over gaat — vul je het maar bij de helft in, dan zie je dat meteen. Strafschoppen blijven er helemaal buiten. Dit blok verschijnt alleen als je die woorden ook gebruikt.</li>
         <li><b>Posities</b> en <b>Kaarten</b>.</li>
       </ul>
       <div class="sec">Welke wedstrijden tellen mee?</div>
@@ -1801,7 +1829,7 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Wat mag een kijker zien?</div>
       <p>Bij elke sectie staat voor jou als beheerder een <b>oog-icoontje</b>. Tik erop om die sectie vrij te geven aan kijkers, of ze weer privé te zetten. Standaard zijn Topschutters, Assists en Clean sheets publiek en de rest privé. Een kijker ziet onderaan de melding dat er meer statistieken bestaan voor ploegbeheerders. Het <b>individuele spelersdetail</b> blijft altijd voorbehouden aan ploegbeheerders.</p>
       <div class="sec">Per speler</div>
-      <p>Tik op een speler voor zijn detailpagina: doelpunten, assists, speelminuten, kaarten, keeperbeurten en zijn aanwezigheid. Onderaan staat <b>'Carrière — eerder bij'</b>: wedstrijden bij een vorige ploeg, voor spelers die via <b>'Speler overzetten'</b> verhuisd zijn.</p>
+      <p>Tik op een speler voor zijn detailpagina: doelpunten, assists, speelminuten, kaarten, keeperbeurten en zijn aanwezigheid. Vulde je bij zijn doelpunten in hoe ze vielen, dan staat er ook <b>'Hoe hij scoorde'</b>, met eronder over hoeveel van zijn doelpunten het gaat — bij een handvol doelpunten zegt zo'n lijstje nog weinig, en dat hoor je te zien. Onderaan staat <b>'Carrière — eerder bij'</b>: wedstrijden bij een vorige ploeg, voor spelers die via <b>'Speler overzetten'</b> verhuisd zijn.</p>
       <div class="sec">Seizoen exporteren</div>
       <p>Onderaan staat <b>'Seizoen exporteren'</b>. Je kiest een seizoen en krijgt de cijfers van je
         ploeg als <b>Excel</b> (zes tabbladen: Overzicht, Spelers, Spelers per ploeg, Wedstrijden,

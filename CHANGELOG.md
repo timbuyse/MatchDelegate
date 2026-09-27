@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.71.0
+
+**Op de pagina van een speler staat nu ook "Hoe hij scoorde".** Alleen wanneer je bij zijn
+doelpunten invulde hoe ze vielen — anders staat er niets. Eronder staat over hoeveel van zijn
+doelpunten het gaat: bij een handvol doelpunten zegt zo'n lijstje nog weinig, en dat hoor je te zien.
+Strafschoppen blijven er ook hier buiten.
+
+**Een kant die er niet is, valt weg.** Kreeg je ploeg nog geen tegendoelpunt, dan stond er *Tegen (0)*
+met een streepje en *0 van 0 tegen* eronder. Dat blok toont nu enkel de kant waar ook echt iets staat.
+
+**De handleiding vertelt nu ook hoe je bij een doelpunt zegt waar het vandaan kwam.** Bij *Live
+wedstrijd bijhouden* staat het rijtje woorden onder het goal-venster, met wat er gebeurt als je het
+overslaat of achteraf invult. Bij *Statistieken* staan het blok *Hoe de doelpunten vielen* en de
+lijst per speler erbij.
+
+---
+
 ## v1.70.1
 
 **De meldingen over een lopende of openstaande wedstrijd volgen nu de ploeg waar je naar kijkt.**
