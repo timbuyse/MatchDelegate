@@ -2475,21 +2475,22 @@ async function _saveQlOpstelling() {
 // GEEN WACHTER OP LATERE WISSELS, anders dan bij _saveQlOpstelling. Een herschikking verandert niet
 // WIE er op het veld staat, enkel waar ze staan — een latere wissel kan daar dus niet tegenstrijdig
 // door worden. Dat is ook waarom er hier geen bank is.
-let _pr = null;   // { ids, deel, tijd, voor, plaats, sel }
+let _pr = null;   // { ids, deel, tijd, min, plaats, sel }
 // Het veld binnen een deel, opgebouwd tot vlak vóór (of tot en met) een reeks. Vertrekt van de
 // opstelling waarmee het deel begon en speelt daarna de gebeurtenissen van dat deel voorwaarts af —
 // dezelfde regels als _posVooruit en rebuildPositions, maar met een grens midden in het blok.
 // De volgorde is die van het verloop zelf (gesorteerd op speeltijd), zodat "vlak vóór deze regel"
 // letterlijk is wat je op het scherm boven die regel ziet staan.
-function _prVeld(m, deel, ids, metReeks) {
+// OP TIJD EN NIET OP PLAATS IN DE LIJST (Tim, 27-09-2026: "ik kan achteraf de minuut niet wijzigen").
+// Zodra je de minuut mag verzetten, is "alles wat vóór deze regel staat" niet meer genoeg: bij een
+// andere minuut hoort een ander veld, want er kan intussen gewisseld zijn. `tijd` is dus het ijkpunt,
+// en de reeks zelf valt er altijd buiten (die gaan we net herschrijven).
+function _prVeld(m, deel, ids, tijd, metReeks) {
   const set = new Set(ids || []);
   const lijst = (m.events || []).filter(e => e.quarterNum === deel && !e.atBreak
     && (e.type === 'substitution' || e.type === 'posSwap' || e.type === 'red_card' || (e.type === 'injury' && e.leavesField)))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
-  const grens = lijst.findIndex(e => set.has(e.id));
-  // De reeks staat niet noodzakelijk aaneengesloten in die lijst, dus op id filteren i.p.v. snijden.
-  const tot = grens < 0 ? lijst.length : grens;
-  const voor = lijst.filter((e, i) => i < tot || (metReeks && set.has(e.id)));
+  const voor = lijst.filter(e => set.has(e.id) ? !!metReeks : (e.gameTimeMs || 0) < tijd);
   const pos = {}, op = {};
   pitchPlayersAtPeriodStart(m, deel).forEach(p => {
     op[p.id] = true;
@@ -2540,11 +2541,11 @@ function modalPosSwapReeks(ids) {
   // hier ook niet te belanden. Een pauzeherschikking ÍS de opstelling van dat deel — _prVeld rekent
   // met de gebeurtenissen tijdens het spel en zou er niets zinnigs van maken.
   if (evs.some(e => e.atBreak)) { showToast(`Dit is de opstelling waarmee ${pSingLow(match)} ${deel} begint — zet ze recht met het potloodje bij "Startopstelling".`, 'err'); return; }
-  const voor = _prVeld(match, deel, ids, false);
-  const na = _prVeld(match, deel, ids, true);
-  // Het venster opent op de UITKOMST: dat is wat er nu staat en wat je komt rechtzetten. `voor` is
-  // enkel het ijkpunt waartegen straks het verschil gerekend wordt.
-  _pr = { ids: evs.map(e => e.id), deel, tijd: evs[0].gameTimeMs || 0, voor, plaats: _prKaart(na), sel: null };
+  const tijd = evs[0].gameTimeMs || 0;
+  const na = _prVeld(match, deel, ids, tijd, true);
+  // Het venster opent op de UITKOMST: dat is wat er nu staat en wat je komt rechtzetten. Het veld van
+  // vlak ervóór wordt pas bij het opslaan gehaald, want tegen dan kan de minuut verzet zijn.
+  _pr = { ids: evs.map(e => e.id), deel, tijd, min: eventMin(evs[0], match), plaats: _prKaart(na), sel: null };
   _renderPrModal();
 }
 function _prTap(kind, id) { if (_opstTap(_pr, kind, id)) _renderPrModal(); }
@@ -2554,6 +2555,12 @@ function _renderPrModal() {
   const min = eventMinTijd({ gameTimeMs: _pr.tijd, quarterNum: _pr.deel }, match);
   openModal(`<h3>${icI(IC.compass)} Positiewisselingen · ${pSing(match)} ${_pr.deel}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Zo stond het veld erbij op ${esc(String(min))}, ná de wissels van ${pSingLow(match)} ${_pr.deel}. Tik een <b>speler</b> en dan een <b>andere speler</b> om ze te laten ruilen, of een <b>lege plek</b> om hem daarheen te zetten.</p>
+    ${/* DE MINUUT ERBIJ (Tim, 27-09-2026, meteen na de eerste versie: "ik kan achteraf de minuut niet
+         wijzigen"). Elk ander event heeft dat veld, dus een reeks hoort niet de uitzondering te zijn.
+         De waarde in `_pr` bijhouden en niet in het invoervak alleen: dit venster wordt bij ELKE tik
+         opnieuw getekend, dus wat je typt zou bij de eerstvolgende tik op het veld verdwijnen. */ ''}
+    <div class="fg" style="margin-bottom:10px"><label>Minuut binnen dit ${pSingLow(match)}</label>
+      <input id="pr-min" type="number" inputmode="numeric" min="1" value="${esc(String(_pr.min))}" oninput="_pr.min=this.value"></div>
     ${renderPitch(match, opVeld, captainAtStartOfQuarter(match, _pr.deel), null, { fn: '_prTap', selId: _pr.sel ? _pr.sel.id : null, plek: true })}
     ${nogTeDoen.length ? `<div class="sec" style="color:var(--org2,#b45309)">Nog te plaatsen (${nogTeDoen.length})</div>
     <div class="place-chips">${nogTeDoen.map(p => `<span class="place-chip ${_pr.sel && _pr.sel.id === p.id ? 'sel' : ''}" onclick="_prTap('field','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')}</div>` : ''}
@@ -2561,8 +2568,9 @@ function _renderPrModal() {
     <button class="btn btn-green" style="margin-top:10px" onclick="_savePosSwapReeks()">${icI(IC.check)} Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="_pr=null;closeModal()">Annuleren</button>`);
 }
-// De nieuwe ruils op exact de speeltijd van de oude reeks. posA/posB blijven leeg: rebuildPositions
-// vult die zo dadelijk zelf in vanaf de herbouwde stand — dezelfde afspraak als in _qlZetGrens.
+// De nieuwe ruils op de gekozen speeltijd — dezelfde als voordien, tenzij de minuut verzet is.
+// posA/posB blijven leeg: rebuildPositions vult die zo dadelijk zelf in vanaf de herbouwde stand,
+// dezelfde afspraak als in _qlZetGrens.
 function _prSchrijf(m, deel, tijd, extra) {
   m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: tijd, quarterNum: deel,
     type: 'posSwap', posA: null, posB: null, ...extra });
@@ -2575,6 +2583,34 @@ async function _savePosSwapReeks() {
     showToast(`${nogTeDoen.length === 1 ? 'Er staat nog iemand' : 'Er staan nog ' + nogTeDoen.length + ' spelers'} naast het veld — zet ${nogTeDoen.length === 1 ? 'hem' : 'ze'} op een plek.`, 'err');
     return;
   }
+  const deel = _pr.deel;
+  // DE MINUUT, met dezelfde regels als saveEditEvent: 1 of hoger, en begrensd tot binnen dit blok —
+  // anders schuift de reeks naar een volgend blok en klopt de op speeltijd gesorteerde berekening van
+  // speelminuten en veldbezetting niet meer. Bij een nog lopend blok is de grens de werkelijk
+  // verstreken speeltijd; de nominale duur zou een minuut in de toekomst toelaten.
+  const minRuw = String(_pr.min == null ? '' : _pr.min).trim();
+  const min = parseInt(minRuw, 10);
+  if (minRuw !== '' && (isNaN(min) || min < 1)) { showToast('De minuut moet 1 of hoger zijn.', 'err'); return; }
+  const qStart = gameTimeMsAtStartOfQuarter(match, deel);
+  const q = (match.quarters || []).find(x => x.num === deel);
+  const qEindMs = (q && !q.endTime) ? getGameTimeMs(match) : gameTimeMsAtEndOfQuarter(match, deel);
+  const tijd = (minRuw === '' || isNaN(min) || min < 1) ? _pr.tijd
+    : Math.min(qStart + (min - 1) * 60000, Math.max(qStart, qEindMs - 1));
+  // HET VELD HOORT BIJ DE MINUUT. Verzet je de reeks naar vóór een wissel van dit blok, dan stond daar
+  // een ándere ploeg op het veld — en dan slaat de getekende opstelling nergens meer op. Daarom het
+  // ijkpunt hier opnieuw halen, op de NIEUWE tijd, en weigeren als het niet dezelfde elf (of acht)
+  // spelers zijn. Weigeren is hier beter dan doorzetten: rebuildPositions zou een ruil met iemand die
+  // er niet staat gewoon overslaan, en dan staat er stil iets anders dan wat jij tekende.
+  const voor = _prVeld(match, deel, _pr.ids, tijd, false);
+  const voorIds = new Set(voor.map(p => p.id));
+  const doelIds = Object.keys(_pr.plaats);
+  const erbij = doelIds.filter(id => !voorIds.has(id)).map(id => pName(match, id));
+  const weg = [...voorIds].filter(id => !_pr.plaats.hasOwnProperty(id)).map(id => pName(match, id));
+  if (erbij.length || weg.length) {
+    const wie = [...erbij, ...weg].join(', ');
+    showToast(`Op minuut ${min} stond er een andere ploeg op het veld (${wie}). Zet de minuut terug, of verwijder deze regel en geef ze opnieuw in op het juiste moment.`, 'err');
+    return;
+  }
   _eventBusy = true;
   // Alles wat we aanraken eerst apart leggen — zelfde vangnet als bij _saveQlOpstelling.
   const terug = {
@@ -2583,7 +2619,6 @@ async function _savePosSwapReeks() {
     deleted: match.deletedEventIds ? match.deletedEventIds.slice() : undefined,
     keeperByQ: match.keeperByQ ? JSON.parse(JSON.stringify(match.keeperByQ)) : match.keeperByQ,
   };
-  const deel = _pr.deel, tijd = _pr.tijd;
   try {
     const set = new Set(_pr.ids);
     (match.events || []).filter(e => set.has(e.id)).forEach(e => tombstoneEvent(match, e.id));
@@ -2592,7 +2627,7 @@ async function _savePosSwapReeks() {
     // opstelling. Elke stap zet minstens één speler definitief goed, dus dit loopt af: het is de
     // gewone ontbinding van een verwisseling in ruilen — zelfde lus als _qlZetGrens.
     const huidig = {};
-    _pr.voor.forEach(p => { const c = spelerGridCode(p); if (c) huidig[p.id] = c; });
+    voor.forEach(p => { const c = spelerGridCode(p); if (c) huidig[p.id] = c; });
     const doel = { ..._pr.plaats };
     for (const id of Object.keys(doel)) {
       if (huidig[id] === doel[id]) continue;

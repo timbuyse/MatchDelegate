@@ -3684,7 +3684,12 @@ function renderEventLog(m) {
     const pauzeItems = list.filter(e => e.atBreak);
     if (pauzeItems.length) list = list.filter(e => !e.atBreak);
     const li = e => {
-      const isGoal = elog_ro && GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
+      // OOK VOOR EEN BEHEERDER (Tim, 27-09-2026: "is dat bij alle events ook zo?"). Dit stond op
+      // `elog_ro`, dus enkel een kijker zag de doelpunten in het vet — wie de wedstrijd bijhield, kreeg
+      // ze net als elke wissel in gewone letters. Er is geen reden waarom dezelfde tijdlijn er anders
+      // uitziet naargelang wie kijkt: een doelpunt is voor allebei het zwaarste wat er op die regel kan
+      // staan. Een gemiste penalty blijft gewoon: die verandert de stand niet.
+      const isGoal = GOAL_TYPES.has(e.type) && (e.type !== 'penalty_us' && e.type !== 'penalty_them' || e.scored);
       const goalStyle = isGoal ? ' style="font-weight:700;font-size:15px"' : '';
       // Een samengevoegde reeks heeft geen eigen event om te bewerken; verwijderen wist de hele
       // reeks, want de delen ervan hebben los geen betekenis.

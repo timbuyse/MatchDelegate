@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.68.0
+
+**De doelpunten staan in het vet op de kaart per kwart.** Daar stonden ze in dezelfde letters als het
+kwartnummer, de stand en de duur — terwijl ze de reden zijn dat je naar die kaart kijkt. De minuut
+ervóór blijft klein en grijs.
+
+**En in *Alle events* ook voor jezelf.** Dat stond er al vet, maar enkel voor een kijker: wie de
+wedstrijd bijhield, kreeg een doelpunt in dezelfde letters als een wissel. Dezelfde tijdlijn hoort er
+niet anders uit te zien naargelang wie kijkt.
+
+**De minuut van een reeks positiewisselingen is aanpasbaar.** Het venster van hierboven had als enige
+geen minuutveld. Verzet je ze naar een moment waarop er een andere ploeg op het veld stond — vóór een
+wissel van dat blok — dan zegt de app dat en verandert er niets.
+
+---
+
 ## v1.67.0
 
 **Positiewisselingen tijdens een kwart kan je nu rechtzetten.** Naast die regel in het verloop staat
