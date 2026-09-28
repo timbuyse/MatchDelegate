@@ -1520,6 +1520,27 @@ function csvBestand(naam, rijen) {
 // Alle ploegen van de club met hun kern en hun wedstrijden. Per ploeg apart, met voortgang op het
 // scherm: bij vier ploegen van 36 wedstrijden duurt dit even, en een scherm dat stilstaat leest als
 // een app die vastloopt.
+// EEN WEDSTRIJD UIT DE CLOUD MIST SOMS EEN LIJST (Tim, 28-09-2026: "Cijfers per ploeg geeft altijd
+// 'Ophalen mislukt'"). Firebase bewaart geen lege lijst, dus een wedstrijd zónder gebeurtenissen,
+// zónder selectie of zónder blokken komt terug zonder dat veld. Op de gewone weg vangt
+// applyCloudMatch dat op (zie core.js), maar de clubschermen lezen rechtstreeks en sloegen die stap
+// over — waarna getGameTimeMs stukloopt op `for (const q of m.quarters)` en calcMinutes op
+// `for (const p of m.players)`.
+//
+// Eén wedstrijd volstond: een uitslag die iemand zelf intikte heeft geen klok, en een 0-0 ook geen
+// gebeurtenissen. Precies de wedstrijden die je achteraf invult, dus in een club van dertien ploegen
+// is er altijd wel een. Het scherm zei enkel "Ophalen mislukt" en hield de reden voor zich.
+//
+// Ook een LIJST die als object terugkomt hoort hier thuis: Firebase maakt daar een object van zodra
+// de sleutels niet netjes 0,1,2,… zijn.
+function cloudWedstrijdVeilig(m) {
+  const lijst = v => Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+  const c = { ...m };
+  c.events = lijst(c.events);
+  c.players = lijst(c.players);
+  c.quarters = lijst(c.quarters);
+  return c;
+}
 async function clubExportOphalen(clubId, meld) {
   const clubTeams = (await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {};
   const ids = Object.keys(clubTeams);
@@ -1533,7 +1554,7 @@ async function clubExportOphalen(clubId, meld) {
       if (!kern || !kern.name) continue;   // ploeg zonder kern-node: naam onbekend, overslaan
       uit.push({ id: tid, naam: kern.name, spelers: kern.players || [],
         tornooien: t.tournaments || {},
-        wedstrijden: Object.values(t.matches || {}).filter(Boolean) });
+        wedstrijden: Object.values(t.matches || {}).filter(Boolean).map(cloudWedstrijdVeilig) });
     } catch (e) { /* geen leesrecht of leesfout: die ploeg valt weg, de rest niet */ }
   }
   return uit;
@@ -1571,7 +1592,9 @@ async function clubBackupOphalen(clubId, meld) {
       let notities = {};
       try { notities = (await fbOnce(fbdb.ref('teamNotes/' + tid))).val() || {}; } catch (e) { notities = {}; }
       Object.values(t.matches || {}).filter(Boolean).forEach(m => {
-        const c = { ...m };
+        // Ook hier de ontbrekende lijsten aanvullen: zonder dat loopt het TERUGZETTEN stuk, want
+        // herstelVoerUit draait recomputeScore en recomputeOnField over elke wedstrijd.
+        const c = cloudWedstrijdVeilig(m);
         const n = notities[m.id];
         if (n) {
           if (n.notes) c.notes = n.notes;
@@ -1593,17 +1616,27 @@ async function clubBackup(clubId) {
     <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Annuleren</button>`);
   const meld = t => { const el = document.getElementById('cb-melding'); if (el) el.textContent = t; };
   try {
+    // DE NAAM VAN DÉZE CLUB, niet die van de actieve ploeg (Tim, 28-09-2026: hij had een back-up van
+    // de verkeerde club te pakken). Beheer je meerdere clubs, dan kies je er hier een in de lijst
+    // bovenaan, en die hoeft niet de club van je actieve ploeg te zijn.
+    let clubNaam = '';
+    try { clubNaam = ((await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val() || '').trim(); } catch (e) { clubNaam = ''; }
+    if (!clubNaam) clubNaam = activeClubName || '';
     const { ploegen, matches, tornooien, mislukt } = await clubBackupOphalen(clubId, meld);
     if (!ploegen.length) { meld('Geen ploegen gevonden waarvan je de gegevens mag lezen.'); return; }
     // Zelfde vorm als exportBackup (versie 3), zodat "Back-up terugzetten" dit bestand zonder
     // uitzondering leest. `tournaments` gaat als TEKST mee — zo leest herstelBouwGroepen het ook.
     const data = {
       app: 'voetbal', version: 3, exportedAt: Date.now(), bron: 'club',
-      club: { id: clubId, naam: activeClubName || '' },
+      club: { id: clubId, naam: clubNaam },
       matches, ploegen,
       settings: { tournaments: JSON.stringify(tornooien) },
     };
-    const naam = `matchdelegate-club-back-up-${new Date().toISOString().slice(0, 10)}.json`;
+    // De clubnaam in de bestandsnaam: twee back-ups van dezelfde dag zijn anders niet uit elkaar te
+    // houden. Alles wat geen letter of cijfer is wordt een streepje, zodat elk besturingssysteem
+    // ermee overweg kan.
+    const slug = clubNaam.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    const naam = `matchdelegate-back-up-${slug ? slug + '-' : ''}${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1612,6 +1645,7 @@ async function clubBackup(clubId) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     const spelers = ploegen.reduce((n, p) => n + (p.kernen || []).reduce((k, x) => k + ((x.players || []).length), 0), 0);
     openModal(`<h3>${icI(IC.check)} Back-up gedownload</h3>
+      ${clubNaam ? `<p style="text-align:center;font-weight:700;margin:-4px 0 10px">${esc(clubNaam)}</p>` : ''}
       <div style="text-align:left;font-size:14px">
         <div class="stat-row"><span style="flex:1;color:var(--txt2)">Ploegen</span><b>${ploegen.length}</b></div>
         <div class="stat-row"><span style="flex:1;color:var(--txt2)">Wedstrijden</span><b>${matches.length}</b></div>
@@ -1622,7 +1656,7 @@ async function clubBackup(clubId) {
       <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:left">Dit bestand bevat ook de <b>notities</b> bij wedstrijden en spelers, en dus namen van kinderen. Bewaar het zoals je een ledenlijst bewaart.</p>
       <p style="font-size:12px;color:var(--txt2);margin-top:8px;text-align:left">Terugzetten doe je via <b>Instellingen → Gegevens overzetten → Bestand inlezen</b>. Een ploeg die niet bij <b>Jouw ploegen</b> staat, zet je daar eerst bij — anders kan je haar wedstrijden alleen aan een andere ploeg toewijzen.</p>
       <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
-  } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
+  } catch (e) { meld(clubFoutTekst(e)); }
 }
 
 // De gegevens worden één keer opgehaald en hier bewaard; vroeger haalde elke knop alles opnieuw op.
@@ -1867,7 +1901,15 @@ async function showClubCijfers(clubId) {
       </div>
       <button class="btn btn-pale" style="margin-top:12px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Alles in een Excel-bestand</button>
       <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Sluiten</button>`);
-  } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
+  } catch (e) { meld(clubFoutTekst(e)); }
+}
+// ZEG WAT ER MISGING. "Ophalen mislukt" hield de reden voor zich, en dan blijft er niets over dan het
+// opnieuw proberen — terwijl het net nooit vanzelf goed komt (zie cloudWedstrijdVeilig). De melding
+// van de fout erbij, kort, zodat een volgende keer meteen duidelijk is waar het vastliep.
+function clubFoutTekst(e) {
+  const m = (e && e.message) ? String(e.message) : '';
+  if (m === 'fb-timeout') return 'De databank antwoordde niet op tijd. Kijk je verbinding na en probeer opnieuw.';
+  return 'Ophalen mislukt. Sluit dit venster en probeer opnieuw.' + (m ? ` (${m})` : '');
 }
 async function showClubExport(clubId) {
   if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
@@ -1881,7 +1923,7 @@ async function showClubExport(clubId) {
     const seizoenen = ceSeizoenen(ploegen);
     ceState = { clubId, ploegen, seizoen: seizoenen[0] || 'alle' };
     ceVenster();
-  } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
+  } catch (e) { meld(clubFoutTekst(e)); }
 }
 // EXPORT VAN JE EIGEN PLOEG (Tims keuze, 25-08-2026). De clubexport hierboven zit bij Clubbeheer, en
 // daar komt een gewone ploegbeheerder niet. Voor hem bestond er enkel export PER WEDSTRIJD: wilde hij

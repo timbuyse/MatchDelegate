@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.81.1
+
+**"Cijfers per ploeg" gaf altijd "Ophalen mislukt".** Tim, 28-09-2026. De oorzaak lag niet bij het
+ophalen: Firebase bewaart geen lege lijst, dus een wedstrijd zónder blokken, zónder gebeurtenissen of
+zónder selectie komt terug zonder dat veld. Op de gewone weg vult de app dat aan bij het binnenkomen,
+maar de clubschermen lezen rechtstreeks uit de databank en sloegen die stap over. De
+speeltijdberekening liep dan stuk op een lijst die er niet was.
+
+**Eén wedstrijd volstond**, en wel de gewoonste: een uitslag die je zelf intikt heeft geen klok, en
+een 0-0 ook geen gebeurtenissen. In een club met dertien ploegen is er altijd wel zo eentje, dus het
+scherm werkte in de praktijk nooit. Hetzelfde gold voor de **clubexport** en — sinds gisteren — voor
+het **terugzetten** van de clubback-up, die dezelfde wedstrijden opnieuw doorrekent.
+
+**En het scherm zei niet wát er misging.** "Ophalen mislukt" liet niets over dan opnieuw proberen,
+terwijl het nooit vanzelf goed kwam. De melding noemt nu de reden, en een databank die niet op tijd
+antwoordt krijgt haar eigen zin.
+
+**De clubnaam staat er nu bij.** Tim had een back-up van de verkeerde club te pakken. Het venster
+achteraf noemt de club, en de bestandsnaam draagt ze mee
+(`matchdelegate-back-up-sparta-petegem-2026-09-28.json`) — twee back-ups van dezelfde dag waren
+anders niet uit elkaar te houden. De naam komt van de club die je in Clubbeheer gekozen hebt, niet
+van de club van je actieve ploeg; dat waren precies de twee die door elkaar liepen.
+
+---
+
 ## v1.81.0
 
 **Een back-up van de hele club.** Tim, 28-09-2026: *"een back-up maken kan, maar dan enkel van de
