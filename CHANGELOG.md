@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.80.0
+
+**Wat je bij het inlezen van een kalender uitvinkt, blijft uitgevinkt.** Tim, 28-09-2026: *"als ik de
+bondskalender inlees kan ik bepaalde wedstrijden uitvinken, maar de volgende keer geeft hij die
+terug aan."* Dat klopte, en het was logisch: uitvinken betekende enkel "nu niet aanmaken", en er
+werd nergens iets weggeschreven. De volgende keer legt de app de kalender naast wat er in de app
+staat, vindt die wedstrijd niet, en biedt ze opnieuw aan als nieuw. Er was geen plek waar stond
+"deze wil ik niet".
+
+Onder de groene knop staat nu een vinkje, en alleen wanneer je ook echt iets uitvinkte: **"De 3
+wedstrijden die je uitvinkte niet meer aanbieden"**. Zo hoort de beslissing bij het moment waarop je
+ze toch al neemt, zonder een extra knopje naast elke wedstrijd. Vink je álles uit, dan wordt dat de
+knop zelf — anders is precies die keuze niet te bevestigen.
+
+Bij een volgende kalender staan ze onderaan onder **"Eerder overgeslagen"**, uitgevinkt, met een
+knop om ze allemaal weer gewoon in de lijst te zetten. Bewust nog zichtbaar: een kalenderregel die
+stil verdwijnt, leest later als een wedstrijd die de app gemist heeft.
+
+Het wordt onthouden op het **wedstrijdnummer van de bond** — de sterkste sleutel die er is, want die
+overleeft een verplaatste datum en een andere schrijfwijze van de tegenstander. Een agendabestand
+heeft zijn eigen kenmerk; een Excel of CSV heeft geen vaste sleutel per wedstrijd, en daar valt dus
+niets te onthouden. Het staat bij de ploeg, naast de koppeling met de bond, dus het gaat mee naar je
+andere toestel en naar de andere beheerders. Zet je zo'n wedstrijd later tóch in de app, dan ruimt
+het merkje zichzelf op.
+
+---
+
 ## v1.79.0
 
 **Bij de bond nakijken kan nu ook overnemen.** De controle vond wel de wedstrijden waarvoor er info

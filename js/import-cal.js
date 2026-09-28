@@ -45,6 +45,8 @@ function impStart() {
     // standaardinstelling van de ploeg — je kan ze bovenaan nog voor de hele import wijzigen.
     matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
     competition: 'Competitie',
+    // Het vinkje onder de knop: onthoud wat je uitvinkte, zodat het niet elke keer terugkomt.
+    onthoudOvergeslagen: false,
   };
   go('importcal');
 }
@@ -124,6 +126,12 @@ function impLijstHtml() {
   // Alles staat er al, en dus staat er niets aangevinkt: precies de toestand waarin de groene knop
   // "Niets aangevinkt" zegt en het scherm als een doodlopende weg leest (Tim, 31-08-2026).
   const allesBestaat = rs.length > 0 && rs.every(r => r.bestaat) && !aan;
+  // De regels die je eerder liet liggen, en wat er nu uitgevinkt staat om te onthouden.
+  const eerder = rs.map((r, i) => [r, i]).filter(p => p[0].eerderOvergeslagen);
+  const teVergeten = impTeOnthouden();
+  // De groene knop mag ook door wanneer er niets te importeren valt maar je wél iets wil laten
+  // liggen: anders is precies die keuze niet te bevestigen.
+  const magDoor = aan > 0 || (impSt.onthoudOvergeslagen && teVergeten.length > 0);
   const telTxt = `${rs.length} ${rs.length === 1 ? 'wedstrijd' : 'wedstrijden'} gevonden`
     + (impSt.overgeslagen ? ` · ${impSt.overgeslagen} ${isRbfa ? 'onleesbare regel(s) overgeslagen' : 'andere agenda-items overgeslagen'}` : '')
     + ((isRbfa && impSt.rbfaSamengevoegd) ? ` · ${impSt.rbfaSamengevoegd} keer dezelfde wedstrijd in twee kalenders` : '')
@@ -186,14 +194,30 @@ function impLijstHtml() {
       <button class="btn btn-gray" style="margin:0;flex:1;padding:10px" onclick="impAlles(true)">Alles aan</button>
       <button class="btn btn-gray" style="margin:0;flex:1;padding:10px" onclick="impAlles(false)">Alles uit</button>
     </div>
-    <div id="imp-lijst">${rs.map(impRegelHtml).join('')}</div>
+    ${/* Wat je eerder bewust liet liggen, staat apart onderaan — zichtbaar, maar uit de weg. Het
+         oorspronkelijke nummer van de regel moet meegaan: impToggle rekent op de plek in de volledige
+         lijst, niet op de plek in het groepje. */''}
+    <div id="imp-lijst">${rs.map((r, i) => [r, i]).filter(p => !p[0].eerderOvergeslagen).map(p => impRegelHtml(p[0], p[1])).join('')}</div>
+    ${eerder.length ? `<div class="sec" style="margin-top:16px">Eerder overgeslagen (${eerder.length})</div>
+      <p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">Deze liet je een vorige keer bewust liggen, dus ze staan uit. Vink er een aan om ze tóch te importeren, of zet ze allemaal weer gewoon in de lijst.</p>
+      <div>${eerder.map(p => impRegelHtml(p[0], p[1])).join('')}</div>
+      <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="impOverslaanTerug()">Weer aanbieden (${eerder.length})</button>` : ''}
     ${allesBestaat ? `<div class="nudge" style="margin-top:14px">${icI(IC.warn)} <b>${rs.length === 1 ? 'Deze wedstrijd staat al in de app.' : `Deze ${rs.length} wedstrijden staan allemaal al in de app.`}</b>
       Daarom staat er niets aangevinkt: het inlezen overschrijft nooit uit zichzelf wat je zelf ingaf.
       ${nrKandidaten
         ? 'Wil je enkel het <b>wedstrijdnummer van de bond</b> erbij, gebruik dan de knop onderaan — die raakt niets anders aan. '
         : (isRbfa ? 'Het <b>wedstrijdnummer van de bond</b> staat er ook al bij, dus daarvoor hoef je niets te doen. ' : '')}Wil je ook datum, uur, thuis/uit en de tegenstander vernieuwen, tik dan op <b>Alles aan</b>.</div>` : ''}
-    <button class="btn btn-green" style="margin-top:14px" onclick="impVoerUit()" ${aan ? '' : 'disabled style="margin-top:14px;opacity:.5"'}>
-      ${icI(IC.check)} ${aan ? `${aan} ${aan === 1 ? 'wedstrijd' : 'wedstrijden'} importeren` : 'Niets aangevinkt'}</button>
+    <button class="btn btn-green" style="margin-top:14px" onclick="impVoerUit()" ${magDoor ? '' : 'disabled style="margin-top:14px;opacity:.5"'}>
+      ${icI(IC.check)} ${aan
+        ? `${aan} ${aan === 1 ? 'wedstrijd' : 'wedstrijden'} importeren`
+        : (magDoor ? `${teVergeten.length} ${teVergeten.length === 1 ? 'wedstrijd' : 'wedstrijden'} niet meer aanbieden` : 'Niets aangevinkt')}</button>
+    ${/* HET VINKJE DAT DE VRAAG BEANTWOORDT (Tim, 28-09-2026). Het staat er enkel wanneer je ook echt
+         iets uitvinkte, en het gaat over precies die regels — zo hoort de beslissing bij het moment
+         waarop je ze toch al neemt, zonder een extra knopje naast elke wedstrijd. */''}
+    ${teVergeten.length ? `<label class="chkrow" style="margin-top:10px;font-size:13px;display:flex;align-items:flex-start;gap:8px">
+      <input type="checkbox" ${impSt.onthoudOvergeslagen ? 'checked' : ''} onchange="impZetOnthoud(this.checked)">
+      <span style="flex:1;min-width:0">De <b>${teVergeten.length}</b> ${teVergeten.length === 1 ? 'wedstrijd die je uitvinkte' : 'wedstrijden die je uitvinkte'} niet meer aanbieden<br>
+      <span style="font-size:12px;color:var(--txt2)">Bij een volgende kalender ${teVergeten.length === 1 ? 'staat ze' : 'staan ze'} onderaan bij "Eerder overgeslagen", uitgevinkt. Altijd terug te zetten.</span></span></label>` : ''}
     ${/* Wat er bij een bestaande wedstrijd écht overschreven wordt. De bondskalender kent geen
          terrein, dus die noemt "plaats" hier niet — en raakt het veld ook niet aan (impVoerUit). */''}
     ${bij ? `<div style="font-size:13px;color:var(--txt2);text-align:center;margin-top:8px">${nieuw} nieuw · ${bij} bestaande ${bij === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} bijgewerkt: tegenstander, datum, uur, thuis/uit${isRbfa ? ' en het wedstrijdnummer' : ' en plaats'}. Selectie, opstelling en plan blijven staan.</div>` : ''}
@@ -830,6 +854,62 @@ function impZelfdeClub(a, b) {
   for (const w of wa) if (wb.has(w)) return true;
   return false;
 }
+// ---- WAT JE UITVINKTE, BLIJFT UITGEVINKT (Tim, 28-09-2026) ----
+// "Als ik de bondskalender inlees kan ik wedstrijden uitvinken, maar de volgende keer geeft hij die
+// terug aan." Dat klopte: uitvinken betekende enkel "nu niet aanmaken", en er werd niets
+// weggeschreven. De volgende keer legt de app de kalender naast wat er in de app staat, vindt die
+// wedstrijd niet, en biedt ze opnieuw aan als nieuw.
+//
+// Nu onthoudt de ploeg welke wedstrijden je bewust liet liggen. Op het WEDSTRIJDNUMMER van de bond:
+// dat is de sterkste sleutel die er is (zie de uitleg bij impMarkeerDubbels) en het overleeft een
+// verplaatste datum en een andere schrijfwijze van de tegenstander. Een agendabestand heeft zijn
+// eigen kenmerk; een tabel (Excel, CSV) heeft geen vaste sleutel, en daar valt dus niets te
+// onthouden — die regels krijgen het vinkje niet.
+// Het staat bij de ploeg, naast de koppeling met de bond, dus het gaat mee naar je andere toestel
+// en naar de andere beheerders. Aan de databankregels verandert er niets.
+function impOverslaanSleutel(r) {
+  if (!r) return '';
+  if (r.rbfaMatchId) return 'rbfa:' + r.rbfaMatchId;
+  if (r.uid) return 'uid:' + r.uid;
+  return '';
+}
+function impOverslaanLijst(teamId) {
+  const t = teamById(teamId);
+  return (t && Array.isArray(t.kalenderOverslaan)) ? t.kalenderOverslaan : [];
+}
+// De hele ploegenlijst lezen, aanpassen en in haar geheel terugschrijven — saveTeamsV2 vervangt de
+// lijst volledig (zie CLAUDE.md). Geeft terug of er iets veranderd is, zodat een hertekening zonder
+// wijziging geen schrijfbeurt naar de cloud kost.
+function impOverslaanZet(teamId, sleutels, aan) {
+  const lijst = (sleutels || []).filter(Boolean);
+  if (!teamId || !lijst.length) return false;
+  const arr = getTeamsV2();
+  const idx = arr.findIndex(t => t && t.id === teamId);
+  if (idx < 0) return false;
+  const set = new Set(Array.isArray(arr[idx].kalenderOverslaan) ? arr[idx].kalenderOverslaan : []);
+  const voor = set.size;
+  lijst.forEach(s => { if (aan) set.add(s); else set.delete(s); });
+  if (set.size === voor) return false;
+  if (set.size) arr[idx].kalenderOverslaan = [...set];
+  else delete arr[idx].kalenderOverslaan;
+  saveTeamsV2(arr);
+  return true;
+}
+// De regels die je NU uitvinkte en die te onthouden zijn: nog niet in de app, nog niet eerder
+// overgeslagen, en met een bruikbare sleutel.
+function impTeOnthouden() {
+  return (impSt.regels || []).filter(r => !r.aan && !r.bestaat && !r.eerderOvergeslagen && r.sleutel)
+    .map(r => r.sleutel);
+}
+function impZetOnthoud(aan) { if (impSt) { impSt.onthoudOvergeslagen = !!aan; impRender(); } }
+async function impOverslaanTerug() {
+  const sl = (impSt.regels || []).filter(r => r.eerderOvergeslagen).map(r => r.sleutel).filter(Boolean);
+  if (!sl.length) return;
+  impOverslaanZet(impSt.teamId, sl, false);
+  await impHermarkeer();
+  showToast(`${sl.length} ${sl.length === 1 ? 'wedstrijd staat' : 'wedstrijden staan'} weer in de lijst.`, 'ok');
+}
+
 async function impMarkeerDubbels() {
   const alle = await dbAll();
   const bestaand = new Map();
@@ -843,6 +923,8 @@ async function impMarkeerDubbels() {
   // Welk wedstrijdnummer staat er NU al op? Nodig om "Alleen het wedstrijdnummer erbij zetten" een
   // eerlijk aantal te laten tonen: een wedstrijd die het nummer al draagt, valt daar niets aan te doen.
   const nrVan = new Map();
+  // Wat je bij een vorige beurt bewust liet liggen (zie impOverslaanSleutel hierboven).
+  const overgeslagen = new Set(impOverslaanLijst(impSt.teamId));
   alle.forEach(m => {
     statusVan.set(m.id, m.status || 'planned');
     nrVan.set(m.id, String(m.rbfaMatchId || ''));
@@ -888,15 +970,36 @@ async function impMarkeerDubbels() {
     // Draagt de bestaande wedstrijd dit nummer al? Dan hoeft ze niet meegeteld te worden bij de smalle
     // weg (zie impEnkelNummers) — anders belooft die knop meer dan ze doet.
     r.nrAlGoed = !!(r.bestaat && r.rbfaMatchId && nrVan.get(r.bestaat) === String(r.rbfaMatchId));
+    // Eerder bewust laten liggen? Dan staat ze onderaan in haar eigen groepje en blijft ze uit.
+    // Wél nog zichtbaar: een kalenderregel die stil verdwijnt, leest later als een wedstrijd die de
+    // app gemist heeft.
+    r.sleutel = impOverslaanSleutel(r);
+    r.eerderOvergeslagen = !!(r.sleutel && !r.bestaat && overgeslagen.has(r.sleutel));
     // Een bestaande wedstrijd staat standaard uit: niets overschrijven wat je niet zelf vraagt.
-    r.aan = !r.bestaat;
+    r.aan = !r.bestaat && !r.eerderOvergeslagen;
   });
+  // Staat ze intussen tóch in de app (je bent van gedacht veranderd, of iemand anders zette ze erin),
+  // dan heeft het merkje geen betekenis meer. Zichzelf opruimen, anders groeit die lijst een seizoen
+  // lang aan met sleutels die nergens meer over gaan.
+  const vervallen = impSt.regels.filter(r => r.bestaat && r.sleutel && overgeslagen.has(r.sleutel)).map(r => r.sleutel);
+  if (vervallen.length) impOverslaanZet(impSt.teamId, vervallen, false);
 }
 
 async function impVoerUit() {
   if (!canManage()) { showToast('Enkel een beheerder kan importeren.', 'err'); return; }
+  // Eerst onthouden wat je bewust laat liggen — dat staat los van wat er geïmporteerd wordt, en het
+  // moet ook gebeuren wanneer je álles uitvinkte.
+  const teVergeten = impSt.onthoudOvergeslagen ? impTeOnthouden() : [];
+  if (teVergeten.length) impOverslaanZet(impSt.teamId, teVergeten, true);
   const kiezen = impSt.regels.filter(r => r.aan);
-  if (!kiezen.length) return;
+  if (!kiezen.length) {
+    if (teVergeten.length) {
+      impSt.onthoudOvergeslagen = false;
+      await impHermarkeer();
+      showToast(`${teVergeten.length} ${teVergeten.length === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} niet meer aangeboden.`, 'ok');
+    }
+    return;
+  }
   const team = teamById(impSt.teamId);
   // Hard blokkeren zonder ploeg. Dit stond er als `!team && getTeamsV2().length`, dus juist in het
   // ergste geval — een lege ploegenlijst — liet het door, en dan werden wedstrijden weggeschreven met

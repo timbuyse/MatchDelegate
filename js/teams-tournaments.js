@@ -770,6 +770,9 @@ async function ploegWegschrijven(clean, hernoemd) {
     const b = arr[idx] || {};
     if (Array.isArray(b.rbfaTeams) && b.rbfaTeams.length) clean.rbfaTeams = b.rbfaTeams;
     if (b.rbfaClubId) clean.rbfaClubId = b.rbfaClubId;
+    // Om dezelfde reden: de wedstrijden die je bij het inlezen van de kalender bewust liet liggen
+    // (v1.80.0). Die worden door het importscherm bewaard, niet door dit scherm.
+    if (Array.isArray(b.kalenderOverslaan) && b.kalenderOverslaan.length) clean.kalenderOverslaan = b.kalenderOverslaan;
   }
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
