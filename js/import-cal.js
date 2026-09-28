@@ -1458,7 +1458,7 @@ function rbfaBronKaartHtml() {
     return `<div class="sec">Van de voetbalbond</div>
       <div class="card">
         <p style="font-size:14px;color:var(--txt2);margin:0 0 ${magZelf ? '12' : '0'}px">De kalender van je ploeg kan rechtstreeks van <b>rbfa.be</b> komen, met het <b>wedstrijdnummer</b> van elke wedstrijd erbij — maar dan moet <b>${esc(team.name)}</b> eerst aan haar ploeg bij de bond gekoppeld zijn. ${magZelf ? 'Dat doe je bij <b>Clubbeheer</b>, in één keer voor alle ploegen van de club.' : 'Dat doet de clubbeheerder, in één keer voor alle ploegen van de club.'}</p>
-        ${magZelf ? `<button class="btn btn-pale" style="margin:0" onclick="go('clubbeheer')">${icI(IC.link)} Naar Clubbeheer</button>` : ''}
+        ${magZelf ? `<button class="btn btn-pale" style="margin:0" onclick="naarClubbeheer(activeClubId, 'matches')">${icI(IC.link)} Naar Clubbeheer</button>` : ''}
       </div>`;
   }
   const lijst = ploegen.map(p => `<div style="padding:1px 0">${rbfaPloegTxt(p)}</div>`).join('');

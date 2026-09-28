@@ -1986,7 +1986,13 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Als clubbeheerder',
     img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
     inhoud: `
-      <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Daarna is op <b>'Jouw ploegen'</b> de <b>groene clubbalk</b> boven je ploegen de ingang: tik erop en je komt in <b>Clubbeheer</b>. Volg je zelf geen enkele ploeg van die club, dan staat er onderaan de knop <b>'Mijn club beheren'</b>.</p>
+      <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Alles wat over de club gaat, staat op één scherm: <b>Clubbeheer</b>.</p>
+      <p>Je raakt er langs drie wegen, en ze komen alle drie op hetzelfde scherm uit:</p>
+      <ul class="hdl-list">
+        <li>de <b>groene clubbalk</b> boven je ploegen op <b>'Jouw ploegen'</b> — de dagelijkse weg. Beheer je een club waarvan je zelf geen ploeg volgt, dan staat die gewoon als een eigen balk onder je ploegen, met haar naam erop;</li>
+        <li>vanuit een <b>ploeg</b>: op het beheerscherm van die ploeg staat onderaan <b>'&lt;club&gt; beheren'</b>, zodat je niet eerst terug moet;</li>
+        <li>beheer je <b>meerdere clubs</b>, dan wissel je bovenaan het clubscherm van club zonder ergens terug te gaan.</li>
+      </ul>
       <div class="sec">Ploegen beheren</div>
       <ul class="hdl-list">
         <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>

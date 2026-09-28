@@ -9,6 +9,41 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.82.0
+
+**Eén clubscherm.** Tim, 28-09-2026: *"je gaat naar clubbeheer via de clubnaam boven mijn ploegen, en
+via de blauwe knop, maar je komt elders terecht. Dat moet geïntegreerd worden."* Er waren twee
+schermen die allebei over een club gingen: **Clubbeheer** en **Clubs en clubbeheerders**. Ze
+overlapten in het logo, de ploegenlijst en "nieuwe ploeg", maar elk kon ook iets wat de andere niet
+kon — dus geen van beide was de grote broer, en je liep tussen de twee rond.
+
+Nu is er één scherm per club, en één lijst erboven:
+
+- **Clubbeheer** is hét clubscherm, hetzelfde voor de eigenaar en de clubbeheerder. Wat vroeger
+  alleen op het eigenaarsscherm stond, staat er nu bij: de club **hernoemen**, een
+  **clubbeheerder** aanstellen of verwijderen, per ploeg een **ploegbeheerder** aanstellen, en de
+  club **verwijderen** als ze leeg is.
+- **"Clubs"** (in App-beheer, enkel de eigenaar) is een lijst geworden: per club de naam, het logo,
+  het aantal ploegen en wie ze beheert, met één tik om ze te openen.
+
+**De blauwe knop is weg.** Die nam de eerste club waarvoor je geen balk had en zei niet welke dat
+was — beheer je er meer dan één, dan landde je dus ergens anders dan waar de balk je bracht. Zo'n
+club krijgt nu gewoon dezelfde balk als de rest, met haar naam erop.
+
+**Een weg vanuit de ploeg.** Op het beheerscherm van een ploeg staat onderaan *"&lt;club&gt;
+beheren"*. Wie daar iets zoekt dat over de club gaat — archiveren, een tweede ploeg, de koppeling
+met de bond, de back-up — moest eerst helemaal terug naar Jouw ploegen.
+
+**En de val van v1.41.0 is bij de bron weg.** Clubbeheer werkte uitsluitend op de clubs waar je als
+beheerder op staat; een verse club heeft er nog geen, dus die zat in niemands lijst — ook niet in die
+van de eigenaar. Daar hielpen we toen omheen met een tweede knop op een tweede scherm. Nu haalt de
+eigenaar gewoon alle clubs op.
+
+De terugknop brengt je terug waar je vandaan kwam: naar de ploegenlijst, naar de clublijst of naar de
+ploeg.
+
+---
+
 ## v1.81.1
 
 **"Cijfers per ploeg" gaf altijd "Ophalen mislukt".** Tim, 28-09-2026. De oorzaak lag niet bij het

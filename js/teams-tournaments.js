@@ -193,6 +193,12 @@ function renderTeamOverview() {
       ${/* Archiveren en verwijderen van een hele ploeg staan bewust NIET hier maar in Clubbeheer
             (Tim, 23-08-2026): het zijn clubhandelingen, net als een ploeg aanmaken. Zo staan de drie
             bij elkaar en kan niemand vanuit het dagelijkse ploegscherm per ongeluk een ploeg wissen. */ ''}
+      ${/* DE WEG NAAR DE CLUB (v1.82.0). Wie hier iets zoekt dat over de club gaat — archiveren, een
+            tweede ploeg, de bondskoppeling, de back-up — moest eerst helemaal terug naar Jouw
+            ploegen. Nu staat de club waar deze ploeg bij hoort gewoon onderaan, met haar naam.
+            Enkel voor wie de club ook echt mag beheren. */ ''}
+      ${(isClubAdmin && activeClubId) ? `<button class="btn btn-pale" style="margin-top:14px" onclick="naarClubbeheer('${activeClubId}','teamEdit')">${icI(IC.players)} ${esc(activeClubName || 'De club')} beheren</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Deze ploeg hoort bij ${activeClubName ? `<b>${esc(activeClubName)}</b>` : 'een club'}. Daar staan de andere ploegen, de koppeling met de bond en de back-up van de club.</p>` : ''}
     </div>` : '';
   // BEHEERSCHERM: enkel de twee blokken over toegang en over de ploeg als geheel. Bestaan die hier
   // niet (geen beheerder, of een ploeg die niet de actieve cloud-ploeg is), dan valt dit terug op de

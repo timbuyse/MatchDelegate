@@ -16,7 +16,9 @@ function renderBeheer() {
 
   const toolsBlock = (isOwner && !viewerMode) ? `
     <div class="card">
-      <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs en clubbeheerders</button>
+      ${/* Heet sinds v1.82.0 gewoon "Clubs": het scherm is een lijst geworden, en wat je met één club
+            doet — beheerders inbegrepen — staat op het clubscherm zelf. */''}
+      <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('gebruik')">${icI(IC.chart)} Gebruikscijfers</button>
       ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
@@ -41,15 +43,36 @@ function renderBeheer() {
 // uitnodigingslink + ledenbeheer al zit). Werkt onder de huidige rules volledig voor de
 // eigenaar; het niet-eigenaar clubbeheerder-pad vergt de fijnmazige rules van fase 2d.
 let _clubBeheerId = null;
+// De naam van een club die je beheert zonder er zelf een ploeg van te volgen. Die staat in geen
+// enkele ploeg-info op dit toestel, dus ze wordt apart opgehaald (zie loadTeamSelect).
+let clubNaamCache = {};
+// Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Jouw ploegen te
+// zetten (zelfde patroon als _settingsFrom en _tgvFrom — zie de projectnotities).
+let _clubBeheerFrom = 'teamselect';
+function naarClubbeheer(cid, vanaf) { _clubBeheerId = cid || null; _clubBeheerFrom = vanaf || 'teamselect'; go('clubbeheer'); }
 function renderClubBeheer() {
   setTimeout(loadClubBeheerView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button><h1>${icI(IC.players)} Clubbeheer</h1></div>
+  const terug = (_clubBeheerFrom === 'clubsadmin' && isOwner) ? 'clubsadmin' : (_clubBeheerFrom || 'teamselect');
+  return `<div class="hdr"><button class="back" onclick="go('${terug}')">‹</button><h1>${icI(IC.players)} Clubbeheer</h1></div>
   <div class="content" id="clubbeheer-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+// DE EIGENAAR ZIET ALLE CLUBS (v1.82.0). Tot hier werkte dit scherm uitsluitend op `myClubs`, de
+// clubs waar je als beheerder op staat. Een verse club heeft nog geen enkele beheerder, dus die zat
+// in niemands lijst — ook niet in die van de eigenaar — en zei hier "Je beheert momenteel geen club".
+// Dat was de val van v1.41.0, die we toen met een tweede knop op een tweede scherm omzeilden. Nu is
+// ze bij de bron weg: de eigenaar haalt de clublijst op, iedereen anders krijgt zijn eigen clubs.
+async function clubBeheerIds() {
+  const eigen = Object.keys(myClubs || {});
+  if (!isOwner) return eigen;
+  const alle = await fbSleutels('clubs');          // enkel namen, zonder de logo's mee te slepen
+  if (!alle || !alle.length) return eigen;
+  // De eigen clubs vooraan: dat zijn de clubs waar hij dagelijks in zit.
+  return [...eigen, ...alle.filter(id => !eigen.includes(id))];
 }
 async function loadClubBeheerView() {
   const el = document.getElementById('clubbeheer-content');
   if (!el || !fbdb) return;
-  const clubIds = Object.keys(myClubs || {});
+  const clubIds = await clubBeheerIds();
   if (!clubIds.length) { el.innerHTML = '<div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Je beheert momenteel geen club.</p></div>'; return; }
   const clubId = (_clubBeheerId && clubIds.includes(_clubBeheerId)) ? _clubBeheerId : clubIds[0];
   _clubBeheerId = clubId;
@@ -151,6 +174,10 @@ async function loadClubBeheerView() {
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">Openen</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="archiveTeam('${t.id}','${jsq(t.name)}')">${icI(IC.archive)} Archiveren</button>
+            ${/* Stond tot v1.82.0 enkel op het eigenaarsscherm, terwijl je hier al met die ploeg bezig
+                  bent. Enkel de eigenaar: aanstellen gebeurt op e-mailadres en dat leest de
+                  gebruikersindex, die enkel hij mag lezen. */''}
+            ${isOwner ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="showAppointTeamAdmin('${t.id}','${jsq(t.name)}')">${icI(IC.shield)} Ploegbeheerder</button>` : ''}
             ${/* Verwijderen staat hier naast archiveren, want dat hoort samen: allebei "deze ploeg
                   moet weg". Voor een clubbeheerder is het grijs — de databankregels laten enkel de
                   maker van de app een ploeg hard verwijderen; hij archiveert (alles blijft bewaard).
@@ -163,19 +190,21 @@ async function loadClubBeheerView() {
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
-      ${/* Wie de club beheert stond nergens in dit scherm — enkel de eigenaar zag het, in een heel
-            ander scherm. Hier alleen ter informatie: aanstellen blijft bij de maker van de app. */ ''}
+      ${/* AANSTELLEN GEBEURT NU HIER (v1.82.0). Tot dan stond er een knop die je naar een ánder
+            scherm stuurde om daar dezelfde club nog eens op te zoeken — precies het rondlopen dat
+            deze versie weghaalt. Voor een clubbeheerder blijft het een leeslijst: wie de club
+            beheert, bepaalt de maker van de app. */ ''}
       <div class="sec" style="margin-top:20px">Clubbeheerders</div>
       <div class="card">
         ${clubAdminUids.length
-          ? clubAdminUids.map(u => `<div class="stat-row"><span style="flex:1">${esc(clubAdminNamen[u] || u)}</span>${(currentUser && u === currentUser.uid) ? '<span class="ts-role admin">jij</span>' : ''}</div>`).join('')
+          ? clubAdminUids.map(u => `<div class="stat-row"><span style="flex:1">${esc(clubAdminNamen[u] || u)}</span>${(currentUser && u === currentUser.uid) ? '<span class="ts-role admin">jij</span>' : ''}${isOwner ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${clubId}','${u}')">Verwijderen</button>` : ''}</div>`).join('')
           : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen clubbeheerder.</p>'}
-        <p style="font-size:12px;color:var(--txt2);margin-top:10px">${isOwner
-          ? 'Als maker van de app stel je ze aan via App-beheer → Clubs en clubbeheerders.'
-          : 'Een clubbeheerder wordt aangesteld door de maker van de app.'}</p>
-        ${isOwner ? `<button class="btn btn-pale" style="margin-top:4px" onclick="_beheerFrom='clubbeheer';go('clubsadmin')">${icI(IC.shield)} Aanstellen of wijzigen</button>` : ''}
+        ${isOwner
+          ? `<button class="btn btn-pale" style="margin-top:10px" onclick="showAppointClubAdmin('${clubId}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>`
+          : '<p style="font-size:12px;color:var(--txt2);margin-top:10px">Een clubbeheerder wordt aangesteld door de maker van de app.</p>'}
       </div>
       <div class="sec" style="margin-top:20px">Extra</div>
+      ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubCijfers('${clubId}')">${icI(IC.chart)} Cijfers per ploeg</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Clubexport (Excel)</button>
@@ -191,7 +220,12 @@ async function loadClubBeheerView() {
           <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="unarchiveTeam('${t.id}')">Herstellen</button>
         </div>`).join('')}
         <p style="font-size:12px;color:var(--txt2);margin-top:8px">Gearchiveerde ploegen zijn verborgen uit de actieve lijsten maar behouden al hun gegevens.</p>
-      </div>` : ''}`;
+      </div>` : ''}
+      ${/* Een club wissen staat onderaan en enkel voor de eigenaar, met dezelfde voorwaarde als op het
+            oude scherm: er mag geen ploeg meer in zitten, ook geen gearchiveerde. */''}
+      ${isOwner ? ((rows.length + archivedRows.length) === 0
+        ? `<button style="margin-top:22px;background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px" onclick="deleteClub('${clubId}','${jsq(clubName)}')">${icI(IC.trash)} Club verwijderen</button>`
+        : `<p style="font-size:12px;color:var(--txt2);margin-top:22px">Een club kan enkel verwijderd worden als er geen ploegen meer in zitten, ook geen gearchiveerde.</p>`) : ''}`;
     vulClubLogoKaart(clubId, 'loadClubBeheerView()');   // komt na, zie daar
   } catch (e) {
     el.innerHTML = '<div class="card"><p style="color:var(--org2);font-size:14px;margin:0">Kon de club niet laden. Probeer opnieuw.</p></div>';
@@ -329,45 +363,28 @@ async function loadClubsAdminView() {
       try { const s = await fbOnce(fbdb.ref('teams/' + t + '/info/name')); teamNameMap[t] = s.exists() ? (s.val() || t) : null; }
       catch (e) { teamNameMap[t] = t; }
     }));
-    const secMini = 'font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px';
+    // DIT SCHERM IS EEN LIJST GEWORDEN (v1.82.0, Tim: "je gaat er naartoe via de clubnaam boven mijn
+    // ploegen en via de blauwe knop, maar je komt elders terecht — dat moet geïntegreerd worden").
+    // Er waren twee schermen die allebei over een club gingen: dit, en Clubbeheer. Ze overlapten in
+    // het logo, de ploegenlijst en "nieuwe ploeg", maar elk kon ook iets wat de andere niet kon — dus
+    // geen van beide was de grote broer. Nu is dit de LIJST (welke clubs bestaan er) en is Clubbeheer
+    // HET clubscherm (wat doe ik met deze club). Alles wat over één club gaat, staat daar.
     const clubsHtml = clubIds.length ? clubIds.map(cid => {
       const c = clubData[cid];
       const nm = c.naam || '(naamloze club)';
       const teamIds = Object.keys(c.teams || {}).filter(t => teamNameMap[t] !== null);
       const nTeams = teamIds.length;
       const admins = Object.keys(c.admins || {});
-      const adminHtml = admins.length
-        ? admins.map(uid => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(userName(uid))}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${cid}','${uid}')">Verwijderen</button></div>`).join('')
-        : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen clubbeheerder.</p>';
-      const teamsHtml = teamIds.length
-        ? teamIds.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(teamNameMap[t] || t)}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="showAppointTeamAdmin('${t}',&quot;${esc(teamNameMap[t] || '').replace(/"/g, '&quot;')}&quot;)">${icI(IC.plus)} Ploegbeheerder</button></div>`).join('')
-        : '<p style="font-size:13px;color:var(--txt2);margin:2px 0">Nog geen ploegen.</p>';
-      const deleteBtn = nTeams === 0
-        ? `<button style="margin-top:12px;background:none;border:none;color:var(--rd);font-size:13px;font-weight:700;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px" onclick="deleteClub('${cid}','${jsq(nm)}')">${icI(IC.trash)} Club verwijderen</button>`
-        : `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Een club kan enkel verwijderd worden als er geen ploegen meer in zitten.</p>`;
-      return `<div class="card" style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="flex:1;font-weight:800;font-size:16px">${esc(nm)}</span>
-          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="renameClub('${cid}',&quot;${esc(nm).replace(/"/g, '&quot;')}&quot;)">${icI(IC.edit)} Hernoemen</button>
+      const namen = admins.map(uid => esc(userName(uid)));
+      return `<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="naarClubbeheer('${cid}','clubsadmin')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="ca-logo-${cid}" style="flex-shrink:0">${clubsAdminLogoCel(cid, c.logo, c.logoGekend)}</span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-weight:800;font-size:16px">${esc(nm)}</span>
+            <span style="display:block;font-size:13px;color:var(--txt2)">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'} · ${namen.length ? namen.join(', ') : 'nog geen clubbeheerder'}</span>
+          </span>
+          <span style="color:var(--grn2);font-size:19px;font-weight:700;flex-shrink:0">›</span>
         </div>
-        <div style="font-size:13px;color:var(--txt2);margin-bottom:10px">${nTeams} ${nTeams === 1 ? 'ploeg' : 'ploegen'}</div>
-        <div id="ca-logo-${cid}" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">${clubsAdminLogoCel(cid, c.logo, c.logoGekend)}</div>
-        <div style="${secMini}">Clubbeheerders</div>
-        ${adminHtml}
-        <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showAppointClubAdmin('${cid}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>
-        <div style="${secMini};margin-top:12px">Ploegen</div>
-        ${teamsHtml}
-        ${/* EEN PLOEG AANMAKEN KON HIER NIET (Tim, 04-09-2026: "ik heb nu een nieuwe club aangemaakt.
-              Ik vind nergens waar ik een ploeg kan toevoegen aan die club"). En dat was geen zoekfout:
-              "Nieuwe ploeg in deze club" stond ENKEL in Clubbeheer, en dat scherm werkt op de clubs die
-              JIJ beheert (myClubs = clubs/{id}/admins). Een vers aangemaakte club heeft nog geen enkele
-              beheerder, dus ze kwam daar niet in de lijst voor — ook niet bij de eigenaar. De club was
-              dus alleen te vullen door er eerst een clubbeheerder op te zetten en die het te laten doen.
-              Nu staat de knop ook hier, waar je de club net gemaakt hebt. De databankregels lieten dit
-              altijd al toe voor de eigenaar (teams/$teamId/.write, de owner-tak), dus er verandert niets
-              aan de rechten. */ ''}
-        <button class="btn btn-pale btn-sm" style="margin-top:8px" onclick="showCreateTeamModal('${cid}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-        ${deleteBtn}
       </div>`;
     }).join('') : '<p style="color:var(--txt2);font-size:14px">Nog geen clubs.</p>';
     el.innerHTML = `
@@ -390,16 +407,20 @@ async function loadClubsAdminView() {
 // Het logo-vakje van één club in "Clubs beheren". `gekend` is false zolang het logo nog onderweg is:
 // dan staat er een leeg kadertje en nog geen knop, want of het "Toevoegen" of "Wijzigen" moet zeggen,
 // weten we op dat moment nog niet.
+// Enkel nog het beeldje: instellen doe je op het clubscherm zelf (v1.82.0), waar het al stond.
 function clubsAdminLogoCel(cid, logo, gekend) {
-  const beeld = !gekend
-    ? `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px solid var(--bdr)"></div>`
-    : (logo
-      ? `<img src="${logo}" alt="Clublogo" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr)">`
-      : `<div style="width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</div>`);
-  const knoppen = !gekend ? ''
-    : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="pickClubLogo('${cid}',()=>{loadClubsAdminView()})">${logo ? 'Wijzigen' : 'Toevoegen'}</button>
-       ${logo ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubLogo('${cid}',()=>{loadClubsAdminView()})">Verwijderen</button>` : ''}`;
-  return `${beeld}<span style="flex:1;font-size:13px;color:var(--txt2)">Clublogo</span>${knoppen}`;
+  if (!gekend) return `<span style="display:inline-block;width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px solid var(--bdr)"></span>`;
+  return logo
+    ? `<img src="${logo}" alt="" style="width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--bdr);display:block">`
+    : `<span style="display:flex;width:44px;height:44px;border-radius:8px;background:var(--bg2,#f3f4f6);border:1px dashed var(--bdr);align-items:center;justify-content:center;color:var(--txt2)">${IC.shield}</span>`;
+}
+// ÉÉN CLUBSCHERM, TWEE VENSTERS DIE ERNAAR KIJKEN (v1.82.0). De handelingen hieronder (hernoemen,
+// een beheerder aanstellen, een club verwijderen) staan sinds deze versie op allebei de schermen:
+// in de lijst van de eigenaar én op het clubscherm zelf. Ze mogen dus niet meer vast op één van de
+// twee hertekenen — anders zie je je eigen wijziging niet gebeuren.
+function clubSchermHertekenen() {
+  if (view === 'clubbeheer') loadClubBeheerView();
+  else if (view === 'clubsadmin') loadClubsAdminView();
 }
 function showCreateClubModal() {
   openModal(`<h3>${icI(IC.plus)} Nieuwe club</h3>
@@ -418,7 +439,7 @@ async function doCreateClub() {
   try {
     const cid = fbdb.ref('clubs').push().key;
     await fbdb.ref('clubs/' + cid).set({ info: { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() }, admins: {}, teams: {} });
-    closeModal(); loadClubsAdminView();
+    closeModal(); clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; if (btn) btn.disabled = false; }
 }
 function renameClub(cid, current) {
@@ -439,7 +460,7 @@ async function doRenameClub(cid) {
     // Gedenormaliseerde clubName op alle ploegen van de club bijwerken (fase 2f).
     const teamIds = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {});
     for (const tid of teamIds) { try { await fbdb.ref('teams/' + tid + '/info/clubName').set(name); } catch (e) {} }
-    closeModal(); loadClubsAdminView();
+    closeModal(); clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Hernoemen mislukt. Probeer opnieuw.'; }
 }
 // ----- Clublogo (instelbaar door eigenaar én clubbeheerder) -----
@@ -593,7 +614,7 @@ async function doAppointClubAdmin(cid) {
     if (!emailBevestigd(idx[uid])) { if (err) err.innerHTML = NIET_BEVESTIGD_MSG; return; }
     await fbdb.ref('clubs/' + cid + '/admins/' + uid).set(true);
     await fbdb.ref('users/' + uid + '/clubs/' + cid).set('admin');
-    closeModal(); loadClubsAdminView();
+    closeModal(); clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Aanstellen mislukt. Zijn de rules gepubliceerd?'; }
 }
 function removeClubAdmin(cid, uid) {
@@ -602,7 +623,7 @@ function removeClubAdmin(cid, uid) {
     try {
       await fbdb.ref('clubs/' + cid + '/admins/' + uid).remove();
       try { await fbdb.ref('users/' + uid + '/clubs/' + cid).remove(); } catch (e) {}
-      loadClubsAdminView();
+      clubSchermHertekenen();
     } catch (e) { showToast('Verwijderen mislukt.', 'err'); }
   }, 'Verwijderen');
 }
@@ -627,8 +648,11 @@ function deleteClub(cid, naam) {
       const admins = Object.keys(c.admins || {});
       for (const uid of admins) { try { await fbdb.ref('users/' + uid + '/clubs/' + cid).remove(); } catch (e) {} }
       await fbdb.ref('clubs/' + cid).remove();
+      if (myClubs) delete myClubs[cid];
       showToast('Club verwijderd.', 'ok');
-      loadClubsAdminView();
+      // Sta je op het scherm van die club, dan valt er niets meer te hertekenen: terug naar de lijst.
+      if (view === 'clubbeheer' && _clubBeheerId === cid) { _clubBeheerId = null; go(isOwner ? 'clubsadmin' : 'teamselect'); return; }
+      clubSchermHertekenen();
     } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
   }, 'Verwijderen');
 }
@@ -679,7 +703,7 @@ async function doAppointTeamAdmin(tid) {
     } catch (e) { /* de aanstelling zelf is gelukt; een mislukte ledenlijst-aanvulling mag dat niet terugdraaien */ }
     closeModal();
     showToast('Ploegbeheerder aangesteld.', 'ok');
-    loadClubsAdminView();
+    clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Aanstellen mislukt. Zijn de rules gepubliceerd?'; }
 }
 // ===================== ALLE GEBRUIKERS (view) =====================
@@ -3229,9 +3253,20 @@ function renderTeamSelect() {
       ${mag ? `<span style="display:block;font-size:11.5px;font-weight:600;color:var(--grn2);text-transform:none;letter-spacing:0">Club beheren</span>` : ''}</span>
       ${mag ? `<span style="color:var(--grn2);font-size:19px;font-weight:700">›</span>` : ''}`;
     return mag
-      ? `<div onclick="_clubBeheerId='${cid}';go('clubbeheer')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">${binnen}</div>`
+      ? `<div onclick="naarClubbeheer('${cid}','teamselect')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">${binnen}</div>`
       : `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px">${binnen}</div>`;
   };
+  // DEZELFDE BALK VOOR EEN CLUB ZONDER PLOEG VAN JOU (v1.82.0). Hier stond een blauwe knop "Mijn club
+  // beheren" onderaan het scherm, die de EERSTE club zonder balk nam en niet zei welke dat was. Beheer
+  // je er meer dan één, dan landde je dus ergens anders dan waar de balk je bracht — dat was Tims
+  // "je komt elders terecht". Nu krijgt zo'n club gewoon dezelfde balk, mét haar naam, op dezelfde
+  // plek als de rest. De naam komt uit de cache die loadTeamSelect vult (clubNaamCache); zolang ze
+  // nog onderweg is, staat er "Club beheren" en verschijnt de naam bij de volgende tekening.
+  const losseClubBalk = cid => `<div onclick="naarClubbeheer('${cid}','teamselect')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;font-weight:700;color:var(--grn2);text-transform:uppercase;letter-spacing:.5px">${esc(clubNaamCache[cid] || 'Club')}</span>
+      <span style="display:block;font-size:11.5px;font-weight:600;color:var(--grn2);text-transform:none;letter-spacing:0">Club beheren${clubNaamCache[cid] ? '' : '…'}</span></span>
+      <span style="color:var(--grn2);font-size:19px;font-weight:700">›</span>
+    </div>`;
   const teamRowHtml = id => {
     const role = userTeams[id];
     const name = teamNames[id] || id;
@@ -3283,6 +3318,18 @@ function renderTeamSelect() {
         .catch(e => { if (e && e.message !== 'fb-timeout') pruneDeadTeam(id); });
     })).then(() => { if (needsRerender && view === 'teamselect') render(); });
   }, 0);
+  // En de namen van de clubs die je beheert zonder er zelf een ploeg van te volgen: die staan in geen
+  // enkele ploeg-info op dit toestel, dus ze komen rechtstreeks van de club. Eén keer per club, en
+  // daarna staan ze in de cache — hertekenen gebeurt enkel wanneer er echt een naam bijkwam.
+  setTimeout(() => {
+    const open = Object.keys(myClubs || {}).filter(cid => !clubNaamCache[cid]);
+    if (!open.length || !fbdb) return;
+    let nieuw = false;
+    Promise.all(open.map(cid => fbOnce(fbdb.ref('clubs/' + cid + '/info/name'))
+      .then(s => { const n = (s.val() || '').trim(); if (n) { clubNaamCache[cid] = n; nieuw = true; } })
+      .catch(() => {})))
+      .then(() => { if (nieuw && view === 'teamselect') render(); });
+  }, 0);
 
   return `<div class="ts-wrap">
     <div class="ts-hdr">
@@ -3316,11 +3363,10 @@ function renderTeamSelect() {
       </div>
       ${teamRows}
       ${(() => {
-        // Terugvalknop: enkel voor beheerde clubs die hierboven géén klikbare kop kregen.
+        // Clubs die je beheert maar waarvan je zelf geen ploeg volgt: dezelfde balk, onder de lijst.
         const zonderKop = Object.keys(myClubs || {}).filter(cid => !clubKoppen[cid]);
         if (!zonderKop.length || viewerMode) return '';
-        return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Clubbeheer</div>
-      <button class="btn btn-org" onclick="_clubBeheerId='${zonderKop[0]}';go('clubbeheer')">${icI(IC.players)} ${zonderKop.length > 1 ? 'Mijn clubs beheren' : 'Mijn club beheren'}</button>`;
+        return zonderKop.map(losseClubBalk).join('');
       })()}
       ${/* Voor de eigenaar staat de ingang nu als kroontje bovenaan (zie de kopregel hierboven), dus
            hier blijft enkel het geval waarin er nog géén eigenaar is: dat is de claim, en die heeft
@@ -3328,7 +3374,7 @@ function renderTeamSelect() {
            uit, anders staan er twee knoppen naar hetzelfde scherm op één pagina. */ ''}
       ${(showAppBeheer && !isOwner) ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
       <button class="btn btn-dark" onclick="_beheerFrom='teamselect';go('beheer')">${icI(IC.shield)} App-beheer</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs en clubbeheerders, alle gebruikers, wie er nu online is, onderhoud.</p>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs, alle gebruikers, wie er nu online is, onderhoud.</p>` : ''}
       <div style="display:flex;gap:8px;margin-top:20px">
         <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
         <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
