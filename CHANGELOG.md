@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.81.0
+
+**Een back-up van de hele club.** Tim, 28-09-2026: *"een back-up maken kan, maar dan enkel van de
+ploegen waar je beheerder van bent. Als clubeigenaar zou je er ook een moeten kunnen maken van de
+ganse club, ook van ploegen die niet bij 'mijn ploegen' staan."*
+
+De gewone back-up neemt de wedstrijden van **dit toestel** en de kernen van **jouw** ploegen. Voor
+een clubbeheerder is dat precies de scheefheid die bij de clubexport al weggehaald was: wat erin zit,
+hangt af van waar je toevallig geweest bent. In Clubbeheer staat nu, naast de Excel, **'Back-up van
+de hele club'**. Die leest alles bij de databank op — per ploeg de spelers, de wedstrijden en de
+tornooien — en levert een bestand in **hetzelfde formaat** als de gewone back-up, zodat *Back-up
+terugzetten* het zonder uitzondering leest.
+
+Twee dingen verschillen van de Excel. De Excel is om te **lezen**, dit is om terug te **zetten**. En
+de Excel laat de notities bewust weg (die gaat naar een bestuur), terwijl deze ze wél meeneemt: ze
+staan apart van de wedstrijden bewaard, dus een back-up die enkel de wedstrijden leest, laat ze stil
+vallen — en dat merk je pas bij het terugzetten. Het venster achteraf zegt erbij dat het bestand
+daarmee namen van kinderen bevat.
+
+Bij het terugzetten geldt een ploeg die niet bij *Jouw ploegen* staat als een vreemde ploeg: haar
+wedstrijden kan je dan alleen aan een andere ploeg toewijzen. Zet zo'n ploeg dus eerst bij je
+ploegen (Clubbeheer → *Bij mijn ploegen*). Dat staat ook in het venster na het downloaden.
+
+---
+
 ## v1.80.0
 
 **Wat je bij het inlezen van een kalender uitvinkt, blijft uitgevinkt.** Tim, 28-09-2026: *"als ik de

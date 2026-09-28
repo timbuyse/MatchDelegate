@@ -2023,6 +2023,10 @@ const HANDLEIDING_PAGINAS = [
       </ul>
       <p><b>Tornooiwedstrijden staan apart</b> en tellen niet mee in de speeltijd: een tornooidag is vijf wedstrijdjes van tien minuten, en die zouden elk gemiddelde vertekenen. Je vindt het aantal tornooien terug in het Overzicht.</p>
       <p class="hdl-tip">Spelernotities en kwetsuurdetails zitten er bewust <b>niet</b> in. In de app zijn die enkel voor beheerders; in een bestand dat rondgestuurd wordt, zijn ze dat niet meer.</p>
+      <div class="sec">Back-up van de hele club</div>
+      <p>Daarnaast staat er <b>'Back-up van de hele club'</b>. Dat is iets anders dan de Excel: die is om te <b>lezen</b>, de back-up is om terug te <b>zetten</b>. Ze haalt van elke ploeg van de club de spelers, de wedstrijden en de tornooien op — ook van ploegen die niet bij <b>'Jouw ploegen'</b> staan — en levert hetzelfde soort bestand als de gewone back-up bij <b>Instellingen → Gegevens overzetten</b>.</p>
+      <p>Terugzetten gaat langs diezelfde weg, met <b>'Bestand inlezen'</b>. Daar kies je per ploeg wat er terug moet. Eén ding om te weten: een ploeg die niet bij <b>'Jouw ploegen'</b> staat, geldt daar als een vreemde ploeg — je kan haar wedstrijden dan alleen aan een andere ploeg toewijzen. Zet ze dus eerst bij je ploegen (in Clubbeheer, met de knop <b>'Bij mijn ploegen'</b>), en zet daarna terug.</p>
+      <p class="hdl-tip">Anders dan de Excel bevat dit bestand <b>wél</b> de notities bij wedstrijden en spelers: een back-up die de helft mist, is geen back-up. Het gaat dus om gegevens over kinderen — bewaar het zoals je een ledenlijst bewaart, en stuur het niet zomaar door.</p>
       <div class="sec">Extra</div>
       <ul class="hdl-list">
         <li><b>Clublogo</b> — stel bovenaan in Clubbeheer het clublogo in. Het verschijnt bij je club op 'Jouw ploegen', onderaan de ploegpagina en in de wedstrijd-PDF.</li>

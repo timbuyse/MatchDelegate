@@ -179,6 +179,11 @@ async function loadClubBeheerView() {
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubCijfers('${clubId}')">${icI(IC.chart)} Cijfers per ploeg</button>
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubExport('${clubId}')">${icI(IC.download)} Clubexport (Excel)</button>
+      ${/* De back-up staat naast de Excel maar is iets anders: die eerste is om te LEZEN (een bestuur,
+            een draaitabel), deze is om terug te ZETTEN. Vandaar het zinnetje eronder — zonder dat
+            lijken het twee knoppen voor hetzelfde. */''}
+      <button class="btn btn-pale" style="margin-top:8px" onclick="clubBackup('${clubId}')">${icI(IC.download)} Back-up van de hele club</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">De Excel is om te lezen; de back-up is om terug te zetten. Allebei halen ze <b>alle</b> ploegen van de club op, ook die niet bij "Jouw ploegen" staan.</p>
       ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
         ${archivedRows.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
@@ -1533,6 +1538,93 @@ async function clubExportOphalen(clubId, meld) {
   }
   return uit;
 }
+// ===================== BACK-UP VAN DE HELE CLUB =====================
+// Tim, 28-09-2026: "een back-up maken kan, maar dan enkel van de ploegen waar je beheerder van bent.
+// Als clubeigenaar zou je er ook een moeten kunnen maken van de ganse club, ook van ploegen die niet
+// bij 'mijn ploegen' staan."
+//
+// De gewone back-up (zie exportBackup in stats-settings.js) neemt de wedstrijden van DIT TOESTEL en
+// de kernen van JOUW ploegen. Voor een clubbeheerder is dat precies de scheefheid die we bij de
+// clubexport al weghaalden: wat erin zit, hangt af van waar je toevallig geweest bent.
+//
+// Deze weg leest álles bij de databank op, per ploeg van de club, en levert een bestand in HETZELFDE
+// formaat als de gewone back-up — zodat "Back-up terugzetten" het gewoon leest. Dezelfde leesrechten
+// als de clubexport; aan de databankregels verandert er niets.
+//
+// MET DE NOTITIES. Die staan bewust apart van de wedstrijden (teamNotes, enkel voor beheerders — zie
+// notesRef in core.js), dus een back-up die enkel `matches` leest, laat ze stil vallen. Bij de
+// clubexport is dat de bedoeling (een Excel gaat naar een bestuur); bij een back-up zou het betekenen
+// dat je pas bij het terugzetten merkt dat de notities weg zijn.
+async function clubBackupOphalen(clubId, meld) {
+  const clubTeams = (await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {};
+  const ids = Object.keys(clubTeams);
+  const ploegen = [], matches = [], tornooien = [], mislukt = [];
+  for (let i = 0; i < ids.length; i++) {
+    const tid = ids[i];
+    if (meld) meld(`Ploeg ${i + 1} van ${ids.length} ophalen…`);
+    try {
+      const t = (await fbOnce(fbdb.ref('teams/' + tid))).val() || {};
+      const kernen = normalizeRosterArray(t.roster);
+      const naam = ((t.info || {}).name || (kernen[0] || {}).name || '').trim();
+      if (!naam) continue;                       // ploeg zonder naam: niets om terug te zetten
+      // De notities per wedstrijd terugleggen waar ze vandaan komen.
+      let notities = {};
+      try { notities = (await fbOnce(fbdb.ref('teamNotes/' + tid))).val() || {}; } catch (e) { notities = {}; }
+      Object.values(t.matches || {}).filter(Boolean).forEach(m => {
+        const c = { ...m };
+        const n = notities[m.id];
+        if (n) {
+          if (n.notes) c.notes = n.notes;
+          const pn = n.players || {};
+          if (Object.keys(pn).length) c.players = (c.players || []).map(p => (pn[p.id] ? { ...p, note: pn[p.id] } : p));
+        }
+        matches.push(c);
+      });
+      Object.values(t.tournaments || {}).filter(Boolean).forEach(x => tornooien.push(x));
+      ploegen.push({ teamId: tid, teamName: naam, rol: 'admin', kernen });
+    } catch (e) { mislukt.push(tid); }
+  }
+  return { ploegen, matches, tornooien, mislukt };
+}
+async function clubBackup(clubId) {
+  if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
+  openModal(`<h3>${icI(IC.download)} Back-up van de club</h3>
+    <p id="cb-melding" style="font-size:13px;color:var(--txt2);text-align:left">Gegevens van alle ploegen ophalen…</p>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Annuleren</button>`);
+  const meld = t => { const el = document.getElementById('cb-melding'); if (el) el.textContent = t; };
+  try {
+    const { ploegen, matches, tornooien, mislukt } = await clubBackupOphalen(clubId, meld);
+    if (!ploegen.length) { meld('Geen ploegen gevonden waarvan je de gegevens mag lezen.'); return; }
+    // Zelfde vorm als exportBackup (versie 3), zodat "Back-up terugzetten" dit bestand zonder
+    // uitzondering leest. `tournaments` gaat als TEKST mee — zo leest herstelBouwGroepen het ook.
+    const data = {
+      app: 'voetbal', version: 3, exportedAt: Date.now(), bron: 'club',
+      club: { id: clubId, naam: activeClubName || '' },
+      matches, ploegen,
+      settings: { tournaments: JSON.stringify(tornooien) },
+    };
+    const naam = `matchdelegate-club-back-up-${new Date().toISOString().slice(0, 10)}.json`;
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = naam;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const spelers = ploegen.reduce((n, p) => n + (p.kernen || []).reduce((k, x) => k + ((x.players || []).length), 0), 0);
+    openModal(`<h3>${icI(IC.check)} Back-up gedownload</h3>
+      <div style="text-align:left;font-size:14px">
+        <div class="stat-row"><span style="flex:1;color:var(--txt2)">Ploegen</span><b>${ploegen.length}</b></div>
+        <div class="stat-row"><span style="flex:1;color:var(--txt2)">Wedstrijden</span><b>${matches.length}</b></div>
+        <div class="stat-row"><span style="flex:1;color:var(--txt2)">Spelers</span><b>${spelers}</b></div>
+        ${tornooien.length ? `<div class="stat-row"><span style="flex:1;color:var(--txt2)">Tornooien</span><b>${tornooien.length}</b></div>` : ''}
+      </div>
+      ${mislukt.length ? `<p style="font-size:13px;color:var(--rd);margin-top:10px;text-align:left">${icI(IC.warn)} ${mislukt.length} ${mislukt.length === 1 ? 'ploeg is' : 'ploegen zijn'} niet opgehaald (leesfout of geen rechten). Probeer het straks opnieuw.</p>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:left">Dit bestand bevat ook de <b>notities</b> bij wedstrijden en spelers, en dus namen van kinderen. Bewaar het zoals je een ledenlijst bewaart.</p>
+      <p style="font-size:12px;color:var(--txt2);margin-top:8px;text-align:left">Terugzetten doe je via <b>Instellingen → Gegevens overzetten → Bestand inlezen</b>. Een ploeg die niet bij <b>Jouw ploegen</b> staat, zet je daar eerst bij — anders kan je haar wedstrijden alleen aan een andere ploeg toewijzen.</p>
+      <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+  } catch (e) { meld('Ophalen mislukt. Sluit dit venster en probeer opnieuw.'); }
+}
+
 // De gegevens worden één keer opgehaald en hier bewaard; vroeger haalde elke knop alles opnieuw op.
 let ceState = null;   // { clubId, ploegen, seizoen }
 function ceSeizoenen(ploegen) {
