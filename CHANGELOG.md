@@ -9,6 +9,36 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.79.0
+
+**Bij de bond nakijken kan nu ook overnemen.** De controle vond wel de wedstrijden waarvoor er info
+klaarstond, maar daarna moest je per stuk terug: bevestigen, in het verslag van díé wedstrijd
+belanden, terug naar de lijst, en de hele controle opnieuw laten lopen. Bij vijf wedstrijden vijf
+keer opnieuw zoeken naar iets wat de app een minuut eerder al wist (Tim, 28-09-2026: "je kan die
+info dan niet in één keer importeren").
+
+Het koppelen van de namen blijft mensenwerk zodra er iets te kiezen valt — de bond schrijft "Lars
+Aloïs Van Laere" waar je kern "Lars Van Laere" heeft, en dat blind over vijf wedstrijden doen is
+hoe je stil de verkeerde speler in een verslag krijgt. Maar die grens was te ruim: de app koppelt
+alle namen automatisch en laat er één leeg staan zodra ze twijfelt, dus **ze weet zelf wanneer er
+niets te kiezen valt.** Dat onderscheid gebruikt ze nu.
+
+- **Eerst een overzicht, dan pas doen.** "Alle … overnemen" toont de wedstrijden in twee groepen:
+  die waarbij elke naam eenduidig terugkomt (met per stuk wat er zou binnenkomen, en een regel bij
+  een gastspeler uit een zusterploeg), en die waar iets te kiezen valt, met de reden erbij. Pas na
+  je bevestiging wordt er iets bewaard.
+- **De rest als een rij.** Bovenaan staat "1 / 3", en na elke bevestiging komt de volgende vanzelf.
+  "Deze overslaan" gaat verder zonder er iets aan te veranderen.
+- **Geen tweede keer ophalen.** De controle haalde het blad al op en gooide het weg; nu houdt ze het
+  bij, dus een voorstelscherm opent meteen op het voorstel.
+
+Een wedstrijd waarvan het blad niet bij die wedstrijd lijkt te horen — andere datum, andere
+tegenstander, andere ploeg — gaat nooit blind mee. Vlak vóór het wegschrijven wordt diezelfde grens
+nog eens getoetst, zodat een wedstrijd die intussen van een ander toestel veranderde alsnog naar de
+rij gaat in plaats van er blind door.
+
+---
+
 ## v1.78.0
 
 **Ongedaan maken van wat je achteraf toevoegt of aanpast.** De knop "Laatste actie ongedaan maken"

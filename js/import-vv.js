@@ -459,6 +459,10 @@ function vvStart() {
   if (!match) return;
   if (!canManage()) { showToast('Enkel een beheerder met verbinding kan wedstrijdinfo ophalen.', 'err'); return; }
   if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
+  // Je begint hier aan ÉÉN wedstrijd. Een rij die nog zou rondslingeren (weggeklikt zonder de
+  // terugknop) hoort daar niet meer bij te horen — anders sprong je na het overnemen plots naar een
+  // wedstrijd uit een reeks die je allang verlaten had.
+  vvRij = null;
   vvSt = {
     // HET WEDSTRIJDNUMMER STAAT ER VAAK AL. Een wedstrijd die uit de kalender van de voetbalbond
     // ingelezen is, draagt het nummer van de bond (m.rbfaMatchId, gezet door impVoerUit in
@@ -473,10 +477,12 @@ function vvStart() {
 function vvTerug() {
   const id = vvSt && vvSt.matchId;
   const naar = (match && match.status === 'done') ? 'detail' : 'prep';
+  // De terugknop stopt ook de rij: je gaat weg uit deze reeks, niet naar de volgende erin.
+  vvRij = null;
   vvSt = null;
   go(naar, id);
 }
-function vvOpnieuw() { if (!vvSt) return; vvSt.fase = 'kies'; vvSt.ruw = null; vvSt.lezing = null; vvSt.fout = ''; render(); }
+function vvOpnieuw() { if (!vvSt) return; vvRij = null; vvSt.fase = 'kies'; vvSt.ruw = null; vvSt.lezing = null; vvSt.fout = ''; render(); }
 function vvRender() {
   const el = document.getElementById('vv-content');
   if (!el) { render(); return; }
@@ -614,16 +620,25 @@ function vvChk(key, label, extra) {
   </label>`;
 }
 
+// Hoort dit blad wel bij deze wedstrijd? Aparte functie sinds v1.79.0: het voorstelscherm toont ze,
+// en het in één keer overnemen gebruikt ze als grens — een wedstrijd waarover hier iets te zeggen
+// valt, gaat nooit blind mee.
+function vvControles(m, lz) {
+  const uit = [];
+  if (!m || !lz) return uit;
+  if (lz.datum && m.date && lz.datum !== m.date) uit.push(`De pagina is van <b>${esc(lz.datum)}</b>, deze wedstrijd staat op <b>${esc(m.date)}</b>.`);
+  if (lz.hunTeam && m.opponent && !vvNaamOverlap(lz.hunTeam, m.opponent)) uit.push(`Op de pagina staat <b>${esc(lz.hunTeam)}</b> als tegenstander, in de app <b>${esc(m.opponent)}</b>.`);
+  if (!vvNaamOverlap(lz.onsTeam, tName(m))) uit.push(`De ploeg die we als de onze lezen (<b>${esc(lz.onsTeam)}</b>) lijkt niet op <b>${esc(tName(m))}</b>. Zet hieronder de juiste kant.`);
+  return uit;
+}
+
 function vvVoorstelHtml() {
   const m = match, lz = vvSt.lezing;
   const roster = vvRoster();
   const magUitslag = vvMagUitslag(m);
 
   // --- hoort dit blad bij deze wedstrijd? ---
-  const controles = [];
-  if (lz.datum && m.date && lz.datum !== m.date) controles.push(`De pagina is van <b>${esc(lz.datum)}</b>, deze wedstrijd staat op <b>${esc(m.date)}</b>.`);
-  if (lz.hunTeam && m.opponent && !vvNaamOverlap(lz.hunTeam, m.opponent)) controles.push(`Op de pagina staat <b>${esc(lz.hunTeam)}</b> als tegenstander, in de app <b>${esc(m.opponent)}</b>.`);
-  if (!vvNaamOverlap(lz.onsTeam, tName(m))) controles.push(`De ploeg die we als de onze lezen (<b>${esc(lz.onsTeam)}</b>) lijkt niet op <b>${esc(tName(m))}</b>. Zet hieronder de juiste kant.`);
+  const controles = vvControles(m, lz);
 
   // --- de gegevens ---
   const infoRijen = vvInfoRijen(m, lz);
@@ -727,6 +742,7 @@ function vvVoorstelHtml() {
   const ietsAan = Object.keys(vvSt.aan).some(k => vvSt.aan[k]);
 
   return `
+    ${vvRijBalkHtml()}
     <div class="card" style="border-left:4px solid var(--org)">
       <p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.warn)} <b>Demo-functie.</b> Kijk hieronder na of alles klopt vóór je overneemt — vooral de koppeling van de namen. Er wordt niets bewaard tot je onderaan op <b>Overnemen</b> tikt.</p>
     </div>
@@ -793,8 +809,10 @@ function vvVoorstelHtml() {
       ${waar.map(w => `<p style="font-size:13px;color:var(--txt2);margin:0 0 6px">${w}</p>`).join('')}
     </div>` : ''}
 
-    <button class="btn btn-green" ${ietsAan ? 'onclick="vvOvernemen()"' : 'disabled style="opacity:.5"'}>${icI(IC.check)} Overnemen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="vvOpnieuw()">Een andere wedstrijd ophalen</button>
+    <button class="btn btn-green" ${ietsAan ? 'onclick="vvOvernemen()"' : 'disabled style="opacity:.5"'}>${icI(IC.check)} Overnemen${vvInRij() ? ' en verder' : ''}</button>
+    ${vvInRij()
+      ? `<button class="btn btn-pale" style="margin-top:8px" onclick="vvRijOverslaan()">Deze overslaan${vvRij.idx + 1 < vvRij.items.length ? ' — naar de volgende' : ''}</button>`
+      : `<button class="btn btn-pale" style="margin-top:8px" onclick="vvOpnieuw()">Een andere wedstrijd ophalen</button>`}
     <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:center">Na het overnemen kan je alles gewoon aanpassen, zoals bij elke andere wedstrijd.</p>`;
 }
 
@@ -840,9 +858,12 @@ const VV_KAART_TYPES = ['yellow_card', 'red_card', 'yellow_card_them', 'red_card
 // iemand zelf ingaf, blijft staan — die is niet van ons om weg te gooien.
 const VV_WISSEL_TYPES = ['substitution'];
 
-async function vvOvernemen() {
-  if (!vvSt || !match) return;
-  if (!canManage()) { showToast('Enkel een beheerder met verbinding kan dit bewaren.', 'err'); return; }
+// HET OVERNEMEN ZELF, LOSGEMAAKT VAN HET SCHERM (v1.79.0). Deze functie schrijft alles uit `vvSt`
+// naar de wedstrijd en geeft terug wat er gebeurd is; opslaan en navigeren doet de aanroeper. Zo
+// loopt de knop "Overnemen", de rij die je aflopen kan en het in één keer overnemen van meerdere
+// wedstrijden langs precies dezelfde weg — één waarheid, geen tweede versie die stil uit de pas
+// gaat lopen.
+function vvNeemOver() {
   const m = match, lz = vvSt.lezing;
   const gedaan = [];
 
@@ -1041,7 +1062,22 @@ async function vvOvernemen() {
 
   recomputeScore(m);
   recomputeOnField(m);
+  return gedaan;
+}
+
+async function vvOvernemen() {
+  if (!vvSt || !match) return;
+  if (!canManage()) { showToast('Enkel een beheerder met verbinding kan dit bewaren.', 'err'); return; }
+  const m = match;
+  const gedaan = vvNeemOver();
   await dbSave(m);
+  // Loop je een rij af, dan hoort de volgende wedstrijd te komen in plaats van het verslag van deze.
+  // Bij een rij van één blijft het zoals het was: dan kwam je voor déze wedstrijd.
+  if (vvRij && vvRij.items.length > 1) {
+    vvRij.gedaan.push({ naam: m.opponent || '?', gedaan });
+    if (await vvRijVolgende()) return;
+  }
+  vvRij = null;
   vvSt = null;
   await go(m.status === 'done' ? 'detail' : 'prep', m.id);
   showToast(gedaan.length ? `Overgenomen: ${gedaan.join(', ')}.` : 'Er was niets aangevinkt om over te nemen.', gedaan.length ? 'ok' : 'err');
@@ -1100,6 +1136,7 @@ function vvScanZinvol(alle) {
 
 async function vvScanStart() {
   if (!canManage()) { showToast('Enkel een beheerder met verbinding kan bij de bond nakijken.', 'err'); return; }
+  vvRij = null; vvBulkSt = null;   // een nieuwe controle: wat er van een vorige ronde overbleef, telt niet meer
   let alle = [];
   try { alle = (await dbAll()).filter(Boolean); } catch (e) { alle = []; }
   const teVullen = alle.filter(m => vvScanTeVullen(m) && vvScanEigenPloeg(m));
@@ -1127,6 +1164,11 @@ async function vvScanStart() {
         rij.uitslag = (lz.scoreOns != null && lz.scoreZij != null)
           ? (lz.thuis ? `${lz.scoreOns} - ${lz.scoreZij}` : `${lz.scoreZij} - ${lz.scoreOns}`) : '';
         rij.staat = !lz.gespeeld ? 'nietgespeeld' : (rij.spelers ? 'klaar' : (rij.uitslag ? 'enkeluitslag' : 'wacht'));
+        // HET BLAD BIJHOUDEN, NIET ENKEL DE TELLING (v1.79.0). Tot hier gooide de controle de
+        // opgehaalde gegevens weg en hield ze alleen de aantallen over, waarna elk voorstelscherm ze
+        // opnieuw ging halen. Nu blijven ze staan voor wat er daarna komt: het overzicht, het in één
+        // keer overnemen en de rij. Enkel voor wat er iets te halen valt — de rest is ballast.
+        if (rij.staat === 'klaar' || rij.staat === 'enkeluitslag') rij.ruw = d;
       }
     } catch (e) {
       rij.staat = 'fout';
@@ -1148,15 +1190,252 @@ async function vvScanStart() {
 
 function vvScanSluit() { vvScanSt = null; closeModal(); }
 
-// Naar het voorstelscherm van één wedstrijd. `match` is een LEXICALE global (géén window-eigenschap),
-// dus een gewone toewijzing — vvStart leest ze en zet vvSt op.
+// ---------------------------------------------------------------------------------------------
+// 8. EEN RIJ AFLOPEN, EN WAT ZEKER IS IN ÉÉN KEER (Tim, 28-09-2026)
+// ---------------------------------------------------------------------------------------------
+// "Je kan die info dan niet in één keer importeren." Het knelpunt zat niet in het ophalen maar in de
+// TERUGREIS: na het bevestigen zette de app je in het verslag van díé wedstrijd, dus voor de
+// volgende moest je terug naar de lijst en de hele controle opnieuw laten lopen. Bij vijf
+// wedstrijden vijf keer opnieuw zoeken naar iets wat de app een minuut eerder al wist.
+//
+// WAT ER NIET VERANDERT is de grens uit hoofdstuk 7: het koppelen van de namen blijft mensenwerk
+// zodra er iets te kiezen valt. Maar die grens was te ruim getrokken. De app koppelt bij het openen
+// van een voorstel alle namen automatisch en laat er één leeg staan zodra ze twijfelt — twee
+// gelijkende namen, of iemand die niet in de kern staat. Bij een gewone wedstrijd met de eigen kern
+// komt er dus geen enkele keuze aan te pas, en dat wist ze zelf al. Dat onderscheid gebruikt ze nu:
+//
+//   - is elke naam eenduidig én klopt het blad met de wedstrijd → mag in één keer mee;
+//   - valt er íéts te kiezen → die wedstrijd houdt haar eigen scherm, en je loopt ze af als een rij.
+//
+// En er wordt niets weggeschreven vóór je een overzicht gezien hebt van wat er zou binnenkomen
+// (Tims keuze: "vooraf tonen, dan pas doen").
+
+// De rij die je aan het aflopen bent. `items` draagt de gegevens die de controle al ophaalde, zodat
+// er per wedstrijd niet nog eens op "Ophalen" getikt hoeft te worden.
+let vvRij = null;   // { items:[{id, ruw}], idx, zusters, gedaan:[{naam, gedaan}] }
+function vvInRij() { return !!(vvRij && vvRij.items.length > 1); }
+
+// Alles klaarzetten alsof je het voorstelscherm van deze wedstrijd net geopend had — maar met de
+// gegevens die er al zijn. `match` is een LEXICALE global (géén window-eigenschap), dus een gewone
+// toewijzing.
+function vvZetOpVoorstel(m, ruw, zusters) {
+  match = m;
+  const wij = vvGokKant(ruw, m);
+  vvSt = {
+    fase: 'na', matchId: m.id, link: String(m.rbfaMatchId || ''), bezig: false, fout: '',
+    ruw, lezing: vvLees(ruw, wij), wij, koppel: {}, los: {}, zusters: zusters || [], aan: {},
+  };
+  vvKoppelAutomatisch();
+  vvZetStandaardVinkjes();
+}
+
+function vvRijBalkHtml() {
+  if (!vvInRij()) return '';
+  return `<div class="card" style="border-left:4px solid var(--grn);display:flex;align-items:center;gap:10px">
+    <span style="font-weight:700;white-space:nowrap">${vvRij.idx + 1} / ${vvRij.items.length}</span>
+    <span style="font-size:13px;color:var(--txt2);flex:1;min-width:0">Je loopt de wedstrijden af die de controle vond. Na het overnemen komt de volgende vanzelf.</span>
+  </div>`;
+}
+
+async function vvRijToon() {
+  while (vvRij && vvRij.idx < vvRij.items.length) {
+    const it = vvRij.items[vvRij.idx];
+    const m = await dbGet(it.id);
+    if (m) { vvZetOpVoorstel(m, it.ruw, vvRij.zusters); await go('importvv'); return true; }
+    vvRij.idx++;   // intussen verdwenen van dit toestel: overslaan
+  }
+  return false;
+}
+// Naar de volgende in de rij. Geeft `true` wanneer die er is (en er dus genavigeerd is), `false`
+// wanneer de rij op is — dan handelt de aanroeper het einde af.
+async function vvRijVolgende() {
+  if (!vvRij) return false;
+  vvRij.idx++;
+  if (await vvRijToon()) return true;
+  const gedaan = vvRij.gedaan.slice();
+  vvRij = null; vvSt = null;
+  await go('matches');
+  showToast(gedaan.length
+    ? `Klaar — ${gedaan.length} wedstrijd${gedaan.length === 1 ? '' : 'en'} aangevuld.`
+    : 'Klaar met de rij; er is niets aangevuld.', gedaan.length ? 'ok' : 'err');
+  return true;
+}
+async function vvRijOverslaan() { if (vvRij) await vvRijVolgende(); }
+
+// ---- In één keer: eerst tonen, dan pas doen ----
+let vvBulkSt = null;   // { fase, zeker:[], hand:[], zusters, bezig, gedaan }
+
+// Mag deze wedstrijd blind mee? Enkel wanneer er niets te kiezen valt: het blad hoort bij de
+// wedstrijd, ze is gespeeld, er staan namen op, en élke naam komt eenduidig terug.
+function vvBulkZeker(m) {
+  const lz = vvSt.lezing;
+  if (!lz || !lz.gespeeld) return false;
+  if (vvControles(m, lz).length) return false;
+  const n = (lz.onzeSpelers || []).length;
+  if (!n) return false;
+  for (let i = 0; i < n; i++) if (!vvSt.koppel[i]) return false;
+  return true;
+}
+// Waarom niet? Eén zin, de eerste die opgaat — een lijstje redenen leest hier als een probleem.
+function vvBulkReden(m) {
+  const lz = vvSt.lezing;
+  if (!lz || !lz.gespeeld) return 'Volgens de bond is deze wedstrijd nog niet gespeeld.';
+  if (vvControles(m, lz).length) return 'Het blad lijkt niet bij deze wedstrijd te horen — datum, tegenstander of ploeg klopt niet.';
+  const namen = (lz.onzeSpelers || []);
+  if (!namen.length) return 'Er staan geen namen op het blad.';
+  const open = namen.filter((s, i) => !vvSt.koppel[i]).length;
+  return `${open} ${open === 1 ? 'naam komt' : 'namen komen'} niet eenduidig terug in je kern — die wil je zelf aanwijzen.`;
+}
+// Wat er zou binnenkomen, in dezelfde woorden als het voorstelscherm.
+function vvBulkSamenvatting(m) {
+  const lz = vvSt.lezing, uit = [];
+  const info = vvInfoRijen(m, lz).filter(r => vvSt.aan['i_' + r.key]);
+  if (info.length) uit.push(`${info.length} gegeven${info.length === 1 ? '' : 's'}`);
+  if (vvSt.aan.uitslag && lz.scoreOns != null && lz.scoreZij != null) {
+    uit.push(`uitslag <b>${lz.thuis ? `${lz.scoreOns} - ${lz.scoreZij}` : `${lz.scoreZij} - ${lz.scoreOns}`}</b>`);
+  }
+  if (vvSt.aan.selectie) { const t = vvTelSelectie(); if (t.nieuw) uit.push(`${t.nieuw} speler${t.nieuw === 1 ? '' : 's'} erbij`); }
+  if (vvSt.aan.kaarten) { const k = vvKaartRijen(lz).length; if (k) uit.push(`${k} kaart${k === 1 ? '' : 'en'}`); }
+  if (vvSt.aan.minuten) { const w = vvWisselRijen(lz).length; if (w) uit.push(`${w} wissel${w === 1 ? '' : 's'} met de speelminuten`); }
+  return uit;
+}
+// Wie er als GAST uit een zusterploeg bij komt, en wie er als niet-beschikbaar staat maar toch op
+// het blad. Allebei geen beletsel, wel iets dat je vóór het overnemen wil zien.
+function vvBulkLetOp(m) {
+  const uit = [];
+  if (vvSt.aan.selectie) {
+    const gasten = [];
+    Object.values(vvSt.koppel || {}).forEach(v => {
+      if (!v || v.slice(0, 2) !== 'r:') return;
+      const bron = vvRosterSpeler(v.slice(2));
+      if (bron && bron.t && !vvReedsInSelectie('', v.slice(2))) gasten.push(`${bron.p.name} (${bron.t.name})`);
+    });
+    if (gasten.length) uit.push(`${gasten.length === 1 ? 'Gastspeler' : 'Gastspelers'}: ${gasten.join(', ')}`);
+    const absent = vvGekoppeldeAbsenten();
+    if (absent.length) uit.push(`${absent.join(', ')} ${absent.length === 1 ? 'staat' : 'staan'} als niet beschikbaar; die vermelding verdwijnt.`);
+  }
+  return uit;
+}
+
+async function vvBulkOverzicht() {
+  if (!vvScanSt || !canManage()) return;
+  const rijen = vvScanSt.items.filter(r => r.ruw && (r.staat === 'klaar' || r.staat === 'enkeluitslag'));
+  if (!rijen.length) return;
+  const bewaardMatch = match, bewaardSt = vvSt;
+  let zusters = [];
+  try { zusters = await clubZusterPloegen(); } catch (e) { zusters = []; }
+  const zeker = [], hand = [];
+  for (const r of rijen) {
+    const m = await dbGet(r.id);
+    if (!m) continue;
+    vvZetOpVoorstel(m, r.ruw, zusters);
+    const post = { id: r.id, ruw: r.ruw, naam: m.opponent || '?', datum: r.datum || m.date || '' };
+    if (vvBulkZeker(m)) { post.wat = vvBulkSamenvatting(m); post.letop = vvBulkLetOp(m); zeker.push(post); }
+    else { post.reden = vvBulkReden(m); hand.push(post); }
+  }
+  match = bewaardMatch; vvSt = bewaardSt;
+  vvBulkSt = { fase: 'toon', zeker, hand, zusters, bezig: false, gedaan: [] };
+  vvBulkRender();
+}
+
+function vvBulkTerug() { vvBulkSt = null; vvScanRender(); }
+function vvBulkSluit() { vvBulkSt = null; vvScanSt = null; closeModal(); }
+// De wedstrijden die je zelf wil nakijken, als rij aflopen.
+async function vvBulkRijStarten() {
+  const items = (vvBulkSt ? vvBulkSt.hand : []).map(h => ({ id: h.id, ruw: h.ruw }));
+  const zusters = vvBulkSt ? vvBulkSt.zusters : [];
+  vvBulkSt = null; vvScanSt = null; closeModal();
+  if (!items.length) return;
+  vvRij = { items, idx: 0, zusters, gedaan: [] };
+  if (!(await vvRijToon())) { vvRij = null; showToast('Die wedstrijden staan niet meer op dit toestel.', 'err'); }
+}
+
+async function vvBulkDoen() {
+  if (!vvBulkSt || vvBulkSt.bezig || !canManage()) return;
+  vvBulkSt.bezig = true; vvBulkSt.fase = 'bezig'; vvBulkRender();
+  const bewaardMatch = match, bewaardSt = vvSt;
+  for (const post of vvBulkSt.zeker) {
+    const m = await dbGet(post.id);
+    if (!m) { post.mislukt = 'staat niet meer op dit toestel'; continue; }
+    try {
+      vvZetOpVoorstel(m, post.ruw, vvBulkSt.zusters);
+      // Tussen het overzicht en nu kan er niets veranderd zijn aan het blad, maar wél aan de
+      // wedstrijd (een ander toestel). Dus dezelfde grens nog eens: bij twijfel gaat ze naar de rij.
+      if (!vvBulkZeker(m)) { post.mislukt = 'intussen gewijzigd — kijk ze zelf na'; continue; }
+      post.gedaan = vvNeemOver();
+      await dbSave(m);
+    } catch (e) { post.mislukt = (e && e.message) || 'het overnemen is niet gelukt'; }
+  }
+  match = bewaardMatch; vvSt = bewaardSt;
+  vvBulkSt.bezig = false; vvBulkSt.fase = 'klaar';
+  vvBulkRender();
+}
+
+function vvBulkKaartHtml(post, zeker) {
+  const dag = post.datum ? String(post.datum).split('-').reverse().slice(0, 2).join('/') : '';
+  const kleur = post.mislukt ? 'var(--rd)' : (zeker ? 'var(--grn)' : 'var(--org)');
+  const regels = post.mislukt
+    ? `<div style="font-size:13px;color:var(--rd)">Niet overgenomen: ${esc(post.mislukt)}</div>`
+    : post.gedaan
+      ? `<div style="font-size:13px;color:var(--txt2)">Overgenomen: ${post.gedaan.length ? post.gedaan.join(' · ') : 'er viel niets aan te vullen'}</div>`
+      : zeker
+        ? `${(post.wat || []).length ? `<div style="font-size:13px;color:var(--txt2)">${post.wat.join(' · ')}</div>` : '<div style="font-size:13px;color:var(--txt2)">Er valt niets aan te vullen.</div>'}
+           ${(post.letop || []).map(l => `<div style="font-size:12px;color:var(--org);margin-top:3px">${icI(IC.warn)} ${esc(l)}</div>`).join('')}`
+        : `<div style="font-size:13px;color:var(--txt2)">${post.reden || ''}</div>`;
+  return `<div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${kleur}">
+    <div style="font-weight:700">${esc(post.naam)}${dag ? ` <span style="font-weight:400;color:var(--txt2)">· ${esc(dag)}</span>` : ''}</div>
+    ${regels}
+  </div>`;
+}
+
+function vvBulkRender() {
+  if (!vvBulkSt) return;
+  const st = vvBulkSt;
+  const n = st.zeker.length, h = st.hand.length;
+  if (st.fase === 'bezig') {
+    openModal(`<h3>${icI(IC.link)} Bezig met overnemen</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px">De ${n} ${n === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} aangevuld. Even geduld.</p>`);
+    return;
+  }
+  if (st.fase === 'klaar') {
+    const gelukt = st.zeker.filter(p => !p.mislukt).length;
+    openModal(`<h3>${icI(IC.check)} Overgenomen</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:12px">${gelukt} van de ${n} ${n === 1 ? 'wedstrijd is' : 'wedstrijden zijn'} aangevuld.</p>
+      ${st.zeker.map(p => vvBulkKaartHtml(p, true)).join('')}
+      ${h ? `<div class="sec" style="text-align:left">Deze wachten nog op jou (${h})</div>
+        ${st.hand.map(p => vvBulkKaartHtml(p, false)).join('')}
+        <button class="btn btn-green" onclick="vvBulkRijStarten()">${icI(IC.link)} Nu ${h === 1 ? 'die ene' : `die ${h}`} aflopen</button>` : ''}
+      <button class="btn btn-gray" style="margin-top:8px" onclick="vvBulkSluit()">Sluiten</button>`);
+    return;
+  }
+  openModal(`<h3>${icI(IC.link)} In één keer overnemen</h3>
+    ${n ? `<p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">Bij ${n === 1 ? 'deze wedstrijd' : `deze ${n} wedstrijden`} komt elke naam van het blad eenduidig terug in je kern. Er valt niets te kiezen, dus ${n === 1 ? 'ze kan' : 'die kunnen'} in één keer mee. Er wordt pas iets bewaard als je hieronder bevestigt.</p>
+      ${st.zeker.map(p => vvBulkKaartHtml(p, true)).join('')}`
+    : `<p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">Geen enkele wedstrijd kan blind mee: overal valt er iets te kiezen. Loop ze af, dan kom je er even snel doorheen.</p>`}
+    ${h ? `<div class="sec" style="text-align:left">Jouw oog nodig (${h})</div>
+      <p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px;text-align:left">Deze houden hun eigen scherm. Je kan ze daarna als een rij aflopen: na elke bevestiging komt de volgende vanzelf.</p>
+      ${st.hand.map(p => vvBulkKaartHtml(p, false)).join('')}` : ''}
+    ${n ? `<button class="btn btn-green" onclick="vvBulkDoen()">${icI(IC.check)} Ja, ${n === 1 ? 'deze' : `die ${n}`} overnemen</button>` : ''}
+    ${h ? `<button class="btn ${n ? 'btn-pale' : 'btn-green'}" style="margin-top:8px" onclick="vvBulkRijStarten()">${icI(IC.link)} ${h === 1 ? 'Die ene' : `Die ${h}`} zelf nakijken</button>` : ''}
+    <button class="btn btn-gray" style="margin-top:8px" onclick="vvBulkTerug()">Terug</button>`);
+}
+
+// Naar het voorstelscherm van één wedstrijd. De controle haalde het blad al op, dus dat gaat
+// rechtstreeks naar het voorstel: nog eens op "Ophalen" tikken voor gegevens die er al zijn, was
+// precies een van de stappen die dit hoofdstuk weghaalt.
 async function vvScanOpen(id) {
   const m = await dbGet(id);
   if (!m) { showToast('Die wedstrijd staat niet meer op dit toestel.', 'err'); return; }
+  const rij = (vvScanSt && vvScanSt.items.find(r => r.id === id)) || null;
   vvScanSt = null;
   closeModal();
-  match = m;
-  vvStart();
+  if (!rij || !rij.ruw) { match = m; vvStart(); return; }   // vangnet: de oude weg
+  if (!canManage()) { showToast('Enkel een beheerder met verbinding kan wedstrijdinfo ophalen.', 'err'); return; }
+  if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
+  let zusters = [];
+  try { zusters = await clubZusterPloegen(); } catch (e) { zusters = []; }
+  vvRij = { items: [{ id, ruw: rij.ruw }], idx: 0, zusters, gedaan: [] };
+  if (!(await vvRijToon())) { vvRij = null; match = m; vvStart(); }
 }
 
 const VV_SCAN_TEKST = {
@@ -1214,5 +1493,9 @@ function vvScanRender() {
     ${rest.map(vvScanRijHtml).join('')}
     ${voet.length ? `<div class="card" style="text-align:left;border-left:4px solid var(--org)">
       ${voet.map(v => `<p style="font-size:13px;color:var(--txt2);margin:0 0 6px">${v}</p>`).join('')}</div>` : ''}
+    ${/* De weg die de vijf losse tochtjes vervangt. Hij toont eerst wat er zou gebeuren en splitst
+         daarbij zelf: wat zonder keuze kan, en wat jouw oog nodig heeft. Enkel zichtbaar als de
+         controle klaar is — halverwege weet ze nog niet wat er allemaal klaarstaat. */ ''}
+    ${(st.fase === 'klaar' && klaar.length > 1) ? `<button class="btn btn-green" style="margin-bottom:8px" onclick="vvBulkOverzicht()">${icI(IC.check)} Alle ${klaar.length} overnemen</button>` : ''}
     <button class="btn btn-gray" style="margin-top:8px" onclick="vvScanSluit()">${st.fase === 'bezig' ? 'Stoppen' : 'Sluiten'}</button>`);
 }
