@@ -143,15 +143,14 @@ function renderDetail() {
     ${/* Deze sectie blijft op heeftShootout staan, ook bij een niet-gelijke stand: het is de ENIGE
          plek waar je een reeks kan aanpassen of wissen. Ze zou dus verdwijnen net wanneer je haar
          nodig hebt. Er komt wel een regel bij die zegt waarom ze niet in de uitslag staat. */ ''}
-    ${heeftShootout(match) ? `<div class="sec">${icI(IC.penalty)} Strafschoppen</div>
-      <div class="card">
+    ${!heeftShootout(match) ? '' : vsec('strafschoppen', `${icI(IC.penalty)} Strafschoppen`, `<div class="card">
         ${!toonShootout(match) ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} De stand is niet gelijk (${esc(scoreTxt(match))}), dus deze reeks staat niet bij de uitslag. Een strafschoppenreeks beslist enkel een gelijkspel — wis ze hieronder als ze hier niet hoort.</div>` : ''}
         ${penaltyReeksHtml(match)}
         ${vast ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
         </div>`}
-      </div>` : ''}
+      </div>`)}
     ${/* ÉÉN RIJ MET WAT JE MET DEZE WEDSTRIJD DOET (Tim, 30-08-2026). Hier stonden twee knoppen los
          onder elkaar — een strafschoppenreeks toevoegen en heropenen — en daaronder nog de rij
          delen/PDF/export. Dat las als drie losse zones, terwijl het gewoon één handeling per knop is.
@@ -223,11 +222,15 @@ function renderDetail() {
       ${ro ? '' : `<button class="btn btn-org btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportPDF()">${icI(IC.fileText)} PDF</button>`}
       ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>`}
-    <div class="sec">Wedstrijdinfo</div>
-    <div class="card">
+    ${vsec('info', 'Wedstrijdinfo', `<div class="card">
       ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],['Ploegverantw.',matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')],['Bijgehouden door',match.bijgehoudenDoor]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${vast?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
-    </div>
+    </div>`)}
+    ${/* DE VOLGORDE VAN HET VERSLAG (Tim, 01-10-2026): wie meedeed, dan wat er gebeurde, dan wat je
+         erover schreef (eerst over de wedstrijd, dan over de spelers), en pas daarna waar ze stonden.
+         De selectie stond hiervoor ná de notities, onder de statistieken; de spelernotities stonden
+         helemaal onderaan bij de speelminuten. */ ''}
+    ${selectionCardHtml(match)}
     ${(() => {
       const ev = match.events;
       const st = (type) => ev.filter(e => e.type === type).length;
@@ -248,24 +251,18 @@ function renderDetail() {
         ] : []),
       ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
       if (!rows.length) return '';
-      return `<div class="sec">Wedstrijdstatistieken</div><div class="card">
+      return vsec('stats', 'Wedstrijdstatistieken', `<div class="card">
         <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
           <div style="flex:1"></div><div style="min-width:90px;text-align:right">Voor</div><div style="min-width:70px;text-align:right">Tegen</div>
         </div>
         ${rows.map(([label,a,b])=>`<div class="stat-row"><span style="flex:1">${label}</span><span style="min-width:90px;text-align:right;font-weight:700">${a}</span><span style="min-width:70px;text-align:right;color:var(--txt2)">${b}</span></div>`).join('')}
-      </div>`;
+      </div>`);
     })()}
     ${/* canLive, niet canManage (audit 25-08-2026): canManage is offline false, dus zonder verbinding
          verdween de notitiekaart — terwijl de knop om een snelle notitie te SCHRIJVEN aan de lijn wel
          werkt. Je typte dus in het niets: niet te lezen, niet te verbeteren tot je weer bereik had. */ ''}
-    ${!canLive() ? '' : `<div class="sec">Notities <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div>
-    <div class="card">
-      <p class="notes-txt" style="${match.notes?'':'color:var(--txt2)'}">${match.notes?esc(match.notes):'Geen notities.'}</p>
-      ${/* De notities zelf BLIJVEN staan bij een vergrendelde wedstrijd (Tims keuze, 13-09-2026):
-           het slot gaat over wijzigen, niet over wat van jou is. Enkel de knop valt weg. */ ''}
-      ${vast ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:10px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
-    </div>`}
-    ${selectionCardHtml(match)}
+    ${!canLive() ? '' : notitieKaartHtml(match, vast)}
+    ${!canLive() ? '' : spelerNotitieKaartHtml(match)}
     ${/* GEEN VELD TEKENEN DAT WE NIET KUNNEN VULLEN (Tim, 31-08-2026). Een speler zonder plek belandt
          in renderPitch op zijn LIJN, verdeeld over de breedte — en omdat het wedstrijdblad van de bond
          geen posities geeft, kregen alle elf "Middenveld" en stonden ze als één rij shirts over elkaar.
@@ -273,15 +270,13 @@ function renderDetail() {
          hierboven noemt iedereen al bij naam en nummer, dus er gaat niets verloren.
          De controle is niet "komt van de bond" maar "is er een opstelling": dit gold ook voor elke
          wedstrijd die je enkel afsloot zonder de spelers op het veld te zetten. */ ''}
-    <div class="sec">${match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling'}</div>
-    ${heeftOpstelling(match)
+    ${vsec('opstelling', match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', heeftOpstelling(match)
       ? `<div class="card">${renderLineupCarousel(match)}</div>`
       : `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
           ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
-          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`}
-    ${match.quarters.length ? `<div class="sec">Per ${pSingLow(match)}</div><div class="card">${qSummary}</div>` : ''}
-    ${!statSectionVisible('minutes') ? '' : `
-    <div class="sec">Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span></div>
+          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`)}
+    ${match.quarters.length ? vsec('perdeel', `Per ${pSingLow(match)}`, `<div class="card">${qSummary}</div>`) : ''}
+    ${!statSectionVisible('minutes') ? '' : vsec('speelminuten', `Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span>`, `
     ${/* MET EEN MAN MINDER (Tims keuze, 24-08-2026). Na een rode kaart of een eenzijdige wissel
          klopten de minuten wel, maar nergens stond dát je een tijd met minder spelers speelde —
          terwijl dat de eerste vraag is als iemand de percentages nakijkt. Berekend uit de cijfers
@@ -327,13 +322,11 @@ function renderDetail() {
           return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
         }).join('');
       })()}
-    </div>`}
-    ${canLive() && match.players.some(p=>p.note) ? `<div class="sec">Notities per speler <span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span></div><div class="card">${match.players.filter(p=>p.note).map(p=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}</div>` : ''}
+    </div>`)}
     ${/* Het getal telt nu wat er ECHT staat (audit 25-08-2026): match.events.length bevat ook de
          begin- en eindmarkeringen van elk blok, die de tijdlijn niet toont — en voor een kijker
          vallen er nog meer weg. "Events (24)" boven een lijst van 16 regels klopt niet. */ ''}
-    <div class="sec">Events (${eventsByQuarter(match).reduce((n, g) => n + (g.list || []).length, 0)})</div>
-    <div class="card">${renderEventLog(match)}</div>
+    ${vsec('events', `Events (${eventsByQuarter(match).reduce((n, g) => n + (g.list || []).length, 0)})`, `<div class="card">${renderEventLog(match)}</div>`)}
     ${(() => {
       // Keeperminuten zijn speelminuten, dus ze volgen het oogje 'minutes' (Tims keuze, 25-08-2026).
       // De sectie Speelminuten hierboven doet dat al; deze stond er voor een kijker altijd, met
@@ -343,7 +336,7 @@ function renderDetail() {
       if (!km || !Object.keys(km).length) return '';
       const rows = Object.entries(km).sort((a, b) => b[1] - a[1])
         .map(([pid, ms]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(pName(match, pid))}</span><span style="font-weight:600">${Math.round(ms / 60000)} min</span></div>`).join('');
-      return `<div class="sec">Keeper(s)</div><div class="card">${rows}</div>`;
+      return vsec('keepers', 'Keeper(s)', `<div class="card">${rows}</div>`);
     })()}
     ${/* DEZELFDE MAATSTAF ALS DE REST VAN DIT SCHERM (rollentest 24-08-2026). Hier stond nog
          `match.fromCloud && (!isAdmin || viewerMode)`: een eigen formule die enkel afging bij een
@@ -394,6 +387,79 @@ async function toggleMatchSlot() {
   showToast(aan
     ? 'Vergrendeld — er zijn geen wijzigingen meer mogelijk.'
     : 'Ontgrendeld — je kan de wedstrijd weer aanpassen.', 'ok');
+}
+// ===================== ELKE KAART VAN HET VERSLAG IS IN TE VOUWEN =====================
+// Tim, 01-10-2026: "geef al die kaarten een uitvouwknop. Standaard uitgevouwd, maar je kan ze
+// invouwen." Een verslag is lang, en wie elke week hetzelfde stuk zoekt wil de rest weg kunnen doen.
+//
+// Wat je dichtklapt, blijft dicht — ook de volgende keer en bij elke wedstrijd. Dat is bewust: het
+// is een KIJKVOORKEUR van deze persoon op dit toestel, geen gegeven van de wedstrijd. Dus in de
+// lokale opslag en niet in de wedstrijd zelf, en dus ook niet in de cloud.
+//
+// `<details>` doet het openklappen zelf, zonder JavaScript: dat werkt ook wanneer er iets anders in
+// de app stukloopt, en het is wat de printweergave en de zoekfunctie van de browser verwachten.
+const VERSLAG_VOUW_KEY = 'voetbal_verslag_dicht';
+function verslagDicht() {
+  try { return JSON.parse(localStorage.getItem(VERSLAG_VOUW_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function verslagVouw(sleutel, open) {
+  const d = verslagDicht();
+  if (open) delete d[sleutel]; else d[sleutel] = 1;
+  try { localStorage.setItem(VERSLAG_VOUW_KEY, JSON.stringify(d)); } catch (e) {}
+}
+// `kop` mag HTML bevatten (de grijze bijschriften die er al stonden); `inhoud` is alles wat onder de
+// kop hoort. Lege inhoud geeft lege uitvoer — zo blijft elke sectie zelf beslissen of ze er staat.
+function vsec(sleutel, kop, inhoud) {
+  if (!inhoud) return '';
+  const open = !verslagDicht()[sleutel];
+  return `<details class="vsec"${open ? ' open' : ''} ontoggle="verslagVouw('${sleutel}', this.open)">
+    <summary>${kop}</summary>
+    ${inhoud}
+  </details>`;
+}
+
+// ===================== DE NOTITIEKAART =====================
+// ALLES BIJ ELKAAR, NETJES INGEDEELD (Tim, 01-10-2026: "ik wil de notities niet bij de kwarten zien
+// staan bij de opstelling, maar in het veld notities. Wel goed ingedeeld: algemeen, kwart 1 …").
+// Eén kaart met een kopje per stuk, en enkel de stukken die ook echt iets bevatten — een rij lege
+// kopjes leest als werk dat nog moet gebeuren. Staat er nergens iets, dan blijft het bij de ene
+// regel die er altijd stond.
+//
+// canLive (en niet canManage) is de maatstaf: zie de uitleg bij de aanroep. `vast` = vergrendelde
+// wedstrijd — dan blijven de notities staan en valt enkel de knop weg (Tims keuze, 13-09-2026).
+function notitieStukken(m) {
+  const uit = [];
+  if (m.notes && m.notes.trim()) uit.push({ kop: 'Algemeen', tekst: m.notes });
+  Object.keys(m.notesPerDeel || {})
+    .map(k => parseInt(k, 10)).filter(n => !isNaN(n)).sort((a, b) => a - b)
+    .forEach(n => {
+      const t = m.notesPerDeel[String(n)];
+      if (t && String(t).trim()) uit.push({ kop: `${pSing(m)} ${n}`, tekst: String(t) });
+    });
+  return uit;
+}
+const BEHEERDERS_BIJSCHRIFT = '<span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span>';
+function notitieKaartHtml(m, vast) {
+  const stukken = notitieStukken(m);
+  const kopStijl = 'font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.6px;margin:0 0 3px';
+  return vsec('notities', `Notities ${BEHEERDERS_BIJSCHRIFT}`, `<div class="card">
+      ${stukken.length
+        ? stukken.map((s, i) => `<div style="${i ? 'margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)' : ''}">
+            <div style="${kopStijl}">${esc(s.kop)}</div>
+            <p class="notes-txt" style="margin:0">${esc(s.tekst)}</p>
+          </div>`).join('')
+        : `<p class="notes-txt" style="color:var(--txt2);margin:0">Geen notities.</p>`}
+      ${vast ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:14px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
+    </div>`);
+}
+// EEN EIGEN KADER, METEEN ONDER DE NOTITIES (Tim, 01-10-2026). Bewust niet mee in de kaart hierboven:
+// dit is een lijst namen met een regel per speler, en dat leest anders dan een lopende tekst.
+function spelerNotitieKaartHtml(m) {
+  const met = (m.players || []).filter(p => p.note);
+  if (!met.length) return '';
+  return vsec('spelernotities', `Notities per speler ${BEHEERDERS_BIJSCHRIFT}`, `<div class="card">
+    ${met.map(p => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${esc(p.name)}</span><span>${esc(p.note)}</span></div>`).join('')}
+  </div>`);
 }
 function cloneMatchBtnHtml(m) {
   if (!m) return '';
@@ -1260,10 +1326,9 @@ function selectionCardHtml(m) {
   // kaart misleidend (de kaart valt dan trouwens al weg via de blocks.length-check hierboven).
   const toontNotPresent = blocks.some(b => b[1] === groups.notPresent);
   const title = (m.tournamentId && toontNotPresent) ? `Niet aanwezig (${groups.notPresent.length})` : `Selectie (${groups.selected.length})`;
-  return `<div class="sec">${title}</div>
-    <div class="card">
+  return vsec('selectie', title, `<div class="card">
       ${blocks.map(([lbl, list]) => `<p style="font-size:14px;line-height:1.6;margin-bottom:6px">${lbl ? `<span style="color:var(--txt2)">${esc(lbl)}</span> ` : ''}${esc(list.map(nameWithNum).join(', '))}</p>`).join('')}
-    </div>`;
+    </div>`);
 }
 // Thuis- en uitploeg bij naam: elke tussenstand wordt als "thuis – uit" weergegeven, dus bij een
 // uitwedstrijd staat de eigen ploeg tweede. Zonder deze namen erbij is dat niet af te leiden.
@@ -1731,14 +1796,24 @@ async function pdfMatchBody(doc, L, m) {
 
   // ---- Notities (enkel beheerder) ----
   // canLive: een PDF zonder notities was het gevolg van canManage offline (audit 25-08-2026).
-  if (canLive() && m.notes) {
+  // Eén kop, met daaronder een vet tussenkopje per stuk — dezelfde indeling als de notitiekaart op
+  // het scherm (zie notitieKaartHtml), zodat wie het verslag en de PDF naast elkaar legt hetzelfde
+  // leest. Lege stukken staan er niet in.
+  const notStukken = canLive() ? notitieStukken(m) : [];
+  if (notStukken.length) {
     // Lettergrootte instellen vóór splitTextToSize, anders wordt er op de verkeerde maat gewikkeld.
     doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
-    const lines = doc.splitTextToSize(m.notes, CW);
-    heading('Notities', Math.min(lines.length, 4) * 15);
-    doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
-    for (const line of lines) { ensure(15); doc.text(line, MG, L.y); L.y += 15; }
-    L.y += 10;
+    const eerste = doc.splitTextToSize(notStukken[0].tekst, CW);
+    heading('Notities', Math.min(eerste.length + 1, 5) * 15);
+    for (const s of notStukken) {
+      ensure(30);
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(90, 90, 90);
+      doc.text(s.kop.toUpperCase(), MG, L.y); L.y += 14;
+      doc.setFont(undefined, 'normal'); doc.setFontSize(11); doc.setTextColor(23, 23, 23);
+      for (const line of doc.splitTextToSize(s.tekst, CW)) { ensure(15); doc.text(line, MG, L.y); L.y += 15; }
+      L.y += 6;
+    }
+    L.y += 4;
   }
   const notedPlayers = m.players.filter(p => p.note);
   if (canLive() && notedPlayers.length) {

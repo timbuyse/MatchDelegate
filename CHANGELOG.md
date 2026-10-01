@@ -9,6 +9,47 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.83.0
+
+**Een notitie per kwart.** Tim, 01-10-2026: *"ik wil het notitieveld opdelen in een algemeen stuk en
+een stuk per kwart, en eventueel ook een stuk per speler."* Dat laatste bestond al — notities per
+speler staan sinds lang bij *Bewerken → Spelernotities* en onderaan het verslag. Wat ontbrak was het
+kwart.
+
+Er zijn nu dus **drie soorten**, alle drie enkel voor beheerders: algemeen, per deel, en per speler.
+De eerste twee staan samen in de kaart **Notities**, elk onder hun eigen kopje — *Algemeen*,
+*Kwart 1*, *Kwart 2* … — met een streepje ertussen. Een kopje verschijnt alleen wanneer er iets
+staat, dus je krijgt nooit een rij lege vakjes. De notities per speler houden hun eigen kaart
+eronder.
+
+**De knop 'Notitie' aan de zijlijn schrijft nu in het juiste vak.** Tik je tijdens kwart 2, dan komt
+je zin bij kwart 2 te staan, met de kloktijd ervoor zoals altijd. In de pauze loopt er geen deel; dan
+gaat ze naar het algemene vak. Het venster zegt vooraf waar ze landt, en achteraf bevestigt een
+groene melding het — tot nu sloot dat venster zonder één woord.
+
+De **PDF** volgt dezelfde indeling, met dezelfde kopjes onder één titel *Notities* — zo lezen het
+verslag en de PDF hetzelfde wanneer je ze naast elkaar legt. In de **back-up van de club** gaan de
+nieuwe notities mee.
+
+**Het verslag is opnieuw geordend.** De **selectie** staat nu boven de wedstrijdstatistieken, en de
+**notities per speler** kregen hun eigen kaart meteen onder de notities. De volgorde volgt nu de
+vraag die je stelt: wie deed mee, wat gebeurde er, wat schreef je erover, en pas daarna waar ze
+stonden.
+
+**En elke kaart kan dicht.** Tik op de titel en de kaart vouwt in; het pijltje erachter zegt of ze
+open staat. Alles staat standaard open, en wat jij dichtklapt blijft dicht — ook bij een volgende
+wedstrijd. Het is een voorkeur van jouw toestel, dus je ploeggenoten merken er niets van, en ze zit
+niet in de wedstrijd zelf.
+
+Technisch: een nieuw veld náást het bestaande, niet in de plaats ervan — een wedstrijd zonder dat
+veld is gewoon een wedstrijd zonder kwartnotities, dus er valt niets te migreren. Het reist mee langs
+hetzelfde beheerder-only pad als de andere twee, dus aan de databankregels verandert er niets. En er
+zit een merkje op dat zegt "dit toestel kent kwartnotities": zonder dat zou een toestel met oudere
+code ze bij de eerste de beste bewaring stil wissen, want een lege lijst en een onbekende lijst komen
+allebei als afwezig binnen.
+
+---
+
 ## v1.82.0
 
 **Eén clubscherm.** Tim, 28-09-2026: *"je gaat naar clubbeheer via de clubnaam boven mijn ploegen, en

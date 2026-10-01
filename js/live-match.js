@@ -1553,16 +1553,53 @@ async function doWisShootout() {
   try { delete match.shootout; await dbSave(match); closeModal(); render(); }
   finally { _eventBusy = false; }
 }
+// ===================== NOTITIES: ALGEMEEN, PER BLOK, PER SPELER =====================
+// Tim, 01-10-2026: "ik wil het notitieveld opdelen in een algemeen stuk en een stuk per kwart".
+// Per SPELER bestond al (zie modalPlayerNotes in wizard-prep.js); wat ontbrak was het blok.
+//
+// `m.notesPerDeel` = { '1': 'tekst', '2': … } — een NIEUW veld naast `notes`, niet in de plaats
+// ervan. Een wedstrijd zonder dat veld is gewoon een wedstrijd zonder bloknotities, dus er valt
+// niets te migreren en een ouder toestel leest ze ongewijzigd. Het reist mee langs hetzelfde
+// beheerder-only pad als de andere twee (zie cloudOnLocalMatchSave), dus aan de databankregels
+// verandert er niets.
+function deelNotitie(m, n) { return (((m || {}).notesPerDeel) || {})[String(n)] || ''; }
+function zetDeelNotitie(m, n, tekst) {
+  if (!m) return;
+  const t = String(tekst == null ? '' : tekst).trim();
+  if (!m.notesPerDeel) m.notesPerDeel = {};
+  if (t) m.notesPerDeel[String(n)] = t; else delete m.notesPerDeel[String(n)];
+  // Een leeg object laten staan zou elke wedstrijd een veld geven dat nergens over gaat.
+  if (!Object.keys(m.notesPerDeel).length) delete m.notesPerDeel;
+}
+function heeftNotities(m) { return !!(m && (m.notes || Object.keys(m.notesPerDeel || {}).length)); }
 function modalNotes() {
   if (slotWeigert()) return;
+  const delen = (match.quarters || []).map(q => q.num).sort((a, b) => a - b);
   openModal(`<h3>${icI(IC.edit)} Notities</h3>
-    <div class="fg"><textarea id="note-area" rows="6" placeholder="Aanvullingen over de wedstrijd...">${esc(match.notes||'')}</textarea></div>
+    <div class="sec" style="margin-top:0">Over de wedstrijd</div>
+    <div class="fg"><textarea id="note-area" rows="5" placeholder="Aanvullingen over de wedstrijd...">${esc(match.notes||'')}</textarea></div>
+    ${/* Enkel de blokken die er ECHT zijn: bij een geplande wedstrijd staat hier dus alleen het
+         algemene vak, en bij een wedstrijd van twee helften geen vier kwarten. */ ''}
+    ${delen.length ? `<div class="sec">Per ${pSingLow(match)}</div>
+      ${delen.map(n => `<div class="fg">
+        <label>${pSing(match)} ${n}</label>
+        <textarea id="note-deel-${n}" rows="3" placeholder="Wat viel op in ${pSingLow(match)} ${n}?">${esc(deelNotitie(match, n))}</textarea>
+      </div>`).join('')}
+      <p style="font-size:12px;color:var(--txt2);margin:-4px 0 10px">Deze staan in het verslag onder de opstelling van dat ${pSingLow(match)}, en in de PDF.</p>` : ''}
     <button class="btn btn-green" onclick="saveNotes()">${icI(IC.check)}Opslaan</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
+// Het blok waar een notitie van NU bij hoort. Enkel terwijl er echt gespeeld wordt: in de pauze is
+// er geen blok aan de gang, en dan hoort de notitie bij de wedstrijd als geheel (Tims keuze).
+function notitieDeelNu(m) {
+  return (m && m.quarterStatus === 'running' && m.currentQuarter) ? m.currentQuarter : null;
+}
 function modalQuickNote() {
-  const gameTime = fmtTime(getGameTimeMs(match));
+  const deel = notitieDeelNu(match);
   openModal(`<h3>${icI(IC.edit)} Snelle notitie</h3>
+    <p style="font-size:13px;color:var(--txt2);margin:-4px 0 10px">${deel
+      ? `Komt bij <b>${pSingLow(match)} ${deel}</b> te staan, met de kloktijd erbij.`
+      : 'Komt bij de algemene notities te staan, met de kloktijd erbij.'}</p>
     <div class="fg"><textarea id="qn-area" rows="3" placeholder="Jouw notitie..." autofocus style="font-size:16px"></textarea></div>
     <button class="btn btn-green" onclick="saveQuickNote()">${icI(IC.check)}Toevoegen</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -1576,8 +1613,17 @@ async function saveQuickNote() {
   _noteBusy = true;
   try {
     const stamp = `[${fmtTime(getGameTimeMs(match))}] ${txt}`;
-    match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+    const deel = notitieDeelNu(match);
+    if (deel) {
+      const oud = deelNotitie(match, deel);
+      zetDeelNotitie(match, deel, oud ? oud + '\n' + stamp : stamp);
+    } else {
+      match.notes = match.notes ? match.notes + '\n' + stamp : stamp;
+    }
     await dbSave(match); closeModal();
+    // Tot v1.83.0 sloot dit venster zonder één woord. Aan de zijlijn weet je dan niet of je tik
+    // geland is — en nu er twee plaatsen zijn, ook niet wáár (zelfde lijn als meldVastgelegd).
+    meldVastgelegd('Notitie', deel ? `${pSingLow(match)} ${deel}` : 'bij de wedstrijd');
   } finally { _noteBusy = false; }
 }
 // "MOMENT MARKEREN" IS WEG (Tim, 04-09-2026). markMoment() zette een regel `[12:34] ★` bij de
@@ -2661,6 +2707,10 @@ async function _savePosSwapReeks() {
 async function saveNotes() {
   const t = document.getElementById('note-area');
   if (t) match.notes = t.value;
+  (match.quarters || []).forEach(q => {
+    const el = document.getElementById('note-deel-' + q.num);
+    if (el) zetDeelNotitie(match, q.num, el.value);
+  });
   await dbSave(match); closeModal(); render();
 }
 function modalMotm() {

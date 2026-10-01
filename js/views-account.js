@@ -1622,6 +1622,9 @@ async function clubBackupOphalen(clubId, meld) {
         const n = notities[m.id];
         if (n) {
           if (n.notes) c.notes = n.notes;
+          // Ook de notities per blok (v1.83.0) — die staan op dezelfde plek en horen dus in de
+          // back-up, anders mist ze precies het stuk dat je achteraf niet meer kan reconstrueren.
+          if (n.perDeel && Object.keys(n.perDeel).length) c.notesPerDeel = n.perDeel;
           const pn = n.players || {};
           if (Object.keys(pn).length) c.players = (c.players || []).map(p => (pn[p.id] ? { ...p, note: pn[p.id] } : p));
         }

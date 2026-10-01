@@ -126,6 +126,15 @@
     .stat-acc>summary::after{content:'▾';margin-left:auto;color:var(--txt2);transition:transform .15s}
     .stat-acc:not([open])>summary::after{transform:rotate(-90deg)}
     .stat-acc>.card{margin-top:10px}
+    /* Invouwbare kaart in het wedstrijdverslag (Tim, 01-10-2026). Exact dezelfde kop als .sec — zelfde
+       grootte, kleur, hoofdletters en marges — met een pijltje erachter, zodat het verslag er bij een
+       opengeklapte kaart uitziet zoals het altijd deed. Dicht: geen onderruimte onder de kop. */
+    .vsec{margin:0}
+    .vsec>summary{list-style:none;cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+    .vsec>summary::-webkit-details-marker{display:none}
+    .vsec>summary::after{content:'▾';margin-left:auto;color:var(--txt2);transition:transform .15s}
+    .vsec:not([open])>summary::after{transform:rotate(-90deg)}
+    .vsec:not([open])>summary{margin-bottom:0}
     .stat-eye{margin-left:auto;display:inline-flex;align-items:center;padding:2px 5px;border-radius:6px;color:var(--txt2)}
     .stat-eye.off{opacity:.4}
     .stat-acc>summary:has(.stat-eye)::after{margin-left:6px}

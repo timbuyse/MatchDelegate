@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.82.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.83.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3259,10 +3259,23 @@ function cloudOnLocalMatchSave(m) {
     const playerNotes = {};
     (c.players || []).forEach(p => { if (p.note) playerNotes[p.id] = p.note; delete p.note; });
     delete c.notes;
+    // De notitie PER BLOK (v1.83.0) hoort op dezelfde plek als de andere twee: achter hetzelfde
+    // beheerder-only pad, niet in "matches". Lege blokken gaan er niet in — een leeg veld in de
+    // databank zegt niets en kost wel een regel.
+    const deelNotes = {};
+    Object.entries(c.notesPerDeel || {}).forEach(([k, v]) => { if (v && String(v).trim()) deelNotes[k] = String(v); });
+    delete c.notesPerDeel;
     r.set(c).catch(_syncFail);
     const nr = notesRef(m.id);
     if (nr) {
-      if (m.notes || Object.keys(playerNotes).length) nr.set({ notes: m.notes || '', players: playerNotes }).catch(_syncFail);
+      if (m.notes || Object.keys(playerNotes).length || Object.keys(deelNotes).length) {
+        // `perDeelGekend` zegt: DIT toestel kent bloknotities. Zonder die vlag kan de ontvanger niet
+        // zien of een ontbrekende `perDeel` betekent "er zijn er geen" of "de schrijver kende ze
+        // niet" — Firebase bewaart een leeg object namelijk niet, dus allebei komen ze als
+        // afwezig binnen. Een toestel met oudere code zou de notities dan stil wissen bij de
+        // eerste de beste bewaring. Zie applyCloudNotes.
+        nr.set({ notes: m.notes || '', players: playerNotes, perDeel: deelNotes, perDeelGekend: true }).catch(_syncFail);
+      }
       else nr.remove().catch(_syncFail);
     }
   } catch (e) {}
@@ -3854,6 +3867,7 @@ async function applyCloudMatch(id, m) {
   // notities overnemen zodat ze niet verdwijnen tot de aparte teamNotes-listener ze aanvult.
   if (existing) {
     if (existing.notes && m.notes === undefined) m.notes = existing.notes;
+    if (existing.notesPerDeel && m.notesPerDeel === undefined) m.notesPerDeel = existing.notesPerDeel;
     if (Array.isArray(existing.players)) {
       const noteMap = new Map(existing.players.filter(p => p.note).map(p => [p.id, p.note]));
       if (noteMap.size) m.players.forEach(p => { if (noteMap.has(p.id)) p.note = noteMap.get(p.id); });
@@ -3934,6 +3948,12 @@ async function applyCloudNotes(obj) {
     const n = obj[id]; if (!n) continue;
     const existing = await dbGet(id); if (!existing) continue;
     existing.notes = n.notes || '';
+    // De notities per blok (v1.83.0). Wissen mag ALLEEN wanneer de schrijver ze kende: dan betekent
+    // een ontbrekende `perDeel` echt "er zijn er geen". Schreef een toestel met oudere code (geen
+    // `perDeelGekend`), dan laten we wat hier staat met rust — anders wist dat toestel bij elke
+    // bewaring stil de bloknotities van iedereen.
+    if (n.perDeel && Object.keys(n.perDeel).length) existing.notesPerDeel = n.perDeel;
+    else if (n.perDeelGekend) delete existing.notesPerDeel;
     if (Array.isArray(existing.players) && n.players) {
       existing.players.forEach(p => { p.note = n.players[p.id] || ''; });
     }

@@ -1733,6 +1733,10 @@ const HANDLEIDING_PAGINAS = [
           wisselen. Tik je een speler op het veld en dan een <b>lege plek</b>, dan verhuist hij
           daarnaartoe zonder ruil. Het veld toont meteen de opstelling van het volgende deel, en alles wordt
           doorgevoerd zodra je dat deel start.</li>
+        <li>Met <b>'Notitie'</b> schrijf je in één zin op wat je opvalt. Die komt te staan bij het
+          <b>deel dat loopt</b>, met de kloktijd ervoor — tik je tijdens kwart 2, dan staat ze bij
+          kwart 2. In de pauze is er geen deel bezig; dan komt ze bij de algemene notities. Het
+          venster zegt telkens waar ze landt.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
         <li>Komt een geselecteerde speler niet opdagen? Tik in het tabblad <b>Opstelling</b> op het
@@ -1871,6 +1875,16 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de start. Onder elk veld staat de bank van dat deel; bij een speler die gewisseld werd staat zijn vervanger met een wisselicoon, en gele of rode kaarten staan als kaartje achter zijn naam.</li>
         <li><b>Tussenstand per deel</b>, wedstrijdstatistieken, keeperminuten, een spelerstabel met speelminuten per deel, en de volledige tijdlijn.</li>
       </ul>
+      <p class="hdl-tip"><b>Elke kaart kan dicht.</b> Tik op de titel en de kaart vouwt in; het pijltje erachter zegt of ze open staat. Alles staat standaard open, en wat jij dichtklapt blijft dicht — ook bij een volgende wedstrijd. Dat is een instelling van jouw toestel, dus je ploeggenoten merken er niets van.</p>
+      <div class="sec">Notities</div>
+      <p>Er zijn er <b>drie soorten</b>, en ze zijn alle drie enkel voor beheerders — een kijker of een ouder ziet ze nergens:</p>
+      <ul class="hdl-list">
+        <li><b>Algemeen</b> — voor wat over de wedstrijd als geheel gaat.</li>
+        <li><b>Per deel</b> — één stuk per kwart of helft. Wat je tijdens de wedstrijd met de knop <b>'Notitie'</b> intikt, komt hier vanzelf terecht, bij het deel dat op dat moment liep.</li>
+        <li><b>Per speler</b> — via <b>Bewerken → Spelernotities</b>.</li>
+      </ul>
+      <p>Het algemene stuk en de stukken per deel staan samen in de kaart <b>Notities</b>, elk onder hun eigen kopje; je vult ze in met <b>'Bewerken'</b> daar. De notities per speler staan in een eigen kaart eronder. In de PDF staat alles in dezelfde volgorde.</p>
+      <p class="hdl-tip">Een kopje verschijnt alleen wanneer er ook echt iets staat. Schreef je enkel iets bij kwart 3, dan zie je dus alleen <b>Kwart 3</b> — geen rij lege vakjes.</p>
       <div class="sec">PDF & delen</div>
       <ul class="hdl-list">
         <li>Tik op <b>'PDF'</b> voor een officieel wedstrijdverslag. De namen zijn selecteerbare tekst, dus je kan in de PDF zoeken.</li>
@@ -1956,7 +1970,6 @@ const HANDLEIDING_PAGINAS = [
         <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
         <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, en de <b>Prullenmand</b>.</li>
       </ul>
-      </ul>
       <p class="hdl-tip">De <b>naam van de ploeg</b> staat daar niet bij: die wijzigt de <b>clubbeheerder</b>. De naam loopt door alle wedstrijden, de statistieken en de kalender van de bond, dus ze hoort bij de club — net als een ploeg aanmaken, archiveren en het clublogo. Moet ze anders, vraag het aan wie je club beheert.</p>
       <p class="hdl-tip">Een <b>uitnodiging vervalt na twee maanden</b>. In het uitnodigingsvenster staat
         tot wanneer ze geldig is; daarna maak je er met <b>'Nieuwe code'</b> een verse aan. De oude werkt
@@ -2020,6 +2033,8 @@ const HANDLEIDING_PAGINAS = [
         <li>Wie <b>stopt</b>, gaat niet mee: die haal je daarna uit de spelerslijst bij <b>Ploeg</b> — en ook dat kan je daar ongedaan maken.</li>
       </ul>
       <p class="hdl-tip">Fout doorgeschoven? Meteen na de beurt staat er <b>'Ongedaan maken'</b>, dat beide spelerslijsten exact terugzet.</p>
+      <div class="sec">Cijfers per ploeg</div>
+      <p>Eén regel per ploeg van je club, voor het lopende seizoen: hoeveel wedstrijden gespeeld, winst-gelijk-verlies, doelpunten voor en tegen, en de <b>gemiddelde speeltijd</b> van een speler in een wedstrijd waarin hij meedeed. Onderaan staat de club samen. Handig om in één blik te zien waar de speeltijd scheef zit; tornooien tellen niet mee.</p>
       <div class="sec">Clubexport (Excel)</div>
       <p>Met <b>'Clubexport'</b> haal je de cijfers van <b>alle</b> ploegen van je club op — ook van ploegen die je op dit toestel nooit opende. Je kiest eerst het <b>seizoen</b>. Het bestand heeft zes tabbladen:</p>
       <ul class="hdl-list">

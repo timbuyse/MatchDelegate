@@ -1188,6 +1188,9 @@ function renderLineupCarousel(m) {
   // uitgewisselde basisspeler stond daar nog op zijn oude plek terwijl een positiewissel iemand
   // anders naar diezelfde plek verschoof — twee bollen op elkaar. Speelt vooral bij
   // tornooiwedstrijden, die bijna altijd uit één blok bestaan.
+  // De notities per deel stonden hier kort (v1.83.0), onder het veld van dat deel. Tim wilde ze bij
+  // elkaar in de notitiekaart zien staan en niet verspreid over de carrousel — zie notitieKaartHtml
+  // in detail-pdf.js. Dit diagram blijft dus zuiver om te kijken.
   if (total === 1) {
     const q1 = m.quarters.length ? 1 : undefined;
     return renderPitch(m, pitchPlayersAtPeriodStart(m, q1), captainAtStartOfQuarter(m, 1), q1);
