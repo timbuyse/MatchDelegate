@@ -3129,7 +3129,10 @@ async function doDeleteEvents(ids) {
   // Nieuwste eerst: revertPosSwapPositions draait één wissel terug op de HUIDIGE stand, dus de
   // volgorde moet omgekeerd chronologisch zijn — anders herstel je een tussenstand.
   const geordend = (ids || []).slice().reverse();
-  for (const id of geordend) await doDeleteEvent(id, true);   // stil: één keer opslaan hieronder
+  const weg = [];
+  for (const id of geordend) weg.push(...(await doDeleteEvent(id, true) || []));   // stil: één keer opslaan hieronder
+  // Eén balk voor de hele reeks: zes samengevouwen positiewisselingen horen ook samen terug.
+  _onthoudVerwijdering(weg);
   await dbSave(match); closeModal(); render();
 }
 // Tombstone: onthoud verwijderde event-ids zodat de co-admin-merge (applyCloudMatch)
@@ -3329,8 +3332,12 @@ async function doDeleteEvent(id, stil) {
   recomputeScore(match); recomputeOnField(match);
   // C3: keeperminuten herbouwen na het verwijderen van een keeper-relevante actie.
   if (match.keeperByQ && Object.keys(match.keeperByQ).length && toRemove.some(ev => ['substitution','posSwap','red_card','injury'].includes(ev.type))) rebuildKeeperByQ(match);
-  if (stil) return;
+  // `stil` = onderdeel van een reeks: dan onthoudt doDeleteEvents de hele reeks in één keer, en slaat
+  // die ook op. De kopieën moeten wél mee terug, vandaar dat we ze altijd teruggeven.
+  if (stil) return toRemove;
+  _onthoudVerwijdering(toRemove);
   await dbSave(match); closeModal(); render();
+  return toRemove;
 }
 // Een bestaand event bewerken (speler/assist/minuut/details).
 function modalEditEvent(id) {
@@ -4175,11 +4182,36 @@ function _onthoudWijziging(ev, vorige) {
   _ingreepKoppelen = false;
   _laatsteIngreep = { matchId: (match || {}).id, soort: 'gewijzigd', ids: [ev.id], vorige };
 }
+// EEN VERWIJDERING TERUGZETTEN (Tim, 01-10-2026). Hier moeten de events zélf bewaard worden en niet
+// enkel hun id: ze staan straks niet meer in `match.events`, dus `laatsteIngreep` kan ze nergens meer
+// opzoeken. Vandaar `kopie`.
+// Het kunnen er MEER DAN EEN zijn: wie een tweede gele kaart wist, raakt de automatisch gegeven rode
+// mee kwijt (zie doDeleteEvent). Die horen samen terug, anders blijft er een rode kaart zonder tweede
+// geel staan — of omgekeerd.
+// Staat aan terwijl we een TOEVOEGING ongedaan maken: dat loopt langs doDeleteEvents, en zonder deze
+// schakelaar zou daar meteen een "Net verwijderd — Terugzetten" voor in de plaats komen. Je tikt dan
+// op "Ongedaan maken" en krijgt een knop om dat weer ongedaan te maken; dat leest als een lus.
+let _ingreepNietOnthouden = false;
+function _onthoudVerwijdering(events) {
+  if (_ingreepNietOnthouden) return;
+  _ingreepKoppelen = false;
+  const lijst = (events || []).filter(Boolean).map(e => JSON.parse(JSON.stringify(e)));
+  if (!lijst.length) { _laatsteIngreep = null; return; }
+  _laatsteIngreep = { matchId: (match || {}).id, soort: 'verwijderd', ids: lijst.map(e => e.id), vorige: null, kopie: lijst };
+}
 function ingreepVergeten() { _laatsteIngreep = null; _ingreepKoppelen = false; }
 // De ingreep zoals ze er NU bij staat, of null wanneer er niets meer terug te zetten valt: een
 // andere wedstrijd in beeld, of de gebeurtenis verdween intussen langs een andere weg.
 function laatsteIngreep(m) {
   if (!_laatsteIngreep || !m || _laatsteIngreep.matchId !== m.id) return null;
+  // Een VERWIJDERDE gebeurtenis staat per definitie niet meer in de lijst, dus daar tonen we de
+  // bewaarde kopie. Kwam ze intussen langs een andere weg terug (een ander toestel), dan valt er hier
+  // niets meer terug te zetten.
+  if (_laatsteIngreep.soort === 'verwijderd') {
+    const nogWeg = _laatsteIngreep.kopie.filter(k => !(m.events || []).some(x => x.id === k.id));
+    if (!nogWeg.length) { _laatsteIngreep = null; return null; }
+    return { soort: 'verwijderd', vorige: null, events: nogWeg };
+  }
   const evs = _laatsteIngreep.ids.map(id => (m.events || []).find(x => x.id === id)).filter(Boolean);
   if (!evs.length) { _laatsteIngreep = null; return null; }
   return { soort: _laatsteIngreep.soort, vorige: _laatsteIngreep.vorige, events: evs };
@@ -4187,29 +4219,38 @@ function laatsteIngreep(m) {
 // Het balkje bovenaan het verloop. Bewust dáár en niet bij de knoppen: het verloop is het scherm
 // waar je na een toevoeging of een aanpassing naar kijkt, en je ziet de regel en de weg terug naast
 // elkaar. Verschijnt in het live scherm én bij een afgesloten wedstrijd.
+// Drie soorten, drie keer dezelfde balk: wat er net gebeurde, en de weg terug.
+const INGREEP_WOORDEN = {
+  toegevoegd: { kop: 'Net toegevoegd', knop: 'Ongedaan maken', titel: 'Ongedaan maken?', ja: 'ongedaan maken' },
+  gewijzigd: { kop: 'Net aangepast', knop: 'Terugzetten zoals het stond', titel: 'Terugzetten?', ja: 'terugzetten' },
+  verwijderd: { kop: 'Net verwijderd', knop: 'Terugzetten', titel: 'Terugzetten?', ja: 'terugzetten' },
+};
 function ingreepBalkHtml(m) {
   const ing = laatsteIngreep(m);
   if (!ing) return '';
-  const gewijzigd = ing.soort === 'gewijzigd';
+  const w = INGREEP_WOORDEN[ing.soort] || INGREEP_WOORDEN.toegevoegd;
   const regels = ing.events.map(e =>
     `<div style="padding:1px 0">${e.atBreak ? 'pauze' : eventMinTijd(e, m)} — ${evtLabel(e, m)}</div>`).join('');
   return `<div class="no-print" style="border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-    <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${gewijzigd ? 'Net aangepast' : 'Net toegevoegd'}</div>
+    <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${w.kop}</div>
     <div style="font-size:13px;margin-bottom:8px">${regels}</div>
-    <button class="btn btn-orgpale btn-sm" style="width:100%" onclick="confirmIngreepOngedaan()">${icI(IC.undo)} ${gewijzigd ? 'Terugzetten zoals het stond' : 'Ongedaan maken'}</button>
+    <button class="btn btn-orgpale btn-sm" style="width:100%" onclick="confirmIngreepOngedaan()">${icI(IC.undo)} ${w.knop}</button>
   </div>`;
 }
 function confirmIngreepOngedaan() {
   if (slotWeigert()) return;
   const ing = laatsteIngreep(match);
   if (!ing) { showToast('Er staat niets meer om terug te zetten.', 'err'); render(); return; }
-  const gewijzigd = ing.soort === 'gewijzigd';
-  const wat = gewijzigd
+  const w = INGREEP_WOORDEN[ing.soort] || INGREEP_WOORDEN.toegevoegd;
+  const meer = ing.events.length > 1;
+  const wat = ing.soort === 'gewijzigd'
     ? 'Deze gebeurtenis komt weer te staan zoals ze vóór je aanpassing stond.'
-    : (ing.events.length > 1 ? 'Deze gebeurtenissen verdwijnen uit het verloop.' : 'Deze gebeurtenis verdwijnt uit het verloop.');
-  openModal(`<h3>${icI(IC.undo)} ${gewijzigd ? 'Terugzetten?' : 'Ongedaan maken?'}</h3>
+    : ing.soort === 'verwijderd'
+    ? (meer ? 'Deze gebeurtenissen komen weer in het verloop te staan.' : 'Deze gebeurtenis komt weer in het verloop te staan.')
+    : (meer ? 'Deze gebeurtenissen verdwijnen uit het verloop.' : 'Deze gebeurtenis verdwijnt uit het verloop.');
+  openModal(`<h3>${icI(IC.undo)} ${w.titel}</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${ing.events.map(e => `"${evtLabel(e, match)}"`).join('<br>')}<br>${wat} De score en de opstelling worden herberekend.</p>
-    <button class="btn btn-red" onclick="ingreepOngedaan()">${icI(IC.undo)} Ja, ${gewijzigd ? 'terugzetten' : 'ongedaan maken'}</button>
+    <button class="btn btn-red" onclick="ingreepOngedaan()">${icI(IC.undo)} Ja, ${w.ja}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function ingreepOngedaan() {
@@ -4222,7 +4263,37 @@ async function ingreepOngedaan() {
     if (ing.soort === 'toegevoegd') {
       const ids = ing.events.map(e => e.id);
       ingreepVergeten();
-      await doDeleteEvents(ids);   // tombstone, herberekenen, opslaan en hertekenen zitten daarin
+      _ingreepNietOnthouden = true;
+      try { await doDeleteEvents(ids); }   // tombstone, herberekenen, opslaan en hertekenen zitten daarin
+      finally { _ingreepNietOnthouden = false; }
+    } else if (ing.soort === 'verwijderd') {
+      // DE BASISOPSTELLING VÓÓR we iets terugzetten, net als bij een wijziging: rebuildPositions
+      // vertrekt van die stand, en na het terugduwen van een wissel is ze al veranderd.
+      const posAffecting = ing.events.some(e => e.type === 'substitution' || e.type === 'posSwap');
+      const baseline = posAffecting ? playersAtPeriodStart(match, 1) : null;
+      // HET GRAFSTEENTJE MOET MEE WEG. Bij het wissen onthoudt de app het nummer van de gebeurtenis
+      // zodat een ander toestel of een oude back-up ze niet terugbrengt (zie tombstoneEvent). Laat je
+      // dat staan, dan lijkt het terugzetten te lukken tot de eerstvolgende samenvoeging ze opnieuw
+      // weggooit — en dat merk je pas een dag later.
+      const terug = new Set(ing.events.map(e => e.id));
+      if (Array.isArray(match.deletedEventIds)) {
+        match.deletedEventIds = match.deletedEventIds.filter(id => !terug.has(id));
+        if (!match.deletedEventIds.length) delete match.deletedEventIds;
+      }
+      // Op tijd terug in de lijst: de reconstructie van de posities leest de gebeurtenissen in
+      // volgorde, en achteraan aanplakken zou een wissel ná een latere wissel laten gebeuren.
+      match.events = (match.events || []).concat(ing.events.map(e => JSON.parse(JSON.stringify(e))))
+        .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+      ingreepVergeten();
+      recomputeScore(match);
+      if (posAffecting) {
+        rebuildPositions(match, baseline);
+        if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+      } else recomputeOnField(match);
+      if (!posAffecting && ing.events.some(e => e.type === 'red_card' || e.type === 'injury')
+          && match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+      if (ing.events.some(e => e.type === 'captain_change')) recomputeCaptain(match);
+      await dbSave(match); closeModal(); render();
     } else {
       const e = ing.events[0];
       // Exact dezelfde herberekening als saveEditEvent, want dit is diezelfde bewerking in omgekeerde

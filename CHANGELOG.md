@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.93.0
+
+**Een verwijderde gebeurtenis kan je nu terugzetten.** Het balkje boven de eventlijst kende
+*'Net toegevoegd'* en *'Net aangepast'*; daar komt **'Net verwijderd'** bij, met dezelfde knop en
+dezelfde bevestiging. De gebeurtenis komt gewoon terug in het verloop, op haar eigen minuut, met de
+score en de opstelling erbij.
+
+Drie dingen die daarbij afgevangen zijn:
+
+- **Soms verdwijnen er twee tegelijk.** Wis je een tweede gele kaart, dan gaat de automatisch gegeven
+  rode mee. Die komen samen terug — anders bleef er een rode kaart zonder tweede geel staan.
+- **Het onthouden-nummer gaat mee weg.** Bij het wissen onthoudt de app dat die gebeurtenis weg moet,
+  zodat een ander toestel of een oude back-up haar niet terugbrengt. Bij het terugzetten wordt dat
+  opgeruimd. Zonder dat zou het terugzetten lijken te lukken tot de eerstvolgende synchronisatie, en
+  dan was ze opnieuw weg — het soort fout dat je pas een dag later merkt.
+- **Een wissel sleept de posities mee.** De hele stand wordt opnieuw opgebouwd uit de gebeurtenissen,
+  dezelfde weg die het aanpassen van een gebeurtenis al gebruikte.
+
+Een toevoeging ongedaan maken geeft géén *'Net verwijderd'*-balk terug: anders tik je op *Ongedaan
+maken* en krijg je meteen een knop om dát weer ongedaan te maken.
+
+---
+
 ## v1.92.0
 
 **Een vrije trap zegt nu waarom, en door wie.** Tot nu legde dat venster alleen vast *dat* er een
