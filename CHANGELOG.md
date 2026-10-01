@@ -9,6 +9,36 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.87.0
+
+**De clubronde zegt nu waarom.** Twee keer achter elkaar liep Tim tegen hetzelfde aan: een getal dat
+iets belooft, een ronde die niets vindt, en geen woord over waarom.
+
+**"Wedstrijdnummer bijplaatsen (4), en dan zegt hij geen enkele."** Twee oorzaken, allebei weg.
+
+- Het getal telde **alle** wedstrijden zonder bondsnummer van de hele club, ook die van ploegen die
+  niet aan de bond gekoppeld zijn. Die worden nooit bekeken, dus ze kunnen per definitie geen nummer
+  krijgen. Het telt nu enkel de gekoppelde ploegen.
+- De knop telde bovendien met een andere maatstaf dan de ronde zelf gebruikte, dus de twee konden
+  niet anders dan uiteenlopen. Nu is er één lijst voor allebei.
+
+En het scherm zwijgt niet meer: onder de voorstellen staat **'Hier kan er geen nummer bij'**, met per
+wedstrijd één zin. *Op die dag staat er niets in de kalender van de bond. De bond heeft die dag
+Eendracht Aalter als tegenstander, in de app staat Verkeerde Club. Die dag speelt bij de bond U13 A,
+en deze wedstrijd staat op U13 C.* De ronde is de enige die de kalender van de bond gezien heeft;
+zwijgen laat je met een getal zitten waar je niets mee kan.
+
+**"Geen enkele kan blind mee … en dan krijg ik er géén?"** Een wedstrijd waarvan het blad nog niet
+klaar was bij de bond, viel uit de ronde zonder één spoor na te laten. Honderd bevragingen konden zo
+een leeg scherm opleveren. Elke nagekeken wedstrijd krijgt nu een plek, in een derde lijst **'Nog
+niets bij de bond'**: het blad staat er nog niet, het nummer wordt niet herkend, of het ophalen
+mislukte. Bovenaan staat voortaan altijd hoeveel er nagekeken zijn.
+
+**Honderd in plaats van veertig.** De grens per ronde ging omhoog; de voortgang staat per wedstrijd
+in beeld en annuleren kan nog altijd.
+
+---
+
 ## v1.86.0
 
 **Kiezen wat er mee moet, en geen eeuwige lijst.** Twee opmerkingen van Tim op de clubronde van

@@ -1454,10 +1454,17 @@ function clubRondeTelling(p) {
 // DAG plus de tegenstander, en bij een andere schrijfwijze op de clubnaam erin. Bewust géén lossere
 // regel: een nummer op de verkeerde wedstrijd zetten is erger dan er een niet zetten, want daarna
 // haalt de app het blad van een andere wedstrijd op.
+// DEZELFDE VERZAMELING ALS DE TELLING IN HET OVERZICHT (Tim, 01-10-2026: "ik krijg wedstrijdnummer
+// bijplaatsen (4) en als ik daarop klik zegt hij geen enkele die kan toegevoegd worden"). De knop
+// telde met clubRondeTelling en deze ronde met haar eigen filter, dus de twee konden niet anders dan
+// uiteenlopen. Nu is er één lijst: zonderNrLijst.
+//
+// EN WAAROM NIET is net zo belangrijk als wat wél kan. De ronde is de enige die de kalender van de
+// bond gezien heeft; zwijgen laat je met een getal zitten waar je niets mee kan.
 function clubNrVoorstellen(p, regels) {
   const uit = [];
-  const kandidaten = p.wedstrijden.filter(m => !m.rbfaMatchId && !matchCancelled(m) && !m.tournamentId);
-  if (!kandidaten.length) return uit;
+  const kandidaten = clubRondeTelling(p).zonderNrLijst;
+  if (!kandidaten.length) return { voorstellen: uit, zonder: [] };
   const alNr = new Set(p.wedstrijden.map(m => String(m.rbfaMatchId || '')).filter(Boolean));
   const gebruikt = new Set();
   regels.forEach(r => {
@@ -1473,7 +1480,33 @@ function clubNrVoorstellen(p, regels) {
       tegen: raak.opponent || r.tegenstander,
       andereNaam: impNorm(raak.opponent) !== impNorm(r.tegenstander) ? r.tegenstander : '' });
   });
-  return uit;
+  const zonder = kandidaten.filter(m => !gebruikt.has(m.id)).map(m => ({
+    datum: m.date || '', tegen: m.opponent || '?', reden: clubNrReden(m, regels, alNr),
+  }));
+  return { voorstellen: uit, zonder };
+}
+// Eén zin per wedstrijd die niets kreeg, de eerste die opgaat — in de volgorde waarin de koppeling
+// faalt, zodat de zin ook echt de oorzaak noemt en niet een gevolg.
+function clubNrReden(m, regels, alNr) {
+  const dag = m.date || '';
+  const opDag = regels.filter(r => r.datum === dag);
+  if (!dag) return 'Deze wedstrijd heeft geen datum.';
+  if (!opDag.length) return 'Op die dag staat er niets in de kalender van de bond.';
+  const zelfdeLabel = opDag.filter(r => impZelfdeSubteam(m.subteam, r.rbfaLabel || ''));
+  if (!zelfdeLabel.length) {
+    const labels = [...new Set(opDag.map(r => r.rbfaLabel).filter(Boolean))];
+    return labels.length
+      ? `Die dag speelt bij de bond ${labels.join(' en ')}${m.subteam ? `, en deze wedstrijd staat op ${m.subteam}` : ''}.`
+      : 'Die dag hoort de wedstrijd van de bond bij een andere ploeg.';
+  }
+  const metNr = zelfdeLabel.filter(r => r.rbfaMatchId);
+  if (!metNr.length) return 'De bond geeft bij die wedstrijd geen wedstrijdnummer.';
+  const vrij = metNr.filter(r => !alNr.has(String(r.rbfaMatchId)));
+  if (!vrij.length) return 'Dat wedstrijdnummer staat al op een andere wedstrijd van deze ploeg.';
+  const namen = [...new Set(vrij.map(r => r.tegenstander).filter(Boolean))];
+  return namen.length
+    ? `De bond heeft die dag ${namen.join(' of ')} als tegenstander, in de app staat ${m.opponent || '?'}.`
+    : 'De tegenstander komt niet overeen met wat de bond die dag heeft staan.';
 }
 // Eén veld schrijven bij een ploeg die je NIET open hebt staan. teamRef schrijft altijd naar de
 // actieve ploeg, dus dat kan hier niet; het pad staat er voluit. De databankregels laten dit toe voor
@@ -1649,8 +1682,10 @@ async function clubRondeKalendersDoen() {
 //
 // EEN VENSTER IN DE TIJD, want de bond wordt per wedstrijd apart bevraagd. Zonder begrenzing zijn dat
 // bij dertien ploegen honderden verzoeken voor bladen die allang verwerkt zijn.
+// De grens stond op 40 en Tim liep er meteen tegenaan ("bovendien maar 40 nagelezen"). Honderd is nog
+// altijd een paar minuten en blijft annuleerbaar; het venster toont de voortgang per wedstrijd.
 const CLUB_BLAD_DAGEN = 60;
-const CLUB_BLAD_MAX = 40;
+const CLUB_BLAD_MAX = 100;
 function clubBladGrensDatum() {
   const d = new Date(); d.setDate(d.getDate() - CLUB_BLAD_DAGEN);
   const p = n => String(n).padStart(2, '0');
@@ -1705,25 +1740,35 @@ async function clubRondeBladen() {
       const kand = clubBladKandidaten(p);
       if (!kand.length) continue;
       const zusters = clubRondeZusters(p);
-      const zeker = [], hand = [];
+      const zeker = [], hand = [], stil = [];
       for (const m of kand) {
         if (!clubRondeSt) return;
         if (gevraagd >= CLUB_BLAD_MAX) break;
         gevraagd++;
         meld(`${p.naam}: ${m.opponent || '?'} (${gevraagd}/${Math.min(CLUB_BLAD_MAX, kand.length)})…`);
+        const post = { id: m.id, naam: m.opponent || '?', datum: m.date || '' };
+        // ELKE BEVRAAGDE WEDSTRIJD KOMT IN DE UITKOMST (Tim, 01-10-2026: "geen enkele kan blind mee
+        // ... en dan krijg ik er géén?"). Wie hier wegviel liet geen spoor na, dus veertig
+        // bevragingen konden een leeg scherm opleveren zonder één woord over waarom. De bond verwerkt
+        // een blad soms dagen na het laatste fluitsignaal; dat is geen fout, maar je wil het lezen.
         try {
           const ruw = await vvHaalOp(String(m.rbfaMatchId));
-          if (!ruw) continue;
+          if (!ruw) { post.reden = 'De bond kent dit wedstrijdnummer niet.'; stil.push(post); continue; }
           _vvRosterOverride = (p.kern && p.kern.players) || [];
           vvZetOpVoorstel(m, ruw, zusters);
-          const post = { id: m.id, naam: m.opponent || '?', datum: m.date || '', ruw };
-          if (!vvSt.lezing || !vvSt.lezing.gespeeld) continue;        // nog niet gespeeld volgens de bond
+          post.ruw = ruw;
+          if (!vvSt.lezing || !vvSt.lezing.gespeeld) {
+            post.reden = 'Het wedstrijdblad staat nog niet klaar bij de bond.';
+            stil.push(post); continue;
+          }
           if (vvBulkZeker(m)) { post.wat = vvBulkSamenvatting(m); post.letop = vvBulkLetOp(m); zeker.push(post); }
           else { post.reden = vvBulkReden(m); hand.push(post); }
-        } catch (e) { /* één wedstrijd die niet lukt, mag de ronde niet stoppen */ }
-        finally { _vvRosterOverride = null; }
+        } catch (e) {
+          post.reden = (e && e.message) || 'Het blad kon niet opgehaald worden.';
+          stil.push(post);
+        } finally { _vvRosterOverride = null; }
       }
-      if (zeker.length || hand.length) perPloeg.push({ p, zeker, hand, zusters });
+      if (zeker.length || hand.length || stil.length) perPloeg.push({ p, zeker, hand, stil, zusters });
       if (gevraagd >= CLUB_BLAD_MAX) break;
     }
   } finally { match = bewaardMatch; vvSt = bewaardSt; _vvRosterOverride = null; }
@@ -1798,8 +1843,9 @@ async function clubRondeNummers() {
     try {
       const kal = await rbfaHaalKalenders(p.bondsPloegen.map(b => ({ id: b.id, label: b.naam || b.label || '' })));
       const { regels } = rbfaNaarRegels(kal);
-      perPloeg.push({ p, voorstellen: clubNrVoorstellen(p, regels) });
-    } catch (e) { perPloeg.push({ p, fout: (e && e.message) || 'kalender niet opgehaald' }); }
+      const { voorstellen, zonder } = clubNrVoorstellen(p, regels);
+      perPloeg.push({ p, voorstellen, zonder, gevonden: regels.length });
+    } catch (e) { perPloeg.push({ p, fout: (e && e.message) || 'kalender niet opgehaald', voorstellen: [], zonder: [] }); }
   }
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'nrvoorstel'; st.nummers = perPloeg;
@@ -1846,6 +1892,7 @@ function clubRondeRender() {
     const klaarFase = st.fase === 'bladklaar';
     const nZeker = (st.bladen || []).reduce((n, r) => n + r.zeker.length, 0);
     const nHand = (st.bladen || []).reduce((n, r) => n + r.hand.length, 0);
+    const nStil = (st.bladen || []).reduce((n, r) => n + (r.stil || []).length, 0);
     const kaart = (post, zeker) => {
       const dag = post.datum ? post.datum.split('-').reverse().slice(0, 2).join('/') : '';
       const regels = post.mislukt ? `<div style="font-size:13px;color:var(--rd)">Niet gelukt: ${esc(post.mislukt)}</div>`
@@ -1857,27 +1904,36 @@ function clubRondeRender() {
         <div style="font-weight:600;font-size:14px">${esc(post.naam)}${dag ? ` <span style="font-weight:400;color:var(--txt2)">· ${esc(dag)}</span>` : ''}</div>
         ${regels}</div>`;
     };
-    const blok = (titel, kies, zeker) => {
-      const rijen = (st.bladen || []).filter(r => r[kies].length).map(r => `
-        <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${zeker ? 'var(--grn)' : 'var(--org)'}">
+    const blok = (titel, kies, kleur, knop) => {
+      const rijen = (st.bladen || []).filter(r => (r[kies] || []).length).map(r => `
+        <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${kleur}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <span style="font-weight:700;flex:1;min-width:0">${esc(r.p.naam)}</span>
-            ${zeker ? '' : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${r.p.tid}')">Openen</button>`}
+            ${knop ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${r.p.tid}')">Openen</button>` : ''}
           </div>
-          ${r[kies].map(x => kaart(x, zeker)).join('')}
+          ${r[kies].map(x => kaart(x, kies === 'zeker')).join('')}
         </div>`).join('');
       return rijen ? `<div class="sec" style="text-align:left">${titel}</div>${rijen}` : '';
     };
+    // Altijd zeggen hoeveel er bevraagd zijn. Een leeg scherm na honderd bevragingen leest anders als
+    // "er is niets gebeurd", terwijl er juist heel wat gebeurd is.
+    const telzin = st.bladGevraagd
+      ? `${st.bladGevraagd} ${st.bladGevraagd === 1 ? 'wedstrijd' : 'wedstrijden'} nagekeken bij de bond.`
+      : '';
     openModal(`${kop}
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">${klaarFase
-        ? 'Klaar. Wat jouw oog nodig heeft, staat hieronder — die open je in de ploeg zelf.'
-        : (nZeker
+        ? `Klaar. ${telzin}`
+        : `${telzin} ${nZeker
           ? `Bij <b>${nZeker}</b> ${nZeker === 1 ? 'wedstrijd' : 'wedstrijden'} komt elke naam van het blad eenduidig terug in de kern van die ploeg. Er valt niets te kiezen, dus ${nZeker === 1 ? 'ze kan' : 'die kunnen'} in één keer mee. Er wordt pas iets bewaard als je bevestigt.`
-          : 'Geen enkele wedstrijd kan blind mee: overal valt er iets te kiezen.')}</p>
-      ${blok(klaarFase ? `Aangevuld (${nZeker})` : `In één keer (${nZeker})`, 'zeker', true)}
-      ${blok(`Jouw oog nodig (${nHand})`, 'hand', false)}
+          : (nHand
+            ? 'Geen enkele kan blind mee: overal valt er iets te kiezen. Hieronder staat per wedstrijd wat.'
+            : 'Er is er geen enkele die nu aangevuld kan worden. Hieronder staat per wedstrijd waarom.')}`}</p>
+      ${blok(klaarFase ? `Aangevuld (${nZeker})` : `In één keer (${nZeker})`, 'zeker', 'var(--grn)', false)}
+      ${blok(`Jouw oog nodig (${nHand})`, 'hand', 'var(--org)', true)}
       ${(!klaarFase && nZeker) ? `<button class="btn btn-green" onclick="clubRondeBladenDoen()">${icI(IC.check)} Ja, ${nZeker === 1 ? 'die wedstrijd' : `die ${nZeker} wedstrijden`} aanvullen</button>` : ''}
-      ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">Er zijn er ${CLUB_BLAD_MAX} nagekeken; dat is het maximum van één ronde. Draai ze straks nog eens.</p>` : ''}
+      ${nStil ? `${blok(`Nog niets bij de bond (${nStil})`, 'stil', 'var(--bdr)', false)}
+        <p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:-4px">De bond verwerkt een wedstrijdblad soms dagen na het laatste fluitsignaal. Hier valt nu niets te doen — draai de ronde later nog eens.</p>` : ''}
+      ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">${icI(IC.warn)} Er zijn er ${CLUB_BLAD_MAX} nagekeken; dat is het maximum van één ronde. Er staan er nog, dus draai ze straks nog eens.</p>` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug naar het overzicht</button>`);
     return;
   }
@@ -1916,20 +1972,39 @@ function clubRondeRender() {
   }
   if (st.fase === 'nrvoorstel') {
     const totaal = (st.nummers || []).reduce((n, r) => n + (r.voorstellen || []).length, 0);
+    const nZonder = (st.nummers || []).reduce((n, r) => n + (r.zonder || []).length, 0);
+    const dagTxt = d => esc((d || '').split('-').reverse().slice(0, 2).join('/'));
     const rijen = (st.nummers || []).filter(r => (r.voorstellen || []).length || r.fout).map(r => `
       <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${r.fout ? 'var(--rd)' : 'var(--grn)'}">
         <div style="font-weight:700">${esc(r.p.naam)}</div>
         ${r.fout ? `<div style="font-size:13px;color:var(--rd)">${esc(r.fout)}</div>`
           : `<div style="font-size:13px;color:var(--txt2)">${r.voorstellen.length} ${r.voorstellen.length === 1 ? 'wedstrijd' : 'wedstrijden'}</div>
-             ${r.voorstellen.map(v => `<div style="font-size:12px;color:var(--txt2);padding:2px 0">${esc((v.datum || '').split('-').reverse().slice(0, 2).join('/'))} · ${esc(v.tegen)}${v.andereNaam ? ` <span style="color:var(--org2)">(bij de bond: ${esc(v.andereNaam)})</span>` : ''}</div>`).join('')}`}
+             ${r.voorstellen.map(v => `<div style="font-size:12px;color:var(--txt2);padding:2px 0">${dagTxt(v.datum)} · ${esc(v.tegen)}${v.andereNaam ? ` <span style="color:var(--org2)">(bij de bond: ${esc(v.andereNaam)})</span>` : ''}</div>`).join('')}`}
+      </div>`).join('');
+    // WAAROM NIET. Zonder dit blok was dit scherm een doodlopend "geen enkele gevonden".
+    const zonderRijen = (st.nummers || []).filter(r => (r.zonder || []).length).map(r => `
+      <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid var(--org)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700;flex:1;min-width:0">${esc(r.p.naam)}</span>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${r.p.tid}')">Openen</button>
+        </div>
+        ${r.zonder.map(z => `<div style="padding:5px 0;border-bottom:1px solid var(--bdr)">
+          <div style="font-size:13px;font-weight:600">${dagTxt(z.datum)} · ${esc(z.tegen)}</div>
+          <div style="font-size:12px;color:var(--txt2)">${esc(z.reden)}</div>
+        </div>`).join('')}
       </div>`).join('');
     openModal(`${kop}
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">${totaal
         ? `Bij <b>${totaal}</b> ${totaal === 1 ? 'wedstrijd' : 'wedstrijden'} kan het wedstrijdnummer van de bond erbij. Er wordt <b>niets anders</b> aangeraakt — datum, uur en tegenstander blijven zoals ze zijn.`
-        : 'Er is geen enkele wedstrijd gevonden waar een nummer bij kan. Alles heeft er al een, of de kalender van de bond vindt geen overeenkomst.'}</p>
+        : (nZonder
+          ? `Bij geen enkele wedstrijd kan er een nummer bij. Hieronder staat per wedstrijd waarom.`
+          : 'Elke wedstrijd van je gekoppelde ploegen heeft al een wedstrijdnummer.')}</p>
       ${rijen}
       ${totaal ? `<button class="btn btn-green" onclick="clubRondeNummersDoen()">${icI(IC.check)} Ja, ${totaal === 1 ? 'dat nummer' : `die ${totaal} nummers`} bijplaatsen</button>` : ''}
-      <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug</button>`);
+      ${zonderRijen ? `<div class="sec" style="text-align:left">Hier kan er geen nummer bij (${nZonder})</div>
+        <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:8px">De app koppelt op de <b>dag</b>, de <b>tegenstander</b> en de <b>ploeg</b>. Klopt een van die drie niet, dan krijgt ze niets: een nummer op de verkeerde wedstrijd is erger dan geen nummer. Zet het recht in die ploeg zelf, en draai de ronde opnieuw.</p>
+        ${zonderRijen}` : ''}
+      <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug naar het overzicht</button>`);
     return;
   }
   // ---- het overzicht ----
@@ -1948,7 +2023,10 @@ function clubRondeRender() {
       <button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${p.tid}')">Openen</button>
     </div>`;
   }).join('');
-  const nrTotaal = st.ploegen.reduce((n, p) => n + clubRondeTelling(p).zonderNr, 0);
+  // ENKEL DE GEKOPPELDE PLOEGEN TELLEN HIER MEE (Tim, 01-10-2026). Stond er 4 op de knop terwijl de
+  // ronde er nul vond, dan kwam dat hiervandaan: een ploeg zonder bondskoppeling wordt nooit bekeken,
+  // dus haar wedstrijden kunnen per definitie geen nummer krijgen. Die beloofde de knop wel.
+  const nrTotaal = st.ploegen.filter(p => p.bondsPloegen.length).reduce((n, p) => n + clubRondeTelling(p).zonderNr, 0);
   const metKoppeling = st.ploegen.filter(p => p.bondsPloegen.length).length;
   const bladTotaal = st.ploegen.reduce((n, p) => n + clubBladKandidaten(p).length, 0);
   openModal(`${kop}
