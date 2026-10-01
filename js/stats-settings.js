@@ -1730,6 +1730,13 @@ const HANDLEIDING_PAGINAS = [
           wél een eigen regel, zonder dat jij iets moet aanduiden. Vergeten? Je vult het achteraf
           in met het potloodje bij dat doelpunt in het verloop. De app telt die woorden op bij de
           statistieken — zie <b>Statistieken</b>.</li>
+        <li>Het venster <b>Vrije trap</b> vraagt eerst <b>voor wie</b>. Daaronder staat
+          <b>'Waarom?'</b> met <b>Buitenspel</b> en <b>Fout</b>, en een veldje waarin je zelf iets kan
+          intikken — <i>hands</i>, <i>terugspeelbal</i>, <i>scheidsrechter in de weg</i>. Daarna tik je
+          een speler aan: bij een vrije trap <b>voor</b> je ploeg is dat wie ze neemt, bij een vrije
+          trap <b>tegen</b> je ploeg wie de fout maakte. Alles is optioneel — met <b>'niet ingeven'</b>
+          leg je enkel het moment vast, en dat is één tik. Achteraf pas je het aan met het potloodje in
+          het verloop.</li>
         <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
           staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
           veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te

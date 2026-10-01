@@ -3350,7 +3350,13 @@ function modalEditEvent(id) {
   // je bij het ingeven kon meegeven. Leeg laten mag: dan staat er gewoon "tegenstander".
   else if (t === 'yellow_card_them' || t === 'red_card_them') fields = `<div class="fg"><label>Rugnummer <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-oppnr" type="text" inputmode="numeric" value="${esc(e.oppNumber || '')}" placeholder="bv. 7" autocomplete="off"></div>`;
   else if (t === 'own_goal') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
-  else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`;
+  // VRIJE TRAP, achteraf (v1.92.0). Twee kanten, twee betekenissen van dezelfde keuzelijst: voor ons
+  // is het de nemer, tegen ons is het onze speler die de fout maakte. De reden is een vrij tekstveld —
+  // je kan er zelf iets intikken, en de twee vaste woorden staan als plaatshouder in het veld.
+  else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`
+    + `<div class="fg"><label>Waarom <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-reden" type="text" value="${esc(e.reden || '')}" placeholder="bv. Buitenspel, Fout, hands" autocomplete="off"></div>`;
+  else if (t === 'freekick_them') fields = `<div class="fg"><label>Wie maakte de fout? <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><select id="ee-player">${opts(e.playerId, true)}</select></div>`
+    + `<div class="fg"><label>Waarom <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-reden" type="text" value="${esc(e.reden || '')}" placeholder="bv. Buitenspel, Fout, hands" autocomplete="off"></div>`;
   // HOEKSCHOP: geen nemer en geen type meer (audit 25-08-2026). logCorner vraagt die bewust niet
   // meer ("overbodig voor jeugd"), dus het bewerkvenster vroeg naar twee dingen die je bij het
   // ingeven nooit invult — en een leeg veld dat je moet bevestigen leest als een ontbrekend
@@ -3602,6 +3608,12 @@ async function saveEditEvent(id) {
   if (has('ee-oppnr')) {
     const nr = String(val('ee-oppnr') || '').replace(/[^0-9]/g, '').slice(0, 3);
     if (nr) e.oppNumber = nr; else delete e.oppNumber;
+  }
+  // De reden bij een vrije trap (v1.92.0). Leeg wist de sleutel weer weg, zodat een vrije trap zonder
+  // reden er precies zo uitziet als een van vóór deze versie.
+  if (has('ee-reden')) {
+    const r = String(val('ee-reden') || '').trim().slice(0, 60);
+    if (r) e.reden = r; else delete e.reden;
   }
   // Gepaarde 2e gele die naar een andere speler verhuist: de automatische rode blijft bij de
   // oorspronkelijke speler staan — dat kan juist zijn (die heeft misschien nog 2 gele) of niet;
@@ -6602,29 +6614,67 @@ let fkTeam = 'us';
 // Meteen ook het enige venster dat de VOLLEDIGE naam toonde, in rijen onder elkaar in plaats van het
 // raster van vier dat alle andere gebruiken. Nu overal hetzelfde: dezelfde korte naam, dezelfde
 // volgorde, tik is ingevoerd.
+// WAAROM ER EEN VRIJE TRAP WAS (Tim, 01-10-2026). Twee vaste woorden plus een veld waar je zelf iets
+// kan intikken — "hands", "terugspeelbal", "scheidsrechter in de weg". Alles optioneel: de tik op de
+// speler legt vast, met of zonder reden. Nog eens tikken op hetzelfde woord zet het weer af, net als
+// bij "Hoe viel het?" onder een doelpunt.
+// Bewust GEEN statistiek (Tims keuze): dit staat in het verslag, het wordt nergens geteld.
+const FK_REDENEN = ['Buitenspel', 'Fout'];
+let fkReden = '';
+function fkRedenHtml() {
+  return `<div class="sec">Waarom? (optioneel)</div>
+    <div class="place-chips" id="fk-reden">${FK_REDENEN.map(w =>
+      `<span class="place-chip" data-w="${esc(w)}" onclick="selectFkReden('${esc(w)}',this)">${esc(w)}</span>`).join('')}</div>
+    ${/* `width:100%` en `box-sizing` staan erbij omdat dit veld BUITEN een .fg staat: binnen die
+         wrapper krijgt een input die breedte vanzelf, hier niet — en dan blijft er een smal vakje
+         staan waarin de plaatshouder halverwege afgekapt wordt. */ ''}
+    <input id="fk-reden-vrij" type="text" placeholder="of typ zelf — bv. hands, terugspeelbal" autocomplete="off"
+      oninput="fkRedenGetypt(this.value)" style="width:100%;box-sizing:border-box;margin-top:8px;font-size:13px">`;
+}
+function selectFkReden(w, el) {
+  const aan = fkReden === w;
+  fkReden = aan ? '' : w;
+  document.querySelectorAll('#fk-reden .place-chip').forEach(o => o.classList.remove('sel'));
+  if (!aan) el.classList.add('sel');
+  // Zelf typen en een woord aantikken sluiten elkaar uit: er is één reden per vrije trap.
+  const v = document.getElementById('fk-reden-vrij'); if (v) v.value = '';
+}
+function fkRedenGetypt(txt) {
+  fkReden = String(txt || '').trim();
+  document.querySelectorAll('#fk-reden .place-chip').forEach(o => o.classList.remove('sel'));
+}
 function modalFreekick() {
   fkTeam = 'us';
+  fkReden = '';
   // spelersVoorEventKeuze zoals bij doelpunt, kaart en strafschop (audit 25-08-2026): in retro-modus
   // zet die de rest van de selectie erachter met een bank-merkje, zodat ook een speler die pas later
   // inviel kiesbaar is. Deze modal bleef op playersOnFieldForEvent hangen en toonde dus enkel wie het
   // deel begon.
   const keuze = spelersVoorEventKeuze(match);
   const on = keuze.lijst;
+  // Hetzelfde raster aan beide kanten, met een andere vraag erboven: bij een vrije trap VOOR ons kies
+  // je wie ze neemt, bij een vrije trap TEGEN ons wie de fout maakte. Allebei een eigen speler — de
+  // tegenspeler die de fout maakte kennen we niet bij naam, en een rugnummer tel je aan de zijlijn
+  // toch niet (Tims keuze: weglaten).
+  const raster = (fn) => pgGrid(on.map(p => pgBtn(p, 'fk-pb', `${fn}('${p.id}')`, bankTag(keuze.bank, p))).join('')
+    + `<button type="button" class="fk-pb" onclick="${fn}(null)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:18px;color:var(--txt2);line-height:1">—</span><span style="font-size:10px;color:var(--txt2);text-align:center">niet ingeven</span></button>`);
   openModal(`<h3>${icI(IC.bolt)} Vrije trap${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="fk-team">
       <button class="act" onclick="tglFk('us',this)">${esc(tName(match))}</button>
       <button onclick="tglFk('them',this)">Tegenstander</button>
     </div>
+    ${/* De reden staat BOVEN het raster, want de tik op een speler legt meteen vast. Omgekeerd zou je
+         de reden nooit meer kwijt kunnen. Eén keer getekend: de vraag is voor allebei de kanten
+         dezelfde, net als "Hoe viel het?" bij een doelpunt. */ ''}
+    ${fkRedenHtml()}
     <div id="fk-us-section">
       <div class="sec">Wie neemt de vrije trap?</div>
-      ${pgGrid(on.map(p => pgBtn(p, 'fk-pb', `logFreekick('${p.id}')`, bankTag(keuze.bank, p))).join('')
-        + `<button type="button" class="fk-pb" onclick="logFreekick(null)" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px"><span style="font-size:18px;color:var(--txt2);line-height:1">—</span><span style="font-size:10px;color:var(--txt2);text-align:center">niet ingeven</span></button>`)}
+      ${raster('logFreekick')}
     </div>
-    ${/* Van een tegenspeler kennen we geen naam, dus daar valt niets aan te tikken: die helft krijgt
-         één knop die meteen vastlegt. Zelfde opbouw als bij de kaart. */ ''}
     <div id="fk-them-section" class="hidden">
-      <button class="btn btn-green" style="margin-top:12px" onclick="logFreekick(null)">${icI(IC.check)}Vrije trap voor de tegenstander</button>
+      <div class="sec">Wie maakte de fout?</div>
+      ${raster('logFreekickTegen')}
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -6635,14 +6685,26 @@ function tglFk(team, btn) {
   document.getElementById('fk-us-section').classList.toggle('hidden', team !== 'us');
   document.getElementById('fk-them-section').classList.toggle('hidden', team !== 'them');
 }
+// Vrije trap VOOR ons: `playerId` is wie ze neemt (zoals voordien).
 async function logFreekick(pid) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    if (fkTeam === 'us') addEvent('freekick_us', { playerId: pid || null });
-    else addEvent('freekick_them');
+    addEvent('freekick_us', { playerId: pid || null, ...(fkReden ? { reden: fkReden } : {}) });
     await dbSave(match); closeModal(); render();
-    meldVastgelegd('Vrije trap', fkTeam === 'us' ? (pid ? pName(match, pid) : tName(match)) : tegenstanderNaam(match));
+    meldVastgelegd('Vrije trap', [pid ? pName(match, pid) : tName(match), fkReden].filter(Boolean).join(' · '));
+  } finally { _eventBusy = false; }
+}
+// Vrije trap TEGEN ons: `playerId` is dan ONZE speler die de fout maakte. Dat veld wordt nergens
+// geteld voor dit soort gebeurtenis — elke plek die playerId leest, filtert eerst op het type (zie
+// o.a. de doelpunten- en kaartentellingen) — dus hij duikt niet op in iemands cijfers.
+async function logFreekickTegen(pid) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    addEvent('freekick_them', { ...(pid ? { playerId: pid } : {}), ...(fkReden ? { reden: fkReden } : {}) });
+    await dbSave(match); closeModal(); render();
+    meldVastgelegd('Vrije trap', [tegenstanderNaam(match), pid ? pName(match, pid) : '', fkReden].filter(Boolean).join(' · '));
   } finally { _eventBusy = false; }
 }
 

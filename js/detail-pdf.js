@@ -588,13 +588,15 @@ function modalDetailEditMenu() {
 // verandert dus niets aan zijn cijfers, en hem uit álle wedstrijden van die dag halen zou hem als
 // "gemist" laten tellen terwijl hij wel degelijk mee was. Het menu-item staat er daarom grijs bij.
 
-// Woorden voor wat er in het verloop op iemands naam staat. Bewust in gebruikerstaal en zonder
-// tegenstander-types: die dragen geen eigen speler-id, dus ze komen hier nooit langs.
+// Woorden voor wat er in het verloop op iemands naam staat. Bewust in gebruikerstaal.
+// `freekick_them` hoort er sinds v1.92.0 bij: een vrije trap TEGEN ons kan onze speler noemen als
+// degene die de fout maakte. Dat is de enige tegenstander-gebeurtenis die een eigen speler-id draagt;
+// de andere (kaart, penalty, hoekschop tegen) dragen hooguit een rugnummer van hén.
 const SEL_EVT_WOORD = {
   goal_us: 'doelpunt', own_goal: 'owngoal', substitution: 'wissel', posSwap: 'positiewissel',
   yellow_card: 'gele kaart', red_card: 'rode kaart', penalty_us: 'strafschop', freekick_us: 'vrije trap',
-  corner_us: 'hoekschop', injury: 'blessure', captain_change: 'kapiteinswissel', shot: 'doelpoging',
-  save: 'redding', disallowed_us: 'afgekeurd doelpunt',
+  freekick_them: 'fout', corner_us: 'hoekschop', injury: 'blessure', captain_change: 'kapiteinswissel',
+  shot: 'doelpoging', save: 'redding', disallowed_us: 'afgekeurd doelpunt',
 };
 // Elk veld waarin een gebeurtenis naar een speler kan verwijzen. Ook playerOutId, assistId, fromId en
 // pB horen erbij: dat zijn de plekken waar iemand als TWEEDE man in een gebeurtenis staat, en precies

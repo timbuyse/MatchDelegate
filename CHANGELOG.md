@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.92.0
+
+**Een vrije trap zegt nu waarom, en door wie.** Tot nu legde dat venster alleen vast *dat* er een
+vrije trap was, plus wie ze nam. Nu staat er **'Waarom?'** bij met **Buitenspel** en **Fout**, en een
+veldje waarin je zelf iets kan intikken — *hands*, *terugspeelbal*, *scheidsrechter in de weg*.
+
+**De tegenstanderkant had niets.** Een vrije trap tegen je ploeg was één knop die meteen vastlegde.
+Daar staat nu hetzelfde spelersraster, met een andere vraag erboven: **wie maakte de fout?** Dat is
+telkens een speler van je eigen ploeg — de tegenspeler die een fout maakte kent de app niet bij naam,
+en een rugnummer tel je aan de zijlijn toch niet.
+
+Alles blijft **optioneel**. Met *niet ingeven* leg je enkel het moment vast, en dat is één tik. Nog
+eens tikken op hetzelfde woord zet het weer af; zelf typen en een woord aantikken sluiten elkaar uit,
+want er is één reden per vrije trap. Achteraf pas je het aan met het potloodje in het verloop.
+
+In het verloop leest het als *"Vrije trap tegen · door Jules Everaert (terugspeelbal)"*. Een vrije
+trap zonder reden en zonder speler ziet er precies zo uit als vóór deze versie.
+
+**Geen statistiek** (Tims keuze): dit staat in het verslag, het wordt nergens opgeteld.
+
+---
+
 ## v1.91.0
 
 **De kaarten staan nu bij de opstelling van dat kwart.** Tim wilde een kaartje zien bij de
