@@ -9,6 +9,38 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.86.0
+
+**Kiezen wat er mee moet, en geen eeuwige lijst.** Twee opmerkingen van Tim op de clubronde van
+v1.85.0, allebei de eerste keer dat hij ze in het echt gebruikte.
+
+**Kalenders: een vinkje per wedstrijd.** *"Moet mogelijk zijn om daarna per ploeg te kiezen wat er al
+dan niet mee moet."* De lijst toonde per ploeg hooguit zes wedstrijden en dan "… en nog N", en het
+was alles of niets. Nu staat elke gevonden wedstrijd er met een vinkje — datum, uur, tegenstander en
+het ploeglabel — en zet het vinkje naast de ploegnaam die hele ploeg in één tik om. De knop telt mee
+terwijl je vinkt; staat alles uit, dan doet hij niets.
+
+**Wat je uitvinkt, komt niet terug.** Dezelfde klacht als op 28-09 over het inlezen van een kalender
+in de ploeg zelf: *"de volgende keer geeft hij die terug aan als op te laden."* De uitgevinkte
+wedstrijden gaan nu in dezelfde lijst als daar. Er wordt één veld van de kern geschreven, niet de
+hele spelerslijst.
+
+**Een stille fout rechtgezet.** De kalenderronde las die overslaanlijst op met het id van de **ploeg**
+in de databank, terwijl ze op het id van de **kern** bewaard staat — twee id's die één teken schelen
+(zie het incident van 21-08-2026). Dat gaf nooit een foutmelding, alleen altijd een lege lijst: wat je
+in een ploeg had laten liggen, bood de clubronde gewoon opnieuw aan. Ze leest het veld nu van de kern
+die ze zelf ophaalde.
+
+**Wedstrijdbladen: wat je zelf afsloot, blijft weg.** *"Wedstrijden die ik als 'afgesloten zonder
+uitslag' heb bestempeld zouden eigenlijk niet meer mogen getoond worden, anders blijven het altijd
+dezelfde die daar getoond worden."* Precies zo. In de ronde per ploeg hoort zo'n wedstrijd er wél bij
+— daar kies je er één uit en wil je juist nog eens kijken. Hier is het omgekeerd: een handvol
+wedstrijden waarvoor nooit een blad komt, nam elke ronde de veertig plaatsen in van wedstrijden waar
+wél iets te halen valt. De clubronde kijkt nu enkel naar wedstrijden waarvan de datum voorbij is en
+die nooit afgewerkt werden. **'Bij de bond nakijken'** in de ploeg zelf is ongewijzigd.
+
+---
+
 ## v1.85.0
 
 **De clubronde, tweede helft: de kalenders en de wedstrijdbladen.** v1.84.0 bracht het overzicht en de
