@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.88.0
+
+**Een reeks wedstrijden in één keer afsluiten zonder uitslag.** Tim: *"ik wil als ik in een kalender
+van een ploeg meerdere wedstrijden aanpas, ook kunnen afsluiten zonder uitslag."* Na een seizoen
+vriendschappelijke wedstrijden waar niemand de score noteerde, staan er tien als **niet afgesloten**
+— en dat was tien keer hetzelfde venster openen.
+
+Bij **Wedstrijden → Meerdere aanpassen** staat die handeling nu onderaan het keuzelijstje. Ze komt
+met alles wat het aanpassen van meerdere wedstrijden al bood: een nakijkscherm met de lijst erbij, en
+een **ongedaan maken** dat élke aangeraakte eigenschap terugzet — ook de doelpunten van een eerdere
+snelinvoer en de plancijfers.
+
+Dezelfde grenzen als de knop per wedstrijd, plus één erbij: enkel een **geplande** wedstrijd waarvan
+de dag voorbij is. Een al afgesloten wedstrijd blijft onaangeroerd — dat zou een uitslag uitvegen die
+iemand zelf ingaf, en over tien wedstrijden tegelijk merk je dat pas veel later. De app zegt vooraf
+hoeveel er van je selectie afvallen en waarom.
+
+**'Jouw oog nodig' brengt je nu bij de wedstrijd.** Tim: *"dan doe ik dat en kom ik op de ploeg
+terecht, niet bij die wedstrijd die ik moet bekijken."* Tik in de clubronde een wedstrijd aan en je
+landt op haar voorstelscherm: de app wisselt zelf naar die ploeg, wacht tot haar wedstrijden binnen
+zijn, en neemt het blad mee dat de ronde net ophaalde — de bond wordt dus niet nog eens bevraagd.
+Staan er meer van dezelfde ploeg, dan loop je ze af als een rij, net als na "Bij de bond nakijken" in
+de ploeg zelf.
+
+---
+
 ## v1.87.0
 
 **De clubronde zegt nu waarom.** Twee keer achter elkaar liep Tim tegen hetzelfde aan: een getal dat

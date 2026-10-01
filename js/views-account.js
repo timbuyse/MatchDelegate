@@ -5533,7 +5533,41 @@ const BULK_VELDEN = [
     raakt: ['periodKey', 'numQuarters'] },
   { key: 'quarterDuration', label: 'Blokduur',               soort: 'keuze', enkelGepland: true,
     opties: () => [...new Set([].concat(...Object.values(DURATIONS)))].sort((a, b) => a - b), toon: v => v + ' minuten', getal: true },
+  // GEEN VELD MAAR EEN HANDELING (Tim, 01-10-2026): "ik wil als ik in een kalender van een ploeg
+  // meerdere wedstrijden aanpas, ook kunnen afsluiten zonder uitslag". Na een seizoen vriendschappelijke
+  // wedstrijden waar niemand de score noteerde, staan er tien als "niet afgesloten" — en dat is tien
+  // keer hetzelfde venster openen. Ze past hier in omdat het raamwerk al alles biedt wat ze nodig
+  // heeft: één ding per keer, een lijst om na te kijken vóór het opslaan, en een ongedaan-maken dat
+  // élke aangeraakte eigenschap terugzet.
+  //
+  // DEZELFDE GRENZEN ALS HET VENSTER PER WEDSTRIJD (saveQuickResult): geen tornooiwedstrijd, en niet
+  // wanneer er échte doelpunten in het verloop staan — die zouden blijven staan onder een uitslag die
+  // "– • –" beweert te zijn. Hier bovenop: enkel een geplande wedstrijd waarvan de dag voorbij is.
+  // Een wedstrijd die al afgesloten is, raken we niet aan; dat zou een uitslag uitvegen die iemand
+  // zelf heeft ingegeven, en over tien wedstrijden tegelijk merk je dat pas veel later.
+  { key: 'zonderUitslag', label: 'Afsluiten zonder uitslag', soort: 'handeling', vast: 'ja',
+    uitleg: `De wedstrijd komt op <b>gespeeld</b> te staan, met <b>${SCORE_GEEN}</b> als uitslag. Ze telt mee in het aantal wedstrijden, maar niet bij winst, gelijk, verlies of doelpunten, en er komen geen speelminuten bij. Je kan er later altijd nog een uitslag aan geven.`,
+    afval: 'al afgesloten of bezig, de dag nog niet voorbij, geannuleerd, een tornooiwedstrijd, of er staan al doelpunten in het verloop',
+    mag: m => m.status === 'planned' && !matchCancelled(m) && !m.tournamentId
+      && (m.date || '') <= isoVandaag()
+      && !(m.events || []).some(e => !e.quick && ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'].includes(e.type)),
+    lees: m => (m.status === 'done' && geenUitslag(m)) ? 'ja' : '',
+    toon: x => x === 'ja' ? `afgesloten zonder uitslag (${SCORE_GEEN})` : 'nog niet afgesloten',
+    zet: m => {
+      // Letterlijk wat saveQuickResult(true) doet. Een eerdere snelinvoer gaat weg; recomputeScore
+      // draait in bulkVoerUit al na elke zet, dus de 0-0 die eruit komt klopt met de lege events.
+      m.events = (m.events || []).filter(e => !e.quick);
+      m.geenUitslag = true;
+      delete m.planMinuten; delete m.minutenVolgensPlan;
+      m.status = 'done'; m.quarterStatus = 'done';
+    },
+    raakt: ['status', 'quarterStatus', 'geenUitslag', 'events', 'planMinuten', 'minutenVolgensPlan', 'scoreUs', 'scoreThem'] },
 ];
+// Mag dit veld deze wedstrijd aanraken? `enkelGepland` is de oude, smalle vorm; `mag` de algemene.
+function bulkMagMee(v, m) {
+  if (v.enkelGepland && m.status !== 'planned') return false;
+  return v.mag ? !!v.mag(m) : true;
+}
 function bulkVeldById(key) { return BULK_VELDEN.find(v => v.key === key) || null; }
 // Eén keuze kan meer dan één eigenschap van de wedstrijd omvatten (zie 'Aantal blokken'). Deze drie
 // helpers zijn de enige plek waar het verschil bestaat; de rest van het bulk-bewerken werkt met de
@@ -5614,7 +5648,7 @@ function bulkKiesVeld() {
   openModal(`<h3>${icI(IC.edit)} Wat wil je aanpassen?</h3>
     <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Bij <b>${bulkSel.size}</b> ${bulkSel.size === 1 ? 'wedstrijd' : 'wedstrijden'}. Je past één ding per keer aan; al de rest van die wedstrijden blijft ongewijzigd.</p>
     <div style="display:flex;flex-direction:column;gap:6px">
-      ${BULK_VELDEN.map(v => `<button class="btn btn-pale" style="margin:0;text-align:left" onclick="bulkKiesWaarde('${v.key}')">${esc(v.label)}${v.enkelGepland ? ' <span style="color:var(--txt2);font-weight:400">— enkel geplande</span>' : ''}</button>`).join('')}
+      ${BULK_VELDEN.map(v => `<button class="btn ${v.soort === 'handeling' ? 'btn-orgpale' : 'btn-pale'}" style="margin:0;text-align:left" onclick="bulkKiesWaarde('${v.key}')">${esc(v.label)}${v.enkelGepland ? ' <span style="color:var(--txt2);font-weight:400">— enkel geplande</span>' : ''}${v.soort === 'handeling' ? ' <span style="color:var(--txt2);font-weight:400">— enkel gespeelde zonder uitslag</span>' : ''}</button>`).join('')}
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -5626,16 +5660,21 @@ async function bulkKiesWaarde(key) {
   // pas achteraf. Anders denk je dertig wedstrijden aan te passen en zijn het er twaalf.
   const alle = await dbAll();
   const gekozen = alle.filter(m => bulkSel.has(m.id));
-  const raakt = v.enkelGepland ? gekozen.filter(m => m.status === 'planned') : gekozen;
+  const raakt = gekozen.filter(m => bulkMagMee(v, m));
   const vallenAf = gekozen.length - raakt.length;
-  const invoer = v.soort === 'keuze'
-    ? `<select id="bulk-waarde">${v.opties().map(o => `<option value="${esc(String(o))}">${esc(v.toon ? v.toon(o) : String(o))}</option>`).join('')}</select>`
-    : `<input id="bulk-waarde" type="text" placeholder="${esc(v.plaatshouder || '')}" autocomplete="off">`;
+  const invoer = v.soort === 'handeling' ? ''
+    : v.soort === 'keuze'
+      ? `<div class="fg"><label>Nieuwe waarde</label><select id="bulk-waarde">${v.opties().map(o => `<option value="${esc(String(o))}">${esc(v.toon ? v.toon(o) : String(o))}</option>`).join('')}</select></div>`
+      : `<div class="fg"><label>Nieuwe waarde</label><input id="bulk-waarde" type="text" placeholder="${esc(v.plaatshouder || '')}" autocomplete="off"></div>`;
+  const afvalZin = v.afval
+    ? `${vallenAf} van je ${gekozen.length} wedstrijden ${vallenAf === 1 ? 'valt' : 'vallen'} hier buiten en ${vallenAf === 1 ? 'blijft' : 'blijven'} ongewijzigd: ${v.afval}.`
+    : `${vallenAf} van je ${gekozen.length} wedstrijden ${vallenAf === 1 ? 'is' : 'zijn'} niet meer gepland en ${vallenAf === 1 ? 'blijft' : 'blijven'} dus ongewijzigd. Dit gaat over de speelminuten, en die van een gespeelde wedstrijd horen niet meer te bewegen.`;
   openModal(`<h3>${icI(IC.edit)} ${esc(v.label)}</h3>
-    <div class="fg"><label>Nieuwe waarde</label>${invoer}</div>
-    ${vallenAf > 0 ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;text-align:left;margin-bottom:10px">${icI(IC.warn)} ${vallenAf} van je ${gekozen.length} wedstrijden ${vallenAf === 1 ? 'is' : 'zijn'} niet meer gepland en ${vallenAf === 1 ? 'blijft' : 'blijven'} dus ongewijzigd. Dit gaat over de speelminuten, en die van een gespeelde wedstrijd horen niet meer te bewegen.</div>` : ''}
+    ${v.uitleg ? `<p style="font-size:13px;color:var(--txt2);text-align:left;margin-bottom:10px">${v.uitleg}</p>` : ''}
+    ${invoer}
+    ${vallenAf > 0 ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24;text-align:left;margin-bottom:10px">${icI(IC.warn)} ${afvalZin}</div>` : ''}
     ${raakt.length ? `<button class="btn btn-org" onclick="bulkBekijkEnPasToe()">Volgende</button>`
-      : `<p style="font-size:13px;color:var(--org2)">Geen enkele van je gekozen wedstrijden is nog gepland.</p>`}
+      : `<p style="font-size:13px;color:var(--org2)">${v.afval ? 'Geen enkele van je gekozen wedstrijden kan zo afgesloten worden.' : 'Geen enkele van je gekozen wedstrijden is nog gepland.'}</p>`}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 // Laatste scherm vóór het opslaan: wat er verandert, bij welke wedstrijden, met de oude waarde erbij.
@@ -5643,19 +5682,24 @@ async function bulkBekijkEnPasToe() {
   const v = bulkVeldById(bulkVeld);
   if (!v) return;
   const inp = document.getElementById('bulk-waarde');
-  let waarde = inp ? inp.value : '';
+  let waarde = v.soort === 'handeling' ? v.vast : (inp ? inp.value : '');
   if (v.getal) waarde = Number(waarde) || 0;
   const alle = await dbAll();
-  const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
+  const raakt = alle.filter(m => bulkSel.has(m.id) && bulkMagMee(v, m))
     .filter(m => String(bulkLees(v, m)) !== String(waarde));   // wat al goed staat, laten we staan
-  if (!raakt.length) { closeModal(); showToast('Daar stond die waarde al overal.', 'ok'); return; }
-  const toon = x => (x === '' || x == null) ? '(leeg)' : (v.toon ? v.toon(x) : String(x));
+  if (!raakt.length) { closeModal(); showToast(v.soort === 'handeling' ? 'Daar valt niets meer af te sluiten.' : 'Daar stond die waarde al overal.', 'ok'); return; }
+  // Bij een handeling is "leeg" geen lege waarde maar een toestand ("nog niet afgesloten"), dus daar
+  // gaat v.toon vóór. Bij een gewoon veld blijft (leeg) staan: dat zégt juist iets.
+  const toon = x => (v.soort === 'handeling') ? v.toon(x)
+    : ((x === '' || x == null) ? '(leeg)' : (v.toon ? v.toon(x) : String(x)));
   openModal(`<h3>${icI(IC.warn)} Nakijken</h3>
-    <p style="font-size:14px;margin-bottom:10px">Bij <b>${raakt.length}</b> ${raakt.length === 1 ? 'wedstrijd' : 'wedstrijden'} wordt <b>${esc(v.label.toLowerCase())}</b> <b>${esc(toon(waarde))}</b>.</p>
+    <p style="font-size:14px;margin-bottom:10px">${v.soort === 'handeling'
+      ? `<b>${raakt.length}</b> ${raakt.length === 1 ? 'wedstrijd wordt' : 'wedstrijden worden'} afgesloten <b>zonder uitslag</b> (${SCORE_GEEN}).`
+      : `Bij <b>${raakt.length}</b> ${raakt.length === 1 ? 'wedstrijd' : 'wedstrijden'} wordt <b>${esc(v.label.toLowerCase())}</b> <b>${esc(toon(waarde))}</b>.`}</p>
     <div style="max-height:40vh;overflow-y:auto;text-align:left;font-size:13px;color:var(--txt2);border:1px solid var(--bdr);border-radius:8px;padding:8px">
       ${raakt.map(m => `<div style="padding:3px 0;border-bottom:1px solid var(--bdr)">${esc(m.opponent || '(geen tegenstander)')} · ${esc(matchWhen(m))}<br><span style="font-size:12px">nu: ${esc(toon(bulkLees(v, m)))}</span></div>`).join('')}
     </div>
-    <button class="btn btn-org" style="margin-top:12px" onclick="bulkVoerUit('${esc(String(waarde))}')">Aanpassen</button>
+    <button class="btn btn-org" style="margin-top:12px" onclick="bulkVoerUit('${esc(String(waarde))}')">${v.soort === 'handeling' ? 'Afsluiten' : 'Aanpassen'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
 async function bulkVoerUit(waardeTxt) {
@@ -5664,7 +5708,7 @@ async function bulkVoerUit(waardeTxt) {
   const waarde = v.getal ? (Number(waardeTxt) || 0) : waardeTxt;
   closeModal();
   const alle = await dbAll();
-  const raakt = alle.filter(m => bulkSel.has(m.id) && (!v.enkelGepland || m.status === 'planned'))
+  const raakt = alle.filter(m => bulkSel.has(m.id) && bulkMagMee(v, m))
     .filter(m => String(bulkLees(v, m)) !== String(waarde));
   // De ploeg mee in de ongedaan-maken. Zonder dit verscheen het bannertje bij élke ploeg, en zette
   // een tik erop de oude waarden terug terwijl een ándere ploeg actief was — waarna die wedstrijden
@@ -5685,7 +5729,8 @@ async function bulkVoerUit(waardeTxt) {
   }
   try { localStorage.setItem(BULK_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
   bulkMode = false; bulkSel = new Set(); bulkVeld = null;
-  showToast(mislukt ? `${gelukt} aangepast, ${mislukt} mislukt.` : `${gelukt} ${gelukt === 1 ? 'wedstrijd' : 'wedstrijden'} aangepast.`, mislukt ? 'err' : 'ok');
+  const ww = v.soort === 'handeling' ? 'afgesloten' : 'aangepast';
+  showToast(mislukt ? `${gelukt} ${ww}, ${mislukt} mislukt.` : `${gelukt} ${gelukt === 1 ? 'wedstrijd' : 'wedstrijden'} ${ww}.`, mislukt ? 'err' : 'ok');
   loadMatches();
 }
 function bulkUndoBeschikbaar() {

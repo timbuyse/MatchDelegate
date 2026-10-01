@@ -1893,15 +1893,22 @@ function clubRondeRender() {
     const nZeker = (st.bladen || []).reduce((n, r) => n + r.zeker.length, 0);
     const nHand = (st.bladen || []).reduce((n, r) => n + r.hand.length, 0);
     const nStil = (st.bladen || []).reduce((n, r) => n + (r.stil || []).length, 0);
-    const kaart = (post, zeker) => {
+    const kaart = (post, zeker, tid) => {
       const dag = post.datum ? post.datum.split('-').reverse().slice(0, 2).join('/') : '';
+      // Een wedstrijd die jouw oog nodig heeft, is een KNOP naar die wedstrijd. Hij draagt het blad
+      // dat de ronde al ophaalde mee, dus de bond wordt niet nog eens bevraagd.
+      const naar = (tid && post.ruw && !post.gedaan && !post.mislukt && !zeker)
+        ? ` onclick="clubRondeNaarWedstrijd('${tid}', '${post.id}')" style="cursor:pointer"` : '';
       const regels = post.mislukt ? `<div style="font-size:13px;color:var(--rd)">Niet gelukt: ${esc(post.mislukt)}</div>`
         : post.gedaan ? `<div style="font-size:13px;color:var(--txt2)">Overgenomen: ${post.gedaan.length ? post.gedaan.join(' · ') : 'er viel niets aan te vullen'}</div>`
         : zeker ? `${(post.wat || []).length ? `<div style="font-size:13px;color:var(--txt2)">${post.wat.join(' · ')}</div>` : ''}
                    ${(post.letop || []).map(l => `<div style="font-size:12px;color:var(--org2);margin-top:3px">${icI(IC.warn)} ${esc(l)}</div>`).join('')}`
         : `<div style="font-size:13px;color:var(--txt2)">${post.reden || ''}</div>`;
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--bdr)">
-        <div style="font-weight:600;font-size:14px">${esc(post.naam)}${dag ? ` <span style="font-weight:400;color:var(--txt2)">· ${esc(dag)}</span>` : ''}</div>
+      return `<div${naar} style="padding:6px 0;border-bottom:1px solid var(--bdr)${naar ? ';cursor:pointer' : ''}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="flex:1;min-width:0;font-weight:600;font-size:14px">${esc(post.naam)}${dag ? ` <span style="font-weight:400;color:var(--txt2)">· ${esc(dag)}</span>` : ''}</span>
+          ${naar ? `<span style="color:var(--org2);font-size:13px;font-weight:600;flex-shrink:0">Nakijken ›</span>` : ''}
+        </div>
         ${regels}</div>`;
     };
     const blok = (titel, kies, kleur, knop) => {
@@ -1909,9 +1916,9 @@ function clubRondeRender() {
         <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${kleur}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <span style="font-weight:700;flex:1;min-width:0">${esc(r.p.naam)}</span>
-            ${knop ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${r.p.tid}')">Openen</button>` : ''}
+            ${(knop && r[kies].length > 1) ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarWedstrijd('${r.p.tid}', '${r[kies][0].id}')">Alle ${r[kies].length} nakijken</button>` : ''}
           </div>
-          ${r[kies].map(x => kaart(x, kies === 'zeker')).join('')}
+          ${r[kies].map(x => kaart(x, kies === 'zeker', knop ? r.p.tid : '')).join('')}
         </div>`).join('');
       return rijen ? `<div class="sec" style="text-align:left">${titel}</div>${rijen}` : '';
     };
@@ -2050,6 +2057,39 @@ function clubRondeRenderOverzicht() {
 async function clubRondeNaarPloeg(tid) {
   clubRondeSt = null; closeModal();
   if (typeof openTeamFromClub === 'function') await openTeamFromClub(tid);
+}
+// NAAR DE WEDSTRIJD ZELF, NIET NAAR DE PLOEG (Tim, 01-10-2026: "dan doe ik dat en kom ik op de ploeg
+// terecht, niet bij die wedstrijd die ik moet bekijken"). De bladen die de ronde al ophaalde gaan mee,
+// dus de bond wordt niet nog eens bevraagd, en je loopt de wedstrijden van díe ploeg als rij af — net
+// als na "Bij de bond nakijken" in de ploeg zelf.
+//
+// EERST WACHTEN TOT DE WEDSTRIJD ER IS. Van ploeg wisselen start de luisteraars opnieuw; de
+// wedstrijden van die ploeg komen pas even later op dit toestel. Zonder deze wachtlus landde je op
+// een leeg voorstelscherm, en dat leest als "hij vindt ze niet".
+async function clubWachtOpWedstrijd(id, ms) {
+  const eind = Date.now() + (ms || 10000);
+  while (Date.now() < eind) {
+    try { if (await dbGet(id)) return true; } catch (e) {}
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return false;
+}
+async function clubRondeNaarWedstrijd(tid, matchId) {
+  const rij = ((clubRondeSt || {}).bladen || []).find(r => r.p.tid === tid);
+  if (!rij) return;
+  const items = rij.hand.filter(h => h.ruw).map(h => ({ id: h.id, ruw: h.ruw }));
+  const zusters = rij.zusters || [];
+  const idx = Math.max(0, items.findIndex(i => i.id === matchId));
+  if (!items.length) return;
+  clubRondeSt = null; closeModal();
+  showToast('Even de ploeg openen…', 'ok');
+  if (typeof openTeamFromClub === 'function') await openTeamFromClub(tid);
+  if (!(await clubWachtOpWedstrijd(items[idx].id))) {
+    showToast('De wedstrijden van die ploeg zijn nog niet binnen. Probeer het zo meteen opnieuw.', 'err');
+    return;
+  }
+  vvRij = { items, idx, zusters, gedaan: [] };
+  if (!(await vvRijToon())) { vvRij = null; showToast('Die wedstrijd staat niet meer op dit toestel.', 'err'); }
 }
 
 // Van de kalender(s) van de bond naar exact dezelfde regels als impIcsNaarRegels aflevert.
