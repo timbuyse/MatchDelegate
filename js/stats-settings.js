@@ -1669,7 +1669,8 @@ const HANDLEIDING_PAGINAS = [
         <li>De <b>opstelling per moment</b>, met de positienummers erbij. Een naam die niet gekoppeld raakte
           staat in het rood: koppel die eerst, anders blijft zijn plaats leeg.</li>
       </ul>
-      <p>Pas als je op <b>'Overnemen'</b> tikt, wordt er iets bewaard.</p>
+      <p>Pas als je op <b>'Alles overnemen'</b> tikt, wordt er iets bewaard.</p>
+      <p class="hdl-tip">Lukt de <b>opstelling</b> niet — ze staat niet op het blad, of de app krijgt ze niet gelezen — dan kan je nog altijd <b>'Enkel de selectie overnemen'</b>. Je spelerslijst staat dan klaar met de rugnummers en de kapitein erbij, en de opstelling maak je zelf in het veldscherm. Dat scheelt nog steeds het meeste tikwerk.</p>
       <div class="sec">Wat er dan klaarstaat</div>
       <p>Een gewone selectie, een gewone opstelling en een gewoon wedstrijdplan — niet te onderscheiden van
         wat je zelf zou ingeven, en dus achteraf gewoon aan te passen. De momenten van het blad komen op de
@@ -2000,6 +2001,7 @@ const HANDLEIDING_PAGINAS = [
   {
     titel: 'Als clubbeheerder',
     img: 'handleiding/screenshots/02_ploeg_toevoegen.png',
+    img2: 'handleiding/screenshots/30_clubronde.png',
     inhoud: `
       <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Alles wat over de club gaat, staat op één scherm: <b>Clubbeheer</b>.</p>
       <p>Je raakt er langs drie wegen, en ze komen alle drie op hetzelfde scherm uit:</p>
@@ -2036,6 +2038,7 @@ const HANDLEIDING_PAGINAS = [
       </ul>
       <p class="hdl-tip">Fout doorgeschoven? Meteen na de beurt staat er <b>'Ongedaan maken'</b>, dat beide spelerslijsten exact terugzet.</p>
       <div class="sec">Clubronde — over alle ploegen heen</div>
+      {{img2}}
       <p>Alles in de app hangt normaal aan de ploeg die je open hebt. Met <b>'Clubronde'</b> werk je over je hele club tegelijk. Je krijgt per ploeg één regel, rechtstreeks uit de databank — ook van ploegen die je op dit toestel nooit opende: hoeveel wedstrijden er zijn, hoeveel er <b>niet afgesloten</b> zijn, hoeveel er <b>zonder uitslag</b> staan en hoeveel er <b>geen wedstrijdnummer</b> van de bond hebben. Met <b>'Openen'</b> spring je meteen in die ploeg.</p>
       <p>Daaronder staan drie rondes. Elke ronde toont eerst wat ze van plan is; er wordt pas iets bewaard als je bevestigt.</p>
       <p><b>'Kalenders ophalen'</b> gaat bij elke gekoppelde ploeg de kalender van de bond af en zoekt de wedstrijden die nog niet in de app staan. Je krijgt ze per ploeg te zien, elk met een <b>vinkje</b>: zo kies je per ploeg wat er mee moet en wat niet. Het vinkje naast de ploegnaam zet die hele ploeg in één tik aan of uit. Deze ronde <b>voegt alleen toe</b>: een wedstrijd die al in de app staat blijft onaangeraakt, ook als het uur bij de bond intussen veranderde. Dat werk je bij in die ploeg zelf, waar je het ziet.</p>

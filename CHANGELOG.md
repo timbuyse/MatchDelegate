@@ -9,6 +9,61 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.89.0
+
+**Twee namen die tegen elkaar aan staan.** Tim bracht een blad binnen dat de app weigerde: *"links
+onderaan op de velden sluiten twee namen aan en de app denkt dat dit één naam is."* Precies dat. PSD
+tekende **M. Van Leuve…** tot op x=85,0 en begon **M. De Jaeger** op x=85,4 — geen witruimte tussen.
+De app schat hoe breed een stuk tekst staat om te weten of het volgende stuk er nog bij hoort, en die
+schatting kan vier tienden van een punt niet zien. Er werd dus één naam van gemaakt, die rij telde een
+speler te weinig, het patroon paste op geen enkele formatie en het hele blad werd geweigerd.
+
+Een naam op het veld heeft altijd dezelfde vorm: één letter, een punt, dan de achternaam. Begint een
+volgend stukje tekst zó, dan is het een **nieuwe naam** — binnen één naam komt die vorm geen tweede
+keer voor. Dat is de hele regel, en ze raakt de breedteschatting niet aan.
+
+**Op hetzelfde blad zat een tweede fout, de andere kant op.** De kop **Wisselspelers** viel uiteen in
+"W" en "isselspelers", omdat een W breder is dan het gemiddelde waarmee gerekend werd — drie tienden
+van een punt te krap. Zonder die kop hoorden de wisselspelers bij het veld en telde elk blok zestien
+spelers. De breedte wordt nu per letter geschat: een W is nu eenmaal bijna drie keer zo breed als een i.
+
+Het blad leest nu volledig: vijftien spelers met rugnummers, kapitein en doelman, drie opstellingen van
+elf, en de wisselspelers apart. Ook de twee afgekapte namen vinden hun speler terug.
+
+**De selectie staat niet meer vast aan de opstelling.** Tim: *"als er een fout zit in de opstellingen,
+toch de selectie alleen kunnen opslaan."* Een blad zonder leesbare opstelling werd eerder helemáál
+geweigerd — ook de spelerslijst, die er wél stond. Onder de knop staat nu **'Enkel de selectie
+overnemen'**: de spelers komen binnen met hun rugnummers en de kapitein, en de wedstrijd blijft op
+*opstelling nog te maken* staan. Hetzelfde als wanneer je in de wizard op de selectiestap opslaat.
+
+---
+
+## v1.88.1
+
+**De handleiding staat weer gelijk met de app.** De beelden dateerden van 25 augustus, en net wat
+erop staat is sindsdien veranderd: het knoppenraster van het live scherm, het verslag met zijn
+invouwbare kaarten, de ploegenlijst met de merkweergave. Vijftien beelden vervangen.
+
+**Eén beeld erbij: de clubronde.** De pagina *Als clubbeheerder* beschreef die ronde wel, maar toonde
+haar niet — terwijl ze het meest nieuwe is dat een club krijgt. Nu staat ze er, met per ploeg wat
+openstaat en de drie rondes eronder.
+
+**Twee fouten in het opnameharnas, allebei stil.**
+
+- Het beeld van *Opstelling per kwart* was **byte voor byte** hetzelfde als dat van de wedstrijdinfo.
+  Sinds v1.83.0 is een kop in het verslag geen `.sec` meer maar een uitklapbare kop, dus het harnas
+  vond niets om naartoe te scrollen — en de controle slaagde, want die tekst stáát op het scherm.
+  Gemerkt aan de identieke bestandsgrootte.
+- Het beeld van het startscherm van een kijker toonde een beheerder. Het harnas meldde dat zelf
+  ("die naam staat twee keer"), maar dat was een vals alarm: de dubbelecontrole telde ook een
+  vermelding in een commentaarregel mee.
+
+Beide zijn in het harnas rechtgezet, met de reden erbij, zodat ze de volgende ronde niet terugkomen.
+De herinnering *Bevestig je e-mailadres* wordt in de opnames nu onderdrukt — die vulde een derde van
+het startscherm en is eenmalig.
+
+---
+
 ## v1.88.0
 
 **Een reeks wedstrijden in één keer afsluiten zonder uitslag.** Tim: *"ik wil als ik in een kalender

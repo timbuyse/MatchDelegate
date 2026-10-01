@@ -281,13 +281,41 @@ function psdContentItems(content, fonts, hoogte) {
 // naam, geen woord in stukken. Zonder deze voorwaarde plakten op een blad met alles op één pagina de
 // koppen van drie blokken aan elkaar tot één onleesbare regel ("Minuut 15'Minuut 30'Minuut 45'"),
 // omdat er grote sierletters tussen stonden waarvan de geschatte breedte het gat overbrugde.
+// TWEE NAMEN DIE TEGEN ELKAAR AAN STAAN (Tim, 01-10-2026, blad Sparta Petegem - Vsv Gent). Links
+// onderaan het veld zet PSD twee spelers soms zó dicht bij elkaar dat er geen witruimte tussen valt:
+// "M. Van Leuve…" eindigt op x=85,0 en "M. De Jaeger" begint op x=85,4. De breedteschatting hieronder
+// kan dat niet zien en plakte er één naam van — waarna die rij een speler te weinig telde, het patroon
+// op geen enkele formatie paste en het hele blad geweigerd werd.
+//
+// Een naam op het veld heeft altijd dezelfde vorm: één initiaal, een punt, dan de achternaam. Begint
+// een volgend stukje tekst zó, dan is het een NIEUWE naam en nooit het vervolg van de vorige — binnen
+// één naam komt die vorm geen tweede keer voor. Dat is de hele regel. Bewust NIET aan de
+// breedteschatting zelf raken: die bepaalt ook of "an Leuve" en "…" nog bij "M. V" horen, en strakker
+// zetten zou die juist uit elkaar trekken.
+function psdNieuweNaamBegint(t) { return /^[A-ZÀ-Þ]\.\s?[A-ZÀ-Þ]/.test(t || ''); }
+// Hoe breed staat deze tekst er ongeveer? Tot v1.88.2 was dit één gemiddelde van 0,55 em per teken,
+// en dat is te krap voor de brede letters. Op hetzelfde blad viel de kop "Wisselspelers" daardoor in
+// twee stukken uiteen — "W" op x=44, "isselspelers" op x=50,3, terwijl de schatting op 50,0 uitkwam.
+// Drie tienden van een punt, en de app zag de kop niet meer: zonder haar horen de wisselspelers bij
+// het veld en telde elk blok zestien spelers. Een W is nu eenmaal bijna drie keer zo breed als een i.
+function psdBreedte(t, size) {
+  let n = 0;
+  for (const c of String(t || '')) {
+    if (/[mwMW]/.test(c)) n += 0.80;
+    else if (/[A-ZÀ-Þ0-9]/.test(c)) n += 0.68;
+    else if (/[iljft.,:;'! ]/.test(c)) n += 0.30;
+    else n += 0.52;
+  }
+  return n * size;
+}
 function psdRegels(items) {
   const rij = items.slice().sort((a, b) => (Math.round(a.y * 2) - Math.round(b.y * 2)) || (a.x - b.x));
   const uit = [];
   for (const it of rij) {
     const v = uit[uit.length - 1];
     if (v && Math.abs(v.y - it.y) < 1.5 && v.font === it.font && Math.abs(v.size - it.size) < 0.6
-        && it.x <= v.x + 0.55 * v.size * v.text.length + 0.35 * v.size) {
+        && it.x <= v.x + psdBreedte(v.text, v.size) + 0.35 * v.size
+        && !psdNieuweNaamBegint(it.text)) {
       v.text += it.text;
       continue;
     }
@@ -638,7 +666,10 @@ function psdLeesVoorbereiding(paginas, matchType) {
   });
   // Op volgorde van de wedstrijd: de startopstelling eerst, daarna oplopend in de tijd.
   blokken.sort((a, b) => (a.minuut === null ? -1 : b.minuut === null ? 1 : a.minuut - b.minuut));
-  if (!blokken.length) throw new Error('We vinden op dit blad geen opstelling.');
+  // GEEN OPSTELLING IS GEEN REDEN OM HET BLAD TE WEIGEREN (Tim, 01-10-2026: "als er een fout zit in
+  // de opstellingen, toch de selectie alleen kunnen opslaan"). Hier stond een throw, en die gooide
+  // ook de spelerslijst weg — terwijl die er wél staat en op zichzelf bruikbaar is. Het voorstelscherm
+  // zegt nu dat er geen opstelling gevonden is en biedt de selectie apart aan.
   return { wedstrijd, selectie: tabel.spelers, blokken };
 }
 
@@ -991,7 +1022,14 @@ function psdVoorstelHtml() {
   lz.blokken.forEach(b => { if (b.minuut !== null && !psdMomentNaarDeel(b.minuut, duur, delen)) waar.push(`Het moment <b>${b.minuut}'</b> valt buiten deze wedstrijd (${delen} × ${duur} min) en wordt overgeslagen.`); });
   if (!duur) waar.push('Deze wedstrijd heeft geen bloklengte, dus we kunnen de momenten niet plaatsen. Enkel de selectie en de startopstelling worden overgenomen.');
 
+  if (!lz.blokken.length) waar.push('We vinden op dit blad <b>geen enkele opstelling</b> — alleen de spelerslijst. Je kan de selectie wel overnemen en de opstelling daarna zelf maken.');
+  else if (!start) waar.push('We vinden op dit blad <b>geen startopstelling</b> (wel latere momenten). Je kan de selectie overnemen en de opstelling daarna zelf maken.');
+
   const kanOvernemen = aantalGekoppeld > 0 && start && start.veldNamen.length >= Math.min(veldGroot, aantalGekoppeld);
+  // DE SELECTIE STAAT LOS VAN DE OPSTELLING (Tim, 01-10-2026). Loopt het veld mis — geen startopstelling,
+  // te weinig namen, een patroon dat nergens op past — dan is de spelerslijst daarom nog niet fout. Die
+  // overnemen scheelt het meeste tikwerk, en de opstelling maak je daarna in twee minuten zelf.
+  const kanSelectie = aantalGekoppeld > 0;
 
   return `
     ${/* De herinnering hoort ook hier, want dít is het scherm waarop je beslist om over te nemen. */ ''}
@@ -1018,15 +1056,21 @@ function psdVoorstelHtml() {
     </div>
 
     <div class="sec">Opstelling per moment</div>
-    <div class="card">${momentRijen}</div>
+    <div class="card">${momentRijen || `<p style="font-size:13px;color:var(--txt2);margin:0">Geen opstelling gevonden op dit blad.</p>`}</div>
 
     ${waar.length ? `<div class="card" style="border-left:4px solid var(--org)">
       <div style="font-weight:700;margin-bottom:6px">${icI(IC.warn)} Even nakijken</div>
       ${waar.map(w => `<p style="font-size:13px;color:var(--txt2);margin:0 0 6px">${w}</p>`).join('')}
     </div>` : ''}
 
-    <button class="btn btn-green" ${kanOvernemen ? 'onclick="psdOvernemen()"' : 'disabled style="opacity:.5"'}>${icI(IC.check)} Overnemen</button>
-    <button class="btn btn-pale" style="margin-top:8px" onclick="psdAnderBestand()">Ander bestand kiezen</button>
+    <button class="btn btn-green" ${kanOvernemen ? 'onclick="psdOvernemen()"' : 'disabled style="opacity:.5"'}>${icI(IC.check)} Alles overnemen</button>
+    ${/* Twee keer een style-attribuut zou betekenen dat het tweede genegeerd wordt (het eerste wint),
+         en dan staat een uitgeschakelde knop er gewoon zwart bij. Daarom één style. */ ''}
+    <button class="btn ${kanOvernemen ? 'btn-pale' : 'btn-green'}" style="margin-top:8px${kanSelectie ? '' : ';opacity:.5'}" ${kanSelectie ? 'onclick="psdOvernemen(false, true)"' : 'disabled'}>${icI(IC.players)} Enkel de selectie overnemen</button>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">${kanOvernemen
+      ? 'Met de tweede knop neem je alleen de spelerslijst over; de opstelling maak je dan zelf.'
+      : 'De opstelling kan niet overgenomen worden, de spelerslijst wel — die maakt het meeste tikwerk goed.'}</p>
+    <button class="btn btn-pale" style="margin-top:12px" onclick="psdAnderBestand()">Ander bestand kiezen</button>
     <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:center">Na het overnemen kan je alles gewoon aanpassen: de selectie, de opstelling en elk moment van het plan.</p>`;
 }
 
@@ -1039,14 +1083,17 @@ function psdVoorstelHtml() {
 // afgeleid uit de opstellingen die het blad geeft.
 // `bevestigd` komt van het venster hieronder: er stond een plaats open en je hebt gezegd dat dat mag.
 // Opnieuw vanaf het begin binnenkomen kan zonder gevolgen — tot finishWizard wordt er niets bewaard.
-async function psdOvernemen(bevestigd) {
+// `enkelSelectie`: alleen de spelerslijst, zonder opstelling en zonder plan. Daarmee blijft dit blad
+// bruikbaar wanneer het veld niet te lezen valt — de wedstrijd draagt dan `lineupPending`, precies
+// zoals wanneer je in de wizard op de selectiestap opslaat (zie saveSelectionOnly).
+async function psdOvernemen(bevestigd, enkelSelectie) {
   if (!psdSt || !match) return;
   const lz = psdSt.lezing;
   const m0 = match;
   const duur = m0.quarterDuration || 0;
   const delen = plannedPartsCount(m0);
   const start = lz.blokken.find(b => b.minuut === null);
-  if (!start) { showToast('Geen startopstelling op het blad.', 'err'); return; }
+  if (!start && !enkelSelectie) { showToast('Geen startopstelling op het blad.', 'err'); return; }
 
   // Van een naam op het veld naar de rooster-id waaraan hij gekoppeld is.
   const rosterIdVan = tekst => {
@@ -1059,9 +1106,11 @@ async function psdOvernemen(bevestigd) {
   // een melding zonder uitweg, want in dit scherm staat geen veld. Nu zeggen we wie het is en wat je
   // eraan kan doen, en wie toch doorgaat krijgt de opstelling mét dat gat (dat mag).
   const veldGroot = (MATCH_TYPES[m0.matchType] || {}).field || 8;
-  const gekoppeldOpVeld = new Set(start.veldNamen.map(v => rosterIdVan(v.tekst)).filter(Boolean)).size;
-  if (!gekoppeldOpVeld) { showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
-  if (gekoppeldOpVeld < veldGroot && !bevestigd) {
+  const gekoppeldOpVeld = enkelSelectie ? 0 : new Set(start.veldNamen.map(v => rosterIdVan(v.tekst)).filter(Boolean)).size;
+  if (enkelSelectie) {
+    if (!lz.selectie.some((s, i) => psdSt.koppel[i])) { showToast('Er is nog geen enkele naam gekoppeld.', 'err'); return; }
+  } else if (!gekoppeldOpVeld) { showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
+  if (!enkelSelectie && gekoppeldOpVeld < veldGroot && !bevestigd) {
     const missend = start.veldNamen.filter(v => !rosterIdVan(v.tekst)).map(v => {
       const i = psdVeldNaamNaarSpeler(v.tekst, lz.selectie);
       return i >= 0 ? lz.selectie[i].naam : v.tekst;
@@ -1107,22 +1156,29 @@ async function psdOvernemen(bevestigd) {
     if (s.nummer) p.number = s.nummer;
   });
   // 2. De startopstelling: wie op het veld staat wordt 'basis' en krijgt zijn roosterplek.
-  start.veldNamen.forEach(v => {
-    const p = poolOp(rosterIdVan(v.tekst));
-    if (p) { p.sel = 'basis'; p.slot = v.code; }
-  });
-  if (start.formatieIndex !== null) wiz.formationIndex = start.formatieIndex;
-  // 3. De kapitein, als het blad er een aanduidt.
+  if (!enkelSelectie) {
+    start.veldNamen.forEach(v => {
+      const p = poolOp(rosterIdVan(v.tekst));
+      if (p) { p.sel = 'basis'; p.slot = v.code; }
+    });
+    if (start.formatieIndex !== null) wiz.formationIndex = start.formatieIndex;
+  }
+  // 3. De kapitein, als het blad er een aanduidt. Die hoort bij de SELECTIE, dus ook zonder opstelling.
   const kap = lz.selectie.findIndex(s => s.kapitein);
   if (kap >= 0 && psdSt.koppel[kap]) { const p = poolOp(psdSt.koppel[kap]); if (p) wiz.captainPid = p.pid; }
 
   const opVeld = wiz.pool.filter(p => p.sel === 'basis' && p.slot).length;
-  if (!opVeld) { wiz = null; showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
+  if (!enkelSelectie && !opVeld) { wiz = null; showToast('Geen enkele speler van de opstelling kon gekoppeld worden.', 'err'); return; }
+  if (enkelSelectie && !wiz.pool.some(p => p.sel === 'bank')) { wiz = null; showToast('Er is niemand om in de selectie te zetten.', 'err'); return; }
 
   // formatieBevestigd = true: het blad IS de opstelling, dus een venster dat vraagt of we het echt
   // zo bedoelen zou hier alleen maar in de weg staan. veldMagOnvolledig: enkel wanneer er hierboven
   // uitdrukkelijk bevestigd is dat er een plaats openblijft.
-  const m = await finishWizard(false, false, true, opVeld < veldGroot);
+  // Enkel de selectie: dezelfde weg als "Opslaan" op de selectiestap van de wizard — niemand krijgt
+  // een plaats en de wedstrijd draagt `lineupPending` tot je de opstelling maakt.
+  const m = enkelSelectie
+    ? await finishWizard(false, true)
+    : await finishWizard(false, false, true, opVeld < veldGroot);
   if (!m) return;   // finishWizard weigerde en heeft zelf al gemeld waarom
 
   // 4. De volgende momenten als plan. De speler-id's bestaan nu pas, dus we zoeken ze hier op.
@@ -1137,7 +1193,7 @@ async function psdOvernemen(bevestigd) {
   let aantal = 0, overgeslagen = 0;
   _planLineupDraft = {};
   _planNaDraft = {};
-  for (const b of lz.blokken) {
+  for (const b of (enkelSelectie ? [] : lz.blokken)) {
     if (b.minuut === null) continue;
     const mm = psdMomentNaarDeel(b.minuut, duur, delen);
     if (!mm) { overgeslagen++; continue; }
@@ -1154,5 +1210,8 @@ async function psdOvernemen(bevestigd) {
 
   psdSt = null;
   await go('prep', m.id);
-  showToast(`Voorbereiding ingelezen: ${opVeld} in de basis${aantal ? `, ${aantal} moment${aantal === 1 ? '' : 'en'} in het plan` : ''}${overgeslagen ? ` (${overgeslagen} overgeslagen)` : ''}.`);
+  const nSel = (m.players || []).length;
+  showToast(enkelSelectie
+    ? `Selectie ingelezen: ${nSel} speler${nSel === 1 ? '' : 's'}. De opstelling maak je zelf.`
+    : `Voorbereiding ingelezen: ${opVeld} in de basis${aantal ? `, ${aantal} moment${aantal === 1 ? '' : 'en'} in het plan` : ''}${overgeslagen ? ` (${overgeslagen} overgeslagen)` : ''}.`);
 }
