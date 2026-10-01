@@ -254,7 +254,13 @@ function vvVerantwoordelijken(lz) { return staffJoin((lz.onzeStaf || []).filter(
 function vvZelfde(a, b) { return typeof psdZelfdePersoon === 'function' ? psdZelfdePersoon(a, b) : String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
 
 // De kern van de eigen ploeg van deze wedstrijd.
+// DE CLUBRONDE WERKT MET EEN PLOEG DIE JE NIET OPEN HEBT (v1.85.0). Dan staat haar kern niet in de
+// lokale ploegenlijst, en zou dit een lege lijst geven — waarna geen enkele naam gekoppeld raakt en
+// de ronde alles als "jouw oog nodig" zou bestempelen. De ronde zet daarom de kern die ze net uit de
+// databank haalde hier even voor. Buiten die ronde is dit altijd null.
+let _vvRosterOverride = null;
 function vvRoster() {
+  if (_vvRosterOverride) return _vvRosterOverride;
   const m = match;
   const team = kernById(m.teamId) || getTeamsV2().find(t => t.name === m.teamName);
   return (team && team.players) || [];

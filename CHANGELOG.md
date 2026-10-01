@@ -9,6 +9,44 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.85.0
+
+**De clubronde, tweede helft: de kalenders en de wedstrijdbladen.** v1.84.0 bracht het overzicht en de
+wedstrijdnummers; dit zijn de twee rondes die écht werk uit handen nemen. Allebei tonen ze eerst wat
+ze van plan zijn — er wordt niets bewaard vóór je bevestigt.
+
+**Kalenders ophalen.** Gaat bij elke gekoppelde ploeg de kalender van de bond af en voegt de
+wedstrijden toe die nog niet in de app staan. Je ziet per ploeg hoeveel er nieuw zijn en welke.
+
+Deze ronde **voegt alleen toe**, en dat is een bewuste grens. De gewone import kan ook een bestaande
+wedstrijd bijwerken — datum, uur, thuis of uit — maar dat is precies de handeling waar je per
+wedstrijd naar wil kijken, en waar een vergissing iets overschrijft dat iemand zelf ingaf. Over
+dertien ploegen tegelijk is dat te veel macht voor één tik. Wat deze ronde doet kán niets
+overschrijven: een wedstrijd die nog niet bestaat, bestaat nog niet. Wat je in een ploeg bewust liet
+liggen (de uitgevinkte wedstrijden van v1.80.0) blijft ook hier liggen.
+
+**Wedstrijdbladen ophalen.** Kijkt bij de bond na wat er op het blad staat van de gespeelde
+wedstrijden die nog zonder uitslag in de app staan, over alle ploegen heen. Daarna twee lijsten, met
+precies dezelfde splitsing als "Bij de bond nakijken" per ploeg:
+
+- **In één keer** — élke naam van het blad komt eenduidig terug in de kern van díe ploeg. Er valt
+  niets te kiezen, dus die wedstrijden mogen samen mee: uitslag, wedstrijdgegevens, selectie, kaarten
+  en de speelminuten.
+- **Jouw oog nodig** — met de reden erbij, en een knop om die ploeg te openen. Namen koppelen blijft
+  mensenwerk zodra er twijfel is.
+
+Een **venster in de tijd**, want de bond wordt per wedstrijd apart bevraagd: tot twee maanden terug,
+en maximaal veertig wedstrijden per ronde. Zijn het er meer, dan staat dat onderaan.
+
+**Wat er niet verwaterd is.** De drie regels van de clubronde blijven overeind: er wordt uitsluitend
+teruggeschreven wat deze ronde zelf net uit de databank haalde (nooit een kopie van dit toestel), er
+wordt enkel aangeraakt wat de handeling belooft, en elke wedstrijd wordt vlak vóór het schrijven nog
+eens aan dezelfde grens gehouden. Notities gaan ook hier apart naar het beheerder-only pad, en de
+gastspelers uit een zusterploeg worden gezocht in de kernen die de ronde zelf ophaalde — niet in die
+van de ploeg die je toevallig open hebt.
+
+---
+
 ## v1.84.0
 
 **De clubronde: werken over alle ploegen heen.** Tim, 28-09 en 01-10-2026: *"ik zou als clubbeheerder
