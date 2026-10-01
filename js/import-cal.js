@@ -1381,12 +1381,236 @@ function rbfaClubVan(team) { return String((team && team.rbfaClubId) || '').trim
 
 // De kalenders van álle gekoppelde bondsploegen. Eén na één en niet tegelijk: het zijn er twee of
 // drie, en zo weet je bij een fout welke ploeg ze gaf.
+// ===================================================================================================
+// DE CLUBRONDE — over alle ploegen van de club heen (Tim, 28-09 en 01-10-2026)
+// ===================================================================================================
+// "Ik zou als clubbeheerder overkoepelend overheen alle ploegen willen kunnen werken: gezamenlijk
+// kalender inlezen, gezamenlijk wedstrijdnummer bijplaatsen, openstaande wedstrijden bijwerken."
+//
+// Alles in de app hangt aan de ploeg die je OPEN hebt staan: teamRef schrijft naar de actieve ploeg,
+// dbAll geeft wat er op dit toestel staat. Clubbreed LEZEN bestond al (de clubexport, de cijfers per
+// ploeg, de back-up) en de databankregels laten een clubbeheerder ook schrijven bij elke ploeg van
+// zijn club — dat gebeurt al bij het koppelen aan de bond. Er was alleen geen scherm voor.
+//
+// DRIE REGELS DIE HIER NIET ONDERHANDELBAAR ZIJN:
+//  1. Schrijf nooit een kopie van DIT toestel terug naar een andere ploeg. We schrijven uitsluitend
+//     wedstrijden die deze ronde zelf net uit de databank haalde. Een achterlopende kopie die over
+//     een gespeelde wedstrijd heen schrijft, heeft er hier al twee leeggemaakt.
+//  2. Raak alleen aan wat de ronde belooft. Het bijplaatsen van een wedstrijdnummer schrijft één
+//     veld, niets anders — ook geen datum, uur of tegenstander.
+//  3. Nooit aan een wedstrijd die bezig is of al afgesloten is, tenzij de handeling daar uitdrukkelijk
+//     over gaat.
+let clubRondeSt = null;   // { clubId, clubNaam, fase, ploegen, bezig, melding, uitkomst }
+
+// Per ploeg van de club: de naam, de kern, de koppeling met de bond en alle wedstrijden, rechtstreeks
+// uit de databank. Dezelfde weg en dezelfde leesrechten als de clubexport.
+async function clubRondeOphalen(clubId, meld) {
+  const clubTeams = (await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {};
+  const ids = Object.keys(clubTeams);
+  const uit = [], mislukt = [];
+  for (let i = 0; i < ids.length; i++) {
+    const tid = ids[i];
+    if (meld) meld(`Ploeg ${i + 1} van ${ids.length} ophalen…`);
+    try {
+      const t = (await fbOnce(fbdb.ref('teams/' + tid))).val() || {};
+      if ((t.info || {}).archived) continue;              // gearchiveerde ploegen doen niet mee
+      const kernen = normalizeRosterArray(t.roster);
+      const kern = kernen[0] || null;
+      const naam = (((t.info || {}).name) || ((kern || {}).name) || '').trim();
+      if (!naam) continue;
+      uit.push({
+        tid, naam, kern, kernen,
+        bondsPloegen: (kern && Array.isArray(kern.rbfaTeams)) ? kern.rbfaTeams : [],
+        wedstrijden: Object.values(t.matches || {}).filter(Boolean).map(cloudWedstrijdVeilig),
+      });
+    } catch (e) { mislukt.push(tid); }
+  }
+  uit.sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+  return { ploegen: uit, mislukt };
+}
+// Wat staat er open bij deze ploeg? Dezelfde maatstaven als elders in de app, zodat de cijfers hier
+// overeenkomen met wat je in die ploeg zelf ziet.
+function clubRondeTelling(p) {
+  const ws = p.wedstrijden.filter(m => !matchCancelled(m) && !m.tournamentId);
+  const nietAf = ws.filter(matchNietAfgesloten);
+  const zonderUitslag = ws.filter(m => m.status === 'done' && geenUitslag(m));
+  // Zonder bondsnummer heeft "Wedstrijdinfo ophalen" niets om mee te zoeken. Enkel wedstrijden die
+  // nog iets kunnen opleveren tellen mee: een afgesloten wedstrijd mét uitslag heeft het niet nodig.
+  const zonderNr = ws.filter(m => !m.rbfaMatchId && (matchNietAfgesloten(m) || m.status === 'planned' || (m.status === 'done' && geenUitslag(m))));
+  return { totaal: ws.length, nietAf: nietAf.length, zonderUitslag: zonderUitslag.length, zonderNr: zonderNr.length, zonderNrLijst: zonderNr };
+}
+
+// ---- Wedstrijdnummers bijplaatsen, over de hele club ----
+// De smalste handeling die er is: enkel `rbfaMatchId` op een wedstrijd die er nog geen heeft. Geen
+// datum, geen uur, geen tegenstander — die blijven zoals jij ze hebt. Daarna weet "Wedstrijdinfo
+// ophalen" meteen welke wedstrijd het is, bij elke ploeg van de club tegelijk.
+//
+// Koppelen gebeurt met dezelfde maatstaf als de gewone kalenderimport (zie impMarkeerDubbels): op de
+// DAG plus de tegenstander, en bij een andere schrijfwijze op de clubnaam erin. Bewust géén lossere
+// regel: een nummer op de verkeerde wedstrijd zetten is erger dan er een niet zetten, want daarna
+// haalt de app het blad van een andere wedstrijd op.
+function clubNrVoorstellen(p, regels) {
+  const uit = [];
+  const kandidaten = p.wedstrijden.filter(m => !m.rbfaMatchId && !matchCancelled(m) && !m.tournamentId);
+  if (!kandidaten.length) return uit;
+  const alNr = new Set(p.wedstrijden.map(m => String(m.rbfaMatchId || '')).filter(Boolean));
+  const gebruikt = new Set();
+  regels.forEach(r => {
+    if (!r.rbfaMatchId || alNr.has(String(r.rbfaMatchId))) return;   // dat nummer staat al ergens
+    const label = r.rbfaLabel || '';
+    const zelfdeDag = kandidaten.filter(m => (m.date || '') === r.datum && !gebruikt.has(m.id) && impZelfdeSubteam(m.subteam, label));
+    if (!zelfdeDag.length) return;
+    const raak = zelfdeDag.find(m => impNorm(m.opponent) === impNorm(r.tegenstander))
+      || zelfdeDag.find(m => impZelfdeClub(m.opponent, r.tegenstander));
+    if (!raak) return;
+    gebruikt.add(raak.id);
+    uit.push({ matchId: raak.id, nr: String(r.rbfaMatchId), datum: raak.date || r.datum,
+      tegen: raak.opponent || r.tegenstander,
+      andereNaam: impNorm(raak.opponent) !== impNorm(r.tegenstander) ? r.tegenstander : '' });
+  });
+  return uit;
+}
+// Eén veld schrijven bij een ploeg die je NIET open hebt staan. teamRef schrijft altijd naar de
+// actieve ploeg, dus dat kan hier niet; het pad staat er voluit. De databankregels laten dit toe voor
+// de clubbeheerder van die club (zie teams/$teamId/.write).
+async function clubNrSchrijven(tid, matchId, nr) {
+  await fbdb.ref('teams/' + tid + '/matches/' + matchId + '/rbfaMatchId').set(String(nr));
+}
+
 async function rbfaHaalKalenders(ploegen) {
   const uit = [];
   for (const p of ploegen) {
     uit.push({ id: p.id, label: p.label, wedstrijden: await rbfaKalender(p.id) });
   }
   return uit;
+}
+
+// ---- Het scherm van de clubronde ----
+function clubRondeSluit() { clubRondeSt = null; closeModal(); }
+async function clubRondeOpen(clubId) {
+  if (!fbdb || !(isOwner || (myClubs || {})[clubId])) return;
+  clubRondeSt = { clubId, clubNaam: '', fase: 'laden', ploegen: [], mislukt: [], bezig: false };
+  clubRondeRender();
+  try { clubRondeSt.clubNaam = (((await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val()) || '').trim(); } catch (e) {}
+  const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
+  try {
+    const { ploegen, mislukt } = await clubRondeOphalen(clubId, meld);
+    if (!clubRondeSt) return;                       // venster intussen gesloten
+    clubRondeSt.ploegen = ploegen; clubRondeSt.mislukt = mislukt; clubRondeSt.fase = 'overzicht';
+  } catch (e) {
+    if (!clubRondeSt) return;
+    clubRondeSt.fase = 'fout';
+    clubRondeSt.fout = (typeof clubFoutTekst === 'function') ? clubFoutTekst(e) : 'Ophalen mislukt.';
+  }
+  clubRondeRender();
+}
+// De kalenders van de bond ophalen en per ploeg voorstellen welke wedstrijd welk nummer krijgt.
+// Eerst tonen, dan pas schrijven — zelfde lijn als overal: niets gebeurt vóór je bevestigt.
+async function clubRondeNummers() {
+  const st = clubRondeSt; if (!st || st.bezig) return;
+  st.bezig = true; st.fase = 'nrbezig'; clubRondeRender();
+  const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
+  const perPloeg = [];
+  const metKoppeling = st.ploegen.filter(p => p.bondsPloegen.length);
+  for (let i = 0; i < metKoppeling.length; i++) {
+    const p = metKoppeling[i];
+    if (!clubRondeSt) return;
+    meld(`Kalender van ${p.naam} ophalen… (${i + 1}/${metKoppeling.length})`);
+    try {
+      const kal = await rbfaHaalKalenders(p.bondsPloegen.map(b => ({ id: b.id, label: b.naam || b.label || '' })));
+      const { regels } = rbfaNaarRegels(kal);
+      perPloeg.push({ p, voorstellen: clubNrVoorstellen(p, regels) });
+    } catch (e) { perPloeg.push({ p, fout: (e && e.message) || 'kalender niet opgehaald' }); }
+  }
+  if (!clubRondeSt) return;
+  st.bezig = false; st.fase = 'nrvoorstel'; st.nummers = perPloeg;
+  clubRondeRender();
+}
+async function clubRondeNummersDoen() {
+  const st = clubRondeSt; if (!st || st.bezig || !st.nummers) return;
+  st.bezig = true; st.fase = 'nrbezig'; clubRondeRender();
+  const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
+  let gelukt = 0, mis = 0;
+  for (const rij of st.nummers) {
+    for (const v of (rij.voorstellen || [])) {
+      if (!clubRondeSt) return;
+      meld(`${rij.p.naam}: ${v.tegen}…`);
+      try { await clubNrSchrijven(rij.p.tid, v.matchId, v.nr); gelukt++; }
+      catch (e) { mis++; }
+    }
+    // De zojuist geschreven nummers ook in onze eigen kopie, zodat het overzicht erna klopt.
+    (rij.voorstellen || []).forEach(v => {
+      const m = rij.p.wedstrijden.find(x => x.id === v.matchId);
+      if (m) m.rbfaMatchId = v.nr;
+    });
+  }
+  if (!clubRondeSt) return;
+  st.bezig = false; st.fase = 'overzicht'; st.nummers = null;
+  clubRondeRender();
+  showToast(mis ? `${gelukt} nummer(s) bijgeplaatst, ${mis} mislukt.` : `${gelukt} ${gelukt === 1 ? 'wedstrijdnummer' : 'wedstrijdnummers'} bijgeplaatst.`, mis ? 'err' : 'ok');
+}
+function clubRondeRender() {
+  const st = clubRondeSt; if (!st) return;
+  const kop = `<h3>${icI(IC.link)} Clubronde${st.clubNaam ? ` · ${esc(st.clubNaam)}` : ''}</h3>`;
+  if (st.fase === 'laden' || st.bezig) {
+    openModal(`${kop}
+      <p id="cr-melding" style="font-size:13px;color:var(--txt2);text-align:left">Gegevens van alle ploegen ophalen…</p>
+      <button class="btn btn-gray" style="margin-top:10px" onclick="clubRondeSluit()">Annuleren</button>`);
+    return;
+  }
+  if (st.fase === 'fout') {
+    openModal(`${kop}<p style="font-size:13px;color:var(--rd);text-align:left">${esc(st.fout || 'Ophalen mislukt.')}</p>
+      <button class="btn btn-gray" style="margin-top:10px" onclick="clubRondeSluit()">Sluiten</button>`);
+    return;
+  }
+  if (st.fase === 'nrvoorstel') {
+    const totaal = (st.nummers || []).reduce((n, r) => n + (r.voorstellen || []).length, 0);
+    const rijen = (st.nummers || []).filter(r => (r.voorstellen || []).length || r.fout).map(r => `
+      <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${r.fout ? 'var(--rd)' : 'var(--grn)'}">
+        <div style="font-weight:700">${esc(r.p.naam)}</div>
+        ${r.fout ? `<div style="font-size:13px;color:var(--rd)">${esc(r.fout)}</div>`
+          : `<div style="font-size:13px;color:var(--txt2)">${r.voorstellen.length} ${r.voorstellen.length === 1 ? 'wedstrijd' : 'wedstrijden'}</div>
+             ${r.voorstellen.map(v => `<div style="font-size:12px;color:var(--txt2);padding:2px 0">${esc((v.datum || '').split('-').reverse().slice(0, 2).join('/'))} · ${esc(v.tegen)}${v.andereNaam ? ` <span style="color:var(--org2)">(bij de bond: ${esc(v.andereNaam)})</span>` : ''}</div>`).join('')}`}
+      </div>`).join('');
+    openModal(`${kop}
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">${totaal
+        ? `Bij <b>${totaal}</b> ${totaal === 1 ? 'wedstrijd' : 'wedstrijden'} kan het wedstrijdnummer van de bond erbij. Er wordt <b>niets anders</b> aangeraakt — datum, uur en tegenstander blijven zoals ze zijn.`
+        : 'Er is geen enkele wedstrijd gevonden waar een nummer bij kan. Alles heeft er al een, of de kalender van de bond vindt geen overeenkomst.'}</p>
+      ${rijen}
+      ${totaal ? `<button class="btn btn-green" onclick="clubRondeNummersDoen()">${icI(IC.check)} Ja, ${totaal === 1 ? 'dat nummer' : `die ${totaal} nummers`} bijplaatsen</button>` : ''}
+      <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug</button>`);
+    return;
+  }
+  // ---- het overzicht ----
+  const rijen = st.ploegen.map(p => {
+    const t = clubRondeTelling(p);
+    const stukjes = [];
+    if (t.nietAf) stukjes.push(`<b>${t.nietAf}</b> niet afgesloten`);
+    if (t.zonderUitslag) stukjes.push(`<b>${t.zonderUitslag}</b> zonder uitslag`);
+    if (t.zonderNr) stukjes.push(`<b>${t.zonderNr}</b> zonder wedstrijdnummer`);
+    if (!p.bondsPloegen.length) stukjes.push('<span style="color:var(--org2)">niet gekoppeld aan de bond</span>');
+    return `<div class="stat-row" style="align-items:flex-start;padding:7px 0">
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-weight:600">${esc(p.naam)}</span>
+        <span style="display:block;font-size:12px;color:var(--txt2)">${t.totaal} ${t.totaal === 1 ? 'wedstrijd' : 'wedstrijden'}${stukjes.length ? ' · ' + stukjes.join(' · ') : ' · alles bij'}</span>
+      </span>
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarPloeg('${p.tid}')">Openen</button>
+    </div>`;
+  }).join('');
+  const nrTotaal = st.ploegen.reduce((n, p) => n + clubRondeTelling(p).zonderNr, 0);
+  const metKoppeling = st.ploegen.filter(p => p.bondsPloegen.length).length;
+  openModal(`${kop}
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Alle ploegen van de club, rechtstreeks uit de databank — ook die je op dit toestel nooit opende.</p>
+    <div class="card" style="text-align:left">${rijen || '<p style="font-size:14px;color:var(--txt2);margin:0">Geen ploegen gevonden.</p>'}</div>
+    ${st.mislukt.length ? `<p style="font-size:12px;color:var(--rd);text-align:left;margin-top:8px">${icI(IC.warn)} ${st.mislukt.length} ${st.mislukt.length === 1 ? 'ploeg is' : 'ploegen zijn'} niet opgehaald.</p>` : ''}
+    ${(nrTotaal && metKoppeling) ? `<button class="btn btn-green" style="margin-top:12px" onclick="clubRondeNummers()">${icI(IC.link)} Wedstrijdnummers bijplaatsen (${nrTotaal})</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Haalt de kalender van de bond op voor elke gekoppelde ploeg en zet enkel het <b>wedstrijdnummer</b> bij de wedstrijden die er nog geen hebben. Je ziet eerst welke.</p>` : ''}
+    <button class="btn btn-gray" style="margin-top:10px" onclick="clubRondeSluit()">Sluiten</button>`);
+}
+function clubRondeRenderOverzicht() { if (clubRondeSt) { clubRondeSt.fase = 'overzicht'; clubRondeSt.nummers = null; clubRondeRender(); } }
+async function clubRondeNaarPloeg(tid) {
+  clubRondeSt = null; closeModal();
+  if (typeof openTeamFromClub === 'function') await openTeamFromClub(tid);
 }
 
 // Van de kalender(s) van de bond naar exact dezelfde regels als impIcsNaarRegels aflevert.

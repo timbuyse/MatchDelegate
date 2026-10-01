@@ -2033,6 +2033,10 @@ const HANDLEIDING_PAGINAS = [
         <li>Wie <b>stopt</b>, gaat niet mee: die haal je daarna uit de spelerslijst bij <b>Ploeg</b> — en ook dat kan je daar ongedaan maken.</li>
       </ul>
       <p class="hdl-tip">Fout doorgeschoven? Meteen na de beurt staat er <b>'Ongedaan maken'</b>, dat beide spelerslijsten exact terugzet.</p>
+      <div class="sec">Clubronde — over alle ploegen heen</div>
+      <p>Alles in de app hangt normaal aan de ploeg die je open hebt. Met <b>'Clubronde'</b> werk je over je hele club tegelijk. Je krijgt per ploeg één regel, rechtstreeks uit de databank — ook van ploegen die je op dit toestel nooit opende: hoeveel wedstrijden er zijn, hoeveel er <b>niet afgesloten</b> zijn, hoeveel er <b>zonder uitslag</b> staan en hoeveel er <b>geen wedstrijdnummer</b> van de bond hebben. Met <b>'Openen'</b> spring je meteen in die ploeg.</p>
+      <p>Daaronder staat <b>'Wedstrijdnummers bijplaatsen'</b>. De app haalt de kalender van de bond op voor elke gekoppelde ploeg en zet het <b>wedstrijdnummer</b> bij de wedstrijden die er nog geen hebben. Je ziet eerst per ploeg welke wedstrijd welk nummer krijgt; pas daarna wordt er iets bewaard. Datum, uur en tegenstander blijven staan zoals jij ze hebt — er gaat enkel een nummer bij.</p>
+      <p class="hdl-tip">Dat nummer is wat <b>'Wedstrijdinfo ophalen'</b> nodig heeft om het wedstrijdblad te vinden. Eén ronde en je ploegbeheerders hoeven nergens meer een link te gaan zoeken. Een wedstrijd die de app niet met zekerheid herkent — andere dag, andere tegenstander — krijgt niets: een nummer op de verkeerde wedstrijd is erger dan geen nummer.</p>
       <div class="sec">Cijfers per ploeg</div>
       <p>Eén regel per ploeg van je club, voor het lopende seizoen: hoeveel wedstrijden gespeeld, winst-gelijk-verlies, doelpunten voor en tegen, en de <b>gemiddelde speeltijd</b> van een speler in een wedstrijd waarin hij meedeed. Onderaan staat de club samen. Handig om in één blik te zien waar de speeltijd scheef zit; tornooien tellen niet mee.</p>
       <div class="sec">Clubexport (Excel)</div>

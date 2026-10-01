@@ -9,6 +9,42 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.84.0
+
+**De clubronde: werken over alle ploegen heen.** Tim, 28-09 en 01-10-2026: *"ik zou als clubbeheerder
+overkoepelend overheen alle ploegen willen kunnen werken — gezamenlijk kalender inlezen, gezamenlijk
+wedstrijdnummer bijplaatsen, openstaande wedstrijden bijwerken."* Alles in de app hing aan de ploeg
+die je open hebt staan, dus voor dertien ploegen was alles dertien keer wisselen.
+
+In Clubbeheer staat nu **'Clubronde — wat staat er open'**. Dit is de eerste helft; de kalenders en de
+wedstrijdbladen volgen.
+
+**Het overzicht.** Per ploeg van de club één regel, rechtstreeks uit de databank — ook van ploegen
+die je op dit toestel nooit opende: hoeveel wedstrijden, hoeveel **niet afgesloten**, hoeveel
+**zonder uitslag**, hoeveel **zonder wedstrijdnummer**, en of de ploeg wel aan de bond gekoppeld is.
+Naast elke regel staat **Openen**, zodat je meteen in die ploeg zit.
+
+**Wedstrijdnummers bijplaatsen, voor de hele club in één keer.** De app haalt de kalender van de bond
+op voor elke gekoppelde ploeg en legt ze naast je wedstrijden. Je ziet eerst per ploeg wélke
+wedstrijd welk nummer krijgt — met de naam zoals de bond hem schrijft erbij wanneer die afwijkt — en
+pas daarna wordt er geschreven. Er gaat **één veld** naar de databank: het wedstrijdnummer. Datum,
+uur en tegenstander blijven exact zoals jij ze hebt.
+
+Daarna weet *Wedstrijdinfo ophalen* bij elke ploeg van de club meteen welke wedstrijd het is, zonder
+dat iemand nog een link moet gaan zoeken.
+
+Drie regels waar deze ronde zich aan houdt: er wordt uitsluitend teruggeschreven wat ze zelf net uit
+de databank haalde (nooit een kopie van dit toestel — dat patroon heeft hier al twee wedstrijden
+leeggemaakt), er wordt alleen aangeraakt wat de handeling belooft, en het koppelen gebeurt met
+dezelfde maatstaf als de gewone kalenderimport: op de dag plus de tegenstander. Een nummer op de
+verkeerde wedstrijd zetten is erger dan er geen zetten, want daarna haalt de app het blad van een
+andere wedstrijd op.
+
+Aan de databankregels verandert er niets: een clubbeheerder mocht al schrijven bij elke ploeg van
+zijn club.
+
+---
+
 ## v1.83.0
 
 **Een notitie per kwart.** Tim, 01-10-2026: *"ik wil het notitieveld opdelen in een algemeen stuk en

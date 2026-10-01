@@ -165,6 +165,10 @@ async function loadClubBeheerView() {
       <div style="display:grid;gap:8px;margin-bottom:16px">
         <button class="btn btn-green" style="margin:0" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
         <button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
+        ${/* De clubronde: werken over alle ploegen heen in plaats van ploeg per ploeg (v1.84.0).
+              Staat in import-cal.js, dat ná dit bestand laadt — de aanroep gebeurt pas bij het
+              aantikken, dus dat mag (zie CLAUDE.md). */''}
+        <button class="btn btn-pale" style="margin:0" onclick="clubRondeOpen('${clubId}')">${icI(IC.clipboard)} Clubronde — wat staat er open</button>
       </div>
       <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
       <div class="card">
