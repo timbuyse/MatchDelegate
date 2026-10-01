@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.90.0
+
+**Een kaart in een wedstrijdverslag staat er nu altijd.** Tim ontdekte bij een gesprek over iets
+anders dat een kijker in de tijdlijn van een verslag **geen enkele kaart** te zien kreeg — ook niet
+"23' gele kaart · Arthur G.". Dat was geen fout maar zijn eigen keuze van 25-08-2026: het oogje bij
+*Kaarten* in de statistieken verborg de kaarten overal, want anders had dat oogje weinig zin.
+
+Bij het nalezen hield die keuze geen stand. Het oogje hoort bij de **ranglijst over een seizoen** —
+wie er dit jaar de meeste kaarten pakte, een oordeel over een kind dat je mag willen afschermen. Wat
+er in **één wedstrijd** gebeurde is iets anders: dat is een feit over die wedstrijd, net als een
+doelpunt of een wissel.
+
+Het verbergen was bovendien maar half. Een rode kaart bleef zichtbaar in *met een man minder* bij de
+speelminuten en in het wegvallen van die speler uit de opstelling — alleen stond er nergens meer wát
+er gebeurd was.
+
+Het oogje blijft en werkt nog precies zoals je het kent op de **sectie Kaarten in het
+seizoensoverzicht**, en ook op het tornooiverslag. Wat verandert: de tijdlijn en de
+wedstrijdstatistieken van een wedstrijdverslag tonen de kaarten voortaan aan iedereen.
+
+Aan de PDF verandert er in de praktijk niets: sinds 01-09-2026 kan een kijker daar sowieso geen meer
+maken, dus het filter dat daar stond was al dode code.
+
+---
+
 ## v1.89.0
 
 **Twee namen die tegen elkaar aan staan.** Tim bracht een blad binnen dat de app weigerde: *"links

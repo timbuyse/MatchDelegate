@@ -238,17 +238,18 @@ function renderDetail() {
         [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
         [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
-        // De kaartenregels volgen het oogje 'cards' (Tims keuze, 25-08-2026): stond dat op
-        // onzichtbaar, dan verdween het blok op de statistiekenpagina maar bleven de kaarten hier en
-        // in de PDF wél staan, mét naam in de tijdlijn. Dan betekent dat oogje voor de ouders niets.
-        // Voor een beheerder verandert er niets: statSectionVisible is dan altijd waar.
+        // HET OOGJE 'cards' GELDT HIER NIET MEER (Tim, 01-10-2026, herziening van zijn keuze van
+        // 25-08-2026). Dat oogje hoort bij de RANGLIJST in het seizoensoverzicht — "wie kreeg er dit
+        // jaar de meeste kaarten", een oordeel over een kind dat je mag willen afschermen. Wat er in
+        // ÉÉN wedstrijd gebeurde is iets anders: dat is een feit over die wedstrijd, net als een
+        // doelpunt of een wissel, en het hoort in het verslag te staan. Het verbergen was bovendien
+        // half: een rode kaart bleef zichtbaar in "met een man minder" bij de speelminuten en in het
+        // wegvallen van die speler, zonder dat er ergens stond wát er gebeurd was.
         // De kolom 'Tegen' stond hier leeg zolang een kaart enkel voor een eigen speler kon: er was
         // niets te tellen. Nu een kaart voor een tegenspeler bestaat, hoort ze in deze tabel op
         // dezelfde plaats als de hoekschoppen en de penalty's.
-        ...(statSectionVisible('cards') ? [
         [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), st('yellow_card_them')],
         [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    st('red_card_them')],
-        ] : []),
       ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
       if (!rows.length) return '';
       return vsec('stats', 'Wedstrijdstatistieken', `<div class="card">
@@ -1724,12 +1725,12 @@ async function pdfMatchBody(doc, L, m) {
     [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${vt('corner_us', 'corner_them')}`],
     [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${vt('freekick_us', 'freekick_them')}`],
     [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
-    // Zelfde oogje als op het scherm (Tims keuze, 25-08-2026): een kijker met kaarten op onzichtbaar
-    // krijgt ze ook niet in de PDF.
+    // Zelfde lijn als op het scherm (Tim, 01-10-2026): het oogje 'cards' geldt enkel voor de ranglijst
+    // in het seizoensoverzicht, niet voor wat er in deze ene wedstrijd gebeurde.
     // Kaarten voor de tegenstander staan er in dezelfde 'voor / tegen'-vorm als de regels hierboven,
     // maar enkel wanneer ze er zijn: bij de meeste wedstrijden is er geen, en dan zou "0 tegen" de
     // regel enkel langer maken.
-    [statSectionVisible('cards') ? stat('yellow_card') + stat('red_card') + stat('yellow_card_them') + stat('red_card_them') : 0,
+    [stat('yellow_card') + stat('red_card') + stat('yellow_card_them') + stat('red_card_them'),
       (stat('yellow_card_them') + stat('red_card_them'))
         ? `Geel: ${vt('yellow_card', 'yellow_card_them')} · Rood: ${vt('red_card', 'red_card_them')}`
         : `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
@@ -1830,16 +1831,15 @@ async function pdfMatchBody(doc, L, m) {
   // Met dezelfde icoontjes als op het scherm: een lege smalle kolom houdt de plaats vrij, het icoon
   // zelf wordt in didDrawCell getekend (autoTable kan geen afbeelding in celtekst zetten).
   const evtIcons = await pdfEventIcons(m.events);
-  // Kaarten ook uit de PDF-tijdlijn wanneer het oogje 'cards' uit staat (Tims keuze, 25-08-2026):
-  // anders staat "Gele kaart · Jonas" er alsnog voluit, en dan heeft het verbergen geen zin.
-  const _kaartenUit = !statSectionVisible('cards');
+  // KAARTEN BLIJVEN IN DE TIJDLIJN STAAN (Tim, 01-10-2026). Tot vandaag verdwenen ze hier zodra het
+  // oogje 'cards' uit stond — maar dat oogje gaat over de ranglijst van het seizoen, niet over wat er
+  // in deze wedstrijd gebeurde. Zie de uitleg bij de wedstrijdstatistieken hierboven.
   // EEN KIJKER ZIET IN DE PDF NIET MEER DAN OP HET SCHERM (audit 25-08-2026). renderEventLog laat
   // voor wie alleen mag lezen de blokmarkeringen en de positiewisselingen weg (HIDDEN_FOR_VIEWER);
   // de PDF-tijdlijn filterde niets. Zelfde lijst, zelfde grens: canLive() bepaalt of je meekijkt of
   // meewerkt. Voor een beheerder verandert er niets.
   const _kijker = !canLive();
   const _verbergen = new Set(_kijker ? ['posSwap'] : []);
-  if (_kaartenUit) { _verbergen.add('yellow_card'); _verbergen.add('red_card'); _verbergen.add('yellow_card_them'); _verbergen.add('red_card_them'); }
   const timelineGroups = eventsByQuarter(m).map(g => _verbergen.size
     ? Object.assign({}, g, { list: (g.list || []).filter(e => !_verbergen.has(e.type)) })
     : g);

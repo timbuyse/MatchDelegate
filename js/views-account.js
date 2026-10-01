@@ -4165,11 +4165,13 @@ function renderEventLog(m) {
   // Bij een VERGRENDELDE wedstrijd gaat alleen die tweede om: je blijft de volledige tijdlijn zien
   // zoals een beheerder ze hoort te zien, je kan er niets meer in veranderen.
   const elog_vast = !magWijzigen(m);
-  // Kaarten volgen het oogje 'cards' (Tims keuze, 25-08-2026): zonder dit stonden ze mét naam in de
-  // tijdlijn van elk verslag, ook wanneer je het kaartenblok voor kijkers verborgen had. Enkel voor
-  // wie alleen mag lezen — een beheerder ziet altijd alles.
-  const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']
-    .concat(statSectionVisible('cards') ? [] : ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them']));
+  // KAARTEN STONDEN HIER TOT 01-10-2026 ACHTER HET OOGJE 'cards' en verdwenen dus uit de tijdlijn
+  // van elk verslag zodra je het kaartenblok voor kijkers verborg. Tim heeft die keuze herzien: dat
+  // oogje hoort bij de RANGLIJST over het seizoen ("wie kreeg er de meeste"), niet bij het verslag
+  // van één wedstrijd — daar is een kaart een feit, net als een doelpunt. Het verbergen was ook maar
+  // half: een rode kaart bleef zichtbaar in "met een man minder" en in het wegvallen van die speler,
+  // zonder dat er ergens stond wát er gebeurd was.
+  const HIDDEN_FOR_VIEWER = new Set(['quarter_start', 'quarter_end', 'posSwap']);
   const GOAL_TYPES = new Set(['goal_us', 'goal_them', 'own_goal', 'own_goal_them', 'penalty_us', 'penalty_them']);
   const activeTypes = elogFilter ? new Set(ELOG_FILTER_GROUPS[elogFilter].types) : null;
   const filterBar = `<div class="no-print" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(ELOG_FILTER_GROUPS).map(([k, g]) => `<span class="start-chip ${elogFilter===k?'on':''}" onclick="toggleElogFilter('${k}')">${icI(IC[g.icon])} ${g.label}</span>`).join('')}</div>`;
