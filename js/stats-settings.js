@@ -1875,7 +1875,7 @@ const HANDLEIDING_PAGINAS = [
       {{img2}}
       <ul class="hdl-list">
         <li><b>Selectie</b> in vier groepen: wie in de selectie zat, wie <b>niet beschikbaar</b> was (met de reden erbij), wie <b>geselecteerd was maar niet aanwezig</b>, en wie <b>niet geselecteerd</b> was. Kwam iemand pas tijdens de wedstrijd bij de selectie, dan staat <b>bijgekomen</b> achter zijn naam; vertrok hij naar een ander veld, dan staat er <b>speelt elders</b>.</li>
-        <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de start. Onder elk veld staat de bank van dat deel; bij een speler die gewisseld werd staat zijn vervanger met een wisselicoon, en gele of rode kaarten staan als kaartje achter zijn naam.</li>
+        <li><b>Opstelling per deel</b> — een veld per kwart (of helft) met de stand bij de <b>start</b> van dat deel. Onder elk veld staat een kadertje met wat er in dat deel gebeurde, op volgorde van de klok: de <b>wissels</b> (rood pijltje eraf, groen pijltje erin), de <b>kaarten</b> met het gele of rode kaartje bij de naam, en de <b>positiewissels</b>. Daaronder staat de bank van dat deel.</li>
         <li><b>Tussenstand per deel</b>, wedstrijdstatistieken, keeperminuten, een spelerstabel met speelminuten per deel, en de volledige tijdlijn.</li>
       </ul>
       <p class="hdl-tip"><b>Elke kaart kan dicht.</b> Tik op de titel en de kaart vouwt in; het pijltje erachter zegt of ze open staat. Alles staat standaard open, en wat jij dichtklapt blijft dicht — ook bij een volgende wedstrijd. Dat is een instelling van jouw toestel, dus je ploeggenoten merken er niets van.</p>

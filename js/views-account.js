@@ -4656,19 +4656,28 @@ function renderPitch(m, players, captainId, qNum, tap) {
   // hetzelfde diagram als de gewone. Ze krijgen wel een eigen regelvorm — er is geen "eraf" en
   // "erin", maar één zin die zegt waar iedereen belandt.
   const verplaats = (m && !tap) ? periodPosSwapList(m, qNum) : [];
+  const kaarten = (m && !tap) ? periodCardList(m, qNum) : [];
   return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
-  ${/* De twee soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
-        wissel op 12' te staan. Apart onder elkaar zetten leest als twee losse lijstjes en dwingt de
-        lezer om zelf de volgorde te maken. */ ''}
+  ${/* De drie soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
+        wissel op 12' te staan, en een kaart op 10' daartussen. Apart onder elkaar zetten leest als
+        losse lijstjes en dwingt de lezer om zelf de volgorde te maken. */ ''}
   ${(() => {
-    const rijen = [...wissels.map(w => ({ ...w, soort: 'sub' })), ...verplaats.map(w => ({ ...w, soort: 'pos' }))]
+    const rijen = [...wissels.map(w => ({ ...w, soort: 'sub' })), ...verplaats.map(w => ({ ...w, soort: 'pos' })),
+      ...kaarten.map(k => ({ ...k, soort: 'kaart' }))]
       .sort((a, b) => (a.ms || 0) - (b.ms || 0));
     if (!rijen.length) return '';
-    const kop = wissels.length && verplaats.length ? 'Wissels en positiewissels' : (wissels.length ? 'Wissels' : 'Positiewissels');
+    // Eén soort krijgt zijn eigen naam; staan er meer door elkaar, dan zou een opsomming in de kop
+    // langer worden dan de regels eronder.
+    const namen = [wissels.length && 'Wissels', kaarten.length && 'Kaarten', verplaats.length && 'Positiewissels'].filter(Boolean);
+    const kop = namen.length === 1 ? namen[0]
+      : namen.length === 2 ? `${namen[0]} en ${namen[1].toLowerCase()}`
+      : 'Wat er gebeurde';
     return `<div class="pitch-subs">
       <div class="pitch-subs-h">${kop}</div>
       ${rijen.map(w => w.soort === 'sub'
         ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`
+        : w.soort === 'kaart'
+        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-kaart"><span class="ic-i">${w.rood ? IC.cardR : IC.cardY}</span> ${esc(w.naam)}</span></div>`
         : `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-pos"><span class="ic-i">${IC.compass}</span> ${esc(w.tekst)}</span></div>`).join('')}
     </div>`;
   })()}
@@ -4764,6 +4773,32 @@ function periodSubList(m, qNum) {
 }
 // Wie in de selectie zat maar tijdens die periode geen minuut op het veld stond (dus ook niet
 // inviel). Wordt onder het velddiagram getoond, zodat de bank per deel zichtbaar is.
+// De kaarten die in dit deel aan een EIGEN speler gegeven zijn (Tim, 01-10-2026). Ze stonden tot nu
+// enkel in de tijdlijn, in de statistieken en in de spelerstabel van de PDF — nergens bij de
+// opstelling, terwijl je net daar kijkt als je wil weten waarom iemand eruit ging.
+//
+// BEWUST IN DIT KADER EN NIET BIJ EEN SHIRTJE (Tims keuze). Het diagram toont de stand bij de START
+// van een deel; een invaller die in dit kwart inkwam en geel kreeg, staat daar helemaal niet op. Een
+// kaartje bij een shirtje zou hem dus overslaan, terwijl deze regel voor élke speler werkt. Kaartjes
+// bij de bollen hebben trouwens ooit bestaan en zijn er om dezelfde reden uitgehaald — zie pitchDot.
+//
+// De tegenstander hoort hier niet: dit kader staat onder ÓNZE opstelling, bij onze wissels. Zijn
+// kaarten staan in de tijdlijn en in de wedstrijdstatistieken.
+// Een kaart zonder blokgegeven (die kan uit het wedstrijdblad van de bond komen wanneer er geen klok
+// bij zat) valt hier buiten: ze hoort bij geen enkel deel. Bij zo'n wedstrijd is er doorgaans ook
+// geen opstelling per deel, dus dit kader bestaat daar niet.
+function periodCardList(m, qNum) {
+  if (!qNum) return [];
+  return (m.events || [])
+    .filter(e => (e.type === 'yellow_card' || e.type === 'red_card') && e.quarterNum === qNum && e.playerId)
+    .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
+    .map(e => ({
+      min: e.atBreak ? 'pauze' : eventMinTijd(e, m),
+      ms: e.gameTimeMs || 0,
+      rood: e.type === 'red_card',
+      naam: fieldName(m, e.playerId),
+    }));
+}
 function periodBenchNames(m, qNum) {
   if (!qNum) return [];
   const onField = new Set(playersAtPeriodStart(m, qNum).map(p => p.id));

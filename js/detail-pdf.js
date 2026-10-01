@@ -1078,6 +1078,16 @@ function pijlPdf(doc, x, midY, s, kleur, omlaag) {
   if (omlaag) { doc.line(x - head, punt - head, x, punt); doc.line(x + head, punt - head, x, punt); }
   else { doc.line(x - head, top + head, x, top); doc.line(x + head, top + head, x, top); }
 }
+// Een speelkaartje (geel of rood) voor het kader onder het veld. Zelfde vorm als IC.cardY/IC.cardR op
+// het scherm: een staand rechthoekje, licht gekanteld. jsPDF kent geen SVG, dus hier als rechthoek
+// met dezelfde vulling en randkleur.
+function kaartPdf(doc, x, midY, s, rood) {
+  const b = s * 0.52, h = s * 0.82;
+  doc.setFillColor(...(rood ? [220, 38, 38] : [234, 179, 8]));
+  doc.setDrawColor(...(rood ? [153, 27, 27] : [161, 98, 7]));
+  doc.setLineWidth(Math.max(0.25, s * 0.07));
+  doc.roundedRect(x - b / 2, midY - h / 2, b, h, s * 0.1, s * 0.1, 'FD');
+}
 // Het shirt van shirtSvg() (core.js) als jsPDF-pad, zodat de PDF dezelfde markering tekent als het
 // scherm. jsPDF kent geen SVG-paden, dus het silhouet staat hier als reeks relatieve segmenten,
 // vertrekkend van het startpunt (15,4) in een vak van 24x24 — dezelfde coördinaten als het SVG-pad.
@@ -1499,6 +1509,8 @@ async function pdfMatchBody(doc, L, m) {
         wissels: q != null ? periodSubList(m, q) : [],
         // "naar" i.p.v. een pijl: de PDF-fonts (WinAnsi) kennen → niet, en "->" leest als een typefout.
         posw: q != null ? periodPosSwapList(m, q, 'naar') : [],
+        // De kaarten van dit deel, zelfde kader als op het scherm (Tim, 01-10-2026).
+        kaarten: q != null ? periodCardList(m, q) : [],
         bank: names.length ? ('Bank: ' + names.join(', ')) : '',
       };
     });
@@ -1535,7 +1547,11 @@ async function pdfMatchBody(doc, L, m) {
         doc.splitTextToSize(w.out.join(', '), kol).length,
         doc.splitTextToSize(w.in.join(', '), kol).length), 0);
     };
-    const maxWissels = Math.max(0, ...onderLines.map(o => schatRegels(o.wissels, benchSize0, schatBreedte) + schatPoswRegels(o.posw, benchSize0, schatBreedte) + ((o.wissels.length || o.posw.length) ? 1 : 0)));
+    // Een kaartregel is altijd één regel: één naam naast de minuut, nooit een lijst.
+    const maxWissels = Math.max(0, ...onderLines.map(o =>
+      schatRegels(o.wissels, benchSize0, schatBreedte) + schatPoswRegels(o.posw, benchSize0, schatBreedte)
+      + (o.kaarten || []).length
+      + ((o.wissels.length || o.posw.length || (o.kaarten || []).length) ? 1 : 0)));
     // Kader: binnenmarge + kopregel + één regel per wissel; daaronder eventueel de bank (2 regels).
     const kaderH0 = maxWissels ? (benchSize0 * 1.0 + benchSize0 * 1.35 + maxWissels * benchSize0 * 1.45) : 0;
     const benchH = kaderH0 + (heeftBank ? benchSize0 * 2.6 : 0) + (maxWissels || heeftBank ? 6 : 0);
@@ -1592,12 +1608,12 @@ async function pdfMatchBody(doc, L, m) {
         // pijltje omhoog met wie erin kwam. Enkel de pijltjes gekleurd; namen in gewone tekstkleur.
         const onder = onderLines[items.indexOf(it)];
         let oy = L.y + labelH + imgH + 6;
-        if (onder.wissels.length || onder.posw.length) {
+        if (onder.wissels.length || onder.posw.length || (onder.kaarten || []).length) {
           const pad = benchSize * 0.5, kopH = benchSize * 1.35, rijH = benchSize * 1.45;
           const pijlW = benchSize * 0.95, sp = benchSize * 0.35;
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
-          // De minuutkolom is zo breed als de breedste minuut van BEIDE soorten regels.
-          const alleMin = [...onder.wissels, ...onder.posw].map(w => w.min);
+          // De minuutkolom is zo breed als de breedste minuut van ÁLLE soorten regels.
+          const alleMin = [...onder.wissels, ...onder.posw, ...(onder.kaarten || [])].map(w => w.min);
           const minW = Math.max(...alleMin.map(x => doc.getTextWidth(x))) + sp * 2;
           // Twee even brede kolommen; te lange namenlijsten breken af i.p.v. het kader uit te
           // duwen. Zelfde gedrag als de twee flex-kolommen op het scherm.
@@ -1609,14 +1625,19 @@ async function pdfMatchBody(doc, L, m) {
           })).map(r => ({ ...r, n: Math.max(r.uit.length, r.in.length) }));
           const poswRijen = (onder.posw || []).map(w => ({ soort: 'pos', min: w.min, ms: w.ms || 0, regels: doc.splitTextToSize(w.tekst, Math.max(benchSize * 6, imgW - pad * 2.8 - minW - benchSize)) }))
             .map(r => ({ ...r, n: r.regels.length }));
-          // Beide soorten door elkaar op tijd, net als op het scherm: een positiewissel op 8' hoort
-          // boven een wissel op 12'.
-          const alleRijen = [...rijen, ...poswRijen].sort((a, b) => (a.ms || 0) - (b.ms || 0));
+          const kaartRijen = (onder.kaarten || []).map(k => ({ soort: 'kaart', min: k.min, ms: k.ms || 0, rood: k.rood, naam: k.naam, n: 1 }));
+          // Alle soorten door elkaar op tijd, net als op het scherm: een positiewissel op 8' hoort
+          // boven een wissel op 12', en een kaart op 10' daartussen.
+          const alleRijen = [...rijen, ...poswRijen, ...kaartRijen].sort((a, b) => (a.ms || 0) - (b.ms || 0));
           const kaderH = pad + kopH + alleRijen.reduce((h, r) => h + r.n * rijH, 0);
           doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.6);
           doc.roundedRect(x, oy, imgW, kaderH, 3, 3, 'S');
           doc.setFont(undefined, 'bold'); doc.setFontSize(benchSize * 0.85); doc.setTextColor(107, 114, 128);
-          doc.text(onder.wissels.length && onder.posw.length ? 'WISSELS EN POSITIEWISSELS' : (onder.wissels.length ? 'WISSELS' : 'POSITIEWISSELS'), x + pad * 1.4, oy + pad + benchSize * 0.75);
+          // Zelfde kop als op het scherm: één soort krijgt zijn eigen naam, meer soorten samen krijgen
+          // één woord dat altijd klopt.
+          const kopNamen = [onder.wissels.length && 'WISSELS', (onder.kaarten || []).length && 'KAARTEN', onder.posw.length && 'POSITIEWISSELS'].filter(Boolean);
+          doc.text(kopNamen.length === 1 ? kopNamen[0]
+            : kopNamen.length === 2 ? kopNamen.join(' EN ') : 'WAT ER GEBEURDE', x + pad * 1.4, oy + pad + benchSize * 0.75);
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);
           let ry = oy + pad + kopH;
           for (const r of alleRijen) {
@@ -1630,6 +1651,16 @@ async function pdfMatchBody(doc, L, m) {
               doc.setTextColor(23, 23, 23);
               r.regels.forEach((ln, li) => doc.text(ln, x + pad * 1.4 + minW, ry + benchSize * 0.7 + li * rijH));
               ry += r.n * rijH;
+              continue;
+            }
+            if (r.soort === 'kaart') {
+              // Eén regel over de volle breedte: het kaartje, dan de naam. Geen eraf/erin, dus geen
+              // twee kolommen — zelfde vorm als een positiewissel.
+              doc.setTextColor(107, 114, 128); doc.text(r.min, x + pad * 1.4, ry + benchSize * 0.7);
+              kaartPdf(doc, x + pad * 1.4 + minW + pijlW * 0.4, ry + benchSize * 0.42, benchSize, r.rood);
+              doc.setTextColor(23, 23, 23);
+              doc.text(r.naam, x + pad * 1.4 + minW + pijlW, ry + benchSize * 0.7);
+              ry += rijH;
               continue;
             }
             // Tekst staat op de basislijn (ry + benchSize*0.7); het optische midden van de letters

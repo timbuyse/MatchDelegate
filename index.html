@@ -591,8 +591,9 @@
     /* Enkel de pijltjes gekleurd; de namen in de gewone tekstkleur, zodat de regel rustig leest.
        Twee gelijke kolommen die mogen afbreken: bij een dubbele wissel staan er meerdere namen. */
     .psr-uit,.psr-in{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
-    .psr-pos{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
-  /* Positiewissel: één zin over de volle breedte i.p.v. twee kolommen, want er is geen eraf/erin. */
+    .psr-pos,.psr-kaart{display:flex;align-items:flex-start;gap:3px;min-width:0;flex:1;color:var(--txt)}
+  /* Positiewissel en kaart: één zin over de volle breedte i.p.v. twee kolommen, want er is geen
+     eraf/erin. Het kaart-icoon houdt zijn eigen kleur (geel of rood) en wordt dus niet overschreven. */
   .psr-pos .ic-i{color:var(--blu,#2f74bd)}
   .psr-uit .ic-i{color:var(--rd)}
     .psr-in .ic-i{color:var(--grn)}

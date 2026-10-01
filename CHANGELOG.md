@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.91.0
+
+**De kaarten staan nu bij de opstelling van dat kwart.** Tim wilde een kaartje zien bij de
+startopstelling van het deel waarin de kaart viel. Onder elk veld stond al een kadertje met de
+wissels en de positiewissels van dat deel; daar staan de kaarten nu bij, op volgorde van de klok:
+
+```
+19'  ↓ Lars C.    ↑ Arthur G.
+24'  🟥 Arthur G.
+```
+
+De kop van dat kadertje volgt wat erin staat — *Kaarten*, *Wissels en kaarten*, of *Wat er gebeurde*
+wanneer alle drie de soorten erin zitten. Op het scherm én in de PDF.
+
+**Bewust in dat kader en niet bij een shirtje.** Tims vraag daarover was de goede: *"wat als een
+wisselspeler een kaart krijgt?"* Het veld toont de stand bij de **start** van een deel, dus een
+invaller die in dat kwart inkwam en geel kreeg, staat daar helemaal niet op. Een kaartje bij een
+shirtje zou hem overslaan; deze regel werkt voor élke speler. Kaartjes bij de shirtjes hebben
+trouwens ooit bestaan en zijn er om precies dezelfde reden uitgehaald.
+
+Een kaart voor de **tegenstander** hoort hier niet: dit kader staat onder je eigen opstelling. Die
+blijft in de tijdlijn en bij de wedstrijdstatistieken.
+
+**De handleiding stond al fout.** Daar stond dat kaarten "als kaartje achter de naam" bij de
+opstelling stonden — dat was niet zo. Die beschrijving klopt nu.
+
+---
+
 ## v1.90.0
 
 **Een kaart in een wedstrijdverslag staat er nu altijd.** Tim ontdekte bij een gesprek over iets
