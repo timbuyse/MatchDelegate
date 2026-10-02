@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.94.1
+
+**De voettekst op het ploegkeuzescherm stond een heel scherm te laag.** Tim: *"die staat veel te ver
+naar onder, zodat ik zelfs moet scrollen."*
+
+Het regeltje *MatchDelegate · App created by Tim Buyse* hangt onder élk scherm. De meeste schermen zijn
+precies zo hoog als hun inhoud, dus daar sluit het netjes aan. Het ploegkeuzescherm is anders gebouwd:
+dat is één paginavak dat zichzelf altijd de volle schermhoogte geeft, zodat de achtergrond doorloopt.
+De voettekst begon dus pas waar het scherm ophield. Nagemeten op een telefoon van 375 bij 812 met drie
+ploegen: de inhoud was klaar op 417 pixels, daarna 400 pixels leeg grijs, en de voettekst stond exact
+op de onderrand — net buiten beeld. Scrollen voor één tekstregel.
+
+Dat paginavak houdt nu de hoogte van die regel vrij. Bij een korte lijst staat de voettekst onderaan
+in beeld en valt er niets meer te scrollen; bij een volle lijst sluit ze gewoon aan onder de laatste
+knop, zoals altijd. Het **aanmeldscherm** is op dezelfde manier gebouwd en had hetzelfde euvel zodra je
+scherm wat hoger is — ook dat is mee rechtgezet.
+
+De marge onder die regel loopt voortaan mee met de veilige zone onderaan een iPhone. Nu ze écht op de
+onderrand staat, zou ze anders onder het streepje van de thuisknop vallen.
+
+---
+
 ## v1.94.0
 
 **Twee gebeurtenissen op dezelfde minuut wisselden soms van plaats.** Tim: *"ik voer een wissel door

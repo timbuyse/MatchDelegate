@@ -35,7 +35,18 @@
     .hdr-logo{width:30px;height:30px;border-radius:7px;flex-shrink:0}
     .hdr-home{justify-content:center;padding:14px 20px}
     .hdr-fulllogo{height:44px;width:auto}
-    .credit{text-align:center;font-size:12px;color:var(--txt2);padding:4px 0 28px}
+    /* DE VOETTEKST HANGT BUITEN HET SCHERM (zie render() in views-account.js: ze wordt achter de
+       view-HTML geplakt, niet erin). Op een gewoon scherm (.hdr + .content) is dat prima: dat is zo
+       hoog als zijn inhoud, dus de voettekst sluit aan. Maar het ploegkeuze- en het aanmeldscherm
+       zijn één paginavak dat zichzelf de VOLLE schermhoogte geeft — daar werd de voettekst er onderuit
+       geduwd. Gemeten 02-10-2026 op 375x812 met drie ploegen: inhoud klaar op 417 px, leeg grijs tot
+       812, voettekst op 812 — net buiten beeld, 48 px scrollen voor één regel. Die twee vakken houden
+       nu de hoogte van deze regel vrij (--credit-h), zodat ze onderaan in beeld staat. Bij een lange
+       ploegenlijst verandert er niets: het vak is dan hoger dan het scherm en de voettekst sluit
+       gewoon aan. De marge onderaan loopt mee met de veilige zone van een iPhone: deze regel staat nu
+       écht op de onderrand en zou anders onder het streepje van de thuisknop vallen. */
+    :root{--credit-h:calc(48px + env(safe-area-inset-bottom))}
+    .credit{text-align:center;font-size:12px;color:var(--txt2);padding:4px 0 calc(28px + env(safe-area-inset-bottom))}
     .credit b{color:var(--blk)}
     .credit a{color:inherit;text-decoration:underline;text-underline-offset:2px}
     .hdr-gear{background:none;border:none;color:#fff;font-size:21px;cursor:pointer;opacity:.85;padding:6px;z-index:2;flex-shrink:0}
@@ -667,7 +678,7 @@
     .req-badge{display:inline-block;min-width:16px;height:16px;line-height:16px;padding:0 4px;margin-left:5px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;text-align:center;vertical-align:middle}
     .viewer-banner{background:#eef4ff;border:1px solid #c7dafc;color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px}
     /* Auth / team-select schermen */
-    .auth-wrap{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg);gap:12px}
+    .auth-wrap{min-height:calc(100dvh - var(--credit-h));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:var(--bg);gap:12px}
     .auth-hero{width:100%;max-width:400px;background:url('background_logo.jpg') center/cover no-repeat;border-radius:18px;padding:12px 24px 12px;text-align:center;position:relative;overflow:hidden}
     .auth-hero::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:18px}
     .auth-hero>*{position:relative;z-index:1}
@@ -687,7 +698,7 @@
     .auth-tab{flex:1;padding:11px;border:none;background:var(--bg);border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;color:var(--txt2)}
     .auth-tab.act{background:var(--blk);color:#fff}
     .auth-err{color:var(--rd);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px}
-    .ts-wrap{min-height:100dvh;background:var(--bg);display:flex;flex-direction:column}
+    .ts-wrap{min-height:calc(100dvh - var(--credit-h));background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:url('background_logo.jpg') center/cover no-repeat;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:none;position:relative;overflow:hidden}
     .ts-hdr::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}
     .ts-hdr>*{position:relative;z-index:1}
