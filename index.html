@@ -754,7 +754,12 @@
     .ts-hdr-name{font-size:18px;font-weight:900;color:#fff;letter-spacing:1.5px;font-variant:small-caps;line-height:1.1}
     .ts-hdr p{font-size:12px;color:rgba(255,255,255,.6);margin:2px 0 0}
     .ts-content{padding:20px;max-width:500px;margin:0 auto;width:100%}
-    .ts-team-row{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:15px 16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:12px;border-left:5px solid var(--grn);transition:transform .1s}
+    /* DE LICHTGROENE TINT HOORT BIJ DE PLOEG (Tim, 03-10-2026: "ik vond die lichte kleur bij die
+       clubs wel iets hebben, kunnen we dat niet bij de ploeg gebruiken"). Ze stond op de clubbalk,
+       dus accentueerde ze de kop in plaats van de rij die je moet aantikken. Nu omgekeerd: de ploeg
+       krijgt de kleur, de clubbalk wordt rustig. In donkere modus dezelfde donkergroene tegenhanger
+       als de clubbalk had — lichtgroen op een zwart scherm is daar het felste vlak van de pagina. */
+    .ts-team-row{background:var(--grnp);border-radius:14px;box-shadow:var(--shadow);padding:15px 16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:12px;border-left:5px solid var(--grn);transition:transform .1s}
     .ts-team-row:active{transform:scale(.98)}
     /* De naam alleen op de eerste regel, de rol er klein onder, en het pijltje rechts — zie
        teamRowHtml in views-account.js voor het waarom. */
@@ -767,12 +772,12 @@
     /* De clubbalk is een KOP boven je ploegen, geen tweede ploeg. In donkere modus was var(--grnp)
        bovendien het felste vlak van de hele pagina — lichtgroen op een donker scherm — terwijl de
        ploegrij daar donker is. Daarom een eigen klasse met een donkere tegenhanger. */
-    .ts-clubbalk{display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:8px 12px;background:var(--grnp);border-radius:10px;cursor:pointer}
+    .ts-clubbalk{display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:8px 12px;background:var(--bg);border-radius:10px;cursor:pointer}
     .ts-club-naam{display:block;font-size:12px;font-weight:700;color:var(--grn2);text-transform:uppercase;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .ts-club-sub{display:block;font-size:11.5px;font-weight:600;color:var(--grn2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     /* Een kop zonder club die je beheert: dan is het enkel een label, geen ingang. */
     .ts-club-naam.kaal{color:var(--txt2)}
-    body.dark .ts-clubbalk{background:#12301f}
+    body.dark .ts-clubbalk{background:#0f1828}
     body.dark .ts-clubbalk .ts-club-naam,body.dark .ts-clubbalk .ts-club-sub{color:#7fd3a0}
     .ts-drag-handle{display:flex;align-items:center;color:var(--txt2);cursor:grab;touch-action:none;margin:-8px -4px -8px -10px;padding:8px 4px}
     .ts-team-row.dragging{opacity:.5}
@@ -788,7 +793,17 @@
     body.dark .auth-box{background:var(--card)}
     body.dark .auth-tab{background:var(--blk2);color:var(--txt)}
     body.dark .auth-tab.act{background:#fff;color:var(--blk)}
-    body.dark .ts-team-row{background:var(--card)}
+    /* ÓÓK IN DONKERE MODUS DE LICHTE TINT (Tim, 03-10-2026: "ik wou die lichtere kleur uit mijn foto,
+       die daar nog bij de clubs stond"). Ik had hier eerst een donkergroene tegenhanger gezet, omdat
+       een lichtgroen vlak op een zwart scherm het felste van de pagina is — Tim heeft het gezien en
+       kiest bewust voor de lichte. Dan moet álles erop mee omkeren: de letters, de rol, het pijltje en
+       het sleepgreepje staan anders in bijna-wit op bijna-wit. */
+    body.dark .ts-team-row{background:var(--grnp)}
+    body.dark .ts-team-row .ts-name{color:var(--blk)}
+    body.dark .ts-team-row .ts-role.admin{color:var(--grn2)}
+    body.dark .ts-team-row .ts-role.viewer{color:var(--blk3)}
+    body.dark .ts-team-row .ts-pijl{color:var(--blk3)}
+    body.dark .ts-team-row .ts-drag-handle{color:var(--blk3)}
     /* Handleiding */
     .hdl-tabs{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--card);border-bottom:1px solid var(--bdr)}
     .hdl-tab{background:none;border:none;text-align:left;padding:8px 10px;border-radius:8px;font-size:14px;color:var(--txt2);cursor:pointer;transition:background .15s}

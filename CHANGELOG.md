@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.1
+
+**De lichtgroene tint is verhuisd naar je ploegen.** Tim: *"ik vond die lichte kleur bij die clubs wel
+iets hebben, kunnen we dat niet bij de ploeg gebruiken."*
+
+Ze stond op de clubbalk, en accentueerde daarmee de kop in plaats van de rij die je moet aantikken.
+Nu krijgen de ploegen die kleur en worden de clubbalken rustig. Samen met het pijltje van v1.98.1 is
+de ploegrij nu op elke manier de opvallendste: hoger, gekleurd en met een pijltje.
+
+Ook in **donkere modus** is het die lichte tint — dezelfde die je op de clubbalk zag. Dan keert alles
+op die rij mee om: de ploegnaam, de rol, het pijltje en het sleepgreepje worden donker, want in
+bijna-wit op lichtgroen lees je niets.
+
+---
+
 ## v1.99.0
 
 **Vrijdag hoort bij het weekend.** Tim: *"vrijdag, zaterdag, zondag horen eigenlijk ook samen, als
