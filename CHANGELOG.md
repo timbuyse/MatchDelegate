@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.0
+
+**Vrijdag hoort bij het weekend.** Tim: *"vrijdag, zaterdag, zondag horen eigenlijk ook samen, als
+weekend."* Bij de jeugd wordt er op vrijdagavond gespeeld, dus daar begint het weekend. Sta je op een
+van die drie dagen, dan zie je ze alle drie: op zondag nog wat er vrijdag gespeeld is, op vrijdag al
+wat er zaterdag aankomt. Doordeweeks blijft het die ene dag.
+
+**En het scherm zegt nu zelf welke periode het dekt.** Tim: *"op het eerste scherm staat 'vandaag', op
+de pagina zelf staat speeldag… wat is het nu?"* Twee woorden voor hetzelfde ding lazen als twee
+beloftes. Het scherm heet voortaan net als de regel die ernaartoe leidt: **Vandaag**, of **Dit
+weekend**, met de datum eronder — *vrijdag 2 tot zondag 4 oktober*.
+
+**Het clublogo stond maar bij één van twee clubs.** Tim: *"waarom staat bij mijn 2 clubs er maar bij 1
+ervan het logo in dat kaartje?"* Het logo wordt bij élke ploeg apart bewaard, zodat ook een kijker het
+ziet zonder de club te mogen lezen — maar dat werkt enkel voor een club waarvan je zelf een ploeg
+volgt. Bij de andere was er niets te vinden. Die balk haalt het nu rechtstreeks bij de club, één keer
+en daarna uit het geheugen.
+
+---
+
 ## v1.98.1
 
 **Je ploeg nodigt nu uit om aangetikt te worden.** Tim: *"die drie velden zijn even groot, ik word

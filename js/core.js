@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.98.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2556,6 +2556,9 @@ async function onAuthChanged(user) {
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
     myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false; archivedTeams = {};
+    // De clubnamen en -logo's die voor DEZE gebruiker opgehaald zijn, horen niet bij de volgende die
+    // zich op dit toestel aanmeldt. (views-account.js laadt later dan dit bestand, vandaar de wachter.)
+    if (typeof clubNaamCache !== 'undefined') { clubNaamCache = {}; clubLogoCache = {}; }
     vreemdeKernen = {};   // opgehaalde kernen van andere ploegen horen niet bij een volgende gebruiker
     _clubZusters = null; _clubTeamIndex = {};   // idem voor de kernen van de zusterploegen
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }

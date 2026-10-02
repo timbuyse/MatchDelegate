@@ -46,6 +46,10 @@ let _clubBeheerId = null;
 // De naam van een club die je beheert zonder er zelf een ploeg van te volgen. Die staat in geen
 // enkele ploeg-info op dit toestel, dus ze wordt apart opgehaald (zie loadTeamSelect).
 let clubNaamCache = {};
+// En haar logo, langs dezelfde weg en om dezelfde reden. Een lege tekst betekent "opgehaald, de club
+// heeft er geen"; `undefined` betekent "nog niet gevraagd" — zonder dat verschil zou de app het bij
+// elke tekening opnieuw gaan halen, en een logo is een data-URI van tientallen KB.
+let clubLogoCache = {};
 // Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Jouw ploegen te
 // zetten (zelfde patroon als _settingsFrom en _tgvFrom — zie de projectnotities).
 let _clubBeheerFrom = 'teamselect';
@@ -3264,16 +3268,18 @@ let _speeldag = null;          // { van, tot, label, rijen: [{cid, tid, m}], sta
 let _speeldagBezig = false;
 let _speeldagTimer = null;
 
-// Welke dagen horen bij "de speeldag". Op zaterdag en zondag het hele weekend — dan zie je op zondag
-// nog wat er zaterdag gespeeld is, en dat is precies het gesprek van die dag. Doordeweeks enkel
+// Welke dagen horen bij "de speeldag". VRIJDAG HOORT ERBIJ (Tim, 02-10-2026: "vrijdag, zaterdag,
+// zondag horen eigenlijk ook samen, als weekend") — bij de jeugd wordt er op vrijdagavond gespeeld,
+// dus een weekend begint daar. Sta je op een van die drie dagen, dan zie je ze alle drie: op zondag
+// nog wat er vrijdag en zaterdag gespeeld is, op vrijdag al wat er zaterdag aankomt. Doordeweeks enkel
 // vandaag. Twaalf uur 's middags als ijkpunt bij het opschuiven, zodat de nacht waarin de klok
 // verspringt geen dag overslaat of verdubbelt.
 function speeldagVenster() {
   const dagPlus = n => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + n); return isoDagVan(x); };
-  const d = new Date().getDay();   // 0 = zondag, 6 = zaterdag
-  if (d === 6) return { van: dagPlus(0), tot: dagPlus(1), label: 'Dit weekend' };
-  if (d === 0) return { van: dagPlus(-1), tot: dagPlus(0), label: 'Dit weekend' };
-  return { van: dagPlus(0), tot: dagPlus(0), label: 'Vandaag' };
+  const d = new Date().getDay();   // 0 = zondag … 5 = vrijdag, 6 = zaterdag
+  const naarVrijdag = d === 5 ? 0 : d === 6 ? -1 : d === 0 ? -2 : null;
+  if (naarVrijdag === null) return { van: dagPlus(0), tot: dagPlus(0), label: 'Vandaag' };
+  return { van: dagPlus(naarVrijdag), tot: dagPlus(naarVrijdag + 2), label: 'Dit weekend' };
 }
 
 // Mag deze gebruiker dit zien? Iedereen die aangemeld is — een gast heeft zijn eigen live-scherm.
@@ -3492,9 +3498,9 @@ function speeldagHtml() {
   const st = _speeldag;
   if (!st) return '';
   const clubbreed = speeldagClubbreed();
-  // "LIVE" MET EEN ROOD BOLLETJE (Tim, 02-10-2026). Het heette hier "Live speeldag", maar dat is de
-  // naam van het scherm erachter; in dit kadertje staat enkel wat er nú loopt, en daar past het woord
-  // dat iedereen van televisie kent. De volledige naam staat op het scherm zelf.
+  // "LIVE" MET EEN ROOD BOLLETJE (Tim, 02-10-2026). In dit kadertje staat enkel wat er nú loopt, en
+  // daar past het woord dat iedereen van televisie kent. Welke periode het scherm erachter beslaat,
+  // zegt de doorklikregel eronder — en die gebruikt exact hetzelfde woord als de titel van dat scherm.
   const kader = binnen => `<div class="sd-kader">
       <div class="sd-kop"><div class="sd-titel sd-live">Live</div></div>${binnen}</div>`;
   const stil = t => `<div style="font-size:12px;color:var(--txt2);padding:1px 2px">${t}</div>`;
@@ -3538,6 +3544,8 @@ function speeldagTeken() {
   // mee — die staat buiten het blok dat hierboven hertekend wordt.
   const dat = document.getElementById('speeldag-datum');
   if (dat) dat.textContent = speeldagDatumTekst();
+  const tit = document.getElementById('speeldag-titel');
+  if (tit) { const b = tit.querySelector('.sd-live'); tit.textContent = speeldagVenster().label; if (b) tit.prepend(b); }
 }
 
 // WELKE DAG KIJK JE EIGENLIJK (Tim, 02-10-2026: "er staat geen datum bij de matchen, het gaat enkel
@@ -3550,14 +3558,15 @@ function speeldagDagTekst(iso, zonderMaand) {
   const d = new Date(iso + 'T00:00:00');
   return SPEELDAG_DAGNAMEN[d.getDay()] + ' ' + d.getDate() + (zonderMaand ? '' : ' ' + CAL_MAANDEN[d.getMonth()]);
 }
-// Het hele venster in één regel, voor onder de titel. Bij een weekend allebei de dagen, want dan toont
-// het scherm er twee — zonder dat zou je op zondag denken dat je naar zaterdag alleen kijkt. Vallen ze
-// in dezelfde maand, dan staat die maar één keer: "zaterdag 3 en zondag 4 oktober".
+// Het hele venster in één regel, voor onder de titel. Bij een weekend van de eerste tot de laatste
+// dag — zonder dat zou je op zondag denken dat je naar die ene dag kijkt. "tot" en niet "en", want het
+// zijn er drie. Vallen ze in dezelfde maand, dan staat die maar één keer: "vrijdag 2 tot zondag 4
+// oktober".
 function speeldagDatumTekst() {
   const v = (_speeldag && _speeldag.van) ? _speeldag : speeldagVenster();
   if (v.van === v.tot) return speeldagDagTekst(v.van);
   const zelfdeMaand = v.van.slice(0, 7) === v.tot.slice(0, 7);
-  return `${speeldagDagTekst(v.van, zelfdeMaand)} en ${speeldagDagTekst(v.tot)}`;
+  return `${speeldagDagTekst(v.van, zelfdeMaand)} tot ${speeldagDagTekst(v.tot)}`;
 }
 
 // HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, bij een weekend gegroepeerd per dag.
@@ -3595,7 +3604,10 @@ function renderLiveSpeeldag() {
         ${/* Hetzelfde rode bolletje als in het kadertje op 'Jouw ploegen' (sd-live), zodat de twee
              zichtbaar hetzelfde ding zijn. Een tint lichter dan var(--rd): deze kopbalk staat op een
              donkere foto, en daar zakt #dc2626 weg. */ ''}
-        <h1><span class="sd-live sd-live-licht"></span>Live speeldag</h1>
+        ${/* DE TITEL VOLGT DE PERIODE (Tim, 02-10-2026: "op het eerste scherm staat 'vandaag', op de
+             pagina zelf staat speeldag ... wat is het nu?"). Twee woorden voor hetzelfde ding lazen
+             als twee beloftes. Nu staat er op allebei de schermen exact hetzelfde woord. */ ''}
+        <h1 id="speeldag-titel"><span class="sd-live sd-live-licht"></span>${esc(speeldagVenster().label)}</h1>
         <div class="hdr-sub" id="speeldag-datum">${esc(speeldagDatumTekst())}</div>
       </div>
       <button class="hdr-btn" onclick="speeldagVerversNu()">Verversen</button></div>
@@ -3652,6 +3664,7 @@ function renderTeamSelect() {
   // plek als de rest. De naam komt uit de cache die loadTeamSelect vult (clubNaamCache); zolang ze
   // nog onderweg is, staat er "Club beheren" en verschijnt de naam bij de volgende tekening.
   const losseClubBalk = cid => `<div class="ts-clubbalk" onclick="naarClubbeheer('${cid}','teamselect')">
+      ${clubLogoCache[cid] ? `<img src="${clubLogoCache[cid]}" alt="" style="width:24px;height:24px;object-fit:contain;border-radius:5px;flex-shrink:0">` : ''}
       <span style="flex:1;min-width:0"><span class="ts-club-naam">${esc(clubNaamCache[cid] || 'Club')}</span>
       <span class="ts-club-sub">Club beheren${clubNaamCache[cid] ? '' : '…'}</span></span>
     </div>`;
@@ -3714,15 +3727,30 @@ function renderTeamSelect() {
         .catch(e => { if (e && e.message !== 'fb-timeout') pruneDeadTeam(id); });
     })).then(() => { if (needsRerender && view === 'teamselect') render(); });
   }, 0);
-  // En de namen van de clubs die je beheert zonder er zelf een ploeg van te volgen: die staan in geen
-  // enkele ploeg-info op dit toestel, dus ze komen rechtstreeks van de club. Eén keer per club, en
-  // daarna staan ze in de cache — hertekenen gebeurt enkel wanneer er echt een naam bijkwam.
+  // De naam ÉN HET LOGO van de clubs die je beheert zonder er zelf een ploeg van te volgen: die staan
+  // in geen enkele ploeg-info op dit toestel, dus ze komen rechtstreeks van de club.
+  //
+  // WAAROM HET LOGO HIER APART MOET (Tim, 02-10-2026: "waarom staat bij mijn 2 clubs er maar bij 1
+  // ervan het logo in dat kaartje?"). Het clublogo wordt gedenormaliseerd op élke PLOEG bewaard
+  // (teams/<id>/info/clubLogo), zodat ook een kijker het ziet zonder de club te mogen lezen. Die weg
+  // werkt enkel voor een club waarvan je een ploeg volgt — bij de andere was er dus niets te vinden,
+  // en stond die balk zonder merkje. De club zelf heeft het ook (clubs/<id>/info/logo) en een
+  // clubbeheerder mag dat lezen, dus halen we het daar.
+  // Eén keer per club, daarna uit de cache: een logo is een data-URI van tientallen KB, en dat wil je
+  // niet bij elke tekening opnieuw over de lijn halen.
   setTimeout(() => {
-    const open = Object.keys(myClubs || {}).filter(cid => !clubNaamCache[cid]);
+    const open = Object.keys(myClubs || {}).filter(cid => !clubNaamCache[cid] || clubLogoCache[cid] === undefined);
     if (!open.length || !fbdb) return;
     let nieuw = false;
-    Promise.all(open.map(cid => fbOnce(fbdb.ref('clubs/' + cid + '/info/name'))
-      .then(s => { const n = (s.val() || '').trim(); if (n) { clubNaamCache[cid] = n; nieuw = true; } })
+    Promise.all(open.map(cid => fbOnce(fbdb.ref('clubs/' + cid + '/info'))
+      .then(s => {
+        const info = s.val() || {};
+        const n = String(info.name || '').trim();
+        if (n && clubNaamCache[cid] !== n) { clubNaamCache[cid] = n; nieuw = true; }
+        // Ook een leeg logo onthouden (als lege tekst), anders vraagt elke tekening het opnieuw op.
+        const l = info.logo || '';
+        if (clubLogoCache[cid] !== l) { clubLogoCache[cid] = l; nieuw = true; }
+      })
       .catch(() => {})))
       .then(() => { if (nieuw && view === 'teamselect') render(); });
   }, 0);
