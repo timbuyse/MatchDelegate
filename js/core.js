@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.93.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.94.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1465,6 +1465,23 @@ function tournamentClosed(t) { return !!(t && t.status === 'done'); }
 // Bewust géén apart vlaggetje: zo valt een geannuleerde wedstrijd vanzelf weg uit élke filter die op
 // 'done' staat (statistieken, tornooistanden, uitslagen) én uit die op 'planned' (komende wedstrijd,
 // "nog te spelen" in een tornooi). Alleen de weergave moet ze expliciet kennen.
+// WELKE VAN TWEE GEBEURTENISSEN KOMT EERST? (Tim, 02-10-2026: "een wissel op minuut 5 en daarna een
+// positiewissel op minuut 5, maar als er iets gewijzigd wordt, wisselen die soms van plaats.")
+//
+// De speeltijd is de eerste maatstaf, maar twee gebeurtenissen op dezelfde MINUUT krijgen exact
+// dezelfde speeltijd — de app rekent een gekozen minuut om naar één getal. Welke dan eerst geldt,
+// hing tot nu af van hun plaats in de lijst, en die plaats gaat verloren zodra de wedstrijd met de
+// cloud samengevoegd wordt: wat de ene kant mist, wordt daar ACHTERAAN geplakt en dan op tijd
+// gesorteerd. Bij gelijke tijd kwam het aangeplakte dus achteraan, ook als het er eerst stond. Welke
+// van de twee omdraaide, hing er enkel van af welke het eerst bij de cloud aankwam — vandaar "soms".
+//
+// `realTime` is het moment waarop je de gebeurtenis INTIKTE, tot op de milliseconde, en elke
+// gebeurtenis draagt het sinds het begin. Dat is de echte volgorde, en ze is op elk toestel dezelfde.
+// Een gebeurtenis zonder realTime (heel oude gegevens) valt terug op 0 en houdt dus haar plaats.
+function eventVolgorde(a, b) {
+  return (((a && a.gameTimeMs) ?? 0) - ((b && b.gameTimeMs) ?? 0))
+    || (((a && a.realTime) || 0) - ((b && b.realTime) || 0));
+}
 function matchCancelled(m) { return !!(m && m.status === 'cancelled'); }
 // NIET AFGESLOTEN: een wedstrijd waarvan de datum voorbij is en die nooit afgewerkt werd (Tim,
 // 23-08-2026). Zo'n wedstrijd was in de lijst niet te onderscheiden van een gewone geplande — zelfde
@@ -3689,7 +3706,7 @@ async function applyCloudMatch(id, m) {
     let gewijzigd = tombNieuw;
     if (erbij.length || tombNieuw) {
       existing.events = [...existing.events.filter(e => e && !tombLokaal.has(e.id)), ...erbij]
-        .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+        .sort(eventVolgorde);
       recomputeScore(existing); recomputeOnField(existing);
       // Zelfde herbouw als bij de gewone merge verderop: zonder dit staat een invaller van het
       // andere toestel wel op het veld maar zonder plaats.
@@ -3743,7 +3760,7 @@ async function applyCloudMatch(id, m) {
     if (terug.length) {
       const terugIds = new Set(terug.map(e => e.id));
       m.deletedEventIds = (m.deletedEventIds || []).filter(id => !terugIds.has(id));
-      m.events = [...m.events, ...terug].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+      m.events = [...m.events, ...terug].sort(eventVolgorde);
       recomputeScore(m); recomputeOnField(m);
     }
     if (weg.size) {
@@ -3782,7 +3799,7 @@ async function applyCloudMatch(id, m) {
     const erbij = (m.events || []).filter(e => e && e.id && !hier.has(e.id) && !tomb.has(e.id));
     if (erbij.length) {
       existing.events = [...existing.events.filter(e => e && !tomb.has(e.id)), ...erbij]
-        .sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+        .sort(eventVolgorde);
     }
     recomputeScore(existing); recomputeOnField(existing);
     await dbPutLocal(existing);
@@ -3798,7 +3815,7 @@ async function applyCloudMatch(id, m) {
     const cloudEventIds = new Set(m.events.map(e => e.id));
     const localOnly = existing.events.filter(e => e.id && !cloudEventIds.has(e.id) && !tomb.has(e.id));
     if (localOnly.length) {
-      m.events = [...m.events, ...localOnly].sort((a, b) => (a.gameTimeMs ?? 0) - (b.gameTimeMs ?? 0));
+      m.events = [...m.events, ...localOnly].sort(eventVolgorde);
       recomputeScore(m); recomputeOnField(m);
       eventsGemerged = true;
       // De cloud mist events die wij wél hebben (andere beheerder overschreef ze met een

@@ -3325,6 +3325,9 @@ async function doDeleteEvent(id, stil) {
     }
   }
   const ids = new Set(toRemove.map(ev => ev.id));
+  // De plaats in de lijst vastleggen vóór ze weg is — zie _plaatsenVan.
+  const plaatsen = _plaatsenVan(match, ids);
+  toRemove.forEach(ev => { ev._plaats = plaatsen[ev.id]; });
   toRemove.forEach(ev => tombstoneEvent(match, ev.id));
   match.events = match.events.filter(e => !ids.has(e.id));
   toRemove.forEach(ev => { revertSubstitutionPositions(match, ev); revertPosSwapPositions(match, ev); });
@@ -4192,12 +4195,24 @@ function _onthoudWijziging(ev, vorige) {
 // schakelaar zou daar meteen een "Net verwijderd — Terugzetten" voor in de plaats komen. Je tikt dan
 // op "Ongedaan maken" en krijgt een knop om dat weer ongedaan te maken; dat leest als een lus.
 let _ingreepNietOnthouden = false;
+// DE PLAATS IN DE LIJST HOORT ERBIJ, NIET ENKEL DE TIJD (gevonden met de fuzzer, 02-10-2026).
+// _posEventsChrono sorteert op gameTimeMs met de INDEX in m.events als tiebreaker, en dat is geen
+// detail: alles wat bij de start van een deel doorgevoerd wordt, krijgt exact dezelfde gameTimeMs.
+// Terugzetten met een sortering op tijd zette zo'n gebeurtenis achter haar buren in plaats van ervoor,
+// en dan kan dezelfde wedstrijd een andere opstelling opleveren. Daarom onthouden we de index en
+// voegen we straks op die plek in.
 function _onthoudVerwijdering(events) {
   if (_ingreepNietOnthouden) return;
   _ingreepKoppelen = false;
   const lijst = (events || []).filter(Boolean).map(e => JSON.parse(JSON.stringify(e)));
   if (!lijst.length) { _laatsteIngreep = null; return; }
   _laatsteIngreep = { matchId: (match || {}).id, soort: 'verwijderd', ids: lijst.map(e => e.id), vorige: null, kopie: lijst };
+}
+// Vóór het wissen aangeroepen, want daarna is de plaats weg. Geeft per id de index die het had.
+function _plaatsenVan(m, ids) {
+  const uit = {};
+  (m.events || []).forEach((e, i) => { if (ids.has(e.id)) uit[e.id] = i; });
+  return uit;
 }
 function ingreepVergeten() { _laatsteIngreep = null; _ingreepKoppelen = false; }
 // De ingreep zoals ze er NU bij staat, of null wanneer er niets meer terug te zetten valt: een
@@ -4280,10 +4295,18 @@ async function ingreepOngedaan() {
         match.deletedEventIds = match.deletedEventIds.filter(id => !terug.has(id));
         if (!match.deletedEventIds.length) delete match.deletedEventIds;
       }
-      // Op tijd terug in de lijst: de reconstructie van de posities leest de gebeurtenissen in
-      // volgorde, en achteraan aanplakken zou een wissel ná een latere wissel laten gebeuren.
-      match.events = (match.events || []).concat(ing.events.map(e => JSON.parse(JSON.stringify(e))))
-        .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0));
+      // OP HAAR EIGEN PLEK TERUG, niet op haar tijd. Sorteren op gameTimeMs lijkt genoeg, maar bij
+      // gelijke tijd beslist de volgorde in de lijst welke wissel eerst geldt (_posEventsChrono neemt
+      // de index als tiebreaker), en dan kan dezelfde wedstrijd een andere opstelling opleveren.
+      // Oplopend invoegen, zodat elke volgende index nog klopt nadat de vorige erbij is gezet; een
+      // bewaarde plaats die intussen voorbij het einde ligt, komt achteraan.
+      const terugLijst = ing.events.map(e => JSON.parse(JSON.stringify(e)))
+        .sort((a, b) => (a._plaats == null ? 1e9 : a._plaats) - (b._plaats == null ? 1e9 : b._plaats));
+      for (const e of terugLijst) {
+        const plek = (e._plaats == null) ? match.events.length : Math.min(e._plaats, match.events.length);
+        delete e._plaats;
+        match.events.splice(plek, 0, e);
+      }
       ingreepVergeten();
       recomputeScore(match);
       if (posAffecting) {

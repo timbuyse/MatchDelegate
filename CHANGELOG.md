@@ -9,6 +9,47 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.94.0
+
+**Twee gebeurtenissen op dezelfde minuut wisselden soms van plaats.** Tim: *"ik voer een wissel door
+op minuut 5 en nadien een positiewissel op minuut 5, maar als er dan iets gewijzigd wordt, wisselen
+die soms van plaats."* Precies dat, en nu is duidelijk waarom.
+
+Twee gebeurtenissen op dezelfde minuut krijgen voor de app **exact dezelfde kloktijd**. Welke dan
+eerst geldt, hing af van hun volgorde in de lijst — en die gaat verloren zodra je wedstrijd met de
+cloud wordt samengevoegd: wat de ene kant mist, wordt daar **achteraan geplakt** en dan op tijd
+gesorteerd. Bij gelijke tijd kwam het aangeplakte dus achteraan, ook als het er eerst stond. Welke van
+de twee omdraaide, hing er alleen van af welke het eerst bij de cloud aankwam. Vandaar *soms*.
+
+Elke gebeurtenis draagt al het **werkelijke moment waarop je ze intikte**, tot op de milliseconde.
+Dat is de echte volgorde, en ze is op elk toestel dezelfde. Bij gelijke speelminuut valt de app daar
+nu op terug, op alle vier de plaatsen waar wedstrijden worden samengevoegd. De volgorde kan dus niet
+meer omdraaien.
+
+**En je kan ze nu zelf rechtzetten.** Staat er een wissel en een positiewissel op dezelfde minuut in
+de verkeerde volgorde, dan staat er bij de tweede een **pijltje omhoog**. Eén tik en ze staan om; de
+opstelling wordt meteen opnieuw berekend.
+
+Het pijltje staat er alleen waar het iets verandert — bij een doelpunt of een kaart op dezelfde minuut
+doet de volgorde niets. En één volgorde wordt geweigerd: een positiewissel kan nooit vóór de wissel
+staan die die speler net binnenbracht. Hij stond er dan nog niet, en die zet is bovendien niet meer
+terug te draaien.
+
+**Een teruggezette gebeurtenis komt nu ook op haar eigen plek terug.** Gevonden met een fuzzer die
+1760 keer een gebeurtenis wiste en meteen terugzette, en telkens de hele wedstrijd vergeleek.
+
+v1.93.0 zette een teruggezette gebeurtenis terug op haar **tijd**. Dat lijkt genoeg, maar bij twee
+gebeurtenissen op exact dezelfde kloktijd beslist hun **volgorde in de lijst** welke eerst geldt — en
+alles wat bij de start van een deel wordt doorgevoerd, krijgt precies dezelfde tijd. Een wissel kon zo
+achter haar buurvrouw belanden in plaats van ervoor, en dan kan dezelfde wedstrijd een andere
+opstelling opleveren. De plaats in de lijst wordt nu onthouden bij het wissen en hersteld bij het
+terugzetten.
+
+Na die reparatie: 180 wedstrijden, 1760 keer wissen en terugzetten, nul verschillen — in de
+gebeurtenissen, de opstelling per deel, de speelminuten, de score, de kapitein en de keeperminuten.
+
+---
+
 ## v1.93.0
 
 **Een verwijderde gebeurtenis kan je nu terugzetten.** Het balkje boven de eventlijst kende

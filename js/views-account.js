@@ -4037,12 +4037,81 @@ function allCaptains(m) {
   return ids;
 }
 // Events gegroepeerd per deel (kwart/helft/...), met de tussenstand t.e.m. dat deel.
+// ===================== TWEE GEBEURTENISSEN OP DEZELFDE MINUUT =====================
+// (Tim, 02-10-2026: "als ik achteraf twee events toevoeg op dezelfde minuut, wat bepaalt dan de
+// volgorde?") Het antwoord was: de volgorde waarin je ze intikte — en die kon je niet meer omdraaien.
+// Voor de meeste gebeurtenissen geeft dat niet: een doelpunt en een hoekschop op dezelfde minuut,
+// wie er eerst staat is om het even. Bij een WISSEL en een POSITIEWISSEL doet het er wél toe, want de
+// opstelling wordt in die volgorde opnieuw opgebouwd.
+//
+// Daarom staat er een pijltje — maar enkel waar het iets betekent: bij een wissel of positiewissel
+// die een buur van hetzelfde soort op precies dezelfde speeltijd heeft. Overal elders zou het een
+// knop zijn die niets verandert.
+const VOLGORDE_TELT = new Set(['substitution', 'posSwap']);
+// De buur net vóór deze gebeurtenis, op dezelfde speeltijd. Null wanneer ze de eerste is.
+function volgordeBuur(m, e) {
+  if (!e || !VOLGORDE_TELT.has(e.type)) return null;
+  const zelfde = (m.events || [])
+    .filter(x => VOLGORDE_TELT.has(x.type) && (x.gameTimeMs || 0) === (e.gameTimeMs || 0) && !!x.atBreak === !!e.atBreak)
+    .sort(eventVolgorde);
+  const i = zelfde.findIndex(x => x.id === e.id);
+  return i > 0 ? zelfde[i - 1] : null;
+}
+// MAG DEZE VOLGORDE? Een positiewissel kan niet vóór de wissel staan die die speler net binnenbracht
+// — hij stond er dan nog niet. Laat je dat toch toe, dan slaat de reconstructie de ruil over én gooit
+// ze de momentopnames van die ruil weg (zie rebuildPositions: "OVERGESLAGEN: hij stond er niet"), en
+// dan is het omwisselen NIET meer terug te draaien. Gemeten op 02-10-2026: twee keer omwisselen gaf
+// een andere opstelling dan waar je begon. Dus hier tegenhouden in plaats van achteraf repareren.
+function volgordeMag(e, buur) {
+  if (!e || !buur) return false;
+  // Na het omwisselen staat `e` vóór `buur`. Brengt `buur` een speler binnen die `e` gebruikt?
+  const binnen = buur.type === 'substitution' ? buur.playerInId : null;
+  if (!binnen) return true;
+  if (e.type === 'posSwap') return e.pA !== binnen && e.pB !== binnen;
+  if (e.type === 'substitution') return e.playerOutId !== binnen && e.playerInId !== binnen;
+  return true;
+}
+function omhoogKnopHtml(m, e) {
+  const buur = volgordeBuur(m, e);
+  if (!buur || !volgordeMag(e, buur)) return '';
+  return `<button class="evt-edit no-print" onclick="eventOmhoog('${e.id}')" title="Zet deze vóór de vorige op dezelfde minuut">&#8593;</button>`;
+}
+// Van plaats ruilen met de buur ervóór. Twee dingen moeten mee: de plaats in de lijst (daar leest de
+// reconstructie de volgorde af) én het moment van intikken (daar valt elke samenvoeging op terug —
+// zie eventVolgorde in core.js). Enkel de lijst omdraaien zou bij de eerstvolgende synchronisatie
+// weer terugdraaien.
+async function eventOmhoog(id) {
+  if (typeof slotWeigert === 'function' && slotWeigert()) return;
+  const e = (match.events || []).find(x => x.id === id); if (!e) return;
+  const buur = volgordeBuur(match, e); if (!buur) return;
+  // Ook hier, niet enkel bij het tekenen van de knop: dit is de plek waar het echt gebeurt.
+  if (!volgordeMag(e, buur)) {
+    showToast('Dat kan niet: die speler kwam pas door de wissel op het veld, dus wat hem betreft kan er niet eerder gebeuren.', 'err');
+    return;
+  }
+  const baseline = playersAtPeriodStart(match, 1);   // vóór de mutatie, zoals bij elke bewerking
+  const rt = e.realTime, rtBuur = buur.realTime;
+  e.realTime = rtBuur; buur.realTime = rt;
+  // Gelijke of ontbrekende tijdstippen: dan zegt het omwisselen niets en zetten we ze expliciet
+  // uiteen, zodat de nieuwe volgorde ook een samenvoeging overleeft.
+  if (!(e.realTime < buur.realTime)) { e.realTime = (buur.realTime || Date.now()) - 1; }
+  const ia = match.events.indexOf(e), ib = match.events.indexOf(buur);
+  if (ia >= 0 && ib >= 0) { match.events[ia] = buur; match.events[ib] = e; }
+  rebuildPositions(match, baseline);
+  if (match.keeperByQ && Object.keys(match.keeperByQ).length) rebuildKeeperByQ(match);
+  recomputeScore(match); recomputeOnField(match);
+  await dbSave(match);
+  render();
+  showToast('Volgorde omgewisseld.', 'ok');
+}
+
 // quarter_start / quarter_end worden weggelaten: de groepskop vervangt ze.
 function eventsByQuarter(m) {
   const groups = [];
   const qnums = [...new Set(m.events.map(e => e.quarterNum).filter(n => n != null))].sort((a, b) => a - b);
   for (const qn of qnums) {
-    const list = m.events.filter(e => e.quarterNum === qn && !e.type.startsWith('quarter')).sort((a, b) => a.gameTimeMs - b.gameTimeMs);
+    // Zelfde maatstaf als de samenvoeging, zodat de tijdlijn op elk toestel dezelfde volgorde toont.
+    const list = m.events.filter(e => e.quarterNum === qn && !e.type.startsWith('quarter')).sort(eventVolgorde);
     groups.push({ qn, list, cum: scoreUpToQuarter(m, qn) });
   }
   const orphan = m.events.filter(e => e.quarterNum == null && !e.type.startsWith('quarter'));
@@ -4222,7 +4291,7 @@ function renderEventLog(m) {
       const knoppen = elog_vast ? ''
         : (e.type === 'posSwapReeks'
           ? `${e.atBreak ? '' : `<button class="evt-edit no-print" onclick="modalPosSwapReeks(['${reeksIds}'])" title="Rechtzetten">${icI(IC.edit)}</button>`}<button class="evt-del no-print" onclick="confirmDeleteEvents(['${reeksIds}'])" title="Verwijderen">×</button>`
-          : `<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
+          : `${omhoogKnopHtml(m, e)}<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
       return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinTijd(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
     };
     const items = pauzeItems.map(li).join('') + startRegel + (list.length
