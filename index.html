@@ -723,10 +723,13 @@
        enige wat er in het kader staat — dan is hij de ingang naar wat er nog komt. */
     .sd-door{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 9px;background:var(--grnp);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:var(--grn2)}
     .sd-door span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Zonder wedstrijden mag de regel er staan zonder te roepen: grijs in plaats van groen. */
+    .sd-door-leeg{background:var(--bg);color:var(--txt2)}
     .sd-pijl{font-size:17px;line-height:1;flex-shrink:0}
     .sd-balk{font-size:13px;font-weight:800;margin-bottom:12px}
     body.dark .sd-kaart{background:#0f1828}
     body.dark .sd-door{background:#12301f;color:#7fd3a0}
+    body.dark .sd-door-leeg{background:#0f1828;color:var(--txt2)}
     .ts-wrap{min-height:calc(100dvh - var(--credit-h));background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:url('background_logo.jpg') center/cover no-repeat;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:none;position:relative;overflow:hidden}
     .ts-hdr::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}

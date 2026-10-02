@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.95.1
+
+**Op een dag zonder wedstrijden was Live speeldag onbereikbaar.** Tim: *"wat als er op een dag geen
+wedstrijden zijn?"* Dan verdween het hele kader — en daarmee ook de groene regel die de enige ingang
+naar dat scherm is. Op een woensdag kon je er dus niet bij, en wie de app vooral doordeweeks opent,
+zou dat scherm nooit tegenkomen.
+
+Voor wie een club beheert blijft die regel nu staan, grijs en met *'Vandaag · geen wedstrijden'*. Voor
+een kijker verandert er niets: die heeft geen scherm achter die regel zitten, dus bij hem verdwijnt het
+kader nog altijd volledig zodra er niets loopt.
+
+**Het onderploegje staat er nu bij op het kaartje**, tussen haakjes achter de ploegnaam — zoals overal
+elders in de app.
+
+---
+
 ## v1.95.0
 
 **Live speeldag: wat er bij je club nú gespeeld wordt, op één plek.** Tim: *"kan er ergens een scherm

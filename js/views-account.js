@@ -3420,7 +3420,7 @@ function speeldagKaartHtml(rij) {
   const stand = (m.status === 'planned' || af) ? ''
     : `<b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>`;
   return `<div class="sd-kaart" style="border-left-color:${kleur}" onclick="speeldagOpen('${m.id}')">
-      <div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}</div>
+      <div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>
       <div class="sd-tegen">${esc(m.opponent || '—')}</div>
       <div class="sd-onder">${toestand}${stand}</div>
     </div>`;
@@ -3450,19 +3450,20 @@ function speeldagHtml() {
     return kader(stil('Raakte niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a>'));
   }
   const live = st.rijen.filter(r => r.m.status === 'live');
-  const rest = st.rijen.length - live.length;
-  if (!live.length && !rest) return '';   // niets te melden: dan ook geen leeg kader in de weg
   const kaartjes = live.length ? `<div class="sd-rooster">${live.map(speeldagKaartHtml).join('')}</div>` : '';
-  // De doorklik. Hij staat er ook zonder lopende wedstrijd, zolang er vandaag íets is — anders is het
-  // scherm op een rustige zaterdagochtend onbereikbaar terwijl er wel wedstrijden aankomen.
-  const woord = n => n === 1 ? '1 wedstrijd' : n + ' wedstrijden';
-  const door = volledig
-    ? `<div class="sd-door" onclick="go('livespeeldag')">
-        <span>${live.length ? `${esc(st.label)} · ${woord(st.rijen.length)}` : `${esc(st.label)} · ${woord(rest)}`}</span>
-        <span class="sd-pijl">›</span>
-      </div>`
-    : '';
-  if (!live.length && !door) return '';
+  // VOOR EEN KIJKER VERDWIJNT HET KADER zodra er niets loopt: hij heeft hier geen scherm achter zitten,
+  // dus zonder lopende wedstrijd is er voor hem letterlijk niets te melden.
+  if (!volledig) return live.length ? kader(kaartjes) : '';
+  // VOOR WIE EEN CLUB BEHEERT BLIJFT DE DOORKLIK STAAN, ook op een lege woensdag (Tim, 02-10-2026:
+  // "wat als er op een dag geen wedstrijden zijn"). Hij is de enige ingang naar het volledige scherm,
+  // en een ingang die op rustige dagen wegvalt, vindt niemand nog terug — wie de app vooral
+  // doordeweeks opent, zou dat scherm nooit tegenkomen. Zonder wedstrijden is de regel grijs in plaats
+  // van groen: ze mag er staan, ze hoeft niet te roepen.
+  const n = st.rijen.length;
+  const woord = n === 0 ? 'geen wedstrijden' : n === 1 ? '1 wedstrijd' : n + ' wedstrijden';
+  const door = `<div class="sd-door${n ? '' : ' sd-door-leeg'}" onclick="go('livespeeldag')">
+      <span>${esc(st.label)} · ${woord}</span><span class="sd-pijl">›</span>
+    </div>`;
   return kader(kaartjes + door);
 }
 function speeldagTeken() {
