@@ -3449,13 +3449,12 @@ async function speeldagOpen(id) {
   }
   go(doel, id);
 }
-// Eén kaartje: ploeg, tegenstander, en de toestand met de stand. Twee maten, want twee plekken:
-// KLEIN (standaard) voor het kadertje op 'Jouw ploegen', waar er twee naast elkaar moeten passen —
-// GROOT voor het eigen scherm, waar een halve breedte alleen maar ruimte weggooit (Tim, 02-10-2026:
-// "op die live speeldag pagina staan de kaartjes redelijk klein hoor"). Het verschil zit enkel in de
-// opmaak: bij het grote kaartje staat de stand rechts naast de tekst in plaats van eronder.
+// Eén kaartje: ploeg, tegenstander, en de toestand met de stand. Twee per rij op allebei de plekken —
+// in het kadertje op 'Jouw ploegen' en op het speeldagscherm (Tim, 03-10-2026: "zet ze enkel in het
+// speeldagscherm op halve breedte"). Op dat scherm staan ze een maat ruimer en op een eigen vlak; dat
+// zit volledig in de klasse sd-ruim, zodat hier maar één vorm te onderhouden is.
 // Alles blijft op één regel per onderdeel, met overlopende tekst afgekapt.
-function speeldagKaartHtml(rij, groot) {
+function speeldagKaartHtml(rij) {
   const m = rij.m;
   const af = matchCancelled(m), nietAf = matchNietAfgesloten(m);
   const kleur = m.status === 'live' ? 'var(--rd)' : af ? 'var(--txt2)' : nietAf ? 'var(--yl)'
@@ -3465,13 +3464,11 @@ function speeldagKaartHtml(rij, groot) {
   // Staat de klok stil tussen twee blokken, dan is "rust" het antwoord op diezelfde vraag.
   const blok = (m.quarterStatus === 'between') ? 'rust'
     : (m.quarters && m.quarters.length) ? `${pSingLow(m)} ${m.quarters.length}` : 'bezig';
-  // HET WOORD 'LIVE' ENKEL OP HET VOLLEDIGE SCHERM (Tim, 02-10-2026: "nu staat er op die live kaart
-  // LIVE bovenaan en dan live bij elk kaartje ... soms drie keer live kort bij elkaar in rood").
-  // In het kadertje staat 'Live' al als titel erboven, dus daar volstaat het rode bolletje met het
-  // blok erachter. Op het eigen scherm staan ook wedstrijden die niet lopen, en daar zegt het woord
-  // wél iets.
+  // GEEN WOORD 'LIVE' OP HET KAARTJE (Tim, 02-10-2026: "soms drie keer live kort bij elkaar in rood").
+  // Op allebei de plekken staat er al een kop boven die het zegt — 'Live' in het kadertje, 'Nu bezig'
+  // op het speeldagscherm — dus hier volstaat het rode bolletje met het blok erachter.
   const toestand = m.status === 'live'
-      ? `<span class="sd-live">${groot ? 'LIVE · ' : ''}${esc(blok)}</span>`
+      ? `<span class="sd-live">${esc(blok)}</span>`
     : af ? '<span>Geannuleerd</span>'
     : nietAf ? '<span>Niet afgesloten</span>'
     : m.status === 'planned' ? `<span>${esc(m.time || 'Gepland')}${m.location ? ' · ' + esc(m.location) : ''}</span>`
@@ -3482,13 +3479,12 @@ function speeldagKaartHtml(rij, groot) {
     : `<b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>`;
   const ploeg = `<div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>`;
   const tegen = `<div class="sd-tegen">${esc(m.opponent || '—')}</div>`;
-  const binnen = groot
-    ? `<div class="sd-tekst">${ploeg}${tegen}<div class="sd-onder">${toestand}</div></div>${stand}`
-    : `${ploeg}${tegen}<div class="sd-onder">${toestand}${stand}</div>`;
   // Een kaartje dat niet opengaat, hoort er ook niet uit te zien alsof het dat wel doet — zelfde
   // afspraak als in de wedstrijdenlijst (matchItemHtml): geen handje, en de tik zegt wáárom.
   const mag = speeldagMagOpenen(rij);
-  return `<div class="sd-kaart${groot ? ' sd-groot' : ''}" style="border-left-color:${kleur}${mag ? '' : ';cursor:default'}" onclick="speeldagOpen('${m.id}')">${binnen}</div>`;
+  return `<div class="sd-kaart" style="border-left-color:${kleur}${mag ? '' : ';cursor:default'}" onclick="speeldagOpen('${m.id}')">
+      ${ploeg}${tegen}<div class="sd-onder">${toestand}${stand}</div>
+    </div>`;
 }
 // HET KADERTJE OP 'JOUW PLOEGEN'. Enkel wat er nu loopt, plus — voor wie een club beheert — één regel
 // naar het volledige scherm. Bewust niet meer: de rest van de speeldag maakte van dit kader een
@@ -3583,19 +3579,32 @@ function speeldagVolledigHtml() {
   if (!st.rijen.length) {
     return `<div class="empty"><div class="ei">${IC.calendar}</div><p>Geen wedstrijden ${st.label.toLowerCase()} bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
   }
-  const dagen = [...new Set(st.rijen.map(r => r.m.date))];
-  // De dagkop enkel wanneer er twee dagen onder elkaar staan (een weekend). Bij één dag zou ze
-  // herhalen wat al in de kopregel van het scherm staat — zie speeldagDatumTekst.
+  // WAT LOOPT, STAAT BOVENAAN — LOS VAN DE DAG (Tim, 03-10-2026: "live wedstrijden moeten altijd
+  // bovenaan staan hé, want niet alle wedstrijden gaan bijgehouden worden"). Zaten ze in hun dagblok,
+  // dan kon een lopende wedstrijd onder een vorige dag verdwijnen — precies wat dit scherm moet
+  // voorkomen. Ze komen dus uit hun dag en krijgen een eigen blok vooraan.
+  const live = st.rijen.filter(r => r.m.status === 'live');
+  const rest = st.rijen.filter(r => r.m.status !== 'live');
+  // EN EEN VOORBIJE DAG ZAKT NAAR ONDER (Tim: "nu is het zaterdag, vrijdag blijft bovenaan staan ...
+  // moet onderaan komen"). Vandaag eerst, dan wat nog komt, en onderaan wat voorbij is — de recentste
+  // van die voorbije dagen bovenaan, want daar gaat het gesprek over.
+  const vandaag = isoVandaag();
+  const voorbij = d => d < vandaag;
+  const dagen = [...new Set(rest.map(r => r.m.date))].sort((a, b) =>
+    (voorbij(a) ? 1 : 0) - (voorbij(b) ? 1 : 0) || (voorbij(a) ? b.localeCompare(a) : a.localeCompare(b)));
+  // De dagkop zodra er iets boven staat om van te onderscheiden: meerdere dagen, of het live-blok.
+  // Staat er één dag en loopt er niets, dan herhaalt ze enkel de kopregel van het scherm.
+  const toonKop = dagen.length > 1 || live.length > 0;
   const blok = dag => {
-    const rijen = st.rijen.filter(r => r.m.date === dag);
-    const kop = dagen.length > 1 ? `<div class="sec">${esc(speeldagDagTekst(dag))}</div>` : '';
-    return kop + `<div class="sd-lijst">${rijen.map(r => speeldagKaartHtml(r, true)).join('')}</div>`;
+    const rijen = rest.filter(r => r.m.date === dag);
+    const kop = toonKop ? `<div class="sec">${esc(speeldagDagTekst(dag))}</div>` : '';
+    return kop + `<div class="sd-rooster sd-ruim">${rijen.map(r => speeldagKaartHtml(r)).join('')}</div>`;
   };
-  const loopt = st.rijen.filter(r => r.m.status === 'live').length;
-  const balk = loopt
-    ? `<div class="sd-balk"><span class="sd-live">${loopt === 1 ? 'Er loopt nu 1 wedstrijd' : `Er lopen nu ${loopt} wedstrijden`}</span></div>`
+  const liveBlok = live.length
+    ? `<div class="sec"><span class="sd-live">${live.length === 1 ? 'Nu bezig' : `Nu bezig · ${live.length}`}</span></div>`
+      + `<div class="sd-rooster sd-ruim">${live.map(r => speeldagKaartHtml(r)).join('')}</div>`
     : '';
-  return balk + dagen.map(blok).join('');
+  return liveBlok + dagen.map(blok).join('');
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);

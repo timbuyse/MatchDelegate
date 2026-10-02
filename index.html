@@ -717,15 +717,18 @@
     .sd-onder span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .sd-onder b{font-size:14px;font-weight:900;color:var(--txt);white-space:nowrap}
     /* Het rode bolletje van een lopende wedstrijd, dezelfde taal als de live-badge elders. */
-    /* Het grote kaartje op het eigen scherm: volle breedte, en de stand rechts naast de tekst in
-       plaats van eronder. Daar is een heel scherm beschikbaar, dus een halve breedte gooit ruimte weg. */
-    .sd-lijst{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
-    .sd-kaart.sd-groot{display:flex;align-items:center;gap:12px;background:var(--card);box-shadow:var(--shadow);border-left-width:4px;border-radius:11px;padding:12px 14px}
-    .sd-groot .sd-tekst{flex:1;min-width:0}
-    .sd-groot .sd-ploeg{font-size:15.5px}
-    .sd-groot .sd-tegen{font-size:12.5px;margin-top:2px}
-    .sd-groot .sd-onder{font-size:11.5px;margin-top:5px}
-    .sd-groot>b{font-size:20px;font-weight:900;color:var(--txt);white-space:nowrap;flex-shrink:0}
+    /* OP HET SPEELDAGSCHERM OOK TWEE PER RIJ (Tim, 03-10-2026: "zet ze enkel in het speeldagscherm op
+       halve breedte"). Wel een maat ruimer dan in het kadertje op 'Jouw ploegen', want daar hoorde
+       Tims eerdere opmerking bij dat ze "redelijk klein" stonden. En een ander vlak: in het kadertje
+       liggen ze ÓP een witte kaart (dus var(--bg)), hier liggen ze op de paginakleur en moeten ze zelf
+       de kaart zijn — anders zie je ze niet staan. */
+    .sd-ruim{margin-bottom:16px}
+    .sd-ruim .sd-kaart{background:var(--card);box-shadow:var(--shadow);border-left-width:4px;border-radius:11px;padding:10px 11px}
+    .sd-ruim .sd-ploeg{font-size:14.5px}
+    .sd-ruim .sd-tegen{font-size:12px;margin-top:2px}
+    .sd-ruim .sd-onder{font-size:11px;margin-top:6px}
+    .sd-ruim .sd-onder b{font-size:16px}
+    body.dark .sd-ruim .sd-kaart{background:var(--card)}
     .sd-live{color:var(--rd)}
     .sd-live::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rd);margin-right:4px;vertical-align:middle}
     /* In de kopbalk van het scherm: op een donkere foto en bij een grotere letter, dus iets groter en
@@ -740,7 +743,6 @@
     .sd-door{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 9px;background:var(--bg);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2)}
     .sd-door span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .sd-pijl{font-size:17px;line-height:1;flex-shrink:0;color:var(--txt2)}
-    .sd-balk{font-size:13px;font-weight:800;margin-bottom:12px}
     body.dark .sd-kaart{background:#0f1828}
     body.dark .sd-kaart.sd-groot{background:var(--card)}
     body.dark .sd-door{background:#0f1828;color:var(--txt2)}
@@ -772,12 +774,14 @@
     /* De clubbalk is een KOP boven je ploegen, geen tweede ploeg. In donkere modus was var(--grnp)
        bovendien het felste vlak van de hele pagina — lichtgroen op een donker scherm — terwijl de
        ploegrij daar donker is. Daarom een eigen klasse met een donkere tegenhanger. */
-    .ts-clubbalk{display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:8px 12px;background:var(--bg);border-radius:10px;cursor:pointer}
+    .ts-clubbalk{display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:8px 12px;background:var(--card);border-radius:10px;cursor:pointer}
     .ts-club-naam{display:block;font-size:12px;font-weight:700;color:var(--grn2);text-transform:uppercase;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .ts-club-sub{display:block;font-size:11.5px;font-weight:600;color:var(--grn2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     /* Een kop zonder club die je beheert: dan is het enkel een label, geen ingang. */
     .ts-club-naam.kaal{color:var(--txt2)}
-    body.dark .ts-clubbalk{background:#0f1828}
+    /* Geen eigen donkere tint meer: var(--card) kantelt zelf mee, en dat is precies het vlak van het
+       live-kader erboven (Tim, 03-10-2026: "achtergrond van de clubnaamkaart zou idem moeten zijn aan
+       achtergrond live kaart"). */
     body.dark .ts-clubbalk .ts-club-naam,body.dark .ts-clubbalk .ts-club-sub{color:#7fd3a0}
     .ts-drag-handle{display:flex;align-items:center;color:var(--txt2);cursor:grab;touch-action:none;margin:-8px -4px -8px -10px;padding:8px 4px}
     .ts-team-row.dragging{opacity:.5}

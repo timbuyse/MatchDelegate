@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.2
+
+**De clubbalk heeft nu hetzelfde vlak als het live-kader erboven.** Tim: *"achtergrond van de
+clubnaamkaart zou idem moeten zijn aan achtergrond live kaart."* Ze stond op de paginakleur en viel
+daardoor weg tegen de achtergrond; nu is het dezelfde kaartkleur, in allebei de thema's.
+
+**Op het speeldagscherm staan de kaartjes twee per rij.** Tim: *"zet ze enkel in het speeldagscherm op
+halve breedte."* Ze stonden op volle breedte; nu passen er twee naast elkaar, een maat ruimer dan de
+kaartjes in het kadertje op 'Jouw ploegen' en elk op een eigen vlak. Op de ploegenlijst zelf blijft
+alles op volle breedte — daar is een rij de knop waarmee je de app binnengaat, en die hoort niet
+halfbreed te zijn.
+
+**Wat loopt staat bovenaan, en een voorbije dag zakt naar onder.** Tim: *"live wedstrijden moeten
+altijd bovenaan staan hé, want niet alle wedstrijden gaan bijgehouden worden"* en *"nu is het
+zaterdag, vrijdag blijft bovenaan staan… moet onderaan komen."*
+
+Het weekendoverzicht stond strikt op datum, dus op zaterdagochtend begon het scherm met vrijdag — en
+een wedstrijd die nog liep, kon onder die vorige dag verdwijnen. Precies wat dit scherm moet
+voorkomen.
+
+Nu staat er bovenaan **Nu bezig**, met alles wat op dit moment gespeeld wordt, uit welke dag ook.
+Daaronder de dagen: vandaag eerst, dan wat nog komt, en onderaan wat voorbij is — de recentste
+voorbije dag bovenaan.
+
+---
+
 ## v1.99.1
 
 **De lichtgroene tint is verhuisd naar je ploegen.** Tim: *"ik vond die lichte kleur bij die clubs wel
