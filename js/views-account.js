@@ -3634,12 +3634,15 @@ function renderTeamSelect() {
     const cid = clubIdFor(cn);
     const mag = cid && myClubs && myClubs[cid] && !viewerMode;
     if (mag) clubKoppen[cid] = true;
-    const binnen = `${logo ? `<img src="${logo}" alt="" style="width:26px;height:26px;object-fit:contain;border-radius:5px;flex-shrink:0">` : ''}
-      <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;font-weight:700;color:${mag ? 'var(--grn2)' : 'var(--txt2)'};text-transform:uppercase;letter-spacing:.5px">${esc(cn)}</span>
-      ${mag ? `<span style="display:block;font-size:11.5px;font-weight:600;color:var(--grn2);text-transform:none;letter-spacing:0">Club beheren</span>` : ''}</span>
-      ${mag ? `<span style="color:var(--grn2);font-size:19px;font-weight:700">›</span>` : ''}`;
+    // GEEN PIJLTJE MEER OP DE CLUBBALK (Tim, 02-10-2026: "dat pijltje bij die clubs zelf weg, er staat
+    // al beheren onder"). Het pijltje staat nu bij de ploeg, waar de tik hoort te landen; hier zegt
+    // het woord 'Club beheren' al genoeg. De balk is ook smaller: ze is een kop boven je ploegen, geen
+    // tweede ploeg.
+    const binnen = `${logo ? `<img src="${logo}" alt="" style="width:24px;height:24px;object-fit:contain;border-radius:5px;flex-shrink:0">` : ''}
+      <span style="flex:1;min-width:0"><span class="ts-club-naam${mag ? '' : ' kaal'}">${esc(cn)}</span>
+      ${mag ? `<span class="ts-club-sub">Club beheren</span>` : ''}</span>`;
     return mag
-      ? `<div onclick="naarClubbeheer('${cid}','teamselect')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">${binnen}</div>`
+      ? `<div class="ts-clubbalk" onclick="naarClubbeheer('${cid}','teamselect')">${binnen}</div>`
       : `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px">${binnen}</div>`;
   };
   // DEZELFDE BALK VOOR EEN CLUB ZONDER PLOEG VAN JOU (v1.82.0). Hier stond een blauwe knop "Mijn club
@@ -3648,19 +3651,26 @@ function renderTeamSelect() {
   // "je komt elders terecht". Nu krijgt zo'n club gewoon dezelfde balk, mét haar naam, op dezelfde
   // plek als de rest. De naam komt uit de cache die loadTeamSelect vult (clubNaamCache); zolang ze
   // nog onderweg is, staat er "Club beheren" en verschijnt de naam bij de volgende tekening.
-  const losseClubBalk = cid => `<div onclick="naarClubbeheer('${cid}','teamselect')" style="display:flex;align-items:center;gap:9px;margin:14px 0 6px;padding:11px 12px;background:var(--grnp);border-radius:10px;cursor:pointer">
-      <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;font-weight:700;color:var(--grn2);text-transform:uppercase;letter-spacing:.5px">${esc(clubNaamCache[cid] || 'Club')}</span>
-      <span style="display:block;font-size:11.5px;font-weight:600;color:var(--grn2);text-transform:none;letter-spacing:0">Club beheren${clubNaamCache[cid] ? '' : '…'}</span></span>
-      <span style="color:var(--grn2);font-size:19px;font-weight:700">›</span>
+  const losseClubBalk = cid => `<div class="ts-clubbalk" onclick="naarClubbeheer('${cid}','teamselect')">
+      <span style="flex:1;min-width:0"><span class="ts-club-naam">${esc(clubNaamCache[cid] || 'Club')}</span>
+      <span class="ts-club-sub">Club beheren${clubNaamCache[cid] ? '' : '…'}</span></span>
     </div>`;
   const teamRowHtml = id => {
     const role = userTeams[id];
     const name = teamNames[id] || id;
     const handle = canReorder ? `<span class="ts-drag-handle" onclick="event.stopPropagation()">${icI(IC.grip)}</span>` : '';
+    // HET PIJLTJE HOORT HIER (Tim, 02-10-2026: "ik word niet uitgenodigd om op die U11IP te klikken").
+    // De clubbalken hadden er een en de ploeg niet, dus je oog leerde dat de clubs aanklikbaar waren
+    // en de ploeg niet — terwijl de ploeg net is waarvoor je op dit scherm komt. En de rol stond op
+    // dezelfde regel in hetzelfde groen als de naam, dus binnen de rij vochten twee dingen om
+    // aandacht. Nu: de naam alleen, de rol er klein onder, en het pijltje rechts.
     return `<div class="ts-team-row" data-team-id="${id}" onclick="selectTeam('${id}')">
           ${handle}
-          <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
-          <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Ploegbeheerder` : `${icI(IC.eye)} Kijker`}</span>
+          <span class="ts-team-tekst">
+            <span class="ts-name" id="tsname-${id}">${esc(name)}</span>
+            <span class="ts-role ${role}">${role === 'admin' ? `${icI(IC.edit)} Ploegbeheerder` : `${icI(IC.eye)} Kijker`}</span>
+          </span>
+          <span class="ts-pijl">›</span>
         </div>`;
   };
   let teamRows;

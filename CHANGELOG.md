@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.98.1
+
+**Je ploeg nodigt nu uit om aangetikt te worden.** Tim: *"die drie velden zijn even groot, ik word
+niet uitgenodigd om op die U11IP te klikken."*
+
+De oorzaak zat niet in de grootte maar in het pijltje: de **clubbalken** hadden er een en de **ploeg**
+niet. Je oog leert daaruit dat de clubs aanklikbaar zijn en de ploeg niet — terwijl de ploeg net is
+waarvoor je op dit scherm komt. Daar kwam bij dat 'Ploegbeheerder' in hetzelfde groen en op dezelfde
+regel stond als de ploegnaam, zodat die twee binnen één rij om aandacht vochten.
+
+Het gewicht is omgedraaid. De ploegrij heeft nu het pijltje, de naam staat alleen op zijn regel en de
+rol staat er klein onder. De clubbalken zijn smaller geworden en verloren hun pijltje — *'Club
+beheren'* zegt al waar je terechtkomt. Gemeten: de ploegrij is 68 pixels hoog, een clubbalk 48.
+
+**In donkere modus waren die clubbalken bovendien het felste vlak van de pagina**: lichtgroen op een
+donker scherm, terwijl de ploegrij daar donker is. Ze hebben nu een eigen donkere tint, met lichtere
+tekst erop zodat de clubnaam leesbaar blijft.
+
+---
+
 ## v1.98.0
 
 **Wat tussen twee blokken gebeurt heet voortaan de rust.** Tim: *"in het Vlaams wordt 'rust' gebruikt
