@@ -3484,8 +3484,11 @@ function speeldagHtml() {
   const st = _speeldag;
   if (!st) return '';
   const clubbreed = speeldagClubbreed();
+  // "LIVE" MET EEN ROOD BOLLETJE (Tim, 02-10-2026). Het heette hier "Live speeldag", maar dat is de
+  // naam van het scherm erachter; in dit kadertje staat enkel wat er nú loopt, en daar past het woord
+  // dat iedereen van televisie kent. De volledige naam staat op het scherm zelf.
   const kader = binnen => `<div class="sd-kader">
-      <div class="sd-kop"><div class="sd-titel">Live speeldag</div></div>${binnen}</div>`;
+      <div class="sd-kop"><div class="sd-titel sd-live">Live</div></div>${binnen}</div>`;
   const stil = t => `<div style="font-size:12px;color:var(--txt2);padding:1px 2px">${t}</div>`;
   // ALLES WAT GEEN NIEUWS IS, ZWIJGT VOOR WIE GEEN CLUB BEHEERT. Een kijker die wacht en een kijker bij
   // wie het ophalen mislukte, horen hetzelfde te zien: niets. Anders staat op het ploegkeuzescherm van
@@ -3523,10 +3526,33 @@ function speeldagTeken() {
   if (el) el.innerHTML = speeldagHtml();
   const vol = document.getElementById('livespeeldag-content');
   if (vol) vol.innerHTML = speeldagVolledigHtml();
+  // Draait de app over middernacht door, dan verschuift het venster en moet de datum in de kopregel
+  // mee — die staat buiten het blok dat hierboven hertekend wordt.
+  const dat = document.getElementById('speeldag-datum');
+  if (dat) dat.textContent = speeldagDatumTekst();
 }
 
-// HET VOLLEDIGE SCHERM. Per dag een kopje, daaronder dezelfde kaartjes. Twee dagen enkel in een
-// weekend; doordeweeks is er maar één kopje en dat laten we dan weg.
+// WELKE DAG KIJK JE EIGENLIJK (Tim, 02-10-2026: "er staat geen datum bij de matchen, het gaat enkel
+// over vandaag?"). Juist op een scherm dat "live" heet, moet dat er staan. De dagnaam erbij, want
+// "zaterdag 3 oktober" leest sneller dan een datum waarop je moet rekenen.
+// Zonder jaartal: het gaat altijd over vandaag of dit weekend, dus "2026" is enkel ruis op een regel
+// die op een telefoon toch al krap staat.
+const SPEELDAG_DAGNAMEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+function speeldagDagTekst(iso, zonderMaand) {
+  const d = new Date(iso + 'T00:00:00');
+  return SPEELDAG_DAGNAMEN[d.getDay()] + ' ' + d.getDate() + (zonderMaand ? '' : ' ' + CAL_MAANDEN[d.getMonth()]);
+}
+// Het hele venster in één regel, voor onder de titel. Bij een weekend allebei de dagen, want dan toont
+// het scherm er twee — zonder dat zou je op zondag denken dat je naar zaterdag alleen kijkt. Vallen ze
+// in dezelfde maand, dan staat die maar één keer: "zaterdag 3 en zondag 4 oktober".
+function speeldagDatumTekst() {
+  const v = (_speeldag && _speeldag.van) ? _speeldag : speeldagVenster();
+  if (v.van === v.tot) return speeldagDagTekst(v.van);
+  const zelfdeMaand = v.van.slice(0, 7) === v.tot.slice(0, 7);
+  return `${speeldagDagTekst(v.van, zelfdeMaand)} en ${speeldagDagTekst(v.tot)}`;
+}
+
+// HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, bij een weekend gegroepeerd per dag.
 function speeldagVolledigHtml() {
   const st = _speeldag;
   if (!st) return '';
@@ -3541,13 +3567,11 @@ function speeldagVolledigHtml() {
     return `<div class="empty"><div class="ei">${IC.calendar}</div><p>Geen wedstrijden ${st.label.toLowerCase()} bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
   }
   const dagen = [...new Set(st.rijen.map(r => r.m.date))];
-  // In een weekend staan er twee dagen onder elkaar, dus hoort de dagnaam erbij: "zaterdag 3 oktober"
-  // leest sneller dan een datum waarop je moet rekenen. Bij één dag is het kopje overbodig.
-  const DAGNAMEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+  // De dagkop enkel wanneer er twee dagen onder elkaar staan (een weekend). Bij één dag zou ze
+  // herhalen wat al in de kopregel van het scherm staat — zie speeldagDatumTekst.
   const blok = dag => {
     const rijen = st.rijen.filter(r => r.m.date === dag);
-    const d = new Date(dag + 'T00:00:00');
-    const kop = dagen.length > 1 ? `<div class="sec">${esc(DAGNAMEN[d.getDay()] + ' ' + fmtDate(d.getTime()))}</div>` : '';
+    const kop = dagen.length > 1 ? `<div class="sec">${esc(speeldagDagTekst(dag))}</div>` : '';
     return kop + `<div class="sd-lijst">${rijen.map(r => speeldagKaartHtml(r, true)).join('')}</div>`;
   };
   const loopt = st.rijen.filter(r => r.m.status === 'live').length;
@@ -3558,7 +3582,11 @@ function speeldagVolledigHtml() {
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
-  return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button><h1>${icI(IC.live)} Live speeldag</h1>
+  return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button>
+      <div style="flex:1;min-width:0">
+        <h1>${icI(IC.live)} Live speeldag</h1>
+        <div class="hdr-sub" id="speeldag-datum">${esc(speeldagDatumTekst())}</div>
+      </div>
       <button class="hdr-btn" onclick="speeldagVerversNu()">Verversen</button></div>
     <div class="content" id="livespeeldag-content">${speeldagVolledigHtml() || `<div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div>`}</div>`;
 }

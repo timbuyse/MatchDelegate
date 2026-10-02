@@ -1292,8 +1292,8 @@ const HANDLEIDING_PAGINAS = [
       <p>Volg je meer dan één ploeg, dan land je op <b>'Jouw ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
       <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Jouw ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account.</p>
       <div class="sec">Live speeldag</div>
-      <p>Wordt er op dit moment een wedstrijd bijgehouden bij een van je ploegen, dan staat ze in een klein kader bovenaan 'Jouw ploegen', met de stand erbij. Tik ze aan en je zit er meteen in — ook als je op dat ogenblik in een andere ploeg zat. De stand werkt zichzelf bij zolang je op dat scherm staat.</p>
-      <p style="margin-top:10px">Er staan er hoogstens twee; de groene regel eronder brengt je naar het scherm <b>Live speeldag</b> met alles van die dag. Wat er loopt, wat er straks begint en wat al gespeeld is, van alle ploegen die je volgt.</p>
+      <p>Wordt er op dit moment een wedstrijd bijgehouden bij een van je ploegen, dan staat ze in een klein kader bovenaan 'Jouw ploegen' onder het rode <b>Live</b>, met de stand erbij. Tik ze aan en je zit er meteen in — ook als je op dat ogenblik in een andere ploeg zat. De stand werkt zichzelf bij zolang je op dat scherm staat.</p>
+      <p style="margin-top:10px">Er staan er hoogstens twee; de groene regel eronder brengt je naar het scherm <b>Live speeldag</b> met alles van die dag. Wat er loopt, wat er straks begint en wat al gespeeld is, van alle ploegen die je volgt. Welke dag je bekijkt, staat bovenaan dat scherm onder de titel — doordeweeks die dag, en in het weekend zaterdag en zondag samen.</p>
       <p class="hdl-tip">Een wedstrijd die nog moet beginnen, kan je als kijker wel zien staan maar niet openen — net als in de wedstrijdenlijst. Zodra ze begint, kan je ze volgen.</p>
     `
   },

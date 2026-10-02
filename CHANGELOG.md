@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.96.1
+
+**Het kadertje heet nu gewoon 'Live', en het scherm zegt welke dag je bekijkt.** Tim: *"het heet Live
+speeldag maar er staat geen datum bij de matchen. Het gaat enkel over vandaag?"*
+
+Ja: over vandaag, en in het weekend over zaterdag en zondag samen. Dat stond nergens — de dagkop
+verscheen enkel wanneer er twee dagen onder elkaar stonden. Nu staat de datum altijd onder de titel
+van het scherm: *vrijdag 2 oktober*, of in een weekend *zaterdag 3 en zondag 4 oktober*. Zonder
+jaartal, want het gaat per definitie over deze dagen.
+
+Het kader bovenaan 'Jouw ploegen' heet voortaan **Live**, met een rood bolletje. 'Live speeldag' is de
+naam van het scherm erachter; in dat kadertje staat enkel wat er nu loopt.
+
+---
+
 ## v1.96.0
 
 **Live speeldag is er nu voor iedereen, en het kader blijft klein.** Tim: *"waarom ook voor een kijker
