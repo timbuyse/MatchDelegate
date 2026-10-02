@@ -728,18 +728,22 @@
     .sd-groot>b{font-size:20px;font-weight:900;color:var(--txt);white-space:nowrap;flex-shrink:0}
     .sd-live{color:var(--rd)}
     .sd-live::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rd);margin-right:4px;vertical-align:middle}
+    /* In de kopbalk van het scherm: op een donkere foto en bij een grotere letter, dus iets groter en
+       een tint lichter — var(--rd) zakt daar weg. */
+    .sd-live-licht::before{width:9px;height:9px;background:#ef4444;margin-right:7px;vertical-align:.04em}
     /* De doorklik naar het volledige scherm. Staat onder de kaartjes, en is op een rustige dag het
-       enige wat er in het kader staat — dan is hij de ingang naar wat er nog komt. */
-    .sd-door{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 9px;background:var(--grnp);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:var(--grn2)}
+       enige wat er in het kader staat — dan is hij de ingang naar wat er nog komt.
+       NEUTRAAL EN NIET GROEN (Tim, 02-10-2026: "die melding staat zo in groen gefluoresceerd").
+       Groen betekent in deze app een clubactie, en vlak onder dit kader staat de groene clubbalk —
+       twee groene vlakken onder elkaar die naar iets anders leiden. Dit is een doorgang, geen knop,
+       dus dezelfde lichte achtergrond als de kaartjes erboven, met het pijltje rechts. */
+    .sd-door{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 9px;background:var(--bg);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2)}
     .sd-door span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    /* Zonder wedstrijden mag de regel er staan zonder te roepen: grijs in plaats van groen. */
-    .sd-door-leeg{background:var(--bg);color:var(--txt2)}
-    .sd-pijl{font-size:17px;line-height:1;flex-shrink:0}
+    .sd-pijl{font-size:17px;line-height:1;flex-shrink:0;color:var(--txt2)}
     .sd-balk{font-size:13px;font-weight:800;margin-bottom:12px}
     body.dark .sd-kaart{background:#0f1828}
     body.dark .sd-kaart.sd-groot{background:var(--card)}
-    body.dark .sd-door{background:#12301f;color:#7fd3a0}
-    body.dark .sd-door-leeg{background:#0f1828;color:var(--txt2)}
+    body.dark .sd-door{background:#0f1828;color:var(--txt2)}
     .ts-wrap{min-height:calc(100dvh - var(--credit-h));background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:url('background_logo.jpg') center/cover no-repeat;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:none;position:relative;overflow:hidden}
     .ts-hdr::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.96.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.97.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2639,14 +2639,36 @@ async function onAuthChanged(user) {
   if (teamIds.length === 0) {
     await go('teamselect', undefined, true); return;
   }
+  // WAAR LANDT DE APP (Tim, 02-10-2026: "als je maar één ploeg hebt, start de app dan in het
+  // ploegscherm meteen? Zou eigenlijk op het keuzescherm moeten")? Allebei, en de wedstrijden
+  // beslissen. Loopt er nú iets bij een van je ploegen, dan kom je binnen op 'Jouw ploegen' en zie je
+  // het meteen staan. Is er niets aan de hand, dan ga je rechtstreeks je ploeg binnen, zoals het altijd
+  // was — een afgevaardigde met één ploeg hoort bij elke start geen lijst van één rij weg te tikken.
+  //
+  // MET EEN HARDE GRENS AAN HET WACHTEN. Dit kost één vraag per ploeg aan de databank, en een opstart
+  // mag daar niet op blijven hangen: komt het antwoord niet binnen de 700 ms, dan beslissen we zonder.
+  // Dan sta je gewoon in je ploeg en wacht het kadertje tot je langskomt.
+  //
+  // EN NOOIT ACHTERAF ALSNOG VAN SCHERM WISSELEN. Het antwoord dat te laat komt, laten we vallen. Een
+  // scherm dat verspringt terwijl je het al aan het lezen bent, is een storing en geen dienst.
+  const looptErIets = async () => {
+    if (!cloudReady || !fbdb || typeof speeldagOphalen !== 'function') return false;
+    try { await Promise.race([speeldagOphalen(true), new Promise(r => setTimeout(r, 700))]); } catch (e) { return false; }
+    return ((typeof _speeldag !== 'undefined' && _speeldag && _speeldag.rijen) || []).some(r => r.m.status === 'live');
+  };
+  const naarKeuzescherm = async () => { await preloadTeamNames(); await go('teamselect', undefined, true); };
   if (teamIds.length === 1 && !activeTeamId) {
+    if (await looptErIets()) { await naarKeuzescherm(); return; }
     await selectTeam(teamIds[0]); return;
   }
   // Meerdere ploegen: bij een verse app-start (activeTeamId nog null) de laatst gekozen
   // ploeg herstellen i.p.v. altijd op het ploegkeuzescherm te belanden.
   if (!activeTeamId) {
     const lastTeamId = localStorage.getItem('voetbal_activeTeamId');
-    if (lastTeamId && userTeams[lastTeamId]) { await selectTeam(lastTeamId); return; }
+    if (lastTeamId && userTeams[lastTeamId]) {
+      if (await looptErIets()) { await naarKeuzescherm(); return; }
+      await selectTeam(lastTeamId); return;
+    }
   }
   if (!activeTeamId || !userTeams[activeTeamId]) {
     await preloadTeamNames();

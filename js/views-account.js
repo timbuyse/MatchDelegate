@@ -3456,8 +3456,16 @@ function speeldagKaartHtml(rij, groot) {
     : m.status === 'planned' ? 'var(--orn)' : 'var(--grn)';
   // Onderaan links: wat er aan de hand is. Bij een lopende wedstrijd ook wélk blok loopt — op een
   // tornooidag is dat net wat je wil weten, en het past hier omdat de stand er maar vier tekens bij is.
+  // Staat de klok stil tussen twee blokken, dan is "pauze" het antwoord op diezelfde vraag.
+  const blok = (m.quarterStatus === 'between') ? 'pauze'
+    : (m.quarters && m.quarters.length) ? `${pSingLow(m)} ${m.quarters.length}` : 'bezig';
+  // HET WOORD 'LIVE' ENKEL OP HET VOLLEDIGE SCHERM (Tim, 02-10-2026: "nu staat er op die live kaart
+  // LIVE bovenaan en dan live bij elk kaartje ... soms drie keer live kort bij elkaar in rood").
+  // In het kadertje staat 'Live' al als titel erboven, dus daar volstaat het rode bolletje met het
+  // blok erachter. Op het eigen scherm staan ook wedstrijden die niet lopen, en daar zegt het woord
+  // wél iets.
   const toestand = m.status === 'live'
-      ? `<span class="sd-live">LIVE${m.quarters && m.quarters.length ? ` · ${esc(pSingLow(m))} ${m.quarters.length}` : ''}</span>`
+      ? `<span class="sd-live">${groot ? 'LIVE · ' : ''}${esc(blok)}</span>`
     : af ? '<span>Geannuleerd</span>'
     : nietAf ? '<span>Niet afgesloten</span>'
     : m.status === 'planned' ? `<span>${esc(m.time || 'Gepland')}${m.location ? ' · ' + esc(m.location) : ''}</span>`
@@ -3506,9 +3514,9 @@ function speeldagHtml() {
   const live = st.rijen.filter(r => r.m.status === 'live');
   const n = st.rijen.length;
   // OP EEN DAG ZONDER ÉÉN WEDSTRIJD verdwijnt het kader voor een kijker. Voor wie een club beheert
-  // blijft de doorklik staan, grijs (Tim, 02-10-2026: "wat als er op een dag geen wedstrijden zijn") —
-  // hij is de enige ingang naar het volledige scherm, en een ingang die op rustige dagen wegvalt,
-  // vindt niemand nog terug. Voor een ouder is diezelfde regel enkel ruis op zijn beginscherm.
+  // blijft de doorklik staan (Tim, 02-10-2026: "wat als er op een dag geen wedstrijden zijn") — hij is
+  // de enige ingang naar het volledige scherm, en een ingang die op rustige dagen wegvalt, vindt
+  // niemand nog terug. Voor een ouder is diezelfde regel enkel ruis op zijn beginscherm.
   if (!n && !clubbreed) return '';
   // HOOGSTENS TWEE KAARTJES (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm en kan
   // iedereen doorklikken"). Eén rij dus. Lopen er meer, dan staan ze allemaal achter de doorklik, en
@@ -3516,7 +3524,7 @@ function speeldagHtml() {
   const toon = live.slice(0, 2);
   const kaartjes = toon.length ? `<div class="sd-rooster">${toon.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
   const woord = n === 0 ? 'geen wedstrijden' : n === 1 ? '1 wedstrijd' : n + ' wedstrijden';
-  const door = `<div class="sd-door${n ? '' : ' sd-door-leeg'}" onclick="go('livespeeldag')">
+  const door = `<div class="sd-door" onclick="go('livespeeldag')">
       <span>${esc(st.label)} · ${woord}</span><span class="sd-pijl">›</span>
     </div>`;
   return kader(kaartjes + door);
@@ -3584,7 +3592,10 @@ function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
   return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button>
       <div style="flex:1;min-width:0">
-        <h1>${icI(IC.live)} Live speeldag</h1>
+        ${/* Hetzelfde rode bolletje als in het kadertje op 'Jouw ploegen' (sd-live), zodat de twee
+             zichtbaar hetzelfde ding zijn. Een tint lichter dan var(--rd): deze kopbalk staat op een
+             donkere foto, en daar zakt #dc2626 weg. */ ''}
+        <h1><span class="sd-live sd-live-licht"></span>Live speeldag</h1>
         <div class="hdr-sub" id="speeldag-datum">${esc(speeldagDatumTekst())}</div>
       </div>
       <button class="hdr-btn" onclick="speeldagVerversNu()">Verversen</button></div>
@@ -3757,10 +3768,13 @@ function renderTeamSelect() {
       ${(showAppBeheer && !isOwner) ? `<div class="sec" style="margin-top:20px;margin-bottom:10px">Beheer van de app</div>
       <button class="btn btn-dark" onclick="_beheerFrom='teamselect';go('beheer')">${icI(IC.shield)} App-beheer</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Clubs, alle gebruikers, wie er nu online is, onderhoud.</p>` : ''}
-      <div style="display:flex;gap:8px;margin-top:20px">
-        <button class="btn btn-pale" style="flex:1" onclick="cloudLogout()">Afmelden</button>
-        <button class="btn btn-pale" style="flex:1" onclick="go('handleiding')">${icI(IC.clipboard)} Handleiding</button>
-      </div>
+      ${/* HIER STONDEN 'AFMELDEN' EN 'HANDLEIDING' (weg op 02-10-2026, Tims vraag). Allebei staan ze
+           achter het tandwiel rechtsboven op ditzelfde scherm: afmelden onder "Mijn account", de
+           handleiding onder "Over de app". Twee knoppen onderaan die naar hetzelfde leiden, maakten
+           van dit scherm een menu terwijl het over je ploegen gaat — en afmelden is nu net iets wat je
+           zelden en bewust doet, niet iets wat onder je ploegenlijst hoort te staan.
+           Zet je ze ooit terug, zet ze dan NIET allebei terug: de handleiding is de enige van de twee
+           die iemand zoekt zonder te weten waar ze staat. */ ''}
     </div>
   </div>`;
 }

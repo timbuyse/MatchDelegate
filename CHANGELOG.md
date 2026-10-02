@@ -9,6 +9,41 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.97.0
+
+**De app opent op 'Jouw ploegen' wanneer er een wedstrijd loopt.** Tim: *"als je maar één ploeg hebt,
+start de app dan in het ploegscherm meteen? Zou eigenlijk op het keuzescherm moeten."*
+
+Tot nu ging de app bij het opstarten rechtstreeks je ploeg binnen — met één ploeg die ene, met meer
+ploegen de laatste waar je in zat. Dat blijft zo op een gewone dag: een afgevaardigde met één ploeg
+hoort bij elke start geen lijst van één rij weg te tikken. Maar loopt er op dat moment een wedstrijd
+bij een van je ploegen, dan kom je binnen op **'Jouw ploegen'** en staat ze daar meteen.
+
+De app wacht daar hoogstens zeven tienden van een seconde op. Komt het antwoord later, dan sta je
+gewoon in je ploeg en verspringt er niets meer — een scherm dat wisselt terwijl je het al leest, is
+een storing en geen dienst.
+
+**In de kaartjes staat het woord 'LIVE' niet meer.** Tim: *"soms drie keer live kort bij elkaar in
+rood."* Boven het kadertje staat **Live** al als titel, dus bij de kaartjes volstaat het rode bolletje
+met erachter het blok dat loopt — *kwart 3*, of **pauze** wanneer de klok tussen twee blokken stilstaat.
+Op het scherm Live speeldag blijft het woord wél staan: daar staan ook wedstrijden die niet lopen.
+
+**Het rode bolletje staat nu ook naast 'Live speeldag' in de kopbalk van dat scherm** — hetzelfde
+teken als in het kadertje op 'Jouw ploegen', zodat die twee zichtbaar hetzelfde ding zijn. Een tint
+lichter dan elders, want die kopbalk staat op een donkere foto.
+
+**De regel 'Vandaag · 5 wedstrijden' is niet langer groen.** Tim: *"die staat zo in groen
+gefluoresceerd."* Groen betekent in deze app een clubactie, en vlak onder dat kader staat de groene
+clubbalk — twee groene vlakken onder elkaar die naar iets anders leiden. Nu dezelfde lichte
+achtergrond als de kaartjes erboven, met het pijltje rechts: het is een doorgang, geen knop.
+
+**'Afmelden' en 'Handleiding' staan niet meer onder je ploegenlijst.** Allebei stonden ze al achter
+het tandwiel rechtsboven op datzelfde scherm — afmelden onder 'Mijn account', de handleiding onder
+'Over de app'. Twee knoppen onderaan die naar hetzelfde leiden, maakten van 'Jouw ploegen' een menu
+terwijl het over je ploegen gaat. De handleiding vermeldt nu uitdrukkelijk waar ze te vinden zijn.
+
+---
+
 ## v1.96.1
 
 **Het kadertje heet nu gewoon 'Live', en het scherm zegt welke dag je bekijkt.** Tim: *"het heet Live
