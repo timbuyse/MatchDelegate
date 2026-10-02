@@ -1291,6 +1291,9 @@ const HANDLEIDING_PAGINAS = [
       {{img2}}
       <p>Volg je meer dan één ploeg, dan land je op <b>'Jouw ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
       <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Jouw ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account.</p>
+      <div class="sec">Live speeldag</div>
+      <p>Wordt er op dit moment een wedstrijd bijgehouden bij een van je ploegen, dan staat ze in een klein kader bovenaan 'Jouw ploegen', met de stand erbij. Tik ze aan en je zit er meteen in — ook als je op dat ogenblik in een andere ploeg zat. De stand werkt zichzelf bij zolang je op dat scherm staat.</p>
+      <p style="margin-top:10px">Loopt er niets, dan staat er niets. Dit verschijnt dus enkel wanneer er echt iets te zien is.</p>
     `
   },
   {
@@ -2022,6 +2025,11 @@ const HANDLEIDING_PAGINAS = [
         <li>vanuit een <b>ploeg</b>: op het beheerscherm van die ploeg staat onderaan <b>'&lt;club&gt; beheren'</b>, zodat je niet eerst terug moet;</li>
         <li>beheer je <b>meerdere clubs</b>, dan wissel je bovenaan het clubscherm van club zonder ergens terug te gaan.</li>
       </ul>
+      <div class="sec">Live speeldag</div>
+      <p>Bovenaan <b>'Jouw ploegen'</b> staat een klein kader met de wedstrijden van je club die <b>nu bezig</b> zijn, met de stand en het blok waarin ze zitten. Daaronder staat een groene regel — <b>'Vandaag · 8 wedstrijden'</b> — en die brengt je naar het scherm <b>Live speeldag</b>: het volledige overzicht van de dag. Álle ploegen van je club staan erin, ook die je zelf niet volgt.</p>
+      <p style="margin-top:10px">Op dat scherm staat per wedstrijd of ze loopt, nog moet beginnen, afgelast is of al gespeeld. Tik er een aan en je zit erin; de app wisselt onderweg zelf van ploeg. Zolang je op een van beide schermen staat, werkt de stand zichzelf bij; met <b>'Verversen'</b> haal je ze meteen op.</p>
+      <p style="margin-top:10px">In het weekend toont dit scherm <b>zaterdag en zondag samen</b>, zodat je op zondag nog ziet wat er zaterdag gespeeld is. Doordeweeks is het enkel die dag. Verder vooruit kijken doe je in de kalender van een ploeg — dit scherm gaat over de speeldag zelf.</p>
+      <p class="hdl-tip">Is het een rustige dag, dan staat er niets. Wedstrijden van een tornooi staan er niet bij, behalve wanneer er nu een loopt: anders stond de hele poule van één tornooidag in dit lijstje.</p>
       <div class="sec">Ploegen beheren</div>
       <ul class="hdl-list">
         <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>

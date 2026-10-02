@@ -698,6 +698,35 @@
     .auth-tab{flex:1;padding:11px;border:none;background:var(--bg);border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;color:var(--txt2)}
     .auth-tab.act{background:var(--blk);color:#fff}
     .auth-err{color:var(--rd);font-size:13px;text-align:center;min-height:18px;margin-bottom:8px}
+    /* LIVE SPEELDAG — het kadertje bovenaan 'Jouw ploegen' (Tim, 02-10-2026). Bewust GEEN gewone
+       wedstrijdrijen: die zijn hier veel te groot ("dan moet veel kleiner, een soort kadertje met
+       kaartjes, desnoods halve breedte per kaartje"). Twee kaartjes per rij, elk met de ploeg, de
+       tegenstander en de stand; de kleur van het randje links zegt in welke toestand ze is. Onder
+       520 px blijft het op twee kolommen staan — bij drie ploegen op één rij bleef er van een
+       ploegnaam niets leesbaars over. */
+    .sd-kader{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:10px 10px 11px;margin-bottom:14px}
+    .sd-kop{display:flex;align-items:center;gap:8px;margin:0 2px 8px}
+    .sd-titel{flex:1;min-width:0;font-size:11px;font-weight:800;color:var(--txt2);text-transform:uppercase;letter-spacing:.6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sd-ververs{background:none;border:none;color:var(--txt2);font-size:11px;font-weight:700;cursor:pointer;padding:4px 2px 4px 8px;flex-shrink:0;text-transform:uppercase;letter-spacing:.4px}
+    .sd-rooster{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .sd-kaart{background:var(--bg);border-left:3px solid var(--grn);border-radius:9px;padding:7px 9px;cursor:pointer;min-width:0;transition:transform .1s}
+    .sd-kaart:active{transform:scale(.97)}
+    .sd-ploeg{font-size:13px;font-weight:800;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sd-tegen{font-size:11px;color:var(--txt2);line-height:1.25;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sd-onder{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:4px;font-size:10.5px;font-weight:700;color:var(--txt2)}
+    .sd-onder span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sd-onder b{font-size:14px;font-weight:900;color:var(--txt);white-space:nowrap}
+    /* Het rode bolletje van een lopende wedstrijd, dezelfde taal als de live-badge elders. */
+    .sd-live{color:var(--rd)}
+    .sd-live::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rd);margin-right:4px;vertical-align:middle}
+    /* De doorklik naar het volledige scherm. Staat onder de kaartjes, en is op een rustige dag het
+       enige wat er in het kader staat — dan is hij de ingang naar wat er nog komt. */
+    .sd-door{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 9px;background:var(--grnp);border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:var(--grn2)}
+    .sd-door span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sd-pijl{font-size:17px;line-height:1;flex-shrink:0}
+    .sd-balk{font-size:13px;font-weight:800;margin-bottom:12px}
+    body.dark .sd-kaart{background:#0f1828}
+    body.dark .sd-door{background:#12301f;color:#7fd3a0}
     .ts-wrap{min-height:calc(100dvh - var(--credit-h));background:var(--bg);display:flex;flex-direction:column}
     .ts-hdr{background:url('background_logo.jpg') center/cover no-repeat;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:none;position:relative;overflow:hidden}
     .ts-hdr::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}

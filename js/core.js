@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.94.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.95.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2442,6 +2442,54 @@ async function fbSleutels(pad, ms = 8000) {
     // Een lege tak geeft null terug; dat is een geldig antwoord ("er is niets") en geen fout.
     if (val === null) return [];
     return (val && typeof val === 'object') ? Object.keys(val) : null;
+  } catch (e) { return null; }
+  finally { clearTimeout(t); }
+}
+// ÉÉN VELD ALS FILTER, OOK LANGS DE HTTP-KANT.
+// Zelfde techniek en dezelfde reden als fbSleutels hierboven, maar nu met een filter in plaats van
+// enkel de namen: geef me van deze tak alleen de kinderen waarvan `veld` gelijk is aan `waarde`.
+// Gebruikt door het speeldagoverzicht om per ploeg de wedstrijden van vandaag op te vragen — gemeten
+// op Tims back-up van 20-09-2026: een hele ploeg is 90 KB en groeit het seizoen door, één speeldag is
+// nul tot een paar KB.
+//
+// WAAROM NIET DE GEWONE BIBLIOTHEEK. Die kan dit ook (orderByChild/equalTo), maar wanneer de
+// databank geen zoekregel voor dat veld heeft, haalt ze stilletjes de HÉLE tak binnen en filtert ze
+// pas op het toestel — precies wat we hier willen vermijden, en je ziet het nergens aan. De HTTP-kant
+// doet dat niet: die antwoordt dan met een fout. Daarom is dit de veilige van de twee.
+//
+// Eén waarde, of een bereik: geef je `tot` mee, dan vraagt hij alles van `van` tot en met `tot`
+// (dezelfde zoekregel, dus dat kost niets extra). Het speeldagscherm gebruikt dat voor een weekend.
+//
+// Geeft terug: een object met de treffers (leeg object = niets gevonden), de tekst 'geen-zoekregel'
+// wanneer de databank de zoekregel nog niet kent, en null bij elke andere tegenslag (geen netwerk,
+// niet aangemeld, tak niet leesbaar). Nooit een uitzondering, net als fbSleutels.
+async function fbZoek(pad, veld, van, tot, ms = 8000) {
+  if (!fbdb || !currentUser || typeof fetch !== 'function') return null;
+  let basis = '';
+  try { basis = (firebase.app().options || {}).databaseURL || ''; } catch (e) { return null; }
+  if (!basis) return null;
+  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const t = setTimeout(() => { if (ctl) ctl.abort(); }, ms);
+  try {
+    const token = await currentUser.getIdToken();
+    // orderBy, equalTo, startAt en endAt willen JSON: een tekstwaarde hoort tussen aanhalingstekens.
+    const grens = (tot === undefined || tot === null || tot === van)
+      ? '&equalTo=' + encodeURIComponent(JSON.stringify(van))
+      : '&startAt=' + encodeURIComponent(JSON.stringify(van)) + '&endAt=' + encodeURIComponent(JSON.stringify(tot));
+    const url = basis.replace(/\/+$/, '') + '/' + pad + '.json'
+      + '?orderBy=' + encodeURIComponent(JSON.stringify(veld)) + grens
+      + '&auth=' + encodeURIComponent(token);
+    const res = await fetch(url, ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' });
+    if (!res.ok) {
+      // De databank zegt zelf waarom ze weigert. Enkel de ontbrekende zoekregel apart melden: die
+      // gaat over vandaag en is op te lossen, de rest is gewoon pech.
+      let tekst = '';
+      try { tekst = JSON.stringify(await res.json()); } catch (e) {}
+      return /index/i.test(tekst) ? 'geen-zoekregel' : null;
+    }
+    const val = await res.json();
+    if (val === null) return {};
+    return (val && typeof val === 'object') ? val : null;
   } catch (e) { return null; }
   finally { clearTimeout(t); }
 }

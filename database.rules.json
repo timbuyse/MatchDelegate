@@ -121,6 +121,19 @@
           "archived": {
             ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()"
           }
+        },
+
+        // ZOEKEN OP DATUM (v1.95.0). Geeft NIEMAND extra toegang: wie deze tak niet mag lezen, mag ze
+        // met een zoekvraag evenmin lezen — de .read op $teamId hierboven blijft onverkort gelden.
+        // Dit zegt enkel dat de databank een sorteerlijstje op `date` mag bijhouden, zodat "geef me de
+        // wedstrijden van vandaag" ook echt alleen die wedstrijden ophaalt.
+        //
+        // Nodig voor het speeldagoverzicht op het ploegkeuzescherm (speeldagOphalen in
+        // views-account.js). Zonder deze regel weigert de HTTP-kant van de databank zo'n vraag, en
+        // toont dat overzicht een nette melding in plaats van alsnog alle wedstrijden van alle ploegen
+        // binnen te halen — gemeten: ~90 KB per ploeg, ruim 2 MB over 26 ploegen, en dat groeit.
+        "matches": {
+          ".indexOn": ["date"]
         }
       }
     },

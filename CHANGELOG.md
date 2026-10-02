@@ -9,6 +9,39 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.95.0
+
+**Live speeldag: wat er bij je club nú gespeeld wordt, op één plek.** Tim: *"kan er ergens een scherm
+komen dat alle lopende wedstrijden van alle ploegen waar je toegang toe hebt samen toont?"*
+
+Bovenaan **'Jouw ploegen'** staat voortaan een klein kader met de wedstrijden die op dit moment bezig
+zijn: de ploeg, de tegenstander, de stand en het blok waarin ze zitten. Tik er een aan en je zit erin —
+de app wisselt onderweg zelf van ploeg. Loopt er niets, dan staat er niets.
+
+**Dat kadertje krijgt iedereen**, voor de ploegen die hij volgt. Een ouder ziet dus dat de wedstrijd
+van zijn kind bezig is zonder eerst door zijn ploegen te zoeken.
+
+**Wie een club beheert, kan doorklikken** naar het scherm **Live speeldag**: de volledige dag van
+álle ploegen van de club, ook die je zelf niet volgt. Per wedstrijd staat er of ze loopt, nog moet
+beginnen, afgelast is of al gespeeld. In het weekend staan zaterdag en zondag samen op dat scherm,
+zodat je op zondag nog ziet wat er zaterdag gespeeld is. Verder vooruit gaat het bewust niet: daarvoor
+is er de kalender van een ploeg.
+
+De stand werkt zichzelf bij zolang je op een van beide schermen staat — elke halve minuut wanneer er
+iets loopt. Verlaat je het scherm, dan stopt dat vanzelf.
+
+**Onder de motorkap: dit haalt niet je hele club op.** De app volgt altijd precies één ploeg tegelijk;
+van je andere ploegen staat er een bevroren kopie op je toestel. Dit overzicht vraagt het dus aan de
+databank — maar enkel de wedstrijden van die ene dag. Gemeten op een echte back-up: één ploeg is zo'n
+90 KB en dat groeit het seizoen door, over 26 ploegen ruim 2 MB. Eén speeldag is nul tot een paar KB.
+De stand komt rechtstreeks uit de wedstrijd zelf, zodat er nergens een tweede kopie van een score
+rondslingert die fout kan staan.
+
+> Dit scherm heeft één nieuwe regel in de databank nodig (zoeken op datum). Tot die gepubliceerd is,
+> zegt het dat netjes in plaats van alsnog alles op te halen.
+
+---
+
 ## v1.94.1
 
 **De voettekst op het ploegkeuzescherm stond een heel scherm te laag.** Tim: *"die staat veel te ver
