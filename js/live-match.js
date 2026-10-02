@@ -1,4 +1,16 @@
 // ===================== LIVE MATCH =====================
+// TWEE WOORDEN DIE JE NIET MAG VERWISSELEN (Tim, 02-10-2026: "in het Vlaams wordt 'rust' gebruikt
+// voor een pauze tussen twee helften of kwarten").
+//   RUST  = het moment TUSSEN twee blokken (quarterStatus 'between'), met alles wat daarbij hoort:
+//           de rustopstelling, een rustwissel (`atBreak`), "in de rust vóór kwart 3".
+//   PAUZE = de klok stilleggen TIJDENS een blok (pauseQuarter, `q.pausedAt`), voor een lange
+//           onderbreking zoals een blessure. In het voetbal loopt de klok normaal gewoon door, dus
+//           dit is de uitzondering — en het is géén rust.
+// Dat onderscheid staat sinds v1.98.0 in alle ZICHTBARE teksten. De namen in de code zijn bewust niet
+// meegegaan: `pauzeWisselInDoel`, `post-pauze`, `terugNaarPauzeDeel` en `pauseLineupHtml` gaan over de
+// rust, en hernoemen zou een mechanische wijziging in tientallen regels zijn zonder dat een gebruiker
+// er iets van ziet. Lees ze dus als "rust", en schrijf in nieuwe teksten nooit "pauze" voor dit geval.
+//
 // DE KLOKKAART, ÉÉN KEER GESCHREVEN (Tim, 23-09-2026: "een kijker ziet geen timer bij een live match.
 // Dat moet er wel staan, ook met optie aftellen of optellen").
 // Ze stond alleen op het tabblad WEDSTRIJD, en juist dat tabblad bestaat niet voor een kijker — die
@@ -80,7 +92,7 @@ function renderLive() {
   const volgersBadge = (!ro && match.fromCloud && cloudReady)
     ? `<span id="live-volgers" style="margin-left:9px;font-weight:700;opacity:.85">${(() => { const n = volgersVanMatch(match.id); return n ? `${icI(IC.eye)}${n}` : ''; })()}</span>`
     : '';
-  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Pauze · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge;
+  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Rust · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge;
   // DE SCOREKOP OP OPSTELLING EN VERLOOP IS EEN BALK GEWORDEN (Tim, 04-09-2026). Ze was tot nu exact
   // dezelfde kop als op het wedstrijdtabblad — cijfers van 64 punten, opgemeten 153 px. Daardoor viel
   // op een telefoon de onderrand van het veld weg en zag je de bank helemaal niet. De balk is 61 px:
@@ -95,7 +107,7 @@ function renderLive() {
   // Opstelling en Verloop. Deze kop is dus de ENIGE plek waar hij de stand ziet. Wie bijhoudt heeft
   // het wedstrijdtabblad mét klok en knoppen, en wint hier dus plaats voor het veld.
   const miniStatus = (isDone ? `${icI(IC.done)} Afgelopen`
-    : (isBetween ? `${icI(IC.timer)} Pauze`
+    : (isBetween ? `${icI(IC.timer)} Rust`
       : (qNum > 0 ? `${pSing(match)} ${qNum}/${match.numQuarters}` : 'Nog niet gestart'))) + syncDot + volgersBadge;
   // DE KLOK STAAT BIJ EEN KIJKER ONDER DE SCOREKAART, op élk tabblad dat hij heeft (Opstelling en
   // Verloop) — hij heeft geen wedstrijdtabblad om ze in weg te stoppen. Enkel zolang de wedstrijd
@@ -160,7 +172,7 @@ function renderLive() {
             Zelfde plaats en toon: een uitzondering, geen dagelijkse handeling. Verdwijnt vanzelf na
             twee minuten of zodra je iets logt; zie terugNaarPauzeDeel. */ ''}
       ${(!ro && terugNaarPauzeDeel(match))
-        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarPauze()">${icI(IC.undo)} Toch nog niet gestart — terug naar ${terugNaarPauzeDeel(match) === 1 ? 'gepland' : 'de pauze'}</button>`
+        ? `<button class="btn btn-gray btn-sm" style="width:100%;margin-bottom:12px" onclick="confirmTerugNaarPauze()">${icI(IC.undo)} Toch nog niet gestart — terug naar ${terugNaarPauzeDeel(match) === 1 ? 'gepland' : 'de rust'}</button>`
         : ''}
       ${/* HET PAUZEKAARTJE (herontwerp 22-08-2026, op Tims aanwijzing). Hier stond de lijst met
            AFGELEIDE wissels ("Klaar voor kwart 2") — verwarrend, want die heeft niemand ingegeven:
@@ -172,7 +184,7 @@ function renderLive() {
            de twee overige de rij. (Layout "1B", Tims keuze van 22-08-2026.) */
         const heeftPlan = ((match.plannedLineups || {})[qNum + 1] || []).length > 0;
         return `<div class="card" style="padding:12px;border-left:4px solid var(--org)">
-        <div class="sec" style="margin-top:0">${icI(IC.timer)} Wat kan je doen in de pauze?</div>
+        <div class="sec" style="margin-top:0">${icI(IC.timer)} Wat kan je doen in de rust?</div>
         <p style="color:var(--txt2);font-size:13px;margin-bottom:10px">${pSing(match)} ${qNum+1} start automatisch met het veld op het tabblad <b>Opstelling</b>.</p>
         ${/* Klopt het aantal niet met de plaatsen die er ZIJN (na een rode kaart is dat er één
              minder), dan hoort dat hier te staan. Dit kaartje belooft wat er gaat gebeuren, maar de
@@ -970,7 +982,7 @@ function confirmTerugNaarPauze() {
   const label = pSingLow(match);
   const uitleg = nr === 1
     ? `De aftrap wordt teruggenomen: de wedstrijd staat weer op <b>gepland</b> en is niet langer live zichtbaar voor kijkers.`
-    : `${pSing(match)} ${nr} wordt teruggenomen en je staat weer in de pauze na ${label} ${nr - 1}. <b>De opstelling die je klaarzette blijft klaarstaan.</b>`;
+    : `${pSing(match)} ${nr} wordt teruggenomen en je staat weer in de rust na ${label} ${nr - 1}. <b>De opstelling die je klaarzette blijft klaarstaan.</b>`;
   openModal(`<h3>${icI(IC.undo)} Toch nog niet gestart?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">${uitleg} Er is in dit ${label} nog niets bijgehouden, dus er gaat niets verloren.</p>
     <button class="btn btn-green" onclick="doTerugNaarPauze()">${icI(IC.check)} Ja, terugnemen</button>
@@ -1022,7 +1034,7 @@ async function doTerugNaarPauze() {
   _pasNextLineupAan(match, doel);
   await dbSave(match);
   closeModal();
-  showToast(`${pSing(match)} ${nr} teruggenomen — je staat weer in de pauze.`, 'ok');
+  showToast(`${pSing(match)} ${nr} teruggenomen — je staat weer in de rust.`, 'ok');
   render();
 }
 // Beëindig het huidige deel handmatig -> pauze tussen de delen (klok staat stil tot de volgende start).
@@ -2734,7 +2746,7 @@ function shareWhatsApp(m) {
   const qNum = m.currentQuarter || 0;
   const statusTxt = isDone
     ? 'Afgelopen'
-    : (m.quarterStatus === 'between' ? 'Pauze' : (qNum > 0 ? 'Bezig' : 'Nog niet gestart'));
+    : (m.quarterStatus === 'between' ? 'Rust' : (qNum > 0 ? 'Bezig' : 'Nog niet gestart'));
 
   // Doelpunten voor ons (met minuut)
   const goalEvents = m.events.filter(e =>
@@ -2970,14 +2982,14 @@ function exportMatchCSV() {
     let extraInfo = '';
     if (e.type === 'substitution') {
       player = pName(m, e.playerInId);
-      extraInfo = 'Uit: ' + pName(m, e.playerOutId) + (e.atBreak ? ' (pauzewissel)' : '');
+      extraInfo = 'Uit: ' + pName(m, e.playerOutId) + (e.atBreak ? ' (rustwissel)' : '');
     } else if (e.type === 'posSwap') {
       // CSV-export: ook hier de bewegingen, niet de ruil — zie posSwapBeweging.
       player = posSwapBeweging(m, e, 'naar');
-      extraInfo = e.atBreak ? 'Pauze-positiewissel' : '';
+      extraInfo = e.atBreak ? 'Rust-positiewissel' : '';
     } else if (e.type === 'posSwapReeks') {
       player = posSwapReeksTekst(m, e.events, 'naar');
-      extraInfo = e.atBreak ? 'Pauze-positiewissels' : '';
+      extraInfo = e.atBreak ? 'Rust-positiewissels' : '';
     } else if (e.playerId) {
       player = pName(m, e.playerId);
       if (e.assistId) extraInfo = 'Assist: ' + pName(m, e.assistId);
@@ -3391,7 +3403,7 @@ function modalEditEvent(id) {
   openModal(`<h3>${icI(IC.edit)} Event bewerken</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
     ${e.atBreak
-      ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Pauzewissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
+      ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Rustwissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
       : `<div class="fg"><label>Minuut binnen dit ${pSingLow(match)}</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
     ${fields}${wijzeVeld}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
@@ -4245,7 +4257,7 @@ function ingreepBalkHtml(m) {
   if (!ing) return '';
   const w = INGREEP_WOORDEN[ing.soort] || INGREEP_WOORDEN.toegevoegd;
   const regels = ing.events.map(e =>
-    `<div style="padding:1px 0">${e.atBreak ? 'pauze' : eventMinTijd(e, m)} — ${evtLabel(e, m)}</div>`).join('');
+    `<div style="padding:1px 0">${e.atBreak ? 'rust' : eventMinTijd(e, m)} — ${evtLabel(e, m)}</div>`).join('');
   return `<div class="no-print" style="border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:10px">
     <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${w.kop}</div>
     <div style="font-size:13px;margin-bottom:8px">${regels}</div>
@@ -4381,7 +4393,7 @@ function spelersVoorEventKeuze(m, altijdBank) {
 function retroMomentLabel(m) {
   if (_postEventQuarter == null) return '';
   if (_postEventQuarter === 'unknown') return ' · moment onbekend';
-  if (_postEventAtBreak) return ` · pauze voor ${pSingLow(m)} ${_postEventQuarter}`;
+  if (_postEventAtBreak) return ` · rust voor ${pSingLow(m)} ${_postEventQuarter}`;
   const n = parseInt(_postEventMinute, 10);
   return ` · ${pSing(m)} ${_postEventQuarter} · ${(!isNaN(n) && n > 0) ? n + "'" : 'einde'}`;
 }
@@ -4646,9 +4658,9 @@ function modalSub(behoud) {
   // Een selectie die niet meer klopt (bv. na het wisselen van deel) niet laten hangen.
   if (subOut && !onIds.has(subOut)) subOut = null;
   if (subIn && onIds.has(subIn)) subIn = null;
-  const title = between ? `${icI(IC.swap)} Pauzewissel · ${pSing(match)} ${match.currentQuarter + 1}`
+  const title = between ? `${icI(IC.swap)} Rustwissel · ${pSing(match)} ${match.currentQuarter + 1}`
     : `${icI(IC.swap)} Wissel${retroMomentLabel(match)}`;
-  const cta = between ? `${icI(IC.check)} Pauzewissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
+  const cta = between ? `${icI(IC.check)} Rustwissel inplannen` : `${icI(IC.check)} Wissel doorvoeren`;
   const klaar = subOut && subIn;
   openModal(`<h3>${title}</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik de speler op het veld die <b>eraf</b> gaat, en dan wie er van de bank <b>in</b> komt.${between ? ' Wordt doorgevoerd bij de start van het volgende deel.' : ''}</p>
@@ -4705,7 +4717,7 @@ async function confirmSub() {
       await dbSave(match); closeModal(); render();
       // Een pauzewissel gaat niet meteen door maar staat klaar voor het volgende deel — zeg dat er
       // ook zo bij, anders lijkt het alsof er al gewisseld is.
-      meldVastgelegd('Pauzewissel', `${pName(match, subIn)} in voor ${pName(match, subOut)}`);
+      meldVastgelegd('Rustwissel', `${pName(match, subIn)} in voor ${pName(match, subOut)}`);
       return;
     }
     // De namen NU pakken: na dbSave/render worden subOut en subIn elders leeggemaakt, en dan staat
@@ -4941,7 +4953,7 @@ async function nextLineupZoalsNu() {
 function confirmNextLineupLeeg() {
   const aantal = nextLineupOf(match).length;
   openModal(`<h3>${icI(IC.shirt)} Leeg veld?</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het veld gaat leeg en je zet iedereen opnieuw op zijn plaats. Handig als er in de pauze veel verandert: je bouwt de opstelling op zoals bij de aftrap, in plaats van ${aantal} spelers één voor één te verschuiven.</p>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het veld gaat leeg en je zet iedereen opnieuw op zijn plaats. Handig als er in de rust veel verandert: je bouwt de opstelling op zoals bij de aftrap, in plaats van ${aantal} spelers één voor één te verschuiven.</p>
     <button class="btn btn-green" onclick="nextLineupLeeg()">${icI(IC.check)} Ja, leeg veld</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
 }
@@ -5555,7 +5567,7 @@ function modalPlannedSubs(tab) {
   // klikbaar voor een deel dat nog moet beginnen (gemeld 22-08-2026).
   const kanDoorvoeren = mode === 'live';
   const uitleg = mode === 'live' ? 'Doorvoeren wordt meteen een wissel in het verloop.'
-    : mode === 'break' ? `Nu is het pauze: de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1} regel je op het tabblad <b>Opstelling</b>. Doorvoeren kan weer zodra dat ${pSingLow(m)} loopt.`
+    : mode === 'break' ? `Nu is het rust: de opstelling van ${pSingLow(m)} ${m.currentQuarter + 1} regel je op het tabblad <b>Opstelling</b>. Doorvoeren kan weer zodra dat ${pSingLow(m)} loopt.`
     : 'Doorvoeren kan zodra een deel bezig is. Tot dan kan je ze hier klaarzetten en aanpassen.';
   const waarvoor = `Voor wissels <b>tijdens</b> een ${pSingLow(m)}: jij kiest zelf wanneer je ze doorvoert. Wie er <b>bij de start</b> van een ${pSingLow(m)} op het veld staat, geef je in bij <b>Planning</b>.`;
   // Tabjes per deel, plus "Altijd" voor wissels die aan geen enkel deel hangen. Bij een wedstrijd
@@ -6173,7 +6185,7 @@ function modalPosSwap(behoud) {
   if (posSwapA && !onIds.has(posSwapA)) posSwapA = null;
   if (posSwapB && !onIds.has(posSwapB)) posSwapB = null;
   const qNum = retro ? _postEventQuarter : (isBetween ? match.currentQuarter + 1 : match.currentQuarter);
-  const title = isBetween ? `${icI(IC.compass)} Pauze-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
+  const title = isBetween ? `${icI(IC.compass)} Rust-positiewissel · ${pSing(match)} ${match.currentQuarter + 1}`
     : `${icI(IC.compass)} Positiewissel${retroMomentLabel(match)}`;
   const staart = isBetween ? ' Wordt doorgevoerd bij de start van het volgende deel.'
     : retro ? ' Komt in het verloop en telt mee voor de keeperminuten.' : '';
@@ -6838,7 +6850,7 @@ function modalAddPostEvent(vanDeel) {
     <div class="tgl" style="margin-bottom:6px">${qBtns}</div>
     <label class="chkrow" id="post-pauze-rij" style="display:${lastQ > 1 ? '' : 'none'};margin:0 0 8px">
       <input type="checkbox" id="post-pauze" onchange="selPostPauze(this.checked)">
-      <span id="post-pauze-lbl">Het gebeurde in de pauze vóór ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}</span>
+      <span id="post-pauze-lbl">Het gebeurde in de rust vóór ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}</span>
     </label>
     <div class="tgl" style="margin-bottom:10px">
       <button class="post-q${lastQ === null ? ' act' : ''}" style="font-size:13px" onclick="selPostQ('unknown',this)">Moment onbekend</button>
@@ -6849,7 +6861,7 @@ function modalAddPostEvent(vanDeel) {
       <label style="font-size:13px;color:var(--txt2)">Minuut</label>
       <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="leeg = einde van ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}" oninput="selPostMin(this.value)" style="width:100%">
     </div>
-    <p id="post-pauze-uitleg" style="display:none;font-size:12px;color:var(--txt2);margin:-2px 0 8px">In de pauze loopt de klok niet, dus dit wordt vastgelegd op het moment tussen de twee delen. Wie dan vertrekt, houdt de minuten die hij daarvóór speelde.</p>
+    <p id="post-pauze-uitleg" style="display:none;font-size:12px;color:var(--txt2);margin:-2px 0 8px">In de rust loopt de klok niet, dus dit wordt vastgelegd op het moment tussen de twee delen. Wie dan vertrekt, houdt de minuten die hij daarvóór speelde.</p>
     <div class="sec">Wat wil je toevoegen?</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button class="btn btn-pale" onclick="postEvt(modalGoal)">${icI(IC.goal)} Goal</button>
@@ -6882,7 +6894,7 @@ function selPostQ(num, btn) {
   const magPauze = typeof num === 'number' && num > 1;
   if (rij) rij.style.display = magPauze ? '' : 'none';
   const lbl = document.getElementById('post-pauze-lbl');
-  if (lbl && magPauze) lbl.textContent = `Het gebeurde in de pauze vóór ${pSingLow(match)} ${num}`;
+  if (lbl && magPauze) lbl.textContent = `Het gebeurde in de rust vóór ${pSingLow(match)} ${num}`;
   const inp = document.getElementById('post-evt-min');
   if (inp && typeof num === 'number') inp.placeholder = `leeg = einde van ${pSingLow(match)} ${num}`;
   _postMinRijBij();

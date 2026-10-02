@@ -1741,7 +1741,7 @@ const HANDLEIDING_PAGINAS = [
           trap <b>tegen</b> je ploeg wie de fout maakte. Alles is optioneel — met <b>'niet ingeven'</b>
           leg je enkel het moment vast, en dat is één tik. Achteraf pas je het aan met het potloodje in
           het verloop.</li>
-        <li><b>In de pauze</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
+        <li><b>In de rust</b> regel je wissels en positiewissels in het tabblad <b>Opstelling</b> (er
           staat dan een oranje stipje bij): tik een <b>bankspeler</b> en dan een <b>speler op het
           veld</b> om te wisselen, of tik <b>twee spelers op het veld</b> om ze van positie te
           wisselen. Tik je een speler op het veld en dan een <b>lege plek</b>, dan verhuist hij
@@ -1749,7 +1749,7 @@ const HANDLEIDING_PAGINAS = [
           doorgevoerd zodra je dat deel start.</li>
         <li>Met <b>'Notitie'</b> schrijf je in één zin op wat je opvalt. Die komt te staan bij het
           <b>deel dat loopt</b>, met de kloktijd ervoor — tik je tijdens kwart 2, dan staat ze bij
-          kwart 2. In de pauze is er geen deel bezig; dan komt ze bij de algemene notities. Het
+          kwart 2. In de rust is er geen deel bezig; dan komt ze bij de algemene notities. Het
           venster zegt telkens waar ze landt.</li>
         <li>De puntjes tonen de wedstrijddelen. De timer loopt per deel.</li>
         <li>Navigeer onderaan tussen <b>Wedstrijd</b>, <b>Opstelling</b> en <b>Verloop</b>.</li>
@@ -1784,7 +1784,7 @@ const HANDLEIDING_PAGINAS = [
           Antwoord je <b>nee</b>, dan wordt hij nergens meer opgesteld of ingewisseld — ook niet
           wanneer hij in het plan van de trainer staat voor een volgend deel. Bij kramp of een lichte
           blessure wordt er niets gevraagd; staat zo iemand later toch weer in de opstelling, dan
-          meldt de pauze dat. Je hoeft daarna <b>geen aparte wissel</b> in te geven: zodra de blessure
+          meldt de rust dat. Je hoeft daarna <b>geen aparte wissel</b> in te geven: zodra de blessure
           vastligt, vraagt de app zelf wie er in zijn plaats komt.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
@@ -1792,12 +1792,12 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>, of tik
         op het <b>potlood</b> naast een gebeurtenis om de speler of de minuut aan te passen.</p>
       <p class="hdl-tip">Te vroeg op <b>'Start'</b> getikt? De eerste twee minuten van een deel staat
-        er <b>'Toch nog niet gestart'</b> onder de klok. Je komt terug in de pauze, met de opstelling
+        er <b>'Toch nog niet gestart'</b> onder de klok. Je komt terug in de rust, met de opstelling
         die je klaarzette nog klaar. Te vroeg <b>afgefloten</b>? Dan staat er <b>'Te vroeg gestopt —
         verder in deel X'</b>.</p>
       <p class="hdl-tip">Staat de klok stil, dan kleurt ze op en staat er <b>PAUZE</b> onder — zo zie
         je in één blik dat er geen tijd loopt.</p>
-      <p class="hdl-tip">Vergat je de klok te stoppen op het einde van een blok? In de pauze staat
+      <p class="hdl-tip">Vergat je de klok te stoppen op het einde van een blok? In de rust staat
         <b>'Duur van [blok] aanpassen'</b> met de gelopen tijd erin. Zet je die recht, dan schuiven de
         gebeurtenissen van de latere blokken netjes mee. Achteraf kan het ook nog, via het potlood
         naast de blokduur in het verslag.</p>
@@ -1864,7 +1864,7 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Een opstelling achteraf aanpassen</div>
       <p>Elke opstelling is achteraf recht te zetten, ook al zijn er wissels gebeurd. De snelste weg
         loopt via <b>Events</b>: naast de startopstelling van elk blok staat een <b>potloodje</b>. Tik
-        het aan en je ziet het veld zoals dat blok begon; je zet het goed zoals in de pauze — een
+        het aan en je ziet het veld zoals dat blok begon; je zet het goed zoals in de rust — een
         speler en dan een lege plek, twee spelers om te ruilen, of iemand van de bank om te wisselen.</p>
       <p class="hdl-tip">De app rekent daarna de rest van de wedstrijd opnieuw door, dus <b>de
         speelminuten volgen mee</b>. Blokken waar je zelf een opstelling koos, blijven eruitzien zoals

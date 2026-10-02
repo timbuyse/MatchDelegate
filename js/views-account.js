@@ -3456,8 +3456,8 @@ function speeldagKaartHtml(rij, groot) {
     : m.status === 'planned' ? 'var(--orn)' : 'var(--grn)';
   // Onderaan links: wat er aan de hand is. Bij een lopende wedstrijd ook wélk blok loopt — op een
   // tornooidag is dat net wat je wil weten, en het past hier omdat de stand er maar vier tekens bij is.
-  // Staat de klok stil tussen twee blokken, dan is "pauze" het antwoord op diezelfde vraag.
-  const blok = (m.quarterStatus === 'between') ? 'pauze'
+  // Staat de klok stil tussen twee blokken, dan is "rust" het antwoord op diezelfde vraag.
+  const blok = (m.quarterStatus === 'between') ? 'rust'
     : (m.quarters && m.quarters.length) ? `${pSingLow(m)} ${m.quarters.length}` : 'bezig';
   // HET WOORD 'LIVE' ENKEL OP HET VOLLEDIGE SCHERM (Tim, 02-10-2026: "nu staat er op die live kaart
   // LIVE bovenaan en dan live bij elk kaartje ... soms drie keer live kort bij elkaar in rood").
@@ -4331,14 +4331,14 @@ function evtLabelBasis(e, m, kort) {
     // De middelste punt zit wél in WinAnsi (CP1252 0xB7), net als bij de hoekschoppen hieronder.
     // Zelfde opbouw in evtLabelPlain verderop — pas ze samen aan.
     case 'substitution': {
-      // 'Pauzewissel · ' en niet 'Pauzewissel: ', anders staan er twee dubbele punten na elkaar.
-      const kop = e.atBreak ? 'Pauzewissel · ' : '';
+      // 'Rustwissel · ' en niet 'Rustwissel: ', anders staan er twee dubbele punten na elkaar.
+      const kop = e.atBreak ? 'Rustwissel · ' : '';
       if (e.playerInId && !e.playerOutId) return `${icI(IC.swap)} ${kop}IN: ${pn(e.playerInId)}${e.naarPlek ? ` (op ${esc(matchGridLabel(m, e.naarPlek))})` : ''}`;
       if (!e.playerInId && e.playerOutId) return `${icI(IC.swap)} ${kop}UIT: ${pn(e.playerOutId)} (geen vervanger)`;
       return `${icI(IC.swap)} ${kop}IN: ${pn(e.playerInId)} · UIT: ${pn(e.playerOutId)}`;
     }
-    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
-    case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
+    case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
+    case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
     case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
@@ -4387,15 +4387,15 @@ function evtLabelPlainBasis(e, m) {
     case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.
     case 'substitution': {
-      const kop = e.atBreak ? 'Pauzewissel · ' : '';   // zie evtLabel: geen twee dubbele punten
+      const kop = e.atBreak ? 'Rustwissel · ' : '';   // zie evtLabel: geen twee dubbele punten
       if (e.playerInId && !e.playerOutId) return `${kop}IN: ${pName(m,e.playerInId)}${e.naarPlek ? ` (op ${matchGridLabel(m, e.naarPlek)})` : ''}`;
       if (!e.playerInId && e.playerOutId) return `${kop}UIT: ${pName(m,e.playerOutId)} (geen vervanger)`;
       return `${kop}IN: ${pName(m,e.playerInId)} · UIT: ${pName(m,e.playerOutId)}`;
     }
     // -> i.p.v. → : jsPDF's standaardfonts (WinAnsiEncoding) missen dat Unicode-teken, waardoor
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
-    case 'posSwap': return `${e.atBreak?'Pauze-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
-    case 'posSwapReeks': return `${e.atBreak?'Pauze-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
+    case 'posSwap': return `${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
+    case 'posSwapReeks': return `${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
@@ -4681,7 +4681,7 @@ function renderEventLog(m) {
         : (e.type === 'posSwapReeks'
           ? `${e.atBreak ? '' : `<button class="evt-edit no-print" onclick="modalPosSwapReeks(['${reeksIds}'])" title="Rechtzetten">${icI(IC.edit)}</button>`}<button class="evt-del no-print" onclick="confirmDeleteEvents(['${reeksIds}'])" title="Verwijderen">×</button>`
           : `${omhoogKnopHtml(m, e)}<button class="evt-edit no-print" onclick="modalEditEvent('${e.id}')" title="Bewerken">${icI(IC.edit)}</button><button class="evt-del no-print" onclick="confirmDeleteEvent('${e.id}')" title="Verwijderen">×</button>`);
-      return `<li${goalStyle}><span class="emin">${e.atBreak ? 'pauze' : eventMinTijd(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
+      return `<li${goalStyle}><span class="emin">${e.atBreak ? 'rust' : eventMinTijd(e, m)}</span><span class="etxt">${evtLabel(e, m)}</span>${knoppen}</li>`;
     };
     const items = pauzeItems.map(li).join('') + startRegel + (list.length
       ? list.map(li).join('')
@@ -5254,7 +5254,7 @@ function periodCardList(m, qNum) {
     .filter(e => (e.type === 'yellow_card' || e.type === 'red_card') && e.quarterNum === qNum && e.playerId)
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
     .map(e => ({
-      min: e.atBreak ? 'pauze' : eventMinTijd(e, m),
+      min: e.atBreak ? 'rust' : eventMinTijd(e, m),
       ms: e.gameTimeMs || 0,
       rood: e.type === 'red_card',
       naam: fieldName(m, e.playerId),

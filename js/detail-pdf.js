@@ -1896,10 +1896,10 @@ async function pdfMatchBody(doc, L, m) {
     // de startopstellingsregel (die geen event is) moet daar een leeg vakje innemen. Zonder deze
     // parallelle lijst schoof elk icoon een rij op.
     // Pauzegebeurtenissen (bv. een speler die de wedstrijd verliet) VÓÓR de startopstelling en met
-    // 'pauze' als tijdstip: het gebeurde er letterlijk voor, en in de pauze loopt geen klok — zelfde
+    // 'rust' als tijdstip: het gebeurde er letterlijk voor, en in de rust loopt geen klok — zelfde
     // volgorde als op het scherm.
     const rows = [], rowEvents = [];
-    const rij = e => { rows.push([e.atBreak ? 'pauze' : eventMinTijd(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); };
+    const rij = e => { rows.push([e.atBreak ? 'rust' : eventMinTijd(e, m), '', evtLabelPlain(e, m)]); rowEvents.push(e); };
     lijst.filter(e => e.atBreak).forEach(rij);
     if (startTekst) { rows.push(['', '', startTekst]); rowEvents.push(null); }
     const rest = lijst.filter(e => !e.atBreak);

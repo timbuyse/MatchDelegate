@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.98.0
+
+**Wat tussen twee blokken gebeurt heet voortaan de rust.** Tim: *"in het Vlaams wordt 'rust' gebruikt
+voor een pauze tussen twee helften of kwarten."*
+
+De app gebruikte het woord *pauze* voor twee verschillende dingen, en maar één ervan is rust:
+
+- **de rust** — het moment tussen twee blokken. Dat is nu overal *rust*: het blokje op het live
+  scherm, *'Rust · klaar voor kwart 2'*, *'Wat kan je doen in de rust?'*, *'Nu is het rust'*,
+  *'Het gebeurde in de rust vóór kwart 3'*, en in het verslag, het verloop en de PDF de
+  **rustwissel** en de **rust-positiewissel**. In de tijdlijn staat bij zo'n gebeurtenis het woord
+  *rust* waar anders de minuut staat.
+- **de pauze** — de klok stilleggen tijdens een blok, bij een lange onderbreking. Die knop en het
+  woord **PAUZE** onder de klok blijven wat ze waren. In het voetbal loopt de klok gewoon door, dus
+  dat is de uitzondering — en het is geen rust.
+
+Vijfendertig teksten, verspreid over het live scherm, de voorbereiding, het verslag, de PDF en de
+handleiding. De namen in de code zijn bewust blijven staan: die verandering zou niemand zien, en elke
+mechanische wijziging in tientallen regels is een kans op een fout. Bovenaan het live scherm staat nu
+uitgelegd welk woord waar hoort.
+
+---
+
 ## v1.97.0
 
 **De app opent op 'Jouw ploegen' wanneer er een wedstrijd loopt.** Tim: *"als je maar één ploeg hebt,
