@@ -9,6 +9,44 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.96.0
+
+**Live speeldag is er nu voor iedereen, en het kader blijft klein.** Tim: *"waarom ook voor een kijker
+toch niet die aparte pagina. Dan tonen we er max 2 op het eerste scherm en kan iedereen doorklikken.
+Een kijker ziet geplande wedstrijden uit zijn ploegen maar kan er niet op doorklikken, een beheerder
+wel."*
+
+Het scherm **Live speeldag** is niet langer voorbehouden aan wie een club beheert. Iedereen kan
+doorklikken en ziet daar de hele dag van de ploegen die hij volgt: wat er loopt, wat er straks begint
+en wat al gespeeld is. Beheer je een club, dan gaat het over álle ploegen van die club.
+
+Het verschil tussen een beheerder en een kijker zit nu waar het hoort — niet in wát je ziet, maar in
+wát je kan openen. Een wedstrijd die nog moet beginnen, kan een kijker wel zien staan maar niet
+openen; een tik zegt waarom. Precies dezelfde regel als in de wedstrijdenlijst.
+
+**In het kader staan er hoogstens twee.** Eén rij dus, ook als er zes wedstrijden tegelijk lopen — de
+rest vind je achter de doorklik, en die zegt hoeveel het er in totaal zijn. Zonder dat plafond duwden
+acht lopende wedstrijden je ploegenlijst een heel scherm naar onder.
+
+**Op het scherm zelf zijn de kaartjes groter**: volle breedte, met de stand rechts ernaast. De kleine
+kaartjes van een halve breedte waren er voor het kadertje; op een eigen scherm gooiden ze ruimte weg.
+
+**En U8 staat weer vóór U10 — overal.** Tim: *"kan je dat ook doen in de ploegvolgorde van een club,
+daar ziet hij ook 8 na 11."* Een lijst ploegen op naam las de cijfers als letters, en dan komt U10
+vóór U8 omdat een 1 vóór een 8 staat. Dat is nu één regel die élke ploegenlijst gebruikt: de ploegen
+van je club, de zusterploegen bij een gastspeler, de clubronde, het scherm met de bondsploegen,
+'Cijfers per ploeg' en de live speeldag. Gemeten, oud tegen nieuw:
+
+> U10 · U11 · U13 · U15 · U17 · U8 · U9 → **U8 · U9 · U10 · U11 · U13 · U15 · U17**
+
+Twee dingen die bij het nameten bovenkwamen en meteen rechtgezet zijn. Een wedstrijd die je voor
+kijkers verborgen hebt, dook hier alsnog op — deze lijsten komen rechtstreeks uit de databank en
+passeren dus geen van de gewone filters. En een wedstrijd van **9:00 viel ná die van 10:00**: ook een
+uur werd als tekst vergeleken in plaats van als kloktijd. Een wedstrijd zonder uur sluit nu achteraan
+haar groep aan in plaats van vooraan.
+
+---
+
 ## v1.95.1
 
 **Op een dag zonder wedstrijden was Live speeldag onbereikbaar.** Tim: *"wat als er op een dag geen

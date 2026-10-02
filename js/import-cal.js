@@ -1430,7 +1430,7 @@ async function clubRondeOphalen(clubId, meld) {
       });
     } catch (e) { mislukt.push(tid); }
   }
-  uit.sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+  uit.sort((a, b) => ploegNaamVgl(a.naam, b.naam));
   return { ploegen: uit, mislukt };
 }
 // Wat staat er open bij deze ploeg? Dezelfde maatstaven als elders in de app, zodat de cijfers hier
@@ -2321,7 +2321,7 @@ async function rbfaKernenVanClub(clubId) {
       });
     });
   }));
-  uit.sort((a, b) => (a.kernNaam || '').localeCompare(b.kernNaam || '', 'nl'));
+  uit.sort((a, b) => ploegNaamVgl(a.kernNaam, b.kernNaam));
   return uit;
 }
 

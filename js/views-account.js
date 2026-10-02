@@ -118,7 +118,7 @@ async function loadClubBeheerView() {
     // Cache bijwerken zodat teamselect meteen klopt.
     fetched.filter(r => r.exists).forEach(r => { if (r.archived) archivedTeams[r.id] = true; else delete archivedTeams[r.id]; });
     const live = fetched.filter(r => r.exists).map(r => ({ id: r.id, name: r.name || '(naamloze ploeg)', archived: r.archived }));
-    live.sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    live.sort((a, b) => ploegNaamVgl(a.name, b.name));
     const rows = live.filter(r => !r.archived);
     const archivedRows = live.filter(r => r.archived);
     // Namen van álle beheerde clubs ophalen zodat de keuzelijst niet terugvalt op de clubId (code)
@@ -1917,7 +1917,7 @@ async function showClubCijfers(clubId) {
       }
       return { naam: pl.naam, aantal: ms.length, w, g, v, voor, tegen,
         gem: beurten ? Math.round(minuten / beurten / 60000) : 0 };
-    }).sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+    }).sort((a, b) => ploegNaamVgl(a.naam, b.naam));
     const totaal = rijen.reduce((a, r) => ({ aantal: a.aantal + r.aantal, w: a.w + r.w, g: a.g + r.g, v: a.v + r.v }), { aantal: 0, w: 0, g: 0, v: 0 });
     openModal(`<h3>${icI(IC.chart)} Cijfers per ploeg</h3>
       <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">Seizoen <b>${esc(sz)}</b> · gespeelde wedstrijden, zonder tornooien. "Gem." is de gemiddelde speeltijd van een speler in een wedstrijd waarin hij meedeed.</p>
@@ -2106,7 +2106,7 @@ async function loadPlayerTransferView() {
         // Ook ploegen zonder spelers tonen (bv. net aangemaakt) — enkel zonder roster-node (naam onbekend) overslaan.
         return { id, name: roster && roster.name, players: (roster && roster.players) || [] };
       } catch (e) { return null; }
-    }))).filter(t => t && t.name).sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+    }))).filter(t => t && t.name).sort((a, b) => ploegNaamVgl(a.name, b.name));
     if (teams.length < 2) { el.innerHTML = '<p style="text-align:center;color:var(--txt2)">Je hebt minstens twee ploegen in deze club nodig om een speler over te zetten.</p>'; return; }
     ptState = { teams, srcTeamId: teams[0].id, dstTeamId: '', gekozen: new Set() };
     el.innerHTML = renderPlayerTransferForm();
@@ -3227,17 +3227,23 @@ function renderGuestJoin() {
 // Wat er bij álle ploegen van je club gebeurt, op één scherm. Tim, 02-10-2026: "kan er ergens een
 // scherm komen dat alle lopende wedstrijden van alle ploegen waar je toegang toe hebt samen toont?"
 //
-// TWEE PLEKKEN (Tims keuze, 02-10-2026, in vier stappen). Op 'Jouw ploegen' staat een KLEIN kader met
-// enkel wat er NU loopt — kaartjes van een halve breedte, want volwaardige wedstrijdrijen namen daar
-// het halve scherm in. De rest van de speeldag zit achter een doorklik, op een eigen scherm met
-// dezelfde naam. Dat scherm gaat bewust niet verder dan vandaag, of dan dit weekend wanneer het
-// zaterdag of zondag is: wie vooruit wil kijken, heeft de kalender van een ploeg.
+// TWEE PLEKKEN (Tims keuze, 02-10-2026). Op 'Jouw ploegen' staat een KLEIN kader met enkel wat er NU
+// loopt — hoogstens twee kaartjes van een halve breedte, want volwaardige wedstrijdrijen namen daar
+// het halve scherm in, en op een drukke ochtend zouden er acht staan. De rest zit achter een doorklik,
+// op een eigen scherm met dezelfde naam, waar de kaartjes wél de volle breedte krijgen. Dat scherm
+// gaat bewust niet verder dan vandaag, of dan dit weekend wanneer het zaterdag of zondag is: wie
+// vooruit wil kijken, heeft de kalender van een ploeg.
 //
-// WIE WAT ZIET. Het eigen scherm is voor wie een club beheert, en voor de eigenaar — een stuurscherm,
-// waar een ploegbeheerder van één ploeg of een ouder niets aan heeft. Het kadertje met wat er loopt,
-// krijgt iedereen ("is het niet handig dat kijkers en ploegbeheerders ook op dat scherm een indicatie
-// krijgen dat er een wedstrijd loopt in hun ploegen"), voor de ploegen die hij zelf volgt. Loopt er
-// niets en valt er niets door te klikken, dan staat er ook niets.
+// IEDEREEN KRIJGT BEIDE. Het verschil tussen een beheerder en een kijker zit niet in wát hij ziet maar
+// in wát hij kan openen — exact dezelfde lat als in de wedstrijdenlijst (Tim, 02-10-2026: "een kijker
+// ziet geplande wedstrijden uit zijn ploegen maar kan er niet op doorklikken, een beheerder wel").
+// Wie een club beheert, krijgt daarbij alle ploegen van die club; alle anderen de ploegen die ze
+// volgen.
+//
+// DE ROL IS HIER PER PLOEG, NIET DIE VAN DE ACTIEVE PLOEG. `isAdmin`, `canLive()` en
+// `matchOpenbaarVoorMij` gaan allemaal over de ploeg waar je nú in zit, en dit scherm toont er
+// meerdere tegelijk. Daarom de eigen wachters hieronder (speeldagBeheert/Zichtbaar/MagOpenen) — ze
+// leggen dezelfde lat, maar per rij.
 //
 // WAAROM NIET GEWOON ALLES OPHALEN. De app volgt altijd precies één ploeg tegelijk: wat er van je
 // andere ploegen op dit toestel staat, is een bevroren kopie van je laatste bezoek. Een overzicht van
@@ -3272,10 +3278,35 @@ function speeldagVenster() {
 
 // Mag deze gebruiker dit zien? Iedereen die aangemeld is — een gast heeft zijn eigen live-scherm.
 function speeldagMag() { return !!(cloudReady && currentUser && !isGuest); }
-// De volledige speeldag, of enkel wat er loopt? Kijkmodus telt als kijker: wie nakijkt hoe zijn
+// De hele club, of enkel de ploegen die je volgt? Kijkmodus telt als kijker: wie nakijkt hoe zijn
 // kijkers het scherm zien, hoort niet alsnog de clubweergave te krijgen.
-function speeldagVolledig() {
+function speeldagClubbreed() {
   return !!((isOwner || Object.keys(myClubs || {}).length > 0) && !viewerMode);
+}
+// Beheert deze persoon de ploeg van DEZE rij? Bewust niet `isAdmin`: dat gaat over de actieve ploeg.
+function speeldagBeheert(rij) {
+  if (isGuest || viewerMode) return false;
+  if (isOwner) return true;
+  if (userTeams[rij.tid] === 'admin') return true;
+  return !!(rij.cid && myClubs && myClubs[rij.cid]);
+}
+// Mag hij deze wedstrijd hier zién staan? Zelfde lat als matchZichtbaarVoorMij, maar met de rol van
+// die ene ploeg. Deze rijen komen rechtstreeks uit de databank en passeren dus geen enkele van de
+// gewone filters — een wedstrijd die voor kijkers verborgen is, of voor déze kijker geblokkeerd, zou
+// hier anders alsnog opduiken.
+function speeldagZichtbaar(rij) {
+  if (speeldagBeheert(rij)) return true;
+  const uid = currentUser ? currentUser.uid : null;
+  if (matchVerborgenVoorKijkers(rij.m)) return false;
+  return !(typeof matchKijkerGeblokkeerd === 'function' && matchKijkerGeblokkeerd(rij.m, uid));
+}
+// En mag hij ze OPENEN? Zelfde lat als matchOpenbaarVoorMij: enkel een wedstrijd die bezig of
+// afgesloten is. Een geplande of afgelaste blijft voor een kijker een regel om te lezen.
+function speeldagMagOpenen(rij) {
+  if (speeldagBeheert(rij)) return true;
+  const m = rij.m;
+  if (!m || matchCancelled(m)) return false;
+  return m.status === 'live' || m.status === 'done';
 }
 // Welke ploegen horen erbij. Beheer je een club, dan alle ploegen van die club — ook die je zelf niet
 // volgt, want dat is net het punt van een clubscherm. Anders de ploegen die je volgt. Een eigenaar
@@ -3287,7 +3318,7 @@ async function speeldagPloegen() {
     if (gezien.has(tid) || archivedTeams[tid]) return;
     gezien.add(tid); uit.push({ cid: cid || null, tid });
   };
-  if (speeldagVolledig()) {
+  if (speeldagClubbreed()) {
     for (const cid of Object.keys(myClubs || {})) {
       let ids = [];
       try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {}); } catch (e) {}
@@ -3302,10 +3333,17 @@ async function speeldagPloegen() {
 // houdt en je ogen niet elke keer opnieuw moeten zoeken.
 function speeldagVolgorde(a, b) {
   const groep = m => m.status === 'live' ? 0 : (m.status === 'planned' || matchCancelled(m)) ? 1 : 2;
+  // HET UUR IS GEEN GEWONE TEKST. "9:00" uit een kalenderimport zou ná "10:00" vallen, want een
+  // tekenvergelijking leest geen kloktijd — dezelfde valkuil als bij een tornooidag (zie
+  // sorteerTornooiWedstrijden in core.js). Vandaar het nulletje ervoor, enkel om te sorteren. En een
+  // wedstrijd zonder uur komt achteraan haar groep in plaats van vooraan: een leeg veld sorteert
+  // anders vóór elk cijfer.
+  const uur = m => { const t = (m && m.time) ? String(m.time).trim() : ''; return /^\d:/.test(t) ? '0' + t : t; };
+  const ua = uur(a.m), ub = uur(b.m);
   return String(a.m.date || '').localeCompare(String(b.m.date || ''))
     || groep(a.m) - groep(b.m)
-    || String(a.m.time || '').localeCompare(String(b.m.time || ''))
-    || String(a.m.teamName || '').localeCompare(String(b.m.teamName || ''), 'nl');
+    || (ua === ub ? 0 : !ua ? 1 : !ub ? -1 : (ua < ub ? -1 : 1))
+    || ploegNaamVgl(a.m.teamName, b.m.teamName);
 }
 async function speeldagOphalen(stil) {
   if (_speeldagBezig || !speeldagMag() || !fbdb) return;
@@ -3331,10 +3369,9 @@ async function speeldagOphalen(stil) {
         // staan — die is nieuws. De acht poulewedstrijden van een tornooidag erbij zetten zou dit
         // overzicht onleesbaar maken voor de gewone wedstrijden waar het om gaat.
         if (m.tournamentId && m.status !== 'live') return;
-        // Wie geen club beheert, krijgt enkel het kadertje met wat er loopt — de rest hoeft dan niet
-        // eens opgehaald te worden (zie "wie wat ziet" bovenaan dit blok).
-        if (!speeldagVolledig() && m.status !== 'live') return;
-        rijen.push({ cid, tid, m });
+        const rij = { cid, tid, m };
+        if (!speeldagZichtbaar(rij)) return;
+        rijen.push(rij);
       });
     }));
     rijen.sort(speeldagVolgorde);
@@ -3387,6 +3424,12 @@ function speeldagZoNodig() {
 async function speeldagOpen(id) {
   const rij = ((_speeldag || {}).rijen || []).find(r => r.m.id === id);
   if (!rij) return;
+  // Woordelijk dezelfde uitleg als in de wedstrijdenlijst, zodat een kijker twee keer hetzelfde leest
+  // in plaats van twee keer iets anders.
+  if (!speeldagMagOpenen(rij)) {
+    showToast('Een geplande wedstrijd is enkel voor de ploegbeheerders. Zodra de wedstrijd begint, kan je ze volgen.', 'err');
+    return;
+  }
   const m = rij.m;
   const doel = m.status === 'live' ? 'live' : (m.status === 'planned' || matchCancelled(m)) ? 'prep' : 'detail';
   if (activeTeamId === rij.tid) { go(doel, id); return; }
@@ -3400,9 +3443,13 @@ async function speeldagOpen(id) {
   }
   go(doel, id);
 }
-// Eén kaartje: ploeg, tegenstander, en onderaan de toestand met de stand ernaast. Klein genoeg om er
-// twee naast elkaar te zetten, dus alles op één regel per onderdeel en overlopende tekst afgekapt.
-function speeldagKaartHtml(rij) {
+// Eén kaartje: ploeg, tegenstander, en de toestand met de stand. Twee maten, want twee plekken:
+// KLEIN (standaard) voor het kadertje op 'Jouw ploegen', waar er twee naast elkaar moeten passen —
+// GROOT voor het eigen scherm, waar een halve breedte alleen maar ruimte weggooit (Tim, 02-10-2026:
+// "op die live speeldag pagina staan de kaartjes redelijk klein hoor"). Het verschil zit enkel in de
+// opmaak: bij het grote kaartje staat de stand rechts naast de tekst in plaats van eronder.
+// Alles blijft op één regel per onderdeel, met overlopende tekst afgekapt.
+function speeldagKaartHtml(rij, groot) {
   const m = rij.m;
   const af = matchCancelled(m), nietAf = matchNietAfgesloten(m);
   const kleur = m.status === 'live' ? 'var(--rd)' : af ? 'var(--txt2)' : nietAf ? 'var(--yl)'
@@ -3419,11 +3466,15 @@ function speeldagKaartHtml(rij) {
   // links al het uur of het woord, en een streepje zou daar als een 0-0 lezen.
   const stand = (m.status === 'planned' || af) ? ''
     : `<b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>`;
-  return `<div class="sd-kaart" style="border-left-color:${kleur}" onclick="speeldagOpen('${m.id}')">
-      <div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>
-      <div class="sd-tegen">${esc(m.opponent || '—')}</div>
-      <div class="sd-onder">${toestand}${stand}</div>
-    </div>`;
+  const ploeg = `<div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>`;
+  const tegen = `<div class="sd-tegen">${esc(m.opponent || '—')}</div>`;
+  const binnen = groot
+    ? `<div class="sd-tekst">${ploeg}${tegen}<div class="sd-onder">${toestand}</div></div>${stand}`
+    : `${ploeg}${tegen}<div class="sd-onder">${toestand}${stand}</div>`;
+  // Een kaartje dat niet opengaat, hoort er ook niet uit te zien alsof het dat wel doet — zelfde
+  // afspraak als in de wedstrijdenlijst (matchItemHtml): geen handje, en de tik zegt wáárom.
+  const mag = speeldagMagOpenen(rij);
+  return `<div class="sd-kaart${groot ? ' sd-groot' : ''}" style="border-left-color:${kleur}${mag ? '' : ';cursor:default'}" onclick="speeldagOpen('${m.id}')">${binnen}</div>`;
 }
 // HET KADERTJE OP 'JOUW PLOEGEN'. Enkel wat er nu loopt, plus — voor wie een club beheert — één regel
 // naar het volledige scherm. Bewust niet meer: de rest van de speeldag maakte van dit kader een
@@ -3432,14 +3483,14 @@ function speeldagHtml() {
   if (!speeldagMag()) return '';
   const st = _speeldag;
   if (!st) return '';
-  const volledig = speeldagVolledig();
+  const clubbreed = speeldagClubbreed();
   const kader = binnen => `<div class="sd-kader">
       <div class="sd-kop"><div class="sd-titel">Live speeldag</div></div>${binnen}</div>`;
   const stil = t => `<div style="font-size:12px;color:var(--txt2);padding:1px 2px">${t}</div>`;
-  // ALLES WAT GEEN NIEUWS IS, ZWIJGT VOOR WIE GEEN CLUB BEHEERT. Een kijker die wacht, een kijker bij
-  // wie het ophalen mislukte en een kijker zonder lopende wedstrijd horen hetzelfde te zien: niets.
-  // Anders staat op het ploegkeuzescherm van een ouder een melding over machinerie.
-  if (!volledig && st.stand !== 'klaar') return '';
+  // ALLES WAT GEEN NIEUWS IS, ZWIJGT VOOR WIE GEEN CLUB BEHEERT. Een kijker die wacht en een kijker bij
+  // wie het ophalen mislukte, horen hetzelfde te zien: niets. Anders staat op het ploegkeuzescherm van
+  // een ouder een melding over machinerie waar hij niets mee kan.
+  if (!clubbreed && st.stand !== 'klaar') return '';
   if (st.stand === 'laden') return kader(stil('Even kijken wat er speelt…'));
   if (st.stand === 'geen-zoekregel') {
     // Enkel de eigenaar kan hier iets aan doen; voor een clubbeheerder zou dit een foutmelding zijn
@@ -3450,16 +3501,17 @@ function speeldagHtml() {
     return kader(stil('Raakte niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a>'));
   }
   const live = st.rijen.filter(r => r.m.status === 'live');
-  const kaartjes = live.length ? `<div class="sd-rooster">${live.map(speeldagKaartHtml).join('')}</div>` : '';
-  // VOOR EEN KIJKER VERDWIJNT HET KADER zodra er niets loopt: hij heeft hier geen scherm achter zitten,
-  // dus zonder lopende wedstrijd is er voor hem letterlijk niets te melden.
-  if (!volledig) return live.length ? kader(kaartjes) : '';
-  // VOOR WIE EEN CLUB BEHEERT BLIJFT DE DOORKLIK STAAN, ook op een lege woensdag (Tim, 02-10-2026:
-  // "wat als er op een dag geen wedstrijden zijn"). Hij is de enige ingang naar het volledige scherm,
-  // en een ingang die op rustige dagen wegvalt, vindt niemand nog terug — wie de app vooral
-  // doordeweeks opent, zou dat scherm nooit tegenkomen. Zonder wedstrijden is de regel grijs in plaats
-  // van groen: ze mag er staan, ze hoeft niet te roepen.
   const n = st.rijen.length;
+  // OP EEN DAG ZONDER ÉÉN WEDSTRIJD verdwijnt het kader voor een kijker. Voor wie een club beheert
+  // blijft de doorklik staan, grijs (Tim, 02-10-2026: "wat als er op een dag geen wedstrijden zijn") —
+  // hij is de enige ingang naar het volledige scherm, en een ingang die op rustige dagen wegvalt,
+  // vindt niemand nog terug. Voor een ouder is diezelfde regel enkel ruis op zijn beginscherm.
+  if (!n && !clubbreed) return '';
+  // HOOGSTENS TWEE KAARTJES (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm en kan
+  // iedereen doorklikken"). Eén rij dus. Lopen er meer, dan staan ze allemaal achter de doorklik, en
+  // die zegt hoeveel het er in totaal zijn.
+  const toon = live.slice(0, 2);
+  const kaartjes = toon.length ? `<div class="sd-rooster">${toon.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
   const woord = n === 0 ? 'geen wedstrijden' : n === 1 ? '1 wedstrijd' : n + ' wedstrijden';
   const door = `<div class="sd-door${n ? '' : ' sd-door-leeg'}" onclick="go('livespeeldag')">
       <span>${esc(st.label)} · ${woord}</span><span class="sd-pijl">›</span>
@@ -3486,7 +3538,7 @@ function speeldagVolledigHtml() {
     return `<div class="empty"><div class="ei">${IC.warn}</div><p>Het overzicht raakte niet binnen.</p><button class="btn btn-gray btn-sm" style="width:auto;margin:10px auto 0;padding:7px 14px" onclick="speeldagVerversNu()">Opnieuw proberen</button></div>`;
   }
   if (!st.rijen.length) {
-    return `<div class="empty"><div class="ei">${IC.calendar}</div><p>Geen wedstrijden ${st.label.toLowerCase()} bij je club.</p></div>`;
+    return `<div class="empty"><div class="ei">${IC.calendar}</div><p>Geen wedstrijden ${st.label.toLowerCase()} bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
   }
   const dagen = [...new Set(st.rijen.map(r => r.m.date))];
   // In een weekend staan er twee dagen onder elkaar, dus hoort de dagnaam erbij: "zaterdag 3 oktober"
@@ -3496,7 +3548,7 @@ function speeldagVolledigHtml() {
     const rijen = st.rijen.filter(r => r.m.date === dag);
     const d = new Date(dag + 'T00:00:00');
     const kop = dagen.length > 1 ? `<div class="sec">${esc(DAGNAMEN[d.getDay()] + ' ' + fmtDate(d.getTime()))}</div>` : '';
-    return kop + `<div class="sd-rooster" style="margin-bottom:14px">${rijen.map(speeldagKaartHtml).join('')}</div>`;
+    return kop + `<div class="sd-lijst">${rijen.map(r => speeldagKaartHtml(r, true)).join('')}</div>`;
   };
   const loopt = st.rijen.filter(r => r.m.status === 'live').length;
   const balk = loopt

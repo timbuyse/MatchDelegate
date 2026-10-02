@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.95.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.96.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -515,6 +515,15 @@ const IC = {
 };
 const icI = ic => `<span class="ic-i">${ic}</span> `;
 function tName(m) { return (m && m.teamName) || 'Sparta'; }
+// PLOEGNAMEN OP VOLGORDE ZETTEN (Tim, 02-10-2026: "daar ziet hij ook 8 na 11").
+// Jeugdploegen heten U8, U9, U10, U13 … en als gewone tekst komt "U10" vóór "U8": de vergelijking
+// loopt teken per teken, en het cijfer 1 ligt nu eenmaal vóór 8. `numeric` laat ze de cijfers in een
+// naam als één getal lezen, en dan staat de reeks zoals iedereen ze noemt. Eén functie voor élke lijst
+// van ploegen die op naam staat — de clubpagina, de zusterploegen, de clubronde, de cijfers per ploeg
+// en de live speeldag gebruiken ze allemaal, zodat ze nooit in een andere volgorde komen te staan.
+function ploegNaamVgl(a, b) {
+  return String(a || '').localeCompare(String(b || ''), 'nl', { numeric: true });
+}
 // Uitwedstrijd? Bepaalt overal enkel de weergave-volgorde: thuisploeg eerst in score, titel,
 // tussenstanden en het deelbericht.
 // Een TORNOOIWEDSTRIJD is neutraal terrein: er is geen thuisploeg, en de locatie van zo'n wedstrijd
@@ -3231,7 +3240,7 @@ async function clubZusterPloegen() {
       } catch (e) {}
     }));
     if (activeClubId !== clubId) return [];   // intussen van ploeg gewisseld
-    uit.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    uit.sort((a, b) => ploegNaamVgl(a.name, b.name));
     _clubZusters = { clubId, ploegen: uit };
   }
   return _clubZusters.ploegen.filter(t => t.id !== activeTeamId);

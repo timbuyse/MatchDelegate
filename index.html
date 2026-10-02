@@ -717,6 +717,15 @@
     .sd-onder span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .sd-onder b{font-size:14px;font-weight:900;color:var(--txt);white-space:nowrap}
     /* Het rode bolletje van een lopende wedstrijd, dezelfde taal als de live-badge elders. */
+    /* Het grote kaartje op het eigen scherm: volle breedte, en de stand rechts naast de tekst in
+       plaats van eronder. Daar is een heel scherm beschikbaar, dus een halve breedte gooit ruimte weg. */
+    .sd-lijst{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+    .sd-kaart.sd-groot{display:flex;align-items:center;gap:12px;background:var(--card);box-shadow:var(--shadow);border-left-width:4px;border-radius:11px;padding:12px 14px}
+    .sd-groot .sd-tekst{flex:1;min-width:0}
+    .sd-groot .sd-ploeg{font-size:15.5px}
+    .sd-groot .sd-tegen{font-size:12.5px;margin-top:2px}
+    .sd-groot .sd-onder{font-size:11.5px;margin-top:5px}
+    .sd-groot>b{font-size:20px;font-weight:900;color:var(--txt);white-space:nowrap;flex-shrink:0}
     .sd-live{color:var(--rd)}
     .sd-live::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--rd);margin-right:4px;vertical-align:middle}
     /* De doorklik naar het volledige scherm. Staat onder de kaartjes, en is op een rustige dag het
@@ -728,6 +737,7 @@
     .sd-pijl{font-size:17px;line-height:1;flex-shrink:0}
     .sd-balk{font-size:13px;font-weight:800;margin-bottom:12px}
     body.dark .sd-kaart{background:#0f1828}
+    body.dark .sd-kaart.sd-groot{background:var(--card)}
     body.dark .sd-door{background:#12301f;color:#7fd3a0}
     body.dark .sd-door-leeg{background:#0f1828;color:var(--txt2)}
     .ts-wrap{min-height:calc(100dvh - var(--credit-h));background:var(--bg);display:flex;flex-direction:column}
