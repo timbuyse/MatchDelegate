@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.7
+
+**Het speeldagoverzicht is een zuiver live-scherm geworden.** Tim: *"alle wedstrijden van de huidige
+speeldag staan erop, gaat nooit gebruikt worden. Kunnen we er geen live scherm van maken, enkel de
+wedstrijden die op een bepaald moment live zijn."*
+
+Hij heeft gelijk: je opende dat scherm om te zien wat er loopt, en het begon met een dagoverzicht. Dat
+is weg. Het scherm heet nu **Live**, toont alleen wedstrijden die op dit moment gespeeld worden, en
+zegt onder de titel hoeveel het er zijn.
+
+Daarmee staat ook vast waaróm dat scherm bestaat: in het kader op 'Jouw ploegen' passen er twee, en
+lopen er meer, dan is er een plek nodig waar ze allemaal staan. De regel eronder zegt dat nu ook —
+**'Nog 3 andere lopen'** — en ze verschijnt enkel wanneer er echt meer dan twee lopen. Bij twee of
+minder zie je ze al in het kader, en dan is er niets om door te klikken.
+
+**Loopt er niets, dan staat er niets.** Ook voor wie een club beheert: de grijze regel op een rustige
+dag is weg, want er is geen dagoverzicht meer om naartoe te gaan.
+
+Het bereik blijft wat het was: de ploegen van de clubs die je beheert, of anders de ploegen die je
+volgt. Een wedstrijd die gisteravond begon en nog altijd loopt, staat er gewoon tussen.
+
+---
+
 ## v1.99.6
 
 **En er is een kaartje 'Afgev.' bijgekomen.** Tim: *"kan er dan geen kaartje afgevaardigde bij ook."*

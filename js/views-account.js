@@ -3517,22 +3517,23 @@ function speeldagHtml() {
   if (st.stand === 'mislukt') {
     return kader(stil('Raakte niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a>'));
   }
+  // ENKEL WAT NU LOOPT (Tim, 03-10-2026: "alle wedstrijden van de huidige speeldag staan erop, gaat
+  // nooit gebruikt worden — kunnen we er geen live scherm van maken"). Het dagoverzicht is weg: je
+  // opende dit om te zien wat er loopt, en het begon met iets anders. Loopt er niets, dan staat er
+  // niets — voor iedereen, ook voor wie een club beheert.
   const live = st.rijen.filter(r => r.m.status === 'live');
-  const n = st.rijen.length;
-  // OP EEN DAG ZONDER ÉÉN WEDSTRIJD verdwijnt het kader voor een kijker. Voor wie een club beheert
-  // blijft de doorklik staan (Tim, 02-10-2026: "wat als er op een dag geen wedstrijden zijn") — hij is
-  // de enige ingang naar het volledige scherm, en een ingang die op rustige dagen wegvalt, vindt
-  // niemand nog terug. Voor een ouder is diezelfde regel enkel ruis op zijn beginscherm.
-  if (!n && !clubbreed) return '';
-  // HOOGSTENS TWEE KAARTJES (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm en kan
-  // iedereen doorklikken"). Eén rij dus. Lopen er meer, dan staan ze allemaal achter de doorklik, en
-  // die zegt hoeveel het er in totaal zijn.
+  if (!live.length) return '';
+  // HOOGSTENS TWEE KAARTJES hier (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm").
+  // Eén rij dus. Lopen er meer, dan is er een plek nodig waar ze állemaal staan — en dát is de enige
+  // reden dat het scherm erachter bestaat. Bij twee of minder zie je ze hier al, dus dan geen regel.
   const toon = live.slice(0, 2);
-  const kaartjes = toon.length ? `<div class="sd-rooster">${toon.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
-  const woord = n === 0 ? 'geen wedstrijden' : n === 1 ? '1 wedstrijd' : n + ' wedstrijden';
-  const door = `<div class="sd-door" onclick="go('livespeeldag')">
-      <span>${esc(st.label)} · ${woord}</span><span class="sd-pijl">›</span>
-    </div>`;
+  const rest = live.length - toon.length;
+  const kaartjes = `<div class="sd-rooster">${toon.map(r => speeldagKaartHtml(r)).join('')}</div>`;
+  const door = rest > 0
+    ? `<div class="sd-door" onclick="go('livespeeldag')">
+        <span>Nog ${rest === 1 ? '1 andere loopt' : rest + ' andere lopen'}</span><span class="sd-pijl">›</span>
+      </div>`
+    : '';
   return kader(kaartjes + door);
 }
 function speeldagTeken() {
@@ -3540,33 +3541,19 @@ function speeldagTeken() {
   if (el) el.innerHTML = speeldagHtml();
   const vol = document.getElementById('livespeeldag-content');
   if (vol) vol.innerHTML = speeldagVolledigHtml();
-  // Draait de app over middernacht door, dan verschuift het venster en moet de datum in de kopregel
-  // mee — die staat buiten het blok dat hierboven hertekend wordt.
+  // De regel onder de titel staat buiten het blok dat hierboven hertekend wordt, en het aantal
+  // verandert bij elke verversing — dus hier mee bijwerken.
   const dat = document.getElementById('speeldag-datum');
-  if (dat) dat.textContent = speeldagDatumTekst();
-  const tit = document.getElementById('speeldag-titel');
-  if (tit) { const b = tit.querySelector('.sd-live'); tit.textContent = speeldagVenster().label; if (b) tit.prepend(b); }
+  if (dat) dat.textContent = speeldagAantalTekst();
 }
 
-// WELKE DAG KIJK JE EIGENLIJK (Tim, 02-10-2026: "er staat geen datum bij de matchen, het gaat enkel
-// over vandaag?"). Juist op een scherm dat "live" heet, moet dat er staan. De dagnaam erbij, want
-// "zaterdag 3 oktober" leest sneller dan een datum waarop je moet rekenen.
-// Zonder jaartal: het gaat altijd over vandaag of dit weekend, dus "2026" is enkel ruis op een regel
-// die op een telefoon toch al krap staat.
-const SPEELDAG_DAGNAMEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-function speeldagDagTekst(iso, zonderMaand) {
-  const d = new Date(iso + 'T00:00:00');
-  return SPEELDAG_DAGNAMEN[d.getDay()] + ' ' + d.getDate() + (zonderMaand ? '' : ' ' + CAL_MAANDEN[d.getMonth()]);
-}
-// Het hele venster in één regel, voor onder de titel. Bij een weekend van de eerste tot de laatste
-// dag — zonder dat zou je op zondag denken dat je naar die ene dag kijkt. "tot" en niet "en", want het
-// zijn er drie. Vallen ze in dezelfde maand, dan staat die maar één keer: "vrijdag 2 tot zondag 4
-// oktober".
-function speeldagDatumTekst() {
-  const v = (_speeldag && _speeldag.van) ? _speeldag : speeldagVenster();
-  if (v.van === v.tot) return speeldagDagTekst(v.van);
-  const zelfdeMaand = v.van.slice(0, 7) === v.tot.slice(0, 7);
-  return `${speeldagDagTekst(v.van, zelfdeMaand)} tot ${speeldagDagTekst(v.tot)}`;
+// Onder de titel: hoeveel er lopen. Dat is het enige wat dit scherm nog belooft, dus het hoort er te
+// staan vóór je gaat tellen. Nog niets opgehaald = nog niets zeggen.
+function speeldagAantalTekst() {
+  const rijen = (_speeldag && _speeldag.rijen) || null;
+  if (!rijen) return '';
+  const n = rijen.filter(r => r.m.status === 'live').length;
+  return n === 0 ? 'niets bezig' : n === 1 ? '1 wedstrijd bezig' : `${n} wedstrijden bezig`;
 }
 
 // HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, bij een weekend gegroepeerd per dag.
@@ -3580,35 +3567,15 @@ function speeldagVolledigHtml() {
   if (st.stand === 'mislukt') {
     return `<div class="empty"><div class="ei">${IC.warn}</div><p>Het overzicht raakte niet binnen.</p><button class="btn btn-gray btn-sm" style="width:auto;margin:10px auto 0;padding:7px 14px" onclick="speeldagVerversNu()">Opnieuw proberen</button></div>`;
   }
-  if (!st.rijen.length) {
-    return `<div class="empty"><div class="ei">${IC.calendar}</div><p>Geen wedstrijden ${st.label.toLowerCase()} bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
-  }
-  // WAT LOOPT, STAAT BOVENAAN — LOS VAN DE DAG (Tim, 03-10-2026: "live wedstrijden moeten altijd
-  // bovenaan staan hé, want niet alle wedstrijden gaan bijgehouden worden"). Zaten ze in hun dagblok,
-  // dan kon een lopende wedstrijd onder een vorige dag verdwijnen — precies wat dit scherm moet
-  // voorkomen. Ze komen dus uit hun dag en krijgen een eigen blok vooraan.
+  // ENKEL WAT NU LOOPT (Tim, 03-10-2026). Het dagoverzicht is hier weg; zie speeldagHtml voor het
+  // waarom. Daarmee vervalt ook de groepering per dag: alles op dit scherm gebeurt nú, dus er valt
+  // niets te scheiden. Een wedstrijd die gisteravond begon en nog altijd loopt, staat hier gewoon
+  // tussen — dat is het geval waarvoor het venster meer dan één dag beslaat.
   const live = st.rijen.filter(r => r.m.status === 'live');
-  const rest = st.rijen.filter(r => r.m.status !== 'live');
-  // EN EEN VOORBIJE DAG ZAKT NAAR ONDER (Tim: "nu is het zaterdag, vrijdag blijft bovenaan staan ...
-  // moet onderaan komen"). Vandaag eerst, dan wat nog komt, en onderaan wat voorbij is — de recentste
-  // van die voorbije dagen bovenaan, want daar gaat het gesprek over.
-  const vandaag = isoVandaag();
-  const voorbij = d => d < vandaag;
-  const dagen = [...new Set(rest.map(r => r.m.date))].sort((a, b) =>
-    (voorbij(a) ? 1 : 0) - (voorbij(b) ? 1 : 0) || (voorbij(a) ? b.localeCompare(a) : a.localeCompare(b)));
-  // De dagkop zodra er iets boven staat om van te onderscheiden: meerdere dagen, of het live-blok.
-  // Staat er één dag en loopt er niets, dan herhaalt ze enkel de kopregel van het scherm.
-  const toonKop = dagen.length > 1 || live.length > 0;
-  const blok = dag => {
-    const rijen = rest.filter(r => r.m.date === dag);
-    const kop = toonKop ? `<div class="sec">${esc(speeldagDagTekst(dag))}</div>` : '';
-    return kop + `<div class="sd-rooster sd-ruim">${rijen.map(r => speeldagKaartHtml(r)).join('')}</div>`;
-  };
-  const liveBlok = live.length
-    ? `<div class="sec"><span class="sd-live">${live.length === 1 ? 'Nu bezig' : `Nu bezig · ${live.length}`}</span></div>`
-      + `<div class="sd-rooster sd-ruim">${live.map(r => speeldagKaartHtml(r)).join('')}</div>`
-    : '';
-  return liveBlok + dagen.map(blok).join('');
+  if (!live.length) {
+    return `<div class="empty"><div class="ei">${IC.ball}</div><p>Er loopt op dit moment geen wedstrijd bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
+  }
+  return `<div class="sd-rooster sd-ruim">${live.map(r => speeldagKaartHtml(r)).join('')}</div>`;
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
@@ -3617,11 +3584,11 @@ function renderLiveSpeeldag() {
         ${/* Hetzelfde rode bolletje als in het kadertje op 'Jouw ploegen' (sd-live), zodat de twee
              zichtbaar hetzelfde ding zijn. Een tint lichter dan var(--rd): deze kopbalk staat op een
              donkere foto, en daar zakt #dc2626 weg. */ ''}
-        ${/* DE TITEL VOLGT DE PERIODE (Tim, 02-10-2026: "op het eerste scherm staat 'vandaag', op de
-             pagina zelf staat speeldag ... wat is het nu?"). Twee woorden voor hetzelfde ding lazen
-             als twee beloftes. Nu staat er op allebei de schermen exact hetzelfde woord. */ ''}
-        <h1 id="speeldag-titel"><span class="sd-live sd-live-licht"></span>${esc(speeldagVenster().label)}</h1>
-        <div class="hdr-sub" id="speeldag-datum">${esc(speeldagDatumTekst())}</div>
+        ${/* DE TITEL IS HET WOORD VAN HET KADERTJE (Tim, 02-10-2026: "op het eerste scherm staat
+             'vandaag', op de pagina zelf staat speeldag ... wat is het nu?"). Sinds dit scherm enkel
+             nog toont wat er LOOPT, is er maar één woord nodig — en de regel eronder zegt hoeveel. */ ''}
+        <h1 id="speeldag-titel"><span class="sd-live sd-live-licht"></span>Live</h1>
+        <div class="hdr-sub" id="speeldag-datum">${esc(speeldagAantalTekst())}</div>
       </div>
       <button class="hdr-btn" onclick="speeldagVerversNu()">Verversen</button></div>
     <div class="content" id="livespeeldag-content">${speeldagVolledigHtml() || `<div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div>`}</div>`;
