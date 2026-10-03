@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.5
+
+**Een gele of rode kaart kan nu ook naar de trainer.** Tim: *"je moet een gele, rode kaart ook aan een
+bankspeler of de coach kunnen geven."*
+
+De **bankspelers** konden al — die staan in het raster met het merkje 'bank', een keuze van 24 augustus
+('een bankspeler kan geel krijgen voor protest'). De **trainer** niet: de app kent in een wedstrijd
+alleen spelers. Onder het spelersraster staat nu de knop **'voor de trainer'**.
+
+Zo'n kaart komt in het verloop, in het verslag, in het deelbericht en in de PDF, en telt mee bij de
+kaarten van de wedstrijd. Maar ze komt **bij niemand op naam**: niet bij de kaarten van een speler,
+niet in de seizoenscijfers, en niet als kaartje bij de opstelling van dat blok. Er volgt ook geen
+automatische rode bij een tweede gele — dat is een regel per speler, en hier is er geen speler.
+
+---
+
 ## v1.99.4
 
 **Bij een gespeelde wedstrijd staat nu 'Thuis' of 'Uit' in plaats van 'Gespeeld'.** Tim: *"er staat

@@ -2783,8 +2783,10 @@ function shareWhatsApp(m) {
   const tegKaart = e => `tegenstander${e.oppNumber ? ` (nr. ${e.oppNumber})` : ''}`;
   const cardLines = [
     ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
+    ...m.events.filter(e => e.type === 'yellow_card_trainer').map(() => '  🟨 trainer'),
     ...m.events.filter(e => e.type === 'yellow_card_them').map(e => `  🟨 ${tegKaart(e)}`),
     ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
+    ...m.events.filter(e => e.type === 'red_card_trainer').map(() => '  🟥 trainer'),
     ...m.events.filter(e => e.type === 'red_card_them').map(e => `  🟥 ${tegKaart(e)}`),
   ];
 
@@ -2968,6 +2970,7 @@ function exportMatchCSV() {
     own_goal: 'Owngoal', own_goal_them: 'Owngoal (teg.)',
     yellow_card: 'Gele kaart', red_card: 'Rode kaart',
     yellow_card_them: 'Gele kaart tegen', red_card_them: 'Rode kaart tegen',
+    yellow_card_trainer: 'Gele kaart trainer', red_card_trainer: 'Rode kaart trainer',
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
     injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
     freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
@@ -3008,6 +3011,7 @@ function exportMatchCSV() {
     // dat we ervan weten, en dat hoort in de spelerskolom en niet bij de extra info.
     if (e.oppNumber) player = 'Tegenstander nr. ' + e.oppNumber;
     else if (e.type === 'yellow_card_them' || e.type === 'red_card_them') player = 'Tegenstander';
+    else if (e.type === 'yellow_card_trainer' || e.type === 'red_card_trainer') player = 'Trainer';
     row('', e.quarterNum || '', minStr, e.gameTimeMs || '', type, player, extraInfo);
   }
   blank();
@@ -6380,6 +6384,11 @@ function modalCard(color) {
     <div id="card-us-section">
       <div class="sec">Welke speler?</div>
       ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join(''))}
+      ${/* OOK VOOR DE TRAINER (Tim, 03-10-2026: "je moet een gele, rode kaart ook aan een bankspeler of
+           de coach kunnen geven"). De bank stond er al bij — zie spelersVoorEventKeuze hierboven — maar
+           de staf bestaat in een wedstrijd niet als iemand aan wie je iets kan toekennen. Eén knop
+           onder het raster, want dit is de uitzondering en niet de regel. */ ''}
+      <button class="btn btn-pale" style="margin-top:10px" onclick="logCardTrainer('${color}')">${ico}${lbl} voor de trainer</button>
     </div>
     ${/* Van een tegenspeler kennen we geen naam: de app heeft geen kern van de tegenstander. Het
          rugnummer is wat er aan de lijn effectief opgeschreven wordt, dus dat is het enige veld — en
@@ -6460,6 +6469,25 @@ async function logCardThem(color) {
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
     meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
+  } finally { _eventBusy = false; }
+}
+// EEN KAART VOOR DE TRAINER, MET EEN EIGEN SOORT EVENT (v2.0.0). Dezelfde redenering als bij de kaart
+// voor de tegenstander hierboven, en om dezelfde reden: alles wat kaarten PER SPELER telt — de
+// seizoenscijfers, de tucht, het spelersoverzicht, de kaartjes bij de opstelling van een kwart, de
+// PDF — filtert op 'yellow_card'/'red_card'. Een eigen soort kan daar per definitie niet in
+// terechtkomen; een vlagje op een gewone kaart zou betekenen dat élk van die tellingen apart
+// uitgezonderd moet worden, en één vergeten plek zet een kaart op naam van een speler.
+//
+// Ze raakt dus niets: geen speler, geen speelminuten, geen opstelling, en GÉÉN automatische rode bij
+// een tweede gele — dat is een regel per speler, en hier is er geen.
+async function logCardTrainer(color) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    addEvent(color === 'red' ? 'red_card_trainer' : 'yellow_card_trainer', {});
+    await dbSave(match); closeModal(); render();
+    kaartAnim(color);
+    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', 'trainer');
   } finally { _eventBusy = false; }
 }
 

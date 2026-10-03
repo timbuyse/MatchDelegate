@@ -4396,6 +4396,8 @@ function evtLabelBasis(e, m, kort) {
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     case 'red_card_them': return `${icI(IC.cardR)} Rode kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
+    case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart trainer`;
+    case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart trainer`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
@@ -4451,6 +4453,8 @@ function evtLabelPlainBasis(e, m) {
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
+    case 'yellow_card_trainer': return 'Gele kaart trainer';
+    case 'red_card_trainer': return 'Rode kaart trainer';
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
@@ -4565,7 +4569,7 @@ const ELOG_FILTER_GROUPS = {
   // Positiewisselingen horen bij deze filter: wie op 'Wissels' klikt om een pas toegevoegde of
   // aangepaste positiewissel terug te vinden, zag ze anders net wegvallen.
   sub: { label: 'Wissels', icon: 'swap', types: ['substitution', 'posSwap'] },
-  card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them'] },
+  card: { label: 'Kaarten', icon: 'cardY', types: ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them', 'yellow_card_trainer', 'red_card_trainer'] },
 };
 // null = geen filter actief (alles tonen). Anders: key van ELOG_FILTER_GROUPS — enkel die categorie tonen.
 let elogFilter = null;

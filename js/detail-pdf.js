@@ -248,8 +248,11 @@ function renderDetail() {
         // De kolom 'Tegen' stond hier leeg zolang een kaart enkel voor een eigen speler kon: er was
         // niets te tellen. Nu een kaart voor een tegenspeler bestaat, hoort ze in deze tabel op
         // dezelfde plaats als de hoekschoppen en de penalty's.
-        [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card'), st('yellow_card_them')],
-        [icI(IC.cardR)  + ' Rode kaarten', st('red_card'),    st('red_card_them')],
+        // Een kaart voor de TRAINER telt in de kolom 'Voor': ze is van onze kant. Ze hangt aan geen
+        // enkele speler (eigen soort event, zie logCardTrainer), dus ze duikt nergens in een
+        // spelerstelling op — hier hoort ze wél, want ze gebeurde in deze wedstrijd.
+        [icI(IC.cardY)  + ' Gele kaarten', st('yellow_card') + st('yellow_card_trainer'), st('yellow_card_them')],
+        [icI(IC.cardR)  + ' Rode kaarten', st('red_card')    + st('red_card_trainer'),    st('red_card_them')],
       ].filter(([,a,b]) => (Number(String(a).match(/\d+/)?.[0]||0) + Number(String(b).match(/\d+/)?.[0]||0)) > 0);
       if (!rows.length) return '';
       return vsec('stats', 'Wedstrijdstatistieken', `<div class="card">
@@ -1023,6 +1026,7 @@ const PDF_EVT_ICON = {
   posSwapReeks: 'compass',
   yellow_card: 'cardY', red_card: 'cardR',
   yellow_card_them: 'cardY', red_card_them: 'cardR',
+  yellow_card_trainer: 'cardY', red_card_trainer: 'cardR',
   penalty_us: 'penalty', penalty_them: 'penalty',
   freekick_us: 'bolt', freekick_them: 'bolt', injury: 'injury', shot_us: 'shot', shot_them: 'shot',
   save_us: 'save', save_them: 'save', disallowed_us: 'disallowed', disallowed_them: 'disallowed',
@@ -1763,10 +1767,13 @@ async function pdfMatchBody(doc, L, m) {
     // Kaarten voor de tegenstander staan er in dezelfde 'voor / tegen'-vorm als de regels hierboven,
     // maar enkel wanneer ze er zijn: bij de meeste wedstrijden is er geen, en dan zou "0 tegen" de
     // regel enkel langer maken.
-    [stat('yellow_card') + stat('red_card') + stat('yellow_card_them') + stat('red_card_them'),
+    // Een kaart voor de TRAINER telt mee aan onze kant (zie de tabel in het verslag): ze hangt aan geen
+    // speler, maar ze gebeurde wel.
+    [stat('yellow_card') + stat('red_card') + stat('yellow_card_trainer') + stat('red_card_trainer')
+      + stat('yellow_card_them') + stat('red_card_them'),
       (stat('yellow_card_them') + stat('red_card_them'))
-        ? `Geel: ${vt('yellow_card', 'yellow_card_them')} · Rood: ${vt('red_card', 'red_card_them')}`
-        : `Geel: ${stat('yellow_card')} · Rood: ${stat('red_card')}`],
+        ? `Geel: ${stat('yellow_card') + stat('yellow_card_trainer')} voor / ${stat('yellow_card_them')} tegen · Rood: ${stat('red_card') + stat('red_card_trainer')} voor / ${stat('red_card_them')} tegen`
+        : `Geel: ${stat('yellow_card') + stat('yellow_card_trainer')} · Rood: ${stat('red_card') + stat('red_card_trainer')}`],
   ].filter(([n]) => n > 0);
   if (pdfStats.length) {
     heading('Wedstrijdstatistieken', 17);
