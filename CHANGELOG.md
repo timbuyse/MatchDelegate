@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.4
+
+**Bij een gespeelde wedstrijd staat nu 'Thuis' of 'Uit' in plaats van 'Gespeeld'.** Tim: *"er staat
+altijd gespeeld bij de matchen die gespeeld zijn, dat is logisch want er is een score zichtbaar — zet
+daar opnieuw uit of thuis."* De stand ernaast zei het al, dus het woord voegde niets toe. Staat er
+geen plaats bij de wedstrijd, dan blijft er 'Gespeeld' staan.
+
+---
+
 ## v1.99.3
 
 **Een lopende wedstrijd toonde – • – in plaats van de stand.** Tim: *"dit is een lopende wedstrijd

@@ -3472,7 +3472,11 @@ function speeldagKaartHtml(rij) {
     : af ? '<span>Geannuleerd</span>'
     : nietAf ? '<span>Niet afgesloten</span>'
     : m.status === 'planned' ? `<span>${esc(m.time || 'Gepland')}${m.location ? ' · ' + esc(m.location) : ''}</span>`
-    : '<span>Gespeeld</span>';
+    // BIJ EEN GESPEELDE WEDSTRIJD DE PLAATS (Tim, 03-10-2026: "er staat altijd gespeeld bij de matchen
+    // die gespeeld zijn, dat is logisch want er is een score zichtbaar — zet daar opnieuw uit of
+    // thuis"). De stand ernaast zegt al dat ze voorbij is, dus het woord voegde niets toe. Staat er
+    // geen plaats, dan blijft 'Gespeeld' staan: beter dat dan een lege hoek.
+    : `<span>${m.location ? esc(m.location) : 'Gespeeld'}</span>`;
   // Rechts de stand. Een wedstrijd die nog moet beginnen of niet doorgaat heeft er geen; daar staat
   // links al het uur of het woord, en een streepje zou daar als een 0-0 lezen.
   const stand = (m.status === 'planned' || af) ? ''
