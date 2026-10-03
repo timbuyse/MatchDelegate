@@ -1336,6 +1336,7 @@ async function doResumeLastPeriod() {
     }
   }
   match.status = 'live'; match.quarterStatus = 'running'; match.currentQuarter = q.num;
+  wisGeenUitslag(match);   // er wordt weer gespeeld, dus er komt een echte uitslag
   requestWake();
   closeModal();
   await dbSave(match);
@@ -1347,6 +1348,7 @@ async function doReopenMatch() {
   if (match.status === 'live') { closeModal(); return; } // dubbeltik-guard: anders telkens +1 fantoomdeel
   match.status = 'live';
   match.quarterStatus = 'between';
+  wisGeenUitslag(match);   // er wordt weer gespeeld, dus er komt een echte uitslag
   match.numQuarters = Math.max(match.numQuarters || 0, match.quarters.length) + 1;
   // OUDE PLANCIJFERS OPRUIMEN. Sinds Tims regel van 29-08-2026 leest de app ze niet meer (zie
   // calcMinutes in views-account.js), maar op wedstrijden die tussen v1.8.0 en v1.22.0 afgesloten
@@ -3046,6 +3048,11 @@ async function forceEndMatch(correctMin) {
       showToast(`${res.geknipt.length === 1 ? '1 gebeurtenis' : res.geknipt.length + ' gebeurtenissen'} stond na de gecorrigeerde eindtijd en staat nu op de slotminuut.`, 'err');
     }
   }
+  // EEN LIVE GEVOLGDE WEDSTRIJD HEEFT EEN UITSLAG. Stond de vlag "zonder uitslag" er nog op — van
+  // vóór ze (opnieuw) gestart werd — dan hoort ze hier weg, anders springt de score bij het afsluiten
+  // terug naar "– • –" terwijl je ze net een hele wedstrijd hebt bijgehouden. "Afsluiten zonder
+  // uitslag" loopt niet langs hier maar langs saveQuickResult, dus die keuze blijft overeind.
+  wisGeenUitslag(match);
   match.status = 'done'; match.quarterStatus = 'done';
   stopTimer(); releaseWake(); await dbSave(match);
   // METEEN NAAR HET VERSLAG (Tims melding, 26-08-2026). Hier stond enkel render(), dus je bleef op

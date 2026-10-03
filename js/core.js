@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -543,7 +543,20 @@ function matchTitle(m) {
 // bijhield. De score zelf blijft op 0-0 in de gegevens staan: alleen de weergave en de tellingen
 // kijken naar deze vlag. Zo blijft een wedstrijd zonder het veld exact zoals voordien werken, en
 // kan je later alsnog een echte uitslag ingeven (dan gaat de vlag weer weg).
-function geenUitslag(m) { return !!(m && m.geenUitslag); }
+//
+// DE VLAG GELDT ENKEL VOOR EEN AFGESLOTEN WEDSTRIJD (Tim, 03-10-2026: "dit is een lopende wedstrijd
+// maar de score toont niet"). Zijn wedstrijd stond op "– • –" terwijl ze liep. Oorzaak: de vlag was
+// ooit gezet ("afsluiten zonder uitslag"), en nadien ging diezelfde wedstrijd weer live — via
+// Heropenen, via "Te vroeg gestopt", of gewoon door ze alsnog te starten. Geen van die drie wegen
+// wiste de vlag, en scoreHtml/scoreTxt keken enkel naar de vlag en niet naar de toestand.
+// "Zonder uitslag" is een uitspraak OVER EEN AFGELOPEN wedstrijd; zolang er nog gespeeld wordt, is er
+// geen uitslag om te ontbreken. Vandaar de toestand hier mee in de voorwaarde: dat herstelt meteen
+// ook de wedstrijden waar de vlag al op staat, zonder dat er iets aan de gegevens moet veranderen.
+// De drie wegen naar 'live' wissen de vlag nu bovendien zelf (wisGeenUitslag), zodat er ook niets
+// blijft hangen.
+function geenUitslag(m) { return !!(m && m.geenUitslag && m.status === 'done'); }
+// Een wedstrijd die (opnieuw) gevolgd wordt, krijgt een echte uitslag — dan hoort de vlag weg.
+function wisGeenUitslag(m) { if (m) delete m.geenUitslag; }
 const SCORE_LEEG = '–';
 // Eén vorm voor "geen uitslag", overal hetzelfde: scherm, deelbericht, PDF en exportbestand.
 // Een bolletje tussen twee streepjes (Tims keuze): het leest niet als een score van nul, en het

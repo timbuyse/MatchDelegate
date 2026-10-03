@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.3
+
+**Een lopende wedstrijd toonde – • – in plaats van de stand.** Tim: *"dit is een lopende wedstrijd
+maar de score toont niet, wat is het probleem."*
+
+Die wedstrijd droeg nog de vlag **'gespeeld zonder uitslag'**. Ze was ooit zo afgesloten en nadien
+opnieuw gestart — via *Heropenen*, via *'Toch nog niet gestart'*, of door ze alsnog te starten vanuit
+het wedstrijdscherm. Geen van die wegen haalde de vlag weg, en de score keek enkel naar de vlag en
+niet naar de toestand van de wedstrijd.
+
+'Zonder uitslag' is een uitspraak over een **afgelopen** wedstrijd: zolang er gespeeld wordt, is er
+geen uitslag om te ontbreken. De app leest de vlag daarom alleen nog bij een afgesloten wedstrijd.
+Daarmee tonen wedstrijden die de vlag nu al dragen meteen weer hun stand, zonder dat er iets aan de
+gegevens moet veranderen.
+
+Bovendien wist de app de vlag nu zelf op elk moment waarop er weer gespeeld wordt, én bij het
+afsluiten van een wedstrijd die je live volgde — anders sprong de uitslag op het einde alsnog terug
+naar – • –. De knop **'Afsluiten zonder uitslag'** loopt langs een andere weg en blijft gewoon doen
+wat ze belooft.
+
+---
+
 ## v1.99.2
 
 **De clubbalk heeft nu hetzelfde vlak als het live-kader erboven.** Tim: *"achtergrond van de

@@ -1387,6 +1387,7 @@ async function finishWizard(startNow, zonderOpstelling, formatieBevestigd, veldM
   if (wiz.editId) {
     m = Object.assign(existing || {}, common);
     m.status = startNow ? 'live' : (m.status === 'live' ? 'live' : 'planned');
+    if (m.status === 'live') wisGeenUitslag(m);   // er wordt gespeeld, dus er komt een echte uitslag
     m.captainId = capId;
     // De man van de match BEHOUDEN zolang die speler nog in de selectie zit (audit 23-08-2026). Dit
     // stond hier als `m.motmId = null`, zonder uitleg: bij een gespeelde wedstrijd die je opnieuw in
@@ -3329,7 +3330,7 @@ function gedeeldeSpelers(a, b) {
   return (b.players || []).filter(p => sleutels(p).some(k => inA.has(k))).map(p => p.name || 'Speler');
 }
 async function doStartPlanned() {
-  match.status = 'live'; await dbSave(match); await go('live', match.id);
+  match.status = 'live'; wisGeenUitslag(match); await dbSave(match); await go('live', match.id);
 }
 // Een geplande wedstrijd wel of niet aan de kijkers tonen (Tim, 01-09-2026). `false` schrijft het veld
 // expliciet weg in plaats van het weg te gooien, zodat de cloud-merge het als een echte wijziging ziet
