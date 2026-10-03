@@ -1789,9 +1789,9 @@ const HANDLEIDING_PAGINAS = [
           vastligt, vraagt de app zelf wie er in zijn plaats komt.</li>
         <li>Bij een <b>gele of rode kaart</b> kies je eerst voor wie: je eigen ploeg of de tegenstander.
           Bij je eigen ploeg staan ook je <b>bankspelers</b> in de lijst — met het merkje 'bank' — want
-          een kaart voor protest vanaf de bank bestaat. Onderaan staat de knop <b>'voor de trainer'</b>:
-          die kaart komt in het verslag en in de PDF, maar ze komt bij niemand op naam en telt dus
-          nergens mee bij de kaarten van een speler.</li>
+          een kaart voor protest vanaf de bank bestaat. Achteraan in dat raster staan nog twee kaartjes:
+          <b>Trainer</b> en <b>Afgev.</b> Zo'n kaart komt in het verslag en in de PDF, maar ze komt bij
+          niemand op naam en telt dus nergens mee bij de kaarten van een speler.</li>
         <li>Tik op <b>'Afsluiten'</b> om de wedstrijd te beëindigen. Daarna verschijnt <b>'Deel score'</b> om de uitslag te delen.</li>
       </ol>
       {{img2}}

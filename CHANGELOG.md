@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.6
+
+**En er is een kaartje 'Afgev.' bijgekomen.** Tim: *"kan er dan geen kaartje afgevaardigde bij ook."*
+Achteraan in het raster staan nu twee staf-kaartjes naast elkaar.
+
+Wat daarbij bewust níét gebeurd is: van de afgevaardigde een apart soort gebeurtenis maken. De
+trainerkaart stond op dat moment al live, en dan zouden de kaarten die al vastlagen van soort moeten
+veranderen — dat doet deze app nooit. Een kaart draagt nu het woord *trainer* of *afgevaardigde*; een
+kaart van vóór deze versie draagt niets, en die kon toen enkel van de trainer zijn, dus zo wordt ze
+ook gelezen.
+
+**De trainer staat nu als kaartje tussen de spelers.** Tim: *"die kaart voor de trainer staat nu als
+een bevestigingsknop, in plaats van als extra naamkaartje."* Klopt — en dat suggereerde een ander soort
+handeling dan het is. Het is gewoon één van de keuzes, dus het hoort op één tik te staan zoals de
+spelers. Het kaartje staat achteraan in het raster, met een stippellijn en het merkje **staf**, zodat
+je het niet voor een speler aanziet.
+
+---
+
 ## v1.99.5
 
 **Een gele of rode kaart kan nu ook naar de trainer.** Tim: *"je moet een gele, rode kaart ook aan een

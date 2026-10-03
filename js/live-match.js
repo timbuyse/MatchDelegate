@@ -2783,10 +2783,10 @@ function shareWhatsApp(m) {
   const tegKaart = e => `tegenstander${e.oppNumber ? ` (nr. ${e.oppNumber})` : ''}`;
   const cardLines = [
     ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
-    ...m.events.filter(e => e.type === 'yellow_card_trainer').map(() => '  🟨 trainer'),
+    ...m.events.filter(e => e.type === 'yellow_card_trainer').map(e => `  🟨 ${stafWoord(e)}`),
     ...m.events.filter(e => e.type === 'yellow_card_them').map(e => `  🟨 ${tegKaart(e)}`),
     ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
-    ...m.events.filter(e => e.type === 'red_card_trainer').map(() => '  🟥 trainer'),
+    ...m.events.filter(e => e.type === 'red_card_trainer').map(e => `  🟥 ${stafWoord(e)}`),
     ...m.events.filter(e => e.type === 'red_card_them').map(e => `  🟥 ${tegKaart(e)}`),
   ];
 
@@ -2970,7 +2970,7 @@ function exportMatchCSV() {
     own_goal: 'Owngoal', own_goal_them: 'Owngoal (teg.)',
     yellow_card: 'Gele kaart', red_card: 'Rode kaart',
     yellow_card_them: 'Gele kaart tegen', red_card_them: 'Rode kaart tegen',
-    yellow_card_trainer: 'Gele kaart trainer', red_card_trainer: 'Rode kaart trainer',
+    yellow_card_trainer: 'Gele kaart staf', red_card_trainer: 'Rode kaart staf',
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
     injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
     freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
@@ -3011,7 +3011,7 @@ function exportMatchCSV() {
     // dat we ervan weten, en dat hoort in de spelerskolom en niet bij de extra info.
     if (e.oppNumber) player = 'Tegenstander nr. ' + e.oppNumber;
     else if (e.type === 'yellow_card_them' || e.type === 'red_card_them') player = 'Tegenstander';
-    else if (e.type === 'yellow_card_trainer' || e.type === 'red_card_trainer') player = 'Trainer';
+    else if (e.type === 'yellow_card_trainer' || e.type === 'red_card_trainer') player = stafWoord(e) === 'afgevaardigde' ? 'Afgevaardigde' : 'Trainer';
     row('', e.quarterNum || '', minStr, e.gameTimeMs || '', type, player, extraInfo);
   }
   blank();
@@ -6383,12 +6383,17 @@ function modalCard(color) {
     </div>
     <div id="card-us-section">
       <div class="sec">Welke speler?</div>
-      ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join(''))}
       ${/* OOK VOOR DE TRAINER (Tim, 03-10-2026: "je moet een gele, rode kaart ook aan een bankspeler of
            de coach kunnen geven"). De bank stond er al bij — zie spelersVoorEventKeuze hierboven — maar
-           de staf bestaat in een wedstrijd niet als iemand aan wie je iets kan toekennen. Eén knop
-           onder het raster, want dit is de uitzondering en niet de regel. */ ''}
-      <button class="btn btn-pale" style="margin-top:10px" onclick="logCardTrainer('${color}')">${ico}${lbl} voor de trainer</button>
+           de staf bestaat in een wedstrijd niet als iemand aan wie je iets kan toekennen.
+           ALS EEN KAARTJE IN HET RASTER en niet als knop eronder (Tims tweede opmerking): het is één van
+           de dingen waaruit je kiest, dus het hoort op één tik te staan zoals de spelers — niet als een
+           bevestiging die een ander soort handeling suggereert. Achteraan, want het is de uitzondering. */ ''}
+      ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join('')
+        + ['trainer', 'afgevaardigde'].map(wie => `<button type="button" onclick="logCardStaf('${color}','${wie}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px">
+             <span style="font-size:13px;font-weight:900;color:var(--txt);line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wie === 'trainer' ? 'Trainer' : 'Afgev.'}</span>
+             <span style="font-size:9px;font-weight:800;color:var(--txt2);border:1px solid var(--bdr);border-radius:5px;padding:0 4px">staf</span>
+           </button>`).join(''))}
     </div>
     ${/* Van een tegenspeler kennen we geen naam: de app heeft geen kern van de tegenstander. Het
          rugnummer is wat er aan de lijn effectief opgeschreven wordt, dus dat is het enige veld — en
@@ -6471,23 +6476,28 @@ async function logCardThem(color) {
     meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
-// EEN KAART VOOR DE TRAINER, MET EEN EIGEN SOORT EVENT (v2.0.0). Dezelfde redenering als bij de kaart
+// EEN KAART VOOR DE STAF, MET EEN EIGEN SOORT EVENT (v1.99.5). Dezelfde redenering als bij de kaart
 // voor de tegenstander hierboven, en om dezelfde reden: alles wat kaarten PER SPELER telt — de
 // seizoenscijfers, de tucht, het spelersoverzicht, de kaartjes bij de opstelling van een kwart, de
 // PDF — filtert op 'yellow_card'/'red_card'. Een eigen soort kan daar per definitie niet in
 // terechtkomen; een vlagje op een gewone kaart zou betekenen dat élk van die tellingen apart
 // uitgezonderd moet worden, en één vergeten plek zet een kaart op naam van een speler.
 //
+// WIE ZE KREEG staat in `wie` en niet in de soort (zie stafWoord in core.js): de afgevaardigde kwam er
+// een versie later bij, en een tweede soort zou betekenen dat de kaarten die toen al vastlagen van
+// soort moeten veranderen. Zonder `wie` is het de trainer, precies zoals die eerste versie het schreef.
+//
 // Ze raakt dus niets: geen speler, geen speelminuten, geen opstelling, en GÉÉN automatische rode bij
 // een tweede gele — dat is een regel per speler, en hier is er geen.
-async function logCardTrainer(color) {
+async function logCardStaf(color, wie) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    addEvent(color === 'red' ? 'red_card_trainer' : 'yellow_card_trainer', {});
+    addEvent(color === 'red' ? 'red_card_trainer' : 'yellow_card_trainer',
+      wie === 'afgevaardigde' ? { wie } : {});
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
-    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', 'trainer');
+    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', wie === 'afgevaardigde' ? 'afgevaardigde' : 'trainer');
   } finally { _eventBusy = false; }
 }
 

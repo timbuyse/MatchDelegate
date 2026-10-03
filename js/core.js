@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -557,6 +557,14 @@ function matchTitle(m) {
 function geenUitslag(m) { return !!(m && m.geenUitslag && m.status === 'done'); }
 // Een wedstrijd die (opnieuw) gevolgd wordt, krijgt een echte uitslag — dan hoort de vlag weg.
 function wisGeenUitslag(m) { if (m) delete m.geenUitslag; }
+// ---- Kaart voor de staf (v1.99.5, uitgebreid in v1.99.6) ----
+// De soorten heten `yellow_card_trainer` / `red_card_trainer`, want in de eerste versie kon zo'n kaart
+// enkel naar de trainer. Toen de afgevaardigde erbij kwam, is er GEEN tweede soort bijgemaakt: dan
+// zouden de kaarten die al vastlagen van soort moeten veranderen, en dat is precies wat deze app nooit
+// doet. In plaats daarvan draagt het event een optioneel veld `wie`. Staat dat er niet, dan is het de
+// trainer — zo blijft elke kaart van vóór deze versie exact leesbaar zoals ze bedoeld was.
+// Lees de naam van de soort dus als "kaart voor de staf", en déze functie zegt voor wie.
+function stafWoord(e) { return (e && e.wie === 'afgevaardigde') ? 'afgevaardigde' : 'trainer'; }
 const SCORE_LEEG = '–';
 // Eén vorm voor "geen uitslag", overal hetzelfde: scherm, deelbericht, PDF en exportbestand.
 // Een bolletje tussen twee streepjes (Tims keuze): het leest niet als een score van nul, en het
