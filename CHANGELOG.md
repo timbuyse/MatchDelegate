@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.7
+
+**Het startscherm valt niet meer even leeg bij het openen van een ploeg.** Tim stuurde een foto van
+de flits: alleen de kopbalk en de voettekst, en daartussen niets.
+
+Dat was het echte beeld. Een ploeg openen tekent het scherm twee keer, want de **clubnaam in de
+kopbalk** komt een tel later uit de cloud. Die tweede tekening is dus terecht — maar ze zette het vak
+eronder leeg neer, en pas daarna werden de tegels en de wedstrijden er weer in gezet.
+
+Nu gaat wat er al stond mee naar de nieuwe tekening. Er verdwijnt niets meer, en de lijst wordt
+daarna gewoon bijgewerkt.
+
+---
+
 ## v2.1.6
 
 **En nu de flits zelf.** Tim: *"nog steeds flits"* — en toen de aanwijzing die alles besliste:

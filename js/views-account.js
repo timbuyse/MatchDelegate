@@ -5436,6 +5436,17 @@ const views = {
     loadHome();
     setTimeout(updateCloudChip, 0);
     laadVlagVertraagd('home-content');
+    // DE INHOUD BLIJFT STAAN BIJ EEN HERTEKENING (Tim, 04-10-2026, met een foto van de flits: het
+    // scherm viel even terug op enkel de kopbalk en de voettekst).
+    //
+    // Een ploeg openen tekent dit scherm twee keer. De tweede keer verschilt de HTML wél — de
+    // clubnaam in de kopbalk komt een tel later uit de cloud — dus de overslagregel in render()
+    // grijpt terecht niet in. Maar dit vak werd leeg meegegeven, en loadHome vulde het pas daarna
+    // opnieuw. Dat lege tussenbeeld is de flits.
+    // Staat er al inhoud, dan gaat die mee in de nieuwe pagina: er verdwijnt niets meer, en
+    // loadHome werkt ze daarna gewoon bij.
+    const _oud = document.getElementById('home-content');
+    const _bewaard = _oud ? _oud.innerHTML : '';
     const canSwitch = cloudReady && currentUser && activeTeamId && !isGuest;
     // Header toont de PLOEGnaam als hoofdtitel (zodat je weet in welke ploeg je zit) en de
     // clubnaam kleiner eronder (fase 2f; gedenormaliseerd zodat ook kijkers ze zien).
@@ -5463,7 +5474,7 @@ const views = {
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>
-      <div class="content" id="home-content"></div>`;
+      <div class="content" id="home-content">${_bewaard}</div>`;
   },
   matches: () => {
     // Bij het binnenkomen altijd op de huidige maand beginnen; bladeren binnen het scherm gaat
