@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1984,6 +1984,15 @@ function dbSave(m) {
   // mét eigen rechtenregels, terwijl dit meelift op de schrijfweg die er al is. Oude wedstrijden
   // hebben het veld niet; dan gebeurt er simpelweg niets.
   if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) m.updatedBy = currentUser.uid;
+  // EN ZIJN NAAM ERBIJ (Tim, 04-10-2026: "ik wil als ploegbeheerder zien bij een match wie hem laatst
+  // bewerkt heeft en op welk tijdstip"). `updatedBy` hierboven is een gebruikerscode, en die is voor
+  // een mens niets: wie ze wil omzetten naar een naam, moet de ledenlijst van de ploeg kunnen lezen —
+  // en dat mag een kijker niet. Dus de naam zelf erbij, net als bij `bijgehoudenDoor` (zie
+  // startQuarter in live-match.js) en om exact dezelfde reden. Het is meteen de naam van TOEN: wie
+  // zich later hernoemt, herschrijft daarmee geen oude wedstrijd.
+  // Geen naam gekend (bv. een gast)? Dan blijft het veld weg en toont het scherm enkel het tijdstip.
+  const _naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+  if (_naam) m.updatedByNaam = _naam;
   return new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').put(m);
     r.onsuccess = () => { cloudOnLocalMatchSave(m); res(); };

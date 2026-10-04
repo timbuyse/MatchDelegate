@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.8
+
+**Bij een wedstrijd staat nu wie er het laatst aan kwam, en wanneer.** Tim: *"ik wil als
+ploegbeheerder zien bij een match wie hem laatst bewerkt heeft en op welk tijdstip."*
+
+Onder **Wedstrijdinfo** in het verslag staat voortaan een regel **'Laatst bewerkt'** — bijvoorbeeld
+*Jan Vermeulen · vandaag om 14:37*. Alleen ploegbeheerders zien ze, en ze staat niet op de PDF: dit is
+huishouding tussen beheerders onderling, geen feit over de wedstrijd.
+
+Het tijdstip hield de app al bij, maar de naam niet: ze bewaarde enkel een gebruikerscode, en die is
+voor een mens niets. Wie zo'n code naar een naam wil omzetten, moet de ledenlijst van de ploeg kunnen
+lezen — en dat mag niet iedereen. Daarom wordt nu de naam zelf meebewaard, net als bij *'Bijgehouden
+door'*. Het is meteen de naam van toen: wie zich later hernoemt, herschrijft daarmee geen oude
+wedstrijd.
+
+Bij wedstrijden van vóór deze versie is die naam er niet. Dan staat er enkel het tijdstip — nog altijd
+het antwoord op de helft van de vraag.
+
+---
+
 ## v1.99.7
 
 **Het speeldagoverzicht is een zuiver live-scherm geworden.** Tim: *"alle wedstrijden van de huidige

@@ -815,6 +815,20 @@ function lastSeenTekst(ts) {
   if (dagen < 7) return dagen + ' dagen geleden';
   return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+// WANNEER IS ER VOOR HET LAATST AAN GERAAKT (Tim, 04-10-2026: "wie hem laatst bewerkt heeft en op
+// welk tijdstip"). Bewust NIET lastSeenTekst hierboven: die zegt bij iets recents "nu in de app", en
+// dat is het antwoord op een andere vraag. Hier staat het uur er altijd bij — daar ging de vraag over
+// — en de dag ervoor verschuift mee: vandaag, gisteren, of de datum.
+function bewerktTekst(ts) {
+  const t = Number(ts);
+  if (!t) return '';
+  const d = new Date(t);
+  const uur = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  const dagen = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 86400000);
+  if (dagen === 0) return 'vandaag om ' + uur;
+  if (dagen === 1) return 'gisteren om ' + uur;
+  return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) + ' om ' + uur;
+}
 function lastSeenRegel(uid) {
   const t = _lastSeenVal[uid];
   return t ? ` · <span style="color:var(--txt2)">laatst actief: ${lastSeenTekst(t)}</span>` : '';
