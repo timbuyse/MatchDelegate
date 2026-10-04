@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.0.0
+
+**Bewust geen "wat is er nieuw"-venster** (Tim, 04-10-2026: *"ja push als 2.0.0 maar ik wil géén
+tekst"*). De app slaat het venster stil over zolang er geen tekst voor major 2 bestaat — er is geen
+`RELEASE_NOTES['2']`, en dat hoort zo te blijven tot Tim er zelf om vraagt.
+
+Twee dingen aan de **clubronde**, allebei uit de praktijk.
+
+**"Geen enkele" kan je nu ook bevestigen.** Tim: *"er is er maar één en ik vink hem uit, dan komt hij
+telkens terug, want ik kan niet bevestigen dat ik geen enkele wil inladen."* De knop stond
+uitgeschakeld zodra er niets aanstond. Omdat het onthouden pas bij het bevestigen gebeurt, werd die
+keuze nooit vastgelegd en stond diezelfde wedstrijd er de volgende ronde weer. De knop heet nu
+**'Geen enkele toevoegen'** en legt precies dat vast.
+
+**Je kan per wedstrijd kiezen bij welke ploeg ze hoort.** Soms deelt de bond een wedstrijd bij de
+verkeerde ploeg in. Naast elke voorgestelde wedstrijd staat nu een keuzelijstje met alle ploegen van
+je club; standaard staat die van de bond er al in.
+
+Twee dingen die daarbij meegenomen zijn. Een verplaatste wedstrijd wordt nagekeken tegen de ploeg
+waar ze **naartoe** gaat, zodat ze daar niet dubbel landt. En ze wordt bij de oorspronkelijke ploeg
+als afgehandeld onthouden — anders zou de bond ze elke ronde opnieuw op dezelfde verkeerde plek
+voorstellen.
+
+---
+
 ## v1.99.14
 
 **Een slotje om- of afzetten telt niet meer als een bewerking.** Tim: *"als er enkel een slotje wordt

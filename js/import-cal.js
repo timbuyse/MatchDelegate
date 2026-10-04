@@ -1608,16 +1608,40 @@ async function clubRondeKalenders() {
 // knoptekst worden bijgewerkt.
 function clubKalAan(rij) { return (rij.nieuw || []).filter(r => r.aan !== false); }
 function clubKalTeller() { return ((clubRondeSt || {}).kalenders || []).reduce((n, rij) => n + clubKalAan(rij).length, 0); }
+// DE KNOP BLIJFT WERKEN BIJ NUL AANGEVINKT (Tim, 04-10-2026: "er is er maar één en ik vink hem uit,
+// dan komt hij telkens terug, want ik kan niet bevestigen dat ik geen enkele wil inladen"). Hij stond
+// uitgeschakeld, en omdat het onthouden pas bij het bevestigen gebeurt, werd die keuze nooit
+// vastgelegd — de volgende ronde stond diezelfde wedstrijd er weer. Met nul aangevinkt voegt de knop
+// niets toe; ze legt enkel vast dat je die wedstrijden niet meer wil zien.
 function clubKalKnopBij() {
   const n = clubKalTeller();
   const knop = document.getElementById('ck-knop');
   if (knop) {
-    knop.disabled = !n;
-    knop.style.opacity = n ? '' : '.5';
+    knop.disabled = false;
+    knop.style.opacity = '';
     knop.innerHTML = n
       ? `${icI(IC.check)} Ja, ${n === 1 ? 'die wedstrijd' : `die ${n} wedstrijden`} toevoegen`
-      : 'Niets aangevinkt';
+      : `${icI(IC.check)} Geen enkele toevoegen`;
   }
+}
+// NAAR WELKE PLOEG GAAT DEZE WEDSTRIJD (Tim, 04-10-2026: "misschien is het handig dat je ook kan
+// wijzigen bij welke ploeg je die wil zetten, want soms is de bond verkeerd"). Enkel onthouden op de
+// regel; het venster wordt bewust niet hertekend (zie de uitleg bij clubKalVink).
+function clubKalPloeg(pi, ri, tid) {
+  const rij = ((clubRondeSt || {}).kalenders || [])[pi]; if (!rij) return;
+  const r = (rij.nieuw || [])[ri]; if (!r) return;
+  r.naarTid = (tid && tid !== rij.p.tid) ? tid : null;
+}
+// Staat deze wedstrijd al bij de ploeg waar ze NU naartoe gaat? Dezelfde dubbeldetectie als
+// clubKalenderVoorstellen, maar zonder het subteam-label: dat komt van de bondsploeg van de ándere
+// ploeg en zegt bij deze niets. Nodig omdat het voorstel enkel tegen de oorspronkelijke ploeg
+// nagekeken is — verplaats je er een, dan is die controle voor de doelploeg nooit gebeurd.
+function clubKalStaatErAl(p, r) {
+  const lijst = (p && p.wedstrijden) || [];
+  if (r.rbfaMatchId && lijst.some(m => String(m.rbfaMatchId || '') === String(r.rbfaMatchId))) return true;
+  const zelfdeDag = lijst.filter(m => (m.date || '') === r.datum && !matchCancelled(m));
+  return zelfdeDag.some(m => impNorm(m.opponent) === impNorm(r.tegenstander))
+      || zelfdeDag.some(m => impZelfdeClub(m.opponent, r.tegenstander));
 }
 function clubKalVink(pi, ri, aan) {
   const rij = ((clubRondeSt || {}).kalenders || [])[pi]; if (!rij) return;
@@ -1640,8 +1664,12 @@ function clubKalVinkPloeg(pi, aan) {
 // kalenderimport — "de volgende keer geeft hij die terug aan als op te laden" — en de oplossing is
 // dezelfde lijst: `kalenderOverslaan` op de kern van die ploeg. ÉÉN VELD schrijven, niet de hele
 // roster: daar hangt de spelerslijst aan, en die mag deze ronde niet aanraken.
+// EEN VERPLAATSTE WEDSTRIJD WORDT HIER OOK ONTHOUDEN. Ze staat op de bondskalender van DEZE ploeg,
+// dus zonder dit stelt de ronde ze elke keer opnieuw voor bij de verkeerde ploeg — ze staat daar
+// immers nog altijd niet. Enkel wanneer ze ook echt aangemaakt is (`_gedaan`): is het aanmaken
+// mislukt, dan hoort ze gewoon terug te komen.
 async function clubKalOnthouden(rij) {
-  const sleutels = (rij.nieuw || []).filter(r => r.aan === false)
+  const sleutels = (rij.nieuw || []).filter(r => r.aan === false || (r.naarTid && r._gedaan))
     .map(r => impOverslaanSleutel(r)).filter(Boolean);
   if (!sleutels.length || !rij.p.kern || !rij.p.kernSleutel) return;
   const set = new Set(((rij.p.kern.kalenderOverslaan) || []).concat(sleutels));
@@ -1651,16 +1679,25 @@ async function clubKalOnthouden(rij) {
 }
 async function clubRondeKalendersDoen() {
   const st = clubRondeSt; if (!st || st.bezig || !st.kalenders) return;
-  if (!clubKalTeller()) return;
+  // GEEN UITSTAP MEER BIJ NUL AANGEVINKT: dan is "geen enkele" juist de bedoeling, en moet het
+  // onthouden hieronder alsnog lopen. Zie clubKalKnopBij.
   st.bezig = true; st.fase = 'kalbezig'; clubRondeRender();
   const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
-  let gemaakt = 0, mis = 0, onthouden = 0;
+  let gemaakt = 0, mis = 0, onthouden = 0, verplaatst = 0, dubbel = 0;
   for (const rij of st.kalenders) {
     for (const r of clubKalAan(rij)) {
       if (!clubRondeSt) return;
-      meld(`${rij.p.naam}: ${r.tegenstander}…`);
-      try { const m = await clubWedstrijdAanmaken(rij.p, r); rij.p.wedstrijden.push(m); gemaakt++; }
-      catch (e) { mis++; }
+      // Naar welke ploeg: die van de bondskalender, of degene die jij ernaast koos.
+      const doel = r.naarTid ? (st.ploegen || []).find(p => p.tid === r.naarTid) : rij.p;
+      if (!doel) { mis++; continue; }
+      meld(`${doel.naam}: ${r.tegenstander}…`);
+      if (clubKalStaatErAl(doel, r)) { dubbel++; continue; }
+      try {
+        const m = await clubWedstrijdAanmaken(doel, r);
+        doel.wedstrijden.push(m); gemaakt++;
+        r._gedaan = true;
+        if (doel !== rij.p) verplaatst++;
+      } catch (e) { mis++; }
     }
     const uitgevinkt = (rij.nieuw || []).filter(r => r.aan === false).length;
     try { await clubKalOnthouden(rij); onthouden += uitgevinkt; } catch (e) { /* onthouden is bijzaak */ }
@@ -1668,10 +1705,15 @@ async function clubRondeKalendersDoen() {
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'overzicht'; st.kalenders = null;
   clubRondeRender();
-  const staart = onthouden ? ` ${onthouden} ${onthouden === 1 ? 'uitgevinkte wedstrijd komt' : 'uitgevinkte wedstrijden komen'} niet meer terug.` : '';
-  showToast(mis
-    ? `${gemaakt} wedstrijd(en) toegevoegd, ${mis} mislukt.${staart}`
-    : `${gemaakt} ${gemaakt === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd.${staart}`, mis ? 'err' : 'ok');
+  const delen = [];
+  delen.push(gemaakt
+    ? `${gemaakt} ${gemaakt === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd`
+    : 'Niets toegevoegd');
+  if (verplaatst) delen.push(`${verplaatst} bij een andere ploeg gezet`);
+  if (dubbel) delen.push(`${dubbel} stond${dubbel === 1 ? '' : 'en'} daar al`);
+  if (mis) delen.push(`${mis} mislukt`);
+  if (onthouden) delen.push(`${onthouden} ${onthouden === 1 ? 'komt' : 'komen'} niet meer terug`);
+  showToast(delen.join(', ') + '.', mis ? 'err' : 'ok');
 }
 
 // ---- Wedstrijdbladen ophalen, over de hele club ----
@@ -1947,6 +1989,9 @@ function clubRondeRender() {
   if (st.fase === 'kalvoorstel') {
     const totaal = (st.kalenders || []).reduce((n, r) => n + (r.nieuw || []).length, 0);
     const aan = clubKalTeller();
+    // Alle ploegen van de club mogen als bestemming dienen, ook die zonder bondskoppeling — juist
+    // daar belandt een verkeerd ingedeelde wedstrijd.
+    const ploegKeuzes = (st.ploegen || []).map(p => ({ tid: p.tid, naam: p.naam }));
     const rijen = (st.kalenders || []).map((r, pi) => ({ r, pi }))
       .filter(({ r }) => (r.nieuw || []).length || r.fout).map(({ r, pi }) => {
       const allesAan = clubKalAan(r).length === (r.nieuw || []).length;
@@ -1959,10 +2004,18 @@ function clubRondeRender() {
                  <span style="display:block;font-size:12px;color:var(--txt2)">${r.nieuw.length} nieuw · ${r.gevonden} op de kalender</span></span>
              </label>
              <div style="margin-left:24px">${r.nieuw.map((x, ri) => `
-               <label class="chkrow" style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer">
-                 <input type="checkbox" id="ck-${pi}-${ri}" ${x.aan === false ? '' : 'checked'} onchange="clubKalVink(${pi}, ${ri}, this.checked)">
-                 <span style="flex:1;min-width:0;font-size:13px">${esc((x.datum || '').split('-').reverse().slice(0, 2).join('/'))}${x.tijd ? ` ${esc(x.tijd)}` : ''} · ${x.thuis ? '' : 'bij '}<b>${esc(x.tegenstander)}</b>${x.rbfaLabel ? ` <span style="color:var(--txt2)">(${esc(x.rbfaLabel)})</span>` : ''}</span>
-               </label>`).join('')}</div>`}
+               ${/* HET KEUZELIJSTJE STAAT NAAST HET VINKJE, NIET ERIN. Een <select> binnen een
+                    <label> zet bij elke tik ook het vinkje om — dan vink je de wedstrijd uit terwijl
+                    je enkel een andere ploeg wou kiezen. */ ''}
+               <div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+                 <label class="chkrow" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;cursor:pointer">
+                   <input type="checkbox" id="ck-${pi}-${ri}" ${x.aan === false ? '' : 'checked'} onchange="clubKalVink(${pi}, ${ri}, this.checked)">
+                   <span style="flex:1;min-width:0;font-size:13px">${esc((x.datum || '').split('-').reverse().slice(0, 2).join('/'))}${x.tijd ? ` ${esc(x.tijd)}` : ''} · ${x.thuis ? '' : 'bij '}<b>${esc(x.tegenstander)}</b>${x.rbfaLabel ? ` <span style="color:var(--txt2)">(${esc(x.rbfaLabel)})</span>` : ''}</span>
+                 </label>
+                 ${ploegKeuzes.length > 1 ? `<select style="font-size:12px;max-width:40%;padding:2px 4px" onchange="clubKalPloeg(${pi}, ${ri}, this.value)">
+                   ${ploegKeuzes.map(p => `<option value="${esc(p.tid)}" ${p.tid === (x.naarTid || r.p.tid) ? 'selected' : ''}>${esc(p.naam)}</option>`).join('')}
+                 </select>` : ''}
+               </div>`).join('')}</div>`}
       </div>`;
     }).join('');
     openModal(`${kop}
@@ -1970,10 +2023,10 @@ function clubRondeRender() {
         ? `Er ${totaal === 1 ? 'staat' : 'staan'} <b>${totaal}</b> ${totaal === 1 ? 'wedstrijd' : 'wedstrijden'} op de kalender van de bond die nog niet in de app ${totaal === 1 ? 'staat' : 'staan'}. Vink uit wat je niet wil.`
         : 'Elke wedstrijd van de bondskalender staat al in de app.'}</p>
       ${rijen}
-      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">${icI(IC.warn)} Deze ronde <b>voegt alleen toe</b>. Een wedstrijd die al in de app staat wordt niet aangeraakt — ook niet wanneer het uur bij de bond intussen veranderde. Dat werk je bij in die ploeg zelf, waar je het ziet. Wat je hier <b>uitvinkt</b>, komt een volgende ronde niet meer terug.</p>
-      ${totaal ? `<button class="btn btn-green" id="ck-knop" ${aan ? '' : 'disabled style="opacity:.5"'} onclick="clubRondeKalendersDoen()">${aan
+      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">${icI(IC.warn)} Deze ronde <b>voegt alleen toe</b>. Een wedstrijd die al in de app staat wordt niet aangeraakt — ook niet wanneer het uur bij de bond intussen veranderde. Dat werk je bij in die ploeg zelf, waar je het ziet. Wat je hier <b>uitvinkt</b>, komt een volgende ronde niet meer terug.${ploegKeuzes.length > 1 ? ' Staat een wedstrijd bij de bond onder de verkeerde ploeg, kies dan rechts de juiste — ook dan komt ze hier niet meer terug.' : ''}</p>
+      ${totaal ? `<button class="btn btn-green" id="ck-knop" onclick="clubRondeKalendersDoen()">${aan
         ? `${icI(IC.check)} Ja, ${aan === 1 ? 'die wedstrijd' : `die ${aan} wedstrijden`} toevoegen`
-        : 'Niets aangevinkt'}</button>` : ''}
+        : `${icI(IC.check)} Geen enkele toevoegen`}</button>` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug</button>`);
     return;
   }
