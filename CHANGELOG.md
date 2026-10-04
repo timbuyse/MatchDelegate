@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.9
+
+**De handleiding heeft het beeld van het live-scherm.** De pagina *'Live — wat er nu loopt'* stond er
+sinds v2.1.0 al in, maar nog zonder schermafbeelding. Nu staat er een met drie lopende wedstrijden:
+eentje in het derde kwart, eentje in de rust en eentje met een ploeglabel.
+
+Het beeld van **'Jouw ploegen'** is ook vernieuwd — dat was van vóór de footer rechtgezet werd.
+
+De **clubronde** hoefde niet: dat scherm is sinds de vorige opname niet gewijzigd. Het keuzelijstje
+voor de ploeg staat op het voorstelscherm dat daarachter zit, en dat heeft geen eigen beeld in de
+handleiding.
+
+Drieëntwintig beelden nu. Kruiselings nagekeken: elke pagina die een beeld aanduidt heeft er een, en
+er staat geen enkel beeld in dat nergens gebruikt wordt.
+
+---
+
 ## v2.1.8
 
 **De tegel met de naam van je kind staat er nu meteen — en dát was ook de laatste flits.** Tim: *"de
