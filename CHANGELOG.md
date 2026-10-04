@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.13
+
+**Het offline-vangnet laat een voorbereiding niet langer winnen van een gespeelde wedstrijd.** Dit is
+de werkelijke oorzaak van de twee verloren verslagen, en meteen ook de reparatie van een lus die
+v1.99.11 veroorzaakte.
+
+De app heeft een vangnet voor werk zonder verbinding: is jouw kopie recenter bewerkt dan die in de
+cloud, dan wint de jouwe en wordt ze opnieuw doorgeduwd. Dat vangnet stond vóór alle wachters. Een
+toestel dat de wedstrijd nog in de voorbereiding had staan en toevallig een recenter tijdstip droeg,
+won daardoor van een wedstrijd die elders volledig gevolgd was — en geen enkele wachter kwam eraan te
+pas.
+
+Nu slaat het vangnet over zodra de eigen kopie géén blokken heeft en wat binnenkomt er wél heeft. Het
+beschermt werk dat zonder verbinding gebeurde, en een kopie zonder blokken draagt geen gespeelde
+wedstrijd. Heb je de wedstrijd zelf zonder verbinding uitgespeeld, dan heb je blokken en werkt het
+vangnet precies zoals voorheen.
+
+Daarmee verdwijnt ook een lus die sinds v1.99.11 kon ontstaan: de wachter weigerde zo'n kopie weg te
+schrijven en haalde de cloudversie op, waarna het vangnet de eigen kopie opnieuw tot winnaar
+verklaarde. Gemeten: negen lezingen van de databank na elkaar zonder einde. Een toestel in die
+toestand haalt nu gewoon het volledige verslag binnen.
+
+---
+
 ## v1.99.12
 
 **Mislukt de veiligheidskopie, dan wordt er niets meer gewist.** Verwijderen van een wedstrijd zette

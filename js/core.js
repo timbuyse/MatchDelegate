@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.12'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.13'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3873,7 +3873,21 @@ async function applyCloudMatch(id, m) {
   // 29-08-2026 zijn vier kwartkloktijden kwijt en stond elke pauzewissel dubbel.
   // De verhouding blijft wat ze was — de lokale kopie wint — maar de events worden verenigd, met
   // dezelfde tombstone-regel als de gewone merge hieronder: wat bewust gewist is, komt niet terug.
-  if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
+  //
+  // NOOIT VOOR EEN LOKALE KOPIE ZONDER BLOKKEN TERWIJL ER BINNENKOMT MÉT BLOKKEN (04-10-2026).
+  // Dit vangnet beschermt werk dat zonder verbinding gebeurde — en een kopie zonder blokken draagt
+  // geen gespeelde wedstrijd, dus er valt niets te beschermen. Het stond bovendien VÓÓR wachter 1,
+  // zodat die hier nooit aan bod kwam: een toestel dat de wedstrijd nog in de voorbereiding had staan
+  // en toevallig een recenter tijdstip droeg, won van een wedstrijd die elders volledig gespeeld was.
+  // Dat is precies de vorm die op 30-09 en 04-10-2026 twee verslagen kostte.
+  //
+  // EN HET MAAKTE SINDS v1.99.11 EEN LUS. Wachter 3 weigert zo'n kopie weg te schrijven en haalt de
+  // cloudversie op; die komt hier binnen, dit vangnet verklaart de lokale kopie opnieuw tot winnaar,
+  // duwt ze opnieuw door, wachter 3 weigert opnieuw… Gemeten: negen lezingen van de databank na
+  // elkaar en geen einde in zicht. Hier overslaan breekt de lus bij de wortel; de gewone samenvoeging
+  // hieronder kent de grafstenen en handelt een echte terugname correct af.
+  const lokaalZonderBlokken = !!existing && !((existing.quarters || []).length) && !!((m.quarters || []).length);
+  if (existing && isAdmin && !lokaalZonderBlokken && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
     if (!Array.isArray(existing.events)) existing.events = [];
     // Tombstones van beide kanten verenigen, net als bij de gewone merge hieronder. De vergelijking
     // gaat over de VERZAMELING en niet over de lijstlengte: een dubbel merkje in de lijst zou anders
