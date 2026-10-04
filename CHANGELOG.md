@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.0.4
+
+**Staan er meerdere trainers of afgevaardigden bij een wedstrijd, dan vraagt de app voor wie de kaart
+is.** Tim: *"kan je dan niet de trainer selecteren als er meer dan 1 geselecteerd is?"* Je krijgt een
+knop per naam, plus **'Zonder naam vastleggen'** voor wie het niet zag — dan blijft het bij *Trainer*
+of *Afgevaardigde*, zoals voordien.
+
+Allebei de kaartjes stellen hun eigen vraag, met hun eigen namen.
+
+**En die rol heet nu overal 'Afgevaardigde'.** Tim: *"maak de naam overal Afgevaardigde."* Op het
+ploegscherm, in de wizard, bij een tornooi, in het verslag, in de PDF, in het exportbestand en in de
+handleiding stond *'Ploegverantwoordelijke'* of *'Ploegverantw.'*; de kaart voor de staf zei
+*'afgevaardigde'*. Dat is nu één woord — het woord dat aan de lijn gebruikt wordt, en het past beter
+op een smal scherm. Aan de gegevens verandert er niets.
+
+Met één naam, of met geen enkele, verandert er niets: dat blijft één tik.
+
+Die keuze wordt wél op de kaart bewaard — het is een vaststelling van wie erbij stond, en dat kan de
+app nergens uit afleiden. Bij één trainer blijft de naam uit de wedstrijdinfo komen, zodat een
+correctie daar vanzelf doorwerkt.
+
+---
+
 ## v2.0.3
 
 **De naam van gisteren kwam er bij een tornooiwedstrijd niet door.** Tim zag bij zijn wedstrijd netjes

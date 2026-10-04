@@ -1726,7 +1726,7 @@ function modalEditMatchInfo() {
       ${/* Terrein: het detail voor ter plaatse. Het adres staat boven, bij thuis/uit. */ ''}
     <div class="fg"><label>Terrein</label><input id="ei-terrein" type="text" value="${esc(match.terrein||'')}" placeholder="bv. terrein 2, kunstgras B" autocomplete="off"></div>
       ${match.tournamentId
-        // Op een tornooidag zijn trainer en ploegverantwoordelijke voor alle wedstrijden dezelfde:
+        // Op een tornooidag zijn trainer en afgevaardigde voor alle wedstrijden dezelfde:
         // die geef je één keer bij het tornooi in. Kon je ze hier per wedstrijd overschrijven, dan
         // liep de wedstrijd stil uit de pas met het tornooi (en omgekeerd: een wijziging bij het
         // tornooi kwam nooit in de wedstrijd terecht). Zelfde aanpak als bij de locatie hierboven.
@@ -1734,7 +1734,7 @@ function modalEditMatchInfo() {
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchTrainer(match) || '—')}</div></div>
           <div class="fg" style="margin-bottom:0"><label>${responsibleLabel(matchResponsible(match))}</label>
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchResponsible(match) || '—')}</div>
-            <div style="font-size:11px;color:var(--txt2)">Trainer(s) en ploegverantwoordelijke(n) komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
+            <div style="font-size:11px;color:var(--txt2)">Trainer(s) en afgevaardigde(n) komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
           </div>`
         : `${staffPickerHtml('ei', 'trn', teamTrainerNames(teamById(match.teamId)), match.trainer)}
           ${staffPickerHtml('ei', 'resp', teamResponsibleNames(teamById(match.teamId)), match.responsible)}`}
@@ -2950,11 +2950,12 @@ function exportMatchCSV() {
   // Vast label: dit is een export, en een kolomnaam die meebeweegt met het aantal trainers maakt
   // het bestand moeilijker te verwerken. De namen zelf staan komma-gescheiden in de waarde.
   row('Trainer', matchTrainer(m));
-  // "Ploegverantwoordelijke", niet "Afgevaardigde" (audit 25-08-2026): die rol heet in de hele app
-  // ploegverantwoordelijke — op het ploegscherm, in de wizard, op het verslag en in de PDF. In dit
-  // ene bestand stond een ander woord, en dan lijkt het een andere rol. Vast label blijft: dit is een
-  // export, en een kolomnaam die meebeweegt met het aantal namen maakt het bestand lastiger te lezen.
-  row('Ploegverantwoordelijke', matchResponsible(m));
+  // "Afgevaardigde" (Tim, 04-10-2026) — dit draait de keuze van 25-08-2026 om, toen hier net
+  // "Ploegverantwoordelijke" kwam te staan omdat de rest van de app dat woord gebruikte. Nu gebruikt
+  // de hele app "Afgevaardigde", en dit bestand hoort daarin mee te gaan: één woord voor één rol.
+  // Vast label blijft: dit is een export, en een kolomnaam die meebeweegt met het aantal namen maakt
+  // het bestand lastiger te verwerken.
+  row('Afgevaardigde', matchResponsible(m));
   row('Scheidsrechter', m.referee || '');
   row('Truikleur', m.jersey || '');
   row('Kapitein(s)', allCaptains(m).map(id => pName(m, id)).join(', '));
@@ -6489,19 +6490,44 @@ async function logCardThem(color) {
 //
 // Ze raakt dus niets: geen speler, geen speelminuten, geen opstelling, en GÉÉN automatische rode bij
 // een tweede gele — dat is een regel per speler, en hier is er geen.
-async function logCardStaf(color, wie) {
+// STAAN ER MEER NAMEN BIJ DEZE WEDSTRIJD, DAN EERST VRAGEN WIE (Tim, 04-10-2026: "kan je dan niet de
+// trainer selecteren als er meer dan 1 geselecteerd is?"). Met één naam, of met geen enkele, blijft
+// het één tik — er valt dan niets te kiezen.
+// `naam` is `undefined` zolang er nog niet gekozen is, en een lege tekst wanneer je bewust zonder
+// naam logt. Die twee moeten uit elkaar, anders draait het keuzevenster in een lus.
+async function logCardStaf(color, wie, naam) {
   if (_eventBusy) return;
+  if (naam === undefined) {
+    const namen = staffList(wie === 'afgevaardigde' ? matchResponsible(match) : matchTrainer(match));
+    if (namen.length > 1) { modalStafKeuze(color, wie, namen); return; }
+  }
   _eventBusy = true;
   try {
-    // De NAAM wordt hier bewust niet meegeschreven: die staat op de wedstrijd (het veld Trainer of
+    // Zonder keuze wordt er GÉÉN naam meegeschreven: die staat op de wedstrijd (het veld Trainer of
     // Afgevaardigde) en wordt pas bij het tonen gelezen, zodat een latere correctie vanzelf doorwerkt.
-    // Zie stafLabel in core.js.
+    // Zie stafNaam in core.js.
     addEvent(color === 'red' ? 'red_card_trainer' : 'yellow_card_trainer',
-      wie === 'afgevaardigde' ? { wie } : {});
+      Object.assign(wie === 'afgevaardigde' ? { wie } : {}, naam ? { stafNaam: naam } : {}));
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
-    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', wie === 'afgevaardigde' ? 'afgevaardigde' : 'trainer');
+    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart',
+      naam || (wie === 'afgevaardigde' ? 'afgevaardigde' : 'trainer'));
   } finally { _eventBusy = false; }
+}
+// Wie van de twee? Eén knop per naam, plus een uitweg voor wie het niet zag — dan blijft het bij de
+// rol, precies zoals voordien. Geen bevestigingsstap: elke knop legt de kaart meteen vast, net als
+// het aantikken van een speler in het kaartvenster.
+function modalStafKeuze(color, wie, namen) {
+  const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
+  const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
+  // Hetzelfde woord als op de kaart en in de wedstrijdinfo — sinds v2.0.4 heet die rol overal
+  // "afgevaardigde" (zie responsibleLabel in core.js).
+  const rol = wie === 'afgevaardigde' ? 'afgevaardigden' : 'trainers';
+  openModal(`<h3>${ico} ${lbl}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:14px">Er staan ${namen.length} ${rol} bij deze wedstrijd. Voor wie is de kaart?</p>
+    ${namen.map(n => `<button class="btn btn-pale" style="margin-top:6px" onclick="logCardStaf('${color}','${wie}','${jsq(n)}')">${esc(n)}</button>`).join('')}
+    <button class="btn btn-gray" style="margin-top:10px" onclick="logCardStaf('${color}','${wie}','')">Zonder naam vastleggen</button>
+    <button class="btn btn-gray" style="margin-top:6px" onclick="closeModal()">Annuleren</button>`);
 }
 
 // ===================== MODAL: PENALTY =====================

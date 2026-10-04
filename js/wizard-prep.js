@@ -1788,7 +1788,7 @@ function renderPrep() {
   const voorbij = typeof matchNietAfgesloten === 'function' && matchNietAfgesloten(m);
   // Formatie staat hier bewust niet meer bij: ze hoort bij de opstelling en is daar te zien én te
   // wijzigen (het linkje onder het veld van deel 1 in de planner).
-  const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], ['Ploegverantw.', matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Adres', m.venue], ['Terrein', m.terrein]].filter(([k, v]) => v);
+  const info = [['Ploeg-label', m.subteam], [trainerLabel(matchTrainer(m)), matchTrainer(m)], [responsibleLabel(matchResponsible(m)), matchResponsible(m)], ['Soort', m.competition], ['Speeldag', m.matchday], ['Scheidsrechter', m.referee], ['Truikleur', m.jersey], ['Adres', m.venue], ['Terrein', m.terrein]].filter(([k, v]) => v);
   const prepBack = m.tournamentId ? `goTournament('${m.tournamentId}')` : `go(matchTerug())`;
   return `
   ${/* HET OOGJE IN DE KOPREGEL (Tim, 01-09-2026). Dit stond eerst als knop op volle breedte tussen de

@@ -6070,7 +6070,7 @@ const BULK_VELDEN = [
   { key: 'venue',           label: 'Terrein',                soort: 'tekst', plaatshouder: 'bv. Terrein 2' },
   { key: 'jersey',          label: 'Truikleur',              soort: 'tekst', plaatshouder: 'bv. rood-wit' },
   { key: 'trainer',         label: 'Trainer',                soort: 'tekst', plaatshouder: 'naam' },
-  { key: 'responsible',     label: 'Ploegverantwoordelijke', soort: 'tekst', plaatshouder: 'naam' },
+  { key: 'responsible',     label: 'Afgevaardigde', soort: 'tekst', plaatshouder: 'naam' },
   { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => Object.keys(MATCH_TYPES) },
   // LET OP — dit veld zit in TWEE eigenschappen: periodKey ('kwarten') én numQuarters (4). Overal in
   // de app worden die samen gezet (zie wizPeriodChange, trnPeriodChange), en "1 deel" is de

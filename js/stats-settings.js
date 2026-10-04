@@ -1388,7 +1388,7 @@ const HANDLEIDING_PAGINAS = [
       <p>Via de tegel <b>'Ploeg'</b> op het homescherm kom je op het <b>ploegscherm</b>: de spelers en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik bovenaan op het <b>potlood</b> om iets te wijzigen — het kleurt groen zolang je aan het bewerken bent:</p>
       <ul class="hdl-list">
         <li><b>Ploegnaam</b>.</li>
-        <li><b>Ploegverantwoordelijken</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een ploegverantwoordelijke'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
+        <li><b>Afgevaardigden</b> en <b>trainers</b> — zoveel als je er hebt. Vul een naam in en tik op <b>'+ Nog een trainer'</b> of <b>'+ Nog een afgevaardigde'</b> voor de volgende; met het rode kruisje haal je er één weg. Wie hier staat, kan je per wedstrijd en per tornooi aanvinken.</li>
         <li><b>Spelers</b> — rugnummer, voornaam, familienaam en voorkeurspositie. Sorteer op nummer of naam. Verwijder via het rode kruisje.</li>
         <li><b>Kant bij een verdediger</b> — kies je <b>Verdediging</b> als voorkeurspositie, dan kan je er <b>Centraal</b>, <b>Links</b> of <b>Rechts</b> bij zetten. Dat staat bij zijn naam in de selectie, zodat je hem bij de opstelling op de juiste flank zet.</li>
         <li><b>Standaard voor nieuwe wedstrijden</b> — stel per ploeg in met welke <b>vorm</b> (bv. 8v8) en welke <b>formatie</b> je meestal speelt, en ook het <b>aantal blokken</b> en de <b>duur per blok</b>. Een U8 speelt geen vier kwarten van een kwartier, en zo hoef je dat niet bij elke wedstrijd opnieuw bij te stellen. Staat jouw speelduur niet in de lijst, kies dan <b>'Vrij…'</b> en tik het aantal minuten in.</li>
@@ -1409,7 +1409,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Aantal blokken</b>: bv. 4 kwarten, 2 helften.</li>
         <li><b>Duur van een blok</b>: speelduur in minuten.</li>
         <li>Het <b>adres</b> staat meteen onder <b>Thuis of uit</b>: straat, nummer en gemeente, zodat iedereen weet waar hij moet zijn. Het <b>terrein</b> ("terrein 2", "kunstgras B") staat bij de details hieronder — dat heb je pas ter plaatse nodig.</li>
-        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, terrein, trainer(s), ploegverantwoordelijke(n), enz. Bij de trainers en de ploegverantwoordelijken vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
+        <li>Optioneel: tik op <b>'+ Meer details'</b> voor scheidsrechter, terrein, trainer(s), afgevaardigde(n), enz. Bij de trainers en de afgevaardigden vink je aan wie er die wedstrijd bij is — er mogen er meerdere zijn, en wie niet in de ploeg staat typ je in het vrije veld eronder.</li>
       </ul>
       <p class="hdl-tip">Wil je de wedstrijd alvast inplannen en de selectie later invullen? Tik op
         <b>'Opslaan zonder selectie'</b>. Elke stap van de wizard heeft zo'n knop: bovenaan gaat het
@@ -1463,7 +1463,7 @@ const HANDLEIDING_PAGINAS = [
       <ol class="hdl-list">
         <li><b>Zoek eerst</b> in de zoekbalk om je lijst korter te maken, bijvoorbeeld op de tegenstander of het label.</li>
         <li><b>Vink aan</b> welke wedstrijden mee moeten. <b>'Alles in de lijst'</b> volgt je zoekterm, dus wat je weggefilterd hebt, wordt ook niet aangevinkt.</li>
-        <li>Tik op <b>'Aanpassen…'</b> en kies <b>één</b> ding: ploeg-label, soort wedstrijd, terrein, truikleur, trainer of ploegverantwoordelijke. Op <b>geplande</b> wedstrijden ook de wedstrijdvorm, het aantal blokken en de blokduur.</li>
+        <li>Tik op <b>'Aanpassen…'</b> en kies <b>één</b> ding: ploeg-label, soort wedstrijd, terrein, truikleur, trainer of afgevaardigde. Op <b>geplande</b> wedstrijden ook de wedstrijdvorm, het aantal blokken en de blokduur.</li>
         <li>Je krijgt een <b>nakijkscherm</b>: bij hoeveel wedstrijden wat verandert, met de lijst erbij en per wedstrijd de waarde die er nu staat. Wat al goed stond, wordt overgeslagen.</li>
       </ol>
       <p>Onderaan dat keuzelijstje staat ook <b>'Afsluiten zonder uitslag'</b>. Daarmee zet je in één beweging een reeks wedstrijden op <b>gespeeld</b> zonder score — net als met de knop per wedstrijd. Handig na een reeks vriendschappelijke wedstrijden waar niemand de uitslag noteerde: die blijven anders voor altijd als <b>niet afgesloten</b> staan.</p>
@@ -1982,7 +1982,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>Naam</b> (bv. Paastornooi Gent), <b>ploeg</b>, <b>datum</b> en <b>locatie</b>.</li>
         <li><b>Type wedstrijd</b> — de vorm waarin je die dag speelt (bv. 5v5 of 8v8).</li>
         <li><b>Aantal blokken</b> en <b>duur van een blok</b> — de standaardduur van de dag (tornooiwedstrijden zijn vaak één blok van 10 of 15 minuten). Elke nieuwe wedstrijd neemt ze over; wijkt er één af, dan pas je dat in die wedstrijd zelf aan.</li>
-        <li><b>Trainer(s)</b> en <b>ploegverantwoordelijke(n)</b>. Vink aan wie er die dag bij is — er mogen er meerdere zijn — of typ een naam die niet in de ploeg staat. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
+        <li><b>Trainer(s)</b> en <b>afgevaardigde(n)</b>. Vink aan wie er die dag bij is — er mogen er meerdere zijn — of typ een naam die niet in de ploeg staat. Die gelden voor élke wedstrijd van het tornooi: je geeft ze hier één keer in en past ze ook hier aan.</li>
       </ul>
       <div class="sec">Stap 2 — Selectie voor de hele dag</div>
       <p>Duid per speler aan of hij <b>Mee</b> is naar het tornooi, of <b>NB</b> (niet beschikbaar, met een reden naar keuze). Wie je niet aanduidt, is niet geselecteerd. Je kan hier ook per speler het rugnummer voor die dag aanpassen.</p>
@@ -2014,7 +2014,7 @@ const HANDLEIDING_PAGINAS = [
     inhoud: `
       <p>Eén ploeg heeft <b>twee schermen</b>, en de knop waarmee je erin gaat bepaalt welk:</p>
       <ul class="hdl-list">
-        <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en ploegverantwoordelijken, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
+        <li>De tegel <b>'Ploeg'</b> op het startscherm → <b>de ploeg zelf</b>: de spelerslijst, de trainers en afgevaardigden, en wat standaard klaarstaat bij een nieuwe wedstrijd. Tik op het <b>potlood</b> bovenaan om er iets aan te wijzigen; het kleurt groen zolang bewerken aanstaat.</li>
         <li>De groene knop <b>'Beheer'</b> rechtsboven → <b>wie toegang heeft en de ploeg als geheel</b>. Daar staat <b>'Iemand uitnodigen'</b> (via link, QR-code of code van 6 tekens; wie via de link vervoegt komt binnen als <b>kijker</b>), <b>'Leden'</b> om iemand te promoveren of te degraderen en ploegbeheeraanvragen goed of af te keuren, en de <b>Prullenmand</b>.</li>
       </ul>
       <p class="hdl-tip">De <b>naam van de ploeg</b> staat daar niet bij: die wijzigt de <b>clubbeheerder</b>. De naam loopt door alle wedstrijden, de statistieken en de kalender van de bond, dus ze hoort bij de club — net als een ploeg aanmaken, archiveren en het clublogo. Moet ze anders, vraag het aan wie je club beheert.</p>
@@ -2151,7 +2151,7 @@ const HANDLEIDING_PAGINAS = [
         <li>Een <b>speler verwijderen</b> uit de ploeg bij <b>Ploeg</b>. Zijn naam blijft staan in wedstrijden die al gespeeld zijn — dat is de geschiedenis van die wedstrijd.</li>
         <li>Een <b>wedstrijd verwijderen</b> onderaan het verslag. Dan verdwijnt ook alles wat erin stond.</li>
         <li>Een <b>ploeg archiveren of laten verwijderen</b> via Clubbeheer.</li>
-        <li>Vragen over de gegevens van je kind gaan naar de <b>ploegverantwoordelijke of de club</b>: zij beheren de ploeg, niet de app.</li>
+        <li>Vragen over de gegevens van je kind gaan naar de <b>afgevaardigde of de club</b>: zij beheren de ploeg, niet de app.</li>
       </ul>
     `
   },

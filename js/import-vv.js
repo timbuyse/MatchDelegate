@@ -371,7 +371,7 @@ function vvInfoRijen(m, lz) {
   if (!m.tournamentId) {
     rij('location', 'Thuis of uit', m.location, lz.thuis ? 'Thuis' : 'Uit');
     rij('trainer', 'Trainer(s)', m.trainer, vvTrainers(lz));
-    rij('responsible', 'Ploegverantwoordelijke(n)', m.responsible, vvVerantwoordelijken(lz));
+    rij('responsible', 'Afgevaardigde(n)', m.responsible, vvVerantwoordelijken(lz));
   }
   return rijen;
 }

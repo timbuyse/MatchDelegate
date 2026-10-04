@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.0.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.0.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -586,7 +586,12 @@ function stafWoord(e) { return (e && e.wie === 'afgevaardigde') ? 'afgevaardigde
 // staffList) — bij Tim staat er bij één U8P-wedstrijd "Kenny Dehaes, Maxim Verschuren". Welke van de
 // twee die kaart kreeg, weet de app niet, en beide namen afdrukken zou een bewering zijn die nergens
 // op steunt. Dan is de rol alleen het enige wat klopt.
+// STAAT ER ÉÉN GEKOZEN? DIE WINT (v2.0.4). Bij meer dan één naam vraagt de app bij het loggen wie het
+// was (zie modalStafKeuze) en bewaart dat antwoord op de gebeurtenis. Dat is een vaststelling van wie
+// erbij stond, geen afgeleide — en dus het enige geval waarin de naam wél vastligt.
 function stafNaam(e, m) {
+  const gekozen = ((e && e.stafNaam) || '').trim();
+  if (gekozen) return gekozen;
   if (!m) return '';
   const namen = staffList(stafWoord(e) === 'afgevaardigde' ? matchResponsible(m) : matchTrainer(m));
   return namen.length === 1 ? namen[0] : '';
@@ -1649,7 +1654,12 @@ function staffList(s) { return String(s || '').split(',').map(x => x.trim()).fil
 function staffJoin(arr) { return (arr || []).map(x => String(x || '').trim()).filter(Boolean).join(', '); }
 // Enkelvoud of meervoud, naargelang er één of meer namen in het veld staan.
 function trainerLabel(s) { return staffList(s).length > 1 ? 'Trainers' : 'Trainer'; }
-function responsibleLabel(s) { return staffList(s).length > 1 ? 'Ploegverantwoordelijken' : 'Ploegverantwoordelijke'; }
+// AFGEVAARDIGDE, NIET PLOEGVERANTWOORDELIJKE (Tim, 04-10-2026: "maak de naam overal Afgevaardigde").
+// Dit draait de keuze van 25-08-2026 om, toen alles net "Ploegverantwoordelijke" werd. Het is het
+// woord dat op het veld gebruikt wordt, en het is korter — wat op een telefoon scheelt.
+// HET VELD IN DE GEGEVENS BLIJFT `responsible`: enkel de woorden op het scherm veranderen, zodat er
+// niets te migreren valt.
+function responsibleLabel(s) { return staffList(s).length > 1 ? 'Afgevaardigden' : 'Afgevaardigde'; }
 // De namen die in het rooster van de ploeg staan — de aanvinkbare keuzes.
 function teamTrainerNames(team) { return (((team || {}).trainers) || []).map(t => (t.name || '').trim()).filter(Boolean); }
 function teamResponsibleNames(team) { return staffList((team || {}).responsible); }
@@ -1659,7 +1669,7 @@ function teamResponsibleNames(team) { return staffList((team || {}).responsible)
 // 'trn' voor trainers of 'resp' voor ploegverantwoordelijken.
 const STAFF_KIND = {
   trn:  { label: 'Trainer(s)', een: 'trainer', hint: 'Meerdere trainers mogen: vink er meerdere aan, of scheid namen met een komma.' },
-  resp: { label: 'Ploegverantwoordelijke(n)', een: 'ploegverantwoordelijke', hint: 'Meerdere ploegverantwoordelijken mogen: vink er meerdere aan, of scheid namen met een komma.' },
+  resp: { label: 'Afgevaardigde(n)', een: 'afgevaardigde', hint: 'Meerdere afgevaardigden mogen: vink er meerdere aan, of scheid namen met een komma.' },
 };
 function staffPickerHtml(prefix, soort, namen, current) {
   const k = STAFF_KIND[soort];

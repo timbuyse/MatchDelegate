@@ -109,13 +109,13 @@ function teamPlayerRows(t) {
       ${p.pos?`<span style="font-size:12px;color:var(--txt2)">${esc(posDisplay(p))}</span>`:''}
     </div>`).join('');
 }
-// De ploegverantwoordelijken en trainers als inforegels. Genummerd zodra er meer dan één is —
+// De afgevaardigden en trainers als inforegels. Genummerd zodra er meer dan één is —
 // bij precies één zou "Trainer 1" alleen maar suggereren dat er nog eentje mist.
 function teamStaffRowsHtml(t) {
   const rij = (k, v) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`;
   const resps = teamResponsibleNames(t);
   const trainers = teamTrainerNames(t);
-  return resps.map((n, i) => rij('Ploegverantw.' + (resps.length > 1 ? ' ' + (i + 1) : ''), n)).join('')
+  return resps.map((n, i) => rij('Afgevaardigde' + (resps.length > 1 ? ' ' + (i + 1) : ''), n)).join('')
     + trainers.map((n, i) => rij('Trainer' + (trainers.length > 1 ? ' ' + (i + 1) : ''), n)).join('');
 }
 function renderTeamView() {
@@ -267,7 +267,7 @@ function renderTeamEdit() {
     <p style="font-size:11px;color:var(--txt2);margin:-4px 0 12px">${useNums
       ? 'Zet dit uit als je ploeg geen vaste rugnummers heeft. De nummers verdwijnen dan uit de app; per wedstrijd kan je er nog altijd één invullen.'
       : 'Er staan nergens rugnummers. Wil je er voor één wedstrijd toch, dan vul je ze in bij de selectie van die wedstrijd.'}</p>`;
-  // Trainers en ploegverantwoordelijken: zoveel rijen als je wil. Er staat er altijd minstens één,
+  // Trainers en afgevaardigden: zoveel rijen als je wil. Er staat er altijd minstens één,
   // ook al is die leeg — anders zie je bij een nieuwe ploeg geen enkel invulveld.
   const staffRows = (soort, namen, enkel) => {
     const lijst = namen.length ? namen : [''];
@@ -279,8 +279,8 @@ function renderTeamEdit() {
   };
   const trainerRows = staffRows('trainers', staffNames('trainers'), 'Trainer')
     + `<button class="btn btn-pale btn-sm" onclick="addStaffName('trainers')">+ Nog een trainer</button>`;
-  const respRows = staffRows('responsible', staffNames('responsible'), 'Ploegverantwoordelijke')
-    + `<button class="btn btn-pale btn-sm" onclick="addStaffName('responsible')">+ Nog een ploegverantwoordelijke</button>`;
+  const respRows = staffRows('responsible', staffNames('responsible'), 'Afgevaardigde')
+    + `<button class="btn btn-pale btn-sm" onclick="addStaffName('responsible')">+ Nog een afgevaardigde</button>`;
   const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
   const dForms = FORMATIONS[dmt] || [];
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
@@ -299,7 +299,7 @@ function renderTeamEdit() {
             : `De ploegnaam wijzigt de <b>clubbeheerder</b>. Vraag het aan wie de club beheert.`}</div>`
         : `<input id="t-name" value="${esc(editingTeam.name)}" oninput="editingTeam.name=this.value" placeholder="bv. U10IP" autocomplete="off">`}</div>
     </div>
-    <div class="sec">Ploegverantwoordelijken</div>
+    <div class="sec">Afgevaardigden</div>
     <div class="card">${respRows}</div>
     <div class="sec">Standaard voor nieuwe wedstrijden</div>
     <div class="card">
@@ -1024,9 +1024,7 @@ async function loadTournamentDetail() {
     ['Locatie', t.location],
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     [trainerLabel(t.trainer), t.trainer],
-    // Afgekort, zoals in het wedstrijddetail: voluit botst het label in deze smalle kolom tegen de
-    // naam ernaast.
-    ['Ploegverantw.', t.responsible],
+    [responsibleLabel(t.responsible), t.responsible],
     ['Eindstand', t.standing],
     // Enkel vermelden als de puntenverdeling afwijkt van de standaard 3/1/0, anders is het ruis.
     // Alles op 0 = er wordt niet op punten gespeeld; dan hoort er geen "0/0/0"-regel te staan.
@@ -1282,7 +1280,7 @@ async function loadTournamentReport() {
     ['Format', t.matchType],
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     [trainerLabel(t.trainer), t.trainer],
-    ['Ploegverantw.', t.responsible],
+    [responsibleLabel(t.responsible), t.responsible],
     ['Eindstand', t.standing],
   ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
   // Resultaten: één rij per wedstrijd, met de doelpuntenmakers eronder. Tikken opent het verslag
