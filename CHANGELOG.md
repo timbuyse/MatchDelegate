@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.1
+
+**De clubronde bleef staan als je er na een veeg opnieuw een ploeg uit opende.** Tim: *"als ik
+terugkeer opent de clubronde, maar als ik dan opnieuw op openen klik dan blijft die pop-up staan."*
+
+Mijn fout van v2.1.0. Komt de ronde via een veeg terug, dan sta je al op het startscherm van die
+ploeg. Tik je dan *'Openen'*, dan gaat de app naar het startscherm — waar ze al staat — en de nieuwe
+wachter las dat als "terug". Ze draaide een stap af, en dat was net de stap die de ronde weer opent.
+
+Er ontbrak één regel: **naar het scherm gaan waar je al staat is nooit een terugkeer.**
+
+---
+
 ## v2.1.0
 
 **Terugvegen werkt weer in één keer.** Tim: *"als ik in een ploeg sta en ik wil terug moet ik twee

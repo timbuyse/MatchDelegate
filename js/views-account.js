@@ -4943,9 +4943,14 @@ async function go(v, id, _histReplace) {
   // DRIE VOORWAARDEN, en ze zijn er alle drie om een verkeerde sprong te vermijden:
   //   - niet bij een eigen `id` (naar een bepaalde wedstrijd): de stap eronder kan een ándere zijn;
   //   - niet wanneer go() zelf al vanuit popstate komt (`_histReplace`), anders veegt het dubbel;
+  //   - NIET NAAR HET SCHERM WAAR JE AL STAAT. Dat is een hertekening, geen terugkeer. Zonder deze
+  //     regel liep de clubronde vast (Tim, 04-10-2026: "als ik terugkeer opent de clubronde, maar
+  //     als ik dan opnieuw op openen klik blijft die pop-up staan"): na een veeg sta je al op het
+  //     startscherm van die ploeg, 'Openen' navigeert daar opnieuw heen, de wachter las dat als
+  //     terug — en draaide zo precies de stap af die het venster weer opent;
   //   - enkel wanneer de stap eronder het met zoveel woorden zegt. Een stap zonder dat merkje (bv.
   //     die van het sluiten van een venster) valt vanzelf terug op het oude gedrag.
-  if (!_histReplace && !id && history.state && history.state.vorige === v) { history.back(); return; }
+  if (!_histReplace && !id && v !== view && history.state && history.state.vorige === v) { history.back(); return; }
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   // Het aanwezigheidsoverzicht luistert live mee; dat hoort te stoppen zodra je het scherm verlaat.
   if (view === 'online' && v !== 'online') stopOnlineWatch();
