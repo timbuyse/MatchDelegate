@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.0.1
+
+**Een kaart voor de trainer of de afgevaardigde stond nog op twee plaatsen niet.** Allebei gemeld
+door Tim, allebei dezelfde oorzaak: die kaarten (v1.99.5) hangen aan geen enkele speler, en de twee
+lijsten hieronder keken alleen naar spelers.
+
+**Onder het velddiagram** — op het scherm én in de PDF — staat per blok wat er gebeurde: wissels,
+positiewissels en kaarten. Een kaart voor de staf viel daar buiten. Ze staat er nu tussen, op haar
+minuut, als *Trainer* of *Afgevaardigde*.
+
+**Bij de statistieken** verscheen het lijstje *Kaarten* alleen wanneer er een speler met een kaart
+was. Kreeg enkel de trainer er een, dan bleef het hele lijstje weg. Het verschijnt nu ook dan, met de
+staf onderaan en het merkje *'komt bij niemand op naam'* — want zo'n kaart telt nergens mee bij een
+speler.
+
+---
+
 ## v2.0.0
 
 **Bewust geen "wat is er nieuw"-venster** (Tim, 04-10-2026: *"ja push als 2.0.0 maar ik wil géén

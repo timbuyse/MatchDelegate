@@ -5280,21 +5280,34 @@ function periodSubList(m, qNum) {
 // bij de bollen hebben trouwens ooit bestaan en zijn er om dezelfde reden uitgehaald — zie pitchDot.
 //
 // De tegenstander hoort hier niet: dit kader staat onder ÓNZE opstelling, bij onze wissels. Zijn
-// kaarten staan in de tijdlijn en in de wedstrijdstatistieken.
+// kaarten staan in de tijdlijn en in de wedstrijdstatistieken. Onze eigen staf hoort er wél bij —
+// zie de uitleg vlak boven de functie.
 // Een kaart zonder blokgegeven (die kan uit het wedstrijdblad van de bond komen wanneer er geen klok
 // bij zat) valt hier buiten: ze hoort bij geen enkel deel. Bij zo'n wedstrijd is er doorgaans ook
 // geen opstelling per deel, dus dit kader bestaat daar niet.
+// EEN KAART VOOR DE TRAINER OF DE AFGEVAARDIGDE HOORT HIER OOK (Tim, 04-10-2026: "de gele kaart voor
+// de trainer staat niet in de pdf onder het veldje, en ook niet op het scherm bij het velddiagram").
+// Die kaarten (v1.99.5) zijn een EIGEN soort zonder speler-id, en de test hieronder keek op allebei:
+// op soort én op "er hangt een speler aan". Ze vielen er dus langs twee kanten uit. Het kader is van
+// één dag eerder dan de staf-kaart en is nooit meegegroeid.
+// Ze dragen geen naam van een persoon — dat is bewust, zo'n kaart komt bij niemand op naam — dus er
+// staat gewoon "Trainer" of "Afgevaardigde".
 function periodCardList(m, qNum) {
   if (!qNum) return [];
+  const staf = t => t === 'yellow_card_trainer' || t === 'red_card_trainer';
+  const speler = t => t === 'yellow_card' || t === 'red_card';
   return (m.events || [])
-    .filter(e => (e.type === 'yellow_card' || e.type === 'red_card') && e.quarterNum === qNum && e.playerId)
+    .filter(e => e.quarterNum === qNum && (staf(e.type) || (speler(e.type) && e.playerId)))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
-    .map(e => ({
-      min: e.atBreak ? 'rust' : eventMinTijd(e, m),
-      ms: e.gameTimeMs || 0,
-      rood: e.type === 'red_card',
-      naam: fieldName(m, e.playerId),
-    }));
+    .map(e => {
+      const w = staf(e.type) ? stafWoord(e) : '';
+      return {
+        min: e.atBreak ? 'rust' : eventMinTijd(e, m),
+        ms: e.gameTimeMs || 0,
+        rood: e.type === 'red_card' || e.type === 'red_card_trainer',
+        naam: w ? w.charAt(0).toUpperCase() + w.slice(1) : fieldName(m, e.playerId),
+      };
+    });
 }
 function periodBenchNames(m, qNum) {
   if (!qNum) return [];

@@ -405,6 +405,8 @@ async function loadStats() {
   // Tellers voor het blok "Hoe de doelpunten vielen" — gevuld in de eventlus verderop.
   const wijzeVoor = {}, wijzeTegen = {};
   const wijzeTot = { voor: 0, tegen: 0 }, wijzeMet = { voor: 0, tegen: 0 };
+  // Kaarten voor de staf, apart van de spelers — zie de eventlus verderop.
+  const stafKaarten = { trainer: { yc: 0, rc: 0 }, afgevaardigde: { yc: 0, rc: 0 } };
   for (const m of sortedList) {
     // GESPEELD ZONDER UITSLAG (v1.6.0): telt mee in het aantal gespeelde wedstrijden — daarvoor
     // staat ze in deze lijst — maar levert geen doelpunten en geen W/G/V. Zonder deze uitzondering
@@ -525,6 +527,12 @@ async function loadStats() {
       if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
       if (e.type === 'yellow_card' && e.playerId && (r = getpById(m, e.playerId))) r.yc++;
       if (e.type === 'red_card' && e.playerId && (r = getpById(m, e.playerId))) r.rc++;
+      // KAARTEN VOOR DE STAF (Tim, 04-10-2026: "bij de statistieken ontbreekt ook een lijstje
+      // kaarten"). Ze hangen aan geen enkele speler, dus ze kwamen in geen enkele spelersrij terecht —
+      // en omdat het lijstje alleen verschijnt wanneer er een speler met een kaart is, bleef het bij
+      // een kaart voor de trainer helemaal weg. Apart geteld, want ze hóren bij geen speler.
+      if (e.type === 'yellow_card_trainer') stafKaarten[stafWoord(e)].yc++;
+      if (e.type === 'red_card_trainer') stafKaarten[stafWoord(e)].rc++;
     }
   }
   const players = Object.values(pl);
@@ -556,6 +564,9 @@ async function loadStats() {
   const fairplay = players.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
+  const stafRijen = [['trainer', 'Trainer'], ['afgevaardigde', 'Afgevaardigde']]
+    .map(([sleutel, naam]) => ({ naam, ...stafKaarten[sleutel] }))
+    .filter(s => s.yc || s.rc);
   const posList = players.filter(p => p.mp > 0 && Object.keys(p.lines).length).sort((a, b) => b.mp - a.mp);
   // De slotregel telt ENKEL de doelpunten waarvoor het ingevuld is (Tim, 27-09-2026). Zonder die zin
   // leest "Counter 5" als het volledige beeld, terwijl het er misschien negen waren.
@@ -694,7 +705,12 @@ async function loadStats() {
       const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
       return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven of helemaal geen uitslag, dus er valt niet uit af te leiden of er tegengescoord is.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
-    + (carded.length ? sect('cards', `${icI(IC.cardY)} Kaarten`, carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')) : '')
+    // DE STAF STAAT ONDERAAN IN DEZELFDE LIJST, zonder chevron: er is geen spelersblad om naartoe te
+    // gaan. De lijst verschijnt nu ook wanneer ENKEL de staf een kaart kreeg — voordien hing ze
+    // volledig aan `carded`, en dat zijn alleen spelers.
+    + ((carded.length || stafRijen.length) ? sect('cards', `${icI(IC.cardY)} Kaarten`,
+        carded.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span>${p.yc?icI(IC.cardY).repeat(p.yc):''}${p.rc?icI(IC.cardR).repeat(p.rc):''}</span></div>`).join('')
+        + stafRijen.map(s=>`<div class="stat-row"><span style="flex:1">${esc(s.naam)}<small style="color:var(--txt2);display:block">komt bij niemand op naam</small></span><span>${s.yc?icI(IC.cardY).repeat(s.yc):''}${s.rc?icI(IC.cardR).repeat(s.rc):''}</span></div>`).join('')) : '')
     + (posList.length ? sect('positions', `${icI(IC.compass)} Posities <span style="font-weight:400;text-transform:none;color:var(--txt2)">(hoe vaak per plek)</span>`,
       // ZEG ERBIJ HOE ER GETELD WORDT (Tim, 27-08-2026). Bij één wedstrijd stond er "GK×4" en dat
       // leest als een fout, tot je weet dat er per blok geteld wordt. Nu staat het er.
