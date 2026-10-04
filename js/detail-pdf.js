@@ -211,7 +211,7 @@ function renderDetail() {
       ${/* "Heropenen" is mee naar het Bewerken-menu verhuisd (Tim, 13-09-2026), dus hier blijft één
            knop over — en dan is een raster van twee kolommen met een gat ernaast lelijker dan gewoon
            de volle breedte. */ ''}
-      <button class="btn btn-green btn-sm" style="width:100%" onclick="modalAfrondenMenu()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
+      <button class="btn btn-green btn-sm" style="width:100%" onclick="modalQuickResult()">${icI(IC.bolt)} Alsnog een uitslag ingeven</button>
     </div>`) : `<div style="display:grid;grid-template-columns:${ro ? '1fr' : '1fr 1fr 1fr'};gap:6px" class="no-print">
       ${/* KLEINER DAN DE RIJ ERBOVEN (Tim, 30-08-2026). Drie gevulde knoppen op volle breedte wogen
            zwaarder dan de handelingen erboven, terwijl doorsturen niets aan de wedstrijd verandert.

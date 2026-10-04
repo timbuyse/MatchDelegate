@@ -2107,8 +2107,32 @@ function clubRondeRenderOverzicht() {
   clubRondeSt.bladen = null; clubRondeSt.bladGevraagd = 0; clubRondeSt.kalenders = null;
   clubRondeRender();
 }
+// TERUGVEGEN BRENGT JE WEER IN DE RONDE (Tim, 04-10-2026: "als ik een clubronde doe en dan doorga
+// naar een wedstrijd via daar, en dan veeg voor eruit, kom ik bij die ploeg terecht — terwijl je zou
+// denken dat je terug bij de clubronde terechtkomt. Maar die clubronde is een soort pop-up").
+//
+// Dat laatste was precies het probleem: een venster staat niet in de geschiedenis van je telefoon,
+// dus een veeg wist er niets van. De ronde wordt daarom niet meer weggegooid bij het springen, en
+// krijgt een eigen stap mee. Veeg je straks terug, dan herkent de popstate-afhandeling die stap
+// (`clubronde`) en zet ze het venster weer open — mét alles wat de ronde al ophaalde, dus de bond
+// wordt niet opnieuw bevraagd.
+//
+// Enkel "Sluiten" gooit de ronde écht weg (clubRondeSluit). Dat is de ene weg waarop je zegt dat je
+// er klaar mee bent.
+function clubRondeMarkeerStap() {
+  try {
+    history.pushState({ v: view, id: null, vorige: (history.state && history.state.vorige) || null, clubronde: true }, '');
+  } catch (e) { /* zonder geschiedenis valt dit gewoon weg */ }
+}
+// Terug in beeld na een veeg. Geeft false als er niets meer te openen valt — dan loopt de gewone
+// afhandeling verder alsof er niets bijzonders aan die stap was.
+function clubRondeHeropen() {
+  if (!clubRondeSt) return false;
+  clubRondeRenderOverzicht();
+  return true;
+}
 async function clubRondeNaarPloeg(tid) {
-  clubRondeSt = null; closeModal();
+  closeModal(); clubRondeMarkeerStap();
   if (typeof openTeamFromClub === 'function') await openTeamFromClub(tid);
 }
 // NAAR DE WEDSTRIJD ZELF, NIET NAAR DE PLOEG (Tim, 01-10-2026: "dan doe ik dat en kom ik op de ploeg
@@ -2134,7 +2158,7 @@ async function clubRondeNaarWedstrijd(tid, matchId) {
   const zusters = rij.zusters || [];
   const idx = Math.max(0, items.findIndex(i => i.id === matchId));
   if (!items.length) return;
-  clubRondeSt = null; closeModal();
+  closeModal(); clubRondeMarkeerStap();
   showToast('Even de ploeg openen…', 'ok');
   if (typeof openTeamFromClub === 'function') await openTeamFromClub(tid);
   if (!(await clubWachtOpWedstrijd(items[idx].id))) {

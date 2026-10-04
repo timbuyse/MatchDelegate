@@ -70,7 +70,15 @@ function toonTeamScherm(s) { teamScherm = (s === 'beheer') ? 'beheer' : 'ploeg';
 // app te herladen. De schakelaar is nu weg, maar deze regel blijft op `isAdmin`: wie beheerder is,
 // raakt altijd op zijn beheerscherm, wat de kijkmodus ook zegt.
 function openCloudChip() { openSquad(isAdmin ? 'beheer' : 'ploeg'); }
-function closeTeamEdit() { editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams'); }
+// TERUG NAAR WAAR JE VANDAAN KWAM. Heb je meer dan één kern, dan zit het lijstje ertussen
+// (zie openSquad) en wees dit pijltje daaroverheen naar het startscherm — waardoor er een stap bij
+// kwam in plaats van af, en je twee keer moest terugvegen om eruit te raken. Nu volgt het de stap
+// die eronder ligt; go() draait die dan netjes af.
+function closeTeamEdit() {
+  editingTeam = null; teamDelUndo = [];
+  const vorige = (history.state && history.state.vorige) || '';
+  go(vorige === 'teams' ? 'teams' : (cloudReady ? 'home' : 'teams'));
+}
 // De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
 // die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
 // Standaard alfabetisch op familienaam — zoals elke andere spelerslijst in de app.

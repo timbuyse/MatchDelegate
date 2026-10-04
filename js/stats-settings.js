@@ -1337,6 +1337,35 @@ const HANDLEIDING_PAGINAS = [
     `
   },
   {
+    titel: 'Live — wat er nu loopt',
+    img: 'handleiding/screenshots/31_live.png',
+    inhoud: `
+      <p>Zodra er ergens een wedstrijd bezig is, verschijnt op <b>'Jouw ploegen'</b> een kadertje
+        <b>Live</b> met een rood bolletje. Daar staat wat er op dít moment loopt, over al je ploegen
+        heen — je hoeft dus niet eerst een ploeg te kiezen om te zien of er gevoetbald wordt.</p>
+      <p>Tik op een kaartje en je zit meteen in die wedstrijd.</p>
+      <ul class="hdl-list">
+        <li><b>Loopt er niets, dan staat er niets.</b> Het kadertje komt en gaat vanzelf.</li>
+        <li>Er passen er <b>twee</b>. Lopen er meer, dan staat er onderaan <b>'Nog 3 andere lopen ›'</b>
+          en kom je op het volledige <b>Live</b>-scherm, waar ze allemaal onder elkaar staan.</li>
+        <li>Het ververst zichzelf: de stand en de stand van zaken lopen mee zolang je kijkt.</li>
+      </ul>
+      {{img}}
+      <div class="sec">Wat je ziet, hangt af van je rol</div>
+      <ul class="hdl-list">
+        <li>Beheer je een <b>club</b>, dan zie je elke ploeg van die club — ook de ploegen die je zelf
+          niet volgt. Dat is net het punt: op een zaterdagvoormiddag zie je in één blik wat er op de
+          terreinen bezig is.</li>
+        <li>Anders zie je de wedstrijden van de <b>ploegen die je volgt</b>.</li>
+      </ul>
+      <p>Een wedstrijd die een beheerder voor de kijkers verborgen hield, staat er niet bij — en wie
+        voor één wedstrijd buitengesloten is, ziet die hier evenmin. Dezelfde regels als in de
+        wedstrijdenlijst.</p>
+      <p class="hdl-tip">Volg je met een <b>gastlink</b>, zonder eigen account? Dan heb je dit kadertje
+        niet: een gastlink hoort bij één wedstrijd en brengt je er meteen naartoe.</p>
+    `
+  },
+  {
     titel: 'Als kijker',
     img: 'handleiding/screenshots/04_homescherm_kijker.png',
     inhoud: `
@@ -1623,14 +1652,13 @@ const HANDLEIDING_PAGINAS = [
       <div class="sec">Wel gespeeld, maar niet gevolgd</div>
       <p>Bij een vriendschappelijke volgt soms niemand de wedstrijd in de app. Zo'n wedstrijd blijft
         anders voor altijd als <b>'niet afgesloten'</b> op je startscherm staan. Daarvoor is de knop
-        <b>'Afronden'</b>, bovenaan het wedstrijdscherm naast <b>Bewerken</b> — en helemaal onderaan
-        nog eens, ook als je nooit een selectie ingaf. Daar kies je tussen twee wegen:</p>
-      <ul class="hdl-list">
-        <li><b>'Uitslag zelf ingeven'</b> — de snelste weg, en ze werkt altijd.</li>
-        <li><b>'Wedstrijdinfo ophalen'</b> — haalt de selectie, de uitslag, de kaarten en de rest van
-          de wedstrijdpagina. Enkel voor de bovenbouw, en je hebt er verbinding voor nodig.</li>
-      </ul>
-      <p>Kies je voor de uitslag zelf ingeven, dan kies je in dat venster nog eens:</p>
+        <b>'Uitslag ingeven'</b>, bovenaan het wedstrijdscherm naast <b>Bewerken</b> — en helemaal
+        onderaan nog eens, ook als je nooit een selectie ingaf.</p>
+      <p class="hdl-tip">Speel je in de <b>bovenbouw</b>, dan kan je de uitslag ook bij de bond
+        ophalen in plaats van ze te tikken: <b>Bewerken → 'Wedstrijdinfo ophalen'</b>. Dat haalt de
+        selectie, de uitslag, de kaarten en de rest van de wedstrijdpagina, en je hebt er verbinding
+        voor nodig.</p>
+      <p>In het uitslagvenster kies je nog eens:</p>
       <ul class="hdl-list">
         <li><b>Met uitslag:</b> vul de eindstand in. De wedstrijd telt volledig mee — winst, gelijk of
           verlies, en het doelpuntenverschil.</li>
@@ -2090,7 +2118,8 @@ const HANDLEIDING_PAGINAS = [
       <p>Alles in de app hangt normaal aan de ploeg die je open hebt. Met <b>'Clubronde'</b> werk je over je hele club tegelijk. Je krijgt per ploeg één regel, rechtstreeks uit de databank — ook van ploegen die je op dit toestel nooit opende: hoeveel wedstrijden er zijn, hoeveel er <b>niet afgesloten</b> zijn, hoeveel er <b>zonder uitslag</b> staan en hoeveel er <b>geen wedstrijdnummer</b> van de bond hebben. Met <b>'Openen'</b> spring je meteen in die ploeg.</p>
       <p>Daaronder staan drie rondes. Elke ronde toont eerst wat ze van plan is; er wordt pas iets bewaard als je bevestigt.</p>
       <p><b>'Kalenders ophalen'</b> gaat bij elke gekoppelde ploeg de kalender van de bond af en zoekt de wedstrijden die nog niet in de app staan. Je krijgt ze per ploeg te zien, elk met een <b>vinkje</b>: zo kies je per ploeg wat er mee moet en wat niet. Het vinkje naast de ploegnaam zet die hele ploeg in één tik aan of uit. Deze ronde <b>voegt alleen toe</b>: een wedstrijd die al in de app staat blijft onaangeraakt, ook als het uur bij de bond intussen veranderde. Dat werk je bij in die ploeg zelf, waar je het ziet.</p>
-      <p class="hdl-tip">Wat je <b>uitvinkt</b>, komt een volgende ronde niet meer terug — net als bij het inlezen van een kalender in de ploeg zelf. En wat je dáár liet liggen, blijft hier ook liggen.</p>
+      <p>Naast elke voorgestelde wedstrijd staat <b>bij welke ploeg ze terechtkomt</b>. Deelt de bond er een in bij de verkeerde ploeg, kies dan de juiste uit het lijstje: alle ploegen van je club staan erin, ook die zonder koppeling met de bond. De app kijkt dan na dat ze daar niet al staat, en bij de ploeg waar de bond ze had, komt ze een volgende ronde niet meer terug.</p>
+      <p class="hdl-tip">Wat je <b>uitvinkt</b>, komt een volgende ronde niet meer terug — net als bij het inlezen van een kalender in de ploeg zelf. En wat je dáár liet liggen, blijft hier ook liggen. Wil je van een ploeg <b>geen enkele</b> wedstrijd? Vink ze allemaal uit en bevestig met <b>'Geen enkele toevoegen'</b>: zonder die bevestiging onthoudt de app je keuze niet, en staan ze er de volgende keer gewoon weer.</p>
       <p><b>'Wedstrijdnummers bijplaatsen'</b> zet het <b>wedstrijdnummer</b> van de bond bij de wedstrijden die er nog geen hebben. Je ziet eerst per ploeg welke wedstrijd welk nummer krijgt. Datum, uur en tegenstander blijven staan zoals jij ze hebt — er gaat enkel een nummer bij.</p>
       <p class="hdl-tip">Dat nummer is wat <b>'Wedstrijdinfo ophalen'</b> nodig heeft om het wedstrijdblad te vinden. Eén ronde en je ploegbeheerders hoeven nergens meer een link te gaan zoeken.</p>
       <p>De app koppelt op drie dingen tegelijk: de <b>dag</b>, de <b>tegenstander</b> en de <b>ploeg</b>. Klopt één daarvan niet, dan krijgt die wedstrijd niets — een nummer op de verkeerde wedstrijd is erger dan geen nummer. Onder de voorstellen staat daarom <b>'Hier kan er geen nummer bij'</b>, met per wedstrijd de reden: niets in de kalender op die dag, een andere tegenstander dan de bond heeft staan, of een andere ploeg. Zet het recht in die ploeg en draai de ronde opnieuw.</p>

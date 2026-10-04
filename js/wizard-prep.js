@@ -1848,7 +1848,7 @@ function renderPrep() {
       ${ro ? '' : `<button class="btn btn-pale" onclick="confirmUncancelMatch()">${icI(IC.undo)} Annulering ongedaan maken</button>`}`
       : ro ? `<div class="viewer-banner">${icI(IC.eye)} Je kijkt mee — deze wedstrijd is gepland</div>` : `${voorbij
       ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Deze wedstrijd is voorbij en nog niet afgesloten.</div>
-        <button class="btn btn-green" onclick="modalAfrondenMenu()">${icI(IC.done)} Wedstrijd afronden</button>
+        <button class="btn btn-green" onclick="modalQuickResult()">${icI(IC.done)} Uitslag ingeven</button>
         <button class="btn btn-pale" style="margin-top:8px" onclick="startPlanned()">${icI(IC.live)} Toch nog live volgen</button>`
       : `${!heeftSelectie(m)
         ? `<div class="viewer-banner" style="background:var(--org-pale,#fff3e0);color:#b45309;border-color:#fbbf24">${icI(IC.warn)} Selectie nog niet ingegeven — vul de spelers in voor je de wedstrijd start.</div>`
@@ -1885,12 +1885,12 @@ function renderPrep() {
          wegen naast elkaar mét uitleg. "Uitslag" kon die knop niet meer heten: ophalen levert veel
          meer dan een uitslag. */ ''}
     ${geenVerbinding ? '' : (() => {
-      // Is de wedstrijd voorbij, dan staat "Afronden" al als grote groene knop hierboven en hoort ze
-      // hier niet nog eens: twee keer dezelfde handeling op één scherm is precies wat dit menu moest
-      // oplossen. Blijft over: Bewerken, plus de selectie zolang die ontbreekt.
+      // Is de wedstrijd voorbij, dan staat "Uitslag ingeven" al als grote groene knop hierboven en
+      // hoort ze hier niet nog eens: twee keer dezelfde handeling op één scherm is precies wat dit
+      // menu moest oplossen. Blijft over: Bewerken, plus de selectie zolang die ontbreekt.
       const knoppen = [`<button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="modalEditMatchMenu()">${icI(IC.edit)} Bewerken</button>`];
       if (!heeftSelectie(m)) knoppen.push(`<button class="btn btn-orgpale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="startSelectieWizard()">${icI(IC.players)} Selectie</button>`);
-      if (!voorbij) knoppen.push(`<button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="modalAfrondenMenu()" title="Afronden — de wedstrijd is gespeeld maar niet live gevolgd; vul ze achteraf in" aria-label="Wedstrijd afronden">${icI(IC.done)} Afronden</button>`);
+      if (!voorbij) knoppen.push(`<button class="btn btn-pale" style="margin:0;min-width:0;padding-left:6px;padding-right:6px{FS}" onclick="modalQuickResult()" title="Uitslag ingeven — de wedstrijd is gespeeld maar niet live gevolgd; vul ze achteraf in" aria-label="Uitslag ingeven">${icI(IC.done)} Uitslag</button>`);
       // Bij drie knoppen een tikje kleinere letter: op 320 px — de smalste telefoons die nog meedoen —
       // werd "Bewerken" anders met een paar pixels afgesneden. Gemeten op 320 en 375.
       const fs = knoppen.length >= 3 ? ';font-size:15px' : '';
@@ -1985,13 +1985,13 @@ function renderPrep() {
          uitslagvenster en sloeg de tweede manier — ophalen — dus over. Hij blijft bestaan omdat de
          knoppenrij hierboven zónder verbinding volledig wegvalt: dan is dit de enige uitweg voor een
          wedstrijd die nooit afgesloten raakte.
-         ENKEL NOG DAAR (Tim, 30-08-2026). Hij stond er altijd, en sinds "Afronden" in de knoppenrij
+         ENKEL NOG DAAR (Tim, 30-08-2026). Hij stond er altijd, en sinds de knop in de knoppenrij
          staat was dat op elk online scherm de tweede plek voor dezelfde handeling — precies de
          ondoorzichtigheid die we aan het opruimen zijn. Zijn oorspronkelijke reden (de uitslagknop
-         verscheen pas mét selectie) geldt niet meer: de rij toont Afronden altijd. Nu heeft elke
+         verscheen pas mét selectie) geldt niet meer: de rij toont ze altijd. Nu heeft elke
          toestand exact één weg: voorbij → de grote groene knop bovenaan; online → de knop in de rij;
          zonder verbinding → deze. */ ''}
-    ${(ro || m.tournamentId || af || voorbij || !geenVerbinding || m.status === 'done') ? '' : `<div class="afsluitzone"><button class="btn btn-gray" style="margin:0" onclick="modalAfrondenMenu()">${icI(IC.done)} Wedstrijd afronden</button></div>`}
+    ${(ro || m.tournamentId || af || voorbij || !geenVerbinding || m.status === 'done') ? '' : `<div class="afsluitzone"><button class="btn btn-gray" style="margin:0" onclick="modalQuickResult()">${icI(IC.done)} Uitslag ingeven</button></div>`}
     ${(ro || geenVerbinding) ? '' : `${af ? '' : `<button class="btn btn-gray" style="margin-top:8px" onclick="confirmCancelMatch()">${icI(IC.close)} Wedstrijd annuleren</button>`}
     ${m.tournamentId ? cloneMatchBtnHtml(m) : ''}<div class="danger"><button class="btn btn-red" onclick="confirmDelete()">${icI(IC.trash)} Wedstrijd verwijderen</button></div>`}
   </div>`;
@@ -3356,31 +3356,19 @@ async function matchZetVerborgen(id, verbergen, inVenster) {
     ? 'De kijkers van deze ploeg zien deze wedstrijd niet meer. Bij de aftrap wordt ze automatisch zichtbaar.'
     : 'Zichtbaar voor de kijkers van deze ploeg.', 'ok');
 }
-// ----- Afronden: één deur, twee wegen (Tim, 30-08-2026) -----
-// Een wedstrijd die gespeeld is maar die niemand live volgde, kan op twee manieren ingevuld worden:
-// je geeft de uitslag zelf in, of je haalt de wedstrijdpagina op. Die twee stonden op twee
-// verschillende plaatsen — de ene als knop op dit scherm, de andere in het bewerkmenu — en dat is
-// precies één vraag met twee antwoorden. Hier staan ze naast elkaar, met in één regel waarvoor elk
-// dient. Ze blijven allebei ook in het bewerkmenu staan (Tims regel: wie ze daar zoekt, vindt ze daar).
+// ----- "Afronden" is "Uitslag ingeven" geworden (Tim, 04-10-2026) -----
+// Tot nu opende die knop een tussenvenster met twee keuzes: de uitslag zelf ingeven, of de
+// wedstrijdinfo bij de bond ophalen. Tim: "de knop afronden bij een wedstrijd, die zou 'uitslag
+// ingeven' moeten worden" en "wedstrijdinfo ophalen bij de bond zou apart moeten komen ergens".
 //
-// VOLGORDE: zelf ingeven eerst. Dat werkt altijd en in tien seconden; het ophalen hangt af van een
-// blad dat de twee ploegen nog moeten invullen, van een verbinding, en van de reeks (zie hieronder).
-function modalAfrondenMenu() {
-  const m = match; if (!m || !canLive()) return;
-  const item = menuItemHtml;
-  openModal(`<h3>${icI(IC.done)} Wedstrijd afronden</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:4px">De wedstrijd is gespeeld, maar je hebt ze niet live gevolgd. Hoe wil je ze invullen?</p>
-    ${item(IC.bolt, 'Uitslag zelf ingeven', heeftSelectie(m)
-      ? 'De eindstand, en desgewenst de doelpuntenmakers. Of afsluiten zonder uitslag.'
-      : 'De eindstand. Of afsluiten zonder uitslag, als er geen genoteerd is.', 'modalQuickResult()')}
-    ${/* Enkel mét verbinding: dit haalt een pagina op. Grijs mét de reden, niet stil weggelaten —
-         anders lijkt de functie te verdwijnen zodra je in een kantine zonder bereik staat. */ ''}
-    ${item(IC.link, 'Wedstrijdinfo ophalen', canManage()
-      ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.'
-      : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
-      'vvStart()', !canManage())}
-    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
-}
+// DAT TWEEDE STOND AL APART, en op twee plekken zelfs: in het Bewerken-menu van een geplande
+// wedstrijd (modalEditMatchMenu) én in dat van een verslag. Het tussenvenster was dus het dubbel, en
+// niet de weg naar iets dat nergens anders stond. Door de knop rechtstreeks het uitslagvenster te
+// laten openen, verdwijnt een tik én een keuze die de meeste ploegen nooit nodig hebben: enkel de
+// bovenbouw heeft een wedstrijdblad bij de bond.
+//
+// Komt er ooit een reden om die twee tóch weer samen te zetten, zet dan eerst de vraag terug: hoort
+// het ophalen bij "afronden", of bij "bewerken"? Tims antwoord vandaag is: bij bewerken.
 
 // ----- Uitslag ingeven (wedstrijd die al gespeeld is, zonder live opvolging) -----
 let qrScorers = {};

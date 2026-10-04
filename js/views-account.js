@@ -4927,6 +4927,25 @@ async function go(v, id, _histReplace) {
   // een afgemelde gebruiker anders op een leeg homescherm belanden zonder weg terug.
   // (cloudReady-check: in lokale modus zonder cloud blijft alles gewoon bereikbaar.)
   if (!currentUser && !isGuest && cloudReady && !['auth', 'handleiding', 'maintenance'].includes(v)) v = 'auth';
+  const vanaf = view;   // het scherm waar we vandaan komen — zie `vorige` in de history-state hieronder
+  // EEN TERUGPIJL HOORT ÉCHT TERUG TE GAAN (Tim, 04-10-2026: "als ik in een ploeg sta en ik wil
+  // terug moet ik twee keer teruggaan" — "het is het vegen").
+  //
+  // Elk terugpijltje in de app roept gewoon go() aan, en go() duwde er altijd een nieuwe stap bij.
+  // Ging je met het pijltje van de ploeg naar het startscherm, dan stond dat startscherm twee keer
+  // in de geschiedenis — en wie daarna terugveegt, komt eerst weer in die ploeg. Op een telefoon is
+  // vegen de enige terugknop die er is, dus dat voelt als een scherm dat zich vastklampt.
+  //
+  // Elke gepushte stap onthoudt daarom welk scherm ERONDER lag (`vorige`). Is dat precies het scherm
+  // waar we nu heen willen, dan is dit een terugkeer en geen nieuwe stap: dan draaien we de stap af
+  // in plaats van er een bij te zetten. De popstate-afhandeling hieronder doet de rest.
+  //
+  // DRIE VOORWAARDEN, en ze zijn er alle drie om een verkeerde sprong te vermijden:
+  //   - niet bij een eigen `id` (naar een bepaalde wedstrijd): de stap eronder kan een ándere zijn;
+  //   - niet wanneer go() zelf al vanuit popstate komt (`_histReplace`), anders veegt het dubbel;
+  //   - enkel wanneer de stap eronder het met zoveel woorden zegt. Een stap zonder dat merkje (bv.
+  //     die van het sluiten van een venster) valt vanzelf terug op het oude gedrag.
+  if (!_histReplace && !id && history.state && history.state.vorige === v) { history.back(); return; }
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   // Het aanwezigheidsoverzicht luistert live mee; dat hoort te stoppen zodra je het scherm verlaat.
   if (view === 'online' && v !== 'online') stopOnlineWatch();
@@ -4965,7 +4984,22 @@ async function go(v, id, _histReplace) {
   // Sla navigatiestatus op in de browser history zodat de back-knop werkt binnen de app.
   // Auth en teamselect zijn geen echte navigatiestappen — die vervangen de huidige state.
   const noHistory = v === 'auth' || v === 'teamselect';
-  const state = { v, id: id || null };
+  // `vorige` = het scherm dat ONDER deze stap ligt. Daar leest de wachter bovenaan aan af of een
+  // terugpijl een terugkeer is (en dus een stap moet afdraaien) of een nieuwe stap.
+  //
+  // BIJ EEN VERVANGING BLIJFT HET MERKJE STAAN. Komt go() uit popstate, dan bestaat die stap al en
+  // ligt er nog altijd hetzelfde onder; `vanaf` is daar het scherm waar je nét wegkwam, en dat
+  // erin schrijven maakte het merkje stuk. Precies dát zag ik bij het meten: na één keer terug
+  // dacht de stap dat de ploeg eronder lag in plaats van het startscherm, en duwde het volgende
+  // pijltje er alsnog een stap bij.
+  // EN BIJ DE ALLEREERSTE STAP IS ER NIETS ONDER. `view` begint op 'home' nog voor er iets getekend
+  // is, dus de openingsstap beweerde dat het startscherm eronder lag — waarna de eerste ploegkeuze
+  // als "terug" gelezen werd en je meteen weer op het keuzescherm stond. Alleen een stap die we
+  // echt BIJ zetten, weet wat eronder ligt; een vervanging erft het merkje of heeft er geen.
+  const vorige = (noHistory || _histReplace)
+    ? ((history.state && history.state.vorige) || null)
+    : vanaf;
+  const state = { v, id: id || null, vorige };
   if (noHistory || _histReplace) history.replaceState(state, '');
   else history.pushState(state, '');
   render();
@@ -4991,6 +5025,11 @@ window.addEventListener('popstate', async e => {
     return;
   }
   if (!s || !s.v) return;
+  // KWAM JE UIT DE CLUBRONDE? Dan hoort die weer open te gaan (Tim, 04-10-2026). Die ronde is een
+  // venster en staat dus niet in de geschiedenis; bij het springen naar een ploeg zet ze zelf een
+  // stap met dit merkje. Zie clubRondeMarkeerStap in import-cal.js. Is de ronde er intussen niet
+  // meer (bv. na een herlaadbeurt), dan geeft clubRondeHeropen false en loopt de gewone weg verder.
+  if (s.clubronde && typeof clubRondeHeropen === 'function' && clubRondeHeropen()) return;
   // Navigeer intern zonder opnieuw een history-entry te maken.
   await go(s.v, s.id || undefined, true);
 });
@@ -5793,7 +5832,7 @@ async function loadHome() {
     const een = openOud.length === 1;
     return `<details class="nudge nudge-fold" style="margin-bottom:12px">
       <summary>${icI(IC.warn)} <b>${openOud.length} ${een ? 'wedstrijd is' : 'wedstrijden zijn'} niet afgesloten</b></summary>
-      <div class="nudge-body">${een ? 'Deze wedstrijd heeft' : 'Deze wedstrijden hebben'} nog geen uitslag. Open ze en tik op <b>'Afronden'</b>: daar geef je de uitslag zelf in — of je sluit ze af <b>zonder uitslag</b> — en bij de bovenbouw kan je de <b>wedstrijdinfo ophalen</b>.
+      <div class="nudge-body">${een ? 'Deze wedstrijd heeft' : 'Deze wedstrijden hebben'} nog geen uitslag. Open ze en tik op <b>'Uitslag ingeven'</b>: daar geef je de eindstand zelf in, of je sluit ze af <b>zonder uitslag</b>. Bij de bovenbouw kan je in plaats daarvan de <b>wedstrijdinfo ophalen</b> bij de bond — die staat onder <b>Bewerken</b>.
         <button class="btn btn-orgpale btn-sm" style="margin-top:10px;width:100%" onclick="toonNietAfgesloten()">${icI(IC.ball)} ${een ? 'Wedstrijd' : 'Wedstrijden'} bekijken</button>
       </div>
     </details>`;

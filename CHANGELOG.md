@@ -9,6 +9,40 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.0
+
+**Terugvegen werkt weer in één keer.** Tim: *"als ik in een ploeg sta en ik wil terug moet ik twee
+keer teruggaan"* — *"het is het vegen"*.
+
+Elk terugpijltje in de app ging niet écht terug maar navigeerde vooruit naar het vorige scherm.
+Daardoor stond dat scherm twee keer in de geschiedenis van je telefoon, en bracht je eerste veeg je
+terug naar waar je net vandaan kwam. Elke stap onthoudt nu welk scherm eronder ligt; is dat precies
+waar de pijl heen wil, dan draait de app die stap af in plaats van er een bij te zetten.
+
+Heb je meerdere kernen in je ploeg, dan zit er een lijstje tussen. Het pijltje op het ploegscherm
+bracht je daaroverheen naar het startscherm — en dus twee stappen vooruit. Nu volgt het netjes de weg
+terug: eerst het lijstje, dan het startscherm.
+
+**En de clubronde komt terug als je ernaar terugveegt.** Tim: *"als ik een clubronde doe en dan
+doorga naar een wedstrijd via daar, en dan veeg voor eruit, kom ik bij die ploeg terecht — terwijl je
+zou denken dat je terug bij de clubronde terechtkomt."* Die ronde is een venster, en een venster
+stond niet in de geschiedenis van je telefoon. Nu zet ze bij het springen naar een ploeg een eigen
+stap, dus een veeg brengt haar weer in beeld — met alles wat ze al ophaalde, zodat de bond niet
+opnieuw bevraagd wordt. Alleen **'Sluiten'** maakt er echt een eind aan.
+
+**De knop 'Afronden' heet nu 'Uitslag ingeven'** en opent meteen het uitslagvenster. Tim: *"de knop
+afronden bij een wedstrijd, die zou 'uitslag ingeven' moeten worden"* en *"wedstrijdinfo ophalen bij
+de bond zou apart moeten komen ergens"*. Dat laatste stond al apart — in het **Bewerken**-menu, zowel
+bij een geplande wedstrijd als bij een verslag. Het tussenvenster was dus een dubbel, en dat valt nu
+weg: een tik minder, en een keuze minder die alleen de bovenbouw nodig heeft.
+
+**De handleiding heeft een pagina bij: 'Live — wat er nu loopt'.** Dat scherm bestaat sinds begin
+oktober en stond er nog niet in. En bij de clubronde staat nu ook het keuzelijstje waarmee je een
+wedstrijd bij de juiste ploeg zet, plus hoe je met **'Geen enkele toevoegen'** vastlegt dat je er van
+een ploeg geen wil.
+
+---
+
 ## v2.0.4
 
 **Staan er meerdere trainers of afgevaardigden bij een wedstrijd, dan vraagt de app voor wie de kaart
