@@ -254,8 +254,13 @@ async function openTeamFromClub(tid) {
     // elevatie in selectTeam slaat dat pad anders over, omdat isAdmin door deze optimistische
     // set al true is tegen de tijd dat de info-fetch resolvet (wasAdmin-check).
     stopTeamListeners(); cloudListen(); listenCoAdminRequests();
+    // Enkel hertekenen, NIET opnieuw navigeren: selectTeam hierboven eindigt al met go('home'), en
+    // die tekende nog zonder de beheercontroles. Hier stond daarom een tweede go('home') — en die
+    // zette een tweede stap in de geschiedenis, zodat je na het openen van een clubploeg twee keer
+    // moest terugvegen om eruit te raken (Tim, 04-10-2026). Dat viel pas op toen de wachter in go()
+    // zulke dubbels niet langer stil opslokte; de dubbel zelf zat er al veel langer.
+    render();
   }
-  go('home');
 }
 // Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
 // als ploegbeheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.2
+
+**Een ploeg van je club openen kostte twee keer terugvegen.** Tim: *"ik moet nu opnieuw twee keer
+terugvegen nadat een ploeg open"* — *"ook als ik gewoon een ploeg open die niet bij mijn ploegen
+staat."*
+
+Het openen van zo'n ploeg ging twee keer naar het startscherm: één keer bij het wisselen van ploeg,
+en daarna nog eens om de beheerknoppen te tonen. Dat zette twee stappen in de geschiedenis van je
+telefoon. Die dubbel zat er al veel langer; ze viel pas op toen de wachter van v2.1.0 zulke dubbels
+niet langer stil opslokte.
+
+Nu wordt het scherm enkel hertekend in plaats van er opnieuw heen te gaan. Eén stap, één veeg.
+
+---
+
 ## v2.1.1
 
 **De clubronde bleef staan als je er na een veeg opnieuw een ploeg uit opende.** Tim: *"als ik
