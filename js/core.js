@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.0.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.0.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -579,14 +579,29 @@ function stafWoord(e) { return (e && e.wie === 'afgevaardigde') ? 'afgevaardigde
 // Het blijft een LABEL: er wordt nergens naar een speler of een gebruiker verwezen, dus zo'n kaart
 // komt nog altijd bij niemand op naam in de tellingen. Staat er geen naam in de wedstrijdinfo, dan
 // blijft het bij de rol alleen — precies zoals elke kaart van vóór deze versie.
+// VIA matchTrainer/matchResponsible, niet via m.trainer rechtstreeks: bij een tornooiwedstrijd staan
+// die namen op het TORNOOI en is de kopie in de wedstrijd verouderd zodra je ze daar wijzigt.
+//
+// EN ENKEL BIJ ÉÉN NAAM. Die velden kunnen er meerdere dragen, door komma's gescheiden (zie
+// staffList) — bij Tim staat er bij één U8P-wedstrijd "Kenny Dehaes, Maxim Verschuren". Welke van de
+// twee die kaart kreeg, weet de app niet, en beide namen afdrukken zou een bewering zijn die nergens
+// op steunt. Dan is de rol alleen het enige wat klopt.
 function stafNaam(e, m) {
   if (!m) return '';
-  return ((stafWoord(e) === 'afgevaardigde' ? m.responsible : m.trainer) || '').trim();
+  const namen = staffList(stafWoord(e) === 'afgevaardigde' ? matchResponsible(m) : matchTrainer(m));
+  return namen.length === 1 ? namen[0] : '';
 }
 function stafLabel(e, m) {
   const rol = stafWoord(e);
   const naam = stafNaam(e, m);
   return naam ? `${naam} (${rol})` : rol.charAt(0).toUpperCase() + rol.slice(1);
+}
+// Dezelfde twee vormen, maar voor midden in een zin ("Gele kaart …"): daar hoort de rol klein, net
+// zoals "Gele kaart Jules V." geen hoofdletter krijgt.
+function stafZin(e, m) {
+  const rol = stafWoord(e);
+  const naam = stafNaam(e, m);
+  return naam ? `${naam} (${rol})` : rol;
 }
 const SCORE_LEEG = '–';
 // Eén vorm voor "geen uitslag", overal hetzelfde: scherm, deelbericht, PDF en exportbestand.

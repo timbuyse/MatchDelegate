@@ -4383,11 +4383,13 @@ function evtLabelBasis(e, m, kort) {
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     case 'red_card_them': return `${icI(IC.cardR)} Rode kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
-    // Met de naam erbij wanneer die bij het loggen genoteerd stond — zie stafLabel in core.js.
-    // Hier staat de rol vooraan ("Gele kaart trainer · Jan P.") omdat de zin met de kaart begint;
-    // stafLabel zet de naam vooraan, en dat leest in een opsomming vreemd.
-    case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafWoord(e))}${stafNaam(e, m) ? ` · ${esc(stafNaam(e, m))}` : ''}`;
-    case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafWoord(e))}${stafNaam(e, m) ? ` · ${esc(stafNaam(e, m))}` : ''}`;
+    // DEZELFDE VORM ALS OVERAL ELDERS (Tim, 04-10-2026). Eerst stond de rol hier vooraan — "Gele
+    // kaart trainer · Jan Peeters" — terwijl het onder het velddiagram en bij de statistieken "Jan
+    // Peeters (trainer)" is. Nu overal hetzelfde, en net als bij een speler zonder scheidingsteken:
+    // "Gele kaart Jan Peeters (trainer)". Zonder naam in de wedstrijdinfo blijft het "Gele kaart
+    // trainer", precies zoals voordien.
+    case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafZin(e, m))}`;
+    case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafZin(e, m))}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
@@ -4443,8 +4445,8 @@ function evtLabelPlainBasis(e, m) {
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
-    case 'yellow_card_trainer': return `Gele kaart ${stafWoord(e)}${stafNaam(e, m) ? ` · ${stafNaam(e, m)}` : ''}`;
-    case 'red_card_trainer': return `Rode kaart ${stafWoord(e)}${stafNaam(e, m) ? ` · ${stafNaam(e, m)}` : ''}`;
+    case 'yellow_card_trainer': return `Gele kaart ${stafZin(e, m)}`;
+    case 'red_card_trainer': return `Rode kaart ${stafZin(e, m)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;

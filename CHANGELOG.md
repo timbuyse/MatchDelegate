@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.0.3
+
+**De naam van gisteren kwam er bij een tornooiwedstrijd niet door.** Tim zag bij zijn wedstrijd netjes
+een trainer staan, maar de kaart bleef *'gele kaart trainer'*. Oorzaak: bij een tornooiwedstrijd
+staan trainer en ploegverantwoordelijke op het **tornooi**, niet op de wedstrijd — het verslag leest
+ze via een hulpfunctie die dat afhandelt, en de kaart las het veld van de wedstrijd rechtstreeks. Dat
+is nu dezelfde weg, dus wat er bij Wedstrijdinfo staat, staat ook bij de kaart.
+
+**Staan er twee trainers bij één wedstrijd, dan blijft het bij de rol.** De app weet niet wie van de
+twee de kaart kreeg, en beide namen afdrukken zou een bewering zijn die nergens op steunt.
+
+**En in de lijst met gebeurtenissen stond het nog in de oude vorm:** *'Gele kaart trainer · Kenny
+Dehaes'*, terwijl het onder het velddiagram en bij de statistieken *'Kenny Dehaes (trainer)'* werd.
+Nu overal hetzelfde, en net als bij een speler zonder streepje ertussen: **Gele kaart Kenny Dehaes
+(trainer)**.
+
+---
+
 ## v2.0.2
 
 **Een kaart voor de staf draagt nu de naam uit de wedstrijdinfo.** Tim: *"kan je de kaart van de
