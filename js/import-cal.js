@@ -2121,7 +2121,7 @@ function clubRondeRenderOverzicht() {
 // er klaar mee bent.
 function clubRondeMarkeerStap() {
   try {
-    history.pushState({ v: view, id: null, vorige: (history.state && history.state.vorige) || null, clubronde: true }, '');
+    history.pushState({ v: view, id: null, clubronde: true }, '');
   } catch (e) { /* zonder geschiedenis valt dit gewoon weg */ }
 }
 // Terug in beeld na een veeg. Geeft false als er niets meer te openen valt — dan loopt de gewone

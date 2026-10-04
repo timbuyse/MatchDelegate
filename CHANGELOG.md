@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.3
+
+**De navigatie-ingreep van vandaag is teruggedraaid.** Tim: *"je hebt iets gebroken. Op een ploeg
+klikken opent hem niet meer of niet meteen. En als het openen lukt dan flitst de pagina twee keer
+alsof hij laadt. En terugvegen sluit de app."*
+
+Dat klopte, en het was één en dezelfde oorzaak. De wachter van v2.1.0 liet elke stap onthouden welk
+scherm eronder lag, zodat een terugpijl echt terug kon gaan. Maar dat merkje is niet betrouwbaar: het
+keuzescherm **vervangt** de stap waar je staat, en erft dan het merkje van wat er stond. Zo kon er
+*'startscherm'* onder het keuzescherm komen te staan terwijl dat niet zo was. Tikte je dan op een
+ploeg, dan las de app dat als "terug": ze draaide een stap af in plaats van er een bij te zetten —
+vandaar dat de ploeg niet of pas later opende, dat het scherm twee keer tekende, en dat je
+geschiedenis leegliep zodat vegen de app sloot.
+
+Drie rondes bijschaven hielpen niet, dus gaat het er in zijn geheel uit. **Het oude ongemak is
+daarmee terug**: een terugpijl zet een stap bij in plaats van er een af te draaien, dus na zo'n pijl
+brengt je eerste veeg je terug naar waar je net vandaan kwam. Dat wordt opnieuw aangepakt, maar dan
+bij de terugpijlen zelf.
+
+**Twee dingen blijven wél staan**, want die stonden er los van:
+
+- Een **ploeg van je club** openen zet nog maar één stap: er werd twee keer naar het startscherm
+  genavigeerd, en die tweede is nu een gewone hertekening.
+- De **clubronde** komt nog altijd terug als je ernaar terugveegt.
+
+---
+
 ## v2.1.2
 
 **Een ploeg van je club openen kostte twee keer terugvegen.** Tim: *"ik moet nu opnieuw twee keer

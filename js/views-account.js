@@ -254,11 +254,11 @@ async function openTeamFromClub(tid) {
     // elevatie in selectTeam slaat dat pad anders over, omdat isAdmin door deze optimistische
     // set al true is tegen de tijd dat de info-fetch resolvet (wasAdmin-check).
     stopTeamListeners(); cloudListen(); listenCoAdminRequests();
-    // Enkel hertekenen, NIET opnieuw navigeren: selectTeam hierboven eindigt al met go('home'), en
-    // die tekende nog zonder de beheercontroles. Hier stond daarom een tweede go('home') — en die
-    // zette een tweede stap in de geschiedenis, zodat je na het openen van een clubploeg twee keer
-    // moest terugvegen om eruit te raken (Tim, 04-10-2026). Dat viel pas op toen de wachter in go()
-    // zulke dubbels niet langer stil opslokte; de dubbel zelf zat er al veel langer.
+    // ENKEL HERTEKENEN, NIET OPNIEUW NAVIGEREN. `selectTeam` hierboven eindigt zelf met go('home');
+    // hier stond nóg een go('home') om na de elevatie mét de beheercontroles te tekenen. Dat waren
+    // twee stappen in de geschiedenis, en dus twee keer terugvegen om uit een clubploeg te raken
+    // (Tim, 04-10-2026). Deze ene opruiming staat los van de wachter die teruggedraaid is: er wordt
+    // niets anders genavigeerd, alleen een overbodige stap minder gezet.
     render();
   }
 }
@@ -4932,30 +4932,26 @@ async function go(v, id, _histReplace) {
   // een afgemelde gebruiker anders op een leeg homescherm belanden zonder weg terug.
   // (cloudReady-check: in lokale modus zonder cloud blijft alles gewoon bereikbaar.)
   if (!currentUser && !isGuest && cloudReady && !['auth', 'handleiding', 'maintenance'].includes(v)) v = 'auth';
-  const vanaf = view;   // het scherm waar we vandaan komen — zie `vorige` in de history-state hieronder
-  // EEN TERUGPIJL HOORT ÉCHT TERUG TE GAAN (Tim, 04-10-2026: "als ik in een ploeg sta en ik wil
-  // terug moet ik twee keer teruggaan" — "het is het vegen").
+  // ---------------------------------------------------------------------------------------------
+  // HIER STOND EEN WACHTER DIE EEN TERUGPIJL ÉCHT TERUG LIET GAAN (v2.1.0–v2.1.2, 04-10-2026).
+  // TERUGGEDRAAID, en bewust NIET opnieuw proberen zonder eerst de les hieronder te lezen.
   //
-  // Elk terugpijltje in de app roept gewoon go() aan, en go() duwde er altijd een nieuwe stap bij.
-  // Ging je met het pijltje van de ploeg naar het startscherm, dan stond dat startscherm twee keer
-  // in de geschiedenis — en wie daarna terugveegt, komt eerst weer in die ploeg. Op een telefoon is
-  // vegen de enige terugknop die er is, dus dat voelt als een scherm dat zich vastklampt.
+  // Het idee: elke gepushte stap onthield welk scherm eronder lag (`vorige`); wees een aanroep daar
+  // precies heen, dan draaide go() die stap af in plaats van er een bij te zetten. Dat loste op dat
+  // je na een terugpijl twee keer moest terugvegen.
   //
-  // Elke gepushte stap onthoudt daarom welk scherm ERONDER lag (`vorige`). Is dat precies het scherm
-  // waar we nu heen willen, dan is dit een terugkeer en geen nieuwe stap: dan draaien we de stap af
-  // in plaats van er een bij te zetten. De popstate-afhandeling hieronder doet de rest.
+  // WAAROM HET NIET WERKTE. Dat merkje is niet betrouwbaar: `auth` en `teamselect` VERVANGEN de
+  // huidige stap, en dan erft de nieuwe stap het merkje van de stap die er stond. Een keuzescherm
+  // kon zo het merkje 'home' meeslepen van een vorig bezoek. Tikte je dan op een ploeg, dan las de
+  // wachter dat als een terugkeer: de ploeg opende niet of pas na de popstate (Tim: "op een ploeg
+  // klikken opent hem niet meer of niet meteen"), het scherm tekende twee keer ("flitst twee keer
+  // alsof hij laadt") en de geschiedenis liep leeg, zodat de volgende veeg de app sloot.
   //
-  // DRIE VOORWAARDEN, en ze zijn er alle drie om een verkeerde sprong te vermijden:
-  //   - niet bij een eigen `id` (naar een bepaalde wedstrijd): de stap eronder kan een ándere zijn;
-  //   - niet wanneer go() zelf al vanuit popstate komt (`_histReplace`), anders veegt het dubbel;
-  //   - NIET NAAR HET SCHERM WAAR JE AL STAAT. Dat is een hertekening, geen terugkeer. Zonder deze
-  //     regel liep de clubronde vast (Tim, 04-10-2026: "als ik terugkeer opent de clubronde, maar
-  //     als ik dan opnieuw op openen klik blijft die pop-up staan"): na een veeg sta je al op het
-  //     startscherm van die ploeg, 'Openen' navigeert daar opnieuw heen, de wachter las dat als
-  //     terug — en draaide zo precies de stap af die het venster weer opent;
-  //   - enkel wanneer de stap eronder het met zoveel woorden zegt. Een stap zonder dat merkje (bv.
-  //     die van het sluiten van een venster) valt vanzelf terug op het oude gedrag.
-  if (!_histReplace && !id && v !== view && history.state && history.state.vorige === v) { history.back(); return; }
+  // Drie rondes lappen hielpen niet; het probleem zit in de aanname dat één veld kan zeggen wat er
+  // onder een stap ligt. Wie dit opnieuw aanpakt: begin bij de terugpijlen zelf (laat ze
+  // `history.back()` doen wanneer ze bedoelen "terug") in plaats van bij go(), en meet élke keer in
+  // een VERS tabblad — een oud tabblad draagt zijn geschiedenis over een herlaadbeurt heen.
+  // ---------------------------------------------------------------------------------------------
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   // Het aanwezigheidsoverzicht luistert live mee; dat hoort te stoppen zodra je het scherm verlaat.
   if (view === 'online' && v !== 'online') stopOnlineWatch();
@@ -4994,22 +4990,7 @@ async function go(v, id, _histReplace) {
   // Sla navigatiestatus op in de browser history zodat de back-knop werkt binnen de app.
   // Auth en teamselect zijn geen echte navigatiestappen — die vervangen de huidige state.
   const noHistory = v === 'auth' || v === 'teamselect';
-  // `vorige` = het scherm dat ONDER deze stap ligt. Daar leest de wachter bovenaan aan af of een
-  // terugpijl een terugkeer is (en dus een stap moet afdraaien) of een nieuwe stap.
-  //
-  // BIJ EEN VERVANGING BLIJFT HET MERKJE STAAN. Komt go() uit popstate, dan bestaat die stap al en
-  // ligt er nog altijd hetzelfde onder; `vanaf` is daar het scherm waar je nét wegkwam, en dat
-  // erin schrijven maakte het merkje stuk. Precies dát zag ik bij het meten: na één keer terug
-  // dacht de stap dat de ploeg eronder lag in plaats van het startscherm, en duwde het volgende
-  // pijltje er alsnog een stap bij.
-  // EN BIJ DE ALLEREERSTE STAP IS ER NIETS ONDER. `view` begint op 'home' nog voor er iets getekend
-  // is, dus de openingsstap beweerde dat het startscherm eronder lag — waarna de eerste ploegkeuze
-  // als "terug" gelezen werd en je meteen weer op het keuzescherm stond. Alleen een stap die we
-  // echt BIJ zetten, weet wat eronder ligt; een vervanging erft het merkje of heeft er geen.
-  const vorige = (noHistory || _histReplace)
-    ? ((history.state && history.state.vorige) || null)
-    : vanaf;
-  const state = { v, id: id || null, vorige };
+  const state = { v, id: id || null };
   if (noHistory || _histReplace) history.replaceState(state, '');
   else history.pushState(state, '');
   render();
