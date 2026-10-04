@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.11
+
+**Eén gewiste gebeurtenis zette de wachter niet meer permanent uit.** Uit de back-up van vanmiddag
+bleek dat de beschadigde wedstrijd er alsnog door zou glippen.
+
+De wachter liet elke wedstrijd mét een gewiste gebeurtenis ongemoeid door. Dat merkje is bedoeld om
+een bewuste terugname te herkennen, maar het blijft voor altijd op de wedstrijd staan: wie tijdens de
+match één verkeerd gelogd doelpunt wiste, zette de beveiliging daarmee voorgoed uit voor die
+wedstrijd. Precies dat had de wedstrijd van zondag.
+
+De app beslist nu pas als ze weet wat er in de cloud staat. Verklaren de merkjes waarom dit toestel
+geen blokken meer heeft, dan was het een echte terugname en mag ze schrijven. Dekken ze één
+gebeurtenis van de achtenveertig, dan is het een achterstand en gaat het niet door. Die blik in de
+cloud gebeurde op dat punt toch al, dus het kost niets extra.
+
+Eén gevolg om te kennen: nam je een wedstrijd terug terwijl een ander toestel er intussen nog iets bij
+logde, dan komt het verslag terug in plaats van leeg te gaan. Tik dan opnieuw op *'Opnieuw beginnen'*
+— de tweede keer lukt het wel.
+
+---
+
 ## v1.99.10
 
 **De wachter van gisteren kijkt nu naar de blokken, niet naar de leegte.** Nog diezelfde dag liep een

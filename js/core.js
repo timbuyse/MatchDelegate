@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.10'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.11'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3383,7 +3383,7 @@ function _syncFail() {
 // gestart), iemand anders volgde ze live op een ander toestel, en drie dagen later duwde het eerste
 // toestel zijn versie door. Nul grafstenen, dus niets was bewust teruggenomen.
 //
-// WANNEER KIJKT DEZE WACHTER: bij elke wedstrijd ZONDER BLOKKEN die geen grafstenen draagt.
+// WANNEER KIJKT DEZE WACHTER: bij elke wedstrijd ZONDER BLOKKEN.
 //
 // DE EERSTE VERSIE KEEK NAAR "HELEMAAL LEEG" — geen blokken én geen gebeurtenissen — en dat was te
 // smal. Nog diezelfde dag liep een tweede wedstrijd schade op (U8P Zwart tegen KVK Avelgem): die kwam
@@ -3393,9 +3393,17 @@ function _syncFail() {
 // NUL BLOKKEN IS HET SIGNAAL, niet de leegte: een gespeelde wedstrijd heeft altijd blokken. Staat er in
 // de cloud wél een wedstrijd mét blokken, dan is wat hier staat per definitie een achterstand.
 //
-// Grafstenen sluiten dat uit, want ze maken het verschil met een ECHTE terugname ("Opnieuw beginnen",
-// "Toch nog niet gestart"): die zetten een merkje op elk event dat ze weghalen. Zelfde onderscheid als
-// bij wachter 1.
+// EN "DRAAGT GRAFSTENEN" IS GEEN VRIJGELEIDE (bijgesteld op dezelfde dag, nadat de back-up het
+// aantoonde). De tweede versie liet élke wedstrijd mét een grafsteen ongemoeid door, als teken van een
+// bewuste terugname. Maar een grafsteen blijft voor altijd op de wedstrijd staan: wie tijdens de match
+// één verkeerd gelogd doelpunt wist, zette de wachter daarmee permanent uit voor die wedstrijd.
+// Precies dat had de Zwart-wedstrijd — 48 gebeurtenissen, nul blokken, één oude grafsteen — zodat ze
+// alsnog door de nieuwe wachter heen zou schrijven.
+// We beslissen daarom pas MET DE CLOUD IN DE HAND (zie _terugnameDektCloud): dekken onze grafstenen de
+// gebeurtenissen die daar bij een blok horen, dan was het een echte terugname ("Opnieuw beginnen" en
+// "Toch nog niet gestart" zetten er een op élk event dat ze weghalen) en mag het schrijven. Dekken ze
+// er één van de achtenveertig, dan is het een achterstand. Die lezing gebeurde op dat punt toch al,
+// dus het kost niets extra.
 //
 // WAT HET KOST. Eén extra vraag aan de databank, en enkel voor een wedstrijd zonder blokken — een
 // wedstrijd die je aan het volgen bent heeft er altijd, en komt hier dus nooit langs. Een snel
@@ -3406,9 +3414,22 @@ function _syncFail() {
 // een bewaring tegenhouden; dit is een vangnet, geen slot.
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
-  const zonderBlokken = !((m.quarters || []).length) && !((m.deletedEventIds || []).length);
-  if (zonderBlokken) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
+  if (!((m.quarters || []).length)) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
   _cloudMatchSchrijf(r, m);
+}
+// Verklaren onze grafstenen waarom wij geen blokken meer hebben? Een echte terugname wist élke
+// gebeurtenis van de blokken die ze weghaalde, dus dan draagt ze een merkje voor elk event dat in de
+// cloud nog bij een blok staat. Eén los merkje van een gewist doelpunt dekt die 48 niet.
+// Komt er uit de cloud iets dat we niet kunnen lezen, dan vinden we geen dekking en nemen we de
+// voorzichtige kant: niet schrijven.
+function _terugnameDektCloud(m, cloud) {
+  const tomb = new Set(m.deletedEventIds || []);
+  if (!tomb.size) return false;
+  const ev = cloud && cloud.events;
+  const lijst = Array.isArray(ev) ? ev : (ev && typeof ev === 'object' ? Object.values(ev) : []);
+  const inBlok = lijst.filter(e => e && e.id && e.quarterNum != null);
+  if (!inBlok.length) return true;   // blokken zonder één gebeurtenis: niets om te dekken
+  return inBlok.every(e => tomb.has(e.id));
 }
 async function _cloudMatchSchrijfVoorzichtig(r, m) {
   try {
@@ -3416,7 +3437,7 @@ async function _cloudMatchSchrijfVoorzichtig(r, m) {
     const cloud = s && s.val();
     const q = cloud && cloud.quarters;
     const blokken = Array.isArray(q) ? q.length : (q && typeof q === 'object' ? Object.keys(q).length : 0);
-    if (blokken > 0) {
+    if (blokken > 0 && !_terugnameDektCloud(m, cloud)) {
       // Daar staat een wedstrijd die wél gespeeld is. Niet overschrijven, en meteen rechtzetten op dit
       // toestel ook: dan ziet degene die hier zat waarom er plots wél een verslag staat.
       await applyCloudMatch(m.id, cloud);
