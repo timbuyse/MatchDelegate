@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.4
+
+**Geen 'Laden…' meer dat even opflitst bij het openen van een ploeg.** Tim: *"ik zie nog kortstondig
+een laden flits bij het openen of terugkeren naar een ploeg. Maar is zeer kort en daarom ambetant
+omdat het flitst."*
+
+Het startscherm zette dat vakje meteen neer en verving het zodra de wedstrijden geladen waren. Die
+staan op je toestel, dus dat gebeurde doorgaans binnen een paar honderdsten — net lang genoeg om te
+zien verschijnen en weer verdwijnen.
+
+De melding komt er nu pas als er na een vijfde van een seconde nog niets staat. Duurt het wél even —
+een trage start, veel wedstrijden — dan zie je ze gewoon, zoals voordien.
+
+---
+
 ## v2.1.3
 
 **De navigatie-ingreep van vandaag is teruggedraaid.** Tim: *"je hebt iets gebroken. Op een ploeg

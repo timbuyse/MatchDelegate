@@ -5414,6 +5414,7 @@ const views = {
   home: () => {
     loadHome();
     setTimeout(updateCloudChip, 0);
+    laadVlagVertraagd('home-content');
     const canSwitch = cloudReady && currentUser && activeTeamId && !isGuest;
     // Header toont de PLOEGnaam als hoofdtitel (zodat je weet in welke ploeg je zit) en de
     // clubnaam kleiner eronder (fase 2f; gedenormaliseerd zodat ook kijkers ze zien).
@@ -5441,7 +5442,7 @@ const views = {
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>
-      <div class="content" id="home-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+      <div class="content" id="home-content"></div>`;
   },
   matches: () => {
     // Bij het binnenkomen altijd op de huidige maand beginnen; bladeren binnen het scherm gaat
@@ -5577,6 +5578,22 @@ function matchItemHtml(m) {
     </div>${right}</div>`;
 }
 // HOME = dashboard: tegels + komende wedstrijd (filterbaar per ploeg) + recent.
+// "LADEN…" PAS TONEN ALS HET ÉCHT EVEN DUURT (Tim, 04-10-2026: "ik zie nog kortstondig een laden
+// flits bij het openen of terugkeren naar een ploeg. Maar is zeer kort en daarom ambetant omdat het
+// flitst"). Het scherm zette dat vakje meteen neer en loadHome verving het; de wedstrijden staan
+// lokaal, dus dat gebeurde doorgaans binnen een paar honderdsten — net lang genoeg om te zien
+// opflitsen en weer verdwijnen.
+// Nu blijft het vak leeg en komt de melding er pas als er na een vijfde van een seconde nog niets
+// staat. Dat is traag genoeg om niet te flitsen en snel genoeg om niet als een leeg scherm te lezen.
+// Is het scherm intussen verlaten, dan bestaat het vak niet meer en gebeurt er niets.
+function laadVlagVertraagd(id, tekst) {
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el && !el.innerHTML.trim()) {
+      el.innerHTML = `<div class="empty"><div class="ei">${IC.timer}</div><p>${tekst || 'Laden...'}</p></div>`;
+    }
+  }, 200);
+}
 async function loadHome() {
   // `matchZichtbaarVoorMij` (core.js): een geplande wedstrijd die de beheerder voor kijkers verborgen
   // heeft, hoort bij een kijker nergens op dit scherm te staan — ook niet in de tellers van de tegels.
