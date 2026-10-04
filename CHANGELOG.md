@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.8
+
+**De tegel met de naam van je kind staat er nu meteen — en dát was ook de laatste flits.** Tim: *"de
+naam van de gekoppelde speler komt later"* en *"ik zie toch nog die flits"*. Twee meldingen, één
+oorzaak.
+
+De koppeling tussen jou en je kind komt uit de cloud. Zodra ze binnen was, tekende de app het hele
+startscherm opnieuw — er komt immers een tegel bij met zijn naam. Die hertekening is wat je zag
+flitsen, en de naam die "later kwam" was dezelfde gebeurtenis.
+
+De app onthoudt die koppeling nu op je toestel, net zoals ze de clubnaam en het clublogo al
+onthoudt. Bij het openen van je ploeg staat de tegel er dus meteen, en als de cloud hetzelfde
+antwoordt verandert er niets — dus wordt er ook niets opnieuw getekend. Verandert er wél iets, dan
+zie je dat gewoon.
+
+Dat geheugen is enkel voor de weergave: wát je mag zien, beslist de databank bij elke lees. Een
+verouderde vermelding geeft dus nooit toegang.
+
+---
+
 ## v2.1.7
 
 **Het startscherm valt niet meer even leeg bij het openen van een ploeg.** Tim stuurde een foto van

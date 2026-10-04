@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.1.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.1.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3175,6 +3175,10 @@ async function selectTeam(teamId) {
   // "niet geladen" — dan is er ook echt geen spelersdata voor deze ploeg op dit toestel.
   rosterTeamId = teamId;
   rosterLoaded = hydrateRosterFromCache(teamId);
+  // En de koppeling met je eigen speler(s) van déze ploeg, uit de opslag van dit toestel: zo staat
+  // die tegel er meteen in plaats van een tel later, en tekent het scherm niet opnieuw zodra de
+  // cloud hetzelfde antwoordt. Zie mijnSpelersOnthoud.
+  mijnSpelersUitCacheZetten(teamId);
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal.
   activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
@@ -3624,6 +3628,9 @@ function stopTeamListeners() {
   _presTeamData = {};   // aanwezigheid hoort bij de ploeg waar we naar luisterden
   mijnSpelerIds = [];   // idem: de koppeling geldt per ploeg
 }
+// Bij het wisselen van ploeg meteen de laatst gekende koppeling van DIE ploeg neerzetten, zodat de
+// tegel met de naam van je kind er staat vóór de cloud antwoordt. Zie mijnSpelersOnthoud.
+function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache(teamId); }
 // ===================== EEN KIJKER GEKOPPELD AAN ZIJN EIGEN SPELER(S) =====================
 // Tim, 27-09-2026: "een kijker koppelen aan een speler van een ploeg, dus als ouder eigenlijk, zodat
 // ze ook de statistieken van die speler kunnen zien." De koppeling staat in een EIGEN tak
@@ -3639,6 +3646,31 @@ function stopTeamListeners() {
 // Zelfde vangnet als bij de aanwezigheidstak (zie hierboven).
 let mijnSpelerIds = [];
 function mijnSpelers() { return mijnSpelerIds.slice(); }
+// DE KOPPELING WORDT ONTHOUDEN OP DIT TOESTEL (Tim, 04-10-2026: "de naam van de gekoppelde speler
+// komt later" — "en ik zie toch nog die flits"). Dat was één en dezelfde zaak: de koppeling komt uit
+// de cloud, en zodra ze binnen was liet de luisteraar het hele startscherm opnieuw tekenen, want er
+// komt een tegel bij met de naam van het kind. Dát is wat er flitste.
+// Nu staat de laatst gekende koppeling per ploeg in de opslag van dit toestel, net als de clubnaam en
+// het clublogo (zie rememberTeamClubId). Bij het openen staat de tegel er dus meteen, en als de cloud
+// hetzelfde antwoordt verandert er niets — dus wordt er ook niets opnieuw getekend.
+// Enkel een geheugensteun voor de WEERGAVE: wat je mag zien, beslissen de databankregels bij élke
+// lees. Een verouderde vermelding levert dus nooit toegang op.
+const MIJN_SPELERS_KEY = 'voetbal_mijn_spelers';
+function mijnSpelersCache() {
+  try { return JSON.parse(localStorage.getItem(MIJN_SPELERS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function mijnSpelersOnthoud(teamId, ids) {
+  if (!teamId) return;
+  try {
+    const c = mijnSpelersCache();
+    if (ids && ids.length) c[teamId] = ids; else delete c[teamId];
+    localStorage.setItem(MIJN_SPELERS_KEY, JSON.stringify(c));
+  } catch (e) {}
+}
+function mijnSpelersUitCache(teamId) {
+  const v = mijnSpelersCache()[teamId];
+  return Array.isArray(v) ? v : [];
+}
 // Mag ik de persoonlijke pagina van deze speler openen? Een beheerder altijd; een kijker enkel voor
 // de speler(s) waaraan hij gekoppeld is. Een gast nooit.
 function magSpelerZien(rosterId) {
@@ -3715,7 +3747,15 @@ function cloudListen() {
     if (spRef) {
       spRef.on('value', s => {
         const v = s.val() || {};
-        mijnSpelerIds = Object.keys(v).filter(k => v[k]);
+        const nieuw = Object.keys(v).filter(k => v[k]);
+        const zelfde = nieuw.length === mijnSpelerIds.length && nieuw.every(id => mijnSpelerIds.includes(id));
+        mijnSpelerIds = nieuw;
+        mijnSpelersOnthoud(activeTeamId, nieuw);
+        // ENKEL HERTEKENEN ALS ER ÉCHT IETS VERANDERT. Deze luisteraar vuurt meteen bij het openen van
+        // een ploeg, en dan staat er doorgaans precies wat er uit de opslag al gezet was (zie
+        // selectTeam). Een hertekening zou dan het hele scherm opnieuw opbouwen zonder dat er iets
+        // wijzigt — net dat zag Tim flitsen.
+        if (zelfde) return;
         // Het startscherm en de statistieken tonen hierdoor iets anders; de rest van de app niet.
         if (view === 'home' || view === 'stats' || view === 'playerDetail') render();
       }, () => { mijnSpelerIds = []; });
