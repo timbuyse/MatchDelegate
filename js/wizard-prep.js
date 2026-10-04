@@ -3345,7 +3345,10 @@ async function matchZetVerborgen(id, verbergen, inVenster) {
   if (!m) return;
   if (m.status !== 'planned') { showToast('Dit kan enkel bij een geplande wedstrijd.', 'err'); return; }
   m.verborgenVoorKijkers = !!verbergen;
-  await dbSave(m);
+  // STIL BEWAREN (Tim, 04-10-2026): wie deze wedstrijd te zien krijgt, is huishouding — geen
+  // bewerking aan de wedstrijd zelf. Het hoort de regel "Laatst bewerkt" dus niet te verzetten.
+  // Zie dbSave in core.js, ook voor wat dat betekent bij het samenvoegen.
+  await dbSave(m, { stil: true });
   if (match && match.id === id) match = m;
   render();
   if (inVenster) { modalWieZietWedstrijd(id); return; }

@@ -2783,10 +2783,10 @@ function shareWhatsApp(m) {
   const tegKaart = e => `tegenstander${e.oppNumber ? ` (nr. ${e.oppNumber})` : ''}`;
   const cardLines = [
     ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
-    ...m.events.filter(e => e.type === 'yellow_card_trainer').map(e => `  🟨 ${stafWoord(e)}`),
+    ...m.events.filter(e => e.type === 'yellow_card_trainer').map(e => `  🟨 ${stafNaam(e, m) ? `${stafNaam(e, m)} (${stafWoord(e)})` : stafWoord(e)}`),
     ...m.events.filter(e => e.type === 'yellow_card_them').map(e => `  🟨 ${tegKaart(e)}`),
     ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
-    ...m.events.filter(e => e.type === 'red_card_trainer').map(e => `  🟥 ${stafWoord(e)}`),
+    ...m.events.filter(e => e.type === 'red_card_trainer').map(e => `  🟥 ${stafNaam(e, m) ? `${stafNaam(e, m)} (${stafWoord(e)})` : stafWoord(e)}`),
     ...m.events.filter(e => e.type === 'red_card_them').map(e => `  🟥 ${tegKaart(e)}`),
   ];
 
@@ -3011,7 +3011,7 @@ function exportMatchCSV() {
     // dat we ervan weten, en dat hoort in de spelerskolom en niet bij de extra info.
     if (e.oppNumber) player = 'Tegenstander nr. ' + e.oppNumber;
     else if (e.type === 'yellow_card_them' || e.type === 'red_card_them') player = 'Tegenstander';
-    else if (e.type === 'yellow_card_trainer' || e.type === 'red_card_trainer') player = stafWoord(e) === 'afgevaardigde' ? 'Afgevaardigde' : 'Trainer';
+    else if (e.type === 'yellow_card_trainer' || e.type === 'red_card_trainer') player = stafLabel(e, m);
     row('', e.quarterNum || '', minStr, e.gameTimeMs || '', type, player, extraInfo);
   }
   blank();
@@ -6493,6 +6493,9 @@ async function logCardStaf(color, wie) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
+    // De NAAM wordt hier bewust niet meegeschreven: die staat op de wedstrijd (het veld Trainer of
+    // Afgevaardigde) en wordt pas bij het tonen gelezen, zodat een latere correctie vanzelf doorwerkt.
+    // Zie stafLabel in core.js.
     addEvent(color === 'red' ? 'red_card_trainer' : 'yellow_card_trainer',
       wie === 'afgevaardigde' ? { wie } : {});
     await dbSave(match); closeModal(); render();

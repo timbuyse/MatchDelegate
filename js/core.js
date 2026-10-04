@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.0.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.0.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -565,6 +565,29 @@ function wisGeenUitslag(m) { if (m) delete m.geenUitslag; }
 // trainer — zo blijft elke kaart van vóór deze versie exact leesbaar zoals ze bedoeld was.
 // Lees de naam van de soort dus als "kaart voor de staf", en déze functie zegt voor wie.
 function stafWoord(e) { return (e && e.wie === 'afgevaardigde') ? 'afgevaardigde' : 'trainer'; }
+// DE NAAM ERBIJ, ALS LABEL (Tim, 04-10-2026: "kan je de kaart van de trainer niet op naam van de op
+// dat moment aangeduide trainer zetten? Gewoon als label, niet als 'id'").
+//
+// BIJ HET TONEN GELEZEN, NIET OP DE GEBEURTENIS BEWAARD. De eerste versie schreef de naam mee bij
+// het loggen, zoals `bijgehoudenDoor` dat doet. Tim meteen daarna: "als een trainer achteraf
+// bijgewerkt wordt (omdat het oorspronkelijk fout stond) dan moet het wel automatisch bijgewerkt
+// worden." En dat is hier de juiste keuze, want de naam staat op de WEDSTRIJD zelf (het veld Trainer
+// of Afgevaardigde in de wedstrijdinfo) — niet in een ledenlijst die ook over andere wedstrijden
+// gaat. Verbeter je die, dan volgt elke kaart van die wedstrijd vanzelf, en elke wedstrijd houdt
+// gewoon haar eigen namen.
+//
+// Het blijft een LABEL: er wordt nergens naar een speler of een gebruiker verwezen, dus zo'n kaart
+// komt nog altijd bij niemand op naam in de tellingen. Staat er geen naam in de wedstrijdinfo, dan
+// blijft het bij de rol alleen — precies zoals elke kaart van vóór deze versie.
+function stafNaam(e, m) {
+  if (!m) return '';
+  return ((stafWoord(e) === 'afgevaardigde' ? m.responsible : m.trainer) || '').trim();
+}
+function stafLabel(e, m) {
+  const rol = stafWoord(e);
+  const naam = stafNaam(e, m);
+  return naam ? `${naam} (${rol})` : rol.charAt(0).toUpperCase() + rol.slice(1);
+}
 const SCORE_LEEG = '–';
 // Eén vorm voor "geen uitslag", overal hetzelfde: scherm, deelbericht, PDF en exportbestand.
 // Een bolletje tussen twee streepjes (Tims keuze): het leest niet als een score van nul, en het

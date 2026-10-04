@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.0.2
+
+**Een kaart voor de staf draagt nu de naam uit de wedstrijdinfo.** Tim: *"kan je de kaart van de
+trainer niet op naam van de op dat moment aangeduide trainer zetten? Gewoon als label, niet als
+'id'."* In het verslag, onder het velddiagram en bij de statistieken staat er voortaan
+**Jan Peeters (trainer)** in plaats van enkel *Trainer*.
+
+Die naam wordt bij het tónen uit de wedstrijd gelezen, niet bij het loggen vastgezet. Tim: *"als een
+trainer achteraf bijgewerkt wordt (omdat het oorspronkelijk fout stond) dan moet het wel automatisch
+bijgewerkt worden."* Verbeter je de naam bij **Wedstrijdinfo**, dan volgt elke kaart van die
+wedstrijd vanzelf. Elke wedstrijd houdt daarbij haar eigen namen, en in de seizoenslijst krijgt elke
+naam zijn eigen regel.
+
+Staat er geen trainer ingevuld, dan blijft er gewoon *Trainer* of *Afgevaardigde* staan — net als bij
+elke kaart van vóór deze versie. Er verandert niets aan de gegevens: zo'n kaart komt nog altijd bij
+niemand op naam en telt nergens mee bij een speler.
+
+**En: wie een wedstrijd mag zien, telt niet meer als een bewerking.** Een wedstrijd verbergen voor je
+kijkers, of één kijker er stil buiten zetten, is huishouding — dat hoort de regel *'Laatst bewerkt'*
+niet te verzetten. Zelfde keuze als bij het slotje in v1.99.14.
+
+---
+
 ## v2.0.1
 
 **Een kaart voor de trainer of de afgevaardigde stond nog op twee plaatsen niet.** Allebei gemeld

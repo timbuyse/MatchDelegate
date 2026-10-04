@@ -3036,7 +3036,13 @@ async function matchZetKijkerBlok(id, uid, blokkeren) {
   const lijst = (Array.isArray(m.kijkersGeblokkeerd) ? m.kijkersGeblokkeerd : []).filter(u => u && u !== uid);
   if (blokkeren) lijst.push(uid);
   m.kijkersGeblokkeerd = lijst;
-  await dbSave(m);
+  // STIL BEWAREN (Tim, 04-10-2026), zelfde reden als bij matchZetVerborgen: dit gaat over wie mag
+  // kijken, niet over wat er gebeurd is. Het stempeltje "laatst bewerkt" blijft dus staan.
+  // DE KEERZIJDE, en ze is hier zwaarder dan bij het slotje: dat stempeltje beslist bij het
+  // samenvoegen ook welke kopie wint. Heeft een ánder beheerderstoestel ondertussen wijzigingen die
+  // nog niet gesynchroniseerd zijn, dan kan die blokkade verdwijnen. Ze staat dan gewoon weer open
+  // in dit venster, en één tik zet ze terug.
+  await dbSave(m, { stil: true });
   if (match && match.id === id) match = m;
   render();              // het oogje in de kopregel mee laten kleuren; de modal staat in een eigen laag
   modalWieZietWedstrijd(id);
@@ -4377,8 +4383,11 @@ function evtLabelBasis(e, m, kort) {
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     case 'red_card_them': return `${icI(IC.cardR)} Rode kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
-    case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafWoord(e))}`;
-    case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafWoord(e))}`;
+    // Met de naam erbij wanneer die bij het loggen genoteerd stond — zie stafLabel in core.js.
+    // Hier staat de rol vooraan ("Gele kaart trainer · Jan P.") omdat de zin met de kaart begint;
+    // stafLabel zet de naam vooraan, en dat leest in een opsomming vreemd.
+    case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafWoord(e))}${stafNaam(e, m) ? ` · ${esc(stafNaam(e, m))}` : ''}`;
+    case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafWoord(e))}${stafNaam(e, m) ? ` · ${esc(stafNaam(e, m))}` : ''}`;
     case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
@@ -4434,8 +4443,8 @@ function evtLabelPlainBasis(e, m) {
     case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
-    case 'yellow_card_trainer': return `Gele kaart ${stafWoord(e)}`;
-    case 'red_card_trainer': return `Rode kaart ${stafWoord(e)}`;
+    case 'yellow_card_trainer': return `Gele kaart ${stafWoord(e)}${stafNaam(e, m) ? ` · ${stafNaam(e, m)}` : ''}`;
+    case 'red_card_trainer': return `Rode kaart ${stafWoord(e)}${stafNaam(e, m) ? ` · ${stafNaam(e, m)}` : ''}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
@@ -5299,15 +5308,13 @@ function periodCardList(m, qNum) {
   return (m.events || [])
     .filter(e => e.quarterNum === qNum && (staf(e.type) || (speler(e.type) && e.playerId)))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
-    .map(e => {
-      const w = staf(e.type) ? stafWoord(e) : '';
-      return {
-        min: e.atBreak ? 'rust' : eventMinTijd(e, m),
-        ms: e.gameTimeMs || 0,
-        rood: e.type === 'red_card' || e.type === 'red_card_trainer',
-        naam: w ? w.charAt(0).toUpperCase() + w.slice(1) : fieldName(m, e.playerId),
-      };
-    });
+    .map(e => ({
+      min: e.atBreak ? 'rust' : eventMinTijd(e, m),
+      ms: e.gameTimeMs || 0,
+      rood: e.type === 'red_card' || e.type === 'red_card_trainer',
+      // Met de naam uit de wedstrijdinfo als die er is: "Jan Peeters (trainer)", anders "Trainer".
+      naam: staf(e.type) ? stafLabel(e, m) : fieldName(m, e.playerId),
+    }));
 }
 function periodBenchNames(m, qNum) {
   if (!qNum) return [];
