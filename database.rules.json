@@ -133,7 +133,32 @@
         // toont dat overzicht een nette melding in plaats van alsnog alle wedstrijden van alle ploegen
         // binnen te halen — gemeten: ~90 KB per ploeg, ruim 2 MB over 26 ploegen, en dat groeit.
         "matches": {
-          ".indexOn": ["date"]
+          ".indexOn": ["date"],
+
+          // EEN GESPEELDE WEDSTRIJD KAN NIET LEEGGESCHREVEN WORDEN (v1.99.11, na twee verloren
+          // verslagen op 30-09 en 04-10-2026). De app heeft daar sinds v1.99.9 drie wachters voor,
+          // maar die zitten in de app: een toestel dat nooit bijwerkt, draagt ze niet. Dit is
+          // dezelfde grens, hier onder in de databank, en ze geldt voor elke versie.
+          //
+          // DE VORM DIE TEGENGEHOUDEN WORDT: er staat hier een wedstrijd MET blokken, en wat
+          // binnenkomt heeft GEEN blokken maar WEL gebeurtenissen. Dat is altijd een achterstand —
+          // een toestel dat de wedstrijd nog in de voorbereiding had staan en zijn versie doorduwt,
+          // of een kopie die uit de samenvoeging kwam met de gebeurtenissen maar zonder de blokken.
+          //
+          // WAT ER WEL DOOR MAG, en waarom de regel precies zó geformuleerd is:
+          //   - "Opnieuw beginnen" en "Toch nog niet gestart" zetten de wedstrijd op nul blokken én
+          //     nul gebeurtenissen. Geen gebeurtenissen, dus geen botsing.
+          //   - Een nieuwe wedstrijd: er staat hier nog niets, dus er valt niets te beschermen.
+          //   - Elke gewone bewaring van een lopende of afgesloten wedstrijd: die heeft blokken.
+          //   - Een gerichte wijziging van één veldje raakt deze regel niet (een .validate geldt voor
+          //     het pad dat geschreven wordt en wat eronder hangt, niet voor de ouders).
+          //
+          // ALS ZE TOCH ÉÉN KEER TE STRENG IS, loopt het niet dood: de bewaring mislukt enkel in de
+          // cloud, de app bewaart lokaal gewoon en meldt "Synchronisatie mislukt". Niemand verliest
+          // zijn werk; het blijft op dat toestel staan.
+          "$matchId": {
+            ".validate": "!(data.child('quarters').hasChildren() && !newData.child('quarters').hasChildren() && newData.child('events').hasChildren())"
+          }
         }
       }
     },
