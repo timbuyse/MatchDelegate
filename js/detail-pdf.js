@@ -395,7 +395,9 @@ async function toggleMatchSlot() {
   // `false` en niet het veld wissen: een ontbrekend veld en `false` betekenen hier hetzelfde, maar bij
   // het samenvoegen met een ander toestel is "uitdrukkelijk uit" ondubbelzinniger dan "staat er niet".
   m.vergrendeld = aan;
-  await dbSave(m);
+  // STIL BEWAREN (Tim, 04-10-2026): een slotje om- of afzetten is geen bewerking aan de wedstrijd,
+  // dus het hoort de regel "Laatst bewerkt" niet te verzetten. Zie dbSave in core.js.
+  await dbSave(m, { stil: true });
   render();
   showToast(aan
     ? 'Vergrendeld — er zijn geen wijzigingen meer mogelijk.'

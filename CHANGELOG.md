@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.14
+
+**Een slotje om- of afzetten telt niet meer als een bewerking.** Tim: *"als er enkel een slotje wordt
+opgezet, dan is dat niet nodig om dat te melden als laatst bijgewerkt."*
+
+De regel **'Laatst bewerkt'** onder Wedstrijdinfo blijft nu staan op wie er écht iets aan de
+wedstrijd veranderde. Vergrendelen is huishouding, geen wijziging aan het verslag.
+
+Dat heeft nog een tweede, nuttig gevolg. Datzelfde tijdstempel bepaalt bij het samenvoegen welke
+kopie wint. Een slotje krijgt daardoor geen voorrang meer op écht werk van een ander toestel. Het
+enige wat je daarbij kan verliezen is het slotje zelf, en dat zet je met één tik terug.
+
+---
+
 ## v1.99.13
 
 **Het offline-vangnet laat een voorbereiding niet langer winnen van een gespeelde wedstrijd.** Dit is

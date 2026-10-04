@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.13'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.14'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1976,23 +1976,33 @@ function dbGet(id) {
     r.onerror = e => rej(e.target.error);
   });
 }
-function dbSave(m) {
-  m.updatedAt = Date.now();
-  // WIE ER HET LAATST SCHREEF (v1.9.0). Nodig voor de waarschuwing "er is nog iemand met deze
-  // wedstrijd bezig" — zie _andereBeheerder in applyCloudMatch. Bewust een gewoon veld op de
-  // wedstrijd en geen aparte aanwezigheidsknoop: dat zou een nieuwe plek in de databank vragen
-  // mét eigen rechtenregels, terwijl dit meelift op de schrijfweg die er al is. Oude wedstrijden
-  // hebben het veld niet; dan gebeurt er simpelweg niets.
-  if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) m.updatedBy = currentUser.uid;
-  // EN ZIJN NAAM ERBIJ (Tim, 04-10-2026: "ik wil als ploegbeheerder zien bij een match wie hem laatst
-  // bewerkt heeft en op welk tijdstip"). `updatedBy` hierboven is een gebruikerscode, en die is voor
-  // een mens niets: wie ze wil omzetten naar een naam, moet de ledenlijst van de ploeg kunnen lezen —
-  // en dat mag een kijker niet. Dus de naam zelf erbij, net als bij `bijgehoudenDoor` (zie
-  // startQuarter in live-match.js) en om exact dezelfde reden. Het is meteen de naam van TOEN: wie
-  // zich later hernoemt, herschrijft daarmee geen oude wedstrijd.
-  // Geen naam gekend (bv. een gast)? Dan blijft het veld weg en toont het scherm enkel het tijdstip.
-  const _naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
-  if (_naam) m.updatedByNaam = _naam;
+// `opt.stil` = huishouding, géén bewerking aan het verslag (Tim, 04-10-2026: "als er enkel een
+// slotje wordt opgezet, dan is dat niet nodig om dat te melden als laatst bijgewerkt"). Dan blijft
+// het stempeltrio hieronder staan zoals het stond.
+// DAT STEMPELTJE DOET TWEE DINGEN TEGELIJK, en net daarom is het hier goed om het met rust te laten:
+// het voedt de regel "Laatst bewerkt" in het verslag, én het beslist bij het samenvoegen welke kopie
+// wint (zie het offline-vangnet in applyCloudMatch). Een slotje niet stempelen betekent dus ook dat
+// het geen voorrang krijgt op écht werk van een ander toestel. Het enige wat daarbij verloren kan
+// gaan is het slotje zelf, en dat staat er met één tik weer op.
+function dbSave(m, opt) {
+  if (!(opt && opt.stil)) {
+    m.updatedAt = Date.now();
+    // WIE ER HET LAATST SCHREEF (v1.9.0). Nodig voor de waarschuwing "er is nog iemand met deze
+    // wedstrijd bezig" — zie _andereBeheerder in applyCloudMatch. Bewust een gewoon veld op de
+    // wedstrijd en geen aparte aanwezigheidsknoop: dat zou een nieuwe plek in de databank vragen
+    // mét eigen rechtenregels, terwijl dit meelift op de schrijfweg die er al is. Oude wedstrijden
+    // hebben het veld niet; dan gebeurt er simpelweg niets.
+    if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) m.updatedBy = currentUser.uid;
+    // EN ZIJN NAAM ERBIJ (Tim, 04-10-2026: "ik wil als ploegbeheerder zien bij een match wie hem laatst
+    // bewerkt heeft en op welk tijdstip"). `updatedBy` hierboven is een gebruikerscode, en die is voor
+    // een mens niets: wie ze wil omzetten naar een naam, moet de ledenlijst van de ploeg kunnen lezen —
+    // en dat mag een kijker niet. Dus de naam zelf erbij, net als bij `bijgehoudenDoor` (zie
+    // startQuarter in live-match.js) en om exact dezelfde reden. Het is meteen de naam van TOEN: wie
+    // zich later hernoemt, herschrijft daarmee geen oude wedstrijd.
+    // Geen naam gekend (bv. een gast)? Dan blijft het veld weg en toont het scherm enkel het tijdstip.
+    const _naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+    if (_naam) m.updatedByNaam = _naam;
+  }
   return new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').put(m);
     r.onsuccess = () => { cloudOnLocalMatchSave(m); res(); };
