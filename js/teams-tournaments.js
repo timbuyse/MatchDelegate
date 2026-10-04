@@ -1835,6 +1835,9 @@ async function doDeleteTournament(id) {
   // en geen nieuwe: de rules staan daar al goed, dus er valt niets te publiceren.
   const t = tournamentById(id);
   if (t && cloudReady && fbdb && activeTeamId && isAdmin) {
+    // EERST BEWAREN, PAS DAARNA WISSEN (Tim, 04-10-2026) — zelfde rechtzetting als bij
+    // deleteCurrentMatch, en dezelfde regel die het verwijderen van een tornooi MÉT wedstrijden
+    // hierboven al volgt: mislukt de back-up, dan gaat er niets weg.
     try {
       await fbdb.ref('deletedMatches/' + activeTeamId + '/' + id).set({
         deletedAt: Date.now(),
@@ -1842,7 +1845,11 @@ async function doDeleteTournament(id) {
         deletedByEmail: (currentUser && currentUser.email) || '',
         tournament: jclone(t),
       });
-    } catch (e) {}
+    } catch (e) {
+      closeModal();
+      showToast('Er kon geen veiligheidskopie bewaard worden — het tornooi is daarom niet verwijderd. Probeer het straks opnieuw.', 'err');
+      return;
+    }
   }
   deleteTournament(id);
   currentTournament = null; closeModal(); go('tournaments');

@@ -943,25 +943,40 @@ function confirmDelete() {
 async function deleteCurrentMatch() {
   if (!canManage()) return;   // tweede slot: de handler weigert zelf, ook als de knop ergens blijft staan
   const m = match;
+  if (!m) { closeModal(); return; }
   // Vangnet: back-up naar de cloud vóór de echte verwijdering, zodat een misklik herstelbaar
   // blijft (zelfde patroon als deletedTeams bij ploeg verwijderen). Enkel zinvol voor
   // cloud-wedstrijden — een zuiver lokale wedstrijd heeft toch nooit een cloud-spoor.
-  if (cloudReady && activeTeamId && isAdmin && m) {
+  if (cloudReady && fbdb && activeTeamId && isAdmin) {
+    // DE NOTITIES IN HUN EIGEN OPVANG. Ze stonden in dezelfde try als de back-up zelf, dus een
+    // mislukte lezing sloeg de HELE back-up over — terwijl de wedstrijd prima te bewaren was.
+    // fbOnce() i.p.v. ruwe once('value'): offline zonder gecachte waarde resolvet die nooit, en een
+    // try/catch vangt dat niet op (geen reject, gewoon een eeuwig hangende await). fbOnce() gooit
+    // bij timeout wél. Zonder notities verder gaan is hier de juiste keuze: liever een back-up met
+    // één ontbrekend stuk dan geen back-up.
+    let notes = null;
     try {
       const nr = notesRef(m.id);
-      // fbOnce() i.p.v. ruwe once('value'): offline zonder gecachte waarde resolvet die
-      // nooit, en de bestaande try/catch vangt dat niet op (geen reject, gewoon een eeuwig
-      // hangende await) — de bevestigingsmodal bleef dan open zonder foutmelding of lokale
-      // verwijdering. fbOnce() gooit bij timeout wél, wat hier alsnog netjes wordt opgevangen.
-      const notesSnap = nr ? await fbOnce(nr) : null;
+      const snap = nr ? await fbOnce(nr) : null;
+      notes = snap ? snap.val() : null;
+    } catch (e) { /* zonder notities verder */ }
+    // EERST BEWAREN, PAS DAARNA WISSEN (Tim, 04-10-2026). Mislukte deze schrijfpoging, dan werd dat
+    // hier stil opgevangen en verdween de wedstrijd tóch — zonder vangnet, terwijl het herstelscherm
+    // doet geloven dat er altijd eentje is. Zelfde keuze als bij "Opnieuw beginnen": liever een
+    // wedstrijd die blijft staan dan een die onherstelbaar weg is.
+    try {
       await fbdb.ref('deletedMatches/' + activeTeamId + '/' + m.id).set({
         deletedAt: Date.now(),
         deletedBy: currentUser ? currentUser.uid : null,
         deletedByEmail: (currentUser && currentUser.email) || '',
         match: jclone(m),
-        notes: notesSnap ? notesSnap.val() : null,
+        notes,
       });
-    } catch (e) {}
+    } catch (e) {
+      closeModal();
+      showToast('Er kon geen veiligheidskopie bewaard worden — de wedstrijd is daarom niet verwijderd. Probeer het straks opnieuw.', 'err');
+      return;
+    }
   }
   await dbDel(m.id); match = null; closeModal(); go('home');
 }

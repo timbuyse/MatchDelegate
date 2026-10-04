@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.12
+
+**Mislukt de veiligheidskopie, dan wordt er niets meer gewist.** Verwijderen van een wedstrijd zette
+eerst een kopie in de prullenmand, maar lukte dat niet — geen verbinding, een geweigerde
+schrijfpoging — dan werd die fout stil weggeslikt en verdween de wedstrijd tóch. Precies op het
+moment dat het vangnet het meest nodig was, was het er niet.
+
+Nu geldt dezelfde volgorde als bij *'Opnieuw beginnen'*: eerst bewaren, pas daarna wissen. Komt de
+kopie er niet door, dan blijft de wedstrijd gewoon staan en zegt de app waarom. Hetzelfde geldt voor
+een tornooi zonder wedstrijden; een tornooi mét wedstrijden deed het al zo.
+
+Er zat nog een tweede knoop in. Het ophalen van de notities en het wegschrijven van de kopie deelden
+één opvang, dus een onleesbare notitie sloeg de héle kopie over — terwijl de wedstrijd zelf prima te
+bewaren was. Die twee staan nu los van elkaar: lukt de notitie niet, dan gaat de kopie door zonder.
+
+Een zuiver lokale wedstrijd verandert niet: daar is geen prullenmand en wordt er niets geprobeerd.
+
+---
+
 ## v1.99.11
 
 **Eén gewiste gebeurtenis zette de wachter niet meer permanent uit.** Uit de back-up van vanmiddag
