@@ -5607,6 +5607,24 @@ function matchItemHtml(m) {
 // Nu blijft het vak leeg en komt de melding er pas als er na een vijfde van een seconde nog niets
 // staat. Dat is traag genoeg om niet te flitsen en snel genoeg om niet als een leeg scherm te lezen.
 // Is het scherm intussen verlaten, dan bestaat het vak niet meer en gebeurt er niets.
+// HETZELFDE VAK NIET OPNIEUW OPBOUWEN (Tim, 04-10-2026: "nog steeds flits" — "enkel bij openen
+// ploeg; terugkeren van wedstrijd naar ploeg doet het niet").
+//
+// Dat verschil wees de weg. Terugkeren tekent het startscherm één keer. Een ploeg ÓPENEN start ook
+// de luisteraars opnieuw (zie selectTeam → cloudListen), en hun eerste momentopname laat loadHome
+// een tweede keer draaien. Dat leverde dezelfde tegels op, maar `innerHTML` vervangen bouwt het vak
+// wél helemaal opnieuw op — en dat is de flits.
+//
+// Het merkje staat op het ELEMENT en niet in een losse variabele: vervangt render() de hele pagina,
+// dan is dit een nieuw element zonder merkje en wordt er gewoon getekend. Vergelijken met
+// `el.innerHTML` zou niet werken — de browser schrijft die terug in zijn eigen vorm, dus die tekst
+// is nooit exact wat we er insteken.
+function zetInhoud(el, html) {
+  if (!el) return;
+  if (el.__html === html) return;
+  el.__html = html;
+  el.innerHTML = html;
+}
 function laadVlagVertraagd(id, tekst) {
   setTimeout(() => {
     const el = document.getElementById(id);
@@ -5694,7 +5712,7 @@ async function loadHome() {
     const startBtns = canManage()
       ? `<button class="btn btn-org" style="margin-top:12px" onclick="go('teams')">${icI(IC.players)} Ploeg aanmaken</button>`
       : '';
-    el.innerHTML = offlineBanner + mailNudgeHtml() + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>${startBtns}`;
+    zetInhoud(el, offlineBanner + mailNudgeHtml() + tiles + `<div class="empty"><div class="ei">${IC.players}</div>${emptyMsg}</div>${startBtns}`);
     return;
   }
   const guestBanner = isGuest
@@ -5781,7 +5799,7 @@ async function loadHome() {
     const liveHtml = liveMatches.length
       ? liveMatches.map(matchItemHtml).join('')
       : `<div class="empty" style="padding:24px 0"><div class="ei">${IC.ball}</div><p>Geen live wedstrijden op dit moment.</p></div>`;
-    el.innerHTML = guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml;
+    zetInhoud(el, guestBanner + `<div class="sec">${icI(IC.ball)} Live wedstrijden</div>` + liveHtml);
     return;
   }
   // Vergeten-open-wedstrijd-melding: een live wedstrijd die niet afgesloten werd laat zijn klok op
@@ -5878,7 +5896,7 @@ async function loadHome() {
         ${clubLogo ? `<img src="${clubLogo}" alt="" style="width:40px;height:40px;object-fit:contain">` : ''}
         ${activeClubName ? `<span style="font-size:13px;color:var(--txt2);font-weight:600">${esc(activeClubName)}</span>` : ''}
       </div>` : '';
-  el.innerHTML = offlineBanner + guestBanner + mailNudgeHtml() + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter;
+  zetInhoud(el, offlineBanner + guestBanner + mailNudgeHtml() + viewerWelcome + forgottenBanner + tiles + createTeamHint + newBtn + filterBar + matchSection + noneSection + openOudHtml + recentHtml + trnSection + coAdminHint + clubFooter);
   // "Wat is er nieuw" bij een major-versie — hier en niet in init(), omdat de gebruiker op dit punt
   // écht binnen is (voorbij splash, aanmelden en setup). Eén keer per sessie proberen; de melding
   // zelf beslist of ze getoond wordt (zie toonNieuwAlsNodig in core.js).

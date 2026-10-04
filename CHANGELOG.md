@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.6
+
+**En nu de flits zelf.** Tim: *"nog steeds flits"* — en toen de aanwijzing die alles besliste:
+*"enkel bij openen ploeg; terugkeren van wedstrijd naar ploeg doet het niet."*
+
+Dat verschil wees de weg. Terugkeren naar je ploeg vult het startscherm één keer. Een ploeg **openen**
+start ook de verbinding met de cloud opnieuw, en zodra die zijn eerste gegevens stuurt wordt het
+startscherm een tweede keer gevuld. Dezelfde tegels, dezelfde wedstrijden — maar het vak werd wel
+helemaal opnieuw opgebouwd, en dat is wat je zag.
+
+Het startscherm bouwt zich nu alleen opnieuw op als er echt iets veranderd is. Komt er bij het openen
+nieuws binnen — een wedstrijd die iemand anders toevoegde — dan zie je dat gewoon verschijnen, zoals
+het hoort.
+
+---
+
 ## v2.1.5
 
 **Het scherm bouwt zichzelf niet meer twee keer op bij het openen van een ploeg.** Tim: *"het hele
