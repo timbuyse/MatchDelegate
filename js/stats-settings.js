@@ -2227,6 +2227,11 @@ function renderHandleiding(p) {
 }
 function hdlGo(p) {
   document.getElementById('app').innerHTML = renderHandleiding(p);
+  // render() slaat het tekenen over wanneer het dezelfde HTML oplevert als de vorige keer (zie daar).
+  // Deze pagina schrijft búiten render() in #app, dus die vergelijking klopt daarna niet meer: een
+  // volgende render() met de HTML van vóór de handleiding zou overgeslagen worden en dan bleef deze
+  // pagina staan. Vandaar het geheugen wissen.
+  _laatsteHtml = null;
   window.scrollTo(0, 0);
   document.getElementById('app').scrollTop = 0;
 }

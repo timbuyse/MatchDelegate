@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.1.5
+
+**Het scherm bouwt zichzelf niet meer twee keer op bij het openen van een ploeg.** Tim: *"het hele
+scherm bouwt twee keer op"* — dat was de flits die na v2.1.4 nog overbleef.
+
+Een ploeg openen tekent twee keer: één keer meteen, en nog eens zodra de ploeginfo uit de cloud
+binnen is of de luisteraars hun eerste gegevens sturen. Die tweede keer levert meestal exact
+hetzelfde scherm op, omdat alles al op je toestel stond — maar de app bouwde het wel helemaal
+opnieuw op, en dat zie je.
+
+Levert het tekenen hetzelfde op, dan blijft de pagina nu gewoon staan. De schermen halen hun
+gegevens nog altijd op, dus er wordt niets gemist; enkel het opnieuw opbouwen valt weg. Dat houdt
+meteen je scrollpositie vast en wat je in een veld aan het typen was.
+
+---
+
 ## v2.1.4
 
 **Geen 'Laden…' meer dat even opflitst bij het openen van een ploeg.** Tim: *"ik zie nog kortstondig

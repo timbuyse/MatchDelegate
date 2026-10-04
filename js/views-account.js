@@ -5026,7 +5026,28 @@ window.addEventListener('popstate', async e => {
 });
 // De naam onderaan is een link naar de website. Bewust in een nieuw tabblad: de app is een PWA en
 // wie hier per ongeluk op tikt, mag zijn lopende wedstrijd niet kwijtspelen.
-function render() { document.getElementById('app').innerHTML = views[view]() + '<div class="credit"><a href="https://matchdelegate.be" target="_blank" rel="noopener">MatchDelegate</a> · App created by <b>Tim Buyse</b></div>'; }
+// HETZELFDE SCHERM NIET OPNIEUW OPBOUWEN (Tim, 04-10-2026: "ik zie nog kortstondig een laden flits
+// bij het openen of terugkeren naar een ploeg" — "het hele scherm bouwt twee keer op").
+//
+// Een ploeg openen tekent twee keer: één keer meteen, en nog eens zodra de ploeginfo uit de cloud
+// binnen is (zie fetchTeamInfo) of de luisteraars hun eerste momentopname sturen. Die tweede keer
+// levert meestal exact dezelfde HTML op — alles stond al in de cache — maar `innerHTML` vervangen
+// bouwt het scherm wél helemaal opnieuw op, en dat is de flits.
+//
+// Levert het tekenen hetzelfde op, dan laten we de pagina staan. De schermfuncties zelf draaien nog
+// altijd (loadHome en co. halen hun gegevens op), dus er wordt niets gemist; enkel het vervangen van
+// de DOM valt weg. Dat behoudt meteen je scrollpositie en wat je in een veld aan het typen was.
+//
+// `_laatsteHtml` moet op null zodra iemand ANDERS in #app schrijft — de handleiding doet dat
+// rechtstreeks (zie toonHandleiding in stats-settings.js). Anders zou een volgende render() met
+// dezelfde HTML als vóór de handleiding overgeslagen worden en bleef die pagina staan.
+let _laatsteHtml = null;
+function render() {
+  const html = views[view]() + '<div class="credit"><a href="https://matchdelegate.be" target="_blank" rel="noopener">MatchDelegate</a> · App created by <b>Tim Buyse</b></div>';
+  if (html === _laatsteHtml) return;
+  _laatsteHtml = html;
+  document.getElementById('app').innerHTML = html;
+}
 
 // ===================== VISUAL PITCH =====================
 // Achternaam = alles na het eerste woord (voornaam), incl. tussenvoegsel (De, Van, ...).
