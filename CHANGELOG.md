@@ -9,6 +9,34 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.9
+
+**Een toestel dat niets te melden heeft, kan geen verslag meer overschrijven.** Na het verlies van het
+verslag van een U8P-wedstrijd van 30 september.
+
+Sinds 15 september bestond er al een wachter: krijgt jouw toestel een lege versie van een wedstrijd
+binnen terwijl het zelf nog alles heeft, dan weigert het die en duwt het zijn eigen versie terug. Maar
+die wachter zat alleen op het **ontvangen**. Een toestel dat zélf niets had — bijvoorbeeld omdat de
+wedstrijd daar nog in de voorbereiding stond en iemand anders ze op een ander toestel volgde — mocht
+zijn lege versie gewoon wegschrijven. Dan was het verslag in de cloud weg, en kwam de leegte bij
+iedereen terecht.
+
+Nu kijkt de app ook aan de verzendkant. Gaat het om een wedstrijd **zonder blokken, zonder
+gebeurtenissen en zonder bewust gewiste gebeurtenissen** — de vorm die niets te vertellen heeft — dan
+vraagt ze eerst één keer na wat er in de cloud staat. Staat daar een gespeelde wedstrijd, dan wordt er
+niets overschreven: het volledige verslag wordt juist teruggehaald naar dit toestel, met een melding
+erbij.
+
+Die extra vraag kost enkel iets bij een lege wedstrijd. Een wedstrijd die je aan het volgen bent heeft
+altijd blokken en komt er nooit langs — gemeten. Een wedstrijd die je bewust terugnam met *'Opnieuw
+beginnen'* of *'Toch nog niet gestart'* ook niet: die draagt merkjes van wat ze weghaalde, en dat is
+precies het verschil met een achterstand.
+
+Geen antwoord van de databank — offline, trage verbinding — houdt nooit een bewaring tegen. Dit is een
+vangnet, geen slot.
+
+---
+
 ## v1.99.8
 
 **Bij een wedstrijd staat nu wie er het laatst aan kwam, en wanneer.** Tim: *"ik wil als

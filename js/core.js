@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3375,8 +3375,49 @@ function _syncFail() {
   _lastSyncFailAt = now;
   showToast('Synchronisatie mislukt — wijziging is wel lokaal bewaard.', 'err');
 }
+// WACHTER 3, AAN DE VERZENDKANT (Tim, 04-10-2026, na een verloren wedstrijdverslag van U8P).
+// Wachter 1 in applyCloudMatch houdt tegen dat een LEGE kopie uit de cloud jouw volle versie
+// overschrijft. Maar ze zit enkel op het ONTVANGEN: een toestel dat zelf niets heeft, mocht zijn
+// leegte gewoon over de cloud schrijven, en dan was het verslag daar weg. Precies dat gebeurde op
+// 04-10-2026: een toestel had de wedstrijd nog in de voorbereiding staan (opstelling getekend, nooit
+// gestart), iemand anders volgde ze live op een ander toestel, en drie dagen later duwde het eerste
+// toestel zijn versie door. Nul grafstenen, dus niets was bewust teruggenomen.
+//
+// WANNEER KIJKT DEZE WACHTER. Enkel bij een wedstrijd zonder blokken, zonder gebeurtenissen en zonder
+// grafstenen — de vorm die niets te vertellen heeft. Dat kost één extra vraag aan de databank op een
+// moment dat niemand haast heeft; een wedstrijd die je aan het volgen bent heeft altijd blokken en
+// komt hier dus nooit langs.
+// Grafstenen tellen mee omdat ze het verschil maken met een ECHTE terugname ("Opnieuw beginnen",
+// "Toch nog niet gestart"): die zetten een merkje op elk event dat ze weghalen. Zelfde onderscheid
+// als bij wachter 1.
+//
+// GEEN ANTWOORD = GEWOON SCHRIJVEN. Offline, een trage verbinding of een geweigerde lezing mogen nooit
+// een bewaring tegenhouden; dit is een vangnet, geen slot.
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
+  const nietsTeMelden = !((m.quarters || []).length)
+    && !((m.events || []).length)
+    && !((m.deletedEventIds || []).length);
+  if (nietsTeMelden) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
+  _cloudMatchSchrijf(r, m);
+}
+async function _cloudMatchSchrijfVoorzichtig(r, m) {
+  try {
+    const s = await fbOnce(r, 4000);
+    const cloud = s && s.val();
+    const q = cloud && cloud.quarters;
+    const blokken = Array.isArray(q) ? q.length : (q && typeof q === 'object' ? Object.keys(q).length : 0);
+    if (blokken > 0) {
+      // Daar staat een wedstrijd die wél gespeeld is. Niet overschrijven, en meteen rechtzetten op dit
+      // toestel ook: dan ziet degene die hier zat waarom er plots wél een verslag staat.
+      await applyCloudMatch(m.id, cloud);
+      showToast('Deze wedstrijd was elders al gevolgd — het verslag is teruggehaald in plaats van overschreven.', 'ok');
+      return;
+    }
+  } catch (e) { /* geen antwoord: schrijven zoals voordien */ }
+  _cloudMatchSchrijf(r, m);
+}
+function _cloudMatchSchrijf(r, m) {
   try {
     const c = jclone(m);
     // De fotofunctie is weg sinds v1.5.0, maar wedstrijden van vóór die versie kunnen nog een foto
