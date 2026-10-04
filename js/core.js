@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '1.99.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '1.99.10'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3383,22 +3383,31 @@ function _syncFail() {
 // gestart), iemand anders volgde ze live op een ander toestel, en drie dagen later duwde het eerste
 // toestel zijn versie door. Nul grafstenen, dus niets was bewust teruggenomen.
 //
-// WANNEER KIJKT DEZE WACHTER. Enkel bij een wedstrijd zonder blokken, zonder gebeurtenissen en zonder
-// grafstenen — de vorm die niets te vertellen heeft. Dat kost één extra vraag aan de databank op een
-// moment dat niemand haast heeft; een wedstrijd die je aan het volgen bent heeft altijd blokken en
-// komt hier dus nooit langs.
-// Grafstenen tellen mee omdat ze het verschil maken met een ECHTE terugname ("Opnieuw beginnen",
-// "Toch nog niet gestart"): die zetten een merkje op elk event dat ze weghalen. Zelfde onderscheid
-// als bij wachter 1.
+// WANNEER KIJKT DEZE WACHTER: bij elke wedstrijd ZONDER BLOKKEN die geen grafstenen draagt.
+//
+// DE EERSTE VERSIE KEEK NAAR "HELEMAAL LEEG" — geen blokken én geen gebeurtenissen — en dat was te
+// smal. Nog diezelfde dag liep een tweede wedstrijd schade op (U8P Zwart tegen KVK Avelgem): die kwam
+// uit de samenvoeging met 48 gebeurtenissen maar nul blokken, want wachter 1 redt wél de
+// gebeurtenissen en niet de blokken. Precies die vorm glipte er dan door, en een volgende bewaring zou
+// een herstelde wedstrijd opnieuw stukmaken.
+// NUL BLOKKEN IS HET SIGNAAL, niet de leegte: een gespeelde wedstrijd heeft altijd blokken. Staat er in
+// de cloud wél een wedstrijd mét blokken, dan is wat hier staat per definitie een achterstand.
+//
+// Grafstenen sluiten dat uit, want ze maken het verschil met een ECHTE terugname ("Opnieuw beginnen",
+// "Toch nog niet gestart"): die zetten een merkje op elk event dat ze weghalen. Zelfde onderscheid als
+// bij wachter 1.
+//
+// WAT HET KOST. Eén extra vraag aan de databank, en enkel voor een wedstrijd zonder blokken — een
+// wedstrijd die je aan het volgen bent heeft er altijd, en komt hier dus nooit langs. Een snel
+// ingegeven uitslag (doelpunten zonder blokken) betaalt die vraag wel, en dat is precies goed: staat
+// er in de cloud een volledig gevolgde versie, dan hoort die niet door een snelinvoer gewist te worden.
 //
 // GEEN ANTWOORD = GEWOON SCHRIJVEN. Offline, een trage verbinding of een geweigerde lezing mogen nooit
 // een bewaring tegenhouden; dit is een vangnet, geen slot.
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
-  const nietsTeMelden = !((m.quarters || []).length)
-    && !((m.events || []).length)
-    && !((m.deletedEventIds || []).length);
-  if (nietsTeMelden) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
+  const zonderBlokken = !((m.quarters || []).length) && !((m.deletedEventIds || []).length);
+  if (zonderBlokken) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
   _cloudMatchSchrijf(r, m);
 }
 async function _cloudMatchSchrijfVoorzichtig(r, m) {

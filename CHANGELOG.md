@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v1.99.10
+
+**De wachter van gisteren kijkt nu naar de blokken, niet naar de leegte.** Nog diezelfde dag liep een
+tweede wedstrijd schade op — U8P Zwart tegen KVK Avelgem — en die kwam er net langs.
+
+De wachter van v1.99.9 greep alleen in bij een wedstrijd die helemaal niets had: geen blokken én geen
+gebeurtenissen. De beschadigde Zwart-wedstrijd droeg wél haar 48 gebeurtenissen maar géén blokken,
+want de oudere wachter aan de ontvangstkant redt de gebeurtenissen en de blokken niet. In die vorm
+mocht ze dus nog altijd wegschrijven, en dan maakte ze een herstelde wedstrijd meteen opnieuw stuk.
+
+Nul blokken is het signaal, niet de leegte: een gespeelde wedstrijd heeft altijd blokken. Staat er in
+de cloud een wedstrijd mét blokken, dan loopt dit toestel per definitie achter en wordt er niets
+overschreven — het volledige verslag komt in de plaats daarvan terug.
+
+Een bewuste terugname met *'Opnieuw beginnen'* of *'Toch nog niet gestart'* blijft ongemoeid: die
+draagt merkjes van wat ze weghaalde. Een snel ingegeven uitslag betaalt de extra vraag wel, en dat is
+precies de bedoeling — ook die hoort een volledig gevolgde wedstrijd niet te wissen. Geen antwoord van
+de databank houdt nog altijd niets tegen.
+
+---
+
 ## v1.99.9
 
 **Een toestel dat niets te melden heeft, kan geen verslag meer overschrijven.** Na het verlies van het
