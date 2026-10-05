@@ -30,7 +30,7 @@ function renderBeheer() {
     </div>` : (ownerUid ? `
     <div class="card"><p style="color:var(--txt2);font-size:14px;margin:0">Dit scherm is enkel voor de maker van de app.</p></div>` : '');
 
-  return `<div class="hdr"><button class="back" onclick="go(_beheerFrom||'teamselect')">‹</button><h1>${icI(IC.shield)} App-beheer</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug(_beheerFrom||'teamselect')">‹</button><h1>${icI(IC.shield)} App-beheer</h1></div>
   <div class="content">
     ${ownerBlock}
     ${toolsBlock}
@@ -56,8 +56,10 @@ let _clubBeheerFrom = 'teamselect';
 function naarClubbeheer(cid, vanaf) { _clubBeheerId = cid || null; _clubBeheerFrom = vanaf || 'teamselect'; go('clubbeheer'); }
 function renderClubBeheer() {
   setTimeout(loadClubBeheerView, 0);
-  const terug = (_clubBeheerFrom === 'clubsadmin' && isOwner) ? 'clubsadmin' : (_clubBeheerFrom || 'teamselect');
-  return `<div class="hdr"><button class="back" onclick="go('${terug}')">‹</button><h1>${icI(IC.players)} Clubbeheer</h1></div>
+  // Niet `terug` noemen: zo heet de functie van de terugpijl hieronder, en die willen we hier niet
+  // overschaduwen.
+  const terugDoel = (_clubBeheerFrom === 'clubsadmin' && isOwner) ? 'clubsadmin' : (_clubBeheerFrom || 'teamselect');
+  return `<div class="hdr"><button class="back" onclick="terug('${terugDoel}')">‹</button><h1>${icI(IC.players)} Clubbeheer</h1></div>
   <div class="content" id="clubbeheer-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 // DE EIGENAAR ZIET ALLE CLUBS (v1.82.0). Tot hier werkte dit scherm uitsluitend op `myClubs`, de
@@ -317,9 +319,9 @@ async function unarchiveTeam(tid) {
 // migratiescript-trucje. Aanstellen zet clubs/{id}/admins/{uid}=true én de omgekeerde index
 // users/{uid}/clubs/{id}='admin' (die de app in loadOwnerStatus als myClubs leest).
 function renderClubsAdmin() {
-  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Clubs beheren</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>Clubs beheren</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadClubsAdminView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Clubs beheren</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Clubs beheren</h1></div>
   <div class="content" id="clubsadmin-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 async function loadClubsAdminView() {
@@ -724,9 +726,9 @@ async function doAppointTeamAdmin(tid) {
 // vroegere showAllUsersModal()-modal door een apart scherm: schaalt beter bij veel ploegen
 // dankzij een zoekveld en per-ploeg inklapbare secties i.p.v. één lange platte lijst.
 function renderAllUsers() {
-  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadAllUsersView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div>
   <div class="content">
     <div class="fg" style="margin-bottom:16px"><input id="allusers-search" type="text" placeholder="Zoek op naam of e-mail..." oninput="filterAllUsersView(this.value)"></div>
     <div id="allusers-view-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
@@ -1191,8 +1193,8 @@ async function bewaarGebruikerNaam(uid, wissen) {
     // memberInfo/$teamId), dus dit vraagt geen enkel extra recht.
     // Blijft staan bij zijn volgende aanmelding: writeMemberInfo leest sindsdien eerst `userNames`.
     // Wis je de naam, dan zetten we terug wat hij zélf bij het registreren invulde.
-    const terug = ((( _allUsersData || {}).ube || {})[uid] || {}).name || '';
-    const teZetten = naam || terug;
+    const vanRegistratie = ((( _allUsersData || {}).ube || {})[uid] || {}).name || '';
+    const teZetten = naam || vanRegistratie;
     const zijnPloegen = ((_allUsersData || {}).ploegen || []).filter(p => (p.members || {})[uid]);
     let mislukt = 0;
     for (const p of zijnPloegen) {
@@ -1251,10 +1253,10 @@ let _onlineEigenNamen = null; // uid -> naam die de eigenaar rechtzette; wint va
 let _onlineTeamInfo = {};     // teamId -> {naam, club}
 let _onlineMatchNaam = {};    // teamId/matchId -> tegenstander
 function renderOnline() {
-  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Nu online</h1></div>
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>Nu online</h1></div>
     <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(startOnlineWatch, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.eye)} Nu online</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.eye)} Nu online</h1></div>
   <div class="content" id="online-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 function stopOnlineWatch() {
@@ -1422,10 +1424,10 @@ function onlineVoetnoot() {
 // De cijfers komen uit de gebruikstak die core.js bijhoudt (zie daar voor het hoe en waarom).
 const GEBRUIK_VENSTERS = [['Vandaag', 1], ['Laatste 7 dagen', 7], ['Laatste 30 dagen', 30]];
 function renderGebruik() {
-  if (!isOwner) return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>Gebruikscijfers</h1></div>
+  if (!isOwner) return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>Gebruikscijfers</h1></div>
     <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadGebruikView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('beheer')">‹</button><h1>${icI(IC.chart)} Gebruikscijfers</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.chart)} Gebruikscijfers</h1></div>
   <div class="content" id="gebruik-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 // Uit de ruwe gebruikstak halen wat één venster (het aantal dagen tot en met vandaag) opgeleverd
@@ -2096,9 +2098,9 @@ function renderPlayerTransfer() {
   // Speler overzetten is een club-operatie (binnen de ploegen van één club) — toegankelijk voor
   // de clubbeheerder (de eigenaar is dat ook voor zijn club). Gescoped op _clubBeheerId.
   const clubIds = Object.keys(myClubs || {});
-  if (!clubIds.length) return '<div class="hdr"><button class="back" onclick="go(\'clubbeheer\')">‹</button><h1>Spelers doorschuiven</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
+  if (!clubIds.length) return '<div class="hdr"><button class="back" onclick="terug(\'clubbeheer\')">‹</button><h1>Spelers doorschuiven</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>';
   setTimeout(loadPlayerTransferView, 0);
-  return `<div class="hdr"><button class="back" onclick="go('clubbeheer')">‹</button><h1>${icI(IC.swap)} Spelers doorschuiven</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('clubbeheer')">‹</button><h1>${icI(IC.swap)} Spelers doorschuiven</h1></div>
   <div class="content" id="playertransfer-content"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>`;
 }
 // teams/{id}/roster staat in Firebase soms als array (via de gewone lokale sync,
@@ -3604,7 +3606,7 @@ function speeldagVolledigHtml() {
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
-  return `<div class="hdr"><button class="back" onclick="go('teamselect')">‹</button>
+  return `<div class="hdr"><button class="back" onclick="terug('teamselect')">‹</button>
       <div style="flex:1;min-width:0">
         ${/* Hetzelfde rode bolletje als in het kadertje op 'Jouw ploegen' (sd-live), zodat de twee
              zichtbaar hetzelfde ding zijn. Een tint lichter dan var(--rd): deze kopbalk staat op een
@@ -4948,9 +4950,12 @@ async function go(v, id, _histReplace) {
   // alsof hij laadt") en de geschiedenis liep leeg, zodat de volgende veeg de app sloot.
   //
   // Drie rondes lappen hielpen niet; het probleem zit in de aanname dat één veld kan zeggen wat er
-  // onder een stap ligt. Wie dit opnieuw aanpakt: begin bij de terugpijlen zelf (laat ze
-  // `history.back()` doen wanneer ze bedoelen "terug") in plaats van bij go(), en meet élke keer in
-  // een VERS tabblad — een oud tabblad draagt zijn geschiedenis over een herlaadbeurt heen.
+  // onder een stap ligt.
+  //
+  // HOE HET WÉL OPGELOST IS (v2.2.0): niet hier, maar bij de terugpijlen zelf — zie `terug` onder
+  // go(). Die gaan echt terug in plaats van vooruit te navigeren, zodat go() precies blijft doen wat
+  // het altijd deed. Raak deze wachterlijst daar niet voor aan. En meet élke keer in een VERS
+  // tabblad: een oud tabblad draagt zijn geschiedenis over een herlaadbeurt heen.
   // ---------------------------------------------------------------------------------------------
   stopTimer(); releaseWake(); applyStoredTheme(); applyDark();
   // Het aanwezigheidsoverzicht luistert live mee; dat hoort te stoppen zodra je het scherm verlaat.
@@ -4990,7 +4995,14 @@ async function go(v, id, _histReplace) {
   // Sla navigatiestatus op in de browser history zodat de back-knop werkt binnen de app.
   // Auth en teamselect zijn geen echte navigatiestappen — die vervangen de huidige state.
   const noHistory = v === 'auth' || v === 'teamselect';
-  const state = { v, id: id || null };
+  // HOE DIEP ZITTEN WE IN DE APP? `d` telt de stappen die wij zélf bijgezet hebben sinds deze
+  // pagina openging. Enkel daarvoor dient het: een terugpijl mag pas écht teruggaan wanneer er iets
+  // van ons onder ligt (zie `terug` hieronder). Komt iemand rechtstreeks op een scherm binnen, dan
+  // staat de teller op nul en zou teruggaan hem de app uit sturen.
+  // VERVANGEN VERANDERT DE DIEPTE NIET: bij `auth`/`teamselect` en bij een terugkeer via popstate
+  // komt er geen stap bij, dus die erft het getal van de stap die er stond.
+  const diepte = (history.state && history.state.d) || 0;
+  const state = { v, id: id || null, d: (noHistory || _histReplace) ? diepte : diepte + 1 };
   if (noHistory || _histReplace) history.replaceState(state, '');
   else history.pushState(state, '');
   render();
@@ -4998,6 +5010,25 @@ async function go(v, id, _histReplace) {
   // écht iets veranderd is aan de wedstrijd die open staat — doorklikken kost dus geen schrijfbeurten.
   presenceSchrijf();
   updateVolgersBadge();
+}
+// EEN TERUGPIJL GAAT ÉCHT TERUG (Tim, 04/05-10-2026: "als ik in een ploeg sta en ik wil terug moet
+// ik twee keer teruggaan" — "het is het vegen").
+//
+// Elk terugpijltje riep `go(...)` aan, en dat zet een stap BIJ. Ging je met het pijltje van de ploeg
+// naar het startscherm, dan stond dat startscherm twee keer in de geschiedenis van je telefoon — en
+// wie daarna terugveegt, komt eerst weer in die ploeg.
+//
+// DIT ZIT BEWUST BIJ DE PIJLEN EN NIET IN go(). Een eerdere poging (v2.1.0–v2.1.2, teruggedraaid in
+// v2.1.3) probeerde ín go() te herkennen of een oproep "eigenlijk terug" was. Dat raadde verkeerd en
+// brak het openen van een ploeg: zie het blok bovenaan go(). Vooruit bewegen door de app blijft nu
+// precies wat het was; enkel de pijlen veranderen van gedrag.
+//
+// `doel` is het vangnet: ligt er geen stap van ons onder (je opende de app rechtstreeks op dit
+// scherm, of je kwam via een gastlink), dan zou teruggaan je de app uit sturen. Dan navigeren we
+// zoals voordien.
+function terug(doel, id) {
+  if (((history.state && history.state.d) || 0) > 0) { history.back(); return; }
+  go(doel, id);
 }
 window.addEventListener('popstate', async e => {
   const s = e.state;
@@ -5011,8 +5042,9 @@ window.addEventListener('popstate', async e => {
   if (mod && !mod.classList.contains('hidden')) {
     closeModal();
     // De stap die de browser net zette weer terugnemen, anders staat het scherm eronder wél al terug
-    // en levert de volgende terugveeg je twee stappen op.
-    try { history.pushState({ v: view, id: (match && match.id) || null }, ''); } catch (err) {}
+    // en levert de volgende terugveeg je twee stappen op. De diepte gaat mee: dit zet de stand terug
+    // zoals ze was, dus `d` hoort hetzelfde te blijven als vóór de veeg (zie `terug`).
+    try { history.pushState({ v: view, id: (match && match.id) || null, d: ((s && s.d) || 0) + 1 }, ''); } catch (err) {}
     return;
   }
   if (!s || !s.v) return;
@@ -5481,13 +5513,13 @@ const views = {
     // via loadMatches() en blijft dus wél bewaard.
     calMaand = null; calDag = null;
     loadMatches();
-    return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.ball)} Wedstrijden</h1></div>
+    return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.ball)} Wedstrijden</h1></div>
       <div class="content" id="matches-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   agenda: () => {
     calMaand = null; calDag = null;
     loadAgenda();
-    return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.calendar)} Agenda</h1></div>
+    return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.calendar)} Agenda</h1></div>
       <div class="content" id="agenda-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
   },
   // renderHerstel woont in stats-settings.js, dat ná dit bestand geladen wordt — dus pas oplossen
@@ -5500,8 +5532,8 @@ const views = {
   handleiding: () => renderHandleiding(0),
   live: () => renderLive(),
   detail: () => renderDetail(),
-  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
-  playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="go(_playerDetailFrom||'stats')">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
+  stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
+  playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="terug(_playerDetailFrom||'stats')">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playertransfer: renderPlayerTransfer,
   // Wordt bij de aanroep opgelost, niet bij het laden: renderImportCal woont in import-cal.js, dat
   // ná dit bestand geladen wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).

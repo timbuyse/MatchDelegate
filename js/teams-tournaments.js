@@ -4,7 +4,7 @@ let teamEditMode = false; // beheerder: overzicht (uit) vs. bewerkbare lijst (aa
 function renderTeamsList() {
   const teams = cloudReady ? getTeamsV2().filter(t => t.fromCloud) : getTeamsV2();
   const title = cloudReady ? `${icI(IC.players)} Spelers` : `${icI(IC.players)} Ploegen`;
-  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${title}</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${title}</h1></div>
   <div class="content">
     ${teams.length ? teams.map(t => `<div class="team-row" onclick="openTeam('${t.id}')"><div><div class="tn">${esc(t.name)}</div><div class="tc">${t.players.length} spelers</div></div><span style="margin-left:auto;color:var(--txt2);font-size:22px">›</span></div>`).join('') : `<div class="empty"><div class="ei">${IC.players}</div><p>${rosterEmptyText('Nog geen spelers.')}</p></div>`}
     ${!cloudReady && canManage()
@@ -70,7 +70,10 @@ function toonTeamScherm(s) { teamScherm = (s === 'beheer') ? 'beheer' : 'ploeg';
 // app te herladen. De schakelaar is nu weg, maar deze regel blijft op `isAdmin`: wie beheerder is,
 // raakt altijd op zijn beheerscherm, wat de kijkmodus ook zegt.
 function openCloudChip() { openSquad(isAdmin ? 'beheer' : 'ploeg'); }
-function closeTeamEdit() { editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams'); }
+// Ook dit is een terugpijl (het pijltje van het ploegscherm), dus ook die hoort écht terug te gaan.
+// Zie `terug` in views-account.js. Het doel blijft als vangnet staan voor wie hier rechtstreeks
+// binnenkwam; en kwam je via het lijstje van meerdere kernen, dan land je dáár, wat klopt.
+function closeTeamEdit() { editingTeam = null; teamDelUndo = []; terug(cloudReady ? 'home' : 'teams'); }
 // De spelerslijst van een ploeg (overzicht én kijkersweergave) is sorteerbaar op de drie kolommen
 // die er staan: rugnummer (enkel als de ploeg ze gebruikt), familienaam en voorkeurspositie.
 // Standaard alfabetisch op familienaam — zoals elke andere spelerslijst in de app.
@@ -890,7 +893,7 @@ function renderTournamentList() {
   const body = all.length
     ? `<div class="sec">${icI(IC.calendar)} Geplande tornooien</div>${plannedHtml}<div class="sec">${icI(IC.done)} Gespeelde tornooien</div>${doneHtml}`
     : `<div class="empty"><div class="ei">${IC.medal}</div><p>Nog geen tornooien.<br>Tik op de knop hieronder om er een aan te maken.</p></div>`;
-  return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>${icI(IC.medal)} Tornooien</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.medal)} Tornooien</h1></div>
   <div class="content">
     ${newBtn}
     ${body}
@@ -985,7 +988,7 @@ function trnPlanHtml(matches) {
 // Zonder tornooi in het geheugen (bv. na een refresh op deze pagina) stond hier een kale regel
 // "Niet gevonden." zonder hoofding: geen terugknop, dus een doodlopend scherm.
 function trnNotFound(titel) {
-  return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${titel}</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('tournaments')">‹</button><h1>${icI(IC.medal)} ${titel}</h1></div>
     <div class="content"><div class="empty"><div class="ei">${IC.medal}</div><p>Dit tornooi is niet gevonden.<br>Ga terug naar de lijst en kies het opnieuw.</p>
       <button class="btn btn-green" style="margin-top:12px" onclick="go('tournaments')">Naar de tornooien</button></div></div>`;
 }
@@ -999,7 +1002,7 @@ function renderTournament() {
   if (!trnZichtbaar(t)) return trnNotFound('Tornooi');
   setTimeout(loadTournamentDetail, 0);
   const editBtn = canManage() ? `<button class="hdr-btn" onclick="editTournament('${t.id}')">${icI(IC.edit)}</button>` : '';
-  return `<div class="hdr"><button class="back" onclick="go('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
+  return `<div class="hdr"><button class="back" onclick="terug('tournaments')">‹</button><h1>${icI(IC.medal)} ${esc(t.name)}</h1>${editBtn}</div>
   <div class="content" id="trn-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 

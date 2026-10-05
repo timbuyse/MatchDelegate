@@ -52,7 +52,7 @@ function timerKaartHtml(m, dots, gepauzeerd) {
 function renderLive() {
   // Met een uitweg (audit 25-08-2026): dit was een scherm zonder hoofding, zonder tabbalk en zonder
   // terugknop. Kan gebeuren wanneer een medebeheerder de wedstrijd verwijdert terwijl jij erin staat.
-  if (!match) return `<div class="hdr"><button class="back" onclick="go('home')">‹</button><h1>Wedstrijd</h1></div>
+  if (!match) return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>Wedstrijd</h1></div>
     <div class="content"><div class="card">
       <p style="margin:0 0 10px">Deze wedstrijd is niet meer te vinden op dit toestel. Mogelijk is ze verwijderd.</p>
       <button class="btn btn-pale" onclick="go('matches')">${icI(IC.log)} Naar de wedstrijden</button>

@@ -1118,7 +1118,7 @@ async function loadPlayerDetail() {
 // ===================== SETUP / SETTINGS (club-branding) =====================
 function renderSettings(isFirst) {
   return `
-  <div class="hdr"><button class="back" onclick="go(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
+  <div class="hdr"><button class="back" onclick="terug(_settingsFrom||'home')">‹</button><h1>Instellingen</h1></div>
   <div class="content">
     ${(cloudReady && activeTeamId && isAdmin) ? `<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Kijkers uitnodigen, beheren of verwijderen? Dat doe je op het <b>ploegscherm</b>, bij "Mensen met toegang".</p>` : ''}
     <div class="sec">Weergave</div>
@@ -2209,7 +2209,7 @@ function renderHandleiding(p) {
     .replace('{{img2}}', pagina.img2 ? `<div class="hdl-shots hdl-shots-inline">${shot(pagina.img2)}</div>` : '');
   const pdfKnop = p === 0 ? `<button class="btn btn-pale" style="margin-bottom:16px;width:100%" onclick="exportHandleidingPDF()">${icI(IC.clipboard)} Download handleiding als PDF</button>` : '';
   return `
-    <div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.clipboard)} Handleiding</h1></div>
+    <div class="hdr"><button class="back" onclick="terug('settings')">‹</button><h1>${icI(IC.clipboard)} Handleiding</h1></div>
     <div class="content" style="padding:0">
       <div class="hdl-tabs">${tabs}</div>
       <div class="hdl-body">
@@ -2458,7 +2458,7 @@ let tgvState = null;   // { wedstrijden:[], tornooien:[], ploegen:[], fouten:[] 
 let _tgvFrom = 'home';
 function renderTeruggevonden() {
   setTimeout(loadTeruggevonden, 0);
-  return `<div class="hdr"><button class="back" onclick="go(_tgvFrom||'home')">‹</button><h1>${icI(IC.history)} Prullenmand</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug(_tgvFrom||'home')">‹</button><h1>${icI(IC.history)} Prullenmand</h1></div>
     <div class="content" id="tgv-content"><p style="text-align:center;color:var(--txt2)">Zoeken…</p></div>`;
 }
 async function loadTeruggevonden() {
@@ -2671,7 +2671,7 @@ function herstelZet(i, veld, waarde) {
 }
 function renderHerstel() {
   const d = pendingRestore;
-  if (!d) return `<div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>Back-up terugzetten</h1></div>
+  if (!d) return `<div class="hdr"><button class="back" onclick="terug('settings')">‹</button><h1>Back-up terugzetten</h1></div>
     <div class="content"><p style="text-align:center;color:var(--txt2)">Geen bestand geladen.</p></div>`;
   const mijnOpties = Object.keys(userTeams || {}).filter(tid => userTeams[tid] === 'admin')
     .map(tid => teamNames[tid] || '').filter(Boolean).sort();
@@ -2713,7 +2713,7 @@ function renderHerstel() {
     </div>`;
   };
   const teDoen = herstelGroepen.filter(g => (g.mijn && g.aan) || (!g.mijn && g.naarNaam));
-  return `<div class="hdr"><button class="back" onclick="go('settings')">‹</button><h1>${icI(IC.upload)} Back-up terugzetten</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('settings')">‹</button><h1>${icI(IC.upload)} Back-up terugzetten</h1></div>
     <div class="content">
       <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Bestand van <b>${esc(dat)}</b> · ${(d.matches||[]).length} wedstrijden in totaal. Kies per ploeg wat er terug moet. Wat je niet aanvinkt, blijft exact zoals het nu is.</p>
       ${herstelGroepen.map(kaart).join('')}

@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.2.0
+
+**Een terugpijltje gaat nu echt terug.** Tikte je op het pijltje linksboven, dan bracht de app je
+naar het vorige scherm door er een nieuwe stap bovenop te zetten. Je stond dan wel waar je wou zijn,
+maar in de geschiedenis van je telefoon stond datzelfde scherm twee keer — en wie daarna terugveegde,
+belandde eerst weer waar hij net vandaan kwam. Van een ploeg naar het startscherm en dan terugvegen
+bracht je dus opnieuw in die ploeg. Alle pijltjes in de app gaan nu een stap terug in plaats van een
+stap vooruit, dus vegen en tikken komen op hetzelfde uit.
+
+Kwam je rechtstreeks op een scherm binnen (via een gastlink, of omdat je de app daar opende), dan is
+er niets om naar terug te keren. Het pijltje doet daar wat het altijd deed en brengt je naar het
+scherm erboven, zodat het je nooit de app uit stuurt.
+
+Dit is de tweede poging. De eerste (v2.1.0 tot v2.1.2) greep in op de navigatie zelf en brak het
+openen van een ploeg; die is in v2.1.3 volledig teruggedraaid. Deze keer verandert er niets aan hoe
+je vooruit door de app beweegt — enkel de pijltjes zelf doen iets anders.
+
+---
+
 ## v2.1.9
 
 **De handleiding heeft het beeld van het live-scherm.** De pagina *'Live — wat er nu loopt'* stond er

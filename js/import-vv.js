@@ -496,7 +496,7 @@ function vvRender() {
 }
 function renderImportVv() {
   if (!vvSt || !match) {
-    return `<div class="hdr"><button class="back" onclick="go('matches')">‹</button><h1>${icI(IC.link)} Wedstrijdinfo ophalen</h1></div>
+    return `<div class="hdr"><button class="back" onclick="terug('matches')">‹</button><h1>${icI(IC.link)} Wedstrijdinfo ophalen</h1></div>
       <div class="content"><div class="empty"><div class="ei">${IC.link}</div>
         <p>Wedstrijdinfo ophalen kan enkel een ploegbeheerder, vanuit één wedstrijd.</p></div>
         <button class="btn btn-pale" onclick="go('matches')">Naar de wedstrijden</button></div>`;

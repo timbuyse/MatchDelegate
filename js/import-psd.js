@@ -801,7 +801,7 @@ function psdRender() {
 
 function renderImportPsd() {
   if (!psdSt || !match) {
-    return `<div class="hdr"><button class="back" onclick="go('matches')">‹</button><h1>${icI(IC.upload)} Voorbereiding inlezen</h1></div>
+    return `<div class="hdr"><button class="back" onclick="terug('matches')">‹</button><h1>${icI(IC.upload)} Voorbereiding inlezen</h1></div>
       <div class="content"><div class="empty"><div class="ei">${IC.upload}</div>
         <p>Een voorbereiding inlezen kan enkel een ploegbeheerder, vanuit een geplande wedstrijd.</p></div>
         <button class="btn btn-pale" onclick="go('matches')">Naar de wedstrijden</button></div>`;

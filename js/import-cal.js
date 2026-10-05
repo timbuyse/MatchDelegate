@@ -59,7 +59,7 @@ function renderImportCal() {
   // poortwachter in go() houdt dit geval nu tegen; dit vangnet zorgt dat een volgend vergeten geval
   // nooit meer een bevroren app kan geven, maar een scherm met een weg terug.
   if (!impSt) {
-    return `<div class="hdr"><button class="back" onclick="go('matches')">‹</button><h1>${icI(IC.upload)} Kalender importeren</h1></div>
+    return `<div class="hdr"><button class="back" onclick="terug('matches')">‹</button><h1>${icI(IC.upload)} Kalender importeren</h1></div>
       <div class="content"><div class="empty"><div class="ei">${IC.upload}</div>
         <p>Een kalender inlezen kan enkel een ploegbeheerder, en enkel met verbinding.</p></div>
         <button class="btn btn-pale" onclick="go('matches')">Naar de wedstrijden</button></div>`;
@@ -2121,7 +2121,7 @@ function clubRondeRenderOverzicht() {
 // er klaar mee bent.
 function clubRondeMarkeerStap() {
   try {
-    history.pushState({ v: view, id: null, clubronde: true }, '');
+    history.pushState({ v: view, id: null, clubronde: true, d: ((history.state && history.state.d) || 0) + 1 }, '');
   } catch (e) { /* zonder geschiedenis valt dit gewoon weg */ }
 }
 // Terug in beeld na een veeg. Geeft false als er niets meer te openen valt — dan loopt de gewone
