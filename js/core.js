@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.2.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.3.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -39,6 +39,12 @@ const GOAL_WIJZEN = ['Counter', 'Individuele actie', 'Collectieve aanval', 'Hoek
 // De regel die de statistieken er zélf bij zetten voor een gescoorde strafschop (v1.73.0). Staat
 // bewust NIET in GOAL_WIJZEN: het is geen keuze die je aantikt, de app weet het al uit het event.
 const WIJZE_PENALTY = 'Strafschop';
+// En hetzelfde voor een owngoal (Tim, 09-10-2026: "wat ontbreekt bij de statistieken van doelpunten
+// is owngoal, dat wordt wel geregistreerd dus zou ook moeten doorkomen"). Om exact dezelfde reden
+// niet in GOAL_WIJZEN: de app weet het uit het soort gebeurtenis, er valt niets aan te tikken.
+// Een owngoal van de tegenstander hoort bij "Gemaakt", een van onszelf bij "Tegen" — dezelfde kant
+// als waar hij de score veranderde, zoals overal in deze app.
+const WIJZE_OWNGOAL = 'Owngoal';
 function matchKindOf(m) {
   const c = ((m && m.competition) || '').trim();
   return MATCH_KINDS.includes(c) ? c : 'other';

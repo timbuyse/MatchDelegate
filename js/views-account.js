@@ -5079,6 +5079,41 @@ function render() {
   if (html === _laatsteHtml) return;
   _laatsteHtml = html;
   document.getElementById('app').innerHTML = html;
+  zetThuisKnop();
+}
+// EEN HUISJE RECHTS IN DE KOPBALK (Tim, 09-10-2026: "als je al vele stappen gedaan hebt, kan je niet
+// snel terug naar het homescherm"). Het pijltje gaat één stap terug; dit springt er in één tik heen.
+//
+// WAAROM HIER EN NIET IN ELK SCHERM. Elke weergave schrijft haar eigen kopbalk — dat zijn dertig
+// plekken, en dertig plekken die elk apart kunnen vergeten worden. Deze ene plek hangt het huisje
+// achteraan de kopbalk van wat er net getekend is. `.hdr h1` heeft flex:1, dus achteraan is rechts,
+// naast een knop die er al stond.
+//
+// NIET OP DEZE SCHERMEN: het startscherm zelf (daar sta je al), de ploegkeuze en het aanmeldscherm
+// (daar ís geen startscherm) en de onderhoudspagina.
+//
+// `go('home')` en niet `terug(...)`: dit is een sprong, geen stap terug. Je komt dus één stap verder
+// in de geschiedenis van je telefoon, en één keer terugvegen brengt je naar waar je vandaan kwam.
+//
+// Ook op een lopende wedstrijd gaat het meteen (Tims keuze, 09-10-2026) — zonder de tussenvraag die
+// het pijltje daar wél stelt. De wedstrijd loopt gewoon door en staat zo weer op je scherm.
+const THUIS_ZONDER_HUISJE = ['home', 'teamselect', 'auth', 'maintenance'];
+function zetThuisKnop() {
+  if (THUIS_ZONDER_HUISJE.includes(view)) return;
+  // GEEN HUISJE ALS ER GEEN THUIS IS. Wie niet aangemeld is kan de handleiding openen; een huisje
+  // zou hem daar op het aanmeldscherm zetten. En wie wel aangemeld is maar nog geen ploeg koos,
+  // heeft de ploegkeuze als bovenste scherm, niet het startscherm van een ploeg.
+  if (cloudReady && !isGuest && (!currentUser || !activeTeamId)) return;
+  const hdr = document.querySelector('#app .hdr');
+  if (!hdr || hdr.querySelector('.hdr-thuis')) return;
+  const b = document.createElement('button');
+  b.className = 'hdr-thuis';
+  b.type = 'button';
+  b.title = 'Naar het startscherm';
+  b.setAttribute('aria-label', 'Naar het startscherm');
+  b.innerHTML = IC.home;
+  b.onclick = () => go('home');
+  hdr.appendChild(b);
 }
 
 // ===================== VISUAL PITCH =====================

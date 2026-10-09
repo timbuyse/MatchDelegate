@@ -522,10 +522,17 @@ async function loadStats() {
       // goal-venster — een strafschop zegt zelf hoe hij viel — maar juist daardoor weet de app het
       // altijd, en dan hoort hij als eigen regel in dit overzicht. Hij telt dus ook als "ingevuld":
       // er valt niets meer aan te vullen. Een GEMISTE strafschop is geen doelpunt en blijft er buiten.
-      if (e.type === 'goal_us' || e.type === 'own_goal_them') { wijzeTot.voor++; if (e.wijze) { wijzeMet.voor++; wijzeVoor[e.wijze] = (wijzeVoor[e.wijze] || 0) + 1; } }
+      // OWNGOALS KRIJGEN ÉÉN EIGEN REGEL, net als een strafschop (Tim, 09-10-2026) — zie
+      // WIJZE_OWNGOAL in core.js. Tot hier telden ze enkel mee in de noemer: wie geen woordje aantikte
+      // zag zijn owngoal nergens terug, en de voetnoot rekende hem bij "nog niet ingevuld" terwijl er
+      // niets in te vullen valt. Een aangetikt woordje op een owngoal weegt dus niet meer mee in dit
+      // lijstje; het blijft gewoon bij het doelpunt in het wedstrijdverslag staan.
+      if (e.type === 'goal_us') { wijzeTot.voor++; if (e.wijze) { wijzeMet.voor++; wijzeVoor[e.wijze] = (wijzeVoor[e.wijze] || 0) + 1; } }
+      if (e.type === 'own_goal_them') { wijzeTot.voor++; wijzeMet.voor++; wijzeVoor[WIJZE_OWNGOAL] = (wijzeVoor[WIJZE_OWNGOAL] || 0) + 1; }
       if (e.type === 'penalty_us' && e.scored) { wijzeTot.voor++; wijzeMet.voor++; wijzeVoor[WIJZE_PENALTY] = (wijzeVoor[WIJZE_PENALTY] || 0) + 1; }
       if (e.type === 'penalty_them' && e.scored) { wijzeTot.tegen++; wijzeMet.tegen++; wijzeTegen[WIJZE_PENALTY] = (wijzeTegen[WIJZE_PENALTY] || 0) + 1; }
-      if (e.type === 'goal_them' || e.type === 'own_goal') { wijzeTot.tegen++; if (e.wijze) { wijzeMet.tegen++; wijzeTegen[e.wijze] = (wijzeTegen[e.wijze] || 0) + 1; } }
+      if (e.type === 'goal_them') { wijzeTot.tegen++; if (e.wijze) { wijzeMet.tegen++; wijzeTegen[e.wijze] = (wijzeTegen[e.wijze] || 0) + 1; } }
+      if (e.type === 'own_goal') { wijzeTot.tegen++; wijzeMet.tegen++; wijzeTegen[WIJZE_OWNGOAL] = (wijzeTegen[WIJZE_OWNGOAL] || 0) + 1; }
       if (e.type === 'goal_us' && e.playerId) { if ((r = getpById(m, e.playerId))) r.goals++; if (e.assistId && (r = getpById(m, e.assistId))) r.assists++; }
       if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
       if (e.type === 'yellow_card' && e.playerId && (r = getpById(m, e.playerId))) r.yc++;
@@ -585,7 +592,7 @@ async function loadStats() {
   const wijzeBody = wijzeDeel('Gemaakt', wijzeVoor, 'var(--grn)', wijzeMet.voor, wijzeTot.voor)
     + wijzeDeel('Tegen', wijzeTegen, 'var(--rd)', wijzeMet.tegen, wijzeTot.tegen)
     + `<p style="font-size:12px;color:var(--txt2);margin-top:12px">Enkel de doelpunten waarbij ingevuld is hoe ze vielen: ${wijzeZin}. `
-    + `Strafschoppen worden vanzelf meegeteld — daar valt niets in te vullen.</p>`;
+    + `Strafschoppen en owngoals worden vanzelf meegeteld — daar valt niets in te vullen.</p>`;
   // DE NOEMER VAN "GESELECTEERD" (Tims keuze, 25-08-2026). Was `squad + absent`, en dat zijn enkel de
   // wedstrijden waarvoor er íets over hem ingevuld was. Wie 5 van de 10 wedstrijden simpelweg niet
   // gekozen werd, stond zo op 5/5 = 100% — precies de speler die dit blok moet opsporen zag er

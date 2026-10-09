@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.3.0
+
+**Owngoals staan nu bij "hoe de doelpunten vielen".** Ze telden al mee in de score en in het totaal,
+maar ze kregen geen eigen regel: kwam een owngoal binnen zonder dat iemand er een woordje bij
+aantikte, dan verdween hij in de voetnoot als "nog niet ingevuld" — terwijl er niets in te vullen
+valt. Een owngoal zegt zelf hoe hij viel. Hij krijgt nu zijn eigen regel, net als een strafschop: een
+owngoal van de tegenstander bij *Gemaakt*, een van ons bij *Tegen*. Stond er toch een woordje bij,
+dan weegt in dit lijstje voortaan "Owngoal" door; dat woordje blijft gewoon bij het doelpunt in het
+wedstrijdverslag staan.
+
+**Een huisje bovenaan brengt je in één tik naar het startscherm van je ploeg.** Zat je diep in de app
+— een wedstrijd, daarin een scherm, daarin nog een scherm — dan was het pijltje je enige weg terug,
+en dat gaat telkens maar één stap. Rechts in de kopbalk staat nu een huisje. Het verschijnt op elk
+scherm behalve het startscherm zelf, de ploegkeuze en het aanmeldscherm, en het blijft weg zolang er
+geen ploeg gekozen is. Ook op een lopende wedstrijd gaat het meteen, zonder tussenvraag: de wedstrijd
+loopt door en staat met één tik weer op je scherm.
+
+---
+
 ## v2.2.0
 
 **Een terugpijltje gaat nu echt terug.** Tikte je op het pijltje linksboven, dan bracht de app je

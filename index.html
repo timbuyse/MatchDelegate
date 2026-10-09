@@ -32,6 +32,12 @@
     .hdr-sub{font-size:12px;opacity:.7}
     .back{background:none;border:none;color:#fff;font-size:26px;cursor:pointer;padding:2px 4px;line-height:1}
     .hdr-btn{background:var(--org);border:none;color:#fff;font-size:13px;font-weight:700;padding:7px 13px;border-radius:8px;cursor:pointer}
+    /* Het huisje rechts in de kopbalk (zie zetThuisKnop in views-account.js). Vlak, zonder vulkleur:
+       het is een uitweg, geen hoofdknop, en naast een oranje knop als .hdr-btn mag het niet om
+       aandacht vechten. flex-shrink:0 zodat een lange titel het niet platduwt. */
+    .hdr-thuis{background:none;border:none;color:#fff;cursor:pointer;padding:4px;line-height:0;flex-shrink:0;opacity:.85}
+    .hdr-thuis:hover{opacity:1}
+    .hdr-thuis svg{width:24px;height:24px;display:block}
     .hdr-logo{width:30px;height:30px;border-radius:7px;flex-shrink:0}
     .hdr-home{justify-content:center;padding:14px 20px}
     .hdr-fulllogo{height:44px;width:auto}
