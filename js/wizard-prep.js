@@ -1925,25 +1925,22 @@ function renderPrep() {
          die je nooit geplaatst hebt (renderPitch spreidt wie geen x/y heeft over zijn lijn), en dat
          leest als een opstelling die er niet is. In de plaats staat hierboven "Opstelling
          aanmaken"; zodra die er is, verschijnt alles — planning, wissels en de PDF. */ ''}
-    ${/* Voor een KIJKER staat dit blok er ook zonder opstelling (audit 23-08-2026). Zonder dat viel
-         het hele blok weg en kon hij niet zien of het plan verborgen was of nog niet bestond — twee
-         heel verschillende dingen. Nu zegt de regel welk van de twee het is. */ ''}
+    ${/* VOOR EEN KIJKER STAAT HIER NIETS MEER (Tim, 10-10-2026: "sta toe dat kijkers toch op een
+         wedstrijd kunnen klikken en dan het infoblok van een wedstrijd kunnen zien, niets meer").
+         Tot hier kreeg hij een kopje "Planning" met daaronder de mededeling dat de opstelling enkel
+         voor ploegbeheerders is — een blok dat enkel zei dat er niets te zien viel. Dat was ook net
+         de reden waarom een kijker dit scherm vroeger helemaal niet binnen mocht (zie
+         matchOpenbaarVoorMij in core.js). Nu hij er wél in mag, stopt het bij de wedstrijdgegevens.
+         Wie waar begint en welke wissels klaarstaan blijft tussen de trainer en zijn ploeg. */ ''}
     ${/* HET WEDSTRIJDPLAN BOVENAAN (Tim, 24-08-2026). De downloadknop stond helemaal onderaan, ná de
          planningskaart en de wisselknoppen — terwijl het net het blad is dat je meeneemt naar het
          veld. Nu naast de kop "Planning", waar het over gaat. */ ''}
-    ${(heeftOpstelling(m) || ro) ? `<div class="sec" style="display:flex;align-items:center;gap:8px">
-      <span style="flex:1">Planning${(!ro && plannedPartsCount(m) > 1) ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</span>
-      ${(ro || af) ? '' : `<button class="btn btn-gray btn-sm" style="margin:0;width:auto;padding:5px 10px;font-size:12px;text-transform:none;letter-spacing:0" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}
+    ${(heeftOpstelling(m) && !ro) ? `<div class="sec" style="display:flex;align-items:center;gap:8px">
+      <span style="flex:1">Planning${plannedPartsCount(m) > 1 ? ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(opstelling per ${pSingLow(m)})</span>` : ''}</span>
+      ${af ? '' : `<button class="btn btn-gray btn-sm" style="margin:0;width:auto;padding:5px 10px;font-size:12px;text-transform:none;letter-spacing:0" onclick="exportWedstrijdplanPDF()">${icI(IC.download)} Wedstrijdplan (PDF)</button>`}
     </div>
-    ${/* Voor een kijker blijft het plan dicht: wie waar begint en welke wissels klaarstaan is iets
-         tussen de trainer en zijn ploeg, niet iets om vooraf op de tribune te lezen. Er staat wél
-         dat het bestaat, anders lijkt de wedstrijd onvoorbereid. */ ''}
-    ${ro
-      ? `<div class="card"><p style="margin:0;color:var(--txt2);font-size:14px;text-align:center">${heeftOpstelling(m)
-          ? `${icI(IC.eye)} De opstelling en geplande wissels zijn enkel zichtbaar voor ploegbeheerders.`
-          : `${icI(IC.eye)} De opstelling is nog niet ingegeven.`}</p></div>`
-      : `${prepPlanningHtml(m, ro || af)}
-    ${plannedLineupWarnHtml(m)}`}
+    ${prepPlanningHtml(m, af)}
+    ${plannedLineupWarnHtml(m)}
     ${/* Eén knop onder het veld: opstelling en wissels horen bij hetzelfde plan en staan in dezelfde
          planner (zie openPlannedLineups). Hier stonden er twee — 'Opstelling per kwart' en 'Wissels
          plannen' — die elk de helft deden en naar een eigen scherm leidden. Het potlood in de kaart
@@ -1955,7 +1952,7 @@ function renderPrep() {
     ${/* DE KNOP "Opstelling & wissels aanpassen" IS WEG (Tim, 25-08-2026). Sinds v1.10.0 doet ze niets
          anders dan het potloodje in de kaart hierboven aanzetten — en dat potloodje staat pal naast
          het blok waar je naar kijkt, terwijl deze knop altijd op blok 1 uitkwam. */ ''}
-    ${(ro || af) ? '' : `
+    ${af ? '' : `
     ${/* Wissels zonder vast deel horen bij geen enkel kwart en duiken dus nergens in de reeks op.
          Ze zijn zeldzaam (je kiest ze expliciet in de keuzelijst), maar wie er heeft, moet erbij
          kunnen — vandaar deze knop, die enkel verschijnt als ze bestaan. */ ''}

@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.4.0
+
+**Een kijker kan nu ook een geplande wedstrijd openen, en ziet er de wedstrijdgegevens.** Tot hier
+was zo'n rij voor hem niet aanklikbaar: tikken gaf enkel de melding dat een geplande wedstrijd voor
+de ploegbeheerders is. Dat kwam omdat zo'n wedstrijd opent in het voorbereidingsscherm, en dat gaat
+over het plan. Nu is dát scherm aangepast in plaats van de deur: een kijker krijgt er enkel nog de
+wedstrijdgegevens te zien — trainer, afgevaardigde, soort, speeldag, scheidsrechter, truikleur,
+adres en terrein — met daarboven één regel die zegt dat hij meekijkt. Het kopje *Planning*, dat voor
+hem toch alleen maar meldde dat de opstelling enkel voor ploegbeheerders is, staat er niet meer.
+
+Wie waar begint en welke wissels klaarstaan blijft dus tussen de trainer en zijn ploeg. Ook een
+afgelaste wedstrijd kan een kijker nu openen; hij ziet de reden en dezelfde gegevens.
+
+De twee gordijnen blijven onveranderd: een wedstrijd die voor alle kijkers verborgen is, en een
+wedstrijd die voor één bepaalde kijker geblokkeerd is, staan niet in zijn lijst en gaan ook niet
+open.
+
+---
+
 ## v2.3.0
 
 **Owngoals staan nu bij "hoe de doelpunten vielen".** Ze telden al mee in de score en in het totaal,

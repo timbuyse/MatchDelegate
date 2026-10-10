@@ -5628,15 +5628,17 @@ function matchItemHtml(m) {
     : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
-  // EEN KIJKER OPENT ENKEL EEN WEDSTRIJD DIE BEZIG OF AFGESLOTEN IS (Tim, 01-09-2026) — zie
-  // matchOpenbaarVoorMij in core.js. Een tik die niets doet leest als een defect, dus in plaats van
-  // de rij dood te maken zegt ze waarom. Dit is de ENIGE plek waar een wedstrijdrij een onclick
-  // krijgt (lijst, beginscherm, agenda en kalender gebruiken allemaal deze functie), dus hier is het
-  // ook de enige plek waar het gecontroleerd moet worden.
+  // MAG WIE HIER KIJKT DEZE RIJ OPENEN? Zie matchOpenbaarVoorMij in core.js. Sinds v2.4.0 mag een
+  // kijker élke wedstrijd openen die in zijn lijst staat — een geplande toont hem enkel de
+  // wedstrijdgegevens (Tim, 10-10-2026). Wat overblijft is het gordijn: verborgen voor alle kijkers,
+  // of geblokkeerd voor déze kijker. Zo'n wedstrijd staat niet in de lijst, dus deze tak is in de
+  // praktijk onbereikbaar — ze blijft staan als bretel naast de gordel.
+  // Dit is de ENIGE plek waar een wedstrijdrij een onclick krijgt (lijst, beginscherm, agenda en
+  // kalender gebruiken allemaal deze functie), dus hier is het ook de enige plek waar het moet.
   const magOpen = matchOpenbaarVoorMij(m);
   const klik = doel => magOpen
     ? `onclick="go('${doel}','${m.id}')"`
-    : `onclick="showToast('Een geplande wedstrijd is enkel voor de ploegbeheerders. Zodra de wedstrijd begint, kan je ze volgen.','err')"`;
+    : `onclick="showToast('Deze wedstrijd is niet beschikbaar.','err')"`;
   // De cursor apart, want de rijen hieronder hebben hun eigen style-attribuut: twee keer `style` op
   // één element betekent dat de browser het tweede negeert.
   const cursor = magOpen ? '' : 'cursor:default;';

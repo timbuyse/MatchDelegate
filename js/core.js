@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.3.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.4.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4695,13 +4695,25 @@ function slotWeigert(m) {
 // niet `canManage()`: het gaat om de ROL (beheerder van deze ploeg, niet in kijkmodus, geen gast) en
 // niet om of er verbinding is.
 function matchZichtbaarVoorMij(m) { return canLive() || (!matchVerborgenVoorKijkers(m) && !matchGeblokkeerdVoorMij(m)); }
-// En mag hij ze OPENEN? Enkel een wedstrijd die bezig is of afgesloten. Een geannuleerde wedstrijd
-// heeft geen verslag en opent in het wedstrijdscherm — dus voor een kijker ook niet.
+// En mag hij ze OPENEN? Alles wat hij in zijn lijst ziet staan (Tim, 10-10-2026: "sta toe dat
+// kijkers toch op een wedstrijd kunnen klikken en dan het infoblok van een wedstrijd kunnen zien,
+// niets meer").
+//
+// TOT v2.3.0 KON HIJ ENKEL EEN LOPENDE OF AFGESLOTEN WEDSTRIJD OPENEN (v1.37.0). Een geplande of
+// afgelaste bleef een regel om te lezen, want die opent in het voorbereidingsscherm — en dat gaat
+// over het plan. Wat er nu verandert is níét dit slot maar dát scherm: voor een kijker toont het
+// enkel nog de wedstrijdgegevens, zonder opstelling en zonder wissels (zie renderPrep in
+// wizard-prep.js). Daarmee valt de reden weg om hem er helemaal buiten te houden.
+//
+// De twee gordijnen blijven wél staan: een wedstrijd die voor kijkers verborgen is, of die voor déze
+// kijker geblokkeerd is, gaat niet open. Die staan ook niet in zijn lijst, maar de terugknop van de
+// telefoon en een oud scherm komen niet langs een lijst.
 function matchOpenbaarVoorMij(m) {
   if (canLive()) return true;
-  if (!m || matchCancelled(m)) return false;
+  if (!m) return false;
+  if (matchVerborgenVoorKijkers(m)) return false;
   if (matchGeblokkeerdVoorMij(m)) return false;
-  return m.status === 'live' || m.status === 'done';
+  return true;
 }
 // Enkel de keuze zelf, zonder de beheerder-uitzondering — nodig om een beheerder te kunnen vertellen
 // wat een KIJKER hier wel en niet ziet.
