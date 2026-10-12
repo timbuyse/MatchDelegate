@@ -1921,6 +1921,18 @@ function renderPrep() {
     `}
     <div class="sec">Info</div>
     <div class="card">${info.length ? info.map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">Geen extra info.</p>'}</div>
+    ${/* EN DE SELECTIE, VOOR EEN KIJKER (Tim, 12-10-2026: "laat toe dat kijkers die op een match
+         klikken ook de 'selectie' zien"). Wie meespeelt is iets anders dan het plan: een ouder wil
+         weten of zijn kind erbij is, en dat staat los van wie waar begint.
+         Exact dezelfde kaart als op het wedstrijdverslag (selectionCardHtml in detail-pdf.js), zodat
+         een kijker twee keer hetzelfde leest. Die kaart houdt zich zelf aan de oogjes: de namen van
+         wie geselecteerd is staan er altijd, de nevengroepen (niet beschikbaar, niet aanwezig, niet
+         geselecteerd) enkel wanneer de beheerder 'Geselecteerd' publiek gezet heeft. Zonder selectie
+         geeft ze een lege string en staat er dus niets.
+         Enkel voor een kijker: een beheerder ziet zijn selectie al in het planningsblok hieronder.
+         De typeof-controle omdat detail-pdf.js ná dit bestand geladen wordt — bij het tekenen staat ze
+         er, maar zo kan deze weergave er nooit op stukvallen. */ ''}
+    ${(ro && typeof selectionCardHtml === 'function') ? selectionCardHtml(m) : ''}
     ${/* Zonder opstelling valt het hele planningsblok weg: een velddiagram zou hier spelers tonen
          die je nooit geplaatst hebt (renderPitch spreidt wie geen x/y heeft over zijn lijn), en dat
          leest als een opstelling die er niet is. In de plaats staat hierboven "Opstelling

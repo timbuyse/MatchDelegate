@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.7.0
+
+**Een kijker ziet nu ook de selectie bij een geplande wedstrijd.** Sinds v2.4.0 kon hij zo'n wedstrijd
+openen en kreeg hij enkel de wedstrijdgegevens. Daar komt de selectie bij: wie meespeelt is iets
+anders dan het plan, en het is net wat een ouder wil weten.
+
+Het is dezelfde kaart als op het wedstrijdverslag, dus een kijker leest twee keer hetzelfde. Ze houdt
+zich ook aan dezelfde oogjes: de namen van wie geselecteerd is staan er altijd, de bijlijstjes
+daaronder — niet beschikbaar, niet aanwezig, niet geselecteerd — enkel wanneer je *Geselecteerd* bij
+de statistieken voor kijkers zichtbaar gezet hebt. Is er nog geen selectie, dan staat er niets.
+
+Voor een beheerder verandert er niets: die ziet zijn selectie al in het planningsblok.
+
+---
+
 ## v2.6.0
 
 **Iedereen ziet het vandaag-scherm van zijn hele club.** Tot hier was dat voorbehouden aan wie een
