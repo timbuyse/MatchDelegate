@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.2
+
+**De oorspronkelijke achtergrond staat terug.** De gespiegelde versie van v2.8.1 was netter van
+patroon maar oogde minder goed; het origineel is teruggezet, bit voor bit zoals het was.
+
+---
+
 ## v2.8.1
 
 **De achtergrond is boven-onder symmetrisch gemaakt.** Het zeshoekpatroon van de kopbalken, het
