@@ -1537,14 +1537,56 @@ async function rbfaHaalKalenders(ploegen) {
 // in de databank is. Die twee schelen één teken (zie het incident van 21-08-2026), dus dit gaf stil
 // altijd een lege lijst en werd nooit een foutmelding. De kern die de ronde zelf ophaalde, dráágt het
 // veld; daar lezen we het.
+// WAT DE BONDSKALENDER AAN EEN BESTAANDE WEDSTRIJD KAN VERANDEREN (Tim, 12-10-2026: "die kalenders
+// ophalen is goed bij een clubronde, maar checkt niet of er info bij individuele wedstrijden is die
+// gewijzigd is"). Vier velden, want meer draagt die kalender niet: terrein en scheidsrechter staan er
+// niet in (zie de opmerking bij `venue` in rbfaNaarRegels) en de speeldag evenmin. Die komen uit
+// "Wedstrijdinfo ophalen", dat per wedstrijd een pagina leest.
+//
+// EEN LEEG VELD BIJ DE BOND IS GEEN WIJZIGING. Anders zou een kalender zonder uur het uur wissen dat
+// jij zelf ingaf — dezelfde regel als waarom `venue` daar leeg blijft.
+const KAL_VERGELIJK = [
+  { veld: 'date', naam: 'Datum', uit: r => r.datum || '', toon: v => (v || '').split('-').reverse().slice(0, 2).join('/') || '—' },
+  { veld: 'time', naam: 'Uur', uit: r => r.tijd || '', toon: v => v || '—' },
+  { veld: 'location', naam: 'Plaats', uit: r => (r.thuis ? 'Thuis' : 'Uit'), toon: v => v || '—' },
+  // De tegenstander LOS vergelijken, met dezelfde soepelheid als de dubbeldetectie hierboven: de bond
+  // schrijft de clubnaam in verschillende vormen, en een andere schrijfwijze is geen verhuizing.
+  { veld: 'opponent', naam: 'Tegenstander', uit: r => r.tegenstander || '',
+    gelijk: (a, b) => impNorm(a) === impNorm(b) || impZelfdeClub(a, b), toon: v => v || '—' },
+];
+// Welke velden verschillen er tussen de wedstrijd in de app en de regel van de bond?
+function clubKalVerschillen(m, r) {
+  const uit = [];
+  KAL_VERGELIJK.forEach(k => {
+    const naar = k.uit(r);
+    if (!naar) return;                       // de bond weet het niet: dan verandert er niets
+    const van = m[k.veld] || '';
+    const gelijk = k.gelijk ? k.gelijk(van, naar) : String(van).trim() === String(naar).trim();
+    if (!gelijk) uit.push({ veld: k.veld, naam: k.naam, van, naar, toonVan: k.toon(van), toonNaar: k.toon(naar) });
+  });
+  return uit;
+}
 function clubKalenderVoorstellen(p, regels) {
   const overslaan = new Set(((p.kern || {}).kalenderOverslaan) || []);
   const bestaandeNrs = new Set(p.wedstrijden.map(m => String(m.rbfaMatchId || '')).filter(Boolean));
-  const uit = [];
+  // Op nummer terugvindbaar: enkel zo weten we zéker dat het dezelfde wedstrijd is. Zonder nummer
+  // vergelijken zou een verschoven wedstrijd met een nieuwe verwarren.
+  const perNr = new Map();
+  p.wedstrijden.forEach(m => { if (m.rbfaMatchId) perNr.set(String(m.rbfaMatchId), m); });
+  const uit = [], gewijzigd = [];
   regels.forEach(r => {
     const sleutel = r.rbfaMatchId ? 'rbfa:' + r.rbfaMatchId : '';
     if (sleutel && overslaan.has(sleutel)) return;                 // bewust laten liggen
-    if (r.rbfaMatchId && bestaandeNrs.has(String(r.rbfaMatchId))) return;  // staat er al, op nummer
+    if (r.rbfaMatchId && bestaandeNrs.has(String(r.rbfaMatchId))) {
+      // STAAT ER AL — maar klopt ze nog? Enkel een GEPLANDE wedstrijd: aan een wedstrijd die bezig,
+      // gespeeld of geannuleerd is raakt deze ronde nooit, hoe de kalender er ook uitziet.
+      const m = perNr.get(String(r.rbfaMatchId));
+      if (m && m.status === 'planned' && !matchCancelled(m)) {
+        const velden = clubKalVerschillen(m, r);
+        if (velden.length) gewijzigd.push({ m, r, velden, aan: true });
+      }
+      return;
+    }
     const label = r.rbfaLabel || '';
     // Zelfde dubbeldetectie als de gewone import, maar tegen de wedstrijden uit de databank: dag plus
     // tegenstander, en bij een andere schrijfwijze op de clubnaam erin.
@@ -1554,7 +1596,7 @@ function clubKalenderVoorstellen(p, regels) {
     if (alAanwezig) return;
     uit.push(r);
   });
-  return uit;
+  return { nieuw: uit, gewijzigd };
 }
 // Een nieuwe wedstrijd voor een ploeg die je NIET open hebt staan. Exact hetzelfde object als
 // impVoerUit bouwt, met de standaardinstellingen van díé ploeg, en rechtstreeks naar haar tak.
@@ -1593,8 +1635,9 @@ async function clubRondeKalenders() {
     try {
       const kal = await rbfaHaalKalenders(p.bondsPloegen.map(b => ({ id: b.id, label: b.naam || b.label || '' })));
       const { regels } = rbfaNaarRegels(kal);
-      perPloeg.push({ p, nieuw: clubKalenderVoorstellen(p, regels), gevonden: regels.length });
-    } catch (e) { perPloeg.push({ p, fout: (e && e.message) || 'kalender niet opgehaald', nieuw: [] }); }
+      const { nieuw, gewijzigd } = clubKalenderVoorstellen(p, regels);
+      perPloeg.push({ p, nieuw, gewijzigd, gevonden: regels.length });
+    } catch (e) { perPloeg.push({ p, fout: (e && e.message) || 'kalender niet opgehaald', nieuw: [], gewijzigd: [] }); }
   }
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'kalvoorstel'; st.kalenders = perPloeg;
@@ -1608,19 +1651,45 @@ async function clubRondeKalenders() {
 // knoptekst worden bijgewerkt.
 function clubKalAan(rij) { return (rij.nieuw || []).filter(r => r.aan !== false); }
 function clubKalTeller() { return ((clubRondeSt || {}).kalenders || []).reduce((n, rij) => n + clubKalAan(rij).length, 0); }
+// Hetzelfde voor de wedstrijden die bij de bond gewijzigd zijn (v2.8.0). Twee aparte tellers en geen
+// gezamenlijke: toevoegen en bijwerken zijn twee verschillende dingen, en de knop zegt ze allebei.
+function clubWijzAan(rij) { return (rij.gewijzigd || []).filter(g => g.aan !== false); }
+function clubWijzTeller() { return ((clubRondeSt || {}).kalenders || []).reduce((n, rij) => n + clubWijzAan(rij).length, 0); }
+function clubWijzVink(pi, gi, aan) {
+  const rij = ((clubRondeSt || {}).kalenders || [])[pi]; if (!rij) return;
+  const g = (rij.gewijzigd || [])[gi]; if (!g) return;
+  g.aan = !!aan;
+  const kop = document.getElementById(`cw-kop-${pi}`);
+  if (kop) kop.checked = clubWijzAan(rij).length === (rij.gewijzigd || []).length;
+  clubKalKnopBij();
+}
+function clubWijzVinkPloeg(pi, aan) {
+  const rij = ((clubRondeSt || {}).kalenders || [])[pi]; if (!rij) return;
+  (rij.gewijzigd || []).forEach((g, gi) => {
+    g.aan = !!aan;
+    const el = document.getElementById(`cw-${pi}-${gi}`);
+    if (el) el.checked = !!aan;
+  });
+  clubKalKnopBij();
+}
 // DE KNOP BLIJFT WERKEN BIJ NUL AANGEVINKT (Tim, 04-10-2026: "er is er maar één en ik vink hem uit,
 // dan komt hij telkens terug, want ik kan niet bevestigen dat ik geen enkele wil inladen"). Hij stond
 // uitgeschakeld, en omdat het onthouden pas bij het bevestigen gebeurt, werd die keuze nooit
 // vastgelegd — de volgende ronde stond diezelfde wedstrijd er weer. Met nul aangevinkt voegt de knop
 // niets toe; ze legt enkel vast dat je die wedstrijden niet meer wil zien.
 function clubKalKnopBij() {
-  const n = clubKalTeller();
+  const n = clubKalTeller(), w = clubWijzTeller();
   const knop = document.getElementById('ck-knop');
   if (knop) {
     knop.disabled = false;
     knop.style.opacity = '';
-    knop.innerHTML = n
-      ? `${icI(IC.check)} Ja, ${n === 1 ? 'die wedstrijd' : `die ${n} wedstrijden`} toevoegen`
+    // De knop noemt de twee handelingen apart, want ze zijn niet hetzelfde: toevoegen raakt niets aan,
+    // bijwerken verandert een wedstrijd die er al stond.
+    const delen = [];
+    if (n) delen.push(`${n === 1 ? '1 wedstrijd' : n + ' wedstrijden'} toevoegen`);
+    if (w) delen.push(`${w === 1 ? '1 bijwerken' : w + ' bijwerken'}`);
+    knop.innerHTML = delen.length
+      ? `${icI(IC.check)} Ja, ${delen.join(' en ')}`
       : `${icI(IC.check)} Geen enkele toevoegen`;
   }
 }
@@ -1683,7 +1752,7 @@ async function clubRondeKalendersDoen() {
   // onthouden hieronder alsnog lopen. Zie clubKalKnopBij.
   st.bezig = true; st.fase = 'kalbezig'; clubRondeRender();
   const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
-  let gemaakt = 0, mis = 0, onthouden = 0, verplaatst = 0, dubbel = 0;
+  let gemaakt = 0, mis = 0, onthouden = 0, verplaatst = 0, dubbel = 0, bijgewerkt = 0;
   for (const rij of st.kalenders) {
     for (const r of clubKalAan(rij)) {
       if (!clubRondeSt) return;
@@ -1701,6 +1770,30 @@ async function clubRondeKalendersDoen() {
     }
     const uitgevinkt = (rij.nieuw || []).filter(r => r.aan === false).length;
     try { await clubKalOnthouden(rij); onthouden += uitgevinkt; } catch (e) { /* onthouden is bijzaak */ }
+    // ---- En de wedstrijden die bij de bond gewijzigd zijn (v2.8.0) ----
+    // ÉÉN GERICHTE SCHRIJFACTIE PER WEDSTRIJD, met enkel de velden die verschillen. Geen `set` van het
+    // hele object: dat is precies de vorm waarmee hier al twee verslagen leeggelopen zijn. Een
+    // `update` op dit pad raakt niets anders aan, en de wachter in de databankregels geldt per
+    // geschreven pad — hij staat deze dus niet in de weg.
+    //
+    // HET STEMPELTJE GAAT WÉL MEE. Zonder `updatedAt` wint bij het samenvoegen de kopie op een toestel
+    // dat deze wedstrijd ooit bewaarde, en dan is de bijwerking stil weer weg (zie het offline-vangnet
+    // in applyCloudMatch).
+    for (const g of clubWijzAan(rij)) {
+      if (!clubRondeSt) return;
+      meld(`${rij.p.naam}: ${g.r.tegenstander} bijwerken…`);
+      const wijz = {};
+      g.velden.forEach(v => { wijz[v.veld] = v.naar; });
+      wijz.updatedAt = Date.now();
+      if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) wijz.updatedBy = currentUser.uid;
+      const naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+      if (naam) wijz.updatedByNaam = naam;
+      try {
+        await fbdb.ref('teams/' + rij.p.tid + '/matches/' + g.m.id).update(wijz);
+        Object.assign(g.m, wijz);   // de kopie in de ronde meteen gelijk zetten
+        bijgewerkt++;
+      } catch (e) { mis++; }
+    }
   }
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'overzicht'; st.kalenders = null;
@@ -1709,6 +1802,7 @@ async function clubRondeKalendersDoen() {
   delen.push(gemaakt
     ? `${gemaakt} ${gemaakt === 1 ? 'wedstrijd' : 'wedstrijden'} toegevoegd`
     : 'Niets toegevoegd');
+  if (bijgewerkt) delen.push(`${bijgewerkt} bijgewerkt`);
   if (verplaatst) delen.push(`${verplaatst} bij een andere ploeg gezet`);
   if (dubbel) delen.push(`${dubbel} stond${dubbel === 1 ? '' : 'en'} daar al`);
   if (mis) delen.push(`${mis} mislukt`);
@@ -1992,6 +2086,30 @@ function clubRondeRender() {
     // Alle ploegen van de club mogen als bestemming dienen, ook die zonder bondskoppeling — juist
     // daar belandt een verkeerd ingedeelde wedstrijd.
     const ploegKeuzes = (st.ploegen || []).map(p => ({ tid: p.tid, naam: p.naam }));
+    const totaalW = (st.kalenders || []).reduce((n, r) => n + (r.gewijzigd || []).length, 0);
+    const aanW = clubWijzTeller();
+    const dagKort = d => esc((d || '').split('-').reverse().slice(0, 2).join('/'));
+    // DE GEWIJZIGDE WEDSTRIJDEN IN EEN EIGEN BLOK (v2.8.0), onder de nieuwe. Oranje rand: dit is het
+    // deel dat iets verandert aan wat er al staat, en dat hoort zichtbaar anders te zijn dan toevoegen.
+    const wijzRijen = (st.kalenders || []).map((r, pi) => ({ r, pi }))
+      .filter(({ r }) => (r.gewijzigd || []).length).map(({ r, pi }) => {
+      const allesAan = clubWijzAan(r).length === (r.gewijzigd || []).length;
+      return `<div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid var(--org)">
+        <label class="chkrow" style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer">
+          <input type="checkbox" id="cw-kop-${pi}" ${allesAan ? 'checked' : ''} onchange="clubWijzVinkPloeg(${pi}, this.checked)">
+          <span style="flex:1;min-width:0"><span style="font-weight:700">${esc(r.p.naam)}</span>
+            <span style="display:block;font-size:12px;color:var(--txt2)">${r.gewijzigd.length} gewijzigd bij de bond</span></span>
+        </label>
+        <div style="margin-left:24px">${r.gewijzigd.map((g, gi) => `
+          <label class="chkrow" style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;cursor:pointer">
+            <input type="checkbox" id="cw-${pi}-${gi}" ${g.aan === false ? '' : 'checked'} style="margin-top:3px" onchange="clubWijzVink(${pi}, ${gi}, this.checked)">
+            <span style="flex:1;min-width:0;font-size:13px">
+              ${dagKort(g.m.date)}${g.m.time ? ` ${esc(g.m.time)}` : ''} · <b>${esc(g.m.opponent || '—')}</b>
+              ${g.velden.map(v => `<span style="display:block;font-size:12px;color:var(--txt2)">${esc(v.naam)}: ${esc(v.toonVan)} <b style="color:var(--org2)">→ ${esc(v.toonNaar)}</b></span>`).join('')}
+            </span>
+          </label>`).join('')}</div>
+      </div>`;
+    }).join('');
     const rijen = (st.kalenders || []).map((r, pi) => ({ r, pi }))
       .filter(({ r }) => (r.nieuw || []).length || r.fout).map(({ r, pi }) => {
       const allesAan = clubKalAan(r).length === (r.nieuw || []).length;
@@ -2018,15 +2136,22 @@ function clubRondeRender() {
                </div>`).join('')}</div>`}
       </div>`;
     }).join('');
+    const knopTekst = (() => {
+      const d = [];
+      if (aan) d.push(`${aan === 1 ? '1 wedstrijd' : aan + ' wedstrijden'} toevoegen`);
+      if (aanW) d.push(`${aanW === 1 ? '1 bijwerken' : aanW + ' bijwerken'}`);
+      return d.length ? `Ja, ${d.join(' en ')}` : 'Geen enkele toevoegen';
+    })();
     openModal(`${kop}
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">${totaal
         ? `Er ${totaal === 1 ? 'staat' : 'staan'} <b>${totaal}</b> ${totaal === 1 ? 'wedstrijd' : 'wedstrijden'} op de kalender van de bond die nog niet in de app ${totaal === 1 ? 'staat' : 'staan'}. Vink uit wat je niet wil.`
-        : 'Elke wedstrijd van de bondskalender staat al in de app.'}</p>
+        : (totaalW ? 'Elke wedstrijd van de bondskalender staat al in de app.' : 'Elke wedstrijd van de bondskalender staat al in de app, en alles komt overeen.')}</p>
       ${rijen}
-      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">${icI(IC.warn)} Deze ronde <b>voegt alleen toe</b>. Een wedstrijd die al in de app staat wordt niet aangeraakt — ook niet wanneer het uur bij de bond intussen veranderde. Dat werk je bij in die ploeg zelf, waar je het ziet. Wat je hier <b>uitvinkt</b>, komt een volgende ronde niet meer terug.${ploegKeuzes.length > 1 ? ' Staat een wedstrijd bij de bond onder de verkeerde ploeg, kies dan rechts de juiste — ook dan komt ze hier niet meer terug.' : ''}</p>
-      ${totaal ? `<button class="btn btn-green" id="ck-knop" onclick="clubRondeKalendersDoen()">${aan
-        ? `${icI(IC.check)} Ja, ${aan === 1 ? 'die wedstrijd' : `die ${aan} wedstrijden`} toevoegen`
-        : `${icI(IC.check)} Geen enkele toevoegen`}</button>` : ''}
+      ${totaalW ? `<div class="sec" style="text-align:left">${icI(IC.warn)} Gewijzigd bij de bond (${totaalW})</div>
+      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:8px">Deze ${totaalW === 1 ? 'wedstrijd staat' : 'wedstrijden staan'} al in de app, maar bij de bond ${totaalW === 1 ? 'is ze' : 'zijn ze'} intussen veranderd. Vink aan wat bijgewerkt mag worden — enkel de regels die je hieronder ziet staan worden geschreven.</p>
+      ${wijzRijen}` : ''}
+      <p style="font-size:12px;color:var(--txt2);text-align:left;margin-bottom:10px">${icI(IC.warn)} Deze ronde raakt alleen aan wat hierboven staat: nieuwe wedstrijden toevoegen, en van een <b>geplande</b> wedstrijd de velden bijwerken die je aanvinkt. Een wedstrijd die bezig, gespeeld of geannuleerd is blijft onaangeroerd, wat de kalender ook zegt. Terrein en scheidsrechter staan niet op de bondskalender — die haal je per wedstrijd op met "Wedstrijdinfo ophalen". Wat je hier <b>uitvinkt</b>, komt een volgende ronde niet meer terug.${ploegKeuzes.length > 1 ? ' Staat een wedstrijd bij de bond onder de verkeerde ploeg, kies dan rechts de juiste — ook dan komt ze hier niet meer terug.' : ''}</p>
+      ${(totaal || totaalW) ? `<button class="btn btn-green" id="ck-knop" onclick="clubRondeKalendersDoen()">${icI(IC.check)} ${knopTekst}</button>` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug</button>`);
     return;
   }

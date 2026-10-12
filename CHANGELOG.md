@@ -9,6 +9,32 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.0
+
+**De clubronde ziet nu ook wat er bij de bond gewijzigd is.** Tot hier keek het ophalen van de
+kalenders enkel of een wedstrijd al bestond; bestond ze, dan werd ze overgeslagen. Een uur dat verzet
+werd of een datum die verschoof, zag de ronde dus nooit.
+
+Er staat nu een tweede lijstje in het voorstel: *Gewijzigd bij de bond*. Per wedstrijd zie je wat er
+verschilt — "Uur: 10:00 → 11:30", "Datum: 19/10 → 20/10", "Plaats: Thuis → Uit" — en je vinkt aan wat
+bijgewerkt mag worden. Er wordt enkel geschreven wat je daar ziet staan; de rest van de wedstrijd
+blijft onaangeroerd.
+
+**Alleen geplande wedstrijden.** Een wedstrijd die bezig is, gespeeld is of geannuleerd werd, blijft
+met rust, wat de kalender ook zegt.
+
+**Een andere schrijfwijze is geen wijziging.** De bond schrijft clubnamen op verschillende manieren;
+dezelfde club in een andere vorm wordt niet als een nieuwe tegenstander gemeld.
+
+**Wat de bond niet weet, verandert niets.** Staat er bij de bond geen uur, dan blijft jouw uur staan.
+Terrein en scheidsrechter staan sowieso niet op de bondskalender — die haal je per wedstrijd op met
+*Wedstrijdinfo ophalen*.
+
+Een wijziging die je niet aanvinkt, komt een volgende ronde gewoon opnieuw naar boven. Enkel bij
+nieuwe wedstrijden betekent uitvinken dat ze niet meer terugkomen.
+
+---
+
 ## v2.7.1
 
 **Het vandaag-scherm is nu altijd bereikbaar.** De regel *Alles van vandaag* op het ploegkeuzescherm
