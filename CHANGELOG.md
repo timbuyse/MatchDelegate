@@ -9,6 +9,31 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.5.0
+
+**Het live-scherm is een vandaag-scherm geworden.** Het toonde enkel wat er op dat moment liep, en
+zodra de laatste wedstrijd afgefloten was, stond er niets meer. Nu staat er drie dingen onder elkaar:
+*Nu bezig* met het rode bolletje, daaronder *Al gespeeld* met de wedstrijden van vandaag die voorbij
+zijn, en onderaan *Nog te spelen* met wat er vandaag nog aankomt, met hun uur. Een kop verschijnt
+enkel als er ook iets onder staat. De regel onder de titel telt de drie.
+
+In het weekend haalt de app vrijdag tot en met zondag op. Gespeeld en nog te spelen blijven strikt
+bij vandaag — anders zou zaterdag onder een kop staan die "vandaag" zegt. Een wedstrijd die
+gisteravond begon en nog altijd loopt, staat wel gewoon bij *Nu bezig*: die is nog steeds nieuws.
+
+**Het kadertje op 'Jouw ploegen' blijft staan zolang er vandaag iets gebeurt.** Het verdween zodra er
+niets meer liep, en daarmee verdween ook de enige weg naar dat scherm. Nu staat er een regel *Alles
+van vandaag*. In het kadertje zelf blijven enkel de kaartjes van wat loopt — daar is het kadertje
+voor — en de titel wordt *Vandaag* in plaats van *Live* zodra er niets meer bezig is.
+
+**Op een lopend kaartje staat nu ook uit of thuis.** De stand wordt altijd vanuit het veld getoond:
+bij een uitwedstrijd staat de thuisploeg links. Zonder te weten waar er gespeeld wordt, kon je dus
+niet zien welk cijfer van jou was — of je ploeg nu aan het winnen of aan het verliezen was. Bij een
+gespeelde en een geplande wedstrijd stond de plaats er al; nu ook bij een lopende, net waar het er
+het meest toe doet.
+
+---
+
 ## v2.4.0
 
 **Een kijker kan nu ook een geplande wedstrijd openen, en ziet er de wedstrijdgegevens.** Tot hier
