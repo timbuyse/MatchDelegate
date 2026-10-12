@@ -4,7 +4,7 @@
   "description": "Beheer je ploeg, volg wedstrijden live",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#162437",
   "theme_color": "#0f172a",
   "orientation": "portrait-primary",
   "icons": [

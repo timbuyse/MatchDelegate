@@ -9,6 +9,44 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.4
+
+**De achtergrond is boven-onder symmetrisch, met de onderkant ook bovenaan.** Het zeshoekpatroon
+liep onderaan uit de pas. De onderhelft staat nu ook bovenaan gespiegeld — zonder de warme glans die
+daar op de randen zit. Dat laatste is waar een eerdere poging op strandde: de glinstering onderaan
+hoort bij het patroon en niet bij het licht, dus die reisde als oranje spikkels mee naar boven. Het
+gespiegelde deel neemt nu alleen nog licht en donker mee; de kleur komt van de plek waar het
+terechtkomt, en die is bovenaan blauw. De onderhelft blijft pixel voor pixel het origineel.
+
+**De bal op het opstartscherm staat pal in de middelste cel.** Hij stond samen met de groene balk en
+de naam als één blok in het midden, en dus kwam de bal zelf bóven het midden uit — ergens tussen twee
+cellen in. De bal heeft nu zijn eigen plaats op het midden van het scherm; de balk en de naam hangen
+eronder.
+
+**De app start vlotter op.** Twee dingen zaten elkaar in de weg bij het opstarten op een telefoon.
+
+Het opstartscherm van de app mocht niet verdwijnen vóór er twee seconden om waren, ook al was alles
+na een halve seconde klaar. Die vaste wachttijd is weg. In de plaats speelt de animatie — de groene
+balk die volloopt en de naam die verschijnt — nu in 750 milliseconden in plaats van 1,4 seconde, en
+het scherm blijft precies lang genoeg staan om ze volledig te tonen. Samen scheelt dat ongeveer een
+seconde per start.
+
+En de achtergrondkleur stond op drie plaatsen verschillend ingesteld, waardoor je bij het opstarten
+twee kleurschokjes zag: eerst het opstartscherm van je telefoon in één donkere tint, dan de app in
+een andere, en dan pas het zeshoekpatroon. Het opstartscherm van de telefoon heeft nu exact de
+gemiddelde kleur van ons eigen opstartscherm, zodat het patroon er gewoon in verschijnt. De
+statusbalk houdt overal dezelfde kleur.
+
+Op Android kan het opstartscherm van het systeem geen achtergrondbeeld tonen — dat stelt de telefoon
+zelf samen uit het icoontje, één kleur en de naam. De kleur gelijkzetten is dus het verste dat we
+daar kunnen gaan.
+
+*Let op: die kleur zit in de installatiegegevens van de app. Android leest die maar af en toe
+opnieuw, dus je ziet het verschil mogelijk pas nadat je de app van je beginscherm haalt en opnieuw
+toevoegt.*
+
+---
+
 ## v2.8.3
 
 **"Er is nog iemand met deze wedstrijd bezig" verschijnt niet meer bij ploegen die je niet volgt.**

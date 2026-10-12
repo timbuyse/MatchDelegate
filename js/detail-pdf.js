@@ -2499,7 +2499,19 @@ async function init() {
     window.history.replaceState({}, '', window.location.pathname);
   }
   view = 'home';
-  // Splash blijft zichtbaar tot auth klaar is; toon spinner na 2 sec als Firebase traag is
+  // Splash blijft zichtbaar tot auth klaar is; toon spinner na 2 sec als Firebase traag is.
+  //
+  // DE ONDERGRENS STOND OP TWEE SECONDEN (Tim, 12-10-2026: "kunnen we iets doen aan de opstart van
+  // de app op smartphone?"). Die wachttijd gold óók wanneer alles al na een halve seconde klaar was.
+  //
+  // NIET ZOMAAR NAAR NUL. Tim wil juist de animatie van de app zien ("alles zoveel mogelijk zoals de
+  // animatie van de app zelf"), en die duurde 1,4 s: de groene balk loopt vol en daarna verschijnt de
+  // naam. Verdween het scherm eerder, dan zag je die animatie nét niet af — erger dan wachten.
+  // Daarom is de animatie zélf ingekort (zie splashBar en splashFade in index.html): ze is nu na
+  // 750 ms rond. Deze grens ligt daar een haar achter, zodat ze altijd volledig speelt.
+  // De spinner houdt zijn eigen tijd van twee seconden aan: dat is het enige moment waarop dit
+  // scherm nog iets te melden heeft, namelijk dat de verbinding traag is.
+  const SPLASH_MIN_MS = 900;
   let _splashGone = false, _authReady = false, _minTimeDone = false;
   const _doHideSplash = () => {
     if (_splashGone || !_authReady || !_minTimeDone) return;
@@ -2508,8 +2520,9 @@ async function init() {
     if (s) { s.style.transition = 'opacity .4s ease'; s.style.opacity = '0'; setTimeout(() => s && s.remove(), 420); }
   };
   window._hideSplash = function() { _authReady = true; _doHideSplash(); };
+  setTimeout(() => { _minTimeDone = true; _doHideSplash(); }, SPLASH_MIN_MS);
+  // De spinner houdt zijn eigen tijd aan: pas ná twee seconden wachten is er iets te melden.
   setTimeout(() => {
-    _minTimeDone = true; _doHideSplash();
     if (!_splashGone) { const sp = document.getElementById('splash-spinner'); if (sp) sp.style.display = 'block'; }
   }, 2000);
   cloudInit();

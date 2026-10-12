@@ -6,7 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MatchDelegate">
-  <meta name="theme-color" content="#101010">
+  <!-- DEZE WAARDE LEEFT MAAR EEN OGENBLIK: applyTheme() in core.js overschrijft ze bij elke start
+       met de donkere kleur van het thema (GENERIC_THEME.dark). Ze stond op #101010 en sprong dus
+       meteen naar #0f172a. Gelijkgezet, zodat er niets meer verspringt. Wil je de kleur van de
+       statusbalk echt wijzigen, doe dat in GENERIC_THEME — niet hier.
+       Dit is NIET de kleur van het opstartscherm van Android: dat is background_color in
+       manifest.json, en die staat bewust op de gemiddelde kleur van ons eigen opstartscherm. -->
+  <meta name="theme-color" content="#0f172a">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="MD_cropped.png">
   <link rel="apple-touch-icon" href="MD_cropped.png">
@@ -656,14 +662,30 @@
     .lc-btn{background:var(--blk2);color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
     .lc-btn:disabled{opacity:.25;cursor:default}
     /* Splash */
-    #splash{position:fixed;inset:0;background:url('background_logo.jpg') center/cover no-repeat;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;pointer-events:none}
+    /* DE BAL STAAT PAL IN DE MIDDELSTE CEL (Tim, 12-10-2026). Dit was een kolom met de bal, de balk
+       en de naam samen in het midden — en dus stond de bal boven het midden, ergens tussen twee
+       cellen in. De achtergrond staat op `center`, dus het middelpunt van de foto valt samen met het
+       middelpunt van het scherm, en daar ligt het middelpunt van een cel (nagerekend op het raster:
+       kolom 5, rij 2). De bal krijgt daarom zijn eigen plaats op 50%/50%; de balk en de naam hangen
+       er met een vaste afstand onder. */
+    #splash{position:fixed;inset:0;background:url('background_logo.jpg') center/cover no-repeat;z-index:9999;pointer-events:none}
     #splash::before{content:'';position:absolute;inset:0;background:rgba(10,18,35,0.55)}
-    #splash img{width:140px;height:140px;object-fit:contain;position:relative}
-    #splash-bar{width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;position:relative;animation:splashBar 1s .4s cubic-bezier(.22,1,.36,1) forwards}
-    #splash-titles{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;opacity:0;animation:splashFade .5s .7s ease forwards}
+    #splash img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:140px;height:140px;object-fit:contain}
+    /* DE OPSTARTANIMATIE IS INGEKORT van 1,4 s naar 750 ms (Tim, 12-10-2026: de opstart duurde te
+       lang, maar hij wil de animatie wél zien). De balk liep vol in 1 s na 0,4 s wachten, de naam
+       verscheen op 0,7 s. Nu: balk 0,6 s na 0,15 s, naam op 0,4 s — dezelfde beweging, alleen
+       vlotter. Verzet je dit, verzet dan ook SPLASH_MIN_MS in detail-pdf.js: die grens houdt het
+       scherm staan tot de animatie afgelopen is. */
+    /* De balk en de naam hangen onder de bal: 70 px is de halve hoogte van de bal, plus wat lucht.
+       DE BALK EN DE STIP CENTREREN MET EEN MARGE, NIET MET `transform`. Allebei animeren ze hun
+       eigen transform (volllopen, draaien), en een animatie vervangt die waarde volledig — een
+       `translateX(-50%)` erin zou bij de eerste beeldje van de animatie verdwijnen en het ding naar
+       rechts laten springen. Met een halve breedte als negatieve marge blijft transform vrij. */
+    #splash-bar{position:absolute;left:50%;margin-left:-75px;top:calc(50% + 92px);width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;animation:splashBar .6s .15s cubic-bezier(.22,1,.36,1) forwards}
+    #splash-titles{position:absolute;left:50%;top:calc(50% + 113px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;animation:splashFade .35s .4s ease forwards}
     #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;font-variant:small-caps}
     #splash-name{color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
-    #splash-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;position:relative;display:none;animation:splashSpin .8s linear infinite}
+    #splash-spinner{position:absolute;left:50%;margin-left:-17px;top:calc(50% + 165px);width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;display:none;animation:splashSpin .8s linear infinite}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
     @keyframes splashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
     @keyframes splashFade{from{opacity:0}to{opacity:1}}
