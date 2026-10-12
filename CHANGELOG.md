@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.1
+
+**De achtergrond is boven-onder symmetrisch gemaakt.** Het zeshoekpatroon van de kopbalken, het
+splashscherm, het aanmeldscherm, de kop van de ploegkeuze en de onderhoudspagina liep onderaan uit de
+pas. De bovenhelft van het patroon is nu naar onder gespiegeld.
+
+Het licht is **niet** mee gespiegeld: de koele glans blijft bovenaan en de warme gloed onderaan,
+precies zoals voorheen. Daarvoor is de foto eerst in twee gesplitst — het licht is de foto zwaar
+uitgewaasd, het patroon is wat overblijft als je de foto daardoor deelt — en alleen dat patroon is
+gespiegeld.
+
+De spiegellijn ligt op de rij celmiddelpunten die het dichtst bij het midden valt. Een zeshoekraster
+is enkel om zo'n lijn symmetrisch; een paar pixels ernaast en het raster knikt zichtbaar.
+
+---
+
 ## v2.8.0
 
 **De clubronde ziet nu ook wat er bij de bond gewijzigd is.** Tot hier keek het ophalen van de
