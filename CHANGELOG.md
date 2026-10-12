@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.7.1
+
+**Het vandaag-scherm is nu altijd bereikbaar.** De regel *Alles van vandaag* op het ploegkeuzescherm
+stond er enkel wanneer er die dag iets te melden viel — en dus net niet wanneer je wou gaan kijken óf
+er iets was. Ze staat er nu altijd, ook vóór het eerste ophalen. Is er die dag niets, dan zegt het
+scherm dat gewoon.
+
+De regel waarmee de app bij het opstarten op *Jouw ploegen* landt in plaats van meteen je ploeg
+binnen te gaan, blijft onveranderd: die kijkt enkel naar wedstrijden die op dat moment lopen.
+
+---
+
 ## v2.7.0
 
 **Een kijker ziet nu ook de selectie bij een geplande wedstrijd.** Sinds v2.4.0 kon hij zo'n wedstrijd

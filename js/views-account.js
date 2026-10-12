@@ -3558,7 +3558,6 @@ function speeldagKaartHtml(rij) {
 function speeldagHtml() {
   if (!speeldagMag()) return '';
   const st = _speeldag;
-  if (!st) return '';
   const clubbreed = speeldagClubbreed();
   // "LIVE" MET EEN ROOD BOLLETJE (Tim, 02-10-2026). In dit kadertje staat enkel wat er nú loopt, en
   // daar past het woord dat iedereen van televisie kent. Welke periode het scherm erachter beslaat,
@@ -3568,18 +3567,28 @@ function speeldagHtml() {
   const kader = (live, binnen) => `<div class="sd-kader">
       <div class="sd-kop"><div class="sd-titel${live ? ' sd-live' : ''}">${live ? 'Live' : 'Vandaag'}</div></div>${binnen}</div>`;
   const stil = t => `<div style="font-size:12px;color:var(--txt2);padding:1px 2px">${t}</div>`;
+  // DE DOORKLIKREGEL STAAT ER ALTIJD (Tim, 12-10-2026: "kunnen we dat scherm vandaag standaard
+  // toegankelijk maken? Als het leeg is omdat er die dag geen wedstrijden zijn of zijn geweest, dan is
+  // dat maar zo"). Tot hier verdween het hele kadertje zodra er niets te melden viel, en daarmee de
+  // enige weg naar dat scherm — je kon er dus net niet bij wanneer je wou nakijken of er iets was.
+  // Ook vóór het eerste ophalen staat de regel er al, zodat de ingang niet onder je vinger inspringt.
+  const doorRegel = tekst => `<div class="sd-door" onclick="go('livespeeldag')">
+        <span>${tekst}</span><span class="sd-pijl">›</span>
+      </div>`;
+  const alles = doorRegel('Alles van vandaag');
+  if (!st) return kader(false, alles);
   // ALLES WAT GEEN NIEUWS IS, ZWIJGT VOOR WIE GEEN CLUB BEHEERT. Een kijker die wacht en een kijker bij
-  // wie het ophalen mislukte, horen hetzelfde te zien: niets. Anders staat op het ploegkeuzescherm van
-  // een ouder een melding over machinerie waar hij niets mee kan.
-  if (!clubbreed && st.stand !== 'klaar') return '';
-  if (st.stand === 'laden') return kader(true, stil('Even kijken wat er speelt…'));
+  // wie het ophalen mislukte, horen hetzelfde te zien: de regel en verder niets. Anders staat op het
+  // ploegkeuzescherm van een ouder een melding over machinerie waar hij niets mee kan.
+  if (!clubbreed && st.stand !== 'klaar') return kader(false, alles);
+  if (st.stand === 'laden') return kader(false, stil('Even kijken wat er speelt…') + alles);
   if (st.stand === 'geen-zoekregel') {
     // Enkel de eigenaar kan hier iets aan doen; voor een clubbeheerder zou dit een foutmelding zijn
-    // over iets waar hij geen vat op heeft. Die ziet dus gewoon niets, alsof het scherm er nog niet is.
-    return isOwner ? kader(true, stil('Wacht nog op één instelling in de databank: zoeken op datum. Publiceer de regels en het werkt meteen.')) : '';
+    // over iets waar hij geen vat op heeft. Die krijgt dus enkel de regel.
+    return kader(false, (isOwner ? stil('Wacht nog op één instelling in de databank: zoeken op datum. Publiceer de regels en het werkt meteen.') : '') + alles);
   }
   if (st.stand === 'mislukt') {
-    return kader(true, stil('Raakte niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a>'));
+    return kader(false, stil('Raakte niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a>') + alles);
   }
   // IN HET KADERTJE STAAN ENKEL KAARTJES VAN WAT LOOPT (Tim, 03-10-2026: "alle wedstrijden van de
   // huidige speeldag staan erop, gaat nooit gebruikt worden — kunnen we er geen live scherm van
@@ -3587,10 +3596,9 @@ function speeldagHtml() {
   // iets anders te beginnen.
   //
   // WAT WÉL VERANDERDE (Tim, 12-10-2026): het kadertje verdween helemaal zodra er niets meer liep, en
-  // daarmee ook de enige weg naar het scherm van vandaag — dat scherm was dan onbereikbaar. Nu blijft
-  // er één regel staan zolang er vandaag íets gebeurd is of nog komt.
+  // daarmee ook de enige weg naar het scherm van vandaag. Nu staat de regel er altijd — ook op een dag
+  // zonder één wedstrijd. Het scherm erachter zegt dan zelf dat er niets op het programma staat.
   const g = speeldagVerdeling();
-  if (!g.bezig.length && !g.gespeeld.length && !g.komt.length) return '';
   // HOOGSTENS TWEE KAARTJES hier (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm").
   // Eén rij dus. Lopen er meer, dan zegt de regel eronder hoeveel; anders brengt diezelfde regel je
   // naar alles van vandaag.
@@ -3600,10 +3608,7 @@ function speeldagHtml() {
   const doorTekst = rest > 0
     ? `Nog ${rest === 1 ? '1 andere loopt' : rest + ' andere lopen'}`
     : 'Alles van vandaag';
-  const door = `<div class="sd-door" onclick="go('livespeeldag')">
-        <span>${doorTekst}</span><span class="sd-pijl">›</span>
-      </div>`;
-  return kader(g.bezig.length > 0, kaartjes + door);
+  return kader(g.bezig.length > 0, kaartjes + doorRegel(doorTekst));
 }
 function speeldagTeken() {
   const el = document.getElementById('speeldag-blok');
