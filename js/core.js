@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.8.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.8.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4222,8 +4222,18 @@ async function applyCloudMatch(id, m) {
   // toch één iemand die het doet, en de verrassing is het echte probleem.
   // Enkel bij een LOPENDE wedstrijd, en enkel voor wie ze zelf mag bijhouden — een kijker kan niets
   // overschrijven. De echo van je eigen schrijfactie draagt jouw eigen uid en telt dus niet mee.
+  //
+  // ALLEEN BIJ EEN PLOEG DIE IN "JOUW PLOEGEN" STAAT (Tim, 12-10-2026: "ik krijg altijd een melding
+  // dat er iemand anders met die wedstrijd bezig is, maar dat is ambetant"). `canLive()` hing hier
+  // alleen aan `isAdmin`, en dat staat voor een clubbeheerder — en zeker voor de eigenaar — op élke
+  // ploeg aan. Wie uit nieuwsgierigheid meekijkt bij een wedstrijd van een andere ploeg, kreeg dus
+  // telkens te horen dat er iemand anders bezig is. Dat klopt ook: díé ander is de afgevaardigde die
+  // het hoort te doen.
+  // De melding gaat over "pas op, jullie zitten er samen in", en dat is enkel zinvol wanneer je die
+  // ploeg ook echt volgt. `userTeams` is precies de lijst achter "Jouw ploegen".
+  const eigenPloeg = !!(userTeams || {})[activeTeamId];
   if (m.status === 'live' && m.updatedBy && typeof currentUser !== 'undefined' && currentUser
-      && m.updatedBy !== currentUser.uid && typeof canLive === 'function' && canLive()) {
+      && m.updatedBy !== currentUser.uid && typeof canLive === 'function' && canLive() && eigenPloeg) {
     _andereBeheerder = { matchId: id, when: Date.now() };
   }
   await dbPutLocal(m);

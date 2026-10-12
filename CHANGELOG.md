@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.3
+
+**"Er is nog iemand met deze wedstrijd bezig" verschijnt niet meer bij ploegen die je niet volgt.**
+Wie een club beheert — en zeker de eigenaar — heeft beheerrechten op élke ploeg, en kreeg die melding
+dus bij elke lopende wedstrijd waar hij eens ging kijken. Terwijl die ander net de afgevaardigde is
+die het hoort te doen.
+
+De melding verschijnt voortaan alleen nog bij een ploeg die in *Jouw ploegen* staat. Daar is ze ook
+zinvol: dan kan je elkaars klok of klaargezette wissels overschrijven. Ben je ploegbeheerder van die
+ploeg, dan verandert er niets.
+
+Aan rechten verandert er niets. Een clubbeheerder of eigenaar kan nog altijd elke ploeg openen, de
+statistieken bekijken en alles aanpassen.
+
+---
+
 ## v2.8.2
 
 **De oorspronkelijke achtergrond staat terug.** De gespiegelde versie van v2.8.1 was netter van
