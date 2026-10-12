@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.5.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.6.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2654,7 +2654,7 @@ async function onAuthChanged(user) {
     // zich op dit toestel aanmeldt. (views-account.js laadt later dan dit bestand, vandaar de wachter.)
     if (typeof clubNaamCache !== 'undefined') { clubNaamCache = {}; clubLogoCache = {}; }
     vreemdeKernen = {};   // opgehaalde kernen van andere ploegen horen niet bij een volgende gebruiker
-    _clubZusters = null; _clubTeamIndex = {};   // idem voor de kernen van de zusterploegen
+    _clubZusters = null; _clubTeamIndex = {}; _clubLidIndex = {};   // idem voor de kernen van de zusterploegen
     if (window._maintenanceOff) { window._maintenanceOff(); window._maintenanceOff = null; }
     if (window._approvalOff) { window._approvalOff(); window._approvalOff = null; }
     stopTeamListeners(); listenAdminRequests(); presenceStop();
@@ -3271,6 +3271,10 @@ async function fetchTeamInfo(teamId, poging = 0) {
     // ploegbeheerder — een clubbeheerder komt overal al binnen langs zijn eigen weg, en een kijker
     // hoort hier niets te kunnen. Op de achtergrond; niets wacht erop.
     if (activeClubId && userTeams[teamId] === 'admin') schrijfClubTeamIndex(teamId, activeClubId);
+    // En de tweede index (v2.6.0): dezelfde gedachte, maar voor ELK lid van deze ploeg — ook een
+    // kijker. Daarop steunt het vandaag-scherm, dat de wedstrijden van de hele club toont. Zie
+    // schrijfClubLidIndex hieronder en users/$uid/clubLid in database.rules.json.
+    if (activeClubId && userTeams[teamId]) schrijfClubLidIndex(teamId, activeClubId);
     // Gearchiveerde ploeg: gewone leden er niet gewoon in laten doorwerken (ze is uit alle
     // lijsten verborgen, maar werd bv. bij herstart via voetbal_activeTeamId weer actief).
     // Eigenaar/clubbeheerder mag er wél in (beheren/herstellen via Clubbeheer).
@@ -3316,6 +3320,19 @@ function schrijfClubTeamIndex(teamId, clubId) {
   // Stil bij een fout: mislukt dit, dan zijn de zusterploegen gewoon niet beschikbaar. Er hangt geen
   // enkele andere functie aan vast.
   try { fbdb.ref('users/' + currentUser.uid + '/clubTeam/' + clubId).set(teamId).catch(() => {}); } catch (e) {}
+}
+// DEZELFDE INDEX VOOR EEN GEWOON LID (v2.6.0). Hierop steunt het vandaag-scherm: het toont de
+// wedstrijden van álle ploegen van je club, en de leesregels moeten kunnen nakijken dat je ergens in
+// die club lid bent. Apart van de index hierboven gehouden omdat die beheerdersrecht blijft betekenen
+// (zie users/$uid/clubLid in database.rules.json).
+// Stil bij een fout, net als hierboven: mislukt dit, dan ziet die gebruiker enkel zijn eigen ploegen.
+let _clubLidIndex = {};    // { 'clubId:teamId': true } — al geschreven in deze sessie
+function schrijfClubLidIndex(teamId, clubId) {
+  if (!currentUser || !fbdb || !teamId || !clubId) return;
+  const sleutel = clubId + ':' + teamId;
+  if (_clubLidIndex[sleutel]) return;
+  _clubLidIndex[sleutel] = true;
+  try { fbdb.ref('users/' + currentUser.uid + '/clubLid/' + clubId).set(teamId).catch(() => {}); } catch (e) {}
 }
 // De ploegen van de eigen club, met hun kern. Eén keer per club opgehaald en daarna hergebruikt: dit
 // zijn een paar lezingen over het net en de lijst wijzigt zelden binnen één sessie. De actieve ploeg

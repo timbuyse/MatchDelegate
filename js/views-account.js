@@ -3311,10 +3311,19 @@ function speeldagVenster() {
 
 // Mag deze gebruiker dit zien? Iedereen die aangemeld is — een gast heeft zijn eigen live-scherm.
 function speeldagMag() { return !!(cloudReady && currentUser && !isGuest); }
-// De hele club, of enkel de ploegen die je volgt? Kijkmodus telt als kijker: wie nakijkt hoe zijn
-// kijkers het scherm zien, hoort niet alsnog de clubweergave te krijgen.
+// ELK LID VAN DE CLUB ZIET DE HELE CLUB (v2.6.0, Tim 12-10-2026: "kan je toelaten dat iedere
+// gebruiker van de app dit ziet, onafhankelijk van welke ploeg hij lid is"). Tot hier was dit
+// voorbehouden aan wie een club beheert; een gewone ouder zag enkel de ploegen die hij volgt.
+//
+// Kijkmodus telt hier niet meer als uitzondering: sinds dit de weergave van iederéén is, zou een
+// beheerder in kijkmodus net hetzelfde horen te zien als zijn kijkers. Voor het DOORKLIKKEN telt die
+// modus wel nog mee — zie speeldagBeheert.
+//
+// Zonder gepubliceerde regels verandert er niets zichtbaars: de lezing van de zusterploegen mislukt
+// stil en je houdt je eigen ploegen over (zie speeldagPloegen en speeldagOphalen).
 function speeldagClubbreed() {
-  return !!((isOwner || Object.keys(myClubs || {}).length > 0) && !viewerMode);
+  if (isOwner || Object.keys(myClubs || {}).length > 0) return true;
+  return Object.keys(userTeams || {}).some(tid => !!teamClubIds[tid]);
 }
 // Beheert deze persoon de ploeg van DEZE rij? Bewust niet `isAdmin`: dat gaat over de actieve ploeg.
 function speeldagBeheert(rij) {
@@ -3333,13 +3342,24 @@ function speeldagZichtbaar(rij) {
   if (matchVerborgenVoorKijkers(rij.m)) return false;
   return !(typeof matchKijkerGeblokkeerd === 'function' && matchKijkerGeblokkeerd(rij.m, uid));
 }
-// En mag hij ze OPENEN? Zelfde lat als matchOpenbaarVoorMij: enkel een wedstrijd die bezig of
-// afgesloten is. Een geplande of afgelaste blijft voor een kijker een regel om te lezen.
+// En mag hij ze OPENEN? ENKEL EEN WEDSTRIJD VAN EEN PLOEG WAAR HIJ ZELF LID VAN IS (v2.6.0, Tim
+// 12-10-2026: "verschil is dat een gebruiker dan enkel maar kan doorklikken op een wedstrijd waar
+// hij lid is van de ploeg"). Sinds dit scherm de hele club toont, staan er rijen op van ploegen waar
+// je niets mee te maken hebt: die lees je, meer niet.
+//
+// Wie wél lid is, valt onder de gewone lat van de app (matchOpenbaarVoorMij in core.js): sinds v2.4.0
+// mag een kijker alles openen wat hij ziet staan, met enkel de twee gordijnen eromheen.
 function speeldagMagOpenen(rij) {
   if (speeldagBeheert(rij)) return true;
   const m = rij.m;
-  if (!m || matchCancelled(m)) return false;
-  return m.status === 'live' || m.status === 'done';
+  if (!m) return false;
+  if (!(userTeams || {})[rij.tid]) return false;
+  // Dezelfde twee gordijnen als in speeldagZichtbaar, en bewust niet matchOpenbaarVoorMij: die begint
+  // met canLive(), en dat gaat over de ploeg waar je NÚ in zit — hier zelden dezelfde als die van de
+  // rij. Zichtbaar betekent hiermee ook openbaar, wat precies is wat je op dit scherm verwacht.
+  const uid = currentUser ? currentUser.uid : null;
+  if (matchVerborgenVoorKijkers(m)) return false;
+  return !(typeof matchKijkerGeblokkeerd === 'function' && matchKijkerGeblokkeerd(m, uid));
 }
 // Welke ploegen horen erbij. Beheer je een club, dan alle ploegen van die club — ook die je zelf niet
 // volgt, want dat is net het punt van een clubscherm. Anders de ploegen die je volgt. Een eigenaar
@@ -3351,14 +3371,20 @@ async function speeldagPloegen() {
     if (gezien.has(tid) || archivedTeams[tid]) return;
     gezien.add(tid); uit.push({ cid: cid || null, tid });
   };
-  if (speeldagClubbreed()) {
-    for (const cid of Object.keys(myClubs || {})) {
-      let ids = [];
-      try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {}); } catch (e) {}
-      ids.forEach(tid => bij(tid, cid));
-    }
+  // WELKE CLUBS KOMEN IN AANMERKING: die je beheert, plus die van de ploegen waar je lid van bent
+  // (v2.6.0). Dat tweede is nieuw — daarvóór keek dit enkel naar myClubs, de clubs die je BEHEERT, en
+  // bleef een gewoon lid dus bij zijn eigen ploegen.
+  const clubIds = new Set(Object.keys(myClubs || {}));
+  Object.keys(userTeams || {}).forEach(tid => { const c = teamClubIds[tid]; if (c) clubIds.add(c); });
+  for (const cid of clubIds) {
+    let ids = [];
+    try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + cid + '/teams'))).val() || {}); } catch (e) {}
+    ids.forEach(tid => bij(tid, cid));
   }
-  if (!uit.length) Object.keys(userTeams || {}).forEach(tid => bij(tid, teamClubIds[tid]));
+  // JE EIGEN PLOEGEN STAAN ER HOE DAN OOK BIJ. Niet enkel als vangnet voor wie geen club heeft: lukt
+  // de lezing van de clublijst niet — bijvoorbeeld zolang de regels van v2.6.0 nog niet gepubliceerd
+  // zijn — dan houd je hiermee precies het scherm over dat je vóór die versie had.
+  Object.keys(userTeams || {}).forEach(tid => bij(tid, teamClubIds[tid]));
   return uit;
 }
 // Wat loopt er bovenaan: eerst wat bezig is, dan wat nog komt, dan wat gespeeld is. Binnen elke groep
@@ -3457,10 +3483,12 @@ function speeldagZoNodig() {
 async function speeldagOpen(id) {
   const rij = ((_speeldag || {}).rijen || []).find(r => r.m.id === id);
   if (!rij) return;
-  // Woordelijk dezelfde uitleg als in de wedstrijdenlijst, zodat een kijker twee keer hetzelfde leest
-  // in plaats van twee keer iets anders.
+  // Zeg wáárom er niets gebeurt: een tik die stil niets doet, leest als een defect. Sinds v2.6.0 staan
+  // hier ook ploegen waar je niet bij hoort, en dat is veruit de gewoonste reden.
   if (!speeldagMagOpenen(rij)) {
-    showToast('Een geplande wedstrijd is enkel voor de ploegbeheerders. Zodra de wedstrijd begint, kan je ze volgen.', 'err');
+    showToast((userTeams || {})[rij.tid]
+      ? 'Deze wedstrijd is niet beschikbaar.'
+      : 'Deze wedstrijd is van een andere ploeg van je club. Je ziet de stand, maar openen kan enkel wie bij die ploeg hoort.', 'err');
     return;
   }
   const m = rij.m;

@@ -135,6 +135,21 @@
         "matches": {
           ".indexOn": ["date"],
 
+          // DE WEDSTRIJDEN VAN EEN ZUSTERPLOEG, VOOR ELK LID VAN DE CLUB (v2.6.0, Tim 12-10-2026).
+          // Het vandaag-scherm toont wat er bij de hele club speelt; zonder deze regel bleef dat bij
+          // een gewoon lid leeg, want de .read op $teamId hierboven vraagt lidmaatschap van DIE ploeg.
+          //
+          // Dezelfde nagerekende bewering als bij roster hierboven, maar op de index clubLid en met
+          // .exists() in plaats van === 'admin': élk lid van élke ploeg van dezelfde club. Een
+          // verouderde of verzonnen indexvermelding levert niets op, want de rol wordt hier opnieuw
+          // gecontroleerd op het moment van lezen.
+          //
+          // WAT DIT OPENT, EERLIJK GEZEGD: de hele wedstrijd van een zusterploeg, dus ook de opstelling
+          // en de gebeurtenissen. Het scherm toont daar niets van, maar wie het wil ophalen, kan het.
+          // De NOTITIES blijven dicht: die hangen bewust in een eigen tak (zie notes hieronder).
+          // De grens blijft de CLUB — tussen clubs verandert er niets.
+          ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()",
+
           // EEN GESPEELDE WEDSTRIJD KAN NIET LEEGGESCHREVEN WORDEN (v1.99.11, na twee verloren
           // verslagen op 30-09 en 04-10-2026). De app heeft daar sinds v1.99.9 drie wachters voor,
           // maar die zitten in de app: een toestel dat nooit bijwerkt, draagt ze niet. Dit is
@@ -219,6 +234,23 @@
         "clubTeam": {
           "$clubId": {
             ".validate": "root.child('teams/' + newData.val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + newData.val() + '/info/clubId').val() === $clubId"
+          }
+        },
+
+        // DEZELFDE INDEX, MAAR VOOR EEN GEWOON LID (v2.6.0, Tim 12-10-2026: "kan je toelaten dat
+        // iedere gebruiker van de app dit ziet, onafhankelijk van welke ploeg hij lid is"). Nodig voor
+        // het vandaag-scherm: ook de ouder van een U8-speler hoort te zien hoe U13 het vanmiddag doet.
+        //
+        // clubLid/$clubId = het teamId waarvan deze gebruiker LID beweert te zijn (welke rol dan ook),
+        // tegenover clubTeam hierboven dat BEHEERDER zegt. Twee aparte takken en niet één met een
+        // soepelere controle: de leesrechten op de kern van een zusterploeg hangen aan clubTeam, en
+        // die horen beheerdersrecht te blijven.
+        //
+        // Net als hierboven wordt de bewering bij élke lezing nagerekend (zie clubs/$clubId/teams en
+        // teams/$teamId/matches): wie uit een ploeg verdwijnt en hier blijft staan, krijgt niets meer.
+        "clubLid": {
+          "$clubId": {
+            ".validate": "root.child('teams/' + newData.val() + '/members/' + auth.uid).exists() && root.child('teams/' + newData.val() + '/info/clubId').val() === $clubId"
           }
         }
       }
@@ -383,7 +415,13 @@
           // zusterploegen kunnen opsommen vóór hij er een speler uit kan bijzetten. Enkel deze lijst
           // van ploeg-id's — info en admins van de club blijven dicht. Dezelfde nagerekende bewering
           // als bij teams/$teamId/roster, zie de uitleg daar en bij users/$uid/clubTeam.
-          ".read": "auth != null && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/info/clubId').val() === $clubId"
+          //
+          // EN SINDS v2.6.0 OOK ELK GEWOON LID van een ploeg van deze club, via de tweede index
+          // users/$uid/clubLid (zie daar). Nodig voor het vandaag-scherm: zonder deze lijst weet de app
+          // niet wélke ploegen er in de club zitten. Het blijft bij de lijst van ploeg-id's.
+          // De eerste tak blijft naast de tweede staan: zolang clubLid nog niet geschreven is, werkt
+          // de weg van de beheerder gewoon door.
+          ".read": "auth != null && ((root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/info/clubId').val() === $clubId) || (root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/info/clubId').val() === $clubId))"
         }
       }
     },

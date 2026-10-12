@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.6.0
+
+**Iedereen ziet het vandaag-scherm van zijn hele club.** Tot hier was dat voorbehouden aan wie een
+club beheert; een ouder zag enkel de ploegen die hij volgt. Nu ziet elk lid van elke ploeg wat er
+vandaag bij de club speelt — ook van ploegen waar hij niets mee te maken heeft.
+
+**Doorklikken kan enkel bij je eigen ploegen.** Een rij van een andere ploeg lees je: naam,
+tegenstander, uit of thuis, de stand. Tik je erop, dan zegt de app waarom er niets gebeurt. Wie wél
+bij die ploeg hoort, komt binnen zoals altijd — met dezelfde grenzen als voorheen, dus een wedstrijd
+die voor kijkers verborgen is, blijft dat.
+
+**De grens blijft de club.** Tussen clubs verandert er niets: niemand ziet ooit iets van een andere
+club.
+
+Dit vraagt twee nieuwe leesrechten in de databank, die via een index per gebruiker nakijken dat je
+ergens in die club lid bent. Die bewering wordt bij élke lezing opnieuw gecontroleerd, dus een
+achtergebleven vermelding geeft geen toegang. Zolang die regels niet gepubliceerd zijn, verandert er
+niets zichtbaars: het ophalen van een zusterploeg mislukt stil en je houdt het scherm over dat je
+vandaag al had.
+
+---
+
 ## v2.5.0
 
 **Het live-scherm is een vandaag-scherm geworden.** Het toonde enkel wat er op dat moment liep, en
