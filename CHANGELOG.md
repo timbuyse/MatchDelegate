@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.5
+
+**De ondertitel staat weer netjes op één regel.** *MANAGE · TRACK · SHARE* brak sinds de vorige
+versie over twee regels en stond daardoor scheef. Het tekstblok kreeg maar de halve schermbreedte
+mee; nu de volle.
+
+**De bal staat groter en in de cel bóven het midden.** Hij is van 140 naar 170 pixels gegaan, en hij
+schuift één cel omhoog zodat de bal, de groene balk en de naam samen mooier uitkomen. Die stap van
+één cel rekent mee met je scherm: de achtergrond wordt op een staand scherm anders geschaald dan op
+een breed scherm, en de bal volgt dat, zodat hij overal in het midden van een cel blijft staan.
+
+---
+
 ## v2.8.4
 
 **De achtergrond is boven-onder symmetrisch, met de onderkant ook bovenaan.** Het zeshoekpatroon
