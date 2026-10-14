@@ -9,6 +9,36 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.9.0
+
+**Wedstrijdvoorbereidingen die de app vroeger niet kon lezen, leest ze nu wel.** Een blad van FC
+Gullegem kwam terug met de melding dat er geen leesbare tekst in stond, terwijl er niets aan scheelde.
+Zo'n blad is op een andere manier gemaakt: elke letter is er een tekeningetje in plaats van een
+letter, en de app hield dat voor plaatjes — net zoals ze de shirtjes op het veld overslaat. Vijf
+dingen zijn daarvoor rechtgezet:
+
+- De app herkent nu aan de vertaaltabel van een lettertype of het om echte tekst gaat, en niet meer
+  aan de manier waarop dat lettertype gemaakt is. Leestekens tellen daarbij mee als tekst: op dit blad
+  staan de punt, de dubbele punt en het koppelteken in een lettertype apart, en zonder die was "M."
+  geen "M." meer — net daaraan ziet de app waar de ene spelersnaam eindigt en de volgende begint.
+- Eén woord kan over meerdere lettertypes verdeeld staan ("Game" als G-a, m, e). De app plakte enkel
+  stukjes uit hetzelfde lettertype aan elkaar en hield er dus losse letters aan over.
+- De spaties staan niet in zo'n blad: wie elke letter apart tekent, schuift gewoon een eindje op. De
+  app meet nu per letter of er een spatie tussen stond. Ze gebruikt daarvoor de echte letterbreedtes
+  uit het bestand in plaats van een schatting.
+- Staan er twee letters na elkaar zonder dat het blad opnieuw zegt waar ze horen, dan schuift de app
+  zelf op. Deed ze dat niet, dan stonden "d", "u" en "c" van Balduccio op dezelfde plek en brak de
+  naam middenin.
+- De inhoud van een blad mag voortaan ook via een omweg aangeduid staan — een derde vorm die in de
+  PDF-norm toegelaten is, maar die de app nog niet kende.
+
+**Een rugnummer is geen wisselspeler.** Zet de trainer nummers bij de spelers, dan zet
+ProSoccerData dat cijfer als los veldje vóór de naam. Bij de wisselspelers kwam dat als elfde naam in
+de lijst, waar de app dan vergeefs een speler bij zocht.
+
+Bladen die vandaag al gelezen worden, veranderen niet: elke aanpassing hierboven werkt alleen op het
+pad dat vroeger niets opleverde.
+
 ## v2.8.11
 
 **Op een kaartje van het vandaag-scherm staat nu ook de strafschoppenreeks.** Een gelijkspel dat je

@@ -225,28 +225,50 @@ function psdContentItems(content, fonts, hoogte) {
   };
   const toon = () => {
     const f = (font && fonts[font]) || null;
-    // Shirtjes, bolletjes en ander tekenwerk dat als "tekst" in het bestand staat, slaan we over:
-    // een veld vol shirts zou anders als een spelersnaam gelezen worden. Zie psdFontInfo.
-    if (f && f.decoratief) return;
+    // Shirtjes, bolletjes en ander tekenwerk dat als "tekst" in het bestand staat, laten we hieronder
+    // weg: een veld vol shirts zou anders als een spelersnaam gelezen worden. Zie psdFontInfo. Ze
+    // schuiven de schrijfpositie wél op, dus we rekenen ze gewoon mee.
     const breed = !!(f && f.tweeByte);
     let txt = '';
+    // Hoe ver schuift de schrijfpositie op door wat hier getekend wordt? In em, dus nog zonder de
+    // lettergrootte. Blijft 0 als het font zijn breedtes niet meegeeft; dan valt psdRegels terug op
+    // de schatting, net als vroeger.
+    let adv = 0;
+    const opschuiven = code => {
+      if (!f || !f.breedtes) return;
+      const w = f.breedtes[code - f.eerste];
+      if (typeof w === 'number' && isFinite(w)) adv += w * f.schaal;
+    };
     for (const o of ops) {
       if (o[0] === '<') {
         const hx = o.slice(1, -1).replace(/\s/g, '');
         const stap = breed ? 4 : 2;
-        for (let i = 0; i + stap <= hx.length; i += stap) txt += tekenVan(f, parseInt(hx.substr(i, stap), 16));
+        for (let i = 0; i + stap <= hx.length; i += stap) {
+          const code = parseInt(hx.substr(i, stap), 16);
+          txt += tekenVan(f, code); opschuiven(code);
+        }
       } else if (o[0] === '(') {
         // Een gewone tekst tussen haakjes. Bij een tweebyte-font (Identity-H) horen de bytes per
         // twee gelezen te worden, ook hier.
         const bs = psdLiteralBytes(o.slice(1, -1));
-        if (breed) { for (let i = 0; i + 2 <= bs.length; i += 2) txt += tekenVan(f, (bs[i] << 8) | bs[i + 1]); }
-        else for (const b of bs) txt += tekenVan(f, b);
+        if (breed) { for (let i = 0; i + 2 <= bs.length; i += 2) { const c = (bs[i] << 8) | bs[i + 1]; txt += tekenVan(f, c); opschuiven(c); } }
+        else for (const b of bs) { txt += tekenVan(f, b); opschuiven(b); }
+      } else if (/^[-+.\d]/.test(o)) {
+        // De getallen in een TJ-reeks trekken de letters naar elkaar toe (in duizendsten van een em).
+        adv -= (parseFloat(o) || 0) / 1000;
       }
     }
-    if (!txt.trim()) return;
     const M = psdMul(tm, ctm);
     const size = Math.abs(tf) * Math.sqrt(M[0] * M[0] + M[1] * M[1]) || 10;
-    uit.push({ x: M[4], y: hoogte - M[5], text: txt, size, font: font || '' });
+    if (!(f && f.decoratief) && txt.trim()) {
+      uit.push({ x: M[4], y: hoogte - M[5], text: txt, size, font: font || '', type3: !!(f && f.type3), adv: adv * size });
+    }
+    // EN DAN OPSCHUIVEN. Een PDF hoeft niet voor elke letter te zeggen waar ze staat: zet hij er twee
+    // na elkaar, dan hoort de tweede vanzelf achter de eerste te komen. Dat deed de app niet, en op
+    // het blad van Gullegem viel dat zwaar op — daar staan "d", "u" en "c" van Balduccio alle drie op
+    // dezelfde plek, dus de naam brak midden in een woord. Zonder letterbreedtes schuift er niets op,
+    // precies zoals vroeger; bladen die vandaag goed gelezen worden, veranderen dus niet.
+    if (adv) tm = psdMul([1, 0, 0, 1, adv * tf, 0], tm);
   };
   let t;
   PSD_TOK.lastIndex = 0;
@@ -308,18 +330,39 @@ function psdBreedte(t, size) {
   }
   return n * size;
 }
+// EEN WOORD DAT OVER MEERDERE LETTERTYPES VERDEELD STAAT (Tim, 14-10-2026, blad van Gullegem). Daar
+// is élke letter een tekenprogrammaatje, en de browser verdeelt ze over een stuk of zeven fonts naar
+// gelang welke vormen bij elkaar in een pakketje pasten: "Game" staat als G-a in het ene, m in het
+// tweede, e weer in het eerste. De voorwaarde "zelfde lettertype" hieronder knipte dat woord dus in
+// drieën, en zo de hele pagina in losse letters. Staan beide stukjes in zo'n tekenfont, dan zegt de
+// fontnaam niets en laten we die voorwaarde vallen; de hoogte, de grootte en de breedteschatting
+// bewaken het dan alleen. Op een blad dat vandaag werkt verandert er niets: daar is een Type3-font
+// net het tekenwerk (de shirtjes), en dat wordt hierboven al overgeslagen.
+// EN DE SPATIES, die er bij zo'n blad niet staan. Wie elke letter apart tekent, tekent de spatie niet
+// mee: hij schuift gewoon een eindje op. Tussen "Van" en "Speybroeck" is dat anderhalve punt op een
+// letter van zeven — te weinig om op het oog te zien, genoeg om te meten. Daarom kijken we hier per
+// letter: schuift de volgende verder op dan deze letter breed is, dan stond er een spatie. Enkel op
+// dit pad; op een blad met gewone lettertypes blijft alles zoals het was.
 function psdRegels(items) {
   const rij = items.slice().sort((a, b) => (Math.round(a.y * 2) - Math.round(b.y * 2)) || (a.x - b.x));
   const uit = [];
   for (const it of rij) {
     const v = uit[uit.length - 1];
-    if (v && Math.abs(v.y - it.y) < 1.5 && v.font === it.font && Math.abs(v.size - it.size) < 0.6
-        && it.x <= v.x + psdBreedte(v.text, v.size) + 0.35 * v.size
-        && !psdNieuweNaamBegint(it.text)) {
+    const los = !!(v && v.type3 && it.type3);
+    const zelfdeSoort = v && (v.font === it.font || los);
+    // Per letter meten (losse letters) of over het hele stuk (gewone tekst).
+    const spatie = v ? 0.25 * v.size : 0;
+    const gat = v ? it.x - (los ? v.laatsteX : v.x) : 0;
+    const verwacht = !v ? 0 : los ? (v.laatsteAdv || psdBreedte(v.laatste, v.size)) : psdBreedte(v.text, v.size);
+    const past = !v ? false : los ? gat <= verwacht + 1.6 * spatie : gat <= verwacht + 0.35 * v.size;
+    if (v && Math.abs(v.y - it.y) < 1.5 && zelfdeSoort && Math.abs(v.size - it.size) < 0.6
+        && past && !psdNieuweNaamBegint(it.text)) {
+      if (los && gat > verwacht + 0.5 * spatie) v.text += ' ';
       v.text += it.text;
+      v.laatste = it.text; v.laatsteX = it.x; v.laatsteAdv = it.adv;
       continue;
     }
-    uit.push({ x: it.x, y: it.y, text: it.text, size: it.size, font: it.font });
+    uit.push({ x: it.x, y: it.y, text: it.text, size: it.size, font: it.font, type3: it.type3, laatste: it.text, laatsteX: it.x, laatsteAdv: it.adv });
   }
   return uit;
 }
@@ -342,8 +385,18 @@ async function psdFontInfo(s, u8, off, nr) {
     tweeByte: /\/Subtype\s*\/Type0\b/.test(fo),
     enc: /\/MacRomanEncoding\b/.test(fo) ? 'mac' : /\/WinAnsiEncoding\b/.test(fo) ? 'win' : null,
     cmap: null, diff: null,
-    decoratief: /\/Subtype\s*\/Type3\b/.test(fo) || /shirt|icon|glyphicons|fontawesome/i.test(basis),
+    // Een naam die het weggeeft, telt meteen. Over Type3 beslissen we pas onderaan, als we zijn
+    // vertaaltabel gelezen hebben — zie daar.
+    decoratief: /shirt|icon|glyphicons|fontawesome/i.test(basis),
   };
+  // De échte letterbreedtes, als het font ze meegeeft. Een gewoon blad heeft ze niet nodig — daar
+  // staan hele woorden in één stuk — maar een blad waarop elke letter apart getekend wordt, valt of
+  // staat ermee: alleen zo weet je of de volgende letter aansluit of dat er een spatie tussen stond.
+  // De lijst staat per lettercode vanaf /FirstChar, en /FontMatrix zegt in welke maat ze geschreven is.
+  const wm = fo.match(/\/Widths\s*\[([^\]]*)\]/);
+  info.breedtes = wm ? wm[1].trim().split(/\s+/).map(parseFloat) : null;
+  info.eerste = parseInt((fo.match(/\/FirstChar\s+(\d+)/) || [, '0'])[1], 10);
+  info.schaal = Math.abs(parseFloat((fo.match(/\/FontMatrix\s*\[\s*([-\d.]+)/) || [, '0.001'])[1])) || 0.001;
   const md = fo.match(/\/Differences\s*\[([\s\S]*?)\]/);
   if (md) {
     info.diff = {};
@@ -368,6 +421,31 @@ async function psdFontInfo(s, u8, off, nr) {
   if (tu) {
     const cm = await psdStream(s, u8, off, parseInt(tu[1], 10));
     if (cm) info.cmap = psdCMap(psdLatin1(cm));
+  }
+  // EEN TYPE3-FONT IS NIET VANZELF TEKENWERK (Tim, 14-10-2026, met een blad van Gullegem). Die regel
+  // stond er omdat shirtjes en bolletjes als Type3-glyphs in het blad zitten, en een veld vol shirts
+  // mag niet als spelersnaam gelezen worden. Maar sommige bladen zijn volledig in Type3 gezet — elke
+  // letter is daar een tekenprogrammaatje — en dan sloeg de app het hele document over. Ze vond dan
+  // "geen leesbare tekst" terwijl er niets aan scheelde.
+  //
+  // De vraag is dus niet hoe het font gemaakt is, maar of het ECHTE TEKST voorstelt. Staat er een
+  // vertaaltabel die gewone tekens oplevert, dan is het tekst. Een shirtglyph komt daar niet door:
+  // die draagt geen vertaling, of ze wijst naar het privégebied van Unicode (U+E000-U+F8FF) —
+  // precies waar tekenfonts hun symbolen zetten.
+  //
+  // LEESTEKENS ZIJN TEKST. Deze toets vroeg eerst om een letter of een cijfer, en dat kostte op het
+  // blad van Gullegem meteen een heel font: daar staan de punt, de dubbele punt en het koppelteken
+  // in een font apart. Zonder die was "M." geen "M." meer — en net aan dat punt herkent de app waar
+  // de ene spelersnaam eindigt en de volgende begint.
+  info.type3 = /\/Subtype\s*\/Type3\b/.test(fo);
+  if (!info.decoratief && info.type3) {
+    const echt = tabel => Object.values(tabel || {}).some(ch => {
+      if (!ch || !ch.trim()) return false;
+      const c = ch.codePointAt(0);
+      if (c >= 0xE000 && c <= 0xF8FF) return false;          // privégebied = symbolen
+      return c >= 0x20 && c !== 0x7F;                         // alles wat je kan zien, telt
+    });
+    info.decoratief = !(echt(info.cmap) || echt(info.diff));
   }
   return info;
 }
@@ -420,14 +498,30 @@ async function psdLeesPdf(arrayBuffer) {
       let f;
       while ((f = re.exec(fm[1]))) fonts[f[1]] = await psdFontInfo(s, u8, off, parseInt(f[2], 10));
     }
-    // /Contents mag één object zijn of een reeks; beide komen voor.
+    // /Contents komt in DRIE vormen voor, en de derde ontbrak hier (Tim, 14-10-2026, met een blad van
+    // Gullegem):
+    //   1. één verwijzing naar een stream:            /Contents 14 0 R
+    //   2. een reeks die bij de pagina zelf staat:    /Contents [ 151 0 R  14 0 R ]
+    //   3. een verwijzing naar een object dat ZÉLF die reeks is:  /Contents 153 0 R  →  153 = [ ... ]
+    // Bij die derde zocht de app een stream in object 153, vond er geen, en hield er stil mee op — de
+    // hele PDF leek dan "zonder leesbare tekst", terwijl er niets mis mee was.
     const cm = body.match(/\/Contents\s+(?:(\d+)\s+0\s+R|\[([^\]]*)\])/);
     let content = '';
-    if (cm && cm[1]) { const b = await psdStream(s, u8, off, parseInt(cm[1], 10)); if (b) content = psdLatin1(b); }
-    else if (cm && cm[2]) {
-      const re = /(\d+)\s+0\s+R/g;
-      let c;
-      while ((c = re.exec(cm[2]))) { const b = await psdStream(s, u8, off, parseInt(c[1], 10)); if (b) content += psdLatin1(b) + '\n'; }
+    const erbij = async nr => { const b = await psdStream(s, u8, off, nr); if (b) content += psdLatin1(b) + '\n'; };
+    const reeks = async txt => { const re = /(\d+)\s+0\s+R/g; let c; while ((c = re.exec(txt))) await erbij(parseInt(c[1], 10)); };
+    if (cm && cm[1]) {
+      const nr = parseInt(cm[1], 10);
+      await erbij(nr);
+      // Niets gevonden? Dan is dit vorm 3: het object is geen stream maar de reeks zelf.
+      if (!content) {
+        const inhoudsBody = psdBody(s, off, nr);
+        if (!/\bstream\b/.test(inhoudsBody)) {
+          const am = inhoudsBody.match(/\[([^\]]*)\]/);
+          if (am) await reeks(am[1]);
+        }
+      }
+    } else if (cm && cm[2]) {
+      await reeks(cm[2]);
     }
     if (content) paginas.push({ regels: psdRegels(psdContentItems(content, fonts, hoogte)) });
   }
@@ -652,7 +746,11 @@ function psdLeesVoorbereiding(paginas, matchType) {
       const wisselKop = inBlok.find(r => /^wisselspelers$/i.test(r.text.trim()));
       const namen = inBlok.filter(r => (!wisselKop || r.y < wisselKop.y - 3) && !/^wisselspelers$/i.test(r.text.trim())
         && psdLijktOpNaam(r.text));
-      const bank = wisselKop ? inBlok.filter(r => r.y > wisselKop.y - 3 && !/^wisselspelers$/i.test(r.text.trim())).map(r => r.text.trim()) : [];
+      // EEN RUGNUMMER IS GEEN WISSELSPELER (Tim, 14-10-2026, blad van Gullegem). Staat er een nummer
+      // bij de spelers, dan zet PSD dat als los cijfer vóór de naam — en dan kwam "0" als elfde
+      // wisselspeler in de lijst, waar de app dan vergeefs een speler bij zocht.
+      const bank = wisselKop ? inBlok.filter(r => r.y > wisselKop.y - 3 && !/^wisselspelers$/i.test(r.text.trim())
+        && !/^[\d.\-\/]+$/.test(r.text.trim())).map(r => r.text.trim()) : [];
       if (namen.length < 2) continue;
       const rijen = psdBlokRijen(namen);
       const plekken = psdPlekkenVoorRijen(rijen, matchType);
