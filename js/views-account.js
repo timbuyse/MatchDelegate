@@ -3607,15 +3607,12 @@ function speeldagHtml() {
   // zonder één wedstrijd. Het scherm erachter zegt dan zelf dat er niets op het programma staat.
   const g = speeldagVerdeling();
   // HOOGSTENS TWEE KAARTJES hier (Tim, 02-10-2026: "dan tonen we er max 2 op het eerste scherm").
-  // Eén rij dus. Lopen er meer, dan zegt de regel eronder hoeveel; anders brengt diezelfde regel je
-  // naar alles van vandaag.
+  // Eén rij dus. Wat er verder nog is, zegt de regel eronder — ÉÉN plek voor die tekst, en dat is
+  // speeldagDoorTekst(). Dit rekende zijn eigen tekst uit en bleef daardoor "Alles van vandaag"
+  // zeggen terwijl de nieuwe tekst er al was (Tim, 14-10-2026: "nee er staat nog alles van vandaag").
   const toon = g.bezig.slice(0, 2);
-  const rest = g.bezig.length - toon.length;
   const kaartjes = toon.length ? `<div class="sd-rooster">${toon.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
-  const doorTekst = rest > 0
-    ? `Nog ${rest === 1 ? '1 andere loopt' : rest + ' andere lopen'}`
-    : 'Alles van vandaag';
-  return kader(g.bezig.length > 0, kaartjes + doorRegel(doorTekst));
+  return kader(g.bezig.length > 0, kaartjes + alles);
 }
 function speeldagTeken() {
   const el = document.getElementById('speeldag-blok');

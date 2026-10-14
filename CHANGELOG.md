@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.9
+
+**Op het kadertje stond nog altijd "Alles van vandaag".** De nieuwe tekst — *7 geplande wedstrijden*
+— was er wel, maar het kadertje rekende in het gewone geval nog zijn eigen oude tekst uit. Nu komt
+die tekst overal uit dezelfde plek.
+
+---
+
 ## v2.8.8
 
 **En dít was de echte reden dat een kijker zijn club niet zag.** Niet de app, maar een fout in de
