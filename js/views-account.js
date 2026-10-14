@@ -3371,6 +3371,10 @@ async function speeldagPloegen() {
     if (gezien.has(tid) || archivedTeams[tid]) return;
     gezien.add(tid); uit.push({ cid: cid || null, tid });
   };
+  // EERST DE INDEX, DAN PAS LEZEN (v2.8.6). De leesrechten op de ploegen van je club steunen op een
+  // vermelding onder je eigen account, en die werd enkel geschreven wanneer je een ploeg opende —
+  // wat op dit scherm net niet gebeurd is. Zie clubLidIndexBij in core.js.
+  if (typeof clubLidIndexBij === 'function') { try { await clubLidIndexBij(); } catch (e) {} }
   // WELKE CLUBS KOMEN IN AANMERKING: die je beheert, plus die van de ploegen waar je lid van bent
   // (v2.6.0). Dat tweede is nieuw — daarvóór keek dit enkel naar myClubs, de clubs die je BEHEERT, en
   // bleef een gewoon lid dus bij zijn eigen ploegen.
@@ -3434,8 +3438,11 @@ async function speeldagOphalen(stil) {
       });
     }));
     rijen.sort(speeldagVolgorde);
+    // HOEVEEL PLOEGEN KWAMEN ER NIET BINNEN. Dit werd geteld maar nergens getoond zolang er íets
+    // binnenkwam, en dat is precies hoe een geweigerde lezing onzichtbaar bleef (v2.8.6): je eigen
+    // ploeg lukt, de rest van de club niet, en het scherm zegt niets. Nu staat het er.
     _speeldag = {
-      ...v, rijen, tijd: Date.now(),
+      ...v, rijen, tijd: Date.now(), mislukt,
       stand: geenZoekregel ? 'geen-zoekregel' : (mislukt && !rijen.length) ? 'mislukt' : 'klaar',
     };
   } catch (e) {
@@ -3575,7 +3582,7 @@ function speeldagHtml() {
   const doorRegel = tekst => `<div class="sd-door" onclick="go('livespeeldag')">
         <span>${tekst}</span><span class="sd-pijl">›</span>
       </div>`;
-  const alles = doorRegel('Alles van vandaag');
+  const alles = doorRegel(speeldagDoorTekst());
   if (!st) return kader(false, alles);
   // ALLES WAT GEEN NIEUWS IS, ZWIJGT VOOR WIE GEEN CLUB BEHEERT. Een kijker die wacht en een kijker bij
   // wie het ophalen mislukte, horen hetzelfde te zien: de regel en verder niets. Anders staat op het
@@ -3646,6 +3653,30 @@ function speeldagVerdeling() {
     komt: rijen.filter(r => r.m.status !== 'live' && r.m.status !== 'done' && vanVandaag(r)),
   };
 }
+// DE DOORKLIKREGEL ZEGT WAT ER ACHTER ZIT (Tim, 13-10-2026: "maak daar iets anders van: X geplande
+// wedstrijden ofzo"). Stond op "Alles van vandaag", en dat is geen nieuws — je weet pas wat er achter
+// zit nadat je getikt hebt.
+//
+// VOLGORDE VAN BELANG. Lopen er meer wedstrijden dan de twee kaartjes die erboven passen, dan is dát
+// het dringendste en staat het vooraan. De telling van wat nog komt en wat al gespeeld is, volgt.
+// Het woord "wedstrijd" valt één keer aan het eind, zodat "3 geplande, 2 gespeelde wedstrijden"
+// leest als één zin in plaats van als twee halve.
+function speeldagDoorTekst() {
+  const g = speeldagVerdeling();
+  const rest = Math.max(0, g.bezig.length - 2);
+  const delen = [];
+  if (rest) delen.push(rest === 1 ? 'nog 1 andere loopt' : `nog ${rest} andere lopen`);
+  const tel = [];
+  if (g.komt.length) tel.push(`${g.komt.length} geplande`);
+  if (g.gespeeld.length) tel.push(`${g.gespeeld.length} gespeelde`);
+  if (tel.length) {
+    const n = g.komt.length + g.gespeeld.length;
+    delen.push(tel.join(', ') + (n === 1 ? ' wedstrijd' : ' wedstrijden'));
+  }
+  if (!delen.length) return 'Alles van vandaag';
+  const t = delen.join(' · ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 // Onder de titel: wat er vandaag te zien is. Nog niets opgehaald = nog niets zeggen.
 function speeldagAantalTekst() {
   if (!(_speeldag && _speeldag.rijen)) return '';
@@ -3672,9 +3703,14 @@ function speeldagVolledigHtml() {
   // liep: het dagoverzicht was weggehaald omdat het scherm begon met iets anders dan waarvoor je het
   // opende. Dat blijft overeind — wat loopt, staat nog altijd bovenaan — maar eronder hoort nu wat er
   // vandaag al gespeeld is, en daaronder wat er nog komt. Zie speeldagVerdeling voor de drie hoopjes.
+  // Kwamen er ploegen niet binnen, zeg dat dan — ook wanneer de rest wél gelukt is. Anders lijkt een
+  // half overzicht een volledig overzicht, en daar is niets aan te zien.
+  const mislukteRegel = st.mislukt
+    ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Van ${st.mislukt === 1 ? 'één ploeg' : st.mislukt + ' ploegen'} raakten de wedstrijden niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a></div>`
+    : '';
   const g = speeldagVerdeling();
   if (!g.bezig.length && !g.gespeeld.length && !g.komt.length) {
-    return `<div class="empty"><div class="ei">${IC.ball}</div><p>Vandaag staat er niets op het programma bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
+    return mislukteRegel + `<div class="empty"><div class="ei">${IC.ball}</div><p>Vandaag staat er niets op het programma bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
   }
   // Een kop per hoopje, en enkel wanneer dat hoopje iets bevat: een lege kop is een belofte die het
   // scherm niet waarmaakt. 'Nu bezig' krijgt het rode bolletje dat overal in de app hetzelfde ding is.
@@ -3682,7 +3718,8 @@ function speeldagVolledigHtml() {
     ? `<div class="sec"${eerste ? ' style="margin-top:0"' : ''}>${kop}</div>
        <div class="sd-rooster sd-ruim">${rijen.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
   const eersteKop = g.bezig.length ? 'bezig' : g.gespeeld.length ? 'gespeeld' : 'komt';
-  return deel(`<span class="sd-live">Nu bezig</span>`, g.bezig, eersteKop === 'bezig')
+  return mislukteRegel
+    + deel(`<span class="sd-live">Nu bezig</span>`, g.bezig, eersteKop === 'bezig')
     + deel('Al gespeeld', g.gespeeld, eersteKop === 'gespeeld')
     + deel('Nog te spelen', g.komt, eersteKop === 'komt');
 }

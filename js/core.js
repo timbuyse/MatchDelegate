@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.8.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.8.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3328,11 +3328,33 @@ function schrijfClubTeamIndex(teamId, clubId) {
 // Stil bij een fout, net als hierboven: mislukt dit, dan ziet die gebruiker enkel zijn eigen ploegen.
 let _clubLidIndex = {};    // { 'clubId:teamId': true } — al geschreven in deze sessie
 function schrijfClubLidIndex(teamId, clubId) {
-  if (!currentUser || !fbdb || !teamId || !clubId) return;
+  if (!currentUser || !fbdb || !teamId || !clubId) return Promise.resolve();
   const sleutel = clubId + ':' + teamId;
-  if (_clubLidIndex[sleutel]) return;
+  if (_clubLidIndex[sleutel]) return Promise.resolve();
   _clubLidIndex[sleutel] = true;
-  try { fbdb.ref('users/' + currentUser.uid + '/clubLid/' + clubId).set(teamId).catch(() => {}); } catch (e) {}
+  try { return fbdb.ref('users/' + currentUser.uid + '/clubLid/' + clubId).set(teamId).catch(() => {}); }
+  catch (e) { return Promise.resolve(); }
+}
+// DE INDEX MOET ER STAAN VÓÓR HET VANDAAG-SCHERM IETS VRAAGT (v2.8.6, Tim 14-10-2026: "ik zie als
+// kijker niet de geplande wedstrijden van mijn club", en bij navraag: van de andere ploegen van de
+// club kwam er niets binnen).
+//
+// WAT ER MISLIEP. Hierboven wordt de index geschreven vanuit fetchTeamInfo, dus pas wanneer je een
+// PLOEG OPENT. Het vandaag-scherm hangt aan het ploegkeuzescherm — en daar heb je net géén ploeg
+// geopend. Wie de app start en meteen daarheen gaat, had die vermelding dus nog niet staan, en dan
+// weigeren de leesregels hem de ploegen van zijn club. Zonder enige melding, want een geweigerde
+// lezing telt in speeldagOphalen gewoon als "mislukt" en verdwijnt tussen de rest.
+//
+// Dit zet ze voor élke ploeg die we van deze gebruiker kennen, uit `userTeams` plus de clubs die op
+// het toestel bewaard staan (`teamClubIds`). Eén schrijfactie per club per sessie, en we WACHTEN
+// erop: de lezing die erna komt, steunt erop.
+function clubLidIndexBij() {
+  const taken = [];
+  for (const tid of Object.keys(userTeams || {})) {
+    const cid = teamClubIds[tid];
+    if (cid) taken.push(schrijfClubLidIndex(tid, cid));
+  }
+  return taken.length ? Promise.all(taken) : Promise.resolve();
 }
 // De ploegen van de eigen club, met hun kern. Eén keer per club opgehaald en daarna hergebruikt: dit
 // zijn een paar lezingen over het net en de lijst wijzigt zelden binnen één sessie. De actieve ploeg

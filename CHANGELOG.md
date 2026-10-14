@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.6
+
+**Een kijker zag de wedstrijden van de andere ploegen van zijn club niet.** De toestemming daarvoor
+steunt op een vermelding onder je eigen account, en die werd pas geschreven op het moment dat je een
+ploeg opende. Het vandaag-scherm hangt aan het ploegkeuzescherm, en daar heb je net géén ploeg
+geopend — dus wie de app startte en meteen daarheen ging, kreeg van de databank niets anders dan zijn
+eigen ploeg. De app zet die vermelding nu klaar vóór ze iets opvraagt, voor elke ploeg die ze van je
+kent.
+
+**En zo'n geweigerde lezing verdween stilletjes.** Lukte je eigen ploeg wel en de rest niet, dan zag
+je een half overzicht dat eruitzag als een volledig overzicht. Nu staat er een regel boven: *van N
+ploegen raakten de wedstrijden niet binnen*, met een knop om het opnieuw te proberen.
+
+**De regel onder het kadertje zegt nu wat erachter zit.** Er stond *Alles van vandaag*; nu staat er
+bijvoorbeeld *3 geplande wedstrijden* of *3 geplande, 2 gespeelde wedstrijden*. Lopen er meer
+wedstrijden dan de twee kaartjes die erboven passen, dan staat dat vooraan: *Nog 2 andere lopen*.
+
+---
+
 ## v2.8.5
 
 **De ondertitel staat weer netjes op één regel.** *MANAGE · TRACK · SHARE* brak sinds de vorige
