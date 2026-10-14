@@ -3566,13 +3566,15 @@ function speeldagHtml() {
   if (!speeldagMag()) return '';
   const st = _speeldag;
   const clubbreed = speeldagClubbreed();
-  // "LIVE" MET EEN ROOD BOLLETJE (Tim, 02-10-2026). In dit kadertje staat enkel wat er nú loopt, en
-  // daar past het woord dat iedereen van televisie kent. Welke periode het scherm erachter beslaat,
-  // zegt de doorklikregel eronder — en die gebruikt exact hetzelfde woord als de titel van dat scherm.
-  // Loopt er niets meer, dan heet het kadertje 'Vandaag' en valt het bolletje weg: een rood stipje bij
-  // wedstrijden die al afgelopen zijn, zou nieuws beloven dat er niet is.
+  // DE NAAM VAN HET KADERTJE (Tim, 14-10-2026: "noem die kaart vandaag in jouw club"). Eén naam voor
+  // alle toestanden, zodat je weet wat je voor je hebt vóór je ergens op tikt. Heette eerst 'Live'
+  // met een rood bolletje en 'Vandaag' zonder; dat bolletje blijft nu staan wanneer er iets loopt —
+  // dat is het enige verschil dat nog nodig is, en het zegt genoeg.
+  // Volg je ploegen zonder club, dan klopt "jouw club" niet; dan heet het naar je ploegen, net als de
+  // lege melding op het scherm erachter.
+  const kaartNaam = clubbreed ? 'Vandaag in jouw club' : 'Vandaag bij jouw ploegen';
   const kader = (live, binnen) => `<div class="sd-kader">
-      <div class="sd-kop"><div class="sd-titel${live ? ' sd-live' : ''}">${live ? 'Live' : 'Vandaag'}</div></div>${binnen}</div>`;
+      <div class="sd-kop"><div class="sd-titel${live ? ' sd-live' : ''}">${kaartNaam}</div></div>${binnen}</div>`;
   const stil = t => `<div style="font-size:12px;color:var(--txt2);padding:1px 2px">${t}</div>`;
   // DE DOORKLIKREGEL STAAT ER ALTIJD (Tim, 12-10-2026: "kunnen we dat scherm vandaag standaard
   // toegankelijk maken? Als het leeg is omdat er die dag geen wedstrijden zijn of zijn geweest, dan is

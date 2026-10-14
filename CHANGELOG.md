@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.10
+
+**Het kadertje heet nu "Vandaag in jouw club".** Het heette *Live* zodra er iets liep en *Vandaag*
+als er niets liep. Eén naam is duidelijker: je weet wat er achter zit vóór je erop tikt. Het rode
+bolletje blijft wel staan zodra er een wedstrijd bezig is.
+
+Volg je enkel ploegen die niet in een club zitten, dan heet het *Vandaag bij jouw ploegen* — anders
+belooft de kop een club die er niet is.
+
+---
+
 ## v2.8.9
 
 **Op het kadertje stond nog altijd "Alles van vandaag".** De nieuwe tekst — *7 geplande wedstrijden*
