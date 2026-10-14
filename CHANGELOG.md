@@ -9,6 +9,24 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.8
+
+**En dít was de echte reden dat een kijker zijn club niet zag.** Niet de app, maar een fout in de
+leesregel van de databank. Die regel bestaat uit twee stukken: één voor een ploegbeheerder en één
+voor een gewoon lid. Het stuk voor de beheerder steunt op een vermelding die een kijker niet heeft,
+en in de regeltaal van Firebase is rekenen met iets dat niet bestaat een fout — en een regel die een
+fout maakt, is altijd onwaar. Het stuk voor het gewone lid werd dus nooit bereikt. Bij een beheerder
+viel het niet op, want die heeft die vermelding wél.
+
+Elk stuk begint nu met de vraag of zijn eigen vermelding bestaat. Nagemeten bij een echte
+kijkersaccount: de ploegenlijst van de club komt binnen (27 ploegen), zeven geplande wedstrijden van
+vandaag staan op het scherm, en doorklikken kan hij bij geen van de zeven — precies zoals bedoeld.
+
+*Aan de app zelf verandert er niets. Het versienummer schuift mee zodat de uitleg in de regels naar
+een bestaand nummer verwijst.*
+
+---
+
 ## v2.8.7
 
 **Nu pas ziet een kijker de wedstrijden van zijn club echt.** De vorige versie loste maar de helft

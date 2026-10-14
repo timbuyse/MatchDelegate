@@ -148,7 +148,11 @@
           // en de gebeurtenissen. Het scherm toont daar niets van, maar wie het wil ophalen, kan het.
           // De NOTITIES blijven dicht: die hangen bewust in een eigen tak (zie notes hieronder).
           // De grens blijft de CLUB — tussen clubs verandert er niets.
-          ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()",
+          //
+          // OOK HIER EERST .exists() OP DE INDEX (v2.8.8): zonder die vermelding wordt 'teams/' + null
+          // berekend, en dat is een typefout die de hele regel onwaar maakt. Zie de uitleg bij
+          // clubs/$clubId/teams — daar kostte precies dit een paar dagen zoeken.
+          ".read": "auth != null && root.child('teams/' + $teamId + '/info/clubId').exists() && root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + root.child('teams/' + $teamId + '/info/clubId').val()).val() + '/info/clubId').val() === root.child('teams/' + $teamId + '/info/clubId').val()",
 
           // EEN GESPEELDE WEDSTRIJD KAN NIET LEEGGESCHREVEN WORDEN (v1.99.11, na twee verloren
           // verslagen op 30-09 en 04-10-2026). De app heeft daar sinds v1.99.9 drie wachters voor,
@@ -421,7 +425,15 @@
           // niet wélke ploegen er in de club zitten. Het blijft bij de lijst van ploeg-id's.
           // De eerste tak blijft naast de tweede staan: zolang clubLid nog niet geschreven is, werkt
           // de weg van de beheerder gewoon door.
-          ".read": "auth != null && ((root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/info/clubId').val() === $clubId) || (root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/info/clubId').val() === $clubId))"
+          //
+          // ELKE TAK BEGINT MET .exists() OP ZIJN EIGEN INDEX, EN DAT IS GEEN OPSMUK (v2.8.8,
+          // 14-10-2026). Bestaat de vermelding niet, dan geeft .val() `null`, en dan rekent de regel
+          // 'teams/' + null + '/members/…' uit. Dat is een TYPEFOUT in de regeltaal, en een regel die
+          // een fout maakt is altijd onwaar — óók de andere tak van de ||, want die wordt niet meer
+          // bereikt. Een kijker heeft geen clubTeam-vermelding, dus sloeg de eerste tak de tweede
+          // dood en kreeg hij nooit de ploegenlijst van zijn eigen club te zien. Bij een beheerder
+          // viel het niet op: die heeft die vermelding wél.
+          ".read": "auth != null && ((root.child('users/' + auth.uid + '/clubTeam/' + $clubId).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/members/' + auth.uid).val() === 'admin' && root.child('teams/' + root.child('users/' + auth.uid + '/clubTeam/' + $clubId).val() + '/info/clubId').val() === $clubId) || (root.child('users/' + auth.uid + '/clubLid/' + $clubId).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/members/' + auth.uid).exists() && root.child('teams/' + root.child('users/' + auth.uid + '/clubLid/' + $clubId).val() + '/info/clubId').val() === $clubId))"
         }
       }
     },
