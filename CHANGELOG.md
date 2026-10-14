@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.11
+
+**Op een kaartje van het vandaag-scherm staat nu ook de strafschoppenreeks.** Een gelijkspel dat je
+na strafschoppen won, kleurde groen — terecht, want een gewonnen reeks telt als winst — maar er stond
+nergens dat het na strafschoppen was. Onder de stand staat nu *pen. 3-2*, net zoals in de
+wedstrijdenlijst.
+
+---
+
 ## v2.8.10
 
 **Het kadertje heet nu "Vandaag in jouw club".** Het heette *Live* zodra er iets liep en *Vandaag*

@@ -3548,8 +3548,16 @@ function speeldagKaartHtml(rij) {
     : `<span>${m.location ? esc(m.location) : 'Gespeeld'}</span>`;
   // Rechts de stand. Een wedstrijd die nog moet beginnen of niet doorgaat heeft er geen; daar staat
   // links al het uur of het woord, en een streepje zou daar als een 0-0 lezen.
+  //
+  // EN DE STRAFSCHOPPENREEKS ERONDER (Tim, 14-10-2026: "gelijkspel na penalty gewonnen staat groen
+  // maar staat er niet bij dat het na penalty's was"). De kleur komt van matchResultaat, en dat telt
+  // een gewonnen reeks als winst — dus stond hier een groene 1-1 zonder uitleg. Zelfde regeltje als
+  // in de wedstrijdenlijst (matchItemHtml), zodat het overal hetzelfde leest.
+  const pen = toonShootout(m)
+    ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">pen. ${esc(shootoutTxt(m))}</span>`
+    : '';
   const stand = (m.status === 'planned' || af) ? ''
-    : `<b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>`;
+    : `<span style="text-align:right;flex-shrink:0"><b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>${pen}</span>`;
   const ploeg = `<div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>`;
   const tegen = `<div class="sd-tegen">${esc(m.opponent || '—')}</div>`;
   // Een kaartje dat niet opengaat, hoort er ook niet uit te zien alsof het dat wel doet — zelfde
