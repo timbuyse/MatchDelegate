@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.8.7
+
+**Nu pas ziet een kijker de wedstrijden van zijn club echt.** De vorige versie loste maar de helft
+op. De app zoekt de club van je ploegen op in een lijstje dat ze op je toestel bewaart — maar dat
+lijstje werd alleen ingelezen op het moment dat je een ploeg opende. Op het ploegkeuzescherm, waar
+het vandaag-scherm aan hangt, was het dus leeg. Dan kende de app geen enkele club en vroeg ze ook
+niets op; vandaar dat er zelfs geen foutmelding verscheen.
+
+De app leest dat lijstje nu in vóór ze iets opvraagt, en weet ze de club van een ploeg nog niet, dan
+vraagt ze die gewoon op. Dat werkt dus ook op een toestel waar je nog nooit een ploeg geopend hebt.
+
+---
+
 ## v2.8.6
 
 **Een kijker zag de wedstrijden van de andere ploegen van zijn club niet.** De toestemming daarvoor

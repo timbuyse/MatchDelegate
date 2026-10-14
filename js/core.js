@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.8.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.8.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3345,16 +3345,34 @@ function schrijfClubLidIndex(teamId, clubId) {
 // weigeren de leesregels hem de ploegen van zijn club. Zonder enige melding, want een geweigerde
 // lezing telt in speeldagOphalen gewoon als "mislukt" en verdwijnt tussen de rest.
 //
-// Dit zet ze voor élke ploeg die we van deze gebruiker kennen, uit `userTeams` plus de clubs die op
-// het toestel bewaard staan (`teamClubIds`). Eén schrijfactie per club per sessie, en we WACHTEN
-// erop: de lezing die erna komt, steunt erop.
-function clubLidIndexBij() {
+// EN WE MOETEN EERST WETEN BIJ WELKE CLUB ZIJN PLOEGEN HOREN. Dat bleek de echte kern van het
+// probleem (v2.8.6 loste maar de helft op):
+//   · `loadTeamClubIds()` — de onthouden clubs van dit toestel — werd ENKEL aangeroepen vanuit
+//     selectTeam, dus bij het openen van een ploeg. Op het ploegkeuzescherm stond die lijst leeg.
+//   · En op een toestel waar nog nooit een ploeg geopend was, staat er sowieso niets.
+// Gevolg: geen enkele club bekend, dus vroeg de app niets op — en omdat er niets geprobeerd werd,
+// kwam er ook geen foutmelding. Het scherm zei gewoon dat er vandaag niets op het programma stond.
+//
+// Daarom hieronder, in deze volgorde: de onthouden clubs inlezen, de ontbrekende bij de databank
+// opvragen (één veldje per ploeg, en op je eigen ploeg mag je dat lezen), en dan pas de index
+// schrijven. We WACHTEN op alles: de lezing die erna komt, steunt erop.
+async function clubLidIndexBij() {
+  loadTeamClubIds();
+  const tids = Object.keys(userTeams || {});
+  await Promise.all(tids.filter(tid => !teamClubIds[tid]).map(async tid => {
+    if (!fbdb) return;
+    try {
+      const s = await fbOnce(fbdb.ref('teams/' + tid + '/info/clubId'));
+      const cid = s && s.val();
+      if (cid) rememberTeamClubId(tid, cid);
+    } catch (e) { /* geen club bekend: dan blijft het bij je eigen ploegen */ }
+  }));
   const taken = [];
-  for (const tid of Object.keys(userTeams || {})) {
+  for (const tid of tids) {
     const cid = teamClubIds[tid];
     if (cid) taken.push(schrijfClubLidIndex(tid, cid));
   }
-  return taken.length ? Promise.all(taken) : Promise.resolve();
+  if (taken.length) await Promise.all(taken);
 }
 // De ploegen van de eigen club, met hun kern. Eén keer per club opgehaald en daarna hergebruikt: dit
 // zijn een paar lezingen over het net en de lijst wijzigt zelden binnen één sessie. De actieve ploeg
