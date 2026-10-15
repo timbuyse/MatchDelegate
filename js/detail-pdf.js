@@ -1735,7 +1735,7 @@ async function pdfMatchBody(doc, L, m) {
       // scherm sinds 22-08): het ontbreken las als een gat.
       const dit = scoreInQuarter(m, q.num);
       const cumText = (isAway(m) ? `${cum.them} – ${cum.us}` : `${cum.us} – ${cum.them}`)
-        + `\n(dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})`;
+        + `\n(${pDit(m)} ${pSingLow(m)}: ${isAway(m) ? `${dit.them} – ${dit.us}` : `${dit.us} – ${dit.them}`})`;
       // own_goal_them erbij — zelfde reden als op het scherm (audit 25-08-2026).
       // Sorteren en evtLabelPlainBasis om dezelfde twee redenen als op het scherm hierboven: de
       // opslagvolgorde is niet de scorevolgorde, en de tussenstand staat hier al in een eigen kolom.
@@ -1917,7 +1917,7 @@ async function pdfMatchBody(doc, L, m) {
     // altijd, ook bij 0–0.
     const ditQ = g.qn == null ? null : scoreInQuarter(m, g.qn);
     const ditText = ditQ
-      ? ` (dit ${pSingLow(m)}: ${isAway(m) ? `${ditQ.them}–${ditQ.us}` : `${ditQ.us}–${ditQ.them}`})` : '';
+      ? ` (${pDit(m)} ${pSingLow(m)}: ${isAway(m) ? `${ditQ.them}–${ditQ.us}` : `${ditQ.us}–${ditQ.them}`})` : '';
     const head = g.qn == null ? 'Overig' : `${pSing(m)} ${g.qn}${cumText ? ` — tussenstand ${cumText}${ditText}` : ''}`;
     // Positiewisselingen op hetzelfde moment als één regel — zie groepeerPosSwaps.
     // En de pauzewissels samengevouwen tot één "Startopstelling"-regel, net als op het scherm (zie

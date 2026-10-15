@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.9.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.9.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -303,6 +303,11 @@ function pSing(m) { return pType(m).sing; }              // bv. "Kwart"
 function pSingLow(m) { return pType(m).sing.toLowerCase(); } // bv. "kwart"
 function pPlural(m) { return pType(m).plural; }          // bv. "kwarten"
 function pAbbr(m) { return pType(m).abbr; }              // bv. "K"
+// "DIT KWART" MAAR "DEZE HELFT" (Tim, 15-10-2026). Het is het kwart en het deel, maar de helft — en
+// op acht plaatsen stond het met een vaste "dit" ervoor, wat bij een wedstrijd in helften "dit
+// helft" gaf — in het verslag, in de PDF én in de drie vensters waar je een minuut ingeeft.
+// Gebruik dit hulpje overal waar een aanwijzend voornaamwoord vóór de naam van een deel komt.
+function pDit(m) { return pType(m).sing === 'Helft' ? 'deze' : 'dit'; }
 // "2 delen" / "1 deel": bij een wedstrijd van één blok stond er anders "1 delen".
 function pCount(m, n) { const c = n == null ? (m && m.numQuarters) : n; return `${c} ${c === 1 ? pSingLow(m) : pPlural(m)}`; }
 // Redenen bij "niet beschikbaar" (NB) in de selectie — optioneel: geen reden blijft geldig.

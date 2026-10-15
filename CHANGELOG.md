@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.9.1
+
+**Het minuutvakje bij "Event toevoegen" zegt nu waar die minuut over gaat.** Een gebruiker gaf er de
+minuut van de héle wedstrijd in, en dacht dat het zo hoorde. Het vakje heette daar gewoon *Minuut*,
+terwijl de app de minuut binnen het gekozen deel verwacht — de twee andere vensters waar je een
+minuut ingeeft, zeggen dat wél met zoveel woorden. De verwarring is begrijpelijk: in het verloop
+begint de teller bij elk deel opnieuw, in de samenvatting loopt hij door.
+
+**En een minuut die niet in dat deel past, schuift niet meer stil op.** De app zette zo'n
+gebeurtenis zonder één woord op de slotminuut van het deel. Op het scherm leek het gelukt, terwijl de
+wissel op het verkeerde moment stond — en daarmee klopten de speelminuten van twee spelers niet meer.
+Nu zie je het meteen onder het vakje staan, met de echte duur van dat deel erbij, en de gebeurtenis
+gaat er niet door. De grens is de duur zoals het deel *gespeeld* is, niet de ingestelde: een kwart
+dat vroeger afgefloten werd, telt zoals het gelopen heeft.
+
+**Twee kleinere dingen die daarbij bovenkwamen:**
+
+- Bij een wedstrijd waarvan alleen de uitslag ingegeven is, staat het moment meteen op *onbekend* —
+  maar het minuutvakje bleef toch staan. Je kon er een minuut in typen die nergens naartoe ging.
+- In een wedstrijd met **helften** stond er op acht plaatsen *"dit helft"*: in het verslag, in de PDF
+  en in de drie vensters waar je een minuut ingeeft. Dat is nu *"deze helft"*.
+
 ## v2.9.0
 
 **Wedstrijdvoorbereidingen die de app vroeger niet kon lezen, leest ze nu wel.** Een blad van FC

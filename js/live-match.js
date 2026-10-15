@@ -2620,7 +2620,7 @@ function _renderPrModal() {
          wijzigen"). Elk ander event heeft dat veld, dus een reeks hoort niet de uitzondering te zijn.
          De waarde in `_pr` bijhouden en niet in het invoervak alleen: dit venster wordt bij ELKE tik
          opnieuw getekend, dus wat je typt zou bij de eerstvolgende tik op het veld verdwijnen. */ ''}
-    <div class="fg" style="margin-bottom:10px"><label>Minuut binnen dit ${pSingLow(match)}</label>
+    <div class="fg" style="margin-bottom:10px"><label>Minuut binnen ${pDit(match)} ${pSingLow(match)}</label>
       <input id="pr-min" type="number" inputmode="numeric" min="1" value="${esc(String(_pr.min))}" oninput="_pr.min=this.value"></div>
     ${renderPitch(match, opVeld, captainAtStartOfQuarter(match, _pr.deel), null, { fn: '_prTap', selId: _pr.sel ? _pr.sel.id : null, plek: true })}
     ${nogTeDoen.length ? `<div class="sec" style="color:var(--org2,#b45309)">Nog te plaatsen (${nogTeDoen.length})</div>
@@ -3416,7 +3416,7 @@ function modalEditEvent(id) {
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${evtLabel(e, match)}</p>
     ${e.atBreak
       ? `<p style="text-align:center;color:var(--txt2);font-size:12px;margin-bottom:12px">Rustwissel — vindt plaats bij de start van het deel; de minuut is niet aanpasbaar.</p>`
-      : `<div class="fg"><label>Minuut binnen dit ${pSingLow(match)}</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
+      : `<div class="fg"><label>Minuut binnen ${pDit(match)} ${pSingLow(match)}</label><input id="ee-min" type="number" value="${minute}" inputmode="numeric"></div>`}
     ${fields}${wijzeVeld}
     <button class="btn btn-green" onclick="saveEditEvent('${id}')">${icI(IC.check)}Opslaan</button>
     ${startopstellingKnopHtml(e)}
@@ -4136,7 +4136,7 @@ function hasUndo() { return !!undoKandidaat(match); }
 // te zeggen wát. Nu zie je eerst de gebeurtenis staan.
 function confirmUndoLast() {
   const e = undoKandidaat(match);
-  if (!e) { showToast(`Niets van jou om ongedaan te maken in dit ${pSingLow(match)}.`, 'err'); return; }
+  if (!e) { showToast(`Niets van jou om ongedaan te maken in ${pDit(match)} ${pSingLow(match)}.`, 'err'); return; }
   openModal(`<h3>${icI(IC.undo)} Ongedaan maken?</h3>
     <p style="text-align:center;color:var(--txt2);margin-bottom:16px">"${evtLabel(e, match)}"<br>Deze gebeurtenis verdwijnt uit het verloop. De score en de opstelling worden herberekend.</p>
     <button class="btn btn-red" onclick="undoLast()">${icI(IC.undo)} Ja, ongedaan maken</button>
@@ -6931,9 +6931,15 @@ function modalAddPostEvent(vanDeel) {
     </div>
     <div class="fg" style="margin-bottom:4px" id="post-min-rij">
       ${/* Het label kortgehouden en de uitleg in het vakje zelf: samen scheelde dat twee regels, en
-           de hint staat nu net daar waar je ze nodig hebt. */ ''}
-      <label style="font-size:13px;color:var(--txt2)">Minuut</label>
+           de hint staat nu net daar waar je ze nodig hebt.
+           "BINNEN DIT DEEL" MOET ERBIJ (Tim, 15-10-2026, melding van een gebruiker). Hier stond enkel
+           "Minuut", en iemand die achteraf een wissel toevoegde gaf de minuut van de HELE wedstrijd
+           in. De twee andere vensters waar je een minuut ingeeft (een event bewerken, een wissel in
+           het plan verzetten) zeggen het wél met zoveel woorden; dit zweeg erover, terwijl de
+           samenvatting van het verslag nu net de doorlopende wedstrijdminuut toont. */ ''}
+      <label style="font-size:13px;color:var(--txt2)">Minuut binnen ${pDit(match)} ${pSingLow(match)}</label>
       <input id="post-evt-min" type="number" inputmode="numeric" min="1" max="${match.quarterDuration || 99}" placeholder="leeg = einde van ${pSingLow(match)} ${typeof lastQ === 'number' ? lastQ : ''}" oninput="selPostMin(this.value)" style="width:100%">
+      <p id="post-min-waarschuwing" style="display:none;font-size:12px;color:var(--rd);margin:6px 0 0"></p>
     </div>
     <p id="post-pauze-uitleg" style="display:none;font-size:12px;color:var(--txt2);margin:-2px 0 8px">In de rust loopt de klok niet, dus dit wordt vastgelegd op het moment tussen de twee delen. Wie dan vertrekt, houdt de minuten die hij daarvóór speelde.</p>
     <div class="sec">Wat wil je toevoegen?</div>
@@ -6953,6 +6959,10 @@ function modalAddPostEvent(vanDeel) {
       <button class="btn btn-pale" style="grid-column:1/-1" onclick="postEvt(modalExtra)">${icI(IC.more)} Meer…</button>
     </div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+  // Meteen de juiste vakjes tonen. Zonder dit bleef het minuutvakje staan bij een wedstrijd ZONDER
+  // delen (een uitslag die achteraf ingegeven is): daar staat het moment meteen op "onbekend", en een
+  // minuut kan dan nergens naartoe. Tot nu kwam deze opruiming pas zodra je zelf een deel aanklikte.
+  _postMinRijBij();
 }
 // De delen staan in twee groepjes (de rij met de delen en de knop "Moment onbekend"), dus de vorige
 // keuze opruimen op de KLASSE en niet binnen één omhulsel.
@@ -6998,12 +7008,44 @@ function _postMinRijBij() {
     const inp = document.getElementById('post-evt-min');
     if (inp) inp.value = '';
   }
+  // Een ander deel duurde misschien anders lang, dus de waarschuwing moet opnieuw beoordeeld worden.
+  _postMinWaarschuwingBij();
 }
 function selPostMin(val) {
   const n = parseInt(val);
   _postEventMinute = (!isNaN(n) && n > 0) ? n : null;
+  _postMinWaarschuwingBij();
+}
+// EEN MINUUT DIE NIET IN DIT DEEL PAST, SCHOOF STIL OP (Tim, 15-10-2026, melding van een gebruiker).
+// addEvent knipt met Math.min af op het einde van het deel, dus wie de minuut van de HELE wedstrijd
+// ingaf, kreeg zijn wissel zonder één woord op de slotminuut van dat deel — en daarmee kloppen de
+// speelminuten van twee spelers niet meer. Erger nog: op het scherm zag het eruit alsof het gelukt
+// was. Hier wordt het nu gezegd, vóór er iets vastligt.
+//
+// DE ECHTE DUUR IS HET IJKPUNT, niet match.quarterDuration: een deel dat vroeger afgefloten is (of
+// uitgelopen) telt zoals het gespeeld is, want daar hangt alle speeltijd aan vast. Zelfde bron als
+// addEvent gebruikt om af te knippen, zodat de grens die we noemen ook de grens is die geldt.
+function _deelDuurMin(qNum) {
+  if (typeof qNum !== 'number' || !match) return null;
+  const ms = gameTimeMsAtEndOfQuarter(match, qNum) - gameTimeMsAtStartOfQuarter(match, qNum);
+  return Math.max(1, Math.ceil(ms / 60000));
+}
+function _postMinuutFout() {
+  if (_postEventAtBreak || _postEventQuarter === 'unknown' || _postEventMinute === null) return null;
+  const duur = _deelDuurMin(_postEventQuarter);
+  if (!duur || _postEventMinute <= duur) return null;
+  return `${pSing(match)} ${_postEventQuarter} duurde ${duur} minuten. Geef de minuut binnen ${pDit(match)} ${pSingLow(match)} (1 tot ${duur}), niet de minuut van de hele wedstrijd.`;
+}
+function _postMinWaarschuwingBij() {
+  const el = document.getElementById('post-min-waarschuwing');
+  if (!el) return;
+  const fout = _postMinuutFout();
+  el.textContent = fout || '';
+  el.style.display = fout ? '' : 'none';
 }
 function postEvt(fn) {
+  const fout = _postMinuutFout();
+  if (fout) { showToast(fout, 'err'); return; }
   fn();
 }
 

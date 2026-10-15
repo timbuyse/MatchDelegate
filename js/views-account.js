@@ -4827,7 +4827,7 @@ function renderEventLog(m) {
     // mét doelpunten, maar dan las het ontbreken als een gat i.p.v. als "hier viel niets" (Tim, 22-08).
     const dit = g.qn == null ? null : scoreInQuarter(m, g.qn);
     const ditText = dit
-      ? `<span class="qgroup-dit">dit ${pSingLow(m)}: ${isAway(m) ? `${dit.them}–${dit.us}` : `${dit.us}–${dit.them}`}</span>` : '';
+      ? `<span class="qgroup-dit">${pDit(m)} ${pSingLow(m)}: ${isAway(m) ? `${dit.them}–${dit.us}` : `${dit.us}–${dit.them}`}</span>` : '';
     const score = g.cum ? `<span class="qgroup-score">${isAway(m) ? `${g.cum.them}–<span class="us">${g.cum.us}</span>` : `<span class="us">${g.cum.us}</span>–${g.cum.them}`}${ditText}</span>` : '';
     let list = elog_ro ? g.list.filter(e => !HIDDEN_FOR_VIEWER.has(e.type)) : g.list;
     if (activeTypes) list = list.filter(e => activeTypes.has(e.type));
