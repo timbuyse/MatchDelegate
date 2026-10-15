@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.10.1
+
+**Het kadertje op *Jouw ploegen* vertelt nu dat je kan terugkijken.** Op een dag zonder één
+wedstrijd stond er *"Alles van vandaag"* — net op de stilste dag beloofde die regel dus het meest.
+Er staat nu **"Bekijk uitslagen per dag"**, met het pijltje naar het scherm waar je sinds de vorige
+versie een dag kiest. Is er die dag wél iets te melden, dan blijft de telling staan: dat is het
+nieuws.
+
 ## v2.10.0
 
 **Op het vandaag-scherm kan je nu een dag kiezen.** Bovenaan staat een balkje met pijltjes:

@@ -3743,7 +3743,14 @@ function speeldagDoorTekst() {
     const n = g.komt.length + g.gespeeld.length;
     delen.push(tel.join(', ') + (n === 1 ? ' wedstrijd' : ' wedstrijden'));
   }
-  if (!delen.length) return 'Alles van vandaag';
+  // OP EEN STILLE DAG ZEGT DEZE REGEL WAT ER ACHTER ZIT (Tim, 15-10-2026: "moet daar ook iets staan
+  // dat je terug kan kijken in de tijd?"). Er stond "Alles van vandaag", en dat beloofde net op de
+  // dag zonder één wedstrijd het meest terwijl er niets was. Nu wijst hij naar de dagbalk van v2.10.0.
+  // NIET "PER SPEELDAG", al lag dat woord voor de hand: Tim liet het in oktober 2026 net van dat
+  // scherm halen omdat de ingang "vandaag" zei en de pagina "speeldag" ("wat is het nu?"). Hier zou
+  // diezelfde botsing terugkomen. "Per dag" zegt hetzelfde en klopt ook voor de dagen die nog komen
+  // — met de dagbalk van v2.10.0 blader je even goed vooruit.
+  if (!delen.length) return 'Bekijk uitslagen per dag';
   const t = delen.join(' · ');
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
