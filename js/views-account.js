@@ -3294,6 +3294,22 @@ function renderGuestJoin() {
 let _speeldag = null;          // { van, tot, label, rijen: [{cid, tid, m}], stand, tijd }
 let _speeldagBezig = false;
 let _speeldagTimer = null;
+// EEN ZELF GEKOZEN DAG (Tim, 15-10-2026: "kunnen we dat vandaag scherm, daar een kalender toevoegen
+// dat je een dag selecteert en van die dag alle resultaten van de club ziet?"). null = gewoon
+// vandaag (of dit weekend). Staat er een datum in, dan draait het hele scherm om díé dag: het
+// ophalen, de drie hoopjes, de koppen en de lege melding.
+//
+// DE KEUZE GELDT ENKEL ZOLANG JE OP DAT SCHERM BENT. Het kadertje op 'Jouw ploegen' hoort over
+// vandaag te gaan; vandaar dat renderTeamSelect dit terugzet op null.
+let _speeldagDag = null;
+
+// Welke dag staat er centraal: de gekozen dag, anders vandaag.
+function speeldagFocusDag() { return _speeldagDag || isoVandaag(); }
+// "zaterdag 11 oktober". Zonder jaartal: je bladert met de pijltjes, dus je weet waar je zit.
+function speeldagDagTekst(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d) ? String(iso || '') : d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+}
 
 // Welke dagen horen bij "de speeldag". VRIJDAG HOORT ERBIJ (Tim, 02-10-2026: "vrijdag, zaterdag,
 // zondag horen eigenlijk ook samen, als weekend") — bij de jeugd wordt er op vrijdagavond gespeeld,
@@ -3303,6 +3319,8 @@ let _speeldagTimer = null;
 // verspringt geen dag overslaat of verdubbelt.
 function speeldagVenster() {
   const dagPlus = n => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + n); return isoDagVan(x); };
+  // Koos je zelf een dag, dan is dat het hele venster — ook in een weekend. Je vroeg om die ene dag.
+  if (_speeldagDag) return { van: _speeldagDag, tot: _speeldagDag, label: speeldagDagTekst(_speeldagDag) };
   const d = new Date().getDay();   // 0 = zondag … 5 = vrijdag, 6 = zaterdag
   const naarVrijdag = d === 5 ? 0 : d === 6 ? -1 : d === 0 ? -2 : null;
   if (naarVrijdag === null) return { van: dagPlus(0), tot: dagPlus(0), label: 'Vandaag' };
@@ -3461,6 +3479,9 @@ function speeldagTimerBij() {
   if (_speeldagTimer) { clearTimeout(_speeldagTimer); _speeldagTimer = null; }
   const opEenSpeeldagscherm = () => view === 'teamselect' || view === 'livespeeldag';
   if (!opEenSpeeldagscherm() || !speeldagMag()) return;
+  // Kijk je naar een andere dag, dan verandert daar niets meer aan. Zelf blijven ophalen zou enkel
+  // de databank bezighouden; de knop 'Verversen' staat er nog altijd.
+  if (_speeldagDag) return;
   const loopt = ((_speeldag || {}).rijen || []).some(r => r.m.status === 'live');
   _speeldagTimer = setTimeout(() => {
     if (!opEenSpeeldagscherm()) { _speeldagTimer = null; return; }
@@ -3471,6 +3492,47 @@ function speeldagVerversNu() {
   if (_speeldagBezig) return;
   _speeldag = null;
   speeldagOphalen();
+}
+// EEN DAG VERDER OF TERUG. Twaalf uur 's middags als ijkpunt, dezelfde reden als in speeldagVenster:
+// in de nacht waarin de klok verspringt zou middernacht een dag overslaan of verdubbelen.
+function speeldagSchuif(n) {
+  const d = new Date(speeldagFocusDag() + 'T12:00:00');
+  if (isNaN(d)) return;
+  d.setDate(d.getDate() + n);
+  speeldagKiesDag(isoDagVan(d));
+}
+// Een dag kiezen. Kom je op vandaag uit, dan is er géén gekozen dag meer — zo krijg je in een weekend
+// vanzelf weer vrijdag tot en met zondag te zien in plaats van die ene dag.
+function speeldagKiesDag(iso) {
+  if (!iso) return;
+  const nieuw = (iso === isoVandaag()) ? null : iso;
+  if (nieuw === _speeldagDag) return;
+  _speeldagDag = nieuw;
+  // Het oude overzicht hoort niet bij deze dag, dus weg ermee: anders staan er één tel lang de
+  // wedstrijden van gisteren onder de datum van vandaag.
+  _speeldag = null;
+  if (view === 'livespeeldag') render();   // tekent de balk mee, en haalt daarna zelf op
+  else { speeldagTeken(); speeldagOphalen(); }
+}
+// HET SCHERM OPENT ALTIJD OP VANDAAG. Bladerde je gisteren naar vorige zaterdag, dan hoort het de
+// volgende keer niet dáár te beginnen — "Vandaag" moet vandaag zijn. Dit is de enige ingang vooruit;
+// kom je terug uit een wedstrijd die je vanuit dit scherm opende, dan loopt dat langs terug() en
+// blijft de dag waar je was staan. Dat is net wat je dan wil.
+function speeldagOpenScherm() { _speeldagDag = null; go('livespeeldag'); }
+// De balk bovenaan het scherm. Staat BUITEN het blok dat bij elke verversing hertekend wordt.
+function speeldagDagBalkHtml() {
+  const dag = speeldagFocusDag();
+  const v = speeldagVenster();
+  return `<div class="sd-dagbalk">
+      <button class="sd-dagpijl" onclick="speeldagSchuif(-1)" title="Dag eerder">‹</button>
+      ${/* Een onzichtbaar datumveld over de tekst: tikken opent de kalender van het toestel.
+           showPicker() erbij voor een computer, waar een klik op een leeg veld anders niets doet. */ ''}
+      <label class="sd-dagnaam">${esc(_speeldagDag ? speeldagDagTekst(dag) : v.label)}
+        <input type="date" value="${esc(dag)}" onchange="speeldagKiesDag(this.value)"
+          onclick="if(this.showPicker)this.showPicker()"></label>
+      <button class="sd-dagpijl" onclick="speeldagSchuif(1)" title="Dag later">›</button>
+      ${_speeldagDag ? `<button class="sd-dagnu" onclick="speeldagKiesDag('${isoVandaag()}')">Vandaag</button>` : ''}
+    </div>`;
 }
 // Bij het openen van een scherm: enkel echt ophalen wanneer het nodig is. Beide schermen hertekenen
 // ook om andere redenen (een clubnaam die binnenkomt, een ploeglogo), en dan zou één bezoek drie
@@ -3589,7 +3651,7 @@ function speeldagHtml() {
   // dat maar zo"). Tot hier verdween het hele kadertje zodra er niets te melden viel, en daarmee de
   // enige weg naar dat scherm — je kon er dus net niet bij wanneer je wou nakijken of er iets was.
   // Ook vóór het eerste ophalen staat de regel er al, zodat de ingang niet onder je vinger inspringt.
-  const doorRegel = tekst => `<div class="sd-door" onclick="go('livespeeldag')">
+  const doorRegel = tekst => `<div class="sd-door" onclick="speeldagOpenScherm()">
         <span>${tekst}</span><span class="sd-pijl">›</span>
       </div>`;
   const alles = doorRegel(speeldagDoorTekst());
@@ -3652,7 +3714,8 @@ function speeldagTeken() {
 // leverde stil een lege lijst op in plaats van deze drie hoopjes.
 function speeldagVerdeling() {
   const rijen = (_speeldag && _speeldag.rijen) || [];
-  const vandaag = isoVandaag();
+  // De dag waar het scherm over gaat: vandaag, of de dag die je zelf koos.
+  const vandaag = speeldagFocusDag();
   const vanVandaag = r => String(r.m.date || '') === vandaag;
   return {
     bezig: rijen.filter(r => r.m.status === 'live'),
@@ -3691,8 +3754,14 @@ function speeldagAantalTekst() {
   const stukken = [];
   if (g.bezig.length) stukken.push(`${g.bezig.length} bezig`);
   if (g.gespeeld.length) stukken.push(`${g.gespeeld.length} gespeeld`);
-  if (g.komt.length) stukken.push(`${g.komt.length} nog te spelen`);
-  return stukken.length ? stukken.join(' · ') : 'niets vandaag';
+  // Dezelfde woorden als de koppen in het scherm zelf (zie speeldagVolledigHtml): "nog te spelen"
+  // klopt niet meer boven een dag die al voorbij is.
+  if (g.komt.length) {
+    const woord = !_speeldagDag ? 'nog te spelen'
+      : (_speeldagDag < isoVandaag()) ? 'niet gespeeld' : 'op het programma';
+    stukken.push(`${g.komt.length} ${woord}`);
+  }
+  return stukken.length ? stukken.join(' · ') : (_speeldagDag ? 'niets die dag' : 'niets vandaag');
 }
 
 // HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, bij een weekend gegroepeerd per dag.
@@ -3716,8 +3785,10 @@ function speeldagVolledigHtml() {
     ? `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Van ${st.mislukt === 1 ? 'één ploeg' : st.mislukt + ' ploegen'} raakten de wedstrijden niet binnen. <a href="javascript:void(0)" onclick="speeldagVerversNu()" style="color:var(--grn2);font-weight:700">Opnieuw proberen</a></div>`
     : '';
   const g = speeldagVerdeling();
+  const bij = speeldagClubbreed() ? 'je club' : 'je ploegen';
   if (!g.bezig.length && !g.gespeeld.length && !g.komt.length) {
-    return mislukteRegel + `<div class="empty"><div class="ei">${IC.ball}</div><p>Vandaag staat er niets op het programma bij ${speeldagClubbreed() ? 'je club' : 'je ploegen'}.</p></div>`;
+    const wanneer = _speeldagDag ? `Op ${speeldagDagTekst(_speeldagDag)} stond er niets` : 'Vandaag staat er niets';
+    return mislukteRegel + `<div class="empty"><div class="ei">${IC.ball}</div><p>${esc(wanneer)} op het programma bij ${bij}.</p></div>`;
   }
   // Een kop per hoopje, en enkel wanneer dat hoopje iets bevat: een lege kop is een belofte die het
   // scherm niet waarmaakt. 'Nu bezig' krijgt het rode bolletje dat overal in de app hetzelfde ding is.
@@ -3725,10 +3796,17 @@ function speeldagVolledigHtml() {
     ? `<div class="sec"${eerste ? ' style="margin-top:0"' : ''}>${kop}</div>
        <div class="sd-rooster sd-ruim">${rijen.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
   const eersteKop = g.bezig.length ? 'bezig' : g.gespeeld.length ? 'gespeeld' : 'komt';
+  // DE KOPPEN STAAN IN DE TIJD VAN VANDAAG, en dat klopt niet meer zodra je een andere dag opvraagt.
+  // "Nog te spelen" boven een wedstrijd van vorige zaterdag is gewoon onwaar: die is niet meer te
+  // spelen, ze is nooit afgesloten. En een wedstrijd van volgende week is niet "nog te spelen" maar
+  // staat op het programma.
+  const kopGespeeld = _speeldagDag ? 'Gespeeld' : 'Al gespeeld';
+  const kopKomt = !_speeldagDag ? 'Nog te spelen'
+    : (_speeldagDag < isoVandaag()) ? 'Niet gespeeld' : 'Op het programma';
   return mislukteRegel
     + deel(`<span class="sd-live">Nu bezig</span>`, g.bezig, eersteKop === 'bezig')
-    + deel('Al gespeeld', g.gespeeld, eersteKop === 'gespeeld')
-    + deel('Nog te spelen', g.komt, eersteKop === 'komt');
+    + deel(kopGespeeld, g.gespeeld, eersteKop === 'gespeeld')
+    + deel(kopKomt, g.komt, eersteKop === 'komt');
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
@@ -3746,7 +3824,10 @@ function renderLiveSpeeldag() {
         <div class="hdr-sub" id="speeldag-datum">${esc(speeldagAantalTekst())}</div>
       </div>
       <button class="hdr-btn" onclick="speeldagVerversNu()">Verversen</button></div>
-    <div class="content" id="livespeeldag-content">${speeldagVolledigHtml() || `<div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div>`}</div>`;
+    ${/* De dagbalk staat in de content maar BUITEN het blok dat speeldagTeken hertekent: zo springt
+         hij niet weg terwijl je aan het bladeren bent, en blijft de datum staan tijdens het laden. */ ''}
+    <div class="content">${speeldagDagBalkHtml()}
+      <div id="livespeeldag-content">${speeldagVolledigHtml() || `<div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div>`}</div></div>`;
 }
 
 // ===================== TEAM SELECT VIEW =====================
@@ -3890,6 +3971,9 @@ function renderTeamSelect() {
       .then(() => { if (nieuw && view === 'teamselect') render(); });
   }, 0);
   // De speeldag erbij halen (zie speeldagZoNodig: enkel wanneer ze niet vers genoeg is).
+  // EERST DE GEKOZEN DAG LOSLATEN. Het kadertje hieronder heet "Vandaag in jouw club" en hoort dus
+  // over vandaag te gaan; zonder dit bleef het de dag tonen die je op het vandaag-scherm opvroeg.
+  _speeldagDag = null;
   setTimeout(speeldagZoNodig, 0);
 
   return `<div class="ts-wrap">

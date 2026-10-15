@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.10.0
+
+**Op het vandaag-scherm kan je nu een dag kiezen.** Bovenaan staat een balkje met pijltjes:
+*‹ zondag 11 oktober ›*. Tik je op de datum zelf, dan gaat de kalender van je telefoon open, en met
+de knop **Vandaag** sta je weer bij vandaag. Alles eronder gaat dan over díé dag — alle wedstrijden
+van je hele club, net zoals vandaag.
+
+De woorden volgen de dag die je bekijkt. Bij vandaag blijft het *Al gespeeld* en *Nog te spelen*;
+bij een dag die voorbij is wordt dat *Gespeeld* en *Niet gespeeld* (want wat daar nog openstaat, is
+niet meer te spelen — die wedstrijd is nooit afgesloten); bij een dag die nog komt staat er *Op het
+programma*.
+
+Twee dingen blijven bewust zoals ze waren: het kadertje op *Jouw ploegen* gaat altijd over vandaag,
+en het scherm opent ook altijd op vandaag. Blader je naar een andere dag en tik je daar een wedstrijd
+aan, dan sta je bij het terugkeren wél nog op die dag.
+
 ## v2.9.1
 
 **Het minuutvakje bij "Event toevoegen" zegt nu waar die minuut over gaat.** Een gebruiker gaf er de
