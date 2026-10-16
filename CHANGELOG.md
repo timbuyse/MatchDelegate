@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.4
+
+**Nu komt élke ploeg aan de beurt bij het nakijken van wedstrijdbladen.** De honderd per ronde werden
+**ploeg voor ploeg** opgebruikt: de eerste ploegen in de lijst namen alles, en wat verderop in het
+alfabet stond kwam *nooit* aan de beurt — hoe vaak je de ronde ook draaide. Dat het onthouden van "al
+nagekeken" niet leek te werken, kwam van dezelfde fout: het sorteerde alleen bínnen een ploeg, en zat
+die ploeg helemaal in het budget, dan veranderde er niets.
+
+Alle wedstrijden van alle ploegen gaan nu in één lijst, die als geheel gesorteerd wordt op *wie het
+langst geleden nagekeken is*. Gemeten met tien ploegen en tweehonderd wedstrijden: ronde 1 raakt alle
+tien de ploegen, ronde 2 pakt honderd andere zonder één overlap, en na twee rondes is alles geweest.
+
 ## v2.11.3
 
 **Onderaan de controle staat nu "Controleer de volgende wedstrijden".** Je moest terugkeren naar het

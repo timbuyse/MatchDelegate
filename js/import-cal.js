@@ -2006,25 +2006,44 @@ async function clubRondeBladen(ruim) {
   st.bezig = true; st.fase = 'bladbezig'; st.bladRuim = !!ruim; clubRondeRender();
   const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
   const bewaardMatch = match, bewaardSt = vvSt;
-  const perPloeg = [];
   let gevraagd = 0;
   // Hoeveel staan er in totaal te wachten? Nodig voor de zin onderaan: "100 van de 340 nagekeken".
   const kandPer = st.ploegen.map(p => (ruim ? clubBladKandidatenRuim(p) : clubBladKandidaten(p)));
   st.bladTotaalKand = kandPer.reduce((n, k) => n + k.length, 0);
   let nietsNieuws = 0;      // nagekeken, maar de bond had niets wat hier nog niet stond
   let nietOnthouden = 0;    // nagekeken, maar het tijdstip raakte niet weggeschreven
+  // ÉÉN LIJST OVER DE HELE CLUB, en dat is de echte oorzaak van Tims melding (16-10-2026: "hij pakt
+  // dezelfde en sommige ploegen worden nooit genomen").
+  //
+  // Tot hier liep dit ploeg voor ploeg, met de teller van honderd eroverheen. De eerste ploegen in de
+  // lijst aten dus het hele budget op, en alles wat verderop in het alfabet stond kwam NOOIT aan de
+  // beurt — hoe vaak je de ronde ook draaide. Het onthouden van "al nagekeken" wérkte wel, maar
+  // sorteerde enkel BINNEN een ploeg: paste die ploeg helemaal in het budget, dan veranderde er niets
+  // aan welke wedstrijden gepakt werden. Allebei zijn symptomen van dezelfde fout.
+  //
+  // Nu gaan alle kandidaten van alle ploegen in één lijst, die als geheel gesorteerd wordt. "Wie het
+  // langst geleden nagekeken is" geldt daarmee over de club heen, dus elke ploeg komt aan de beurt en
+  // elke ronde pakt écht de volgende honderd. De uitkomst wordt daarna weer per ploeg gegroepeerd,
+  // zodat het scherm en clubRondeBladenDoen er niets van merken.
+  const volg = ruim ? clubBladVolgordeRuim : clubBladVolgorde;
+  const alle = [];
+  st.ploegen.forEach((p, pi) => kandPer[pi].forEach(m => alle.push({ p, m })));
+  alle.sort((a, b) => volg(a.m, b.m));
+  const beurt = alle.slice(0, CLUB_BLAD_MAX);
+  const bakken = new Map();
+  const vak = p => {
+    let v = bakken.get(p.tid);
+    if (!v) { v = { p, zeker: [], hand: [], stil: [], zusters: clubRondeZusters(p) }; bakken.set(p.tid, v); }
+    return v;
+  };
   try {
-    for (let pi = 0; pi < st.ploegen.length; pi++) {
-      const p = st.ploegen[pi];
-      const kand = kandPer[pi];
-      if (!kand.length) continue;
-      const zusters = clubRondeZusters(p);
-      const zeker = [], hand = [], stil = [];
-      for (const m of kand) {
+    {
+      for (const { p, m } of beurt) {
+        const bak = vak(p);
+        const zeker = bak.zeker, hand = bak.hand, stil = bak.stil, zusters = bak.zusters;
         if (!clubRondeSt) return;
-        if (gevraagd >= CLUB_BLAD_MAX) break;
         gevraagd++;
-        meld(`${p.naam}: ${m.opponent || '?'} (${gevraagd}/${Math.min(CLUB_BLAD_MAX, st.bladTotaalKand)})…`);
+        meld(`${p.naam}: ${m.opponent || '?'} (${gevraagd}/${beurt.length})…`);
         const post = { id: m.id, naam: m.opponent || '?', datum: m.date || '' };
         // NU IS ZE NAGEKEKEN, wat het antwoord ook is. Het tijdstip gaat meteen weg — niet pas aan het
         // eind — zodat een ronde die je halfweg afbreekt tóch telt en de volgende verder gaat waar deze
@@ -2088,10 +2107,11 @@ async function clubRondeBladen(ruim) {
           stil.push(post);
         } finally { _vvRosterOverride = null; }
       }
-      if (zeker.length || hand.length || stil.length) perPloeg.push({ p, zeker, hand, stil, zusters });
-      if (gevraagd >= CLUB_BLAD_MAX) break;
     }
   } finally { match = bewaardMatch; vvSt = bewaardSt; _vvRosterOverride = null; }
+  // Per ploeg gegroepeerd terug, in de volgorde van het overzicht, en enkel wat iets opleverde.
+  const perPloeg = st.ploegen.map(p => bakken.get(p.tid))
+    .filter(v => v && (v.zeker.length || v.hand.length || v.stil.length));
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'bladvoorstel'; st.bladen = perPloeg; st.bladGevraagd = gevraagd;
   st.bladNietsNieuws = nietsNieuws; st.bladNietOnthouden = nietOnthouden;
