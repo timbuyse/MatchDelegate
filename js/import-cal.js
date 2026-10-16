@@ -1833,21 +1833,65 @@ function clubBladGrensDatum() {
 // het tegenovergestelde: een handvol wedstrijden waarvoor nooit een blad komt, zou elke ronde de
 // veertig plaatsen innemen van wedstrijden waar wél iets te halen valt. Daarom niet vvScanTeVullen,
 // maar enkel "de datum is voorbij en ze is nooit afgewerkt".
+// WIE HET LANGST GELEDEN NAGEKEKEN IS, KOMT EERST (Tim, 16-10-2026: "er worden er maar 100 nagekeken.
+// En als ik al eens nagekeken heb en opgeslagen, blijven ze staan bij een volgende ronde. Ik snap het
+// wel, maar zo wordt nooit alles bekeken").
+//
+// Dat was een echte tekortkoming van de ruime ronde. De gewone ronde KRIMPT vanzelf — een wedstrijd
+// die aangevuld raakt, valt uit de kandidaten — maar de ruime kijkt naar álles en nam dus elke keer
+// opnieuw dezelfde eerste honderd. De rest kwam nooit aan de beurt.
+//
+// Daarom draagt elke nagekeken wedstrijd sinds v2.11.1 het tijdstip van die controle, en sorteren de
+// kandidaten op "het langst geleden gekeken" vóór "nieuwste eerst". Elke ronde pakt zo de volgende
+// honderd, en na genoeg rondjes is alles geweest — waarna de oudste vanzelf weer vooraan komen, want
+// bij de bond kan er intussen iets veranderd zijn. Een wedstrijd zonder dat veld telt als "nooit
+// gekeken" en staat dus vooraan; er is geen migratie nodig.
+function clubBladGekeken(m) { return Number(m && m.bondGekeken) || 0; }
+function clubBladVolgorde(a, b) {
+  return (clubBladGekeken(a) - clubBladGekeken(b)) || String(b.date || '').localeCompare(String(a.date || ''));
+}
 function clubBladKandidaten(p) {
   const grens = clubBladGrensDatum();
   return p.wedstrijden
     .filter(m => m.rbfaMatchId && (m.date || '') >= grens && matchNietAfgesloten(m) && vvScanMagAangevuld(m))
-    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    .sort(clubBladVolgorde);
 }
 // HET RUIME NET (Tim, 16-10-2026). Élke wedstrijd van het venster, los van wat er al op staat: ook een
 // die al een uitslag heeft, een die live bijgehouden werd, en een die nog moet komen. Voor de laatste
 // is dit de ENIGE weg naar terrein en scheidsrechter over de hele club heen — die twee staan niet in
 // de bondskalender (zie KAL_VERGELIJK), enkel op de wedstrijdpagina zelf.
+// EN EEN BOVENGRENS, want die ontbrak (Tim, 16-10-2026: "het kan dat ook geplande wedstrijden nieuwe
+// info krijgen. Die worden dan niet opnieuw getoond?"). Zonder bovengrens telde élke geplande
+// wedstrijd van de rest van het seizoen mee — honderden — en die aten de honderd plaatsen op waardoor
+// het nooit rondkwam. Veertien dagen vooruit is waar terrein en scheidsrechter er nog toe doen: wat
+// over twee maanden gespeeld wordt, weet de bond nu toch nog niet.
+const CLUB_BLAD_VOORUIT = 14;
+function clubBladGrensTot() {
+  const d = new Date(); d.setDate(d.getDate() + CLUB_BLAD_VOORUIT);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+// WAT NOG MOET KOMEN, KIJKEN WE ELKE RONDE OPNIEUW NA. Dat is het antwoord op Tims vraag: bij een
+// geplande wedstrijd verschijnt de info pas ná verloop van tijd — het terrein, de scheidsrechter —
+// dus daar heeft "al eens gekeken" geen betekenis. Een gespeelde wedstrijd verandert zelden nog, en
+// die rolt dus gewoon door op "het langst geleden gekeken". Zo komt alles aan de beurt én blijft wat
+// aanstaande is elke keer vers.
+// De laatste trap is bewust OPLOPEND op datum, waar de gewone ronde aflopend sorteert: bij wat nog
+// moet komen is dat "eerst wat het eerst gespeeld wordt", en bij het gespeelde deel "eerst wat het
+// langst wacht". Allebei het dringendste eerst; het is dus geen tikfout.
+function clubBladVolgordeRuim(a, b) {
+  const vandaag = isoVandaag();
+  const komt = m => ((m.date || '') >= vandaag) ? 0 : 1;
+  return (komt(a) - komt(b))
+    || (clubBladGekeken(a) - clubBladGekeken(b))
+    || String(a.date || '').localeCompare(String(b.date || ''));
+}
 function clubBladKandidatenRuim(p) {
-  const grens = clubBladGrensDatum();
+  const grens = clubBladGrensDatum(), tot = clubBladGrensTot();
   return p.wedstrijden
-    .filter(m => m.rbfaMatchId && (m.date || '') >= grens && !matchCancelled(m) && !m.tournamentId)
-    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    .filter(m => m.rbfaMatchId && (m.date || '') >= grens && (m.date || '') <= tot
+      && !matchCancelled(m) && !m.tournamentId)
+    .sort(clubBladVolgordeRuim);
 }
 // DRAAGT DEZE WEDSTRIJD ZELF AL IETS? Een score die iemand ingaf, of een klok die gelopen heeft. Zo
 // ja, dan mag ze NOOIT blind mee: een blad van de bond eroverheen schrijven is precies de vergissing
@@ -1860,6 +1904,43 @@ function clubBladDraagtZelf(m) {
   return m.status === 'done' && !geenUitslag(m);                 // er staat een uitslag op
 }
 function clubBladBlindMag(m) { return vvBulkZeker(m) && !clubBladDraagtZelf(m); }
+// WAT WEET DE BOND DAT HIER NOG NIET STAAT? (Tim, 16-10-2026: "ik krijg dus dezelfde omdat er een
+// andere tegenstander op staat, of als er een uitslag is, ook als ik die al heb overgenomen of zelf
+// heb bijgehouden.")
+//
+// vvBulkSamenvatting kon dit niet beantwoorden, en dat is geen fout van die functie: ze zegt wat er
+// zou BINNENKOMEN als je overneemt, en dat is op het voorstelscherm precies wat je wil zien. Voor de
+// vraag "moet deze wedstrijd nog eens in de lijst?" is dat te ruim — ze telt de uitslag mee zodra die
+// overgenomen mág worden, ook als ze letter voor letter gelijk is aan wat er al staat. Vandaar deze
+// eigen toets, die per soort naar het VERSCHIL kijkt:
+//   · gegevens — enkel de rijen waarvan het vinkje aan staat, en dat staat aan zolang het veld hier
+//     leeg is (zie vvZetStandaardVinkjes). Zo valt de TEGENSTANDER er vanzelf buiten: die vult Tim
+//     altijd in, vaak lichtjes anders geschreven dan de bond. Geen veldnaam apart genoemd, dus deze
+//     lijst loopt niet scheef zodra er een veld bij komt.
+//   · uitslag — enkel wanneer ze anders is dan wat hier staat.
+//   · spelers — vvTelSelectie telt al enkel wie er nog niet in de selectie staat.
+//   · kaarten — enkel wanneer er hier nog geen enkele kaart genoteerd is.
+function clubBladNieuws(m) {
+  const lz = (vvSt && vvSt.lezing) || null;
+  if (!lz || !m) return [];
+  const uit = [];
+  if (typeof vvInfoRijen === 'function') {
+    vvInfoRijen(m, lz).forEach(r => { if (vvSt.aan['i_' + r.key]) uit.push(r.label.toLowerCase()); });
+  }
+  if (lz.gespeeld && lz.scoreOns != null && lz.scoreZij != null
+      && !(Number(m.scoreUs) === Number(lz.scoreOns) && Number(m.scoreThem) === Number(lz.scoreZij))) {
+    uit.push('een andere uitslag');
+  }
+  if (vvSt.aan.selectie && typeof vvTelSelectie === 'function') {
+    const t = vvTelSelectie();
+    if (t && t.nieuw) uit.push(`${t.nieuw} speler${t.nieuw === 1 ? '' : 's'} erbij`);
+  }
+  if (typeof vvKaartRijen === 'function' && vvKaartRijen(lz).length
+      && !(m.events || []).some(e => e && /^(yellow|red)_card/.test(e.type || ''))) {
+    uit.push('kaarten');
+  }
+  return uit;
+}
 // WAAROM ZIJN ER GEEN KANDIDATEN? (Tim, 16-10-2026: "bij een clubronde kan ik nu geen wedstrijdbladen
 // meer ophalen" — de knop stond er niet.) Tot hier verdween de knop zonder één woord zodra er niets te
 // halen viel, en dat leest als een defect terwijl het meestal gewoon klopt. Drie oorzaken, en ze
@@ -1923,9 +2004,14 @@ async function clubRondeBladen(ruim) {
   const bewaardMatch = match, bewaardSt = vvSt;
   const perPloeg = [];
   let gevraagd = 0;
+  // Hoeveel staan er in totaal te wachten? Nodig voor de zin onderaan: "100 van de 340 nagekeken".
+  const kandPer = st.ploegen.map(p => (ruim ? clubBladKandidatenRuim(p) : clubBladKandidaten(p)));
+  st.bladTotaalKand = kandPer.reduce((n, k) => n + k.length, 0);
+  let nietsNieuws = 0;   // nagekeken, maar de bond had niets wat hier nog niet stond
   try {
-    for (const p of st.ploegen) {
-      const kand = ruim ? clubBladKandidatenRuim(p) : clubBladKandidaten(p);
+    for (let pi = 0; pi < st.ploegen.length; pi++) {
+      const p = st.ploegen[pi];
+      const kand = kandPer[pi];
       if (!kand.length) continue;
       const zusters = clubRondeZusters(p);
       const zeker = [], hand = [], stil = [];
@@ -1933,8 +2019,15 @@ async function clubRondeBladen(ruim) {
         if (!clubRondeSt) return;
         if (gevraagd >= CLUB_BLAD_MAX) break;
         gevraagd++;
-        meld(`${p.naam}: ${m.opponent || '?'} (${gevraagd}/${Math.min(CLUB_BLAD_MAX, kand.length)})…`);
+        meld(`${p.naam}: ${m.opponent || '?'} (${gevraagd}/${Math.min(CLUB_BLAD_MAX, st.bladTotaalKand)})…`);
         const post = { id: m.id, naam: m.opponent || '?', datum: m.date || '' };
+        // NU IS ZE NAGEKEKEN, wat het antwoord ook is. Het tijdstip gaat meteen weg — niet pas aan het
+        // eind — zodat een ronde die je halfweg afbreekt tóch telt en de volgende verder gaat waar deze
+        // stopte. Eén veldje, gericht geschreven: dat raakt de stempel van de wedstrijd niet (geen
+        // "er is nog iemand bezig") en komt niet langs de .validate op de wedstrijd zelf.
+        const nu = Date.now();
+        m.bondGekeken = nu;
+        try { await fbdb.ref('teams/' + p.tid + '/matches/' + m.id + '/bondGekeken').set(nu); } catch (e) {}
         // ELKE BEVRAAGDE WEDSTRIJD KOMT IN DE UITKOMST (Tim, 01-10-2026: "geen enkele kan blind mee
         // ... en dan krijg ik er géén?"). Wie hier wegviel liet geen spoor na, dus veertig
         // bevragingen konden een leeg scherm opleveren zonder één woord over waarom. De bond verwerkt
@@ -1952,25 +2045,32 @@ async function clubRondeBladen(ruim) {
             // stapel "nog niets bij de bond", want daar valt wél iets te halen.
             // Enkel in de ruime ronde: de gewone ronde gaat over bladen, en daar zou dit de lijst
             // vullen met wedstrijden die nog moeten komen.
-            const info = (ruim && vvSt.lezing && typeof vvInfoRijen === 'function')
-              ? vvInfoRijen(m, vvSt.lezing) : [];
+            // Dezelfde verschiltoets als hieronder (clubBladNieuws): enkel wat hier nog niet staat.
+            const info = ruim ? clubBladNieuws(m) : [];
             if (info.length) {
-              post.reden = 'Nog geen blad, maar de bond weet al: ' + info.map(r => r.label.toLowerCase()).join(', ') + '.';
+              post.reden = 'Nog geen blad, maar de bond weet al: ' + info.join(', ') + '.';
+              post.wat = info;
               hand.push(post); continue;
             }
             post.reden = 'Het wedstrijdblad staat nog niet klaar bij de bond.';
             stil.push(post); continue;
           }
           if (clubBladBlindMag(m)) { post.wat = vvBulkSamenvatting(m); post.letop = vvBulkLetOp(m); zeker.push(post); }
-          else {
-            // Draagt ze zelf al iets, dan is dát de reden — en niet "er valt een naam te kiezen".
-            post.reden = clubBladDraagtZelf(m)
-              ? (vvScanMagAangevuld(m)
-                ? 'Hier staat al een uitslag op. Open ze zelf: dan zie je eerst wat het blad zou veranderen.'
-                : 'Deze wedstrijd is zelf bijgehouden, er is een klok op gelopen. Open ze zelf — een blad eroverheen zou die speelminuten overschrijven.')
-              : vvBulkReden(m);
+          else if (clubBladDraagtZelf(m)) {
+            // ENKEL TONEN ALS ER ÉCHT IETS TE HALEN VALT (Tim, 16-10-2026: "of toont hij enkel de
+            // wedstrijden waar nog iets staat wat nog niet in de app zit"). Dat deed hij niet: een
+            // gespeelde wedstrijd met een eigen uitslag kwam élke ronde terug, ook als de bond niets
+            // nieuws had — en dat is precies wat er bleef staan. vvBulkSamenvatting telt enkel wat
+            // AANGEVINKT staat, en de vinkjes staan standaard alleen aan waar het veld in de app nog
+            // leeg is (zie vvInfoRijen). Komt daar niets uit, dan is er niets nieuws en zwijgen we.
+            const wat = clubBladNieuws(m);
+            if (!wat.length) { nietsNieuws++; continue; }
+            post.wat = wat;
+            post.reden = vvScanMagAangevuld(m)
+              ? 'Hier staat al een uitslag op. Open ze zelf: dan zie je eerst wat het blad zou veranderen.'
+              : 'Deze wedstrijd is zelf bijgehouden, er is een klok op gelopen. Open ze zelf — een blad eroverheen zou die speelminuten overschrijven.';
             hand.push(post);
-          }
+          } else { post.reden = vvBulkReden(m); hand.push(post); }
         } catch (e) {
           post.reden = (e && e.message) || 'Het blad kon niet opgehaald worden.';
           stil.push(post);
@@ -1982,6 +2082,7 @@ async function clubRondeBladen(ruim) {
   } finally { match = bewaardMatch; vvSt = bewaardSt; _vvRosterOverride = null; }
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'bladvoorstel'; st.bladen = perPloeg; st.bladGevraagd = gevraagd;
+  st.bladNietsNieuws = nietsNieuws;
   clubRondeRender();
 }
 async function clubRondeBladenDoen() {
@@ -2133,8 +2234,12 @@ function clubRondeRender() {
     };
     // Altijd zeggen hoeveel er bevraagd zijn. Een leeg scherm na honderd bevragingen leest anders als
     // "er is niets gebeurd", terwijl er juist heel wat gebeurd is.
+    // ZEG HOEVEEL ER NIETS NIEUWS HADDEN (v2.11.1). Zonder dat getal leest een stille ronde als een
+    // mislukte ronde: honderd bevragingen en een leeg scherm. Nu staat er dat ze nagekeken zijn én
+    // dat de bond er niets bij wist — dat is een antwoord, geen stilte.
     const telzin = st.bladGevraagd
       ? `${st.bladGevraagd} ${st.bladGevraagd === 1 ? 'wedstrijd' : 'wedstrijden'} nagekeken bij de bond.`
+        + (st.bladNietsNieuws ? ` Bij ${st.bladNietsNieuws === 1 ? 'één' : st.bladNietsNieuws} daarvan wist de bond niets wat hier nog niet stond.` : '')
       : '';
     openModal(`${kop}
       <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:10px">${klaarFase
@@ -2151,7 +2256,11 @@ function clubRondeRender() {
       ${(!klaarFase && nZeker) ? `<button class="btn btn-green" onclick="clubRondeBladenDoen()">${icI(IC.check)} Ja, ${nZeker === 1 ? 'die wedstrijd' : `die ${nZeker} wedstrijden`} aanvullen</button>` : ''}
       ${nStil ? `${blok(`Nog niets bij de bond (${nStil})`, 'stil', 'var(--bdr)', false)}
         <p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:-4px">De bond verwerkt een wedstrijdblad soms dagen na het laatste fluitsignaal. Hier valt nu niets te doen — draai de ronde later nog eens.</p>` : ''}
-      ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">${icI(IC.warn)} Er zijn er ${CLUB_BLAD_MAX} nagekeken; dat is het maximum van één ronde. Er staan er nog, dus draai ze straks nog eens.</p>` : ''}
+      ${/* DE VOLGENDE RONDE GAAT VERDER WAAR DEZE STOPTE (v2.11.1). Zonder die zin lijkt het maximum
+           een muur waar je tegenaan blijft lopen — Tim: "zo wordt nooit alles bekeken". Elke nagekeken
+           wedstrijd draagt nu het tijdstip van haar controle, en de kandidaten staan op "het langst
+           geleden gekeken" eerst, dus een tweede ronde pakt wél de volgende honderd. */ ''}
+      ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">${icI(IC.warn)} ${st.bladGevraagd} van de ${st.bladTotaalKand || st.bladGevraagd} nagekeken — dat is het maximum van één ronde. <b>Draai ze gerust nog eens:</b> wie het langst geleden nagekeken is komt eerst, dus de volgende ronde pakt de ${Math.max(0, (st.bladTotaalKand || 0) - st.bladGevraagd)} die nu bleven liggen.</p>` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug naar het overzicht</button>`);
     return;
   }
@@ -2308,7 +2417,7 @@ function clubRondeRender() {
          wat er ontbreekt, deze naar alles. Terrein en scheidsrechter staan niet in de bondskalender
          (zie KAL_VERGELIJK), dus hier is dit de enige weg om ze over de hele club heen te halen. */ ''}
     ${ruimTotaal ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeBladen(true)">${icI(IC.search)} Ruimer nakijken (${ruimTotaal})</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kijkt élke wedstrijd van de laatste ${CLUB_BLAD_DAGEN} dagen na, ook die al een uitslag heeft of die nog moet komen — voor terrein, scheidsrechter en de rest. <b>In één keer mee gaat enkel wat zelf nog niets draagt</b>: heeft een wedstrijd een score of een klok, dan komt ze in de lijst met jouw oog nodig.</p>` : ''}
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kijkt élke wedstrijd na van de laatste ${CLUB_BLAD_DAGEN} dagen tot ${CLUB_BLAD_VOORUIT} dagen vooruit, ook die al een uitslag heeft — voor terrein, scheidsrechter en de rest. Wat nog moet komen, komt elke ronde opnieuw aan de beurt; de gespeelde rollen door. <b>In één keer mee gaat enkel wat zelf nog niets draagt</b>: heeft een wedstrijd een score of een klok, dan komt ze in de lijst met jouw oog nodig.</p>` : ''}
     <button class="btn btn-gray" style="margin-top:10px" onclick="clubRondeSluit()">Sluiten</button>`);
 }
 function clubRondeRenderOverzicht() {

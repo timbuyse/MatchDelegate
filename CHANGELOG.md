@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.1
+
+**"Ruimer nakijken" toont nu alleen nog wedstrijden waar de bond iets heeft dat hier nog niet staat.**
+Gisteren kwamen dezelfde wedstrijden elke ronde terug, om twee redenen die allebei geen reden waren:
+
+- **de tegenstander stond anders geschreven.** De app vergeleek letter voor letter, terwijl jij die
+  naam vaak lichtjes inkort. Nu telt een gegeven alleen mee als het veld hier nog **leeg** is — de
+  tegenstander, de datum en het uur vul je altijd zelf in, dus die vallen er vanzelf buiten;
+- **er stond een uitslag op.** Die telde mee zodra ze overgenomen *mocht* worden, ook als ze precies
+  dezelfde was als de jouwe. Nu telt ze alleen als ze **anders** is. Hetzelfde voor spelers (enkel wie
+  er nog niet bij staat) en kaarten (enkel als er hier nog geen enkele genoteerd is).
+
+Onderaan staat voortaan hoeveel er nagekeken zijn én bij hoeveel de bond niets wist wat hier nog niet
+stond. Een stille ronde leest anders als een mislukte ronde.
+
+**En er komt nu wél een volgende honderd aan de beurt.** Elke nagekeken wedstrijd onthoudt wanneer dat
+was, en wie het langst geleden bekeken is komt eerst. Draai je de ronde twee keer, dan pakt de tweede
+de volgende honderd in plaats van dezelfde. Wat nog moet komen, komt elke ronde opnieuw aan de beurt —
+daar verschijnt de info van de bond immers pas na verloop van tijd.
+
+**De ruime ronde heeft ook een bovengrens gekregen:** van 60 dagen terug tot **14 dagen vooruit**. Ze
+had er geen, dus élke geplande wedstrijd van de rest van het seizoen telde mee — honderden, die de
+honderd plaatsen opaten.
+
 ## v2.11.0
 
 **De knop "Wedstrijdbladen ophalen" in de clubronde verdwijnt niet meer.** Viel er niets te halen, dan
