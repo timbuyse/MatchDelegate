@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.5
+
+**Na het nakijken van een wedstrijd kom je terug in je eigen lijstje.** Ging je vanuit de controle
+door naar een wedstrijd en veegde je daarna terug, dan belandde je op de **beginpagina van de
+clubronde** — en was de hele uitkomst weg, inclusief de wedstrijdbladen die de ronde al opgehaald had.
+Je moest dus opnieuw beginnen om bij de volgende wedstrijd te raken. Nu sta je weer op de pagina met
+de wedstrijden die jouw oog nodig hebben. De knop *Terug naar het overzicht* staat daar nog altijd
+voor wie wél een stap hoger wil.
+
 ## v2.11.4
 
 **Nu komt élke ploeg aan de beurt bij het nakijken van wedstrijdbladen.** De honderd per ronde werden

@@ -2485,9 +2485,18 @@ function clubRondeMarkeerStap() {
 }
 // Terug in beeld na een veeg. Geeft false als er niets meer te openen valt — dan loopt de gewone
 // afhandeling verder alsof er niets bijzonders aan die stap was.
+// TERUG WAAR JE WAS, EN NIET EEN STAP HOGER (Tim, 16-10-2026: "als ik een ronde doe en wedstrijden
+// nakijk, dan kan ik niet terugkeren — enkel naar de pagina van de clubronde, niet die van
+// wedstrijden nakijken").
+//
+// Hier stond clubRondeRenderOverzicht(), en die WIST de uitkomst: fase terug op 'overzicht', en
+// `bladen`, `bladGevraagd`, `nummers` en `kalenders` op null. Je kwam dus niet alleen een stap te
+// hoog uit, je was ook de hele lijst kwijt waar je net middenin zat — met alle bladen die de ronde al
+// opgehaald had. clubRondeRender() tekent gewoon de fase waarin de ronde staat, dus je valt terug in
+// je eigen lijstje. De knop "Terug naar het overzicht" staat daar nog altijd voor wie wél hoger wil.
 function clubRondeHeropen() {
   if (!clubRondeSt) return false;
-  clubRondeRenderOverzicht();
+  clubRondeRender();
   return true;
 }
 async function clubRondeNaarPloeg(tid) {
