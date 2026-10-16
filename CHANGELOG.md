@@ -9,6 +9,27 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.10.2
+
+**Het vandaag-scherm gaat voortaan over één dag, en de balk zegt welke.** Van vrijdag tot en met
+zondag stond er *"Dit weekend"* in de dagbalk. Dat klopte niet: die balk is een **dag**kiezer, dus een
+weekend kan je er niet kiezen — tik je erop, dan opent de kalender gewoon op vandaag. Er staat nu
+altijd een dag: *Vandaag*, of de datum die je koos.
+
+**En "Nu bezig" kijkt ook nog maar naar die ene dag.** Tot nu toonde dat vak ook een wedstrijd die
+gisteravond begon en nog altijd liep. Dat was met opzet — zo'n wedstrijd is nog steeds nieuws — maar
+het gaf een scherm dat *Vandaag* heet en toch over drie dagen ging. Wil je die wedstrijd zien, dan
+blader je met het pijltje één dag terug.
+
+Daarmee vervalt het samen ophalen van vrijdag, zaterdag en zondag. De app vraagt nu per dag, wat ook
+minder gegevens over de lijn stuurt.
+
+**En op een dag die voorbij is heet een wedstrijd die blijven staan is voortaan "Niet afgesloten".**
+Stond ze nog als lopend in de app, dan kwam ze ook op zo'n oude dag onder *Nu bezig* terecht, met het
+rode bolletje erbij — terwijl er al een week niet meer gevoetbald werd. Nu staat het kaartje geel, met
+*Niet afgesloten* erop, en is het bolletje weg. Op vandaag verandert er niets: wat nu loopt, blijft
+*Nu bezig*.
+
 ## v2.10.1
 
 **Het kadertje op *Jouw ploegen* vertelt nu dat je kan terugkijken.** Op een dag zonder één

@@ -3262,8 +3262,7 @@ function renderGuestJoin() {
 // loopt — hoogstens twee kaartjes van een halve breedte, want volwaardige wedstrijdrijen namen daar
 // het halve scherm in, en op een drukke ochtend zouden er acht staan. De rest zit achter een doorklik,
 // op een eigen scherm met dezelfde naam, waar de kaartjes wél de volle breedte krijgen. Dat scherm
-// gaat bewust niet verder dan vandaag, of dan dit weekend wanneer het zaterdag of zondag is: wie
-// vooruit wil kijken, heeft de kalender van een ploeg.
+// toont één dag tegelijk, met een balk bovenaan om een andere dag te kiezen (v2.10.0).
 //
 // IEDEREEN KRIJGT BEIDE. Het verschil tussen een beheerder en een kijker zit niet in wát hij ziet maar
 // in wát hij kan openen — exact dezelfde lat als in de wedstrijdenlijst (Tim, 02-10-2026: "een kijker
@@ -3295,9 +3294,9 @@ let _speeldag = null;          // { van, tot, label, rijen: [{cid, tid, m}], sta
 let _speeldagBezig = false;
 let _speeldagTimer = null;
 // EEN ZELF GEKOZEN DAG (Tim, 15-10-2026: "kunnen we dat vandaag scherm, daar een kalender toevoegen
-// dat je een dag selecteert en van die dag alle resultaten van de club ziet?"). null = gewoon
-// vandaag (of dit weekend). Staat er een datum in, dan draait het hele scherm om díé dag: het
-// ophalen, de drie hoopjes, de koppen en de lege melding.
+// dat je een dag selecteert en van die dag alle resultaten van de club ziet?"). null = vandaag.
+// Staat er een datum in, dan draait het hele scherm om díé dag: het ophalen, de drie hoopjes, de
+// koppen en de lege melding.
 //
 // DE KEUZE GELDT ENKEL ZOLANG JE OP DAT SCHERM BENT. Het kadertje op 'Jouw ploegen' hoort over
 // vandaag te gaan; vandaar dat renderTeamSelect dit terugzet op null.
@@ -3311,20 +3310,17 @@ function speeldagDagTekst(iso) {
   return isNaN(d) ? String(iso || '') : d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-// Welke dagen horen bij "de speeldag". VRIJDAG HOORT ERBIJ (Tim, 02-10-2026: "vrijdag, zaterdag,
-// zondag horen eigenlijk ook samen, als weekend") — bij de jeugd wordt er op vrijdagavond gespeeld,
-// dus een weekend begint daar. Sta je op een van die drie dagen, dan zie je ze alle drie: op zondag
-// nog wat er vrijdag en zaterdag gespeeld is, op vrijdag al wat er zaterdag aankomt. Doordeweeks enkel
-// vandaag. Twaalf uur 's middags als ijkpunt bij het opschuiven, zodat de nacht waarin de klok
-// verspringt geen dag overslaat of verdubbelt.
+// ÉÉN DAG, ALTIJD (Tim, 16-10-2026: "nu bezig mag toch maar op één dag kijken"). Van 02-10-2026 tot
+// hier haalde dit van vrijdag tot en met zondag op — "vrijdag, zaterdag, zondag horen eigenlijk ook
+// samen, als weekend", en bij de jeugd wordt er op vrijdagavond gespeeld. Met de dagbalk van v2.10.0
+// blader je zelf naar zaterdag, dus die groepering heeft haar reden verloren; ze leverde alleen nog
+// een scherm op dat "Vandaag" heet en drie dagen beslaat.
+//
+// DIT IS HET ENIGE VENSTER: wat hier niet in zit, wordt niet opgehaald. Een wedstrijd die gisteravond
+// begon en nog altijd loopt, verschijnt dus niet meer — dat is wat Tim gevraagd heeft.
 function speeldagVenster() {
-  const dagPlus = n => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + n); return isoDagVan(x); };
-  // Koos je zelf een dag, dan is dat het hele venster — ook in een weekend. Je vroeg om die ene dag.
-  if (_speeldagDag) return { van: _speeldagDag, tot: _speeldagDag, label: speeldagDagTekst(_speeldagDag) };
-  const d = new Date().getDay();   // 0 = zondag … 5 = vrijdag, 6 = zaterdag
-  const naarVrijdag = d === 5 ? 0 : d === 6 ? -1 : d === 0 ? -2 : null;
-  if (naarVrijdag === null) return { van: dagPlus(0), tot: dagPlus(0), label: 'Vandaag' };
-  return { van: dagPlus(naarVrijdag), tot: dagPlus(naarVrijdag + 2), label: 'Dit weekend' };
+  const dag = speeldagFocusDag();
+  return { van: dag, tot: dag, label: speeldagDagTekst(dag) };
 }
 
 // Mag deze gebruiker dit zien? Iedereen die aangemeld is — een gast heeft zijn eigen live-scherm.
@@ -3501,8 +3497,8 @@ function speeldagSchuif(n) {
   d.setDate(d.getDate() + n);
   speeldagKiesDag(isoDagVan(d));
 }
-// Een dag kiezen. Kom je op vandaag uit, dan is er géén gekozen dag meer — zo krijg je in een weekend
-// vanzelf weer vrijdag tot en met zondag te zien in plaats van die ene dag.
+// Een dag kiezen. Kom je op vandaag uit, dan is er géén gekozen dag meer: het scherm staat dan weer
+// in zijn ruststand, de knop "Vandaag" verdwijnt en het ververst zichzelf weer.
 function speeldagKiesDag(iso) {
   if (!iso) return;
   const nieuw = (iso === isoVandaag()) ? null : iso;
@@ -3522,12 +3518,17 @@ function speeldagOpenScherm() { _speeldagDag = null; go('livespeeldag'); }
 // De balk bovenaan het scherm. Staat BUITEN het blok dat bij elke verversing hertekend wordt.
 function speeldagDagBalkHtml() {
   const dag = speeldagFocusDag();
-  const v = speeldagVenster();
   return `<div class="sd-dagbalk">
       <button class="sd-dagpijl" onclick="speeldagSchuif(-1)" title="Dag eerder">‹</button>
       ${/* Een onzichtbaar datumveld over de tekst: tikken opent de kalender van het toestel.
            showPicker() erbij voor een computer, waar een klik op een leeg veld anders niets doet. */ ''}
-      <label class="sd-dagnaam">${esc(_speeldagDag ? speeldagDagTekst(dag) : v.label)}
+      ${/* HIER HOORT ALTIJD EEN DAG TE STAAN, nooit het label van het ophaalvenster (Tim, 16-10-2026:
+           "nu staat er in plaats van vandaag 'Dit weekend' waar je op de kalender kan klikken. Raar").
+           Dat label was 'Dit weekend' van vrijdag tot zondag, en dit is een DAGkiezer: een weekend kan
+           je hier niet kiezen, de kalender opent gewoon op vandaag. Het klopte ook inhoudelijk niet —
+           enkel 'Nu bezig' kijkt over die drie dagen, 'Al gespeeld' en 'Nog te spelen' blijven strikt
+           bij vandaag (zie speeldagVerdeling). Tot v2.10.0 stond dat label nergens op het scherm. */ ''}
+      <label class="sd-dagnaam">${esc(_speeldagDag ? speeldagDagTekst(dag) : 'Vandaag')}
         <input type="date" value="${esc(dag)}" onchange="speeldagKiesDag(this.value)"
           onclick="if(this.showPicker)this.showPicker()"></label>
       <button class="sd-dagpijl" onclick="speeldagSchuif(1)" title="Dag later">›</button>
@@ -3581,8 +3582,14 @@ async function speeldagOpen(id) {
 function speeldagKaartHtml(rij) {
   const m = rij.m;
   const af = matchCancelled(m), nietAf = matchNietAfgesloten(m);
-  const kleur = m.status === 'live' ? 'var(--rd)' : af ? 'var(--txt2)' : nietAf ? 'var(--yl)'
-    : m.status === 'planned' ? 'var(--orn)' : 'var(--grn)';
+  // EEN WEDSTRIJD DIE BLIJVEN STAAN IS (Tim, 16-10-2026): ze staat nog als lopend in de app, maar haar
+  // dag is voorbij — dus niemand heeft ze afgesloten. Op het scherm van die oude dag is "nu bezig" dan
+  // onwaar. Bewust NIET matchNietAfgesloten uitgebreid: die sluit een lopende wedstrijd uitdrukkelijk
+  // uit en wordt door de hele app gebruikt (badges, filters, lijsten). Dit is enkel de lezing van dit
+  // scherm. Op het kadertje van 'Jouw ploegen' komt dit nooit voor: daar staat enkel vandaag.
+  const blijvenStaan = m.status === 'live' && !!m.date && m.date < isoVandaag();
+  const kleur = blijvenStaan ? 'var(--yl)' : m.status === 'live' ? 'var(--rd)' : af ? 'var(--txt2)'
+    : nietAf ? 'var(--yl)' : m.status === 'planned' ? 'var(--orn)' : 'var(--grn)';
   // Onderaan links: wat er aan de hand is. Bij een lopende wedstrijd ook wélk blok loopt — op een
   // tornooidag is dat net wat je wil weten, en het past hier omdat de stand er maar vier tekens bij is.
   // Staat de klok stil tussen twee blokken, dan is "rust" het antwoord op diezelfde vraag.
@@ -3598,7 +3605,9 @@ function speeldagKaartHtml(rij) {
   // GEEN WOORD 'LIVE' OP HET KAARTJE (Tim, 02-10-2026: "soms drie keer live kort bij elkaar in rood").
   // Op allebei de plekken staat er al een kop boven die het zegt — 'Live' in het kadertje, 'Nu bezig'
   // op het speeldagscherm — dus hier volstaat het rode bolletje met het blok erachter.
-  const toestand = m.status === 'live'
+  const toestand = blijvenStaan
+      ? `<span>Niet afgesloten${plaats}</span>`
+    : m.status === 'live'
       ? `<span class="sd-live">${esc(blok)}${plaats}</span>`
     : af ? '<span>Geannuleerd</span>'
     : nietAf ? '<span>Niet afgesloten</span>'
@@ -3701,10 +3710,12 @@ function speeldagTeken() {
 // de afgelopen wedstrijden van vandaag ook blijven staan eronder"). Wat loopt, wat gespeeld is, en
 // wat vandaag nog komt.
 //
-// BEZIG KENT GEEN DATUM. In het weekend haalt de app vrijdag tot en met zondag op (zie
-// speeldagVenster), en een wedstrijd die gisteravond begon en nog altijd loopt, is nog steeds nieuws.
-// De twee andere hoopjes wél: die blijven strikt bij vandaag, anders staat zaterdag onder een kop
-// die "vandaag" zegt.
+// ALLE DRIE DE HOOPJES BLIJVEN BIJ ÉÉN DAG (Tim, 16-10-2026: "en ook 'nu bezig' mag toch maar op één
+// dag kijken"). Tot hier kende 'bezig' bewust geen datum: in het weekend haalde de app vrijdag tot en
+// met zondag op, en een wedstrijd die gisteravond begon en nog altijd liep, was nog steeds nieuws.
+// Dat gaf een scherm dat "Vandaag" heet en toch over drie dagen ging. Nu is het venster zelf nog maar
+// één dag breed (zie speeldagVenster), dus deze filter is een tweede slot op dezelfde deur — en hij
+// blijft nodig, want een gekozen dag en vandaag zijn niet hetzelfde.
 //
 // Een GEANNULEERDE wedstrijd valt bij "nog te spelen": daar stond ze op het programma. Het kaartje
 // zegt zelf in het grijs dat ze niet doorgaat, dus dat leest goed genoeg.
@@ -3718,7 +3729,7 @@ function speeldagVerdeling() {
   const vandaag = speeldagFocusDag();
   const vanVandaag = r => String(r.m.date || '') === vandaag;
   return {
-    bezig: rijen.filter(r => r.m.status === 'live'),
+    bezig: rijen.filter(r => r.m.status === 'live' && vanVandaag(r)),
     gespeeld: rijen.filter(r => r.m.status === 'done' && vanVandaag(r)),
     komt: rijen.filter(r => r.m.status !== 'live' && r.m.status !== 'done' && vanVandaag(r)),
   };
@@ -3759,7 +3770,9 @@ function speeldagAantalTekst() {
   if (!(_speeldag && _speeldag.rijen)) return '';
   const g = speeldagVerdeling();
   const stukken = [];
-  if (g.bezig.length) stukken.push(`${g.bezig.length} bezig`);
+  // Dezelfde woorden als de koppen in het scherm: op een dag die voorbij is, is niets meer "bezig".
+  const voorbij = !!_speeldagDag && _speeldagDag < isoVandaag();
+  if (g.bezig.length) stukken.push(`${g.bezig.length} ${voorbij ? 'niet afgesloten' : 'bezig'}`);
   if (g.gespeeld.length) stukken.push(`${g.gespeeld.length} gespeeld`);
   // Dezelfde woorden als de koppen in het scherm zelf (zie speeldagVolledigHtml): "nog te spelen"
   // klopt niet meer boven een dag die al voorbij is.
@@ -3771,7 +3784,8 @@ function speeldagAantalTekst() {
   return stukken.length ? stukken.join(' · ') : (_speeldagDag ? 'niets die dag' : 'niets vandaag');
 }
 
-// HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, bij een weekend gegroepeerd per dag.
+// HET VOLLEDIGE SCHERM. De kaartjes op volle breedte, in drie hoopjes onder elkaar — allemaal van
+// dezelfde dag, die je bovenaan met de dagbalk kiest.
 function speeldagVolledigHtml() {
   const st = _speeldag;
   if (!st) return '';
@@ -3807,11 +3821,16 @@ function speeldagVolledigHtml() {
   // "Nog te spelen" boven een wedstrijd van vorige zaterdag is gewoon onwaar: die is niet meer te
   // spelen, ze is nooit afgesloten. En een wedstrijd van volgende week is niet "nog te spelen" maar
   // staat op het programma.
+  const voorbij = !!_speeldagDag && _speeldagDag < isoVandaag();
   const kopGespeeld = _speeldagDag ? 'Gespeeld' : 'Al gespeeld';
-  const kopKomt = !_speeldagDag ? 'Nog te spelen'
-    : (_speeldagDag < isoVandaag()) ? 'Niet gespeeld' : 'Op het programma';
+  const kopKomt = !_speeldagDag ? 'Nog te spelen' : voorbij ? 'Niet gespeeld' : 'Op het programma';
+  // OOK 'NU BEZIG' KLOPT NIET OP EEN OUDE DAG (Tim, 16-10-2026: "ja maak daar niet afgesloten van").
+  // Staat een wedstrijd van vorige week nog als lopend, dan is ze niet bezig maar blijven staan. Het
+  // rode bolletje gaat dan mee weg — dat betekent in deze app "er wordt nu gevoetbald". Het kaartje
+  // zelf zegt hetzelfde en kleurt geel; zie blijvenStaan in speeldagKaartHtml.
+  const kopBezig = voorbij ? 'Niet afgesloten' : `<span class="sd-live">Nu bezig</span>`;
   return mislukteRegel
-    + deel(`<span class="sd-live">Nu bezig</span>`, g.bezig, eersteKop === 'bezig')
+    + deel(kopBezig, g.bezig, eersteKop === 'bezig')
     + deel(kopGespeeld, g.gespeeld, eersteKop === 'gespeeld')
     + deel(kopKomt, g.komt, eersteKop === 'komt');
 }

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.10.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.10.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2566,7 +2566,8 @@ async function fbSleutels(pad, ms = 8000) {
 // doet dat niet: die antwoordt dan met een fout. Daarom is dit de veilige van de twee.
 //
 // Eén waarde, of een bereik: geef je `tot` mee, dan vraagt hij alles van `van` tot en met `tot`
-// (dezelfde zoekregel, dus dat kost niets extra). Het speeldagscherm gebruikt dat voor een weekend.
+// (dezelfde zoekregel, dus dat kost niets extra). Het vandaag-scherm vraagt één dag, met `van` en
+// `tot` gelijk; tot v2.10.1 vroeg het in een weekend drie dagen tegelijk.
 //
 // Geeft terug: een object met de treffers (leeg object = niets gevonden), de tekst 'geen-zoekregel'
 // wanneer de databank de zoekregel nog niet kent, en null bij elke andere tegenslag (geen netwerk,
