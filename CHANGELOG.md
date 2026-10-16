@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.2
+
+**Een naam van het wedstrijdblad koppel je nu in een venster met een zoekveld.** Daar stond een
+keuzelijst met álle spelers van de club in — bij jouw club een paar honderd namen om door te scrollen.
+Tik je nu op de knop naast een naam, dan opent een venster met bovenaan **"Als losse speler
+toevoegen"**, daaronder **"Niet meenemen"**, en daaronder een zoekveld met de namen per ploeg
+gegroepeerd. Je kan op meerdere woorden tegelijk zoeken, in willekeurige volgorde: *"lars velde"*
+vindt ook *"Lars Van de Velde"*. Een naam die nog niet gekoppeld is, valt op de knop meteen op.
+
+**En twee fouten in de clubronde van gisteren rechtgezet, allebei een reden waarom dezelfde
+wedstrijden opnieuw nagekeken werden:**
+
+- het tijdstip van de controle werd soms naar een **onbestaand adres** geschreven. Een wedstrijd die
+  in de databank geen eigen nummer draagt, werd daardoor nooit als "nagekeken" onthouden;
+- en lukte dat wegschrijven niet, dan **zweeg de app** erover. Nu wordt het geteld en staat het
+  onderaan de ronde, zodat je ziet dat er iets niet onthouden raakte in plaats van je af te vragen
+  waarom je dezelfde lijst weer krijgt.
+
+> Let op: **wedstrijden die nog moeten komen, worden elke ronde opnieuw nagekeken.** Dat is met opzet
+> — daar verschijnt de info van de bond immers pas na verloop van tijd. Gespeelde wedstrijden rollen
+> wél door.
+
 ## v2.11.1
 
 **"Ruimer nakijken" toont nu alleen nog wedstrijden waar de bond iets heeft dat hier nog niet staat.**

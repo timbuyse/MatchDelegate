@@ -323,6 +323,77 @@ function vvZetKoppel(i, waarde) {
   vvRender();
 }
 
+// ---- Een speler kiezen voor een naam van het blad (v2.11.2) ----
+// Hier stond een gewone keuzelijst met ÁLLE spelers van de club erin. Bij Tims club zijn dat er een
+// paar honderd, en een keuzelijst van een telefoon is een wiel waar je doorheen moet scrollen: "je
+// moet kunnen zoeken op namen en niet een lange lijst doorscrollen" (16-10-2026).
+//
+// Vandaar een eigen venster met een zoekveld. De twee handelingen staan BOVENAAN, in de volgorde die
+// Tim vroeg: eerst "als losse speler toevoegen", daaronder "niet meenemen". Die twee blijven altijd
+// staan, ook terwijl je zoekt — het zijn geen namen, en je komt hier juist wanneer een naam niet te
+// vinden is.
+let _vvKiesIdx = null;
+function vvKiesNaamVan(waarde) {
+  if (!waarde) return '— niet meenemen —';
+  const soort = waarde.slice(0, 2), rest = waarde.slice(2);
+  if (soort === 'w:') { const p = (match.players || []).find(x => x.id === rest); return p ? p.name + ' — staat al in de selectie' : 'onbekend'; }
+  if (soort === 'l:') return (vvSt.los[rest] || 'onbekend') + ' — losse speler';
+  const r = vvRosterSpeler(rest);
+  return r ? (r.p.name + (r.t ? ' — ' + r.t.name : '')) : 'onbekend';
+}
+// Alle namen waaruit je kan kiezen, met de groep waar ze bij horen. De eigen kern eerst.
+function vvKiesOpties(i) {
+  const uit = [];
+  const id = vvSt.koppel[i] || '';
+  if (id.slice(0, 2) === 'w:') uit.push({ waarde: id, naam: vvKiesNaamVan(id), groep: 'In deze wedstrijd' });
+  vvRoster().filter(Boolean).forEach(p => uit.push({ waarde: 'r:' + p.id, naam: p.name || '', groep: 'Eigen kern' }));
+  (vvSt.zusters || []).forEach(t => (t.players || []).filter(Boolean)
+    .forEach(p => uit.push({ waarde: 'r:' + p.id, naam: p.name || '', groep: t.name || 'Andere ploeg' })));
+  if (id.slice(0, 2) === 'l:') uit.push({ waarde: id, naam: vvSt.los[id.slice(2)] || '', groep: 'Losse speler' });
+  return uit;
+}
+function vvKiesLijstHtml(i, term) {
+  const t = (term || '').trim().toLowerCase();
+  // Zoeken op de VERZAMELING woorden, zodat "lars vdv" en "van de velde lars" allebei werken: elk
+  // woord dat je tikt moet ergens in de naam voorkomen. Zelfde gedachte als naamLijktOp in core.js,
+  // maar hier soepeler — je bent aan het zoeken, niet aan het koppelen.
+  const woorden = t ? t.split(/\s+/).filter(Boolean) : [];
+  const past = n => !woorden.length || woorden.every(w => (n || '').toLowerCase().includes(w));
+  const opties = vvKiesOpties(i).filter(o => past(o.naam));
+  if (!opties.length) return `<p style="text-align:center;color:var(--txt2);font-size:13px;padding:14px 0">Geen naam gevonden. Gebruik hierboven <b>als losse speler toevoegen</b>.</p>`;
+  let html = '', vorige = '';
+  const huidig = vvSt.koppel[i] || '';
+  opties.forEach(o => {
+    if (o.groep !== vorige) { html += `<div class="sec" style="text-align:left">${esc(o.groep)}</div>`; vorige = o.groep; }
+    html += `<button class="btn btn-pale" style="margin:0 0 6px;text-align:left;${o.waarde === huidig ? 'border:2px solid var(--grn)' : ''}"
+      onclick="vvKiesKlaar('${esc(o.waarde)}')">${esc(o.naam)}</button>`;
+  });
+  return html;
+}
+function vvKiesZoek(term) {
+  const el = document.getElementById('vv-kies-lijst');
+  if (el && _vvKiesIdx !== null) el.innerHTML = vvKiesLijstHtml(_vvKiesIdx, term);
+}
+function vvKiesSpeler(i) {
+  if (!vvSt || !vvSt.lezing) return;
+  _vvKiesIdx = i;
+  const naam = ((vvSt.lezing.onzeSpelers[i] || {}).naam || '').trim();
+  openModal(`<h3>${icI(IC.players)} Wie is dit?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Op het blad staat <b>${esc(naam || '?')}</b>.</p>
+    <button class="btn btn-pale" style="margin:0 0 6px;text-align:left" onclick="vvKiesKlaar('__los__')">${icI(IC.plus)} Als losse speler toevoegen</button>
+    <button class="btn btn-pale" style="margin:0 0 10px;text-align:left" onclick="vvKiesKlaar('')">— Niet meenemen —</button>
+    <div class="fg" style="margin-bottom:8px"><input id="vv-kies-zoek" type="search" placeholder="Zoek op naam…" oninput="vvKiesZoek(this.value)" autocomplete="off"></div>
+    <div id="vv-kies-lijst" style="max-height:46vh;overflow:auto;text-align:left">${vvKiesLijstHtml(i, '')}</div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Annuleren</button>`);
+  setTimeout(() => { const z = document.getElementById('vv-kies-zoek'); if (z) z.focus(); }, 60);
+}
+function vvKiesKlaar(waarde) {
+  const i = _vvKiesIdx;
+  _vvKiesIdx = null;
+  closeModal();
+  if (i !== null) vvZetKoppel(i, waarde);
+}
+
 // ---------------------------------------------------------------------------------------------
 // 4. WAT ER TE HALEN VALT — de rijen van het voorstel
 // ---------------------------------------------------------------------------------------------
@@ -656,14 +727,8 @@ function vvVoorstelHtml() {
   // --- de selectie ---
   const selHtml = (lz.onzeSpelers || []).map((s, i) => {
     const id = vvSt.koppel[i] || '';
-    const rosterOpties = roster.map(r => `<option value="r:${esc(r.id)}" ${id === 'r:' + r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
-    const zusterOpties = (vvSt.zusters || []).filter(t => (t.players || []).length).map(t =>
-      `<optgroup label="${esc(t.name)}">${t.players.map(p => `<option value="r:${esc(p.id)}" ${id === 'r:' + p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
-    // Wie al in de selectie van deze wedstrijd staat, hoort als keuze in de lijst te staan — anders
-    // kan de keuzelijst niet tonen wat er gekozen is.
     const reeds = id.slice(0, 2) === 'w:' ? (m.players || []).find(p => p.id === id.slice(2)) : null;
-    const reedsOptie = reeds ? `<option value="${esc(id)}" selected>${esc(reeds.name)} — staat al in de selectie</option>` : '';
-    const losOptie = id.slice(0, 2) === 'l:' && vvSt.los[id.slice(2)] ? `<option value="${esc(id)}" selected>${esc(vvSt.los[id.slice(2)])} — losse speler</option>` : '';
+    const losOptie = id.slice(0, 2) === 'l:' && vvSt.los[id.slice(2)];
     const zuster = id.slice(0, 2) === 'r:' ? vvRosterSpeler(id.slice(2)) : null;
     const merk = [];
     if (s.nummer) merk.push(`<span style="font-size:11px;color:var(--txt2);margin-left:6px">#${esc(s.nummer)}</span>`);
@@ -675,12 +740,14 @@ function vvVoorstelHtml() {
     if (reeds) merk.push('<span style="font-size:11px;color:var(--txt2);margin-left:6px">al in de selectie</span>');
     else if (zuster && zuster.t) merk.push(`<span style="font-size:11px;color:var(--org);margin-left:6px">gast · ${esc(zuster.t.name)}</span>`);
     else if (losOptie) merk.push('<span style="font-size:11px;color:var(--org);margin-left:6px">losse speler</span>');
+    // De keuze is een KNOP die het kiesvenster opent (v2.11.2), geen keuzelijst meer: met de ploegen
+    // van een hele club erin werd dat een wiel van honderden namen. Staat er nog niets, dan valt dat
+    // op — dat is precies de rij waar je iets moet doen.
+    const label = id ? vvKiesNaamVan(id) : 'Kies een speler';
     return `<div class="stat-row" style="align-items:center;gap:8px">
       <span style="flex:1;min-width:0"><span style="font-weight:600">${esc(s.naam)}</span>${merk.join('')}</span>
-      <select onchange="vvZetKoppel(${i}, this.value)" style="max-width:52%;font-size:13px;padding:5px 6px">
-        <option value="">— niet meenemen —</option>${reedsOptie}${rosterOpties}${zusterOpties}${losOptie}
-        <option value="__los__">+ als losse speler toevoegen</option>
-      </select>
+      <button class="btn btn-pale btn-sm" onclick="vvKiesSpeler(${i})"
+        style="width:auto;margin:0;max-width:52%;font-size:12.5px;padding:6px 9px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${id ? '' : ';color:var(--org2);font-weight:700'}">${esc(label)}</button>
     </div>`;
   }).join('');
   const telling = vvTelSelectie();

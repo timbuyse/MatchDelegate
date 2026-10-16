@@ -1426,7 +1426,11 @@ async function clubRondeOphalen(clubId, meld) {
       uit.push({
         tid, naam, kern, kernen, kernSleutel,
         bondsPloegen: (kern && Array.isArray(kern.rbfaTeams)) ? kern.rbfaTeams : [],
-        wedstrijden: Object.values(t.matches || {}).filter(Boolean).map(cloudWedstrijdVeilig),
+        // DE SLEUTEL IS HET ID, niet het veld. Object.values gooit de sleutel weg, en een wedstrijd
+        // zonder `id`-veld zou dan een pad als .../matches/undefined/... opleveren bij het gericht
+        // schrijven (zie bondGekeken in clubRondeBladen). Zelfde vangnet als in speeldagOphalen.
+        wedstrijden: Object.entries(t.matches || {}).filter(([, v]) => v)
+          .map(([sleutel, v]) => { const mm = cloudWedstrijdVeilig(v); if (!mm.id) mm.id = sleutel; return mm; }),
       });
     } catch (e) { mislukt.push(tid); }
   }
@@ -2007,7 +2011,8 @@ async function clubRondeBladen(ruim) {
   // Hoeveel staan er in totaal te wachten? Nodig voor de zin onderaan: "100 van de 340 nagekeken".
   const kandPer = st.ploegen.map(p => (ruim ? clubBladKandidatenRuim(p) : clubBladKandidaten(p)));
   st.bladTotaalKand = kandPer.reduce((n, k) => n + k.length, 0);
-  let nietsNieuws = 0;   // nagekeken, maar de bond had niets wat hier nog niet stond
+  let nietsNieuws = 0;      // nagekeken, maar de bond had niets wat hier nog niet stond
+  let nietOnthouden = 0;    // nagekeken, maar het tijdstip raakte niet weggeschreven
   try {
     for (let pi = 0; pi < st.ploegen.length; pi++) {
       const p = st.ploegen[pi];
@@ -2025,9 +2030,16 @@ async function clubRondeBladen(ruim) {
         // eind — zodat een ronde die je halfweg afbreekt tóch telt en de volgende verder gaat waar deze
         // stopte. Eén veldje, gericht geschreven: dat raakt de stempel van de wedstrijd niet (geen
         // "er is nog iemand bezig") en komt niet langs de .validate op de wedstrijd zelf.
+        //
+        // GEEN STILLE CATCH (Tim, 16-10-2026: "ik heb het gevoel dat bij een nieuwe clubronde dezelfde
+        // worden gecontroleerd"). Hier stond `catch (e) {}`. Lukt die schrijving niet, dan onthoudt
+        // niets dat deze wedstrijd al geweest is en begint élke ronde opnieuw bij dezelfde honderd —
+        // zonder één woord. Precies de meetfout waar ik al eens op gevallen ben: een mislukking die
+        // zwijgt, voelt als een app die niets doet. Nu wordt ze geteld en onderaan gemeld.
         const nu = Date.now();
         m.bondGekeken = nu;
-        try { await fbdb.ref('teams/' + p.tid + '/matches/' + m.id + '/bondGekeken').set(nu); } catch (e) {}
+        try { await fbdb.ref('teams/' + p.tid + '/matches/' + m.id + '/bondGekeken').set(nu); }
+        catch (e) { nietOnthouden++; }
         // ELKE BEVRAAGDE WEDSTRIJD KOMT IN DE UITKOMST (Tim, 01-10-2026: "geen enkele kan blind mee
         // ... en dan krijg ik er géén?"). Wie hier wegviel liet geen spoor na, dus veertig
         // bevragingen konden een leeg scherm opleveren zonder één woord over waarom. De bond verwerkt
@@ -2082,7 +2094,7 @@ async function clubRondeBladen(ruim) {
   } finally { match = bewaardMatch; vvSt = bewaardSt; _vvRosterOverride = null; }
   if (!clubRondeSt) return;
   st.bezig = false; st.fase = 'bladvoorstel'; st.bladen = perPloeg; st.bladGevraagd = gevraagd;
-  st.bladNietsNieuws = nietsNieuws;
+  st.bladNietsNieuws = nietsNieuws; st.bladNietOnthouden = nietOnthouden;
   clubRondeRender();
 }
 async function clubRondeBladenDoen() {
@@ -2261,6 +2273,8 @@ function clubRondeRender() {
            wedstrijd draagt nu het tijdstip van haar controle, en de kandidaten staan op "het langst
            geleden gekeken" eerst, dus een tweede ronde pakt wél de volgende honderd. */ ''}
       ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">${icI(IC.warn)} ${st.bladGevraagd} van de ${st.bladTotaalKand || st.bladGevraagd} nagekeken — dat is het maximum van één ronde. <b>Draai ze gerust nog eens:</b> wie het langst geleden nagekeken is komt eerst, dus de volgende ronde pakt de ${Math.max(0, (st.bladTotaalKand || 0) - st.bladGevraagd)} die nu bleven liggen.</p>` : ''}
+      ${/* Zonder deze melding lijkt een ronde die niets onthoudt op een ronde die niets doet. */ ''}
+      ${st.bladNietOnthouden ? `<p style="font-size:12px;color:var(--org2);text-align:left;margin-top:8px">${icI(IC.warn)} Bij ${st.bladNietOnthouden === 1 ? 'één wedstrijd' : st.bladNietOnthouden + ' wedstrijden'} raakte niet weggeschreven dát ze nagekeken is. Die komt bij een volgende ronde opnieuw aan de beurt.</p>` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug naar het overzicht</button>`);
     return;
   }
