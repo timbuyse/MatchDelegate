@@ -2069,6 +2069,14 @@ async function clubRondeBladen(ruim) {
           _vvRosterOverride = (p.kern && p.kern.players) || [];
           vvZetOpVoorstel(m, ruw, zusters);
           post.ruw = ruw;
+          // DIT BLAD HEB JE AL GEZIEN, EN ER IS NIETS AAN VERANDERD (Tim, 16-10-2026: "dezelfde
+          // wedstrijden die ik al heb aangepast en doorlopen, komen telkens terug na een paar
+          // rondes"). Nam je het over of sloeg je het bewust over, dan staat de vingerafdruk van dat
+          // blad op de wedstrijd. Komt er nu exact hetzelfde uit, dan valt er voor jou niets te
+          // beslissen en laten we ze weg. Wijzigt de bond er iets aan, dan verschilt de afdruk en
+          // staat ze er gewoon weer. Zie vvBladVingerafdruk in import-vv.js.
+          if (typeof vvBladVingerafdruk === 'function' && m.bondBladGezien
+              && m.bondBladGezien === vvBladVingerafdruk(vvSt.lezing)) { nietsNieuws++; continue; }
           if (!vvSt.lezing || !vvSt.lezing.gespeeld) {
             // GEEN BLAD IS NIET HETZELFDE ALS NIETS (Tim, 16-10-2026). De wedstrijdpagina draagt haar
             // gegevens ook vóór ze gespeeld is: terrein, scheidsrechter, uur. vvInfoRijen hangt niet

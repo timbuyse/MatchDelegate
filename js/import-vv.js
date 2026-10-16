@@ -736,6 +736,49 @@ function vvChk(key, label, extra) {
   </label>`;
 }
 
+// ---- Welk blad heb je al gezien? (v2.11.8) ----
+// Tim, 16-10-2026: "ik heb al vele rondes gedaan en dezelfde wedstrijden die ik al heb aangepast en
+// doorlopen, komen telkens terug na een paar rondes."
+//
+// Terecht: de ronde onthield WANNEER ze een blad ophaalde (bondGekeken), maar niet WAT ze toen zag —
+// laat staan dat jij er al een beslissing over nam. Een wedstrijd waarvan de namen niet eenduidig te
+// koppelen zijn, blijft dus eeuwig kandidaat, en een verkeerd gekoppeld blad komt elke ronde terug.
+//
+// Vandaar een vingerafdruk van het blad. Neem je over of sla je bewust over, dan gaat die op de
+// wedstrijd (`bondBladGezien`). Bij een volgende ronde vergelijkt de app: is het blad ONGEWIJZIGD,
+// dan laat ze die wedstrijd weg. Verandert er iets bij de bond — het blad raakt alsnog verwerkt, de
+// uitslag wordt rechtgezet, er komt een naam bij — dan verschilt de afdruk en staat ze er wél weer.
+// Niets gaat dus definitief dicht; er verdwijnt enkel wat je al gezien hebt én wat niet veranderd is.
+//
+// BEWUST NIET DE RUWE TEKST VAN DE BOND HASHEN. Daar kan van alles in zitten dat per oproep
+// verschilt; dan zou de afdruk altijd afwijken en deed deze hele regel niets, zonder dat je het ziet.
+// Enkel wat we er zelf uit lezen, en dus ook enkel wat ertoe doet.
+function vvBladVingerafdruk(lz) {
+  if (!lz) return '';
+  const spelers = (lz.onzeSpelers || [])
+    .map(s => `${s.naam || ''}:${s.doelpunten || 0}:${(s.kaarten || []).length}`).join('|');
+  const stuk = [
+    lz.gespeeld ? '1' : '0',
+    lz.scoreOns == null ? '' : lz.scoreOns,
+    lz.scoreZij == null ? '' : lz.scoreZij,
+    lz.datum || '', lz.hunTeam || '', lz.scheidsrechter || '',
+    lz.terreinNaam || '', lz.stad || '', lz.pitch || '',
+    (lz.wissels || []).length, spelers,
+  ].join('~');
+  let h = 5381;
+  for (let i = 0; i < stuk.length; i++) h = ((h << 5) + h + stuk.charCodeAt(i)) | 0;
+  return String(h >>> 0);
+}
+// Onthouden dat je dit blad gezien hebt. Stil bewaard: je hebt aan de wedstrijd zelf niets veranderd,
+// dus het stempeltje "laatst bewerkt" en de melding "er is nog iemand bezig" horen niet te bewegen
+// (zie dbSave met { stil: true }).
+async function vvOnthoudBladGezien(stil) {
+  if (!match || !vvSt || !vvSt.lezing) return;
+  const afdruk = vvBladVingerafdruk(vvSt.lezing);
+  if (!afdruk || match.bondBladGezien === afdruk) return;
+  match.bondBladGezien = afdruk;
+  try { await dbSave(match, stil ? { stil: true } : undefined); } catch (e) {}
+}
 // Hoort dit blad wel bij deze wedstrijd? Aparte functie sinds v1.79.0: het voorstelscherm toont ze,
 // en het in één keer overnemen gebruikt ze als grens — een wedstrijd waarover hier iets te zeggen
 // valt, gaat nooit blind mee.
@@ -869,6 +912,13 @@ function vvVoorstelHtml() {
     ${controles.length ? `<div class="card" style="border-left:4px solid var(--org)">
       <div style="font-weight:700;margin-bottom:6px">${icI(IC.warn)} Hoort deze pagina bij deze wedstrijd?</div>
       ${controles.map(c => `<p style="font-size:13px;color:var(--txt2);margin:0 0 4px">${c}</p>`).join('')}
+      ${/* DE OORZAAK WEGNEMEN, NIET VERBERGEN (Tim, 16-10-2026: "die ene wedstrijd is gekoppeld aan
+           een verkeerd blad"). Haalt de app elke ronde het blad van een ándere wedstrijd op, dan
+           draagt deze wedstrijd een verkeerd wedstrijdnummer. Zolang dat nummer erop staat, blijft
+           dat gebeuren — overslaan verbergt het enkel. Zonder nummer heeft de ronde niets om mee te
+           zoeken en valt ze vanzelf uit de lijst. Omkeerbaar: "Wedstrijdnummers bijplaatsen" in de
+           clubronde zoekt op dag, tegenstander en ploeg en zet er een nieuw op. */ ''}
+      ${m.rbfaMatchId ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:8px 0 0" onclick="vvNummerWeg()">${icI(IC.trash)} Dit wedstrijdnummer hoort hier niet — weghalen</button>` : ''}
     </div>` : ''}
 
     <div class="sec">De wedstrijd op de pagina</div>
@@ -1198,6 +1248,9 @@ async function vvOvernemen() {
   if (!canManage()) { showToast('Enkel een beheerder met verbinding kan dit bewaren.', 'err'); return; }
   const m = match;
   const gedaan = vvNeemOver();
+  // Dit blad is gezien. Meelift op de bewaring die hier toch al gebeurt — zie vvBladVingerafdruk.
+  const afdruk = vvBladVingerafdruk(vvSt.lezing);
+  if (afdruk) m.bondBladGezien = afdruk;
   await dbSave(m);
   // Kwam je hier uit de clubronde, dan hoort die lijst te zien dat déze klaar is — ook als het een
   // rij van één was. Vóór vvRij op null gaat, want daar staat het vandaan.
@@ -1419,7 +1472,32 @@ async function vvRijVolgende() {
   vvTerugNaarClubronde(vanRonde);
   return true;
 }
-async function vvRijOverslaan() { if (vvRij) await vvRijVolgende(); }
+// Het wedstrijdnummer weghalen omdat het bij een andere wedstrijd hoort. Zie de knop in de
+// waarschuwing op het voorstelscherm voor het waarom.
+async function vvNummerWeg() {
+  if (!vvSt || !match) return;
+  if (!canManage()) { showToast('Enkel een beheerder met verbinding kan dit aanpassen.', 'err'); return; }
+  const m = match;
+  if (!m.rbfaMatchId) return;
+  delete m.rbfaMatchId;
+  // De vingerafdruk hoort bij het blad dat aan dát nummer hing; zonder nummer zegt ze niets meer.
+  delete m.bondBladGezien;
+  try { await dbSave(m); } catch (e) { showToast('Bewaren mislukt, probeer opnieuw.', 'err'); return; }
+  if (typeof vvMarkeerInClubronde === 'function') vvMarkeerInClubronde(m.id, ['wedstrijdnummer weggehaald']);
+  showToast('Weggehaald. Deze wedstrijd wordt niet meer bij de bond opgezocht; een nieuw nummer bijplaatsen kan via de clubronde.', 'ok');
+  if (vvRij) { await vvRijVolgende(); return; }
+  const vanRonde = false;
+  vvSt = null;
+  await go(m.status === 'done' ? 'detail' : 'prep', m.id);
+  vvTerugNaarClubronde(vanRonde);
+}
+// Bewust overslaan is óók een beslissing: dit blad heb je gezien en je laat het liggen. Zolang er bij
+// de bond niets aan verandert, hoort het je niet elke ronde opnieuw voor de voeten te lopen.
+async function vvRijOverslaan() {
+  if (!vvRij) return;
+  await vvOnthoudBladGezien(true);
+  await vvRijVolgende();
+}
 
 // ---- In één keer: eerst tonen, dan pas doen ----
 let vvBulkSt = null;   // { fase, zeker:[], hand:[], zusters, bezig, gedaan }

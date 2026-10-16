@@ -9,6 +9,25 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.8
+
+**Wat je al afgehandeld hebt, komt niet meer elke ronde terug.** De app onthield wel wannéér ze een
+blad ophaalde, maar niet wát ze toen zag — en al helemaal niet dat jij er een beslissing over nam. Een
+wedstrijd waarvan de namen niet te koppelen waren, bleef dus eeuwig in de lijst staan.
+
+Neem je een blad over of sla je het bewust over, dan onthoudt de app nu een **vingerafdruk** van dat
+blad. Bij een volgende ronde vergelijkt ze: is het blad bij de bond **ongewijzigd**, dan laat ze die
+wedstrijd weg. Verandert er iets — het blad raakt alsnog verwerkt, de uitslag wordt rechtgezet, er
+komt een speler bij — dan verschilt de afdruk en staat ze er gewoon weer. Er gaat dus nooit iets
+definitief dicht.
+
+**En een verkeerd wedstrijdnummer kan je nu weghalen waar de app erover klaagt.** Staat er *"Het blad
+lijkt niet bij deze wedstrijd te horen"*, dan is de oorzaak meestal dat die wedstrijd het nummer van
+een ándere draagt. Zolang dat nummer erop staat, komt elke ronde hetzelfde verkeerde blad terug —
+overslaan verbergt dat alleen. In die waarschuwing staat nu een knop **"Dit wedstrijdnummer hoort hier
+niet — weghalen"**. Zonder nummer wordt die wedstrijd niet meer bij de bond opgezocht; een nieuw
+nummer bijplaatsen kan altijd nog via de clubronde.
+
 ## v2.11.7
 
 **Je kan een wedstrijd nu ook overslaan als het er maar één is.** Hoort een blad niet bij de
