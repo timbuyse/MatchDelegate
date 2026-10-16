@@ -9,6 +9,33 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.0
+
+**De knop "Wedstrijdbladen ophalen" in de clubronde verdwijnt niet meer.** Viel er niets te halen, dan
+was de knop er gewoon niet — en dat leest als een defect terwijl het meestal klopt. Hij blijft nu
+staan, grijs en met **(0)** erop, en eronder staat waaróm. Drie antwoorden, want ze vragen elk iets
+anders van jou:
+
+- *geen enkele wedstrijd van de laatste 60 dagen heeft een wedstrijdnummer van de bond* — alleen de
+  bovenbouw heeft een wedstrijdblad, dus bij de jongste ploegen valt hier niets te halen;
+- *alles is binnen, maar je sloot er zelf een paar af met "geen uitslag"* — die laat deze ronde
+  bewust liggen, en **Bij de bond nakijken** in de ploeg zelf neemt ze wél mee. Dat was tot nu
+  nergens te zien;
+- *alles van de laatste 60 dagen is binnen.*
+
+**En er is een tweede knop bijgekomen: "Ruimer nakijken".** Die kijkt élke wedstrijd van de laatste 60
+dagen na, ook een die al een uitslag heeft, een die live bijgehouden werd en een die nog moet komen —
+voor terrein, scheidsrechter, trainer en de rest. Voor een geplande wedstrijd is dit de enige weg om
+die over de hele club heen op te halen: terrein en scheidsrechter staan niet in de bondskalender.
+
+> **In één keer mee gaat enkel wat zelf nog niets draagt.** Heeft een wedstrijd een score of een klok,
+> dan komt ze in de lijst bij *jouw oog nodig*, met een weg naar die ploeg. Een blad van de bond
+> blindelings over een zelf bijgehouden wedstrijd schrijven is precies de vergissing die hier ooit de
+> speelminuten van een gespeelde wedstrijd overschreef. De gewone ronde gedraagt zich onveranderd.
+
+Ook: een wedstrijd die nog niet gespeeld is maar waarvan de bond al terrein of scheidsrechter weet,
+komt niet meer op de stapel *nog niets bij de bond* terecht. Daar viel juist wél iets te halen.
+
 ## v2.10.2
 
 **Het vandaag-scherm gaat voortaan over één dag, en de balk zegt welke.** Van vrijdag tot en met

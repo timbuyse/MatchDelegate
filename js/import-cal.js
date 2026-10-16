@@ -1839,6 +1839,58 @@ function clubBladKandidaten(p) {
     .filter(m => m.rbfaMatchId && (m.date || '') >= grens && matchNietAfgesloten(m) && vvScanMagAangevuld(m))
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
 }
+// HET RUIME NET (Tim, 16-10-2026). Élke wedstrijd van het venster, los van wat er al op staat: ook een
+// die al een uitslag heeft, een die live bijgehouden werd, en een die nog moet komen. Voor de laatste
+// is dit de ENIGE weg naar terrein en scheidsrechter over de hele club heen — die twee staan niet in
+// de bondskalender (zie KAL_VERGELIJK), enkel op de wedstrijdpagina zelf.
+function clubBladKandidatenRuim(p) {
+  const grens = clubBladGrensDatum();
+  return p.wedstrijden
+    .filter(m => m.rbfaMatchId && (m.date || '') >= grens && !matchCancelled(m) && !m.tournamentId)
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+// DRAAGT DEZE WEDSTRIJD ZELF AL IETS? Een score die iemand ingaf, of een klok die gelopen heeft. Zo
+// ja, dan mag ze NOOIT blind mee: een blad van de bond eroverheen schrijven is precies de vergissing
+// die hier ooit de kwarten van een gespeelde wedstrijd overschreef. Ze komt wél in de lijst, bij
+// "jouw oog nodig", zodat je ze zelf opent en het voorstel ziet vóór er iets bewaard wordt.
+// In de gewone ronde is dit altijd onwaar — clubBladKandidaten laat zulke wedstrijden niet eens toe —
+// dus die ronde gedraagt zich precies zoals voordien.
+function clubBladDraagtZelf(m) {
+  if (!vvScanMagAangevuld(m)) return true;                       // er is een klok gelopen
+  return m.status === 'done' && !geenUitslag(m);                 // er staat een uitslag op
+}
+function clubBladBlindMag(m) { return vvBulkZeker(m) && !clubBladDraagtZelf(m); }
+// WAAROM ZIJN ER GEEN KANDIDATEN? (Tim, 16-10-2026: "bij een clubronde kan ik nu geen wedstrijdbladen
+// meer ophalen" — de knop stond er niet.) Tot hier verdween de knop zonder één woord zodra er niets te
+// halen viel, en dat leest als een defect terwijl het meestal gewoon klopt. Drie oorzaken, en ze
+// vragen elk iets anders van jou, dus ze krijgen elk hun eigen zin:
+//   · geen enkele wedstrijd van de laatste 60 dagen draagt een wedstrijdnummer -> er ís geen blad
+//     (alleen de bovenbouw heeft er een), en dan heeft wachten geen zin;
+//   · er staan er wél, maar je sloot ze zelf af met "geen uitslag" -> die laat deze ronde bewust
+//     liggen, en de ronde in de ploeg zelf neemt ze wél mee. Zonder deze zin is dat niet te weten;
+//   · anders: alles is binnen.
+function clubBladStand(st) {
+  const grens = clubBladGrensDatum();
+  const ploegen = (st && st.ploegen) || [];
+  let totaal = 0, metNr = 0, zelfAfgesloten = 0;
+  ploegen.forEach(p => {
+    totaal += clubBladKandidaten(p).length;
+    (p.wedstrijden || []).forEach(m => {
+      if (!m.rbfaMatchId || (m.date || '') < grens || matchCancelled(m) || m.tournamentId) return;
+      metNr++;
+      if (m.status === 'done' && geenUitslag(m)) zelfAfgesloten++;
+    });
+  });
+  let uitleg = '';
+  if (!totaal) {
+    uitleg = !metNr
+      ? `Geen enkele wedstrijd van de laatste ${CLUB_BLAD_DAGEN} dagen heeft een wedstrijdnummer van de bond. Alleen de bovenbouw heeft een wedstrijdblad, dus bij de jongste ploegen valt hier niets te halen.`
+      : zelfAfgesloten
+        ? `Alle wedstrijdbladen van de laatste ${CLUB_BLAD_DAGEN} dagen zijn binnen. ${zelfAfgesloten === 1 ? 'Eén wedstrijd sloot je' : zelfAfgesloten + ' wedstrijden sloot je'} zelf af met "geen uitslag"; die laat deze ronde liggen — in de ploeg zelf staat <b>Bij de bond nakijken</b>, en die neemt ${zelfAfgesloten === 1 ? 'ze' : 'die'} wél mee.`
+        : `Alle wedstrijdbladen van de laatste ${CLUB_BLAD_DAGEN} dagen zijn binnen.`;
+  }
+  return { totaal, metNr, zelfAfgesloten, uitleg };
+}
 // Eén wedstrijd wegschrijven naar een ploeg die je niet open hebt staan. Zelfde vorm als
 // cloudOnLocalMatchSave: foto's eruit, notities apart naar het beheerder-only pad.
 async function clubWedstrijdWegschrijven(tid, m) {
@@ -1864,16 +1916,16 @@ function clubRondeZusters(p) {
     .filter(q => q.tid !== p.tid && q.kern && (q.kern.players || []).length)
     .map(q => ({ id: q.tid, name: q.naam, players: q.kern.players.filter(Boolean) }));
 }
-async function clubRondeBladen() {
+async function clubRondeBladen(ruim) {
   const st = clubRondeSt; if (!st || st.bezig) return;
-  st.bezig = true; st.fase = 'bladbezig'; clubRondeRender();
+  st.bezig = true; st.fase = 'bladbezig'; st.bladRuim = !!ruim; clubRondeRender();
   const meld = t => { const el = document.getElementById('cr-melding'); if (el) el.textContent = t; };
   const bewaardMatch = match, bewaardSt = vvSt;
   const perPloeg = [];
   let gevraagd = 0;
   try {
     for (const p of st.ploegen) {
-      const kand = clubBladKandidaten(p);
+      const kand = ruim ? clubBladKandidatenRuim(p) : clubBladKandidaten(p);
       if (!kand.length) continue;
       const zusters = clubRondeZusters(p);
       const zeker = [], hand = [], stil = [];
@@ -1894,11 +1946,31 @@ async function clubRondeBladen() {
           vvZetOpVoorstel(m, ruw, zusters);
           post.ruw = ruw;
           if (!vvSt.lezing || !vvSt.lezing.gespeeld) {
+            // GEEN BLAD IS NIET HETZELFDE ALS NIETS (Tim, 16-10-2026). De wedstrijdpagina draagt haar
+            // gegevens ook vóór ze gespeeld is: terrein, scheidsrechter, uur. vvInfoRijen hangt niet
+            // aan `gespeeld` — het vergelijkt gewoon velden. Zulke wedstrijden horen dus niet op de
+            // stapel "nog niets bij de bond", want daar valt wél iets te halen.
+            // Enkel in de ruime ronde: de gewone ronde gaat over bladen, en daar zou dit de lijst
+            // vullen met wedstrijden die nog moeten komen.
+            const info = (ruim && vvSt.lezing && typeof vvInfoRijen === 'function')
+              ? vvInfoRijen(m, vvSt.lezing) : [];
+            if (info.length) {
+              post.reden = 'Nog geen blad, maar de bond weet al: ' + info.map(r => r.label.toLowerCase()).join(', ') + '.';
+              hand.push(post); continue;
+            }
             post.reden = 'Het wedstrijdblad staat nog niet klaar bij de bond.';
             stil.push(post); continue;
           }
-          if (vvBulkZeker(m)) { post.wat = vvBulkSamenvatting(m); post.letop = vvBulkLetOp(m); zeker.push(post); }
-          else { post.reden = vvBulkReden(m); hand.push(post); }
+          if (clubBladBlindMag(m)) { post.wat = vvBulkSamenvatting(m); post.letop = vvBulkLetOp(m); zeker.push(post); }
+          else {
+            // Draagt ze zelf al iets, dan is dát de reden — en niet "er valt een naam te kiezen".
+            post.reden = clubBladDraagtZelf(m)
+              ? (vvScanMagAangevuld(m)
+                ? 'Hier staat al een uitslag op. Open ze zelf: dan zie je eerst wat het blad zou veranderen.'
+                : 'Deze wedstrijd is zelf bijgehouden, er is een klok op gelopen. Open ze zelf — een blad eroverheen zou die speelminuten overschrijven.')
+              : vvBulkReden(m);
+            hand.push(post);
+          }
         } catch (e) {
           post.reden = (e && e.message) || 'Het blad kon niet opgehaald worden.';
           stil.push(post);
@@ -1929,8 +2001,9 @@ async function clubRondeBladenDoen() {
           _vvRosterOverride = (rij.p.kern && rij.p.kern.players) || [];
           vvZetOpVoorstel(m, post.ruw, rij.zusters);
           // Tussen het overzicht en nu kan er niets veranderd zijn aan het blad, maar wél aan de
-          // wedstrijd. Dus dezelfde grens nog eens; bij twijfel laten we ze liggen.
-          if (!vvBulkZeker(m)) { mis++; continue; }
+          // wedstrijd. Dus dezelfde grens nog eens, mét de grendel van de ruime ronde (zie
+          // clubBladBlindMag); bij twijfel laten we ze liggen.
+          if (!clubBladBlindMag(m)) { mis++; continue; }
           post.gedaan = vvNeemOver();
           await clubWedstrijdWegschrijven(rij.p.tid, m);
           gelukt++;
@@ -2069,7 +2142,9 @@ function clubRondeRender() {
         : `${telzin} ${nZeker
           ? `Bij <b>${nZeker}</b> ${nZeker === 1 ? 'wedstrijd' : 'wedstrijden'} komt elke naam van het blad eenduidig terug in de kern van die ploeg. Er valt niets te kiezen, dus ${nZeker === 1 ? 'ze kan' : 'die kunnen'} in één keer mee. Er wordt pas iets bewaard als je bevestigt.`
           : (nHand
-            ? 'Geen enkele kan blind mee: overal valt er iets te kiezen. Hieronder staat per wedstrijd wat.'
+            ? (st.bladRuim
+              ? 'Geen enkele kan blind mee. Hieronder staat per wedstrijd waarom — bij een wedstrijd die zelf al een uitslag of een klok draagt is dat met opzet: die open je zelf, zodat je ziet wat er zou veranderen.'
+              : 'Geen enkele kan blind mee: overal valt er iets te kiezen. Hieronder staat per wedstrijd wat.')
             : 'Er is er geen enkele die nu aangevuld kan worden. Hieronder staat per wedstrijd waarom.')}`}</p>
       ${blok(klaarFase ? `Aangevuld (${nZeker})` : `In één keer (${nZeker})`, 'zeker', 'var(--grn)', false)}
       ${blok(`Jouw oog nodig (${nHand})`, 'hand', 'var(--org)', true)}
@@ -2213,7 +2288,8 @@ function clubRondeRender() {
   // dus haar wedstrijden kunnen per definitie geen nummer krijgen. Die beloofde de knop wel.
   const nrTotaal = st.ploegen.filter(p => p.bondsPloegen.length).reduce((n, p) => n + clubRondeTelling(p).zonderNr, 0);
   const metKoppeling = st.ploegen.filter(p => p.bondsPloegen.length).length;
-  const bladTotaal = st.ploegen.reduce((n, p) => n + clubBladKandidaten(p).length, 0);
+  const bladStand = clubBladStand(st);
+  const ruimTotaal = st.ploegen.reduce((n, p) => n + clubBladKandidatenRuim(p).length, 0);
   openModal(`${kop}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Alle ploegen van de club, rechtstreeks uit de databank — ook die je op dit toestel nooit opende.</p>
     <div class="card" style="text-align:left">${rijen || '<p style="font-size:14px;color:var(--txt2);margin:0">Geen ploegen gevonden.</p>'}</div>
@@ -2222,8 +2298,17 @@ function clubRondeRender() {
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Zoekt bij elke gekoppelde ploeg de wedstrijden die nog niet in de app staan, en voegt die toe. Bestaande wedstrijden blijven ongemoeid.</p>` : ''}
     ${(nrTotaal && metKoppeling) ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeNummers()">${icI(IC.link)} Wedstrijdnummers bijplaatsen (${nrTotaal})</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">Zet enkel het <b>wedstrijdnummer</b> bij de wedstrijden die er nog geen hebben. Je ziet eerst welke.</p>` : ''}
-    ${bladTotaal ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeBladen()">${icI(IC.fileText)} Wedstrijdbladen ophalen (${bladTotaal})</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kijkt bij de bond na wat er op het blad staat van de gespeelde wedstrijden zonder uitslag, tot ${CLUB_BLAD_DAGEN} dagen terug. Wat eenduidig is mag in één keer mee; valt er iets te kiezen, dan open je die ploeg zelf.</p>` : ''}
+    ${bladStand.totaal ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeBladen()">${icI(IC.fileText)} Wedstrijdbladen ophalen (${bladStand.totaal})</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kijkt bij de bond na wat er op het blad staat van de gespeelde wedstrijden zonder uitslag, tot ${CLUB_BLAD_DAGEN} dagen terug. Wat eenduidig is mag in één keer mee; valt er iets te kiezen, dan open je die ploeg zelf.</p>`
+      : `<button class="btn btn-gray" style="margin-top:10px;opacity:.55" disabled>${icI(IC.fileText)} Wedstrijdbladen ophalen (0)</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">${bladStand.uitleg}</p>`}
+    ${/* DE RUIME RONDE (Tim, 16-10-2026: "daar zou het mogelijk moeten zijn om bij wedstrijden die nog
+         gepland zijn, of zelfs oude afgesloten wedstrijden met of zonder score, bijkomende info op te
+         halen"). Bewust een TWEEDE knop en niet het net van de gewone ronde verbreed: die kijkt naar
+         wat er ontbreekt, deze naar alles. Terrein en scheidsrechter staan niet in de bondskalender
+         (zie KAL_VERGELIJK), dus hier is dit de enige weg om ze over de hele club heen te halen. */ ''}
+    ${ruimTotaal ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeBladen(true)">${icI(IC.search)} Ruimer nakijken (${ruimTotaal})</button>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">Kijkt élke wedstrijd van de laatste ${CLUB_BLAD_DAGEN} dagen na, ook die al een uitslag heeft of die nog moet komen — voor terrein, scheidsrechter en de rest. <b>In één keer mee gaat enkel wat zelf nog niets draagt</b>: heeft een wedstrijd een score of een klok, dan komt ze in de lijst met jouw oog nodig.</p>` : ''}
     <button class="btn btn-gray" style="margin-top:10px" onclick="clubRondeSluit()">Sluiten</button>`);
 }
 function clubRondeRenderOverzicht() {
