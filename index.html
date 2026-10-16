@@ -849,6 +849,15 @@
        kiest bewust voor de lichte. Dan moet álles erop mee omkeren: de letters, de rol, het pijltje en
        het sleepgreepje staan anders in bijna-wit op bijna-wit. */
     body.dark .ts-team-row{background:var(--grnp)}
+    /* DE LEDENLIJST IS GEEN PLOEGTEGEL (Tim, 16-10-2026, met een schermbeeld: "slecht leesbaar in
+       donkere modus"). Een ploegtegel blijft bewust lichtgroen, ook in het donker; daarom staan er
+       hieronder vier regels die haar eigen tekst dan donker maken. De ledenlijst hergebruikt diezelfde
+       klasse maar heeft een heel andere inhoud — naam, e-mail, waarschuwing, knoppen — en die volgen
+       allemaal de gewone kleuren. Op een lichtgroene kaart werd dat witte tekst op bijna wit.
+       Eén regel lost dat op: in het donker is zo'n rij gewoon een kaart. De groene rand links blijft,
+       dus de lijst ziet er hetzelfde uit als in de lichte modus. Staat NA de regel hierboven, want
+       even zwaar — wie laatst komt, wint. */
+    body.dark .ml-row{background:var(--card)}
     body.dark .ts-team-row .ts-name{color:var(--blk)}
     body.dark .ts-team-row .ts-role.admin{color:var(--grn2)}
     body.dark .ts-team-row .ts-role.viewer{color:var(--blk3)}

@@ -9,6 +9,17 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.9
+
+**De ledenlijst is weer leesbaar in donkere modus.** De namen stonden in bijna wit op een lichtgroene
+kaart. Die kaart is dezelfde als de ploegtegel op je startscherm, en die blijft met opzet lichtgroen —
+ook 's nachts. Maar een ploegtegel bevat alleen een naam en een rol, met eigen donkere kleuren; de
+ledenlijst zet er naam, e-mailadres, waarschuwingen en knoppen op, en die volgen gewoon de kleuren van
+de modus waarin je zit.
+
+In donkere modus is zo'n ledenrij nu een gewone donkere kaart, met de groene rand links die ze had. In
+lichte modus verandert er niets, en de ploegtegels blijven zoals ze waren.
+
 ## v2.11.8
 
 **Wat je al afgehandeld hebt, komt niet meer elke ronde terug.** De app onthield wel wannéér ze een
