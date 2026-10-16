@@ -341,6 +341,18 @@ function vvKiesNaamVan(waarde) {
   const r = vvRosterSpeler(rest);
   return r ? (r.p.name + (r.t ? ' — ' + r.t.name : '')) : 'onbekend';
 }
+// DEZELFDE KEUZE, MAAR KORT — voor de knop in de rij (Tim, 16-10-2026, met een schermbeeld: "die
+// spelerslijst staat vreemd"). Daar stond de lange vorm op, en die zegt twee keer hetzelfde: naast de
+// naam van het blad staat al een grijs labeltje "al in de selectie" of "gast · U13IP". Op een
+// telefoon paste dat niet en liep de tekst over de knop heen. Hier dus enkel de naam.
+function vvKiesKort(waarde) {
+  if (!waarde) return 'Niet meenemen';
+  const soort = waarde.slice(0, 2), rest = waarde.slice(2);
+  if (soort === 'w:') { const p = (match.players || []).find(x => x.id === rest); return p ? p.name : 'onbekend'; }
+  if (soort === 'l:') return vvSt.los[rest] || 'onbekend';
+  const r = vvRosterSpeler(rest);
+  return r ? r.p.name : 'onbekend';
+}
 // Alle namen waaruit je kan kiezen, met de groep waar ze bij horen. De eigen kern eerst.
 function vvKiesOpties(i) {
   const uit = [];
@@ -417,6 +429,16 @@ function vvMagSelectie(m) { return !m.tournamentId; }
 // rijen waar de pagina iets zegt dat verschilt van wat er staat.
 // `oud` leeg → het vinkje staat standaard AAN (aanvullen is waarvoor je hier bent).
 // `oud` ingevuld → standaard UIT: wat je zelf ingaf, overschrijven we niet uit onszelf.
+// Het adres zoals het op de wedstrijd komt: de naam van het complex vooraan, maar enkel als het adres
+// zelf er niet al mee begint. Zie de uitleg bij de Adres-rij hieronder.
+function vvAdres(lz) {
+  const complex = String((lz && lz.terreinNaam) || '').trim();
+  const adres = String((lz && lz.stad) || '').trim();
+  if (!complex) return adres;
+  if (!adres) return complex;
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+  return norm(adres).startsWith(norm(complex)) ? adres : complex + ', ' + adres;
+}
 function vvInfoRijen(m, lz) {
   const rijen = [];
   const rij = (key, label, oud, nieuw, uitleg) => {
@@ -426,13 +448,30 @@ function vvInfoRijen(m, lz) {
   // De sleutel IS de veldnaam van de wedstrijd: vvOvernemen schrijft `m[key] = nieuw`.
   rij('date', 'Datum', m.date, lz.datum);
   rij('time', 'Uur', m.time, lz.tijd);
-  rij('opponent', 'Tegenstander', m.opponent, lz.hunTeam);
+  // DE TEGENSTANDER ENKEL ALS HIER NOG NIETS STAAT (Tim, 16-10-2026: "de tegenstander, waar kijkt hij
+  // naar? Dat overnemen is niet nodig"). Hij vergeleek teken voor teken met de naam op de bondspagina,
+  // en die schrijft de officiële clubnaam voluit in kapitalen. Tim kort die bewust in, dus er stond bij
+  // zowat élke wedstrijd een rij "Tegenstander: FOOTBALL CLUB GULLEGEM — staat nu op Gullegem". Het
+  // vinkje stond er al uit (zie vvZetStandaardVinkjes: aan enkel bij een leeg veld), dus overnemen
+  // gebeurde niet — het stond gewoon in de weg.
+  //
+  // WAT ER NIET VERDWIJNT: hoort het blad bij een ANDERE wedstrijd, dan zegt vvControles dat nog
+  // altijd bovenaan het scherm ("Op de pagina staat X als tegenstander, in de app Y"). Dat is de
+  // waarschuwing waar het om gaat; dit was enkel een aanbod om te vervangen.
+  if (!String(m.opponent || '').trim()) rij('opponent', 'Tegenstander', m.opponent, lz.hunTeam);
   rij('competition', 'Soort', m.competition, lz.soort);
   rij('referee', 'Scheidsrechter', m.referee, lz.scheidsrechter);
   // Het adres van het blad kwam tot nu NERGENS in de wedstrijd terecht: het stond enkel ter info op
   // dit scherm. Nu er een Adresveld is, is het gewoon over te nemen — naam van het complex plus de
   // straat en de gemeente.
-  rij('venue', 'Adres', m.venue, [lz.terreinNaam, lz.stad].filter(Boolean).join(', '));
+  //
+  // MAAR NIET TWEE KEER DEZELFDE NAAM (Tim, 16-10-2026: "het adres wordt vaak op het wedstrijdblad
+  // nog eens voorafgegaan door de complexnaam of stadionnaam — kan daarvoor gecontroleerd worden dat
+  // dat niet zo is?"). De bond levert de naam van het complex en het adres apart, en zet die naam
+  // soms óók vooraan in het adresveld. Dan werd het "Sportpark De Leie, Sportpark De Leie,
+  // Kortrijksestraat 12". We plakken ze dus enkel aan elkaar wanneer het adres niet al met die naam
+  // begint — leestekens en hoofdletters tellen daarbij niet mee.
+  rij('venue', 'Adres', m.venue, vvAdres(lz));
   rij('terrein', 'Terrein', m.terrein, lz.pitch);
   // Bij een tornooiwedstrijd staan drie dingen niet op de wedstrijd zelf. `location` draagt daar de
   // plaats van het tornooi in plaats van Thuis/Uit (een tornooidag is neutraal terrein), en trainer
@@ -743,11 +782,19 @@ function vvVoorstelHtml() {
     // De keuze is een KNOP die het kiesvenster opent (v2.11.2), geen keuzelijst meer: met de ploegen
     // van een hele club erin werd dat een wiel van honderden namen. Staat er nog niets, dan valt dat
     // op — dat is precies de rij waar je iets moet doen.
-    const label = id ? vvKiesNaamVan(id) : 'Kies een speler';
+    // DRIE DINGEN MOETEN SAMEN KLOPPEN, en ik had er twee (Tim, 16-10-2026, met een schermbeeld).
+    //   1. de knop moet mogen krimpen: met flex-shrink:0 houdt hij zijn volle tekstbreedte en loopt
+    //      hij de rij uit — je ziet dan het MIDDEN van de naam, links en rechts afgesneden;
+    //   2. een flexkind krimpt niet onder zijn inhoud zolang min-width op auto staat;
+    //   3. en `display:block`, want de klasse .btn is zelf een FLEX-container. In een flexcontainer
+    //      is de tekst een naamloos flexkind, en text-overflow:ellipsis raakt dat niet aan: de naam
+    //      liep dus nog altijd over de rand, nu zonder puntjes. Afkappen met puntjes werkt enkel op
+    //      een blok met gewone tekst erin.
+    const label = id ? vvKiesKort(id) : 'Kies een speler';
     return `<div class="stat-row" style="align-items:center;gap:8px">
       <span style="flex:1;min-width:0"><span style="font-weight:600">${esc(s.naam)}</span>${merk.join('')}</span>
-      <button class="btn btn-pale btn-sm" onclick="vvKiesSpeler(${i})"
-        style="width:auto;margin:0;max-width:52%;font-size:12.5px;padding:6px 9px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${id ? '' : ';color:var(--org2);font-weight:700'}">${esc(label)}</button>
+      <button class="btn btn-pale btn-sm" onclick="vvKiesSpeler(${i})" title="${esc(vvKiesNaamVan(id))}"
+        style="display:block;width:auto;margin:0;max-width:46%;flex:0 1 auto;min-width:0;font-size:12.5px;padding:6px 9px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${id ? '' : ';color:var(--org2);font-weight:700'}">${esc(label)}</button>
     </div>`;
   }).join('');
   const telling = vvTelSelectie();
@@ -1144,6 +1191,10 @@ async function vvOvernemen() {
   const m = match;
   const gedaan = vvNeemOver();
   await dbSave(m);
+  // Kwam je hier uit de clubronde, dan hoort die lijst te zien dat déze klaar is — ook als het een
+  // rij van één was. Vóór vvRij op null gaat, want daar staat het vandaan.
+  const vanRonde = !!(vvRij && vvRij.terug === 'clubronde');
+  if (vanRonde) vvMarkeerInClubronde(m.id, gedaan);
   // Loop je een rij af, dan hoort de volgende wedstrijd te komen in plaats van het verslag van deze.
   // Bij een rij van één blijft het zoals het was: dan kwam je voor déze wedstrijd.
   if (vvRij && vvRij.items.length > 1) {
@@ -1154,6 +1205,9 @@ async function vvOvernemen() {
   vvSt = null;
   await go(m.status === 'done' ? 'detail' : 'prep', m.id);
   showToast(gedaan.length ? `Overgenomen: ${gedaan.join(', ')}.` : 'Er was niets aangevinkt om over te nemen.', gedaan.length ? 'ok' : 'err');
+  // EEN RIJ VAN ÉÉN EINDIGT HIER, niet in vvRijVolgende — en dat is precies het geval waar Tim op
+  // viel: één wedstrijd nakijken, overnemen, en dan een paar keer terugvegen naar de controlepagina.
+  vvTerugNaarClubronde(vanRonde);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1319,6 +1373,26 @@ async function vvRijToon() {
   }
   return false;
 }
+// TERUG NAAR DE CONTROLEPAGINA VAN DE CLUBRONDE (Tim, 16-10-2026: "bij overnemen ga ik wel naar de
+// wedstrijdpagina en moet ik een paar keer terugvegen om naar die controlepagina te gaan — waarom
+// niet automatisch na de laatste overname"). Kwam deze rij uit de clubronde, dan hoort haar venster
+// weer open te gaan zodra de rij op is. Het komt vóór het scherm waar je op landt te staan, dus sluit
+// je het, dan sta je gewoon bij de wedstrijd die je net invulde.
+function vvTerugNaarClubronde(vanRonde) {
+  if (!vanRonde) return false;
+  if (typeof clubRondeSt === 'undefined' || !clubRondeSt) return false;
+  if (typeof clubRondeRender !== 'function') return false;
+  clubRondeRender();
+  return true;
+}
+// En in die lijst meteen afvinken wat je net overnam, zodat je ziet hoever je staat. Het kaartje
+// toont dan "Overgenomen: …" en is niet meer aan te tikken — zelfde weergave als na "in één keer".
+function vvMarkeerInClubronde(matchId, gedaan) {
+  if (typeof clubRondeSt === 'undefined' || !clubRondeSt || !matchId) return;
+  (clubRondeSt.bladen || []).forEach(r => (r.hand || []).forEach(p => {
+    if (p.id === matchId) p.gedaan = (gedaan && gedaan.length) ? gedaan : [];
+  }));
+}
 // Naar de volgende in de rij. Geeft `true` wanneer die er is (en er dus genavigeerd is), `false`
 // wanneer de rij op is — dan handelt de aanroeper het einde af.
 async function vvRijVolgende() {
@@ -1326,11 +1400,13 @@ async function vvRijVolgende() {
   vvRij.idx++;
   if (await vvRijToon()) return true;
   const gedaan = vvRij.gedaan.slice();
+  const vanRonde = vvRij.terug === 'clubronde';
   vvRij = null; vvSt = null;
   await go('matches');
   showToast(gedaan.length
     ? `Klaar — ${gedaan.length} wedstrijd${gedaan.length === 1 ? '' : 'en'} aangevuld.`
     : 'Klaar met de rij; er is niets aangevuld.', gedaan.length ? 'ok' : 'err');
+  vvTerugNaarClubronde(vanRonde);
   return true;
 }
 async function vvRijOverslaan() { if (vvRij) await vvRijVolgende(); }

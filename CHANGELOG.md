@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.6
+
+**Na het overnemen sta je meteen terug in je controlelijst.** Je belandde op de wedstrijdpagina en
+moest een paar keer terugvegen. Nu gaat het venster van de ronde vanzelf weer open zodra de rij op is
+— ook bij één enkele wedstrijd, want net dat geval eindigde ergens anders. De wedstrijd die je zonet
+invulde, staat erin **afgevinkt** met *"Overgenomen: …"*, en de knop *Alle N nakijken* telt alleen nog
+wat openstaat.
+
+**Drie kleinere dingen op het voorstelscherm:**
+
+- **De tegenstander wordt niet meer aangeboden om over te nemen.** De app vergeleek letter voor letter
+  met de naam op de bondspagina — en die schrijft de officiële clubnaam voluit in kapitalen, terwijl
+  jij hem inkort. Er stond dus bij bijna elke wedstrijd een regel die je toch nooit aanvinkte. Staat er
+  nog géén tegenstander, dan wordt hij wél aangeboden. Hoort het blad bij een ándere wedstrijd, dan
+  zegt de waarschuwing bovenaan dat nog altijd.
+- **Het adres herhaalt de complexnaam niet meer.** De bond geeft de naam van het complex en het adres
+  apart, en zet die naam er soms zelf al vóór — dan werd het *"Sportpark De Leie, Sportpark De Leie,
+  Kortrijksestraat 12"*. Nu alleen nog vooraan als het adres er niet al mee begint.
+- **De spelerslijst stond scheef.** De keuzeknop naast elke naam kon niet krimpen, dus een lange naam
+  liep de rij uit en je zag het *midden* van de tekst, links en rechts afgesneden. De knop toont nu
+  alleen de naam — kort, en afgekapt met puntjes als het niet past. Dat "staat al in de selectie" of
+  "gast · U13IP" stond er toch al als grijs labeltje naast.
+
 ## v2.11.5
 
 **Na het nakijken van een wedstrijd kom je terug in je eigen lijstje.** Ging je vanuit de controle

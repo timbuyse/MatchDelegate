@@ -2258,7 +2258,16 @@ function clubRondeRender() {
         <div class="card" style="text-align:left;margin-bottom:8px;border-left:4px solid ${kleur}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <span style="font-weight:700;flex:1;min-width:0">${esc(r.p.naam)}</span>
-            ${(knop && r[kies].length > 1) ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarWedstrijd('${r.p.tid}', '${r[kies][0].id}')">Alle ${r[kies].length} nakijken</button>` : ''}
+            ${/* WAT JE AL OVERNAM, TELT HIER NIET MEER MEE. Anders bleef er "Alle 3 nakijken" staan
+                 terwijl er nog maar één openstond, en begon de rij opnieuw bij een wedstrijd die je
+                 net ingevuld had. Zelfde lijst als clubRondeNaarWedstrijd afloopt. */ ''}
+            ${(() => {
+              if (!knop) return '';
+              const open = (r[kies] || []).filter(x => x.ruw && !x.gedaan && !x.mislukt);
+              return open.length > 1
+                ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="clubRondeNaarWedstrijd('${r.p.tid}', '${open[0].id}')">Alle ${open.length} nakijken</button>`
+                : '';
+            })()}
           </div>
           ${r[kies].map(x => kaart(x, kies === 'zeker', knop ? r.p.tid : '')).join('')}
         </div>`).join('');
@@ -2522,7 +2531,8 @@ async function clubWachtOpWedstrijd(id, ms) {
 async function clubRondeNaarWedstrijd(tid, matchId) {
   const rij = ((clubRondeSt || {}).bladen || []).find(r => r.p.tid === tid);
   if (!rij) return;
-  const items = rij.hand.filter(h => h.ruw).map(h => ({ id: h.id, ruw: h.ruw }));
+  // Wat je al overnam (of wat mislukte) hoort niet opnieuw in de rij.
+  const items = rij.hand.filter(h => h.ruw && !h.gedaan && !h.mislukt).map(h => ({ id: h.id, ruw: h.ruw }));
   const zusters = rij.zusters || [];
   const idx = Math.max(0, items.findIndex(i => i.id === matchId));
   if (!items.length) return;
@@ -2533,7 +2543,9 @@ async function clubRondeNaarWedstrijd(tid, matchId) {
     showToast('De wedstrijden van die ploeg zijn nog niet binnen. Probeer het zo meteen opnieuw.', 'err');
     return;
   }
-  vvRij = { items, idx, zusters, gedaan: [] };
+  // `terug` zegt waar de rij vandaan komt: als ze op is, hoort het venster van de ronde weer open te
+  // gaan in plaats van je op de wedstrijdenlijst achter te laten. Zie vvTerugNaarClubronde.
+  vvRij = { items, idx, zusters, gedaan: [], terug: 'clubronde' };
   if (!(await vvRijToon())) { vvRij = null; showToast('Die wedstrijd staat niet meer op dit toestel.', 'err'); }
 }
 
