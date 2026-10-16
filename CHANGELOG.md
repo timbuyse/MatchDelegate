@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.3
+
+**Onderaan de controle staat nu "Controleer de volgende wedstrijden".** Je moest terugkeren naar het
+overzicht en daar dezelfde knop opnieuw aantikken; nu gaat het verder vanaf de pagina waar je al staat,
+met erbij hoeveel er nog wachten. Staan er geen meer, dan staat de knop er niet — hij belooft dus nooit
+een volgende die er niet is.
+
+Heb je hierboven nog wedstrijden staan die je in één keer kan aanvullen, dan zegt een regeltje erbij
+dat die blijven liggen als je meteen doorgaat.
+
 ## v2.11.2
 
 **Een naam van het wedstrijdblad koppel je nu in een venster met een zoekveld.** Daar stond een

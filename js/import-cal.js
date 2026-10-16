@@ -2275,6 +2275,12 @@ function clubRondeRender() {
       ${(st.bladGevraagd >= CLUB_BLAD_MAX) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:8px">${icI(IC.warn)} ${st.bladGevraagd} van de ${st.bladTotaalKand || st.bladGevraagd} nagekeken — dat is het maximum van één ronde. <b>Draai ze gerust nog eens:</b> wie het langst geleden nagekeken is komt eerst, dus de volgende ronde pakt de ${Math.max(0, (st.bladTotaalKand || 0) - st.bladGevraagd)} die nu bleven liggen.</p>` : ''}
       ${/* Zonder deze melding lijkt een ronde die niets onthoudt op een ronde die niets doet. */ ''}
       ${st.bladNietOnthouden ? `<p style="font-size:12px;color:var(--org2);text-align:left;margin-top:8px">${icI(IC.warn)} Bij ${st.bladNietOnthouden === 1 ? 'één wedstrijd' : st.bladNietOnthouden + ' wedstrijden'} raakte niet weggeschreven dát ze nagekeken is. Die komt bij een volgende ronde opnieuw aan de beurt.</p>` : ''}
+      ${/* VERDER VANAF HIER (Tim, 16-10-2026: "als ik ze nog eens wil draaien, moet ik terugkeren en
+           exact dezelfde knop clubronde doen; zou beter onder die pagina staan van de controle").
+           Enkel wanneer er écht nog kandidaten wachten: een knop die "de volgende" belooft terwijl er
+           geen volgende is, is dezelfde belofte-zonder-dekking als de verdwenen knop van v2.11.0. */ ''}
+      ${((st.bladTotaalKand || 0) > st.bladGevraagd) ? `<button class="btn btn-pale" style="margin-top:10px" onclick="clubRondeBladen(${st.bladRuim ? 'true' : 'false'})">${icI(IC.search)} Controleer de volgende wedstrijden (${Math.min(CLUB_BLAD_MAX, (st.bladTotaalKand || 0) - st.bladGevraagd)})</button>
+        ${(!klaarFase && nZeker) ? `<p style="font-size:12px;color:var(--txt2);text-align:left;margin-top:6px">Wat je hierboven nog niet bevestigd hebt, blijft dan liggen — bevestig dat eerst als je het wil.</p>` : ''}` : ''}
       <button class="btn btn-gray" style="margin-top:8px" onclick="clubRondeRenderOverzicht()">Terug naar het overzicht</button>`);
     return;
   }
