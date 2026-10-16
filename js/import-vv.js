@@ -930,8 +930,16 @@ function vvVoorstelHtml() {
     </div>` : ''}
 
     <button class="btn btn-green" ${ietsAan ? 'onclick="vvOvernemen()"' : 'disabled style="opacity:.5"'}>${icI(IC.check)} Overnemen${vvInRij() ? ' en verder' : ''}</button>
-    ${vvInRij()
-      ? `<button class="btn btn-pale" style="margin-top:8px" onclick="vvRijOverslaan()">Deze overslaan${vvRij.idx + 1 < vvRij.items.length ? ' — naar de volgende' : ''}</button>`
+    ${/* OOK BIJ ÉÉN WEDSTRIJD MOET JE WEG KUNNEN (Tim, 16-10-2026: "die ene wedstrijd is gekoppeld aan
+         een verkeerd blad. Ik wil die niet overnemen, maar kan daar niet klikken — kan enkel overnemen
+         of een andere wedstrijd opladen"). Deze knop hing aan vvInRij(), en dat is pas waar vanaf TWEE
+         wedstrijden. Kwam je uit de clubronde met één wedstrijd die jouw oog nodig had, dan stond er
+         dus enkel "Overnemen" — en net dat wou hij niet. Nu volstaat het dat er een rij ís; waar je
+         landt staat erbij, zodat je weet waar je uitkomt vóór je tikt. */ ''}
+    ${vvRij
+      ? `<button class="btn btn-pale" style="margin-top:8px" onclick="vvRijOverslaan()">Deze overslaan${
+          vvRij.idx + 1 < vvRij.items.length ? ' — naar de volgende'
+          : (vvRij.terug === 'clubronde' ? ' — terug naar de lijst' : '')}</button>`
       : `<button class="btn btn-pale" style="margin-top:8px" onclick="vvOpnieuw()">Een andere wedstrijd ophalen</button>`}
     <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:center">Na het overnemen kan je alles gewoon aanpassen, zoals bij elke andere wedstrijd.</p>`;
 }
@@ -1403,9 +1411,11 @@ async function vvRijVolgende() {
   const vanRonde = vvRij.terug === 'clubronde';
   vvRij = null; vvSt = null;
   await go('matches');
+  // EEN OVERGESLAGEN WEDSTRIJD IS GEEN FOUT. Dit stond in het rood met "er is niets aangevuld", en
+  // dat leest als een mislukking terwijl je zelf koos om ze te laten staan (Tim, 16-10-2026).
   showToast(gedaan.length
     ? `Klaar — ${gedaan.length} wedstrijd${gedaan.length === 1 ? '' : 'en'} aangevuld.`
-    : 'Klaar met de rij; er is niets aangevuld.', gedaan.length ? 'ok' : 'err');
+    : 'Klaar. Er is niets overgenomen, dus er verandert niets.', 'ok');
   vvTerugNaarClubronde(vanRonde);
   return true;
 }

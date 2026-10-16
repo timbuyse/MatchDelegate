@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.11.7
+
+**Je kan een wedstrijd nu ook overslaan als het er maar één is.** Hoort een blad niet bij de
+wedstrijd — andere datum, andere tegenstander — dan wil je het net *niet* overnemen. Maar die knop
+*Deze overslaan* verscheen pas vanaf twee wedstrijden, en bij één enkele stond er alleen *Overnemen*
+(vaak nog uitgegrijsd ook, want er valt dan niets aan te vinken) en *Een andere wedstrijd ophalen*.
+Een doodlopende straat.
+
+Nu staat *Deze overslaan* er altijd wanneer je een lijstje aan het aflopen bent, met erbij waar je
+uitkomt: **naar de volgende** als er nog een wacht, of **terug naar de lijst** als dit de laatste was.
+
+Ook: de melding achteraf stond in het rood met *"er is niets aangevuld"*. Een wedstrijd die je bewust
+overslaat is geen mislukking, dus die is nu gewoon neutraal.
+
 ## v2.11.6
 
 **Na het overnemen sta je meteen terug in je controlelijst.** Je belandde op de wedstrijdpagina en
