@@ -1881,8 +1881,8 @@ const HANDLEIDING_PAGINAS = [
       </ol>
       {{img2}}
       <p class="hdl-tip">Onder <b>Wedstrijdinfo</b> in het verslag staat <b>'Laatst bewerkt'</b>: wie er
-        het laatst iets aan veranderde en wanneer. Handig wanneer je met meerdere mensen aan dezelfde
-        wedstrijd werkt. Alleen ploegbeheerders zien die regel, en ze staat niet op de PDF.</p>
+        het laatst iets aan veranderde en wanneer. Die regel is er voor wie over de ploegen heen kijkt,
+        dus alleen de <b>clubbeheerder</b> ziet ze. Ze staat niet op de PDF.</p>
       <p class="hdl-tip">Fout geregistreerd? Verwijder events via het tabblad <b>'Verloop'</b>, of tik
         op het <b>potlood</b> naast een gebeurtenis om de speler of de minuut aan te passen.</p>
       <p class="hdl-tip">Te vroeg op <b>'Start'</b> getikt? De eerste twee minuten van een deel staat

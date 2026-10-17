@@ -9,6 +9,41 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.14.0
+
+**De kaarten van het wedstrijdblad kan je nu ook overnemen bij een wedstrijd die je zelf bijhield, en
+per kaart apart.** Tot nu vielen ze weg zodra je de wedstrijd live gevolgd had: de kaarten zaten vast
+aan de uitslag, en die mag een blad niet overschrijven. Maar een kaart is geen score — een doelpunt
+mis je niet aan de zijlijn, een gele kaart in de 70e minuut wel, en de scheidsrechter noteert ze wél.
+
+Elke kaart van het blad krijgt nu een eigen vinkje. **Wat al in de wedstrijd staat, is vooraf
+uitgezet** met de melding *staat al in deze wedstrijd*: herkend op speler en kleur, of bij een
+tegenspeler op rugnummer en kleur. Staat dezelfde speler twee keer geel op het blad en één keer in de
+app, dan blijft er één over om over te nemen.
+
+Twee gevallen waarin de app het níet kan weten, en die daarom standaard uit staan: een kaart voor een
+tegenspeler **zonder rugnummer** op het blad, en een naam die nog aan geen enkele speler gekoppeld is.
+
+> **Er wordt niets meer gewist, enkel toegevoegd.** Daardoor kan je een blad gerust een tweede keer
+> ophalen zonder dubbels. De keerzijde: een kaart die van het blad verdwijnt, verdwijnt niet meer uit
+> de app — dat is de juiste kant om op te vergissen, want een kaart die jij zelf ingaf mag een blad
+> niet wegvegen.
+
+**Meteen ook opgelost:** in de clubronde stond bij zo'n wedstrijd "2 kaarten" terwijl het volgende
+scherm zei dat je ze niet kon overnemen. Die lijst telde wat er op het blad stond, het voorstelscherm
+paste de regel toe. Nu klopt de belofte.
+
+**'Laatst bewerkt' is nu alleen nog zichtbaar voor de clubbeheerder en de eigenaar.** Die regel stond
+onder *Wedstrijdinfo* voor elke ploegbeheerder, en dan leest ze als toezicht tussen collega's
+onderling: twee afgevaardigden van dezelfde ploeg zagen van elkaar wanneer ze er voor het laatst aan
+zaten. De vraag die ze beantwoordt — wie heeft hier als laatste aan gewerkt — is er een van wie over
+de ploegen heen kijkt.
+
+De regel zelf verandert niet: nog altijd niet op de PDF, en nog altijd met de naam erbij wanneer die
+bewaard is. In de handleiding staat het nu ook zo.
+
+---
+
 ## v2.13.1
 
 **Jouw eigen gebruik telt niet meer mee bij *Wat mensen doen*, *Verloop* en *Per ploeg*.** Jij opent

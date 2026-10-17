@@ -227,12 +227,18 @@ function renderDetail() {
     ${vsec('info', 'Wedstrijdinfo', `<div class="card">
       ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],[responsibleLabel(matchResponsible(match)),matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')],['Bijgehouden door',match.bijgehoudenDoor]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${vast?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
-      ${/* WIE ER HET LAATST AAN KWAM (Tim, 04-10-2026). Enkel voor wie de ploeg beheert, en met
-           `no-print`: dit is huishouding tussen beheerders onderling, geen feit over de wedstrijd —
-           het hoort niet op een blad dat je doorstuurt of afdrukt.
+      ${/* WIE ER HET LAATST AAN KWAM (Tim, 04-10-2026), met `no-print`: dit is huishouding tussen
+           beheerders onderling, geen feit over de wedstrijd — het hoort niet op een blad dat je
+           doorstuurt of afdrukt.
            Wedstrijden van vóór deze versie hebben geen naam bewaard; dan staat er enkel het tijdstip,
-           en dat is nog altijd het antwoord op de helft van de vraag. */ ''}
-      ${(canLive() && match.updatedAt) ? `<div class="stat-row no-print" style="border-top:1px solid var(--bdr);margin-top:6px;padding-top:8px">
+           en dat is nog altijd het antwoord op de helft van de vraag.
+
+           ENKEL NOG VOOR DE CLUBBEHEERDER EN DE EIGENAAR (Tim, 17-10-2026). Het stond er voor elke
+           ploegbeheerder, en dan leest het als toezicht tussen collega's onderling: twee
+           afgevaardigden van dezelfde ploeg zien van elkaar wanneer ze er voor het laatst aan zaten.
+           De vraag die deze regel moet beantwoorden — "wie heeft hier als laatste aan gewerkt" — is
+           er een van wie over de ploegen heen kijkt, niet van wie naast je aan de lijn staat. */ ''}
+      ${(match.updatedAt && (isClubAdmin || isOwner)) ? `<div class="stat-row no-print" style="border-top:1px solid var(--bdr);margin-top:6px;padding-top:8px">
         <span style="color:var(--txt2);min-width:120px">${icI(IC.edit)} Laatst bewerkt</span>
         <span style="font-weight:600">${match.updatedByNaam ? esc(match.updatedByNaam) + ' · ' : ''}${esc(bewerktTekst(match.updatedAt))}</span>
       </div>` : ''}

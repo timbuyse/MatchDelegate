@@ -496,6 +496,65 @@ function vvKaartRijen(lz) {
 }
 function vvKaartWoord(soort) { return soort === 'geel' ? 'gele kaart' : soort === 'rood2' ? 'rood na twee keer geel' : 'rode kaart'; }
 
+// ---- DE KAARTEN LOS VAN DE UITSLAG (v2.14.0) ----
+// Tim, 17-10-2026: "gele kaarten die op het wedstrijdblad staan worden meestal niet overgenomen,
+// wellicht omdat die zelf is bijgehouden."
+//
+// Klopt, en de reden zat in één koppeling: de kaarten hingen aan vvMagUitslag. Bij een live gevolgde
+// wedstrijd mag de uitslag niet overschreven worden — terecht, die hield jij aan de lijn bij — en de
+// kaarten lagen in diezelfde beslissing.
+//
+// MAAR EEN KAART IS GEEN SCORE. Een doelpunt mis je niet aan de zijlijn, een gele kaart in de 70e
+// minuut wel; de scheidsrechter noteert ze wél. Juist bij een wedstrijd die je zelf bijhield, is het
+// blad dus een AANVULLING en geen tegenspraak.
+//
+// Daarom staan de kaarten nu op hun eigen gate, en worden ze PER STUK aangeboden met de vraag of ze
+// er al in zitten. Niet langer wissen-en-opnieuw-zetten (vvWisEigenEvents): er wordt enkel toegevoegd
+// wat jij aanvinkt. Een tweede ophaalbeurt levert dus geen dubbels — die kaarten herkent hij dan als
+// "staat er al".
+//
+// Niet bij een tornooiwedstrijd, zoals bij de uitslag en de selectie: daar komt de selectie uit de
+// dagselectie en zouden we een kaart kunnen hangen aan iemand die er bij de volgende bewerking weer
+// uitvalt.
+function vvMagKaarten(m) { return !!m && !m.tournamentId; }
+
+// Per kaart van het blad: zit ze al in de wedstrijd? Geteld als een MULTISET — krijgt dezelfde speler
+// twee keer geel op het blad en staat er één in de app, dan blijft er één over om over te nemen.
+// Herkend op speler + kleur (eigen speler) of op rugnummer + kleur (tegenspeler); de minuut doet niet
+// mee, want die van het blad en die van jouw klok lopen zelden gelijk.
+// `onzeker` = we kunnen het NIET weten: een tegenspeler zonder rugnummer op het blad, of een naam die
+// nog aan geen enkele speler gekoppeld is. Die staat standaard uit — liever een kaart die je zelf
+// moet aanvinken dan een dubbele die je zelf moet gaan zoeken.
+function vvKaartStand(m, lz) {
+  const bestaand = [];
+  (m.events || []).forEach(e => {
+    if (e.type === 'yellow_card' || e.type === 'red_card') bestaand.push(e.type + '|' + (e.playerId || ''));
+    else if (e.type === 'yellow_card_them' || e.type === 'red_card_them') bestaand.push(e.type + '|' + (e.oppNumber || ''));
+  });
+  const op = new Set();
+  return vvKaartRijen(lz).map((k, i) => {
+    const rood = k.soort !== 'geel';
+    let sleutel = '', onzeker = false;
+    if (k.ons) {
+      // Enkel een speler die NU al in de wedstrijd staat, kan er al een kaart hebben. Komt hij via
+      // deze ophaalbeurt pas binnen, dan bestaat zijn id nog niet en is er dus niets om te botsen.
+      const id = (vvSt && vvSt.koppel) ? (vvSt.koppel[k.idx] || '') : '';
+      if (id.slice(0, 2) === 'w:') sleutel = (rood ? 'red_card' : 'yellow_card') + '|' + id.slice(2);
+      else if (!id) onzeker = true;   // nog aan niemand gekoppeld
+    } else {
+      const nr = String(k.nummer || '').replace(/\D/g, '').slice(0, 3);
+      if (nr) sleutel = (rood ? 'red_card_them' : 'yellow_card_them') + '|' + nr;
+      else onzeker = true;            // zonder rugnummer valt er niets te vergelijken
+    }
+    let al = false;
+    if (sleutel) {
+      const j = bestaand.findIndex((b, bi) => !op.has(bi) && b === sleutel);
+      if (j >= 0) { op.add(j); al = true; }
+    }
+    return { ...k, i, al, onzeker };
+  });
+}
+
 // De wissels van ons blad, elk als LOS moment: het blad zegt "in op 75'" en "uit op 86'", niet wie
 // voor wie. Dat hoeft ook niet — zie de uitleg bovenaan over de eenzijdige wissel.
 function vvWisselRijen(lz) {
@@ -710,7 +769,10 @@ function vvZetStandaardVinkjes() {
   vvInfoRijen(m, lz).forEach(r => { vvSt.aan['i_' + r.key] = !r.oud; });
   vvSt.aan.selectie = vvMagSelectie(m) && (lz.onzeSpelers || []).length > 0;
   vvSt.aan.uitslag = vvMagUitslag(m) && lz.gespeeld && lz.scoreOns != null && lz.scoreZij != null;
-  vvSt.aan.kaarten = vvMagUitslag(m) && vvKaartRijen(lz).length > 0;
+  // EEN VINKJE PER KAART (v2.14.0). Aan wat er nog niet in staat, uit wat er al in staat of wat we
+  // niet kunnen vergelijken. Zie vvKaartStand voor hoe "staat er al" bepaald wordt.
+  vvSt.kaartAan = {};
+  if (vvMagKaarten(m)) vvKaartStand(m, lz).forEach(k => { vvSt.kaartAan[k.i] = !k.al && !k.onzeker; });
   // De wissels en de speelminuten zitten onder ÉÉN vinkje, en dat is geen luiheid: het een kan niet
   // zonder het ander. Wissels zonder klok zouden allemaal op minuut 1 staan en de berekening van de
   // speeltijd bederven; minuten zonder wissels zouden elke basisspeler de volle wedstrijd geven en de
@@ -729,6 +791,11 @@ function vvZet(key, aan) {
 
 // Eén vinkregel. `class="chkrow"` is nodig: binnen een .fg maakt de app-stijl van een vinkje anders
 // een leeg vierkant zonder vinkje (zie de valkuil in de projectnotities).
+function vvZetKaart(i, aan) {
+  if (!vvSt) return;
+  vvSt.kaartAan[i] = !!aan;
+  vvRender();
+}
 function vvChk(key, label, extra) {
   return `<label class="chkrow" style="display:flex;align-items:flex-start;gap:8px;padding:6px 0">
     <input type="checkbox" ${vvSt.aan[key] ? 'checked' : ''} onchange="vvZet('${key}', this.checked)">
@@ -851,9 +918,18 @@ function vvVoorstelHtml() {
     ? ''
     : (lz.thuis ? `${lz.scoreOns} - ${lz.scoreZij}` : `${lz.scoreZij} - ${lz.scoreOns}`);
 
-  // --- de kaarten ---
-  const kaarten = vvKaartRijen(lz);
-  const kaartTxt = kaarten.map(k => `${k.ons ? esc(k.naam) : 'tegenstander' + (k.nummer ? ' nr. ' + esc(k.nummer) : '')} — ${vvKaartWoord(k.soort)}${k.minuut ? " (" + k.minuut + "')" : ''}`).join('<br>');
+  // --- de kaarten, elk met hun eigen vinkje (v2.14.0) ---
+  const kaarten = vvKaartStand(m, lz);
+  const kaartNaam = k => k.ons ? esc(k.naam) : 'tegenstander' + (k.nummer ? ' nr. ' + esc(k.nummer) : '');
+  const kaartRegel = k => `${kaartNaam(k)} — ${vvKaartWoord(k.soort)}${k.minuut ? " (" + k.minuut + "')" : ''}`;
+  const kaartHtml = kaarten.map(k => `<label class="chkrow" style="display:flex;align-items:flex-start;gap:8px;padding:6px 0">
+      <input type="checkbox" ${vvSt.kaartAan[k.i] ? 'checked' : ''} onchange="vvZetKaart(${k.i}, this.checked)">
+      <span style="flex:1;min-width:0"><span style="font-weight:600">${kaartRegel(k)}</span>${
+        k.al ? `<br><span style="font-size:12px;color:var(--txt2)">${icI(IC.done)} Staat al in deze wedstrijd.</span>`
+        : k.onzeker ? `<br><span style="font-size:12px;color:var(--org2,#b45309)">${icI(IC.warn)} ${k.ons ? 'Deze naam is nog aan geen speler gekoppeld.' : 'Geen rugnummer op het blad — we kunnen niet zien of ze er al in zit.'}</span>`
+        : ''}</span>
+    </label>`).join('');
+  const kaartNieuw = kaarten.filter(k => vvSt.kaartAan[k.i]).length;
 
   // --- de wissels en de speelminuten ---
   const wisselRijen = vvWisselRijen(lz);
@@ -876,7 +952,7 @@ function vvVoorstelHtml() {
   if (!lz.gespeeld) waar.push(`Volgens de pagina is deze wedstrijd <b>nog niet afgelopen</b> (${esc(lz.state || 'onbekend')}). De uitslag halen we dan niet op.`);
   if (!lz.kentBasis && (lz.onzeSpelers || []).length) waar.push('Op deze pagina staat niet wie er begon en wie op de bank zat — iedereen komt gewoon in de selectie. Wie start, duid je zelf aan bij de opstelling.');
   if (lz.strafschoppen) waar.push('Deze wedstrijd werd beslist na <b>strafschoppen</b>. Die reeks nemen we niet over — geef ze zelf in, dan telt ze mee voor winst of verlies.');
-  if (!magUitslag && getGameTimeMs(m) > 0) waar.push('Deze wedstrijd is <b>live gevolgd</b>: de uitslag en de kaarten die je toen ingaf zijn de waarheid, dus die laten we ongemoeid. Enkel de gegevens en de selectie kan je hier aanvullen.');
+  if (!magUitslag && getGameTimeMs(m) > 0) waar.push('Deze wedstrijd is <b>live gevolgd</b>: de uitslag die je toen ingaf is de waarheid, dus die laten we ongemoeid. De <b>kaarten</b> kan je hier wél aanvullen — een kaart mis je aan de zijlijn makkelijker dan een doelpunt, en wat er al in staat is hierboven al uitgevinkt.');
   if (!magUitslag && m.tournamentId) waar.push('Bij een <b>tornooiwedstrijd</b> hoort de uitslag bij de dagstand van het tornooi; die geef je daar in.');
   if (kaarten.some(k => k.soort === 'rood2')) waar.push('Een uitsluiting na twee gele kaarten wordt hier één <b>rode kaart</b>: de app kent geen apart soort daarvoor.');
   if (kaarten.some(k => !k.ons && !k.nummer)) waar.push('Van een kaart voor de tegenstander bewaart de app enkel het rugnummer, en dat staat er niet bij elke speler bij.');
@@ -959,8 +1035,9 @@ function vvVoorstelHtml() {
 
     ${kaarten.length ? `<div class="sec">Kaarten</div>
     <div class="card">
-      ${magUitslag ? vvChk('kaarten', `${kaarten.length} kaart${kaarten.length === 1 ? '' : 'en'} overnemen`, kaartTxt)
-        : `<p style="font-size:13px;color:var(--txt2);margin:0">${kaartTxt}</p><p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Deze nemen we niet over — zie hieronder.</p>`}
+      ${vvMagKaarten(m)
+        ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 4px">Vink aan wat erbij mag. Wat al in de wedstrijd staat, is vooraf uitgezet.</p>${kaartHtml}`
+        : `<p style="font-size:13px;color:var(--txt2);margin:0">${kaarten.map(kaartRegel).join('<br>')}</p><p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Bij een tornooiwedstrijd nemen we deze niet over.</p>`}
     </div>` : ''}
 
     ${wisselRijen.length ? `<div class="sec">Wissels en speelminuten</div>
@@ -1031,7 +1108,8 @@ function vvWisEigenEvents(m, soorten) {
   m.events = (m.events || []).filter(e => !(e.bron === 'vv' && soorten.includes(e.type)));
 }
 const VV_DOELPUNT_TYPES = ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'];
-const VV_KAART_TYPES = ['yellow_card', 'red_card', 'yellow_card_them', 'red_card_them'];
+// (VV_KAART_TYPES stond hier tot v2.14.0. De kaarten worden niet meer gewist-en-opnieuw-gezet maar
+// per stuk toegevoegd, dus er is geen lijst meer om weg te vegen — zie vvKaartStand.)
 // Enkel wissels die híer vandaan komen (vvWisEigenEvents kijkt op `bron === 'vv'`). Een wissel die
 // iemand zelf ingaf, blijft staan — die is niet van ons om weg te gooien.
 const VV_WISSEL_TYPES = ['substitution'];
@@ -1186,11 +1264,17 @@ function vvNeemOver() {
     gedaan.push('de uitslag');
   }
 
-  // --- 5. de kaarten ---
-  if (vvSt.aan.kaarten && vvMagUitslag(m)) {
-    vvWisEigenEvents(m, VV_KAART_TYPES);
+  // --- 5. de kaarten, per stuk ---
+  // ENKEL TOEVOEGEN, NIETS WISSEN (v2.14.0). Tot hier ging vvWisEigenEvents eerst alle eerder
+  // ingelezen kaarten weg en werden ze allemaal opnieuw gezet; daarom mocht dit enkel bij een
+  // wedstrijd zonder eigen klok. Nu komt alleen binnen wat jij aanvinkt, en wat er al staat is op het
+  // voorstelscherm herkend en uitgezet (vvKaartStand). Een tweede ophaalbeurt levert dus geen dubbels.
+  // GEVOLG DAT JE MOET KENNEN: een kaart die van het blad VERDWIJNT, verdwijnt niet meer uit de app.
+  // Dat is de juiste kant om op te vergissen — een kaart die jij zelf ingaf, mag een blad niet wissen.
+  if (vvMagKaarten(m)) {
     let n = 0;
-    vvKaartRijen(lz).forEach(k => {
+    vvKaartStand(m, lz).forEach(k => {
+      if (!vvSt.kaartAan[k.i]) return;
       const rood = k.soort !== 'geel';
       if (k.ons) {
         const pid = spelerIdVan[k.idx];
@@ -1532,7 +1616,7 @@ function vvBulkSamenvatting(m) {
     uit.push(`uitslag <b>${lz.thuis ? `${lz.scoreOns} - ${lz.scoreZij}` : `${lz.scoreZij} - ${lz.scoreOns}`}</b>`);
   }
   if (vvSt.aan.selectie) { const t = vvTelSelectie(); if (t.nieuw) uit.push(`${t.nieuw} speler${t.nieuw === 1 ? '' : 's'} erbij`); }
-  if (vvSt.aan.kaarten) { const k = vvKaartRijen(lz).length; if (k) uit.push(`${k} kaart${k === 1 ? '' : 'en'}`); }
+  { const k = Object.values(vvSt.kaartAan || {}).filter(Boolean).length; if (k) uit.push(`${k} kaart${k === 1 ? '' : 'en'}`); }
   if (vvSt.aan.minuten) { const w = vvWisselRijen(lz).length; if (w) uit.push(`${w} wissel${w === 1 ? '' : 's'} met de speelminuten`); }
   return uit;
 }
