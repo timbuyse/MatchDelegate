@@ -527,6 +527,10 @@ async function loadStats() {
       if (ab.reason === 'elders') continue;
       const r = getp(ab.rosterId, ab.name); r.absent++; r.nb++;
     }
+    // De tweede gele die rood werd, telt NIET als gele kaart (Tims keuze, 17-10-2026): zo sluit de
+    // telling aan bij een schorsingstelling, waar de uitsluiting de kaarten van die wedstrijd
+    // vervangt. De rode telt wél. Zie tweedeGeelIds in core.js.
+    const opgegaan = tweedeGeelIds(m);
     for (const e of m.events) {
       let r;
       // HOE DE DOELPUNTEN VIELEN (Tim, 27-09-2026) — het veld `wijze`, zie GOAL_WIJZEN in core.js.
@@ -551,7 +555,7 @@ async function loadStats() {
       if (e.type === 'own_goal') { wijzeTot.tegen++; wijzeMet.tegen++; wijzeTegen[WIJZE_OWNGOAL] = (wijzeTegen[WIJZE_OWNGOAL] || 0) + 1; }
       if (e.type === 'goal_us' && e.playerId) { if ((r = getpById(m, e.playerId))) r.goals++; if (e.assistId && (r = getpById(m, e.assistId))) r.assists++; }
       if (e.type === 'penalty_us' && e.scored && e.playerId && (r = getpById(m, e.playerId))) r.goals++;  // strafschopdoelpunt telt mee
-      if (e.type === 'yellow_card' && e.playerId && (r = getpById(m, e.playerId))) r.yc++;
+      if (e.type === 'yellow_card' && e.playerId && !opgegaan.has(e.id) && (r = getpById(m, e.playerId))) r.yc++;
       if (e.type === 'red_card' && e.playerId && (r = getpById(m, e.playerId))) r.rc++;
       // KAARTEN VOOR DE STAF (Tim, 04-10-2026: "bij de statistieken ontbreekt ook een lijstje
       // kaarten"). Ze hangen aan geen enkele speler, dus ze kwamen in geen enkele spelersrij terecht —
@@ -927,13 +931,14 @@ async function loadPlayerDetail() {
     const mins = calcMinutes(m);
     const pms = mins[pl.id] ? mins[pl.id].ms : 0;
     let g = 0, a = 0, y = 0, r = 0;
+    const opgegaan = tweedeGeelIds(m);   // tweede gele die rood werd telt niet mee — zie core.js
     for (const e of m.events) {
       if (e.type === 'goal_us' && e.playerId === pl.id) { g++; pWijzeTot++; if (e.wijze) { pWijzeMet++; pWijze[e.wijze] = (pWijze[e.wijze] || 0) + 1; } }
       if (e.type === 'penalty_us' && e.scored && e.playerId === pl.id) { g++; pWijzeTot++; pWijzeMet++; pWijze[WIJZE_PENALTY] = (pWijze[WIJZE_PENALTY] || 0) + 1; }
       // Zelfde assist-criterium als loadStats() (enkel bij een echt doelpunt) — anders spreken
       // het seizoensoverzicht en het spelerdetail elkaar tegen.
       if (e.type === 'goal_us' && e.assistId === pl.id) a++;
-      if (e.type === 'yellow_card' && e.playerId === pl.id) y++;
+      if (e.type === 'yellow_card' && e.playerId === pl.id && !opgegaan.has(e.id)) y++;
       if (e.type === 'red_card' && e.playerId === pl.id) r++;
       if (e.type === 'penalty_us' && e.playerId === pl.id) { penGenomen++; if (e.scored) penGescoord++; }
     }

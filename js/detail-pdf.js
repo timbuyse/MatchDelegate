@@ -250,7 +250,10 @@ function renderDetail() {
     ${selectionCardHtml(match)}
     ${(() => {
       const ev = match.events;
-      const st = (type) => ev.filter(e => e.type === type).length;
+      // De tweede gele die rood werd, telt niet als gele kaart (Tims keuze, 17-10-2026) — zie
+      // tweedeGeelIds in core.js. Hier in de teller zelf, zodat geen enkele regel het kan vergeten.
+      const _op = tweedeGeelIds(match);
+      const st = (type) => ev.filter(e => e.type === type && !_op.has(e.id)).length;
       const rows = [
         [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
@@ -1508,7 +1511,9 @@ async function pdfMatchBody(doc, L, m) {
   const ensure = L.ensure, heading = L.heading, tableBlock = L.tableBlock;
   const mins = calcMinutes(m);
   const qData = calcMinutesPerQuarter(m);
-  const stat = (type) => m.events.filter(e => e.type === type).length;
+  // Zelfde teller als in het verslag: de tweede gele die rood werd, telt niet mee als gele kaart.
+  const _opPdf = tweedeGeelIds(m);
+  const stat = (type) => m.events.filter(e => e.type === type && !_opPdf.has(e.id)).length;
 
   // ---- Selectie (kern + bank, dan de afwezigen en wie niet geselecteerd was) ----
   // Bij een tornooiwedstrijd bevat dit enkel de afwijking op de tornooiselectie (zie selectionBlocks),
@@ -1878,7 +1883,7 @@ async function pdfMatchBody(doc, L, m) {
     const min = mins[p.id] ? playedMin(mins[p.id].ms) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
-    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id && !_opPdf.has(e.id)).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
     const qVals = qData ? qData.qNums.map(qNum => deelMinTxt(qData.result[p.id]?.[qNum] || 0)) : [];
     return [...numCell(p), p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];

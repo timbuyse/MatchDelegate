@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.15.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.16.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1878,6 +1878,41 @@ function scoreInQuarter(m, qNum) {
 // nummer ingeeft"). Vandaar allebei de soorten hier; de rest van de app merkt er niets van.
 function isTweedeGeel(e) { return !!(e && (e.type === 'red_card' || e.type === 'red_card_them') && e.autoSecondYellow); }
 function roodWoord(e) { return isTweedeGeel(e) ? 'Rood na twee keer geel' : 'Rode kaart'; }
+// WELKE GELE KAARTEN ZIJN OPGEGAAN IN EEN GEEL-ROOD (v2.16.0)?
+// Tim, 17-10-2026, met het blad van de bond ernaast: "moet die tweede gele er nog staan, en geteld
+// worden?" Op dat blad staat de eerste gele apart en ÍS het geel-rode icoon de tweede — twee regels,
+// geen drie. En voor de telling koos hij aan te sluiten bij een schorsingstelling: de uitsluiting
+// vervangt de kaarten van die wedstrijd, dus die tweede gele telt niet mee als gele kaart.
+//
+// GEEN NIEUW VELD EN GEEN MIGRATIE. Dit rekent uit wélke gele kaart bij wélke geel-rode hoort en
+// geeft de EVENT-ID'S terug. Er verandert dus niets aan wat er opgeslagen staat, en de wedstrijden
+// die er al zijn lezen meteen juist — ook die van vanmiddag.
+//
+// Welke gele hoort erbij: de LAATSTE van die speler (of dat rugnummer) op of vóór het moment van de
+// rode. Elke rode claimt er precies één; door een invoerfout drie gele kaarten laten verdwijnen er
+// dus niet stil twee.
+//
+// LET OP: wat de tweede gele HERKENT (logCard, logCardThem, het merkje op de kaartknop, het
+// ontkoppelen bij het wissen) telt bewust de RAUWE gele kaarten. Zou dat hierlangs lopen, dan
+// verdween de tweede uit zijn eigen telling en kon er een derde rode bij.
+function tweedeGeelIds(m) {
+  const uit = new Set();
+  const events = (m && m.events) || [];
+  for (const r of events) {
+    if (!isTweedeGeel(r)) continue;
+    const eigen = r.type === 'red_card';
+    const soort = eigen ? 'yellow_card' : 'yellow_card_them';
+    let beste = null;
+    for (const e of events) {
+      if (e.type !== soort || uit.has(e.id)) continue;
+      if (eigen ? e.playerId !== r.playerId : !(r.oppNumber && e.oppNumber === r.oppNumber)) continue;
+      if ((e.gameTimeMs || 0) > (r.gameTimeMs || 0)) continue;
+      if (!beste || (e.gameTimeMs || 0) >= (beste.gameTimeMs || 0)) beste = e;
+    }
+    if (beste) uit.add(beste.id);
+  }
+  return uit;
+}
 function uitgeslotenIds(m) {
   return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));
 }

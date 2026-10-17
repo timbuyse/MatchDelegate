@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.16.0
+
+**De tweede gele kaart staat niet meer apart in het verloop, en telt niet meer mee als gele kaart.**
+Op het blad van de bond staat de eerste gele apart en ís het geel-rode kaartje de tweede: twee
+regels, geen drie. Zo staat het nu ook in de app.
+
+**De telling sluit aan bij een schorsingstelling**: de uitsluiting vervangt de kaarten van die
+wedstrijd, dus zo'n speler komt op **één gele en één rode** in plaats van twee gele en één rode. Dat
+geldt overal — het verslag, de seizoenscijfers, het spelersblad, de tornooicijfers, de PDF, de export
+en het clubbestand.
+
+> **Er verandert niets aan wat er bewaard is.** De app rekent uit welke gele kaart bij welke geel-rode
+> hoort; de wedstrijden die je al hebt, lezen dus meteen juist. Wis je de geel-rode regel, dan gaat
+> die gele mee zoals voordien.
+
+Een derde gele kaart door een invoerfout blijft wél gewoon staan: er verdwijnt er één per
+uitsluiting, niet meer.
+
+Kleinigheid erbij: bij *Tegenstander* op het kaartenscherm verdwijnt een rugnummer uit de lijst
+"al geel" zodra die speler rood heeft. Die is weg, dus nog een gele kaart verandert daar niets meer.
+
+---
+
 ## v2.15.2
 
 **Een tweede gele kaart voor de tegenstander wordt nu ook vanzelf rood** — op voorwaarde dat je het

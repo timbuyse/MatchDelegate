@@ -1942,6 +1942,7 @@ function ceSpelerTotalen(ploegen, sleutelFn) {
   ploegen.forEach(pl => {
     ceMatches(pl, false).filter(m => m.status === 'done').forEach(m => {
       const mins = calcMinutes(m), evts = m.events || [], seizoen = seasonOf(m);
+      const opgegaan = tweedeGeelIds(m);   // tweede gele die rood werd telt niet mee — zie core.js
       (m.players || []).forEach(p => {
         const k = sleutelFn(p, pl, seizoen);
         if (!per.has(k)) per.set(k, { naam: p.name || '', seizoen, ploegen: new Set(), nummers: new Set(),
@@ -1962,7 +1963,7 @@ function ceSpelerTotalen(ploegen, sleutelFn) {
         // hier ook — anders stond dezelfde speler in het clubbestand op 3 en in de app op 4.
         r.doelpunten += evts.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
         r.assists += evts.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
-        r.geel += evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+        r.geel += evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id && !opgegaan.has(e.id)).length;
         r.rood += evts.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
         if (wasKeeperAtAll(m, p.id)) r.keeper++;
       });
@@ -2036,6 +2037,7 @@ function clubExportSpeeltijdRijen(ploegen, tornooi) {
     ceMatches(pl, tornooi).filter(m => m.status === 'done').forEach(m => {
       const mins = calcMinutes(m);
       const evts = m.events || [];
+      const opgegaan = tweedeGeelIds(m);   // tweede gele die rood werd telt niet mee — zie core.js
       const gemeen = [pl.naam, m.subteam || '', seasonOf(m), m.date || '', m.time || '',
         m.opponent || '', m.location || '', m.competition || ''];
       (m.players || []).forEach(p => {
@@ -2047,7 +2049,7 @@ function clubExportSpeeltijdRijen(ploegen, tornooi) {
           p.absent ? 'Niet gespeeld (afwezig)' : 'Beschikbaar',
           evts.filter(e => e.type === 'goal_us' && e.playerId === p.id).length,
           evts.filter(e => e.type === 'goal_us' && e.assistId === p.id).length,
-          evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length,
+          evts.filter(e => e.type === 'yellow_card' && e.playerId === p.id && !opgegaan.has(e.id)).length,
           evts.filter(e => e.type === 'red_card' && e.playerId === p.id).length,
           wasKeeperAtAll(m, p.id) ? 'ja' : '',
         ]));
@@ -5013,13 +5015,18 @@ async function eventOmhoog(id) {
 // quarter_start / quarter_end worden weggelaten: de groepskop vervangt ze.
 function eventsByQuarter(m) {
   const groups = [];
+  // DE TWEEDE GELE DIE ROOD WERD, STAAT HIER NIET APART (v2.16.0). Het geel-rode kaartje eronder ís
+  // die tweede gele — net als op het blad van de bond, waar het ook twee regels zijn en geen drie.
+  // Wis je de geel-rode regel, dan gaat deze verborgen gele gewoon mee (zie doDeleteEvent).
+  const op = tweedeGeelIds(m);
+  const toon = e => !e.type.startsWith('quarter') && !op.has(e.id);
   const qnums = [...new Set(m.events.map(e => e.quarterNum).filter(n => n != null))].sort((a, b) => a - b);
   for (const qn of qnums) {
     // Zelfde maatstaf als de samenvoeging, zodat de tijdlijn op elk toestel dezelfde volgorde toont.
-    const list = m.events.filter(e => e.quarterNum === qn && !e.type.startsWith('quarter')).sort(eventVolgorde);
+    const list = m.events.filter(e => e.quarterNum === qn && toon(e)).sort(eventVolgorde);
     groups.push({ qn, list, cum: scoreUpToQuarter(m, qn) });
   }
-  const orphan = m.events.filter(e => e.quarterNum == null && !e.type.startsWith('quarter'));
+  const orphan = m.events.filter(e => e.quarterNum == null && toon(e));
   if (orphan.length) groups.push({ qn: null, list: orphan, cum: null });
   return groups;
 }
@@ -5904,8 +5911,10 @@ function periodCardList(m, qNum) {
   if (!qNum) return [];
   const staf = t => t === 'yellow_card_trainer' || t === 'red_card_trainer';
   const speler = t => t === 'yellow_card' || t === 'red_card';
+  // De tweede gele die rood werd, staat ook hier niet apart — zie tweedeGeelIds in core.js.
+  const op = tweedeGeelIds(m);
   return (m.events || [])
-    .filter(e => e.quarterNum === qNum && (staf(e.type) || (speler(e.type) && e.playerId)))
+    .filter(e => e.quarterNum === qNum && !op.has(e.id) && (staf(e.type) || (speler(e.type) && e.playerId)))
     .sort((a, b) => (a.gameTimeMs || 0) - (b.gameTimeMs || 0))
     .map(e => ({
       min: e.atBreak ? 'rust' : eventMinTijd(e, m),

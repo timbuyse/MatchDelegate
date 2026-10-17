@@ -2779,8 +2779,9 @@ function shareWhatsApp(m) {
   const ownGoals = m.events.filter(e => e.type === 'own_goal');
   const ownGoalLines = ownGoals.map(e => `  🔴 ${minVoor(e)}Owngoal ${pName(m, e.playerId)}`);
 
-  // Kaarten
-  const yellowCards = m.events.filter(e => e.type === 'yellow_card');
+  // Kaarten. De tweede gele die rood werd, staat er niet apart bij — zie tweedeGeelIds in core.js.
+  const _op = tweedeGeelIds(m);
+  const yellowCards = m.events.filter(e => e.type === 'yellow_card' && !_op.has(e.id));
   const redCards = m.events.filter(e => e.type === 'red_card');
   // Kaarten voor de tegenstander staan er als aparte regels bij, met "tegenstander" erachter zodat
   // niemand ze voor een eigen speler aanziet. Een naam hebben we niet, hooguit een rugnummer.
@@ -2788,7 +2789,7 @@ function shareWhatsApp(m) {
   const cardLines = [
     ...yellowCards.map(e => `  🟨 ${pName(m, e.playerId)}`),
     ...m.events.filter(e => e.type === 'yellow_card_trainer').map(e => `  🟨 ${stafNaam(e, m) ? `${stafNaam(e, m)} (${stafWoord(e)})` : stafWoord(e)}`),
-    ...m.events.filter(e => e.type === 'yellow_card_them').map(e => `  🟨 ${tegKaart(e)}`),
+    ...m.events.filter(e => e.type === 'yellow_card_them' && !_op.has(e.id)).map(e => `  🟨 ${tegKaart(e)}`),
     ...redCards.map(e => `  🟥 ${pName(m, e.playerId)}`),
     ...m.events.filter(e => e.type === 'red_card_trainer').map(e => `  🟥 ${stafNaam(e, m) ? `${stafNaam(e, m)} (${stafWoord(e)})` : stafWoord(e)}`),
     ...m.events.filter(e => e.type === 'red_card_them').map(e => `  🟥 ${tegKaart(e)}`),
@@ -2842,7 +2843,8 @@ async function shareReport() {
   };
   const scLine = tally(e => e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored), 'playerId');
   const asLine = tally(e => e.type === 'goal_us' && e.assistId, 'assistId');
-  const ycLine = tally(e => e.type === 'yellow_card', 'playerId');
+  const _opDeel = tweedeGeelIds(m);   // de tweede gele die rood werd, telt hier niet mee
+  const ycLine = tally(e => e.type === 'yellow_card' && !_opDeel.has(e.id), 'playerId');
   const rcLine = tally(e => e.type === 'red_card', 'playerId');
   const lines = [`${isAway(m)?m.opponent:tName(m)} ${scoreTxt(m)} ${isAway(m)?tName(m):m.opponent}`, `${matchWhen(m)} · ${m.location}${m.competition ? ' · ' + m.competition : ''}`];
   // DE STRAFSCHOPPENREEKS HOORT ER OOK IN (audit 25-08-2026). Dit is de deelknop op het VERSLAG, en
@@ -2861,7 +2863,7 @@ async function shareReport() {
   if (rcLine) lines.push(`🟥 ${rcLine}`);
   // Kaarten voor de tegenstander: één regel met het aantal, want namen hebben we er niet van. Enkel
   // wanneer er ook echt zijn — anders staat er een regel over iets wat niet gebeurd is.
-  const ycT = m.events.filter(e => e.type === 'yellow_card_them').length;
+  const ycT = m.events.filter(e => e.type === 'yellow_card_them' && !_opDeel.has(e.id)).length;
   const rcT = m.events.filter(e => e.type === 'red_card_them').length;
   if (ycT || rcT) lines.push(`🟨🟥 Tegenstander: ${ycT} geel · ${rcT} rood`);
   if (m.motmId) lines.push(`⭐ Man v/d match: ${pName(m, m.motmId)}`);
@@ -3023,13 +3025,14 @@ function exportMatchCSV() {
   }
   blank();
 
-  // SELECTIE
+  // SELECTIE. De tweede gele die rood werd, telt niet mee bij de gele kaarten — zie tweedeGeelIds.
+  const _opExp = tweedeGeelIds(m);
   row('SELECTIE', 'Naam', 'Nummer', 'Positie', 'Status', 'Speelminuten', 'Goals', 'Assists', 'Gele kaarten', 'Rode kaarten');
   for (const p of sortedByName(m.players)) {
     const minMs = mins[p.id] ? playedMin(mins[p.id].ms) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
-    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length;
+    const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id && !_opExp.has(e.id)).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
     const status = p.absent ? 'Niet aanwezig' : p.starting ? 'Basis' : 'Wissel';
     row('', p.name || '', p.number || '', p.line || p.pos || '', status, minMs ? minMs + "'" : '', g || '', a || '', yc || '', rc || '');
@@ -6438,6 +6441,9 @@ function modalCard(color) {
         if (color === 'red') return '';
         const tel = {};
         (match.events || []).forEach(e => { if (e.type === 'yellow_card_them' && e.oppNumber) tel[e.oppNumber] = (tel[e.oppNumber] || 0) + 1; });
+        // Wie al rood heeft, hoort hier niet meer bij: die is weg, en nog een gele kaart voor hem
+        // verandert niets meer. Zonder deze regel bleef hij met "(2×)" in de lijst staan.
+        (match.events || []).forEach(e => { if (e.type === 'red_card_them' && e.oppNumber) delete tel[e.oppNumber]; });
         const nrs = Object.keys(tel).sort((a, b) => Number(a) - Number(b));
         return `<p style="font-size:12px;color:var(--txt2);margin:12px 0 0">${nrs.length
           ? `${icI(IC.cardY)} Al geel bij de tegenstander: <b>${nrs.map(n => 'nr. ' + esc(n) + (tel[n] > 1 ? ` (${tel[n]}×)` : '')).join(', ')}</b>. Geef je er nog een, dan wordt het rood.`

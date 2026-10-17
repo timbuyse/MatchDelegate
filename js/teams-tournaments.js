@@ -1223,12 +1223,14 @@ function tournamentReportData(t, matches) {
     }
     const byId = id => (m.players || []).find(x => x.id === id) || null;
     const scorers = [];
+    // De tweede gele die rood werd, telt niet mee als gele kaart — zie tweedeGeelIds in core.js.
+    const opgegaan = tweedeGeelIds(m);
     for (const e of (m.events || [])) {
       if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId) {
         const p = byId(e.playerId); if (p) { getp(p.rosterId, p.name, p.number).goals++; scorers.push(p.name); }
       }
       if (e.type === 'goal_us' && e.assistId) { const p = byId(e.assistId); if (p) getp(p.rosterId, p.name, p.number).assists++; }
-      if (e.type === 'yellow_card' && e.playerId) { const p = byId(e.playerId); if (p) getp(p.rosterId, p.name, p.number).yc++; }
+      if (e.type === 'yellow_card' && e.playerId && !opgegaan.has(e.id)) { const p = byId(e.playerId); if (p) getp(p.rosterId, p.name, p.number).yc++; }
       if (e.type === 'red_card' && e.playerId) { const p = byId(e.playerId); if (p) getp(p.rosterId, p.name, p.number).rc++; }
     }
     results.push({ m, res, scorers });
