@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.12.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.13.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2482,11 +2482,75 @@ function gebruikSessie() {
 }
 function schrijfGebruik() {
   if (!cloudReady || !fbdb || !currentUser || _gebruikUit) return;
+  schrijfDaad('open');
   const pad = 'usage/' + gebruikDag(presenceNu()) + '/' + (isGuest ? 'g' : 'a')
     + '/' + currentUser.uid + '/' + gebruikSessie();
   if (pad === _gebruikPad) return;     // zelfde dag, zelfde bezoek → er valt niets nieuws te melden
   _gebruikPad = pad;
   try { fbdb.ref(pad).set(firebase.database.ServerValue.TIMESTAMP).catch(gebruikFout); } catch (e) {}
+}
+
+// ===================== WIE DOET WAT, PER DAG (v2.13.0) =====================
+// De teller hierboven zegt HOEVEEL mensen de app openden. Ze zegt niet of iemand daarna ook een
+// wedstrijd opende, en ze kent de ploeg niet — dus "welke ploegen gebruiken de app wekelijks, en
+// waar neemt het gebruik af" is er niet uit te halen. Dat is precies wat Tim op 17-10-2026 vroeg,
+// naar aanleiding van het meedenken van een vriend. Vandaar een TWEEDE briefje, met bewust andere
+// afspraken dan de teller hierboven:
+//
+//   daden/<dag>/<daad>/<ploegId>/<uid> = { t: tijdstip, n: ploegnaam, r: rol }
+//
+// WAT ER WÉL IN STAAT, en waarom dat verdedigbaar is:
+//   ploegId/n  de ploeg, niet de persoon en al zeker niet een kind. Zonder dit is de vraag "welke
+//              ploegen gebruiken de app" niet te beantwoorden; dát is de hele vraag. De ploeg staat
+//              als id in het pad (veilige sleutel) en als naam in de waarde, zodat het overzicht
+//              leesbaar is zonder elke ploeg apart te moeten opzoeken.
+//   r          de rol in één letter (zie gebruikRol). Nodig om "wie geeft er iets in" te kunnen
+//              onderscheiden van "wie kijkt mee" — zonder dat is een kijker die niets ingeeft niet
+//              te onderscheiden van een beheerder die niets ingeeft, en dat is een ander verhaal.
+// WAT ER NIET IN STAAT: geen naam van een persoon, geen wedstrijd, geen speler, geen scherm, geen
+// tijdstip van elke tik. Dit blijft een teller met twee kolommen erbij, geen logboek.
+//
+// ÉÉN BRIEFJE PER PERSOON PER DAAD PER DAG, niet per keer. Zo telt het MENSEN ("hoeveel
+// verschillende mensen openden deze week een wedstrijd") en groeit de tak niet mee met hoe vaak
+// iemand tikt. Tellen gaat met een Set over de uid's: er hoeft nooit iets verhoogd te worden — zie
+// dezelfde redenering bij de teller hierboven.
+//
+// Wie op één dag bij twee ploegen werkt, krijgt onder elke ploeg een briefje. Dat is de bedoeling:
+// hij is die dag in allebei actief geweest.
+const DAAD_BEWAAR_DAGEN = 400;         // ruim een seizoen, zodat twee najaren te vergelijken zijn
+// De vijf momenten. De volgorde is die van de trechter op het scherm: van "app open" naar "zelf iets
+// ingegeven". Een daad erbij is één regel hier plus één aanroep van schrijfDaad.
+const DADEN = {
+  open:      'App geopend',
+  wedstrijd: 'Wedstrijd geopend',
+  verslag:   'Verslag bekeken',
+  live:      'Live gevolgd',
+  uitslag:   'Uitslag ingegeven',
+};
+const _daadGedaan = new Set();         // wat dit toestel vandaag al gemeld heeft (dag/daad/ploeg)
+// De rol in één letter. Eigenaar vóór clubbeheerder vóór ploegbeheerder: wie meer mag, telt als het
+// hoogste wat hij is, net zoals de app zelf zijn rechten bepaalt.
+function gebruikRol() {
+  if (isGuest) return 'g';
+  if (isOwner) return 'e';
+  if (isClubAdmin) return 'c';
+  if (isAdmin) return 'b';
+  return 'k';
+}
+const GEEN_PLOEG = 'geen';             // sleutel voor wat buiten een ploeg gebeurt (gast, keuzescherm)
+function schrijfDaad(daad) {
+  if (!cloudReady || !fbdb || !currentUser || _gebruikUit || !DADEN[daad]) return;
+  const dag = gebruikDag(presenceNu());
+  const ploeg = activeTeamId || GEEN_PLOEG;
+  const sleutel = dag + '/' + daad + '/' + ploeg;
+  if (_daadGedaan.has(sleutel)) return;      // vandaag al gemeld voor deze ploeg
+  _daadGedaan.add(sleutel);
+  const naam = String(teamNames[activeTeamId] || '').slice(0, 60);
+  try {
+    fbdb.ref('daden/' + dag + '/' + daad + '/' + ploeg + '/' + currentUser.uid).set({
+      t: firebase.database.ServerValue.TIMESTAMP, n: naam, r: gebruikRol(),
+    }).catch(gebruikFout);
+  } catch (e) {}
 }
 // Uit een presence-tak (één ploeg, of alles) halen wat we willen weten. Telt PERSONEN en negeert
 // briefjes die te oud zijn. `matchId` meegeven om enkel de volgers van één wedstrijd te tellen.

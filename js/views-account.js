@@ -1450,6 +1450,109 @@ function telGebruik(ruw, dagen, nu) {
   }
   return uit;
 }
+// Uit de dadentak halen wat één venster opgeleverd heeft. Twee antwoorden tegelijk, uit dezelfde
+// lezing: hoeveel verschillende MENSEN deden elke daad, en hoeveel verschillende mensen waren er per
+// PLOEG actief (welke daad dan ook). Overal Sets over uid's — er wordt nooit iets opgeteld, zodat
+// twee toestellen van dezelfde persoon niet als twee mensen tellen.
+// De dagsleutels zijn 2026-10-17, dus als tekst vergelijken geeft dezelfde volgorde als als datum.
+function telDaden(ruw, dagen, nu) {
+  const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
+  const perDaad = {}, perPloeg = {};
+  for (const daad in DADEN) perDaad[daad] = new Set();
+  for (const dag in (ruw || {})) {
+    if (dag < vanaf) continue;
+    for (const daad in (ruw[dag] || {})) {
+      for (const ploeg in (ruw[dag][daad] || {})) {
+        for (const uid in (ruw[dag][daad][ploeg] || {})) {
+          if (perDaad[daad]) perDaad[daad].add(uid);
+          // De naam komt uit het briefje zelf, zodat het overzicht ook ploegen kan tonen waar de
+          // eigenaar niet in zit. Het laatst gelezen briefje wint — bij een hernoemde ploeg zie je
+          // dus de nieuwste naam, wat is wat je wil.
+          const p = perPloeg[ploeg] || (perPloeg[ploeg] = { naam: '', mensen: new Set(), werk: new Set() });
+          const b = ruw[dag][daad][ploeg][uid] || {};
+          if (b.n) p.naam = b.n;
+          p.mensen.add(uid);
+          // "Werk" = zelf iets ingegeven, niet enkel gekeken. Dat is het verschil tussen een ploeg
+          // die de app gebruikt en een ploeg waar men ze openhoudt.
+          if (daad === 'live' || daad === 'uitslag') p.werk.add(uid);
+        }
+      }
+    }
+  }
+  return { perDaad, perPloeg };
+}
+// ---- De grafiek: evolutie per dag of per maand (v2.13.0) ----
+// Tim: "kan je dat ook niet in een grafiekje of zo weergeven, evolutie per dag of per maand". Een
+// tabel met drie vensters zegt hoeveel, niet of het stijgt of zakt — en die laatste vraag is de hele
+// reden dat dit gemeten wordt.
+//
+// EEN DAG ZONDER IEMAND IS EEN LEGE PLEK, GEEN ONTBREKENDE BALK. Daarom worden alle dagen van het
+// venster opgevuld; zonder dat schuiven drukke dagen tegen elkaar en lijkt elke week even druk.
+// TWEE TONEN IN ÉÉN BALK en niet twee balken naast elkaar: de vraag is niet "hoeveel van elk" maar
+// "hoeveel van de mensen die er waren, deden ook iets" — dat lees je binnen één balk af.
+let _gebruikEenheid = 'dag';           // 'dag' (30 dagen) of 'maand' (12 maanden)
+let _gebruikRuim = null;               // de ruimere lezing voor de maandweergave, één keer per bezoek
+function zetGebruikEenheid(e) { if (e !== _gebruikEenheid) { _gebruikEenheid = e; loadGebruikView(); } }
+function gebruikMaand(iso) { return String(iso || '').slice(0, 7); }
+function maandLabel(ym) {
+  const M = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  return M[Number(String(ym).slice(5, 7)) - 1] || ym;
+}
+function gebruikReeks(ruw, eenheid, nu) {
+  const vakken = [], index = {};
+  const maak = (sleutel, label) => { const v = { sleutel, label, mensen: new Set(), werk: new Set() }; vakken.push(v); index[sleutel] = v; return v; };
+  if (eenheid === 'maand') {
+    const d = new Date(nu);
+    for (let i = 11; i >= 0; i--) {
+      const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+      const s = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
+      maak(s, maandLabel(s));
+    }
+  } else {
+    for (let i = GEBRUIK_DAGEN - 1; i >= 0; i--) {
+      const s = gebruikDag(nu - i * 86400000);
+      maak(s, s.slice(8));
+    }
+  }
+  for (const dag in (ruw || {})) {
+    const v = index[eenheid === 'maand' ? gebruikMaand(dag) : dag];
+    if (!v) continue;
+    for (const daad in (ruw[dag] || {})) {
+      for (const ploeg in (ruw[dag][daad] || {})) {
+        for (const uid in (ruw[dag][daad][ploeg] || {})) {
+          v.mensen.add(uid);
+          if (daad === 'live' || daad === 'uitslag') v.werk.add(uid);
+        }
+      }
+    }
+  }
+  return vakken.map(v => ({ label: v.label, mensen: v.mensen.size, werk: v.werk.size }));
+}
+// De balkjes als gewone SVG — geen bibliotheek, geen bouwstap, zoals overal in deze app. De breedte
+// volgt het kader (viewBox), dus het schaalt mee op elke telefoon.
+function gebruikGrafiekHtml(reeks) {
+  const top = Math.max(1, ...reeks.map(v => v.mensen));
+  const B = 300, H = 76, gap = reeks.length > 20 ? 1.2 : 3;
+  const bw = (B - gap * (reeks.length - 1)) / reeks.length;
+  const y = n => H - (n / top) * H;
+  const balken = reeks.map((v, i) => {
+    const x = i * (bw + gap);
+    // Een lege plek krijgt een dun streepje op de grondlijn: zo zie je dát er een dag is, zonder dat
+    // het op één persoon lijkt.
+    if (!v.mensen) return `<rect x="${x.toFixed(2)}" y="${H - 0.6}" width="${bw.toFixed(2)}" height="0.6" fill="var(--bdr)"/>`;
+    const hTot = H - y(v.mensen), hWerk = v.werk ? H - y(v.werk) : 0;
+    return `<rect x="${x.toFixed(2)}" y="${y(v.mensen).toFixed(2)}" width="${bw.toFixed(2)}" height="${hTot.toFixed(2)}" fill="var(--grn2)" opacity=".35"/>`
+      + (hWerk ? `<rect x="${x.toFixed(2)}" y="${(H - hWerk).toFixed(2)}" width="${bw.toFixed(2)}" height="${hWerk.toFixed(2)}" fill="var(--grn)"/>` : '');
+  }).join('');
+  // Niet elk label passen: om de zoveel balken één, anders lopen de cijfers over elkaar.
+  const om = Math.ceil(reeks.length / 8);
+  const labels = reeks.map((v, i) => (i % om === 0 || i === reeks.length - 1)
+    ? `<text x="${(i * (bw + gap) + bw / 2).toFixed(2)}" y="${H + 9}" text-anchor="middle" font-size="7" fill="var(--txt2)">${esc(v.label)}</text>` : '').join('');
+  return `<div style="display:flex;align-items:flex-start;gap:8px">
+      <div style="font-size:11px;color:var(--txt2);min-width:16px;text-align:right;line-height:1">${top}<div style="margin-top:${H - 14}px">0</div></div>
+      <svg viewBox="0 -2 ${B} ${H + 14}" style="flex:1;min-width:0;height:96px" preserveAspectRatio="none" aria-hidden="true">${balken}${labels}</svg>
+    </div>`;
+}
 // Hoeveel mensen hebben op dit moment de app open? Eén momentopname (het scherm "Nu online" luistert
 // live mee; hier volstaat een enkele lezing). Telt PERSONEN: twee tabbladen zijn één mens.
 function telNuOnline(alles) {
@@ -1475,6 +1578,13 @@ async function opkuisGebruik() {
     const oud = (await fbOnce(fbdb.ref('usage').orderByKey().endAt(grens).limitToFirst(10))).val() || {};
     for (const dag of Object.keys(oud)) { try { await fbdb.ref('usage/' + dag).remove(); } catch (e) {} }
   } catch (e) {}
+  // De dadentak blijft veel langer staan dan de sessieteller: daarmee vergelijk je twee seizoenen.
+  // Ze is ook veel kleiner — één briefje per persoon per daad per dag i.p.v. per bezoek.
+  const dGrens = gebruikDag(presenceNu() - DAAD_BEWAAR_DAGEN * 86400000);
+  try {
+    const oud = (await fbOnce(fbdb.ref('daden').orderByKey().endAt(dGrens).limitToFirst(10))).val() || {};
+    for (const dag of Object.keys(oud)) { try { await fbdb.ref('daden/' + dag).remove(); } catch (e) {} }
+  } catch (e) {}
 }
 async function loadGebruikView() {
   const el = document.getElementById('gebruik-content');
@@ -1485,6 +1595,14 @@ async function loadGebruikView() {
   let ruw = null;
   try { ruw = (await fbOnce(fbdb.ref('usage').orderByKey().startAt(gebruikDag(nu - (GEBRUIK_DAGEN - 1) * 86400000)))).val() || {}; }
   catch (e) { ruw = null; }   // regels nog niet gepubliceerd → terugval op "laatst actief", zie onder
+  // De dadentak apart (v2.13.0): dezelfde vensters, maar ze beantwoordt andere vragen — wat mensen
+  // dóen, en welke ploegen actief zijn. Enkel het getoonde venster ophalen, net als hierboven.
+  // Hoe ver terug? De tabellen kijken altijd dertig dagen; staat de grafiek op maanden, dan is er een
+  // jaar nodig. Er wordt dus enkel méér opgehaald wanneer je daar zelf om vraagt.
+  let daden = null;
+  const vanafDag = gebruikDag(nu - (_gebruikEenheid === 'maand' ? 400 : GEBRUIK_DAGEN - 1) * 86400000);
+  try { daden = (await fbOnce(fbdb.ref('daden').orderByKey().startAt(vanafDag))).val() || {}; }
+  catch (e) { daden = null; }   // regels nog niet gepubliceerd → de blokken hieronder blijven weg
   let online = null;
   try { online = telNuOnline((await fbOnce(fbdb.ref('presence'))).val() || {}); } catch (e) {}
   // Terugval: "laatst actief" bewaart per account het laatste bezoek. Voor het AANTAL BEZOEKERS in
@@ -1526,6 +1644,59 @@ async function loadGebruikView() {
     </div>
   </div>`;
 
+  // ---- Wat mensen doen, en per ploeg (v2.13.0) ----
+  // DE TRECHTER IS GEEN ECHTE TRECHTER, en dat moet op het scherm staan. Elk getal is "zoveel
+  // verschillende mensen deden dit in deze periode"; het is niet gevolgd per persoon van stap naar
+  // stap. Wie het zo leest, trekt de juiste conclusie ("van de 40 die de app openden, openden er 12
+  // een wedstrijd") zonder te doen alsof we weten dat het dezelfde twaalf zijn.
+  const daadTel = daden === null ? null : GEBRUIK_VENSTERS.map(([, dagen]) => telDaden(daden, dagen, nu));
+  // ZEG HET WANNEER DE TAK NOG NIET LEESBAAR IS. Zonder deze kaart verdwijnen de twee blokken hieronder
+  // gewoon, en dan lijkt de app stuk terwijl er enkel nog een regel gepubliceerd moet worden. Dit is
+  // precies het geval dat zich voordoet zodra deze versie live staat en de regels nog niet.
+  const daadNogNiet = daden !== null ? '' : `<div class="card" style="margin-top:20px">
+    <p style="margin:0;font-size:14px">${icI(IC.warn)} <b>Wat mensen doen</b> en <b>Per ploeg</b> zijn nog niet beschikbaar: de beveiligingsregels met de dadentak moeten eerst gepubliceerd worden in de Firebase-console.</p>
+    <p style="margin:8px 0 0;color:var(--txt2);font-size:13px">De app meet intussen wel al: zodra de regels live staan, verschijnen de cijfers vanaf die dag. Wat er vóór de publicatie gebeurde, is niet bewaard.</p>
+  </div>`;
+  const daadBlok = !daadTel ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.log)} Wat mensen doen</div>
+    <div class="card">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:11px;color:var(--txt2)"><th></th>
+          ${GEBRUIK_VENSTERS.map(([label]) => `<th style="font-weight:400;padding:0 2px 4px">${esc(label.replace('Laatste ', ''))}</th>`).join('')}
+        </tr></thead>
+        <tbody>${Object.keys(DADEN).map((daad, i) => `<tr style="border-top:1px solid var(--bdr)">
+          <td style="padding:8px 6px 8px ${i === 0 ? '0' : '10px'};font-size:13px;color:var(--txt2)">${esc(DADEN[daad])}</td>
+          ${daadTel.map(t => `<td style="text-align:center;padding:8px 2px;font-size:20px;font-weight:800">${t.perDaad[daad].size}</td>`).join('')}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Elk getal is <b>hoeveel verschillende mensen</b> dat in die periode minstens één keer deden. Het is geen trechter per persoon: dat er twaalf een wedstrijd openden, betekent niet dat het twaalf van de veertig zijn die de app openden.</p>`;
+  // De grafiek: hetzelfde cijfer, maar als verloop. Hier zie je of het stijgt of wegzakt.
+  const reeks = !daadTel ? null : gebruikReeks(daden, _gebruikEenheid, nu);
+  const knop = (e, lbl) => `<button class="btn ${_gebruikEenheid === e ? 'btn-green' : 'btn-pale'} btn-sm" style="width:auto;margin:0;padding:4px 12px" onclick="zetGebruikEenheid('${e}')">${lbl}</button>`;
+  const grafiekBlok = !reeks ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.chart)} Verloop</div>
+    <div class="card">
+      <div style="display:flex;gap:6px;margin-bottom:10px">${knop('dag', 'Per dag')}${knop('maand', 'Per maand')}</div>
+      ${gebruikGrafiekHtml(reeks)}
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt2)">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.35;margin-right:4px"></span>actief</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>gaf iets in</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Hoeveel <b>verschillende mensen</b> er die ${_gebruikEenheid === 'maand' ? 'maand' : 'dag'} actief waren, met het donkere deel voor wie ook een wedstrijd live volgde of een uitslag ingaf. ${_gebruikEenheid === 'maand' ? 'Een maand' : 'Een dag'} zonder iemand is een streepje op de grondlijn.</p>`;
+  // Per ploeg: gesorteerd op wie het meest actief is, met het aantal dat ook écht iets ingaf.
+  const ploegRijen = !daadTel ? [] : Object.entries(daadTel[daadTel.length - 1].perPloeg)
+    .map(([id, p]) => ({ id, naam: p.naam || (id === GEEN_PLOEG ? 'Buiten een ploeg' : 'Onbekende ploeg'), mensen: p.mensen.size, werk: p.werk.size }))
+    .sort((a, b) => b.mensen - a.mensen || ploegNaamVgl(a.naam, b.naam));
+  const ploegBlok = !daadTel ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.players)} Per ploeg · laatste 30 dagen</div>
+    ${ploegRijen.length ? `<div class="card">
+      <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
+        <div style="flex:1"></div><div style="min-width:70px;text-align:right">actief</div><div style="min-width:90px;text-align:right">gaf iets in</div>
+      </div>
+      ${ploegRijen.map(r => `<div class="stat-row"><span style="flex:1">${esc(r.naam)}</span><span style="min-width:70px;text-align:right;font-weight:800">${r.mensen}</span><span style="min-width:90px;text-align:right;color:${r.werk ? 'var(--txt2)' : 'var(--org2,#b45309)'}">${r.werk}</span></div>`).join('')}
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>Actief</b> is iedereen die de app in die ploeg opende. <b>Gaf iets in</b> is wie ook een wedstrijd live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul.</p>`
+    : `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Nog geen ploegen in deze periode.</p></div>`}`;
+
   el.innerHTML = onlineKaart + nogNiet + `<div class="card">
     <table style="width:100%;border-collapse:collapse">
       <thead>
@@ -1547,7 +1718,8 @@ async function loadGebruikView() {
   </div>
   <p style="font-size:12px;color:var(--txt2);margin:14px 0 0"><b>Bezoekers</b> is hoeveel verschillende mensen de app in die periode openden; wie drie keer kwam, telt één keer. <b>Sessies</b> is hoe vaak ze ze openden. De app en weer sluiten en binnen het halfuur opnieuw openen, blijft hetzelfde bezoek — herladen of even naar een andere app telt dus niet mee als een tweede keer.</p>
   <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>Gasten staan apart en zijn een ruwer cijfer.</b> Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.</p>
-  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Geteld vanaf de dag dat de app deze versie kreeg. Wie sindsdien niet meer opende, staat er niet in — dat betekent niet dat hij de app niet gebruikt. Dagen ouder dan zes weken worden opgeruimd.</p>`;
+  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Geteld vanaf de dag dat de app deze versie kreeg. Wie sindsdien niet meer opende, staat er niet in — dat betekent niet dat hij de app niet gebruikt. Dagen ouder dan zes weken worden opgeruimd.</p>`
+  + daadNogNiet + daadBlok + grafiekBlok + ploegBlok;
   opkuisGebruik();
 }
 
@@ -5263,6 +5435,15 @@ async function go(v, id, _histReplace) {
   if (noHistory || _histReplace) history.replaceState(state, '');
   else history.pushState(state, '');
   render();
+  // GEBRUIKSCIJFERS (v2.13.0). Hier en niet bovenaan: alle omleidingen zijn gebeurd en de wedstrijd
+  // is ingelezen, dus dit meldt wat er écht geopend is. schrijfDaad meldt per dag maar één keer per
+  // ploeg, dus doorklikken kost geen schrijfbeurten. Zie het blok bij schrijfDaad in core.js.
+  if (['prep', 'live', 'detail'].includes(v) && match) {
+    schrijfDaad('wedstrijd');
+    // 'Verslag bekeken' is het DETAILSCHERM van een afgewerkte wedstrijd — dat is wat een kijker
+    // komt doen. De voorbereiding en het live scherm zijn werk, geen verslag.
+    if (v === 'detail' && match.status === 'done') schrijfDaad('verslag');
+  }
   // Doorgeven waar dit toestel nu staat (voor de teller "wie volgt er mee"). Schrijft enkel als er
   // écht iets veranderd is aan de wedstrijd die open staat — doorklikken kost dus geen schrijfbeurten.
   presenceSchrijf();

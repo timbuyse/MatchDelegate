@@ -3570,6 +3570,7 @@ async function saveQuickResult(zonderUitslag) {
     match.geenUitslag = true;
     _zetPlanMinuten(match, qrPlanMin);
     match.status = 'done'; match.quarterStatus = 'done';
+    schrijfDaad('uitslag');   // ook zonder score is dit "ik heb deze wedstrijd afgewerkt"
     await dbSave(match); closeModal(); go('detail', match.id);
     return;
   }
@@ -3594,6 +3595,9 @@ async function saveQuickResult(zonderUitslag) {
   delete match.geenUitslag;
   _zetPlanMinuten(match, qrPlanMin);
   match.status = 'done'; match.quarterStatus = 'done';
+  // GEBRUIKSCIJFERS (v2.13.0): een uitslag ingeven is de andere manier waarop iemand de app echt
+  // gebruikt, naast live volgen. Meldt per dag maar één keer — zie schrijfDaad in core.js.
+  schrijfDaad('uitslag');
   await dbSave(match); closeModal(); go('detail', match.id);
 }
 

@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.13.0
+
+**Het scherm *Gebruik* zegt nu ook wát mensen doen, en per ploeg.** Tot nu stond er hoeveel mensen de
+app openden. Dat zegt niets over of iemand daarna ook een wedstrijd opende, en het kende de ploeg
+niet — dus "welke ploegen gebruiken de app wekelijks, en waar zakt het weg" was er niet uit te halen.
+
+Er staan drie blokken bij:
+
+- **Wat mensen doen** — per periode hoeveel verschillende mensen de app openden, een wedstrijd
+  openden, een verslag bekeken, live volgden of een uitslag ingaven.
+- **Verloop** — dezelfde cijfers als balkjes, per dag of per maand, met het donkere deel voor wie ook
+  echt iets ingaf.
+- **Per ploeg** — hoeveel mensen er per ploeg actief waren, en hoeveel daarvan ook iets ingaven. Een
+  ploeg die alleen meekijkt, staat daar op nul.
+
+> **Wat er gemeten wordt, en wat niet.** Er komt één briefje per persoon per handeling per dag, met
+> daarin de ploeg en de rol. Er staat geen naam van een persoon in, geen kind, geen wedstrijd en geen
+> scherm — ook niet hoe vaak iemand iets aantikt. Het blijft een teller, geen logboek.
+
+Dit werkt pas zodra de beveiligingsregels gepubliceerd zijn. Zolang dat niet gebeurd is, zegt het
+scherm dat met zoveel woorden in plaats van de blokken weg te laten.
+
+---
+
 ## v2.12.4
 
 **Op een lopend kaartje is alleen nog het bolletje rood.** De regel ernaast — *kwart 4 · Uit* — stond

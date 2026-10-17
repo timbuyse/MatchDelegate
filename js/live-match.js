@@ -730,6 +730,10 @@ function deelHeeftGebeurtenis(m, num, type) {
 async function startQuarter(zonderControle) {
   if (!canLive() || !match) return;   // audit 24-08-2026: gordel EN bretellen
   if (match.quarterStatus === 'running') return; // dubbeltik-guard: deel loopt al
+  // GEBRUIKSCIJFERS (v2.13.0): de klok starten is hét moment waarop iemand de app echt gebruikt aan
+  // de lijn. Staat hier na de twee wachters hierboven, zodat een genegeerde dubbeltik niet meetelt.
+  // Meldt per dag maar één keer — zie schrijfDaad in core.js.
+  schrijfDaad('live');
   // DIT DEEL IS AL GESPEELD (29-08-2026). De controles hieronder kijken naar de eigen kopie van de
   // klok; een toestel dat achterloopt heeft daar "we zitten nog in deel 1" staan en mag dan vrolijk
   // doortikken. Elke start duwt een deel met de klok van NU in de lijst en voert de klaargezette
