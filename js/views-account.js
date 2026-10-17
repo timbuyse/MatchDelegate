@@ -5494,7 +5494,11 @@ function pitchOpenPlekken(m, players, tap) {
       + `${shirtSvg(false, gk, nummer)}<span class="pmark-code">${nummer ? esc(nummer + ' · ') : ''}${plek.code}</span></div>`;
   }).join('');
 }
-function renderPitch(m, players, captainId, qNum, tap) {
+// `uitPlan` (v2.12.1): deze opstelling komt uit het WEDSTRIJDPLAN en niet uit wat er gebeurd is —
+// een wedstrijd die je afsloot met het vinkje "speelminuten volgens het plan". Er zijn dan geen
+// events, dus de drie lijstjes hieronder zouden overal leeg zijn en elke bank zou er hetzelfde
+// uitzien. Ze komen in dat geval uit het plan. Zie verslagDelen in wizard-prep.js.
+function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
   // Dedupliceren over de hele wedstrijdselectie, niet enkel over wie nu op het veld staat: een
   // invaller met dezelfde voornaam staat in het wisselkader eronder en moet dezelfde letter krijgen.
   const dns = fieldDisplayNames((m && m.players && m.players.length) ? m.players : players);
@@ -5521,16 +5525,17 @@ function renderPitch(m, players, captainId, qNum, tap) {
     const n = ps.length;
     ps.forEach((p, i) => { dots += pitchDot(m, p, n === 1 ? 50 : 18 + (i * (64 / (n - 1))), y, dns.get(p.id), captainId, tap); });
   }
-  const bench = (m && !tap) ? periodBenchNames(m, qNum) : [];
+  const bench = (m && !tap) ? (uitPlan ? planBankNamen(m, players, qNum) : periodBenchNames(m, qNum)) : [];
   // Wissels in een eigen kader ONDER het veld i.p.v. bij de bollen: het diagram toont de opstelling
   // bij de start van het deel en negeert positiewisselingen, dus een naam onder een bol beweerde
   // een positie die de invaller misschien nooit gespeeld heeft. Hier staat enkel wie, wanneer.
-  const wissels = (m && !tap) ? periodSubList(m, qNum) : [];
+  const wissels = (m && !tap) ? (uitPlan ? planSubRijen(m, qNum) : periodSubList(m, qNum)) : [];
   // Positiewissels in hetzelfde kader (Tim, 27-08-2026): het zijn wissels, en ze horen dus onder
   // hetzelfde diagram als de gewone. Ze krijgen wel een eigen regelvorm — er is geen "eraf" en
   // "erin", maar één zin die zegt waar iedereen belandt.
-  const verplaats = (m && !tap) ? periodPosSwapList(m, qNum) : [];
-  const kaarten = (m && !tap) ? periodCardList(m, qNum) : [];
+  const verplaats = (m && !tap) ? (uitPlan ? planPosRijen(m, qNum) : periodPosSwapList(m, qNum)) : [];
+  // Kaarten bestaan niet in een plan: je plant geen gele kaart. Dus bij uitPlan nooit een kaartregel.
+  const kaarten = (m && !tap && !uitPlan) ? periodCardList(m, qNum) : [];
   return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
   ${/* De drie soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
         wissel op 12' te staan, en een kaart op 10' daartussen. Apart onder elkaar zetten leest als
@@ -5542,7 +5547,10 @@ function renderPitch(m, players, captainId, qNum, tap) {
     if (!rijen.length) return '';
     // Eén soort krijgt zijn eigen naam; staan er meer door elkaar, dan zou een opsomming in de kop
     // langer worden dan de regels eronder.
-    const namen = [wissels.length && 'Wissels', kaarten.length && 'Kaarten', verplaats.length && 'Positiewissels'].filter(Boolean);
+    // Bij een opstelling uit het plan staat er GEPLANDE wissels. Dat verschil moet in de kop staan:
+    // deze namen zien er verder precies hetzelfde uit als die van een gespeeld deel.
+    const namen = [wissels.length && (uitPlan ? 'Geplande wissels' : 'Wissels'), kaarten.length && 'Kaarten',
+      verplaats.length && (uitPlan ? 'Geplande positiewissels' : 'Positiewissels')].filter(Boolean);
     const kop = namen.length === 1 ? namen[0]
       : namen.length === 2 ? `${namen[0]} en ${namen[1].toLowerCase()}`
       : 'Wat er gebeurde';
@@ -5695,6 +5703,38 @@ function periodBenchNames(m, qNum) {
   return (m.players || []).filter(p => !p.absent && !weg.has(p.id) && !onField.has(p.id))
     .map(p => dns.get(p.id) || _firstName(p.name || ''))
     .sort((a, b) => a.localeCompare(b, 'nl'));
+}
+
+// ---- Dezelfde drie lijstjes, maar uit het WEDSTRIJDPLAN (v2.12.1) ----
+// Voor een wedstrijd die je afsloot met het vinkje "speelminuten volgens het plan": er is geen klok
+// gelopen, dus er zijn geen events. De drie functies hierboven geven dan overal niets terug en elke
+// bank zou er hetzelfde uitzien, ook na een geplande wissel. Deze drie vertrekken van het plan.
+// Ze geven exact dezelfde vorm terug, zodat renderPitch en de PDF er niets van merken.
+function planBankNamen(m, opVeld, qNum) {
+  const op = new Set((opVeld || []).map(p => p.id));
+  // Wie tijdens dit deel gepland invalt, zit niet op de bank — net als bij periodBenchNames.
+  (m.plannedSubs || []).forEach(s => { if (s.quarterNum === qNum && s.inId) op.add(s.inId); });
+  const dns = fieldDisplayNames(m.players || []);
+  return (m.players || []).filter(p => !p.absent && magOpHetVeld(m, p) && !op.has(p.id))
+    .map(p => dns.get(p.id) || _firstName(p.name || ''))
+    .sort((a, b) => a.localeCompare(b, 'nl'));
+}
+// De richtminuut (vanafMin) is de minuut BINNEN het deel, net als bij een gewone wissel in het
+// verslag. Staat er geen, dan een streepje: dat is eerlijker dan een verzonnen moment.
+function planSubRijen(m, qNum) {
+  if (!qNum) return [];
+  return (m.plannedSubs || []).filter(s => s.quarterNum === qNum)
+    .sort((a, b) => (a.vanafMin || 0) - (b.vanafMin || 0))
+    .map(s => ({
+      min: s.vanafMin ? `${s.vanafMin}'` : '—', ms: (s.vanafMin || 0) * 60000,
+      out: [s.outId ? fieldName(m, s.outId) : '—'], in: [s.inId ? fieldName(m, s.inId) : '—'],
+    }));
+}
+// planPosWisselsVanDeel woont in detail-pdf.js (dat later laadt) en levert kant-en-klare zinnen,
+// netto doorgerekend. Enkel bij het tekenen aanroepen, nooit bij het inladen van dit bestand.
+function planPosRijen(m, qNum) {
+  if (!qNum) return [];
+  return planPosWisselsVanDeel(m, qNum).map(tekst => ({ min: '—', ms: 0, tekst }));
 }
 
 // ===================== HOME =====================

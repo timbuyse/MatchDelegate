@@ -16,6 +16,8 @@ function renderDetail() {
   const opSlot = matchVergrendeld(match);
   const vast = ro || opSlot;
   const mins = calcMinutes(match);
+  // Hoeveel delen toont de opstellingssectie, en komen ze uit het plan? Zie verslagDelen.
+  const vdelen = verslagDelen(match);
   const qSummary = match.quarters.map(q => {
     // getQElapsed kijkt ALTIJD naar het laatste blok (audit 25-08-2026). Voor een blok zonder
     // eindtijd dat niet het laatste is — een halverwege afgebroken of gesynchroniseerde wedstrijd —
@@ -283,8 +285,10 @@ function renderDetail() {
          hierboven noemt iedereen al bij naam en nummer, dus er gaat niets verloren.
          De controle is niet "komt van de bond" maar "is er een opstelling": dit gold ook voor elke
          wedstrijd die je enkel afsloot zonder de spelers op het veld te zetten. */ ''}
-    ${vsec('opstelling', match.quarters.length > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', heeftOpstelling(match)
-      ? `<div class="card">${renderLineupCarousel(match)}</div>`
+    ${vsec('opstelling', vdelen.aantal > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', heeftOpstelling(match)
+      ? `<div class="card">${vdelen.uitPlan
+          ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">${icI(IC.compass)} Dit zijn de ${pPlural(match)} en de wissels <b>zoals je ze had klaargezet</b>. Niemand volgde de klok tijdens deze wedstrijd, dus wat er écht op het veld gebeurde, is niet vastgelegd.</p>`
+          : ''}${renderLineupCarousel(match)}</div>`
       : `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
           ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
           : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`)}
@@ -1515,7 +1519,10 @@ async function pdfMatchBody(doc, L, m) {
   // `heeftOpstelling` erbij (v1.30.0): zonder één ingevulde plek tekende de PDF hetzelfde rijtje
   // shirts over elkaar als het scherm. Zelfde reden, zelfde grens — zie de uitleg in renderDetail.
   if (m.players.some(p => p.starting) && heeftOpstelling(m)) {
-    const numQ = m.quarters.length || 1;
+    // Zelfde bron als het scherm (v2.12.1): gelopen delen, of anders het plan wanneer je bij het
+    // afsluiten koos dat de speelminuten uit het plan mogen komen. Zie verslagDelen in wizard-prep.js.
+    const vd = verslagDelen(m);
+    const numQ = vd.aantal;
     // pitchPlayersAtPeriodStart i.p.v. de rauwe m.players: startopstelling + wissels, zonder
     // positiewisselingen (zie de toelichting bij die functie). Ook het één-blok-geval loopt via de
     // reconstructie, anders staan de basisspelers er op hun finale positie — met overlappende
@@ -1526,7 +1533,7 @@ async function pdfMatchBody(doc, L, m) {
     // startopstelling, terwijl het scherm de eerste toont. Nu volgen beide dezelfde bron.
     const items = numQ <= 1
       ? [{ q: null, ps: pitchPlayersAtPeriodStart(m, m.quarters.length ? 1 : undefined), capId: m.quarters.length ? captainAtStartOfQuarter(m, 1) : m.captainId }]
-      : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: pitchPlayersAtPeriodStart(m, q), capId: captainAtStartOfQuarter(m, q) }; });
+      : Array.from({ length: numQ }, (_, i) => { const q = i + 1; return { q, ps: verslagVeldVanDeel(m, q, vd.uitPlan), capId: captainAtStartOfQuarter(m, q) }; });
     // De diagrammen lopen gewoon mee in de tekst en mogen over twee pagina's vloeien (bv. twee
     // velden op pagina 1 en twee op pagina 2). De breedte volgt uit de PAGINABREEDTE, niet uit de
     // resterende hoogte: een eigen pagina liet pagina 1 halfleeg en maakte de velden kleiner dan
@@ -1541,13 +1548,15 @@ async function pdfMatchBody(doc, L, m) {
       // horen er wél bij: op het scherm staan ze onder hetzelfde diagram, en in de PDF vielen ze
       // daardoor stil weg — net bij tornooiwedstrijden, die vrijwel altijd uit één blok bestaan.
       const q = it.q != null ? it.q : (m.quarters && m.quarters.length ? 1 : null);
-      const names = q != null ? periodBenchNames(m, q) : [];
+      const names = q != null ? (vd.uitPlan ? planBankNamen(m, it.ps, q) : periodBenchNames(m, q)) : [];
       return {
-        wissels: q != null ? periodSubList(m, q) : [],
+        wissels: q != null ? (vd.uitPlan ? planSubRijen(m, q) : periodSubList(m, q)) : [],
         // "naar" i.p.v. een pijl: de PDF-fonts (WinAnsi) kennen → niet, en "->" leest als een typefout.
-        posw: q != null ? periodPosSwapList(m, q, 'naar') : [],
-        // De kaarten van dit deel, zelfde kader als op het scherm (Tim, 01-10-2026).
-        kaarten: q != null ? periodCardList(m, q) : [],
+        // De planzinnen schrijven zelf al "naar", dus die hebben hier niets extra nodig.
+        posw: q != null ? (vd.uitPlan ? planPosRijen(m, q) : periodPosSwapList(m, q, 'naar')) : [],
+        // De kaarten van dit deel, zelfde kader als op het scherm (Tim, 01-10-2026). Een plan kent
+        // geen kaarten: je plant er geen.
+        kaarten: (q != null && !vd.uitPlan) ? periodCardList(m, q) : [],
         bank: names.length ? ('Bank: ' + names.join(', ')) : '',
       };
     });
@@ -1626,7 +1635,9 @@ async function pdfMatchBody(doc, L, m) {
     // periode (formatie staat al in de inforegel bovenaan, dus niet dubbel vermelden).
     // Kop en eerste rij samenhouden, anders blijft de kop alleen onderaan een pagina staan.
     ensure(21 + rowH);
-    heading(items.length > 1 ? `Opstelling per ${pSingLow(m)}` : 'Opstelling');
+    // Dat dit het PLAN is en niet wat er gebeurde, moet in de kop staan: de velden eronder zien er
+    // verder precies hetzelfde uit als bij een live gevolgde wedstrijd.
+    heading((items.length > 1 ? `Opstelling per ${pSingLow(m)}` : 'Opstelling') + (vd.uitPlan ? ' — volgens het plan' : ''));
     for (let i = 0; i < items.length; i += perRow) {
       const rowItems = items.slice(i, i + perRow);
       ensure(rowH);   // rij past niet meer op deze pagina → in haar geheel naar de volgende
@@ -1672,7 +1683,11 @@ async function pdfMatchBody(doc, L, m) {
           doc.setFont(undefined, 'bold'); doc.setFontSize(benchSize * 0.85); doc.setTextColor(107, 114, 128);
           // Zelfde kop als op het scherm: één soort krijgt zijn eigen naam, meer soorten samen krijgen
           // één woord dat altijd klopt.
-          const kopNamen = [onder.wissels.length && 'WISSELS', (onder.kaarten || []).length && 'KAARTEN', onder.posw.length && 'POSITIEWISSELS'].filter(Boolean);
+          // "GEPLANDE WISSELS" wanneer dit deel uit het plan komt — zelfde onderscheid als op het
+          // scherm (zie renderPitch). Zonder dat woord lezen ze als wissels die echt gebeurd zijn.
+          const kopNamen = [onder.wissels.length && (vd.uitPlan ? 'GEPLANDE WISSELS' : 'WISSELS'),
+            (onder.kaarten || []).length && 'KAARTEN',
+            onder.posw.length && (vd.uitPlan ? 'GEPLANDE POSITIEWISSELS' : 'POSITIEWISSELS')].filter(Boolean);
           doc.text(kopNamen.length === 1 ? kopNamen[0]
             : kopNamen.length === 2 ? kopNamen.join(' EN ') : 'WAT ER GEBEURDE', x + pad * 1.4, oy + pad + benchSize * 0.75);
           doc.setFont(undefined, 'normal'); doc.setFontSize(benchSize);

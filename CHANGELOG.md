@@ -9,6 +9,29 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.12.1
+
+**Bij speelminuten volgens het plan toont het verslag nu ook de kwarten en de geplande wissels.** Tot
+nu bleef het bij één veld — de basisopstelling — terwijl de cijfers eronder wél uit het plan kwamen.
+Dat leest vreemd: je hebt gezegd dat het plan gespeeld is, maar het verslag toont er maar één moment
+van.
+
+Vink je bij het afsluiten *Speelminuten volgens het plan bewaren* aan, dan krijg je voortaan hetzelfde
+verslag als bij een live gevolgde wedstrijd: een veld per kwart, met per kwart de wissels, de bank en
+de richtminuut die je had ingegeven. In de PDF staan dezelfde velden.
+
+> **Er staat duidelijk bij dat dit het plan is**, niet wat er gebeurd is: boven de velden een regel
+> dat niemand de klok volgde, en boven elk wisselkader *Geplande wissels*. In de PDF heet de sectie
+> **Opstelling per kwart — volgens het plan**.
+
+Een wedstrijd die wél live gevolgd is, verandert nergens: die toont de kwarten die echt gelopen zijn.
+Dat zijn feiten en die gaan altijd voor op een plan.
+
+Dit geldt ook voor wedstrijden die achteraf rechtgezet zijn: er is niets opnieuw te draaien, ze tonen
+de kwarten vanzelf na het herladen van de app.
+
+---
+
 ## v2.12.0
 
 **Bij het afsluiten kan je nu kiezen: speelminuten volgens het plan bewaren.** Sluit je een wedstrijd

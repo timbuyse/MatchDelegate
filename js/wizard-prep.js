@@ -1166,9 +1166,28 @@ function pitchPlayersAtPeriodStart(m, qNum) {
   const pos = _posVooruit(m, qNum);
   return playersAtPeriodStart(m, qNum).map(p => ({ ...p, ...(pos[p.id] || {}) }));
 }
+// HOEVEEL DELEN TOONT HET VERSLAG, EN WAAR KOMT ELKE OPSTELLING VANDAAN (v2.12.1)?
+// Een wedstrijd die je enkel afsloot, heeft geen enkel deel GELOPEN: m.quarters is leeg. Het verslag
+// toonde daarom altijd één veld — de basisopstelling — ook wanneer je bij het afsluiten aanvinkte dat
+// de speelminuten uit het plan mogen komen. Dat vinkje zegt net dat het plan gespeeld is, dus horen de
+// delen en de geplande wissels er ook bij te staan (Tim, 17-10-2026: "die tonen enkel de opstelling
+// maar niet de opstelling per kwart zoals bij een normaal verslag").
+// GELOPEN DELEN GAAN ALTIJD VOOR. Die zijn gemeten; het plan is maar een voornemen. Staat er één
+// gelopen deel, dan komt er hier nooit een plan aan te pas.
+function verslagDelen(m) {
+  const gelopen = ((m && m.quarters) || []).length;
+  if (gelopen) return { aantal: gelopen, uitPlan: false };
+  if (planMinutenAan(m) && heeftOpstelling(m)) return { aantal: plannedPartsCount(m), uitPlan: true };
+  return { aantal: 1, uitPlan: false };
+}
+// De opstelling waarmee deel q begint. planStartVanDeel woont in detail-pdf.js, dat NA dit bestand
+// laadt: deze functie mag dus enkel bij het tekenen aangeroepen worden, nooit bij het inladen.
+function verslagVeldVanDeel(m, q, uitPlan) {
+  return uitPlan ? planStartVanDeel(m, q) : pitchPlayersAtPeriodStart(m, q);
+}
 let _lcIdx = 0;
 function _lcNav(dir) {
-  const total = Math.max(1, match.quarters.length);
+  const total = verslagDelen(match).aantal;
   const car = document.getElementById('lc-wrap');
   if (!car) return;
   car.querySelectorAll('.lc-slide').forEach((s, i) => s.style.display = 'none');
@@ -1179,7 +1198,7 @@ function _lcNav(dir) {
   document.getElementById('lc-next').disabled = _lcIdx === total - 1;
 }
 function renderLineupCarousel(m) {
-  const total = Math.max(1, m.quarters.length);
+  const { aantal: total, uitPlan } = verslagDelen(m);
   _lcIdx = 0;
   // GEEN POTLOODJE HIER (Tim, 06-09-2026). Het stond hier kort, maar hij bedoelde het naast de
   // "Startopstelling"-regel in de eventlijst — daar staat het nu, in startLineupHtml
@@ -1196,9 +1215,10 @@ function renderLineupCarousel(m) {
     return renderPitch(m, pitchPlayersAtPeriodStart(m, q1), captainAtStartOfQuarter(m, 1), q1);
   }
   const slides = Array.from({length: total}, (_, i) => {
-    const ps = pitchPlayersAtPeriodStart(m, i + 1);
-    const capId = captainAtStartOfQuarter(m, i + 1);
-    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId, i + 1)}</div>`;
+    const q = i + 1;
+    const ps = verslagVeldVanDeel(m, q, uitPlan);
+    const capId = captainAtStartOfQuarter(m, q);
+    return `<div class="lc-slide" style="${i === 0 ? '' : 'display:none'}">${renderPitch(m, ps, capId, q, null, uitPlan)}</div>`;
   }).join('');
   return `<div class="lc-wrap" id="lc-wrap">
     <div class="lc-nav">
