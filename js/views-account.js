@@ -4851,7 +4851,7 @@ function evtLabelBasis(e, m, kort) {
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
-    case 'red_card_them': return `${icI(IC.cardR)} Rode kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
+    case 'red_card_them': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     // DEZELFDE VORM ALS OVERAL ELDERS (Tim, 04-10-2026). Eerst stond de rol hier vooraan — "Gele
     // kaart trainer · Jan Peeters" — terwijl het onder het velddiagram en bij de statistieken "Jan
     // Peeters (trainer)" is. Nu overal hetzelfde, en net als bij een speler zonder scheidingsteken:
@@ -4913,7 +4913,7 @@ function evtLabelPlainBasis(e, m) {
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
     case 'red_card': return `${roodWoord(e)} ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
-    case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
+    case 'red_card_them': return `${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'yellow_card_trainer': return `Gele kaart ${stafZin(e, m)}`;
     case 'red_card_trainer': return `Rode kaart ${stafZin(e, m)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;

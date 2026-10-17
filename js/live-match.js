@@ -3344,11 +3344,18 @@ async function doDeleteEvent(id, stil) {
   // 2e gele + automatische rode horen samen (zelfde paar-logica als undoLast): wie de foutieve
   // 2e gele verwijdert, moet ook de automatisch gegeven rode kwijt — anders blijft de speler
   // van het veld terwijl het verloop nog maar één gele kaart toont.
-  if (removed && removed.type === 'yellow_card' && removed.playerId) {
-    const remainingYellows = match.events.filter(e => e.type === 'yellow_card' && e.playerId === removed.playerId && e.id !== id).length;
+  // Sinds v2.15.2 geldt dit ook voor de TEGENSTANDER (zelfde paar, maar op rugnummer i.p.v. speler).
+  // Eén blok voor allebei: twee bijna gelijke blokken naast elkaar lopen gegarandeerd uit elkaar.
+  const geelSoort = removed && (removed.type === 'yellow_card' ? 'yellow_card' : removed.type === 'yellow_card_them' ? 'yellow_card_them' : '');
+  const zelfde = (e, ander) => geelSoort === 'yellow_card'
+    ? e.playerId === ander.playerId
+    : (!!ander.oppNumber && e.oppNumber === ander.oppNumber);
+  if (geelSoort && (geelSoort === 'yellow_card' ? removed.playerId : removed.oppNumber)) {
+    const roodSoort = geelSoort === 'yellow_card' ? 'red_card' : 'red_card_them';
+    const remainingYellows = match.events.filter(e => e.type === geelSoort && zelfde(e, removed) && e.id !== id).length;
     // filter, niet find (audit 25-08-2026): stonden er door een oude invoerfout twee automatische
     // rode kaarten bij dezelfde speler, dan bleef er één achter — en die had niemand gegeven.
-    const autoReds = match.events.filter(e => e.type === 'red_card' && e.autoSecondYellow && e.playerId === removed.playerId);
+    const autoReds = match.events.filter(e => e.type === roodSoort && e.autoSecondYellow && zelfde(e, removed));
     if (autoReds.length && remainingYellows < 2) {
       autoReds.forEach(r => toRemove.push(r));
       showToast(autoReds.length === 1 ? 'De automatische rode kaart (2e geel) is mee verwijderd.' : `${autoReds.length} automatische rode kaarten (2e geel) zijn mee verwijderd.`, 'ok');
@@ -4159,9 +4166,14 @@ async function undoLast() {
   const toRemove = [removed];
   // Een automatische rode kaart bij de 2e gele hoort bij die gele kaart — samen ongedaan maken,
   // anders blijft de speler van het veld staan met twee gele kaarten in het verloop.
-  if (removed.type === 'red_card' && removed.autoSecondYellow) {
+  // Ook voor de tegenstander (v2.15.2): daar hoort de gele bij het RUGNUMMER.
+  if (isTweedeGeel(removed)) {
+    const eigen = removed.type === 'red_card';
+    const geelSoort = eigen ? 'yellow_card' : 'yellow_card_them';
     for (let i = idx - 1; i >= 0; i--) {
-      if (match.events[i].type === 'yellow_card' && match.events[i].playerId === removed.playerId) { toRemove.push(match.events[i]); break; }
+      const e = match.events[i];
+      if (e.type !== geelSoort) continue;
+      if (eigen ? e.playerId === removed.playerId : (!!removed.oppNumber && e.oppNumber === removed.oppNumber)) { toRemove.push(e); break; }
     }
   }
   const ids = new Set(toRemove.map(ev => ev.id));
@@ -6419,6 +6431,18 @@ function modalCard(color) {
          het is optioneel, want wie het nummer niet zag hoort er geen te moeten verzinnen. Een eigen
          bevestigingsknop, want anders dan bij een eigen speler is er niets om aan te tikken. */ ''}
     <div id="card-them-section" class="hidden">
+      ${/* WELKE NUMMERS AL GEEL HEBBEN (v2.15.2). Een tweede geel voor de tegenstander geeft sinds
+           deze versie ook vanzelf rood, maar enkel MÉT rugnummer — zonder nummer weet de app niet wie
+           het is. Dus hier zowel wat er al staat als die voorwaarde, vóór je het veld invult. */ ''}
+      ${(() => {
+        if (color === 'red') return '';
+        const tel = {};
+        (match.events || []).forEach(e => { if (e.type === 'yellow_card_them' && e.oppNumber) tel[e.oppNumber] = (tel[e.oppNumber] || 0) + 1; });
+        const nrs = Object.keys(tel).sort((a, b) => Number(a) - Number(b));
+        return `<p style="font-size:12px;color:var(--txt2);margin:12px 0 0">${nrs.length
+          ? `${icI(IC.cardY)} Al geel bij de tegenstander: <b>${nrs.map(n => 'nr. ' + esc(n) + (tel[n] > 1 ? ` (${tel[n]}×)` : '')).join(', ')}</b>. Geef je er nog een, dan wordt het rood.`
+          : 'Geef je het rugnummer mee, dan ziet de app een tweede gele kaart en maakt er vanzelf rood van.'}</p>`;
+      })()}
       <div class="fg" style="margin-top:12px">
         <label>Rugnummer <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
         ${/* Geen maxlength: wie "nr. 7" typt zou dan op "nr." blijven staan en zijn cijfer kwijt zijn.
@@ -6486,13 +6510,28 @@ function kaartAnim(color) {
 async function logCardThem(color) {
   if (_eventBusy) return;
   _eventBusy = true;
+  let tweedeGeel = false;
   try {
     const el = document.getElementById('card-them-nr');
     const nr = ((el && el.value) || '').replace(/[^0-9]/g, '').slice(0, 3);
     addEvent(color === 'red' ? 'red_card_them' : 'yellow_card_them', nr ? { oppNumber: nr } : {});
+    // TWEEDE GEEL VOOR DE TEGENSTANDER (v2.15.2, Tim: "voor de tegenstander moet dit ook kunnen als
+    // je het nummer ingeeft"). Zelfde regel als bij een eigen speler (zie logCard), met één verschil
+    // dat in de voorwaarde zit: ZONDER RUGNUMMER KAN HET NIET. Dan weten we niet wie die kaart kreeg,
+    // en zouden twee kaarten voor twee verschillende tegenspelers één uitsluiting opleveren.
+    // Exact twee en nog geen automatische rode, om dezelfde reden als daar.
+    if (color !== 'red' && nr) {
+      const geel = match.events.filter(e => e.type === 'yellow_card_them' && e.oppNumber === nr).length;
+      const alRood = match.events.some(e => e.type === 'red_card_them' && e.autoSecondYellow && e.oppNumber === nr);
+      if (geel === 2 && !alRood) {
+        addEvent('red_card_them', { oppNumber: nr, autoSecondYellow: true });
+        tweedeGeel = true;
+        showToast(`2e gele kaart → nr. ${nr} van ${tegenstanderNaam(match)} krijgt rood.`, 'err');
+      }
+    }
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
-    meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
+    if (!tweedeGeel) meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
 // EEN KAART VOOR DE STAF, MET EEN EIGEN SOORT EVENT (v1.99.5). Dezelfde redenering als bij de kaart

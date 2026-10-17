@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.15.2
+
+**Een tweede gele kaart voor de tegenstander wordt nu ook vanzelf rood** — op voorwaarde dat je het
+rugnummer meegeeft. Zonder nummer weet de app niet wie die kaart kreeg, en dan zouden twee kaarten
+voor twee verschillende spelers één uitsluiting opleveren.
+
+Op het kaartenscherm staat daarom bij *Tegenstander* welke nummers al geel hebben, met de regel dat
+nog een gele kaart rood wordt. Heb je nog niets genoteerd, dan staat er dat het rugnummer nodig is.
+
+Ze leest verder precies zoals bij een eigen speler: het geel-rode kaartje en *rood na twee keer geel*
+in het verslag, en van het wedstrijdblad komt ze ook zo binnen. Wis je die gele kaart weer, dan gaat
+de automatische rode mee — ook dat is nu voor allebei de kanten hetzelfde.
+
+---
+
 ## v2.15.1
 
 **Rood na twee keer geel krijgt nu één geel-rood kaartje**, net als op het wedstrijdblad van de bond:

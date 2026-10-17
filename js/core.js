@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.15.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.15.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1874,7 +1874,9 @@ function scoreInQuarter(m, qNum) {
 // op 'red_card' filtert (de uitsluiting, de speelminuten, de statistieken, de PDF) blijft werken
 // zoals het werkte. Een wedstrijd van vóór deze versie heeft dat merkje niet en leest dus gewoon als
 // een rode kaart — wat ze toen ook was.
-function isTweedeGeel(e) { return !!(e && e.type === 'red_card' && e.autoSecondYellow); }
+// OOK VOOR DE TEGENSTANDER (v2.15.2, Tim: "voor de tegenstander moet dit ook kunnen als je het
+// nummer ingeeft"). Vandaar allebei de soorten hier; de rest van de app merkt er niets van.
+function isTweedeGeel(e) { return !!(e && (e.type === 'red_card' || e.type === 'red_card_them') && e.autoSecondYellow); }
 function roodWoord(e) { return isTweedeGeel(e) ? 'Rood na twee keer geel' : 'Rode kaart'; }
 function uitgeslotenIds(m) {
   return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));

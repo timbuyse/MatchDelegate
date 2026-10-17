@@ -1288,8 +1288,9 @@ function vvNeemOver() {
         // het blad en komt dus langs deze lus binnen.
         m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card' : 'yellow_card', playerId: pid, bron: 'vv', ...(k.soort === 'rood2' ? { autoSecondYellow: true } : {}), ...tijd(k.minuut) });
       } else {
+        // Ook bij de tegenstander: 'rood2' krijgt het merkje, zodat ze als geel-rood leest (v2.15.2).
         const nr = String(k.nummer || '').replace(/\D/g, '').slice(0, 3);
-        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card_them' : 'yellow_card_them', ...(nr ? { oppNumber: nr } : {}), bron: 'vv', ...tijd(k.minuut) });
+        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card_them' : 'yellow_card_them', ...(nr ? { oppNumber: nr } : {}), bron: 'vv', ...(k.soort === 'rood2' ? { autoSecondYellow: true } : {}), ...tijd(k.minuut) });
       }
       n++;
     });
