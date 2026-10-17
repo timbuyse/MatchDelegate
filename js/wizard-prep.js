@@ -3426,8 +3426,9 @@ async function matchZetVerborgen(id, verbergen, inVenster) {
 
 // ----- Uitslag ingeven (wedstrijd die al gespeeld is, zonder live opvolging) -----
 let qrScorers = {};
-// Staat het vinkje "speelminuten volgens het plan" aan? Leeft enkel zolang dit venster open is; bij
-// het openen begint het altijd uit, zodat niemand het per ongeluk twee wedstrijden na elkaar meeneemt.
+// Staat het vinkje "speelminuten volgens het plan" aan? Leeft enkel zolang dit venster open is. Bij
+// het openen wordt het opnieuw bepaald uit de wedstrijd zelf (zie verderop), nooit overgenomen van de
+// vorige keer — anders neem je het per ongeluk mee naar een tweede wedstrijd.
 let qrPlanMin = false;
 function modalQuickResult() {
   const m = match; qrScorers = {}; qrPlanMin = false;
@@ -3457,12 +3458,26 @@ function modalQuickResult() {
   // SINDS v2.12.0 MAG JE ZE WÉL VASTLEGGEN, als je dat zelf aanvinkt (Tim, 17-10-2026). Dan staat er
   // een vinkje in plaats van de vaste tekst. Enkel wanneer er een echt plan is — zonder opstelling of
   // blokduur valt er niets vast te leggen, en dan blijft de oude uitleg staan.
-  const magPlan = heeftSelectie(m) && heeftPlanMinuten(m);
+  // ER ZIJN AL ECHTE MINUTEN (v2.12.2). Dit venster is ook de weg van "Uitslag aanpassen" op een
+  // AFGEWERKTE wedstrijd — ook een die wél live gevolgd is, of waarvan de minuten van het bondsblad
+  // komen. Daar hoort dit vinkje niet: opslaan zou gemeten tijd vervangen door geplande (calcMinutes
+  // geeft de planminuten voorrang). Dus geen vinkje, en één regel dat de minuten blijven staan.
+  const echteMinuten = getGameTimeMs(m) > 0 || !!m.klokVanBlad;
+  const magPlan = heeftSelectie(m) && !echteMinuten && heeftPlanMinuten(m);
+  // STANDAARD AAN (Tim, 17-10-2026). Bij een wedstrijd die je nu afsluit is het plan het enige wat we
+  // over de speeltijd weten, en negen van de tien keer wil je het bewaren — dat vinkje elke keer
+  // moeten aanzetten, is werk zonder reden.
+  // MAAR NIET BIJ EEN WEDSTRIJD DIE AL AFGESLOTEN IS: daar heb je de vraag al beantwoord. Kom je enkel
+  // een score rechtzetten, dan mag dit venster je seizoenscijfers niet stil veranderen. Dan staat het
+  // zoals je het toen zette — en voor een wedstrijd van vóór v2.12.0 dus uit, zoals afgesproken.
+  qrPlanMin = magPlan && ((m.status || 'planned') !== 'done' || planMinutenAan(m));
   const planUitleg = !heeftSelectie(m) ? ''
+    : echteMinuten
+    ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px">${icI(IC.timer)} <b>De speelminuten blijven zoals ze nu zijn.</b> Die zijn ${m.klokVanBlad ? 'van het officiële wedstrijdblad' : 'tijdens de wedstrijd opgemeten'}, en daar verandert het rechtzetten van de uitslag niets aan.</p>`
     : magPlan
     ? `<label class="chkrow" style="display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px;cursor:pointer">
         <input type="checkbox" id="qr-planmin" ${qrPlanMin ? 'checked' : ''} onchange="qrPlanMin=this.checked">
-        <span style="flex:1;min-width:0;font-size:12px;color:var(--txt2)">${icI(IC.timer)} <b>Speelminuten volgens het plan bewaren.</b> Niemand volgde de klok, dus deze minuten zijn <b>gepland en niet gemeten</b>. Vink je dit aan, dan tellen ze mee in de cijfers, met overal de vermelding dat ze uit het plan komen. Laat je het uit, dan staat iedereen op 0'.</span>
+        <span style="flex:1;min-width:0;font-size:12px;color:var(--txt2)">${icI(IC.timer)} <b>Speelminuten volgens het plan bewaren.</b> Niemand volgde de klok, dus deze minuten zijn <b>gepland en niet gemeten</b>. Laat je dit aangevinkt, dan tellen ze mee in de cijfers, met overal de vermelding dat ze uit het plan komen — en toont het verslag de opstelling per ${pSingLow(m)}. Vink je het uit, dan staat iedereen op 0'.</span>
       </label>`
     : `<p style="font-size:12px;color:var(--txt2);margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px">${icI(IC.timer)} <b>Er komen geen speelminuten bij.</b> Niemand volgde de klok, dus wie hoeveel speelde is niet te berekenen — en er staat geen wedstrijdplan waaruit we ze konden halen. <b>Wel meegeteld:</b> de selectie, de doelpunten en de assists die je hier ingeeft.</p>`;
   // THUISPLOEG EERST, ook hier (Tim, 28-08-2026). De invulvelden stonden altijd met de eigen ploeg

@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.12.2
+
+**De statistieken zeggen nu waarom winst, gelijk en verlies niet optellen tot *Gespeeld*.** Bij 10
+gespeeld met 5 winst, 0 gelijk en 3 verlies bleven er twee over zonder uitleg. Dat zijn wedstrijden
+die je afsloot **zonder uitslag**: ze tellen wel als gespeeld, maar hebben geen winnaar — ze als 0-0
+bij *Gelijk* zetten zou een gelijkspel verzinnen dat niemand speelde. Er staat voortaan één regel
+onder de drie vakjes die dat zegt, precies zoals het spelersblad dat al deed.
+
+**Het vinkje *Speelminuten volgens het plan bewaren* staat voortaan standaard aan.** Sluit je een
+wedstrijd af die niemand live gevolgd heeft, dan is het plan het enige wat we over de speeltijd weten
+— en dan wil je het bijna altijd bewaren. Je kan het nog altijd uitzetten; dan staat iedereen op 0',
+precies zoals voordien.
+
+> **Bij een wedstrijd die wél live gevolgd is, staat het vinkje er niet meer.** Dat venster is ook de
+> weg van *Uitslag aanpassen*, en daar zouden geplande minuten de opgemeten tijd vervangen. In de
+> plaats staat er één regel: de speelminuten blijven zoals ze zijn. Hetzelfde geldt voor minuten die
+> van het officiële wedstrijdblad komen.
+
+Bij een wedstrijd die je **al** afgesloten had, staat het vinkje zoals je het toen zette. Kom je enkel
+een score rechtzetten, dan verandert dit venster je seizoenscijfers niet achter je rug om. Wedstrijden
+van vóór v2.12.0 blijven dus op 0' tot je het zelf aanvinkt.
+
+---
+
 ## v2.12.1
 
 **Bij speelminuten volgens het plan toont het verslag nu ook de kwarten en de geplande wissels.** Tot

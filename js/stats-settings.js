@@ -371,6 +371,11 @@ async function loadStats() {
   // Oudste eerst verwerken, zodat de weergavenaam van een speler steeds de meest recente is (bv. na een naamscorrectie).
   const sortedList = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
   let w = 0, d = 0, l = 0, gf = 0, ga = 0, cleanSheets = 0;
+  // Hoeveel wedstrijden zonder uitslag? Die tellen wél bij Gespeeld maar niet bij W/G/V, dus zonder
+  // dit getal tellen de drie vakjes niet op tot de noemer erboven en lijkt het scherm te rekenen
+  // zoals het niet rekent (Tim, 17-10-2026: "10 gespeeld, 0 gelijk, 5 gewonnen, 3 verloren maar dat
+  // telt dus niet op"). Het spelersblad zegt dit al bij zijn eigen W/G/V; de ploegpagina niet.
+  let zonderUitslag = 0;
   let reeksen = 0, reeksenGewonnen = 0;   // strafschoppenreeksen (zie m.shootout in core.js)
   let gemetenAantal = 0;                  // wedstrijden met geregistreerde speeltijd — zie clean sheets
   const pl = {};
@@ -423,7 +428,7 @@ async function loadStats() {
       // hierboven blijven die van de wedstrijd zelf — een strafschop uit de reeks is geen doelpunt.
       { const r = matchResultaat(m); if (r === 'W') w++; else if (r === 'V') l++; else d++; }
       if (heeftShootout(m)) { reeksen++; if (shootoutWinnaar(m) === 'us') reeksenGewonnen++; }
-    }
+    } else zonderUitslag++;
     const mins = calcMinutes(m);
     // Zelfde regel als in het tornooiverslag: een wedstrijd zonder geregistreerde speeltijd ("Snel
     // resultaat") telt wél als selectie, maar niet als noemer voor de fair-play-gemiddelden.
@@ -703,6 +708,15 @@ async function loadStats() {
         <div class="stat-box"><div class="v">${d}</div><div class="l">Gelijk</div></div>
         <div class="stat-box"><div class="v" style="color:var(--rd)">${l}</div><div class="l">Verlies</div></div>
       </div>
+      ${/* WAAROM DE DRIE VAKJES NIET OPTELLEN TOT "GESPEELD" (Tim, 17-10-2026). Een wedstrijd die je
+           afsloot zonder uitslag telt wél als gespeeld, maar heeft geen winnaar — ze als 0-0 bij
+           "Gelijk" zetten zou een gelijkspel verzinnen dat niemand speelde. Zonder deze regel moet de
+           lezer dat verschil zelf raden. Enkel tonen als er ook echt zo'n wedstrijd is; dezelfde
+           gedachte (en bijna dezelfde zin) als op het spelersblad. */ ''}
+      ${/* Niet beginnen met "X wedstrijden tellen hier niet mee": dat is woord voor woord de regel
+           onder Clean sheets verderop, die over iets anders gaat. Twee bijna gelijke zinnen op één
+           scherm laten je zoeken naar het verschil. */ ''}
+      ${zonderUitslag ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 10px;text-align:center">${zonderUitslag === 1 ? 'Eén wedstrijd is' : zonderUitslag + ' wedstrijden zijn'} afgesloten <b>zonder uitslag</b>. ${zonderUitslag === 1 ? 'Ze telt' : 'Ze tellen'} wél mee bij <b>Gespeeld</b>, maar ${zonderUitslag === 1 ? 'levert' : 'leveren'} geen winst, gelijkspel of verlies — ook geen doelpunten.</p>` : ''}
       <div class="stat-big">
         <div class="stat-box"><div class="v">${gf}</div><div class="l">Doelpunten voor</div></div>
         <div class="stat-box"><div class="v">${ga}</div><div class="l">Doelpunten tegen</div></div>
