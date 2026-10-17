@@ -303,7 +303,12 @@ function renderDetail() {
          ingegeven mét het wedstrijdblad van de bond: er zíjn minuten, maar ze komen van de wissels op
          dat blad en niet van iemand met een klok — dat hoort erbij te staan, anders lezen ze als
          gemeten tijd. Zie import-vv.js voor waar klokVanBlad vandaan komt. */ ''}
-    ${match.klokVanBlad
+    ${/* VIER GEVALLEN SINDS v2.12.0: het vierde is "jij vinkte aan dat de minuten uit het plan mogen
+         komen". Die staan dus wél in de cijfers, maar ze zijn gepland en niet gemeten — en precies
+         daarom hoort het hier te staan, net als bij het blad van de bond. */ ''}
+    ${planMinutenAan(match)
+      ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} De speelminuten komen uit het <b>wedstrijdplan</b>: ze zijn <b>gepland, niet gemeten</b>. Niemand volgde de klok; jij koos bij het afsluiten om het plan als speeltijd te bewaren.</p>`
+      : match.klokVanBlad
       ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} De speelminuten komen van het <b>officiële wedstrijdblad van de bond</b>: de wissels die daarop staan, met hun minuut. Niemand volgde de klok tijdens deze wedstrijd.</p>`
       : getGameTimeMs(match) === 0
       ? `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.timer)} Deze wedstrijd is <b>niet live gevolgd</b>: de uitslag is achteraf ingegeven. Er zijn dus geen speelminuten — de selectie, de doelpunten en de assists tellen wél mee.</p>` : ''}

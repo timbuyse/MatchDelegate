@@ -2301,11 +2301,36 @@ function planSpeeltijd(m) {
   }
   return { totaal, perSpeler, duur };
 }
-// (Hier stonden heeftKwartPlan en planMinutenMs, van v1.8.0 tot v1.22.0: die zetten het plan om in
-// speelminuten voor een wedstrijd die je enkel afsloot. Tim heeft die regel op 29-08-2026
+// (Hier stonden heeftKwartPlan en planMinutenMs, van v1.8.0 tot v1.22.0: die zetten het plan STIL om
+// in speelminuten voor elke wedstrijd die je enkel afsloot. Tim heeft die regel op 29-08-2026
 // teruggedraaid — een achteraf ingegeven uitslag levert géén speelminuten meer, want die zijn niet
-// te berekenen als niemand de klok gevolgd heeft. Zie calcMinutes in views-account.js. De kaart
-// "Speeltijd volgens dit plan" hieronder blijft wél: die toont een PLAN en zegt dat ook zo.)
+// te berekenen als niemand de klok gevolgd heeft. Zie calcMinutes in views-account.js.)
+//
+// SINDS v2.12.0 KAN HET WEER, MAAR ENKEL OMDAT JIJ HET VRAAGT. Bij het afsluiten staat er een vinkje
+// "Speelminuten volgens het plan bewaren"; zet je dat aan, dan legt de app de cijfers van de kaart
+// hieronder vast. Overal waar ze daarna verschijnen staat erbij dat ze uit het plan komen, zodat ze
+// in de seizoenscijfers niet voor gemeten minuten kunnen doorgaan. Zie planMinutenAan in core.js.
+//
+// Het vinkje heeft enkel zin als er ook écht een plan is: zonder opstelling of zonder blokduur geeft
+// planSpeeltijd niets, en dan zou het vinkje iets beloven dat nergens op steunt.
+function heeftPlanMinuten(m) {
+  if (!m || typeof planSpeeltijd !== 'function') return false;
+  const p = planSpeeltijd(m);
+  return !!(p && p.duur && Object.keys(p.perSpeler || {}).length);
+}
+// De planminuten als milliseconden per speler, in dezelfde vorm als calcMinutes ze teruggeeft.
+// Enkel spelers die in de selectie van deze wedstrijd staan en niet afgemeld zijn.
+function planMinutenUitPlan(m) {
+  const uit = {};
+  if (!m) return uit;
+  const p = planSpeeltijd(m);
+  (m.players || []).forEach(sp => {
+    if (!sp || sp.absent) return;
+    const min = Number((p.perSpeler || {})[sp.id]) || 0;
+    if (min > 0) uit[sp.id] = Math.round(min * 60000);
+  });
+  return uit;
+}
 // Een halve blok leesbaar houden: 3 blijft "3", 3,5 wordt "3,5". Sinds v1.9.0 kan een speler een
 // halve blok halen — hij valt in of gaat eruit midden in een blok.
 function planBlokTekst(n) {
@@ -3381,8 +3406,11 @@ async function matchZetVerborgen(id, verbergen, inVenster) {
 
 // ----- Uitslag ingeven (wedstrijd die al gespeeld is, zonder live opvolging) -----
 let qrScorers = {};
+// Staat het vinkje "speelminuten volgens het plan" aan? Leeft enkel zolang dit venster open is; bij
+// het openen begint het altijd uit, zodat niemand het per ongeluk twee wedstrijden na elkaar meeneemt.
+let qrPlanMin = false;
 function modalQuickResult() {
-  const m = match; qrScorers = {};
+  const m = match; qrScorers = {}; qrPlanMin = false;
   // GESPEELD ZONDER UITSLAG (Tim, 24-08-2026). Bij een vriendschappelijke noteert niemand de score,
   // en dan bleef de wedstrijd voor eeuwig als "niet afgesloten" gevlagd. Hier kan je ze afsluiten
   // met "– . –". Bewust in ditzelfde venster: het is dezelfde vraag ("wat was de uitslag?") en zo is
@@ -3405,9 +3433,18 @@ function modalQuickResult() {
   // regel van 29-08-2026 is het antwoord altijd hetzelfde en hangt het niet meer van het plan af:
   // geen speelminuten. Eén vaste tekst dus, met erbij wat er wél meetelt — anders leest "geen
   // speelminuten" als "deze wedstrijd telt niet mee", en dat klopt niet.
-  const planUitleg = heeftSelectie(m)
-    ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px">${icI(IC.timer)} <b>Er komen geen speelminuten bij.</b> Niemand volgde de klok, dus wie hoeveel speelde is niet te berekenen — ook niet uit een wedstrijdplan. <b>Wel meegeteld:</b> de selectie, de doelpunten en de assists die je hier ingeeft.</p>`
-    : '';
+//
+  // SINDS v2.12.0 MAG JE ZE WÉL VASTLEGGEN, als je dat zelf aanvinkt (Tim, 17-10-2026). Dan staat er
+  // een vinkje in plaats van de vaste tekst. Enkel wanneer er een echt plan is — zonder opstelling of
+  // blokduur valt er niets vast te leggen, en dan blijft de oude uitleg staan.
+  const magPlan = heeftSelectie(m) && heeftPlanMinuten(m);
+  const planUitleg = !heeftSelectie(m) ? ''
+    : magPlan
+    ? `<label class="chkrow" style="display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px;cursor:pointer">
+        <input type="checkbox" id="qr-planmin" ${qrPlanMin ? 'checked' : ''} onchange="qrPlanMin=this.checked">
+        <span style="flex:1;min-width:0;font-size:12px;color:var(--txt2)">${icI(IC.timer)} <b>Speelminuten volgens het plan bewaren.</b> Niemand volgde de klok, dus deze minuten zijn <b>gepland en niet gemeten</b>. Vink je dit aan, dan tellen ze mee in de cijfers, met overal de vermelding dat ze uit het plan komen. Laat je het uit, dan staat iedereen op 0'.</span>
+      </label>`
+    : `<p style="font-size:12px;color:var(--txt2);margin:0 0 14px;padding:8px 10px;background:var(--bg2,#f4f6f8);border-radius:8px">${icI(IC.timer)} <b>Er komen geen speelminuten bij.</b> Niemand volgde de klok, dus wie hoeveel speelde is niet te berekenen — en er staat geen wedstrijdplan waaruit we ze konden halen. <b>Wel meegeteld:</b> de selectie, de doelpunten en de assists die je hier ingeeft.</p>`;
   // THUISPLOEG EERST, ook hier (Tim, 28-08-2026). De invulvelden stonden altijd met de eigen ploeg
   // links, terwijl de hele app de score in thuisploeg-eerst volgorde schrijft (zie scoreTxt en het
   // scorebord). Bij een uitwedstrijd tikte je dus 3 in het linkerveld en zei de knop eronder "1-3" —
@@ -3470,7 +3507,18 @@ function qrKnopBij() {
 // speelminuten (zie calcMinutes in views-account.js). Wissen en niet gewoon laten staan, zodat een
 // wedstrijd die je vóór die datum al zo afsloot en nu opnieuw afsluit, ook echt schoon wordt.
 function _wisPlanMinuten(m) {
-  delete m.planMinuten; delete m.minutenVolgensPlan;
+  delete m.planMinuten; delete m.minutenVolgensPlan; delete m.planMinutenGekozen;
+}
+// Vinkje aan: de minuten van het plan vastleggen. Vinkje uit: alles wissen, zoals voordien.
+// Eén plek voor allebei de wegen door saveQuickResult (met en zonder uitslag), zodat ze niet uit
+// elkaar kunnen lopen.
+function _zetPlanMinuten(m, aan) {
+  _wisPlanMinuten(m);
+  if (!aan) return;
+  const mins = planMinutenUitPlan(m);
+  if (!Object.keys(mins).length) return;    // niets te bewaren: dan ook geen vlag die iets belooft
+  m.planMinuten = mins;
+  m.planMinutenGekozen = true;
 }
 async function saveQuickResult(zonderUitslag) {
   // Zonder uitslag: geen score, geen scorers, geen doelpunt-events. De eerder ingevoerde
@@ -3485,7 +3533,7 @@ async function saveQuickResult(zonderUitslag) {
     match.events = (match.events || []).filter(e => !e.quick);
     recomputeScore(match);
     match.geenUitslag = true;
-    _wisPlanMinuten(match);
+    _zetPlanMinuten(match, qrPlanMin);
     match.status = 'done'; match.quarterStatus = 'done';
     await dbSave(match); closeModal(); go('detail', match.id);
     return;
@@ -3509,7 +3557,7 @@ async function saveQuickResult(zonderUitslag) {
   // Er is nu wél een uitslag: de vlag hoort weg. Zo is dit ook de weg terug van "– . –" naar een
   // gewone score, zonder aparte knop.
   delete match.geenUitslag;
-  _wisPlanMinuten(match);
+  _zetPlanMinuten(match, qrPlanMin);
   match.status = 'done'; match.quarterStatus = 'done';
   await dbSave(match); closeModal(); go('detail', match.id);
 }

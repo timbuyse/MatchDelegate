@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.11.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.12.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1579,6 +1579,22 @@ function matchCancelled(m) { return !!(m && m.status === 'cancelled'); }
 function isoVandaag() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// SPEELMINUTEN UIT HET PLAN (v2.12.0, Tim 17-10-2026: "is er een optie dat we aanvinken
+// 'speelminuten zoals in het plan', en dat die dan zo worden bewaard?").
+//
+// Van v1.8.0 tot v1.22.0 deed de app dit STIL en automatisch bij élke wedstrijd die je enkel
+// afsloot. Tim heeft dat op 29-08-2026 teruggedraaid, met terugwerkende kracht: "die minuten kunnen
+// gewoon niet correct berekend worden". Wat nu terugkomt is iets anders — een vinkje, dus een
+// uitspraak die jij zelf doet, en overal waar die minuten verschijnen staat erbij dat ze uit het plan
+// komen.
+//
+// DAAROM EEN NIEUW VELD EN NIET DE OUDE VLAG. Op wedstrijden uit die oude periode staat
+// `minutenVolgensPlan` nog; zou de app dáárop kijken, dan zouden die allemaal ineens weer minuten
+// tonen en was Tims beslissing van 29-08 stil ongedaan gemaakt. `planMinutenGekozen` zet enkel het
+// vinkje van nu. Oude wedstrijden blijven dus op nul tot iemand ze zelf opnieuw afsluit.
+function planMinutenAan(m) {
+  return !!(m && m.planMinutenGekozen && m.planMinuten && Object.keys(m.planMinuten).length);
 }
 function matchNietAfgesloten(m) {
   if (!m || m.status === 'done' || m.status === 'live' || matchCancelled(m)) return false;

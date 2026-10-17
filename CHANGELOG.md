@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.12.0
+
+**Bij het afsluiten kan je nu kiezen: speelminuten volgens het plan bewaren.** Sluit je een wedstrijd
+af met enkel de uitslag, dan stond iedereen tot nu op 0' — niemand volgde de klok, dus er viel niets
+te berekenen. In het venster *Uitslag ingeven* staat voortaan een vinkje **"Speelminuten volgens het
+plan bewaren"**. Vink je dat aan, dan legt de app de verdeling vast die het voorbereidingsscherm al
+toonde bij *Speeltijd volgens dit plan*.
+
+Het vinkje verschijnt alleen als er ook écht een plan is: zonder opstelling of blokduur valt er niets
+vast te leggen. Standaard staat het uit.
+
+> **Deze minuten zijn gepland, niet gemeten, en dat staat overal waar ze verschijnen.** In het
+> verslag en in de PDF staat een regel dat ze uit het wedstrijdplan komen; bij *Meeste speelminuten*
+> en *Fair-play · minste speeltijd* staat hoeveel wedstrijden het betreft. Zo kunnen ze in de
+> seizoenscijfers nooit voor gemeten tijd doorgaan.
+
+Wat niet verandert: wedstrijden die je vóór deze versie afsloot, blijven op 0'. Daar is destijds
+bewust voor gekozen, en één oud veld in de gegevens zet dat niet stilletjes terug. Wil je ze alsnog
+omzetten, vraag het dan — het wedstrijdplan staat er nog op.
+
 ## v2.11.9
 
 **De ledenlijst is weer leesbaar in donkere modus.** De namen stonden in bijna wit op een lichtgroene

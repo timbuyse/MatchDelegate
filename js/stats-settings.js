@@ -410,6 +410,9 @@ async function loadStats() {
   // wedstrijd een andere trainer dan bij de andere, dan krijgt elke naam zijn eigen regel in plaats
   // van op één hoop te belanden.
   const stafKaarten = {};   // label -> { naam, yc, rc }
+  // Hoeveel wedstrijden leveren hun speelminuten uit het PLAN? Nodig voor de regel onder de
+  // speelminuten: gepland is niet gemeten, en dat hoort erbij te staan zolang het zo is.
+  let planWedstrijden = 0;
   for (const m of sortedList) {
     // GESPEELD ZONDER UITSLAG (v1.6.0): telt mee in het aantal gespeelde wedstrijden — daarvoor
     // staat ze in deze lijst — maar levert geen doelpunten en geen W/G/V. Zonder deze uitzondering
@@ -429,7 +432,15 @@ async function loadStats() {
     // ook minuten leveren. Sinds Tims regel van 29-08-2026 niet meer — zie calcMinutes in
     // views-account.js — dus is een wedstrijd met gelopen klok weer de enige bron van speeltijd, en
     // ook de enige noemer voor de fair-play-gemiddelden.)
-    const heeftMinuten = gemeten;
+    //
+    // SINDS v2.12.0 KOMT ER EEN TWEEDE BRON BIJ, maar enkel wanneer jij ze zelf aanvinkt bij het
+    // afsluiten: de minuten van het wedstrijdplan. Die tellen mee — ook als noemer, anders zou zo'n
+    // wedstrijd ieders fair-play-gemiddelde verdunnen terwijl er wél speeltijd geregistreerd staat.
+    // Dat ze gepland zijn en niet gemeten, staat bij elk scherm waar ze verschijnen; zie planMinutenAan
+    // in core.js en de regel onder de speelminutenlijst hieronder.
+    const uitPlan = typeof planMinutenAan === 'function' && planMinutenAan(m);
+    const heeftMinuten = gemeten || uitPlan;
+    if (uitPlan) planWedstrijden++;
     // ALLEEN GEMETEN WEDSTRIJDEN (audit 25-08-2026). De ploegteller nam élke wedstrijd zonder
     // tegendoel mee, ook een "Snel resultaat" — maar de keeperregels eisen ms > 0, wat bij een
     // snelinvoer nooit waar is. Op dezelfde kaart stond dan "Ploeg 3/8" met keeperrijen die samen op
@@ -573,6 +584,12 @@ async function loadStats() {
   // eerlijkheids-signaal. Wie op ✗/niets stond zit niet in squad en blijft er terecht buiten.
   // Fair-play deelt echter door `timed` (wedstrijden waarin er ook echt tijd geregistreerd is): een
   // "Snel resultaat" heeft een score maar geen speeltijd en verlaagde zo het gemiddelde van iedereen.
+  // GEPLAND IS NIET GEMETEN, en dat hoort te staan waar de cijfers staan (Tims keuze, 17-10-2026:
+  // meetellen, maar overal gemerkt). Enkel wanneer er zulke wedstrijden in dit seizoen zitten —
+  // anders is het een waarschuwing over iets dat er niet is.
+  const planRegel = planWedstrijden
+    ? `<p style="font-size:12px;color:var(--org2);margin:0 0 8px">${icI(IC.warn)} Bij ${planWedstrijden === 1 ? 'één wedstrijd' : planWedstrijden + ' wedstrijden'} komen de speelminuten uit het <b>wedstrijdplan</b>: gepland, niet gemeten.</p>`
+    : '';
   const minutes = players.filter(p => p.squad > 0).sort((a, b) => b.ms - a.ms);
   const fairplay = players.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
@@ -709,8 +726,8 @@ async function loadStats() {
     // wanneer er ook echt iets ingevuld is — anders staat er bij elke ploeg die dit niet gebruikt een
     // leeg blok dat alleen maar vragen oproept.
     + (wijzeIets ? sect('goaltypes', `${icI(IC.goal)} Hoe de doelpunten vielen`, wijzeBody) : '')
-    + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>')
-    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: zonder gelopen klok is er niet uit af te leiden wie hoe lang speelde.</p>${fairplay.length ? fairplay.map(p=>{
+    + sect('minutes', `${icI(IC.timer)} Meeste speelminuten`, planRegel + (minutes.length ? minutes.map((p,i)=>`<div class="stat-row" ${prow(p)}><span class="stat-rank">${i+1}</span><span style="flex:1">${esc(p.name)}<small style="color:var(--txt2);display:block">${p.mp > 0 ? `${p.mp} ${p.mp===1?'wedstrijd':'wedstrijden'} · gem. ${Math.round(p.ms/p.mp/60000)}'/match` : `${p.squad}× geselecteerd · niet gespeeld`}</small></span><span style="font-weight:800">${playedMin(p.ms)}'</span></div>`).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'))
+    + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: zonder gelopen klok is er niet uit af te leiden wie hoe lang speelde.</p>${planRegel}${fairplay.length ? fairplay.map(p=>{
       // (Hier stond van v1.8.0 tot v1.22.0 ook "N× speeltijd volgens het wedstrijdplan". Die minuten
       // bestaan niet meer sinds Tims regel van 29-08-2026, dus valt het merkje weg.)
       const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');

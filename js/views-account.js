@@ -4358,6 +4358,16 @@ function effectiveOnField(m) {
 function calcMinutes(m) {
   const mins = {}, totalMs = getGameTimeMs(m), entry = {};
   for (const p of m.players) mins[p.id] = { ms: 0, absent: !!p.absent };
+  // VINKTE JE "SPEELMINUTEN VOLGENS HET PLAN" AAN, dan komen ze daarvandaan en valt de berekening
+  // hieronder weg: er is geen klok gelopen, dus er is niets te berekenen. Wie afwezig gemeld is,
+  // blijft ook hier op nul — zie de regel onderaan, die hier al toegepast is.
+  if (typeof planMinutenAan === 'function' && planMinutenAan(m)) {
+    for (const p of m.players) {
+      if (!mins[p.id]) continue;
+      mins[p.id].ms = p.absent ? 0 : (Number(m.planMinuten[p.id]) || 0);
+    }
+    return mins;
+  }
   for (const p of m.players) if (p.starting && !p.absent) entry[p.id] = 0;
   const evts = [...m.events].sort((a,b) => a.gameTimeMs - b.gameTimeMs);
   for (const e of evts) {
