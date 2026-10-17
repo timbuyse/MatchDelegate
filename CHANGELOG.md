@@ -9,6 +9,43 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.17.2
+
+**De gebruikscijfers worden niet meer opgeruimd.** Bezoeken werden na zes weken weggegooid en de
+rest na ruim een seizoen. Dat was overdreven voorzichtig: bij vijftig gebruikers groeit het met een
+paar megabyte per jaar tegenover een gratis limiet van een gigabyte, en het leest niet zwaarder —
+elk scherm haalt alleen het venster op dat het toont. Weggegooide cijfers komen nooit terug, een jaar
+later vergelijken wél.
+
+**Nieuw: *Wedstrijden per maand*, de langste geschiedenis die er is.** Die loopt terug tot de eerste
+wedstrijd die ooit ingevoerd werd, en zegt eigenlijk meer dan hoe vaak iemand de app opendeed: een
+ploeg die twintig wedstrijden invoerde, gebruikt de app.
+
+Je ziet per maand hoeveel wedstrijden er afgewerkt werden, met het donkere deel voor wat **live
+gevolgd** werd. Daaronder per ploeg het totaal, hoeveel daarvan live, en de eerste en laatste
+wedstrijd. Een ploeg die nog nooit live volgde, staat op nul in het rood.
+
+> **Dit staat achter een knop**, en dat is met opzet: het haalt de wedstrijden van elke ploeg van
+> elke club op. Dat is een paar MB, dus het hoort niet bij elk bezoek aan dit scherm te gebeuren.
+
+Tornooiwedstrijden blijven erbuiten: een tornooidag is vijf korte wedstrijdjes en zou het beeld
+vertekenen.
+
+---
+
+## v2.17.1
+
+**Er staat nu ook geschiedenis op *Beheer → Gebruik*, en die loopt terug tot augustus 2026.** De
+tellers hierboven kijken kort terug: bezoeken worden na zes weken opgeruimd, en wat mensen doen wordt
+pas geteld sinds de regels gepubliceerd zijn. Maar de app bewaart sinds augustus per account het
+laatste moment dat iemand ze opende, en daar was nog niets mee gedaan.
+
+Nieuw blok **Wanneer ze voor het laatst binnenkwamen**: deze week, deze maand, één tot drie maanden
+geleden, langer dan drie maanden. Plus de groep die het interessantst is — **wie zich registreerde en
+de app daarna nooit meer opende**. Die laatste twee kleuren rood.
+
+---
+
 ## v2.17.0
 
 **Vijf dingen erbij op *Beheer → Gebruik*, zonder dat er iets nieuws gemeten wordt** — het zat al in

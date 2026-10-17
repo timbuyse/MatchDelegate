@@ -1601,25 +1601,67 @@ function telNuOnline(alles) {
   }
   return mensen.size;
 }
-// Oude dagen opruimen. De tak groeit met één briefje per bezoek en niemand kijkt ooit verder terug
-// dan het overzicht toont; zonder dit blijft er jarenlang van alles staan. Enkel de eigenaar mag dit
-// (hij is ook de enige die hier komt), en het gebeurt stil op de achtergrond: mislukt het, dan is er
-// niets aan de hand — de cijfers hierboven kijken toch enkel naar de laatste dertig dagen.
-async function opkuisGebruik() {
-  if (!isOwner || !fbdb) return;
-  const grens = gebruikDag(presenceNu() - GEBRUIK_BEWAAR_DAGEN * 86400000);
+// ---- DE ECHTE GESCHIEDENIS: DE WEDSTRIJDEN ZELF (v2.17.2) ----
+// Tim: "kan je de historische gegevens daar ook in steken als die er zijn." De tellers op dit scherm
+// beginnen pas bij hun eigen publicatie, maar de WEDSTRIJDEN staan er al sinds de app bestaat. En ze
+// zeggen eigenlijk meer: een ploeg die twintig wedstrijden invoerde, gebruikt de app — hoe vaak
+// iemand ze opendeed is daar maar een afgeleide van.
+//
+// ACHTER EEN KNOP, want dit is een ZWARE lezing: de wedstrijden van élke ploeg van élke club, en dat
+// is bij Tims cijfers al gauw een paar MB. Dat hoort niet bij elk bezoek aan dit scherm te gebeuren.
+// Bewust lichter dan clubExportOphalen: enkel de matches-tak, niet de hele ploeg (daar hangen de
+// kernen aan, en die hebben we hier niet nodig).
+let _geschiedenis = null;      // null = nog niet opgehaald
+let _geschiedenisBezig = false;
+let _geschiedenisFout = '';
+const GESCH_MAANDEN = 24;      // hoe ver de grafiek terugkijkt
+async function gebruikGeschiedenisOphalen() {
+  if (_geschiedenisBezig || !isOwner || !fbdb) return;
+  _geschiedenisBezig = true; _geschiedenisFout = '';
+  loadGebruikView();
   try {
-    const oud = (await fbOnce(fbdb.ref('usage').orderByKey().endAt(grens).limitToFirst(10))).val() || {};
-    for (const dag of Object.keys(oud)) { try { await fbdb.ref('usage/' + dag).remove(); } catch (e) {} }
-  } catch (e) {}
-  // De dadentak blijft veel langer staan dan de sessieteller: daarmee vergelijk je twee seizoenen.
-  // Ze is ook veel kleiner — één briefje per persoon per daad per dag i.p.v. per bezoek.
-  const dGrens = gebruikDag(presenceNu() - DAAD_BEWAAR_DAGEN * 86400000);
-  try {
-    const oud = (await fbOnce(fbdb.ref('daden').orderByKey().endAt(dGrens).limitToFirst(10))).val() || {};
-    for (const dag of Object.keys(oud)) { try { await fbdb.ref('daden/' + dag).remove(); } catch (e) {} }
-  } catch (e) {}
+    const clubs = (await fbOnce(fbdb.ref('clubs'))).val() || {};
+    const tids = new Set();
+    Object.values(clubs).forEach(c => Object.keys((c && c.teams) || {}).forEach(t => tids.add(t)));
+    const perPloeg = {}, perMaand = {};
+    for (const tid of tids) {
+      let wed = {};
+      try { wed = (await fbOnce(fbdb.ref('teams/' + tid + '/matches'))).val() || {}; }
+      catch (e) { continue; }   // geen leesrecht of leesfout: die ploeg valt weg, de rest niet
+      Object.values(wed).filter(Boolean).forEach(m => {
+        if (!m.date || m.tournamentId) return;   // zonder datum valt er niets te plaatsen; tornooien apart
+        const p = perPloeg[tid] || (perPloeg[tid] = { naam: m.teamName || '', n: 0, live: 0, eerste: '', laatste: '' });
+        if (m.teamName) p.naam = m.teamName;
+        if (m.status !== 'done') return;         // enkel wat écht gespeeld is
+        p.n++;
+        if (getGameTimeMs(m) > 0) p.live++;
+        if (!p.eerste || m.date < p.eerste) p.eerste = m.date;
+        if (m.date > p.laatste) p.laatste = m.date;
+        const ym = String(m.date).slice(0, 7);
+        const mnd = perMaand[ym] || (perMaand[ym] = { n: 0, live: 0 });
+        mnd.n++; if (getGameTimeMs(m) > 0) mnd.live++;
+      });
+    }
+    _geschiedenis = { perPloeg, perMaand, ploegen: tids.size };
+  } catch (e) {
+    _geschiedenisFout = (e && e.message) || 'Het ophalen is niet gelukt.';
+  } finally {
+    _geschiedenisBezig = false;
+    loadGebruikView();
+  }
 }
+// ER WORDT NIETS MEER OPGERUIMD (v2.17.2, Tim: "waarom gegevens vergeten na X weken? Hou die
+// gewoon"). Hier stond een opkuis die dagen ouder dan zes weken (bezoeken) of ruim een seizoen
+// (daden) weggooide. Die voorzichtigheid hield geen steek toen ik de rekening maakte:
+//   · bij vijftig gebruikers groeit de bezoekteller met een paar MB per jaar, de dadentak met minder,
+//     tegenover een gratis limiet van een gigabyte — zelfs bij vijfhonderd gebruikers duurt het jaren;
+//   · en het KOST niets bij het lezen, want elk scherm haalt enkel het venster op dat het toont
+//     (orderByKey().startAt(...)). Meer bewaren maakt het ophalen dus niet zwaarder.
+// Weggegooide gegevens komen nooit terug; een jaar later vergelijken wél. GEEN opkuis meer bijbouwen
+// zonder Tim te vragen — dit is zijn beslissing van 17-10-2026.
+//
+// De functie blijft bestaan omdat loadGebruikView haar aanroept; ze doet enkel niets meer.
+async function opkuisGebruik() { /* bewust leeg — zie de uitleg hierboven */ }
 async function loadGebruikView() {
   const el = document.getElementById('gebruik-content');
   if (!el || !isOwner || !fbdb) return;
@@ -1653,7 +1695,11 @@ async function loadGebruikView() {
   // Terugval: "laatst actief" bewaart per account het laatste bezoek. Voor het AANTAL BEZOEKERS in
   // een periode is dat even juist (wie deze week kwam, heeft een datum van deze week); voor sessies
   // en voor gasten kan het niets zeggen. Beter dan een leeg scherm zolang de regels niet live zijn.
-  if (ruw === null) { try { _lastSeenVal = (await fbOnce(fbdb.ref('lastSeen'))).val() || {}; } catch (e) { _lastSeenVal = {}; } }
+  // ALTIJD LEZEN SINDS v2.17.1 (Tim: "kan je de historische gegevens daar ook in steken als die er
+  // zijn"). Deze tak loopt terug tot v1.19.0 (augustus 2026) en is de ENIGE echte geschiedenis die de
+  // app over haar gebruikers heeft: de sessieteller bewaart maar zes weken en de dadentak begint pas
+  // vandaag. Eén getal per account, dus ook bij vijftig accounts is het een kleine lezing.
+  try { _lastSeenVal = (await fbOnce(fbdb.ref('lastSeen'))).val() || {}; } catch (e) { _lastSeenVal = {}; }
   const lsTijden = ruw === null ? Object.values(_lastSeenVal).map(Number).filter(Boolean) : [];
 
   const kolTitel = (t, sub) => `<div style="font-size:11px;color:var(--txt2)">${sub}</div><div style="font-size:22px;font-weight:800;line-height:1.15">${t}</div>`;
@@ -1740,6 +1786,86 @@ async function loadGebruikView() {
   // NIEUW DEZE WEEK: wie er deze week was en de drie weken daarvóór niet. Berekend binnen de dertig
   // dagen die we toch al inlazen, dus zonder extra lezing. Pas zinvol wanneer er ook ouder gebruik te
   // zien is — anders is iederéén "nieuw" en zegt het getal niets. Vandaar de laatste voorwaarde.
+  // ---- DE GESCHIEDENIS DIE ER WÉL IS (v2.17.1) ----
+  // De sessieteller bewaart zes weken, de dadentak begint pas bij het publiceren van haar regels.
+  // `lastSeen` loopt terug tot augustus 2026: één getal per account, het laatste moment dat hij de
+  // app opende. Daarmee is wél te zien wie er afgehaakt is — en dat is precies de vraag die je bij
+  // een piloot stelt. Geen namen op dit scherm: dat staat bij "Alle gebruikers".
+  // Wie in de accountlijst staat maar nergens in lastSeen, heeft de app na het registreren nooit
+  // geopend. Dat is een eigen groep en de interessantste van allemaal.
+  const historieBlok = (() => {
+    const tijden = Object.entries(_lastSeenVal || {}).filter(([uid]) => uid !== negeer)
+      .map(([, t]) => Number(t)).filter(Boolean);
+    if (!tijden.length) return '';
+    const dag = 86400000;
+    const groep = [
+      ['Deze week', t => t >= nu - 7 * dag],
+      ['Deze maand', t => t >= nu - 30 * dag && t < nu - 7 * dag],
+      ['Eén tot drie maanden geleden', t => t >= nu - 92 * dag && t < nu - 30 * dag],
+      ['Langer dan drie maanden geleden', t => t < nu - 92 * dag],
+    ].map(([lbl, f]) => ({ lbl, n: tijden.filter(f).length })).filter(r => r.n);
+    // De accounts die nergens in lastSeen staan: geregistreerd en nooit teruggekomen.
+    const nooit = (accounts != null) ? Math.max(0, accounts - tijden.length - (negeer && (_lastSeenVal || {})[negeer] ? 1 : 0)) : 0;
+    const tot = tijden.length + nooit;
+    const rij = (lbl, n, rood) => `<div class="stat-row"><span style="flex:1${rood ? ';color:var(--rd)' : ''}">${lbl}</span><span style="font-weight:800;min-width:40px;text-align:right">${n}</span><span style="min-width:52px;text-align:right;color:var(--txt2);font-size:13px">${Math.round(n / tot * 100)}%</span></div>`;
+    return `<div class="sec" style="margin-top:20px">${icI(IC.history)} Wanneer ze voor het laatst binnenkwamen</div>
+    <div class="card">
+      ${groep.map(r => rij(r.lbl, r.n, /Langer/.test(r.lbl))).join('')}
+      ${nooit ? rij('Nooit geopend na het registreren', nooit, true) : ''}
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Dit loopt terug tot <b>augustus 2026</b>, verder dan de tellers hierboven: die beginnen pas bij het publiceren van hun regels. Vanaf nu wordt er niets meer opgeruimd, dus die tellers groeien mee.</p>`;
+  })();
+
+  // De wedstrijdgeschiedenis: achter een knop, want het leest élke ploeg van élke club.
+  const geschBlok = (() => {
+    const kop = `<div class="sec" style="margin-top:20px">${icI(IC.calendar)} Wedstrijden per maand</div>`;
+    if (_geschiedenisBezig) return kop + `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">${icI(IC.timer)} Bezig met ophalen…</p></div>`;
+    if (!_geschiedenis) return kop + `<div class="card">
+      <p style="margin:0 0 10px;font-size:13px;color:var(--txt2)">De tellers hierboven beginnen pas bij hun eigen publicatie. De <b>wedstrijden</b> staan er al sinds het begin — en die zeggen eigenlijk meer: een ploeg die twintig wedstrijden invoerde, gebruikt de app.</p>
+      <p style="margin:0 0 10px;font-size:12px;color:var(--txt2)">${icI(IC.warn)} Dit haalt de wedstrijden van <b>elke ploeg van elke club</b> op. Dat is een zware lezing van een paar MB, dus het gebeurt enkel wanneer je het vraagt.</p>
+      ${_geschiedenisFout ? `<p style="margin:0 0 10px;font-size:13px;color:var(--rd)">${esc(_geschiedenisFout)}</p>` : ''}
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="gebruikGeschiedenisOphalen()">${icI(IC.history)} Geschiedenis ophalen</button>
+    </div>`;
+    const { perPloeg, perMaand } = _geschiedenis;
+    const maanden = Object.keys(perMaand).sort();
+    if (!maanden.length) return kop + `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Geen afgewerkte wedstrijden met een datum gevonden.</p></div>`;
+    // Alle maanden tussen de oudste en nu opvullen, zodat een stille maand een gat is en geen
+    // ontbrekende balk — zelfde reden als bij het verloop hierboven.
+    const reeks = [];
+    const start = new Date(maanden[0] + '-01T12:00:00'), eind = new Date(nu);
+    let cur = new Date(eind.getFullYear(), eind.getMonth() - (GESCH_MAANDEN - 1), 1);
+    if (cur < start) cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cur <= eind) {
+      const ym = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
+      const v = perMaand[ym] || { n: 0, live: 0 };
+      reeks.push({ label: maandLabel(ym), mensen: v.n, werk: v.live });
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+    const tot = Object.values(perMaand).reduce((a, v) => a + v.n, 0);
+    const totLive = Object.values(perMaand).reduce((a, v) => a + v.live, 0);
+    const rijen = Object.entries(perPloeg).map(([, p]) => p).filter(p => p.n)
+      .sort((a, b) => b.n - a.n || ploegNaamVgl(a.naam || '', b.naam || ''));
+    const kort = iso => iso ? iso.split('-').reverse().slice(0, 2).join('/') + '/' + iso.slice(2, 4) : '—';
+    return kop + `<div class="card">
+      ${gebruikGrafiekHtml(reeks)}
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt2)">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.35;margin-right:4px"></span>wedstrijden</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>live gevolgd</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>${tot}</b> afgewerkte ${tot === 1 ? 'wedstrijd' : 'wedstrijden'} over ${_geschiedenis.ploegen} ${_geschiedenis.ploegen === 1 ? 'ploeg' : 'ploegen'}, waarvan er <b>${totLive}</b> live gevolgd ${totLive === 1 ? 'werd' : 'werden'}. Tornooiwedstrijden staan er niet in.</p>
+    ${rijen.length ? `<div class="card" style="margin-top:10px">
+      <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
+        <div style="flex:1"></div><div style="min-width:52px;text-align:right">totaal</div><div style="min-width:52px;text-align:right">live</div>
+      </div>
+      ${rijen.map(p => `<div class="stat-row" style="align-items:flex-start">
+        <span style="flex:1;min-width:0">${esc(p.naam || 'Onbekende ploeg')}<small style="color:var(--txt2);display:block">${esc(kort(p.eerste))} — ${esc(kort(p.laatste))}</small></span>
+        <span style="min-width:52px;text-align:right;font-weight:800">${p.n}</span>
+        <span style="min-width:52px;text-align:right;color:${p.live ? 'var(--txt2)' : 'var(--rd)'}">${p.live}</span>
+      </div>`).join('')}
+    </div>` : ''}`;
+  })();
+
   const nieuwRegel = (() => {
     if (!daadTel) return '';
     const dezeWeek = daadTel[1].dagenVan, maand = daadTel[2].dagenVan;
@@ -1831,7 +1957,9 @@ async function loadGebruikView() {
     ${u('Wie het zijn.', 'Iedereen telt één keer, als het hoogste wat hij is: wie beheerder is van de ene ploeg en kijker van de andere, staat enkel bij de beheerders.')}
     ${u('Hoe vaak ze terugkomen.', 'Op hoeveel verschillende dagen iemand de app opende in de laatste dertig. Eén dag is iemand die kwam kijken; vijf of meer is iemand die ze echt gebruikt.')}
     ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul. <b>Laatst</b> is de laatste dag waarop er iets gebeurde; vanaf veertien dagen kleurt dat rood.')}
-    ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. Bezoeken ouder dan zes weken worden opgeruimd, de rest na ruim een seizoen.')}
+    ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. <b>Er wordt niets meer opgeruimd</b>: wat ooit geteld is, blijft staan, zodat je over een jaar kan vergelijken.')}
+    ${u('Wanneer ze voor het laatst binnenkwamen.', 'Dit ene blok loopt wél terug tot augustus 2026: de app bewaart per account het laatste moment dat hij ze opende. Wie in de accountlijst staat maar daar nergens in, heeft de app na het registreren nooit meer geopend.')}
+    ${u('Wedstrijden per maand.', 'Dat is de langste geschiedenis die er is: ze loopt terug tot de eerste wedstrijd die ooit ingevoerd werd. Het donkere deel is wat live gevolgd werd; de rest kreeg enkel een uitslag. Per ploeg staan de eerste en de laatste wedstrijd erbij. Tornooiwedstrijden blijven erbuiten, want een tornooidag is vijf korte wedstrijdjes en zou het beeld vertekenen.')}
   </details>`;
 
   el.innerHTML = onlineKaart + nogNiet + `<div class="card">
@@ -1853,7 +1981,8 @@ async function loadGebruikView() {
       <tbody>${rijen}</tbody>
     </table>
   </div>${noemerRegel}`
-  + daadNogNiet + daadBlok + nieuwRegel + grafiekBlok + wieBlok + terugBlok + ploegBlok + uitlegBlok;
+  + daadNogNiet + daadBlok + nieuwRegel + grafiekBlok + wieBlok + terugBlok + ploegBlok
+  + historieBlok + geschBlok + uitlegBlok;
   opkuisGebruik();
 }
 

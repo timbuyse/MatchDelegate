@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.17.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.17.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2509,7 +2509,8 @@ function schrijfLastSeen() {
 // sessie-id. "Sessies vandaag" klopt daardoor voor beide dagen, en over een week telt ze één keer.
 const GEBRUIK_STIL_MS = 30 * 60000;    // zoveel stilte → het volgende bezoek is een nieuwe sessie
 const GEBRUIK_DAGEN = 30;              // hoe ver het overzicht terugkijkt
-const GEBRUIK_BEWAAR_DAGEN = 45;       // ouder dan dit wordt opgeruimd (zie opkuisGebruik)
+// (Hier stond GEBRUIK_BEWAAR_DAGEN = 45: dagen ouder dan dat werden opgeruimd. Sinds v2.17.2 wordt
+// er niets meer weggegooid — zie de uitleg bij opkuisGebruik in views-account.js.)
 // Zelfde stilhoud-truc als bij de aanwezigheid hierboven: zolang de regels niet gepubliceerd zijn,
 // weigert de databank elke schrijfbeurt én schrijft ze daar zelf een waarschuwing bij. Eén weigering
 // volstaat om te weten dat het nog niet aanstaat; daarna zwijgt deze laag tot de volgende app-start.
@@ -2592,7 +2593,8 @@ function schrijfGebruik() {
 //
 // Wie op één dag bij twee ploegen werkt, krijgt onder elke ploeg een briefje. Dat is de bedoeling:
 // hij is die dag in allebei actief geweest.
-const DAAD_BEWAAR_DAGEN = 400;         // ruim een seizoen, zodat twee najaren te vergelijken zijn
+// (Ook DAAD_BEWAAR_DAGEN is weg sinds v2.17.2: er wordt niets meer opgeruimd. De maandweergave
+// kijkt nog altijd 400 dagen terug — dat is hoe ver ze TOONT, niet hoe lang er bewaard wordt.)
 // De vijf momenten. De volgorde is die van de trechter op het scherm: van "app open" naar "zelf iets
 // ingegeven". Een daad erbij is één regel hier plus één aanroep van schrijfDaad.
 const DADEN = {
