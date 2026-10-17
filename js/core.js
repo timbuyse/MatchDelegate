@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.14.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.15.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1857,6 +1857,20 @@ function scoreInQuarter(m, qNum) {
 // blijft leeg en de ploeg speelt met een man minder. Dat is een spelregel, geen voorkeur: overal
 // waar een opstelling, een bank of een wissel iemand het veld op stuurt, hoort dit gecheckt te
 // worden. Wordt de kaart weer verwijderd (verkeerd ingegeven), dan valt dit automatisch weg.
+// ROOD NA TWEE KEER GEEL (v2.15.0). Tim, 17-10-2026, met het wedstrijdblad van de bond ernaast:
+// "nu kunnen we 2 gele ingeven, of een rode, maar het moet een gele zijn die rood wordt."
+//
+// De app DEED dit al: een tweede gele kaart zet er sinds de audit van 25-08-2026 automatisch een rode
+// naast, met `autoSecondYellow` erop (zie logCard). Wat ontbrak, is dat je het nergens kon ZIEN — dat
+// merkje werd enkel gebruikt om de twee aan elkaar te koppelen bij het wissen. In de tijdlijn stonden
+// een gele en een rode kaart als twee losse dingen, en op het blad van de bond is het één icoon.
+//
+// Vandaar deze ene vraag, die elke plek stelt die een kaart toont. Géén nieuw soort event: alles wat
+// op 'red_card' filtert (de uitsluiting, de speelminuten, de statistieken, de PDF) blijft werken
+// zoals het werkte. Een wedstrijd van vóór deze versie heeft dat merkje niet en leest dus gewoon als
+// een rode kaart — wat ze toen ook was.
+function isTweedeGeel(e) { return !!(e && e.type === 'red_card' && e.autoSecondYellow); }
+function roodWoord(e) { return isTweedeGeel(e) ? 'Rood na twee keer geel' : 'Rode kaart'; }
 function uitgeslotenIds(m) {
   return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));
 }

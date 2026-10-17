@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.15.0
+
+**Een tweede gele kaart leest nu overal als *rood na twee keer geel*.** De app zette er al vanzelf een
+rode kaart naast zodra je iemand een tweede geel gaf, maar dat zag je nergens terug: in de tijdlijn
+stonden een gele en een rode kaart als twee losse dingen, terwijl het wedstrijdblad van de bond er
+één geel-rood icoon van maakt.
+
+Nu staat het er met zoveel woorden — in het verslag, onder het velddiagram, in de PDF en in de export
+— met de twee kaartjes naast elkaar.
+
+**En je ziet het vóór je tikt.** Op het kaartenscherm staat bij een speler die al geel heeft in het
+rood **2e geel = rood**. Zo weet je dat die ene tik een uitsluiting is, en grijp je niet naar de rode
+knop omdat het blad een rood icoon toont — dat laatste gaf een losse rode kaart die nergens zei dat
+ze uit twee gele kwam.
+
+**Van het wedstrijdblad komt het ook zo binnen.** Een uitsluiting na twee gele kaarten krijgt hetzelfde
+merkje als wanneer je ze zelf aan de lijn ingeeft. De eerste gele staat als eigen regel op het blad en
+komt gewoon apart mee.
+
+Wat niet verandert: zo'n uitsluiting telt nog altijd als één gele en één rode kaart in de cijfers —
+precies zoals de bond ze noteert — en de speler verlaat het veld zonder vervanging.
+
+---
+
 ## v2.14.0
 
 **De kaarten van het wedstrijdblad kan je nu ook overnemen bij een wedstrijd die je zelf bijhield, en

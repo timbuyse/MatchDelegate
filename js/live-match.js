@@ -3007,6 +3007,8 @@ function exportMatchCSV() {
       if (e.scored === false) extraInfo = 'Gemist';
       if (e.isOwnGoal) extraInfo = 'Owngoal';
       if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
+      // Ook in de export zichtbaar dat deze rode kaart een tweede geel was — zie isTweedeGeel.
+      if (isTweedeGeel(e)) extraInfo += (extraInfo ? ' · ' : '') + 'Tweede gele kaart';
     }
     if (e.type === 'note' && e.text) extraInfo = e.text;
     // Hoe het doelpunt viel, achteraan in dezelfde kolom (zie GOAL_WIJZEN in core.js). Hier BUITEN de
@@ -6394,7 +6396,19 @@ function modalCard(color) {
            ALS EEN KAARTJE IN HET RASTER en niet als knop eronder (Tims tweede opmerking): het is één van
            de dingen waaruit je kiest, dus het hoort op één tik te staan zoals de spelers — niet als een
            bevestiging die een ander soort handeling suggereert. Achteraan, want het is de uitzondering. */ ''}
-      ${pgGrid(on.map(p=>`<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${bankTag(keuze.bank, p)}</button>`).join('')
+      ${/* WIE AL GEEL HEEFT, STAAT ERBIJ (Tim, 17-10-2026: "het moet een gele zijn die rood wordt").
+           De app zet er bij een tweede geel al vanzelf een rode kaart naast, maar dat zag je pas ná
+           de tik — en wie het wedstrijdblad van de bond naleest, ziet daar één geel-rood icoon staan
+           en grijpt dan naar de RODE knop. Dat levert een losse rode kaart op die nergens zegt dat ze
+           uit twee gele kwam. Met dit merkje weet je vóór de tik wat er gaat gebeuren.
+           Enkel op de gele knop: bij een rechtstreekse rode kaart verandert er niets. */ ''}
+      ${pgGrid(on.map(p=>{
+        const geel = color === 'yellow' ? match.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length : 0;
+        // ROOD en niet var(--org): die laatste is in deze app BLAUW (historische naam), en blauw zegt
+        // hier niets. Rood zegt precies wat de volgende tik doet. Enkel het merkje kleurt mee; de knop
+        // zelf houdt zijn gewone rand, anders leest ze als geblokkeerd terwijl je er juist op moet.
+        return `<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${geel ? `<span style="font-size:9px;font-weight:800;color:var(--rd);border:1px solid var(--rd);border-radius:5px;padding:0 4px;white-space:nowrap">${geel === 1 ? '2e geel = rood' : 'heeft al rood'}</span>` : bankTag(keuze.bank, p)}</button>`;
+      }).join('')
         + ['trainer', 'afgevaardigde'].map(wie => `<button type="button" onclick="logCardStaf('${color}','${wie}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px">
              <span style="font-size:13px;font-weight:900;color:var(--txt);line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wie === 'trainer' ? 'Trainer' : 'Afgev.'}</span>
              <span style="font-size:9px;font-weight:800;color:var(--txt2);border:1px solid var(--bdr);border-radius:5px;padding:0 4px">staf</span>

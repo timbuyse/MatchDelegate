@@ -4845,7 +4845,8 @@ function evtLabelBasis(e, m, kort) {
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
-    case 'red_card': return `${icI(IC.cardR)} Rode kaart ${pn(e.playerId)}`;
+    // Bij rood na twee keer geel staan de twee kaartjes naast elkaar, zoals op het blad van de bond.
+    case 'red_card': return `${isTweedeGeel(e) ? icI(IC.cardY) + icI(IC.cardR) : icI(IC.cardR)} ${roodWoord(e)} ${pn(e.playerId)}`;
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
@@ -4909,7 +4910,7 @@ function evtLabelPlainBasis(e, m) {
     case 'posSwap': return `${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
     case 'posSwapReeks': return `${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
     case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
-    case 'red_card': return `Rode kaart ${pName(m,e.playerId)}`;
+    case 'red_card': return `${roodWoord(e)} ${pName(m,e.playerId)}`;
     case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'red_card_them': return `Rode kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'yellow_card_trainer': return `Gele kaart ${stafZin(e, m)}`;
@@ -5780,7 +5781,7 @@ function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
       ${rijen.map(w => w.soort === 'sub'
         ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`
         : w.soort === 'kaart'
-        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-kaart"><span class="ic-i">${w.rood ? IC.cardR : IC.cardY}</span> ${esc(w.naam)}</span></div>`
+        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-kaart"><span class="ic-i">${w.tweede ? IC.cardY : ''}</span><span class="ic-i">${w.rood ? IC.cardR : IC.cardY}</span> ${esc(w.naam)}${w.tweede ? ' <span style="color:var(--txt2)">· 2e geel</span>' : ''}</span></div>`
         : `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-pos"><span class="ic-i">${IC.compass}</span> ${esc(w.tekst)}</span></div>`).join('')}
     </div>`;
   })()}
@@ -5909,6 +5910,7 @@ function periodCardList(m, qNum) {
       min: e.atBreak ? 'rust' : eventMinTijd(e, m),
       ms: e.gameTimeMs || 0,
       rood: e.type === 'red_card' || e.type === 'red_card_trainer',
+      tweede: isTweedeGeel(e),   // rood na twee keer geel — zie isTweedeGeel in core.js
       // Met de naam uit de wedstrijdinfo als die er is: "Jan Peeters (trainer)", anders "Trainer".
       naam: staf(e.type) ? stafLabel(e, m) : fieldName(m, e.playerId),
     }));

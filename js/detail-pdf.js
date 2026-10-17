@@ -645,7 +645,9 @@ function selectieBezwaren(m, p, mins) {
   for (const e of (m.events || [])) {
     for (const veld of SEL_EVT_VELDEN) {
       if (!e[veld] || e[veld] !== p.id) continue;
-      woorden.add(veld === 'assistId' ? 'assist' : (SEL_EVT_WOORD[e.type] || 'gebeurtenis'));
+      woorden.add(veld === 'assistId' ? 'assist'
+        : isTweedeGeel(e) ? 'rood na twee keer geel'
+        : (SEL_EVT_WOORD[e.type] || 'gebeurtenis'));
       break;
     }
   }
@@ -1679,7 +1681,9 @@ async function pdfMatchBody(doc, L, m) {
           })).map(r => ({ ...r, n: Math.max(r.uit.length, r.in.length) }));
           const poswRijen = (onder.posw || []).map(w => ({ soort: 'pos', min: w.min, ms: w.ms || 0, regels: doc.splitTextToSize(w.tekst, Math.max(benchSize * 6, imgW - pad * 2.8 - minW - benchSize)) }))
             .map(r => ({ ...r, n: r.regels.length }));
-          const kaartRijen = (onder.kaarten || []).map(k => ({ soort: 'kaart', min: k.min, ms: k.ms || 0, rood: k.rood, naam: k.naam, n: 1 }));
+          // `· 2e geel` achter de naam bij rood na twee keer geel: in de PDF is er geen plaats voor een
+          // tweede kaartje naast het eerste, en dit zegt hetzelfde in drie tekens.
+          const kaartRijen = (onder.kaarten || []).map(k => ({ soort: 'kaart', min: k.min, ms: k.ms || 0, rood: k.rood, naam: k.naam + (k.tweede ? ' · 2e geel' : ''), n: 1 }));
           // Alle soorten door elkaar op tijd, net als op het scherm: een positiewissel op 8' hoort
           // boven een wissel op 12', en een kaart op 10' daartussen.
           const alleRijen = [...rijen, ...poswRijen, ...kaartRijen].sort((a, b) => (a.ms || 0) - (b.ms || 0));

@@ -495,6 +495,9 @@ function vvKaartRijen(lz) {
   return uit.sort((a, b) => (a.minuut || 0) - (b.minuut || 0));
 }
 function vvKaartWoord(soort) { return soort === 'geel' ? 'gele kaart' : soort === 'rood2' ? 'rood na twee keer geel' : 'rode kaart'; }
+// Bij het vergelijken telt 'rood2' als een RODE kaart (dat is wat er in de app komt te staan), dus
+// deze ene vraag staat apart van het woord hierboven.
+function vvIsRood(soort) { return soort !== 'geel'; }
 
 // ---- DE KAARTEN LOS VAN DE UITSLAG (v2.14.0) ----
 // Tim, 17-10-2026: "gele kaarten die op het wedstrijdblad staan worden meestal niet overgenomen,
@@ -954,7 +957,7 @@ function vvVoorstelHtml() {
   if (lz.strafschoppen) waar.push('Deze wedstrijd werd beslist na <b>strafschoppen</b>. Die reeks nemen we niet over — geef ze zelf in, dan telt ze mee voor winst of verlies.');
   if (!magUitslag && getGameTimeMs(m) > 0) waar.push('Deze wedstrijd is <b>live gevolgd</b>: de uitslag die je toen ingaf is de waarheid, dus die laten we ongemoeid. De <b>kaarten</b> kan je hier wél aanvullen — een kaart mis je aan de zijlijn makkelijker dan een doelpunt, en wat er al in staat is hierboven al uitgevinkt.');
   if (!magUitslag && m.tournamentId) waar.push('Bij een <b>tornooiwedstrijd</b> hoort de uitslag bij de dagstand van het tornooi; die geef je daar in.');
-  if (kaarten.some(k => k.soort === 'rood2')) waar.push('Een uitsluiting na twee gele kaarten wordt hier één <b>rode kaart</b>: de app kent geen apart soort daarvoor.');
+  if (kaarten.some(k => k.soort === 'rood2')) waar.push('Een uitsluiting na twee gele kaarten komt binnen als <b>rood na twee keer geel</b>, net zoals wanneer je ze zelf aan de lijn ingeeft. De eerste gele staat als eigen regel op het blad en komt apart mee.');
   if (kaarten.some(k => !k.ons && !k.nummer)) waar.push('Van een kaart voor de tegenstander bewaart de app enkel het rugnummer, en dat staat er niet bij elke speler bij.');
   // EEN BLAD MET ENKEL EEN UITSLAG. Bij een vriendschappelijke wedstrijd zet de club één lijst namen
   // op het blad en verder niets — geen bank, geen doelpuntenmaker, geen kaart, geen wissel (gemeten
@@ -1279,7 +1282,11 @@ function vvNeemOver() {
       if (k.ons) {
         const pid = spelerIdVan[k.idx];
         if (!pid) return;   // niet gekoppeld: dan is er geen speler om de kaart aan te hangen
-        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card' : 'yellow_card', playerId: pid, bron: 'vv', ...tijd(k.minuut) });
+        // 'rood2' = de uitsluiting na twee gele. Die krijgt hetzelfde merkje als een tweede geel die
+        // je zelf aan de lijn gaf (autoSecondYellow), zodat ze overal als zodanig leest — zie
+        // isTweedeGeel in core.js. GEEN extra gele kaart erbij: de eerste staat als eigen regel op
+        // het blad en komt dus langs deze lus binnen.
+        m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card' : 'yellow_card', playerId: pid, bron: 'vv', ...(k.soort === 'rood2' ? { autoSecondYellow: true } : {}), ...tijd(k.minuut) });
       } else {
         const nr = String(k.nummer || '').replace(/\D/g, '').slice(0, 3);
         m.events.push({ id: uid(), realTime: Date.now(), gameTimeMs: 0, quarterNum: null, type: rood ? 'red_card_them' : 'yellow_card_them', ...(nr ? { oppNumber: nr } : {}), bron: 'vv', ...tijd(k.minuut) });
