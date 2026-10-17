@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.15.1
+
+**Rood na twee keer geel krijgt nu één geel-rood kaartje**, net als op het wedstrijdblad van de bond:
+een geel met een rood dat erachteruit steekt. In v2.15.0 stonden er nog twee losse kaartjes naast
+elkaar, en dat las als twee gebeurtenissen terwijl het er één is.
+
+Het staat zo in de tijdlijn, in het verslag, onder het velddiagram en in de PDF.
+
+---
+
 ## v2.15.0
 
 **Een tweede gele kaart leest nu overal als *rood na twee keer geel*.** De app zette er al vanzelf een

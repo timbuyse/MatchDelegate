@@ -4845,8 +4845,9 @@ function evtLabelBasis(e, m, kort) {
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
     case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
-    // Bij rood na twee keer geel staan de twee kaartjes naast elkaar, zoals op het blad van de bond.
-    case 'red_card': return `${isTweedeGeel(e) ? icI(IC.cardY) + icI(IC.cardR) : icI(IC.cardR)} ${roodWoord(e)} ${pn(e.playerId)}`;
+    // Rood na twee keer geel krijgt het geel-rode kaartje van het bondsblad (IC.cardYR), niet twee
+    // losse kaartjes naast elkaar: het is één gebeurtenis.
+    case 'red_card': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} ${pn(e.playerId)}`;
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
     // rugnummer dat aan de lijn genoteerd is.
     case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
@@ -5781,7 +5782,7 @@ function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
       ${rijen.map(w => w.soort === 'sub'
         ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-uit"><span class="ic-i">${IC.download}</span> ${esc(w.out.join(', '))}</span><span class="psr-in"><span class="ic-i">${IC.upload}</span> ${esc(w.in.join(', '))}</span></div>`
         : w.soort === 'kaart'
-        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-kaart"><span class="ic-i">${w.tweede ? IC.cardY : ''}</span><span class="ic-i">${w.rood ? IC.cardR : IC.cardY}</span> ${esc(w.naam)}${w.tweede ? ' <span style="color:var(--txt2)">· 2e geel</span>' : ''}</span></div>`
+        ? `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-kaart"><span class="ic-i">${w.tweede ? IC.cardYR : (w.rood ? IC.cardR : IC.cardY)}</span> ${esc(w.naam)}${w.tweede ? ' <span style="color:var(--txt2)">· 2e geel</span>' : ''}</span></div>`
         : `<div class="psr"><span class="psr-min">${esc(w.min)}</span><span class="psr-pos"><span class="ic-i">${IC.compass}</span> ${esc(w.tekst)}</span></div>`).join('')}
     </div>`;
   })()}

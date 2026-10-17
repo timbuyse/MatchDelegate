@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.15.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.15.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -446,6 +446,11 @@ const IC = {
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
   cardR: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/>'),
+  // GEEL-ROOD ALS ÉÉN KAARTJE (v2.15.1). Zoals op het wedstrijdblad van de bond: het rode steekt
+  // achter het gele uit. Twee losse kaartjes naast elkaar lazen als twee gebeurtenissen, terwijl het
+  // er één is. Zelfde maten als de twee hierboven, enkel smaller en elk een kant op gedraaid zodat
+  // ze samen even breed blijven als één gewoon kaartje.
+  cardYR: _svg('<rect x="11.4" y="4" width="8.2" height="13" rx="1.4" transform="rotate(14 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="4.6" y="4" width="8.2" height="13" rx="1.4" transform="rotate(-8 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
   penalty: _svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>'),
   corner: _svg('<path d="M7 21V3.5"/><path d="M7 4h9.5l-2.6 2.8L16.5 9.6H7z" fill="currentColor" stroke="none"/>'),
   injury: _svg('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8.5v7M8.5 12h7" stroke-width="2.4"/>'),

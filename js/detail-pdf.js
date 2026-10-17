@@ -1130,12 +1130,23 @@ function pijlPdf(doc, x, midY, s, kleur, omlaag) {
 // Een speelkaartje (geel of rood) voor het kader onder het veld. Zelfde vorm als IC.cardY/IC.cardR op
 // het scherm: een staand rechthoekje, licht gekanteld. jsPDF kent geen SVG, dus hier als rechthoek
 // met dezelfde vulling en randkleur.
-function kaartPdf(doc, x, midY, s, rood) {
+function kaartPdf(doc, x, midY, s, rood, tweedeGeel) {
   const b = s * 0.52, h = s * 0.82;
-  doc.setFillColor(...(rood ? [220, 38, 38] : [234, 179, 8]));
-  doc.setDrawColor(...(rood ? [153, 27, 27] : [161, 98, 7]));
-  doc.setLineWidth(Math.max(0.25, s * 0.07));
-  doc.roundedRect(x - b / 2, midY - h / 2, b, h, s * 0.1, s * 0.1, 'FD');
+  const teken = (kleur, rand, dx, breedte) => {
+    doc.setFillColor(...kleur); doc.setDrawColor(...rand);
+    doc.setLineWidth(Math.max(0.25, s * 0.07));
+    doc.roundedRect(x - breedte / 2 + dx, midY - h / 2, breedte, h, s * 0.1, s * 0.1, 'FD');
+  };
+  // GEEL-ROOD ALS ÉÉN KAARTJE, net als op het scherm (IC.cardYR in core.js): het rode steekt achter
+  // het gele uit. jsPDF kan niet draaien zoals de SVG, dus hier twee smallere kaartjes die elkaar
+  // overlappen — op deze grootte leest dat hetzelfde. Het rode eerst, zodat het gele er vóór komt.
+  if (tweedeGeel) {
+    const sm = b * 0.78;
+    teken([220, 38, 38], [153, 27, 27], sm * 0.42, sm);
+    teken([234, 179, 8], [161, 98, 7], -sm * 0.3, sm);
+    return;
+  }
+  teken(rood ? [220, 38, 38] : [234, 179, 8], rood ? [153, 27, 27] : [161, 98, 7], 0, b);
 }
 // Het shirt van shirtSvg() (core.js) als jsPDF-pad, zodat de PDF dezelfde markering tekent als het
 // scherm. jsPDF kent geen SVG-paden, dus het silhouet staat hier als reeks relatieve segmenten,
@@ -1683,7 +1694,9 @@ async function pdfMatchBody(doc, L, m) {
             .map(r => ({ ...r, n: r.regels.length }));
           // `· 2e geel` achter de naam bij rood na twee keer geel: in de PDF is er geen plaats voor een
           // tweede kaartje naast het eerste, en dit zegt hetzelfde in drie tekens.
-          const kaartRijen = (onder.kaarten || []).map(k => ({ soort: 'kaart', min: k.min, ms: k.ms || 0, rood: k.rood, naam: k.naam + (k.tweede ? ' · 2e geel' : ''), n: 1 }));
+          // Het kaartje zegt het al (kaartPdf tekent geel-rood als één), maar de woorden staan er ook
+          // bij: een PDF belandt bij mensen die de app niet kennen en dat icoontje nooit gezien hebben.
+          const kaartRijen = (onder.kaarten || []).map(k => ({ soort: 'kaart', min: k.min, ms: k.ms || 0, rood: k.rood, tweede: k.tweede, naam: k.naam + (k.tweede ? ' · 2e geel' : ''), n: 1 }));
           // Alle soorten door elkaar op tijd, net als op het scherm: een positiewissel op 8' hoort
           // boven een wissel op 12', en een kaart op 10' daartussen.
           const alleRijen = [...rijen, ...poswRijen, ...kaartRijen].sort((a, b) => (a.ms || 0) - (b.ms || 0));
@@ -1719,7 +1732,7 @@ async function pdfMatchBody(doc, L, m) {
               // Eén regel over de volle breedte: het kaartje, dan de naam. Geen eraf/erin, dus geen
               // twee kolommen — zelfde vorm als een positiewissel.
               doc.setTextColor(107, 114, 128); doc.text(r.min, x + pad * 1.4, ry + benchSize * 0.7);
-              kaartPdf(doc, x + pad * 1.4 + minW + pijlW * 0.4, ry + benchSize * 0.42, benchSize, r.rood);
+              kaartPdf(doc, x + pad * 1.4 + minW + pijlW * 0.4, ry + benchSize * 0.42, benchSize, r.rood, r.tweede);
               doc.setTextColor(23, 23, 23);
               doc.text(r.naam, x + pad * 1.4 + minW + pijlW, ry + benchSize * 0.7);
               ry += rijH;
