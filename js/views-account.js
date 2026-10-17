@@ -3605,10 +3605,12 @@ function speeldagKaartHtml(rij) {
   // GEEN WOORD 'LIVE' OP HET KAARTJE (Tim, 02-10-2026: "soms drie keer live kort bij elkaar in rood").
   // Op allebei de plekken staat er al een kop boven die het zegt — 'Live' in het kadertje, 'Nu bezig'
   // op het speeldagscherm — dus hier volstaat het rode bolletje met het blok erachter.
+  // En sinds v2.12.4 is enkel dát bolletje nog rood: de tekst erachter volgt de gewone kleur van de
+  // onderregel (sd-live-stil in index.html). Zie de uitleg bij die regel.
   const toestand = blijvenStaan
       ? `<span>Niet afgesloten${plaats}</span>`
     : m.status === 'live'
-      ? `<span class="sd-live">${esc(blok)}${plaats}</span>`
+      ? `<span class="sd-live sd-live-stil">${esc(blok)}${plaats}</span>`
     : af ? '<span>Geannuleerd</span>'
     : nietAf ? '<span>Niet afgesloten</span>'
     : m.status === 'planned' ? `<span>${esc(m.time || 'Gepland')}${m.location ? ' · ' + esc(m.location) : ''}</span>`

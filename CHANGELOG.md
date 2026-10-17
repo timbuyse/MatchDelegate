@@ -9,6 +9,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.12.4
+
+**Op een lopend kaartje is alleen nog het bolletje rood.** De regel ernaast — *kwart 4 · Uit* — stond
+voluit in het rood, en met de stand die sinds v2.12.3 ook kleurt werd een rij lopende wedstrijden één
+rode vlek. Die regel leest nu in dezelfde kleur als *Thuis* of *Gespeeld* op een afgelopen kaartje.
+
+De koppen blijven wél rood: *Vandaag in jouw club* en *Nu bezig* zeggen waar je naar kijkt.
+
+---
+
 ## v2.12.3
 
 **De stand van een lopende wedstrijd kleurt nu ook groen of rood op het vandaag-scherm.** Tot nu kreeg
