@@ -3627,8 +3627,15 @@ function speeldagKaartHtml(rij) {
   const pen = toonShootout(m)
     ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">pen. ${esc(shootoutTxt(m))}</span>`
     : '';
+  // OOK EEN LOPENDE WEDSTRIJD KLEURT (Tim, 17-10-2026: "de score van een lopende wedstrijd ook al in
+  // het rood of groen, afhankelijk van of we aan het winnen of verliezen zijn"). De kleur kwam hier
+  // enkel bij een afgesloten wedstrijd, terwijl je net tijdens de wedstrijd in één oogopslag wil zien
+  // hoe het ervoor staat. resultaatKleur werkt op elke stand en geeft bij GELIJK niets terug, dus
+  // 0-0 bij de aftrap blijft gewoon zwart — een kleur zou daar een oordeel zijn dat er niet is.
+  // Een geplande wedstrijd waarvan de dag voorbij is, staat op 0-0 en blijft dus ook kleurloos.
+  const standKleur = resultaatKleur(m);
   const stand = (m.status === 'planned' || af) ? ''
-    : `<span style="text-align:right;flex-shrink:0"><b${m.status === 'done' && resultaatKleur(m) ? ` style="color:${resultaatKleur(m)}"` : ''}>${scoreTxt(m)}</b>${pen}</span>`;
+    : `<span style="text-align:right;flex-shrink:0"><b${standKleur ? ` style="color:${standKleur}"` : ''}>${scoreTxt(m)}</b>${pen}</span>`;
   const ploeg = `<div class="sd-ploeg">${esc(m.teamName || teamNames[rij.tid] || 'Ploeg')}${m.subteam ? ` <span style="font-weight:600;color:var(--txt2)">(${esc(m.subteam)})</span>` : ''}</div>`;
   const tegen = `<div class="sd-tegen">${esc(m.opponent || '—')}</div>`;
   // Een kaartje dat niet opengaat, hoort er ook niet uit te zien alsof het dat wel doet — zelfde

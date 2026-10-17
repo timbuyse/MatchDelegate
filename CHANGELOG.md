@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.12.3
+
+**De stand van een lopende wedstrijd kleurt nu ook groen of rood op het vandaag-scherm.** Tot nu kreeg
+alleen een afgesloten wedstrijd die kleur, terwijl je net tijdens de wedstrijd in één oogopslag wil
+zien hoe het ervoor staat.
+
+De kleur volgt **jouw ploeg**, niet het linkercijfer. Bij een uitwedstrijd staat de thuisploeg links —
+staat er dan `0-3` in het rood, dan is dat jouw achterstand. Links op het kaartje staat waar gespeeld
+wordt, zodat je weet welk cijfer van jou is.
+
+Bij een gelijke stand blijft de score zwart, 0-0 bij de aftrap dus ook. Een kleur zou daar een oordeel
+zijn dat er nog niet is.
+
+---
+
 ## v2.12.2
 
 **De statistieken zeggen nu waarom winst, gelijk en verlies niet optellen tot *Gespeeld*.** Bij 10
