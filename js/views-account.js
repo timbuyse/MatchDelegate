@@ -1458,9 +1458,13 @@ function telGebruik(ruw, dagen, nu) {
 // PLOEG actief (welke daad dan ook). Overal Sets over uid's — er wordt nooit iets opgeteld, zodat
 // twee toestellen van dezelfde persoon niet als twee mensen tellen.
 // De dagsleutels zijn 2026-10-17, dus als tekst vergelijken geeft dezelfde volgorde als als datum.
+// De rollen van hoog naar laag, zodat iemand die beheerder is van de ene ploeg en kijker van de
+// andere, als het hoogste telt wat hij is. Zie gebruikRol in core.js voor de letters.
+const ROL_RANG = { e: 5, c: 4, b: 3, k: 2, g: 1 };
+const ROL_WOORD = { e: 'Eigenaar', c: 'Clubbeheerders', b: 'Ploegbeheerders', k: 'Kijkers', g: 'Gasten' };
 function telDaden(ruw, dagen, nu, negeer) {
   const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
-  const perDaad = {}, perPloeg = {};
+  const perDaad = {}, perPloeg = {}, rolVan = {}, dagenVan = {};
   for (const daad in DADEN) perDaad[daad] = new Set();
   for (const dag in (ruw || {})) {
     if (dag < vanaf) continue;
@@ -1472,18 +1476,41 @@ function telDaden(ruw, dagen, nu, negeer) {
           // De naam komt uit het briefje zelf, zodat het overzicht ook ploegen kan tonen waar de
           // eigenaar niet in zit. Het laatst gelezen briefje wint — bij een hernoemde ploeg zie je
           // dus de nieuwste naam, wat is wat je wil.
-          const p = perPloeg[ploeg] || (perPloeg[ploeg] = { naam: '', mensen: new Set(), werk: new Set() });
+          const p = perPloeg[ploeg] || (perPloeg[ploeg] = { naam: '', mensen: new Set(), werk: new Set(), laatst: '' });
           const b = ruw[dag][daad][ploeg][uid] || {};
           if (b.n) p.naam = b.n;
           p.mensen.add(uid);
+          // De laatste dag waarop deze ploeg iets deed. Dagsleutels zijn 2026-10-17, dus als tekst
+          // vergelijken geeft dezelfde volgorde als als datum.
+          if (dag > p.laatst) p.laatst = dag;
           // "Werk" = zelf iets ingegeven, niet enkel gekeken. Dat is het verschil tussen een ploeg
           // die de app gebruikt en een ploeg waar men ze openhoudt.
           if (daad === 'live' || daad === 'uitslag') p.werk.add(uid);
+          // ROL PER PERSOON, EN HET HOOGSTE WAT HIJ IS (v2.17.0). Iemand kan beheerder zijn van de ene
+          // ploeg en kijker van de andere; hem bij allebei tellen zou meer mensen geven dan er zijn.
+          const rang = ROL_RANG[b.r] || 0;
+          if (rang > (rolVan[uid] || 0)) rolVan[uid] = rang;
+          // Op hoeveel verschillende DAGEN was deze persoon actief? Dat zegt of iemand één keer
+          // binnenkeek of de app echt gebruikt.
+          (dagenVan[uid] || (dagenVan[uid] = new Set())).add(dag);
         }
       }
     }
   }
-  return { perDaad, perPloeg };
+  // De rollen pas hier omzetten naar lijstjes: tijdens de lus staat enkel het hoogste getal vast.
+  const perRol = {};
+  for (const letter in ROL_RANG) perRol[letter] = new Set();
+  for (const uid in rolVan) {
+    const letter = Object.keys(ROL_RANG).find(l => ROL_RANG[l] === rolVan[uid]);
+    if (letter) perRol[letter].add(uid);
+  }
+  // Hoe vaak komt iemand terug: één dag, een paar dagen, of bijna elke week.
+  const terug = { een: 0, paar: 0, vaak: 0 };
+  for (const uid in dagenVan) {
+    const n = dagenVan[uid].size;
+    if (n >= 5) terug.vaak++; else if (n >= 2) terug.paar++; else terug.een++;
+  }
+  return { perDaad, perPloeg, perRol, terug, dagenVan };
 }
 // ---- De grafiek: evolutie per dag of per maand (v2.13.0) ----
 // Tim: "kan je dat ook niet in een grafiekje of zo weergeven, evolutie per dag of per maand". Een
@@ -1617,6 +1644,12 @@ async function loadGebruikView() {
   catch (e) { daden = null; }   // regels nog niet gepubliceerd → de blokken hieronder blijven weg
   let online = null;
   try { online = telNuOnline((await fbOnce(fbdb.ref('presence'))).val() || {}); } catch (e) {}
+  // DE NOEMER (v2.17.0, Tim: "kan er nog meer data en detail op die pagina?"). "18 actief" zegt weinig
+  // zonder te weten of er 20 of 200 accounts zijn. usersByEmail is de lijst van iedereen die ooit met
+  // een e-mailadres aanmeldde — dus precies "accounts", zonder de gasten. Mislukt de lezing, dan valt
+  // die ene regel gewoon weg.
+  let accounts = null;
+  try { accounts = Object.keys((await fbOnce(fbdb.ref('usersByEmail'))).val() || {}).length; } catch (e) {}
   // Terugval: "laatst actief" bewaart per account het laatste bezoek. Voor het AANTAL BEZOEKERS in
   // een periode is dat even juist (wie deze week kwam, heeft een datum van deze week); voor sessies
   // en voor gasten kan het niets zeggen. Beter dan een leeg scherm zolang de regels niet live zijn.
@@ -1645,6 +1678,11 @@ async function loadGebruikView() {
     <p style="margin:8px 0 0;color:var(--txt2);font-size:13px">Zolang dat niet gebeurd is, staat hieronder wat er wél geweten is: hoeveel accounts de app in die periode nog openden. Sessies en gasten blijven leeg.</p>
   </div>` : '';
 
+  // "18 actief" zegt weinig zonder te weten van hoeveel. Enkel tonen wanneer we de lijst konden
+  // lezen én er iets te delen valt; anders staat er een breuk met een gat erin.
+  const actiefMaand = ruw === null ? null : telGebruik(ruw, GEBRUIK_DAGEN, nu).a.mensen.size;
+  const noemerRegel = (accounts && actiefMaand != null) ? `<p style="font-size:13px;color:var(--txt2);margin:10px 0 0;text-align:center">
+    <b style="font-size:16px;color:var(--txt)">${actiefMaand}</b> van je <b>${accounts}</b> accounts ${actiefMaand === 1 ? 'was' : 'waren'} de laatste 30 dagen actief.</p>` : '';
   const onlineKaart = `<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
     <div style="text-align:center;min-width:64px">
       <div style="font-size:30px;font-weight:800;line-height:1.1;color:${online ? 'var(--grn2)' : 'inherit'}">${online === null ? '—' : online}</div>
@@ -1699,16 +1737,79 @@ async function loadGebruikView() {
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>gaf iets in</span>
       </div>
     </div>`;
-  // Per ploeg: gesorteerd op wie het meest actief is, met het aantal dat ook écht iets ingaf.
+  // NIEUW DEZE WEEK: wie er deze week was en de drie weken daarvóór niet. Berekend binnen de dertig
+  // dagen die we toch al inlazen, dus zonder extra lezing. Pas zinvol wanneer er ook ouder gebruik te
+  // zien is — anders is iederéén "nieuw" en zegt het getal niets. Vandaar de laatste voorwaarde.
+  const nieuwRegel = (() => {
+    if (!daadTel) return '';
+    const dezeWeek = daadTel[1].dagenVan, maand = daadTel[2].dagenVan;
+    const grens = gebruikDag(nu - 6 * 86400000);
+    const ouder = new Set();
+    for (const uid in maand) { for (const d of maand[uid]) if (d < grens) { ouder.add(uid); break; } }
+    const tot = Object.keys(dezeWeek).length;
+    const nieuw = Object.keys(dezeWeek).filter(uid => !ouder.has(uid)).length;
+    if (!tot || !ouder.size) return '';
+    return `<p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Van de ${tot} ${tot === 1 ? 'persoon' : 'mensen'} die deze week actief ${tot === 1 ? 'was' : 'waren'}, ${nieuw === 1 ? 'zagen we er één' : `zagen we er ${nieuw}`} de drie weken daarvóór niet.</p>`;
+  })();
+
+  // ---- Wie zijn het, en hoe vaak komen ze terug (v2.17.0) ----
+  // "Twaalf mensen actief" zegt niet of dat twaalf kijkers zijn of twaalf afgevaardigden. En het zegt
+  // niet of ze één keer binnenkeken of elke week komen. Allebei stond al in de briefjes.
+  const wieBlok = !daadTel ? '' : (() => {
+    const rollen = Object.keys(ROL_RANG).filter(l => daadTel.some(t => t.perRol[l].size));
+    if (!rollen.length) return '';
+    return `<div class="sec" style="margin-top:20px">${icI(IC.admins)} Wie het zijn</div>
+    <div class="card">
+      <p style="margin:0 0 6px;font-size:11px;color:var(--txt2)">iedereen telt één keer, als het hoogste wat hij is</p>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:11px;color:var(--txt2)"><th></th>
+          ${GEBRUIK_VENSTERS.map(([label]) => `<th style="font-weight:400;padding:0 2px 4px">${esc(label.replace('Laatste ', ''))}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rollen.map(l => `<tr style="border-top:1px solid var(--bdr)">
+          <td style="padding:8px 6px 8px 0;font-size:13px;color:var(--txt2)">${esc(ROL_WOORD[l] || l)}</td>
+          ${daadTel.map(t => `<td style="text-align:center;padding:8px 2px;font-size:20px;font-weight:800">${t.perRol[l].size}</td>`).join('')}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  })();
+  const terugBlok = !daadTel ? '' : (() => {
+    const t = daadTel[daadTel.length - 1].terug;
+    const tot = t.een + t.paar + t.vaak;
+    if (!tot) return '';
+    const rij = (lbl, n) => `<div class="stat-row"><span style="flex:1">${lbl}</span><span style="font-weight:800;min-width:40px;text-align:right">${n}</span><span style="min-width:52px;text-align:right;color:var(--txt2);font-size:13px">${Math.round(n / tot * 100)}%</span></div>`;
+    return `<div class="sec" style="margin-top:20px">${icI(IC.history)} Hoe vaak ze terugkomen · laatste 30 dagen</div>
+    <div class="card">
+      ${rij('Eén dag', t.een)}${rij('Twee tot vier dagen', t.paar)}${rij('Vijf dagen of meer', t.vaak)}
+    </div>`;
+  })();
+  // Per ploeg: gesorteerd op wie het meest actief is, met het aantal dat ook écht iets ingaf, plus
+  // wanneer die ploeg voor het laatst iets deed en of het stijgt of zakt (7 dagen tegenover 30).
+  // DAT LAATSTE IS HET SIGNAAL waar dit hele scherm voor gemaakt is: welke ploeg valt stil.
+  const dagenGeleden = iso => {
+    if (!iso) return null;
+    const d = new Date(iso + 'T12:00:00'), vandaag = new Date(nu);
+    return Math.max(0, Math.round((vandaag.setHours(12, 0, 0, 0) - d.getTime()) / 86400000));
+  };
+  const week = daadTel ? daadTel[1] : null;   // GEBRUIK_VENSTERS[1] = laatste 7 dagen
   const ploegRijen = !daadTel ? [] : Object.entries(daadTel[daadTel.length - 1].perPloeg)
-    .map(([id, p]) => ({ id, naam: p.naam || (id === GEEN_PLOEG ? 'Buiten een ploeg' : 'Onbekende ploeg'), mensen: p.mensen.size, werk: p.werk.size }))
+    .map(([id, p]) => ({ id, naam: p.naam || (id === GEEN_PLOEG ? 'Buiten een ploeg' : 'Onbekende ploeg'),
+      mensen: p.mensen.size, werk: p.werk.size, geleden: dagenGeleden(p.laatst),
+      deze: (week && week.perPloeg[id]) ? week.perPloeg[id].mensen.size : 0 }))
     .sort((a, b) => b.mensen - a.mensen || ploegNaamVgl(a.naam, b.naam));
+  const laatstTxt = n => n == null ? '' : n === 0 ? 'vandaag' : n === 1 ? 'gisteren' : `${n} dagen geleden`;
   const ploegBlok = !daadTel ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.players)} Per ploeg · laatste 30 dagen</div>
     ${ploegRijen.length ? `<div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
-        <div style="flex:1"></div><div style="min-width:70px;text-align:right">actief</div><div style="min-width:90px;text-align:right">gaf iets in</div>
+        <div style="flex:1"></div><div style="min-width:52px;text-align:right">deze week</div><div style="min-width:52px;text-align:right">30 dagen</div><div style="min-width:70px;text-align:right">gaf iets in</div>
       </div>
-      ${ploegRijen.map(r => `<div class="stat-row"><span style="flex:1">${esc(r.naam)}</span><span style="min-width:70px;text-align:right;font-weight:800">${r.mensen}</span><span style="min-width:90px;text-align:right;color:${r.werk ? 'var(--txt2)' : 'var(--org2,#b45309)'}">${r.werk}</span></div>`).join('')}
+      ${ploegRijen.map(r => `<div class="stat-row" style="align-items:flex-start">
+        <span style="flex:1;min-width:0">${esc(r.naam)}${r.geleden != null ? `<small style="color:${r.geleden >= 14 ? 'var(--rd)' : 'var(--txt2)'};display:block">laatst ${esc(laatstTxt(r.geleden))}</small>` : ''}</span>
+        <span style="min-width:52px;text-align:right;font-weight:800;color:${r.deze ? 'inherit' : 'var(--txt2)'}">${r.deze}</span>
+        <span style="min-width:52px;text-align:right;font-weight:800">${r.mensen}</span>
+        ${/* Een nul kleurt enkel rood bij een ECHTE ploeg: "buiten een ploeg" is een gast op het
+             keuzescherm, en daar valt per definitie niets in te geven. */ ''}
+        <span style="min-width:70px;text-align:right;color:${(r.werk || r.id === GEEN_PLOEG) ? 'var(--txt2)' : 'var(--rd)'}">${r.werk}</span>
+      </div>`).join('')}
     </div>`
     : `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Nog geen ploegen in deze periode.</p></div>`}`;
 
@@ -1727,7 +1828,9 @@ async function loadGebruikView() {
     ${u('Gasten staan apart en zijn een ruwer cijfer.', 'Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.')}
     ${u('Wat mensen doen is geen trechter per persoon.', 'Elk getal is hoeveel verschillende mensen dat in die periode minstens één keer deden. Dat er twaalf een wedstrijd openden, betekent niet dat het twaalf van de veertig zijn die de app openden.')}
     ${u('Het verloop.', 'Hoeveel verschillende mensen er die dag of maand actief waren, met het donkere deel voor wie ook een wedstrijd live volgde of een uitslag ingaf. Een lege dag is een streepje op de grondlijn.')}
-    ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul.')}
+    ${u('Wie het zijn.', 'Iedereen telt één keer, als het hoogste wat hij is: wie beheerder is van de ene ploeg en kijker van de andere, staat enkel bij de beheerders.')}
+    ${u('Hoe vaak ze terugkomen.', 'Op hoeveel verschillende dagen iemand de app opende in de laatste dertig. Eén dag is iemand die kwam kijken; vijf of meer is iemand die ze echt gebruikt.')}
+    ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul. <b>Laatst</b> is de laatste dag waarop er iets gebeurde; vanaf veertien dagen kleurt dat rood.')}
     ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. Bezoeken ouder dan zes weken worden opgeruimd, de rest na ruim een seizoen.')}
   </details>`;
 
@@ -1749,8 +1852,8 @@ async function loadGebruikView() {
       </thead>
       <tbody>${rijen}</tbody>
     </table>
-  </div>`
-  + daadNogNiet + daadBlok + grafiekBlok + ploegBlok + uitlegBlok;
+  </div>${noemerRegel}`
+  + daadNogNiet + daadBlok + nieuwRegel + grafiekBlok + wieBlok + terugBlok + ploegBlok + uitlegBlok;
   opkuisGebruik();
 }
 

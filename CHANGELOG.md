@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.17.0
+
+**Vijf dingen erbij op *Beheer → Gebruik*, zonder dat er iets nieuws gemeten wordt** — het zat al in
+de gegevens, het scherm las het alleen niet uit.
+
+- **De noemer.** Onder de bezoekerstabel staat nu *"18 van je 52 accounts waren de laatste 30 dagen
+  actief"*. Een getal zonder noemer zegt niet of het veel of weinig is.
+- **Wie het zijn.** Clubbeheerders, ploegbeheerders, kijkers en gasten apart. Iedereen telt één keer,
+  als het hoogste wat hij is: wie beheerder is van de ene ploeg en kijker van de andere, staat enkel
+  bij de beheerders.
+- **Hoe vaak ze terugkomen.** Op hoeveel verschillende dagen iemand de app opende: één dag, twee tot
+  vier, of vijf en meer. Dat is het verschil tussen eens binnenkijken en de app echt gebruiken.
+- **Per ploeg: wanneer voor het laatst.** Bij elke ploeg staat nu de laatste dag waarop er iets
+  gebeurde, en vanaf twee weken stilte kleurt die regel rood. Er staat ook een kolom *deze week*
+  naast *30 dagen*, zodat je ziet of het stijgt of wegzakt.
+- **Hoeveel er nieuw zijn.** Onder *Wat mensen doen*: van de mensen die deze week actief waren,
+  hoeveel we er de drie weken daarvoor niet zagen.
+
+De uitleg bij de nieuwe blokken staat gewoon mee achter *Hoe lees je deze cijfers?*.
+
+---
+
 ## v2.16.0
 
 **De tweede gele kaart staat niet meer apart in het verloop, en telt niet meer mee als gele kaart.**
