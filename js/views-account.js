@@ -1433,6 +1433,9 @@ function renderGebruik() {
 // Uit de ruwe gebruikstak halen wat één venster (het aantal dagen tot en met vandaag) opgeleverd
 // heeft. De dagsleutels zijn 2026-08-29, dus ze vergelijken als tekst geeft dezelfde volgorde als
 // vergelijken als datum — daar hangt de filter hieronder aan.
+// IEDEREEN TELT HIER MEE, OOK DE EIGENAAR (Tim, 17-10-2026). Deze teller zegt hoeveel verschillende
+// mensen de app openden, en daar is hij één account van de zoveel — dat vertekent niets. Enkel bij de
+// DADEN hieronder valt hij weg, want daar kleurt hij wél elke lijn. Zie benIkDeEigenaar in core.js.
 function telGebruik(ruw, dagen, nu) {
   const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
   const uit = { a: { mensen: new Set(), sessies: new Set() }, g: { mensen: new Set(), sessies: new Set() } };
@@ -1455,7 +1458,7 @@ function telGebruik(ruw, dagen, nu) {
 // PLOEG actief (welke daad dan ook). Overal Sets over uid's — er wordt nooit iets opgeteld, zodat
 // twee toestellen van dezelfde persoon niet als twee mensen tellen.
 // De dagsleutels zijn 2026-10-17, dus als tekst vergelijken geeft dezelfde volgorde als als datum.
-function telDaden(ruw, dagen, nu) {
+function telDaden(ruw, dagen, nu, negeer) {
   const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
   const perDaad = {}, perPloeg = {};
   for (const daad in DADEN) perDaad[daad] = new Set();
@@ -1464,6 +1467,7 @@ function telDaden(ruw, dagen, nu) {
     for (const daad in (ruw[dag] || {})) {
       for (const ploeg in (ruw[dag][daad] || {})) {
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
+          if (uid === negeer) continue;   // de eigenaar telt nergens mee
           if (perDaad[daad]) perDaad[daad].add(uid);
           // De naam komt uit het briefje zelf, zodat het overzicht ook ploegen kan tonen waar de
           // eigenaar niet in zit. Het laatst gelezen briefje wint — bij een hernoemde ploeg zie je
@@ -1498,7 +1502,7 @@ function maandLabel(ym) {
   const M = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
   return M[Number(String(ym).slice(5, 7)) - 1] || ym;
 }
-function gebruikReeks(ruw, eenheid, nu) {
+function gebruikReeks(ruw, eenheid, nu, negeer) {
   const vakken = [], index = {};
   const maak = (sleutel, label) => { const v = { sleutel, label, mensen: new Set(), werk: new Set() }; vakken.push(v); index[sleutel] = v; return v; };
   if (eenheid === 'maand') {
@@ -1520,6 +1524,7 @@ function gebruikReeks(ruw, eenheid, nu) {
     for (const daad in (ruw[dag] || {})) {
       for (const ploeg in (ruw[dag][daad] || {})) {
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
+          if (uid === negeer) continue;   // de eigenaar telt nergens mee
           v.mensen.add(uid);
           if (daad === 'live' || daad === 'uitslag') v.werk.add(uid);
         }
@@ -1555,6 +1560,8 @@ function gebruikGrafiekHtml(reeks) {
 }
 // Hoeveel mensen hebben op dit moment de app open? Eén momentopname (het scherm "Nu online" luistert
 // live mee; hier volstaat een enkele lezing). Telt PERSONEN: twee tabbladen zijn één mens.
+// Ook hier telt iedereen mee, de eigenaar inbegrepen: dit is een momentopname van wie er nú zit, en
+// dat is een feit — hij staat er op dat moment zelf bij. Zelfde grens als bij telGebruik hierboven.
 function telNuOnline(alles) {
   const grens = presenceNu() - PRESENCE_VERS_MS;
   const mensen = new Set();
@@ -1590,6 +1597,11 @@ async function loadGebruikView() {
   const el = document.getElementById('gebruik-content');
   if (!el || !isOwner || !fbdb) return;
   const nu = presenceNu();
+  // JOUW EIGEN GEBRUIK VALT UIT DE DADEN, MAAR NIET UIT DE TELLER BOVENAAN (Tim, 17-10-2026).
+  // Bovenaan ben je één uniek account van de zoveel; in de drie blokken daaronder zou je elke lijn
+  // kleuren. Sinds v2.13.1 schrijft de app je daden niet meer weg, maar die van daarvóór staan er nog
+  // — en dit scherm draait per definitie bij jou. Zie benIkDeEigenaar in core.js.
+  const negeer = (currentUser && currentUser.uid) || ownerUid || null;
   // Enkel de dagen die getoond worden ophalen. Zonder deze grens zou elk bezoek aan dit scherm de
   // hele geschiedenis binnentrekken.
   let ruw = null;
@@ -1649,7 +1661,7 @@ async function loadGebruikView() {
   // verschillende mensen deden dit in deze periode"; het is niet gevolgd per persoon van stap naar
   // stap. Wie het zo leest, trekt de juiste conclusie ("van de 40 die de app openden, openden er 12
   // een wedstrijd") zonder te doen alsof we weten dat het dezelfde twaalf zijn.
-  const daadTel = daden === null ? null : GEBRUIK_VENSTERS.map(([, dagen]) => telDaden(daden, dagen, nu));
+  const daadTel = daden === null ? null : GEBRUIK_VENSTERS.map(([, dagen]) => telDaden(daden, dagen, nu, negeer));
   // ZEG HET WANNEER DE TAK NOG NIET LEESBAAR IS. Zonder deze kaart verdwijnen de twee blokken hieronder
   // gewoon, en dan lijkt de app stuk terwijl er enkel nog een regel gepubliceerd moet worden. Dit is
   // precies het geval dat zich voordoet zodra deze versie live staat en de regels nog niet.
@@ -1657,8 +1669,13 @@ async function loadGebruikView() {
     <p style="margin:0;font-size:14px">${icI(IC.warn)} <b>Wat mensen doen</b> en <b>Per ploeg</b> zijn nog niet beschikbaar: de beveiligingsregels met de dadentak moeten eerst gepubliceerd worden in de Firebase-console.</p>
     <p style="margin:8px 0 0;color:var(--txt2);font-size:13px">De app meet intussen wel al: zodra de regels live staan, verschijnen de cijfers vanaf die dag. Wat er vóór de publicatie gebeurde, is niet bewaard.</p>
   </div>`;
+  // ÉÉN REGEL BLIJFT STAAN, de rest gaat in het uitklapblok onderaan (Tim, 17-10-2026: "zet al die
+  // informatie in een inklapbaar iets, zodat dat niet het scherm vervuilt"). Déze mag niet weggevouwen
+  // worden: zonder ze leest de kolom als een trechter waarin dezelfde mensen van stap naar stap gaan,
+  // en dat dragen de cijfers niet. Een verkeerde conclusie is erger dan een regel ruis.
   const daadBlok = !daadTel ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.log)} Wat mensen doen</div>
     <div class="card">
+      <p style="margin:0 0 6px;font-size:11px;color:var(--txt2)">verschillende mensen per periode — geen trechter per persoon</p>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="font-size:11px;color:var(--txt2)"><th></th>
           ${GEBRUIK_VENSTERS.map(([label]) => `<th style="font-weight:400;padding:0 2px 4px">${esc(label.replace('Laatste ', ''))}</th>`).join('')}
@@ -1669,9 +1686,9 @@ async function loadGebruikView() {
         </tr>`).join('')}</tbody>
       </table>
     </div>
-    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Elk getal is <b>hoeveel verschillende mensen</b> dat in die periode minstens één keer deden. Het is geen trechter per persoon: dat er twaalf een wedstrijd openden, betekent niet dat het twaalf van de veertig zijn die de app openden.</p>`;
+    </div>`;
   // De grafiek: hetzelfde cijfer, maar als verloop. Hier zie je of het stijgt of wegzakt.
-  const reeks = !daadTel ? null : gebruikReeks(daden, _gebruikEenheid, nu);
+  const reeks = !daadTel ? null : gebruikReeks(daden, _gebruikEenheid, nu, negeer);
   const knop = (e, lbl) => `<button class="btn ${_gebruikEenheid === e ? 'btn-green' : 'btn-pale'} btn-sm" style="width:auto;margin:0;padding:4px 12px" onclick="zetGebruikEenheid('${e}')">${lbl}</button>`;
   const grafiekBlok = !reeks ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.chart)} Verloop</div>
     <div class="card">
@@ -1681,8 +1698,7 @@ async function loadGebruikView() {
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.35;margin-right:4px"></span>actief</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>gaf iets in</span>
       </div>
-    </div>
-    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Hoeveel <b>verschillende mensen</b> er die ${_gebruikEenheid === 'maand' ? 'maand' : 'dag'} actief waren, met het donkere deel voor wie ook een wedstrijd live volgde of een uitslag ingaf. ${_gebruikEenheid === 'maand' ? 'Een maand' : 'Een dag'} zonder iemand is een streepje op de grondlijn.</p>`;
+    </div>`;
   // Per ploeg: gesorteerd op wie het meest actief is, met het aantal dat ook écht iets ingaf.
   const ploegRijen = !daadTel ? [] : Object.entries(daadTel[daadTel.length - 1].perPloeg)
     .map(([id, p]) => ({ id, naam: p.naam || (id === GEEN_PLOEG ? 'Buiten een ploeg' : 'Onbekende ploeg'), mensen: p.mensen.size, werk: p.werk.size }))
@@ -1693,9 +1709,27 @@ async function loadGebruikView() {
         <div style="flex:1"></div><div style="min-width:70px;text-align:right">actief</div><div style="min-width:90px;text-align:right">gaf iets in</div>
       </div>
       ${ploegRijen.map(r => `<div class="stat-row"><span style="flex:1">${esc(r.naam)}</span><span style="min-width:70px;text-align:right;font-weight:800">${r.mensen}</span><span style="min-width:90px;text-align:right;color:${r.werk ? 'var(--txt2)' : 'var(--org2,#b45309)'}">${r.werk}</span></div>`).join('')}
-    </div>
-    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>Actief</b> is iedereen die de app in die ploeg opende. <b>Gaf iets in</b> is wie ook een wedstrijd live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul.</p>`
+    </div>`
     : `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Nog geen ploegen in deze periode.</p></div>`}`;
+
+  // ---- Alle uitleg samen, dichtgevouwen (Tim, 17-10-2026) ----
+  // Er stond onder elk blok een paragraaf, en samen waren dat zes alinea's tegenover vier tabellen:
+  // het scherm las als een handleiding met cijfers ertussen in plaats van omgekeerd. Alles staat er
+  // nog, maar achter één regel — dezelfde `.more-details` als elders in de app, dus het klapt open
+  // zonder JavaScript en blijft werken als er iets anders misloopt.
+  // De twee kaarten over niet-gepubliceerde regels blijven WEL staan: die vragen een handeling van
+  // jou, en dat is geen uitleg.
+  const u = (kop, tekst) => `<p style="font-size:12px;color:var(--txt2);margin:10px 0 0"><b>${kop}</b> ${tekst}</p>`;
+  const uitlegBlok = `<details class="more-details" style="margin-top:20px">
+    <summary>Hoe lees je deze cijfers?</summary>
+    ${u('Jij telt wél mee bovenaan, maar niet in de drie blokken daaronder.', 'In de bezoekersteller ben je één uniek account van de zoveel; dat vertekent niets. Bij <i>Wat mensen doen</i>, <i>Verloop</i> en <i>Per ploeg</i> val je weg: jij opent de app het vaakst van iedereen, dus daar zou elke lijn je eigen werkdagen tonen in plaats van die van de clubs.')}
+    ${u('Bezoekers en sessies.', 'Bezoekers is hoeveel verschillende mensen de app openden; wie drie keer kwam, telt één keer. Sessies is hoe vaak ze ze openden. Sluiten en binnen het halfuur opnieuw openen blijft hetzelfde bezoek, dus herladen telt niet als een tweede keer.')}
+    ${u('Gasten staan apart en zijn een ruwer cijfer.', 'Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.')}
+    ${u('Wat mensen doen is geen trechter per persoon.', 'Elk getal is hoeveel verschillende mensen dat in die periode minstens één keer deden. Dat er twaalf een wedstrijd openden, betekent niet dat het twaalf van de veertig zijn die de app openden.')}
+    ${u('Het verloop.', 'Hoeveel verschillende mensen er die dag of maand actief waren, met het donkere deel voor wie ook een wedstrijd live volgde of een uitslag ingaf. Een lege dag is een streepje op de grondlijn.')}
+    ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul.')}
+    ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. Bezoeken ouder dan zes weken worden opgeruimd, de rest na ruim een seizoen.')}
+  </details>`;
 
   el.innerHTML = onlineKaart + nogNiet + `<div class="card">
     <table style="width:100%;border-collapse:collapse">
@@ -1715,11 +1749,8 @@ async function loadGebruikView() {
       </thead>
       <tbody>${rijen}</tbody>
     </table>
-  </div>
-  <p style="font-size:12px;color:var(--txt2);margin:14px 0 0"><b>Bezoekers</b> is hoeveel verschillende mensen de app in die periode openden; wie drie keer kwam, telt één keer. <b>Sessies</b> is hoe vaak ze ze openden. De app en weer sluiten en binnen het halfuur opnieuw openen, blijft hetzelfde bezoek — herladen of even naar een andere app telt dus niet mee als een tweede keer.</p>
-  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>Gasten staan apart en zijn een ruwer cijfer.</b> Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.</p>
-  <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Geteld vanaf de dag dat de app deze versie kreeg. Wie sindsdien niet meer opende, staat er niet in — dat betekent niet dat hij de app niet gebruikt. Dagen ouder dan zes weken worden opgeruimd.</p>`
-  + daadNogNiet + daadBlok + grafiekBlok + ploegBlok;
+  </div>`
+  + daadNogNiet + daadBlok + grafiekBlok + ploegBlok + uitlegBlok;
   opkuisGebruik();
 }
 

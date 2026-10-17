@@ -9,6 +9,26 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.13.1
+
+**Jouw eigen gebruik telt niet meer mee bij *Wat mensen doen*, *Verloop* en *Per ploeg*.** Jij opent
+de app het vaakst van iedereen — zeker tijdens het bouwen en testen — dus die drie blokken toonden je
+eigen werkdagen in plaats van die van de clubs. Een ploeg waar alleen jij binnenkeek, staat er nu niet
+meer bij.
+
+**Bovenaan tel je wél gewoon mee**, zowel bij *nu online* als in de bezoekersteller: daar ben je één
+uniek account van de zoveel, en dat vertekent niets.
+
+Er worden ook geen daden meer van jou weggeschreven. Wat er vóór deze versie al stond, telt gewoon
+niet mee.
+
+**Alle uitleg zit nu achter één regel: *Hoe lees je deze cijfers?*.** Er stonden zes alinea's tegenover
+vier tabellen, en dan leest het scherm als een handleiding met cijfers ertussen. Alles staat er nog,
+maar dichtgevouwen. Eén zinnetje blijft staan boven *Wat mensen doen*, omdat die kolom anders leest
+als een trechter waarin dezelfde mensen van stap naar stap gaan.
+
+---
+
 ## v2.13.0
 
 **Het scherm *Gebruik* zegt nu ook wát mensen doen, en per ploeg.** Tot nu stond er hoeveel mensen de

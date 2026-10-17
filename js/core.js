@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.13.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.13.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2480,6 +2480,25 @@ function gebruikSessie() {
   try { localStorage.setItem('voetbal_sessie', JSON.stringify(s)); } catch (e) {}
   return s.id;
 }
+// DE EIGENAAR TELT NIET MEE BIJ DE DADEN (Tim, 17-10-2026: "je moet mijn eigen gebruik als eigenaar
+// niet meetellen in de cijfers"). Hij is de enige die deze cijfers leest, en hij opent de app het
+// vaakst van iedereen — vooral tijdens het bouwen en testen. Zijn eigen gangen zouden elke lijn
+// kleuren: elke ploeg waar hij even binnenkijkt lijkt actief, en de grafiek toont zijn werkdagen in
+// plaats van die van de club.
+//
+// MAAR WÉL IN DE BEZOEKERSTELLER BOVENAAN (Tim, zelfde dag: "ik wil wel nog in die algemene
+// gebruikscijfers staan die bovenaan staan, daar word ik toch maar als één unieke gebruiker geteld").
+// Klopt: daar is hij één account van de zoveel, en dat vertekent niets. Daarom blijft `usage`
+// gewoon schrijven en valt enkel `daden` weg. De scheidingslijn loopt dus niet door het
+// wegschrijven, maar door WELKE tak.
+//
+// TWEE SLOTEN op die dadentak, met opzet. Hier wordt er niets meer weggeschreven, en bij het TELLEN
+// valt zijn uid er nog eens uit (zie loadGebruikView). Dat tweede is wat telt: zijn briefjes van vóór
+// deze versie staan er nog, en vlak na het aanmelden is nog niet geweten wie de eigenaar is — een
+// briefje van die seconde glipt er anders alsnog door. Vandaar ook ownerUid naast isOwner.
+function benIkDeEigenaar() {
+  return !!(currentUser && (isOwner || (ownerUid && ownerUid === currentUser.uid)));
+}
 function schrijfGebruik() {
   if (!cloudReady || !fbdb || !currentUser || _gebruikUit) return;
   schrijfDaad('open');
@@ -2540,6 +2559,7 @@ function gebruikRol() {
 const GEEN_PLOEG = 'geen';             // sleutel voor wat buiten een ploeg gebeurt (gast, keuzescherm)
 function schrijfDaad(daad) {
   if (!cloudReady || !fbdb || !currentUser || _gebruikUit || !DADEN[daad]) return;
+  if (benIkDeEigenaar()) return;   // zie de uitleg bij benIkDeEigenaar
   const dag = gebruikDag(presenceNu());
   const ploeg = activeTeamId || GEEN_PLOEG;
   const sleutel = dag + '/' + daad + '/' + ploeg;
