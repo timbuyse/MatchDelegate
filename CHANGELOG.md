@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.1
+
+**De notities staan altijd open**, ook als er nog niets in staat. Het is het enige lege stuk met een
+knop erin: achter een pijltje zou je eerst moeten openklappen om een notitie te kunnen schrijven. De
+vier andere melden enkel dat er niets is; dit stuk nodigt uit om er iets te zetten.
+
+---
+
 ## v2.23.0
 
 **Een leeg stuk van het verslag start ingeklapt.** Staat er niets bij de opstelling, de speelminuten,

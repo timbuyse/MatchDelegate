@@ -506,6 +506,10 @@ function notitieStukken(m) {
   return uit;
 }
 const BEHEERDERS_BIJSCHRIFT = '<span style="font-size:11px;font-weight:400;color:var(--txt2);text-transform:none">(enkel zichtbaar voor beheerders)</span>';
+// ALTIJD OPEN, OOK ZONDER NOTITIES (Tim, 18-10-2026: "notities altijd open"). Dit is de enige lege
+// sectie met een KNOP erin: achter een pijltje zou je eerst moeten openklappen om een notitie te
+// kunnen schrijven. De andere vier melden enkel dat er niets is; deze nodigt uit om er iets te
+// zetten. Vandaar geen `leeg` bij de vsec hieronder.
 function notitieKaartHtml(m, vast) {
   const stukken = notitieStukken(m);
   const kopStijl = 'font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.6px;margin:0 0 3px';
@@ -517,7 +521,7 @@ function notitieKaartHtml(m, vast) {
           </div>`).join('')
         : `<p class="notes-txt" style="color:var(--txt2);margin:0">Geen notities.</p>`}
       ${vast ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:14px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
-    </div>`, !stukken.length);
+    </div>`);
 }
 // EEN EIGEN KADER, METEEN ONDER DE NOTITIES (Tim, 01-10-2026). Bewust niet mee in de kaart hierboven:
 // dit is een lijst namen met een regel per speler, en dat leest anders dan een lopende tekst.
