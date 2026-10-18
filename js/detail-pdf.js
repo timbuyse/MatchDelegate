@@ -294,13 +294,20 @@ function renderDetail() {
          hierboven noemt iedereen al bij naam en nummer, dus er gaat niets verloren.
          De controle is niet "komt van de bond" maar "is er een opstelling": dit gold ook voor elke
          wedstrijd die je enkel afsloot zonder de spelers op het veld te zetten. */ ''}
-    ${vsec('opstelling', vdelen.aantal > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', heeftOpstelling(match)
-      ? `<div class="card">${vdelen.uitPlan
-          ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">${icI(IC.compass)} Dit zijn de ${pPlural(match)} en de wissels <b>zoals je ze had klaargezet</b>. Niemand volgde de klok tijdens deze wedstrijd, dus wat er écht op het veld gebeurde, is niet vastgelegd.</p>`
-          : ''}${renderLineupCarousel(match)}</div>`
-      : `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
+    ${/* EN GEEN VELD TEKENEN DAT NIETS VOORSTELT (Tim, 18-10-2026). Er is wél een opstelling getekend,
+         maar de klok liep nooit en bij het afsluiten koos je dat het plan niet meetelt. Dan beweerde
+         dit diagram dat die elf daar stonden, terwijl het verslag er net onder zegt dat niemand
+         speelminuten heeft. Nu beslist één keuze over allebei — zie verslagDelen in wizard-prep.js,
+         dat hier dan nul delen teruggeeft. */ ''}
+    ${vsec('opstelling', vdelen.aantal > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', !heeftOpstelling(match)
+      ? `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
           ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
-          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`)}
+          : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`
+      : !vdelen.aantal
+      ? `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Niet getoond.</b> Je had een opstelling klaargezet, maar niemand volgde de klok tijdens deze wedstrijd — ze hier tekenen zou een wedstrijd laten zien die misschien heel anders liep. Wie meeging, staat hierboven bij de selectie.${vast ? '' : ` Hoorde het plan wél te gelden? Zet dan bij <b>Uitslag aanpassen</b> het vinkje bij de speelminuten aan.`}</p></div>`
+      : `<div class="card">${vdelen.uitPlan
+          ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">${icI(IC.compass)} Dit zijn de ${pPlural(match)} en de wissels <b>zoals je ze had klaargezet</b>. Niemand volgde de klok tijdens deze wedstrijd, dus wat er écht op het veld gebeurde, is niet vastgelegd.</p>`
+          : ''}${renderLineupCarousel(match)}</div>`)}
     ${match.quarters.length ? vsec('perdeel', `Per ${pSingLow(match)}`, `<div class="card">${qSummary}</div>`) : ''}
     ${!statSectionVisible('minutes') ? '' : vsec('speelminuten', `Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span>`, `
     ${/* MET EEN MAN MINDER (Tims keuze, 24-08-2026). Na een rode kaart of een eenzijdige wissel
@@ -1542,10 +1549,12 @@ async function pdfMatchBody(doc, L, m) {
   // ---- Opstelling (diagram = afbeelding, rest van het PDF blijft tekst) ----
   // `heeftOpstelling` erbij (v1.30.0): zonder één ingevulde plek tekende de PDF hetzelfde rijtje
   // shirts over elkaar als het scherm. Zelfde reden, zelfde grens — zie de uitleg in renderDetail.
-  if (m.players.some(p => p.starting) && heeftOpstelling(m)) {
-    // Zelfde bron als het scherm (v2.12.1): gelopen delen, of anders het plan wanneer je bij het
-    // afsluiten koos dat de speelminuten uit het plan mogen komen. Zie verslagDelen in wizard-prep.js.
-    const vd = verslagDelen(m);
+  // Zelfde bron als het scherm (v2.12.1): gelopen delen, of anders het plan wanneer je bij het
+  // afsluiten koos dat de speelminuten uit het plan mogen komen. Zie verslagDelen in wizard-prep.js.
+  // NUL DELEN = GEEN DIAGRAM (v2.21.0, zelfde grens als het scherm): niets bijgehouden en het plan
+  // telt niet mee. De PDF zwijgt hier dan helemaal; de selectie staat er al volledig in.
+  const vd = verslagDelen(m);
+  if (m.players.some(p => p.starting) && heeftOpstelling(m) && vd.aantal) {
     const numQ = vd.aantal;
     // pitchPlayersAtPeriodStart i.p.v. de rauwe m.players: startopstelling + wissels, zonder
     // positiewisselingen (zie de toelichting bij die functie). Ook het één-blok-geval loopt via de

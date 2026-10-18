@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.21.0
+
+**Geen velddiagram meer bij een wedstrijd waarvan niets is bijgehouden.** Sloot je een wedstrijd af
+zonder dat de klok ooit liep, en koos je daarbij dat de speelminuten van het plan niet meetellen, dan
+toonde het verslag tóch de opstelling op het veld — terwijl datzelfde verslag er net onder zei dat
+niemand speelminuten heeft. Dat diagram was dus een bewering over een wedstrijd waarvan we niets
+weten. Nu beslist één keuze over allebei: vink je de speelminuten aan, dan geldt het plan als
+gespeeld (minuten, kwarten én velddiagram); vink je uit, dan telt enkel de selectie. In plaats van
+het veld staat er één regel die zegt waarom, met de weg om het plan alsnog te laten gelden. De
+opstelling die je tekende blijft gewoon bewaard. Ook in de PDF.
+
+---
+
 ## v2.20.1
 
 **De ploegen in *Wedstrijden per maand* staan nu gerangschikt op het aantal wedstrijden dat live

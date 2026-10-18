@@ -1174,10 +1174,20 @@ function pitchPlayersAtPeriodStart(m, qNum) {
 // maar niet de opstelling per kwart zoals bij een normaal verslag").
 // GELOPEN DELEN GAAN ALTIJD VOOR. Die zijn gemeten; het plan is maar een voornemen. Staat er één
 // gelopen deel, dan komt er hier nooit een plan aan te pas.
+// NUL DELEN BESTAAT OOK (Tim, 18-10-2026). Een afgewerkte wedstrijd waar de klok nooit liep en waar
+// je het vinkje bij de speelminuten NIET aanzette: dan zegt de app enerzijds dat ze niet weet wie
+// hoeveel speelde, en tekende ze anderzijds toch een veld met elf shirts erop. Dat veld is dan een
+// bewering over een wedstrijd waarvan niets is bijgehouden. Eén keuze beslist nu over allebei: vink
+// je aan, dan geldt het plan als gespeeld (minuten én veld); vink je uit, dan telt enkel de
+// selectie. Gemeten op Tims clubgegevens van 18-10: 23 van de 241 niet gevolgde wedstrijden hadden
+// een getekende opstelling, waarvan er drie zo in het verslag stonden.
+// ENKEL BIJ EEN AFGEWERKTE WEDSTRIJD. Een lopende wedstrijd vóór de aftrap heeft ook nul gelopen
+// delen, en daar is de startopstelling net het enige wat er te tonen valt.
 function verslagDelen(m) {
   const gelopen = ((m && m.quarters) || []).length;
   if (gelopen) return { aantal: gelopen, uitPlan: false };
   if (planMinutenAan(m) && heeftOpstelling(m)) return { aantal: plannedPartsCount(m), uitPlan: true };
+  if (m && m.status === 'done') return { aantal: 0, uitPlan: false };
   return { aantal: 1, uitPlan: false };
 }
 // De opstelling waarmee deel q begint. planStartVanDeel woont in detail-pdf.js, dat NA dit bestand
@@ -1199,6 +1209,7 @@ function _lcNav(dir) {
 }
 function renderLineupCarousel(m) {
   const { aantal: total, uitPlan } = verslagDelen(m);
+  if (!total) return '';   // niets bijgehouden en het plan telt niet mee: zie verslagDelen
   _lcIdx = 0;
   // GEEN POTLOODJE HIER (Tim, 06-09-2026). Het stond hier kort, maar hij bedoelde het naast de
   // "Startopstelling"-regel in de eventlijst — daar staat het nu, in startLineupHtml
