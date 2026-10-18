@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.20.1
+
+**De ploegen in *Wedstrijden per maand* staan nu gerangschikt op het aantal wedstrijden dat live
+gevolgd werd**, niet op het totaal. Dat is het cijfer waar het om gaat: een ploeg kan dertig uitslagen
+ingetikt hebben en nog nooit aan de lijn gestaan hebben. Zo staan de ploegen die de app echt
+gebruiken bovenaan, en de nullen onderaan bij elkaar. Bij gelijk aantal beslist het totaal.
+
+---
+
 ## v2.20.0
 
 **Bovenaan *Beheer → Gebruik* staat nu een clubkiezer.** Kies je een club, dan gaan *Wat mensen doen*,

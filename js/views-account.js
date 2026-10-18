@@ -1903,8 +1903,12 @@ async function loadGebruikView() {
     }
     const tot = Object.values(perMaand).reduce((a, v) => a + v.n, 0);
     const totLive = Object.values(perMaand).reduce((a, v) => a + v.live, 0);
+    // OP LIVE GEVOLGDE WEDSTRIJDEN, NIET OP HET TOTAAL (Tim, 18-10-2026). Dat is het cijfer waar het
+    // om gaat: een ploeg kan twintig uitslagen ingetikt hebben en nog nooit aan de lijn gestaan
+    // hebben. Zo staan de ploegen die de app écht gebruiken bovenaan, en de nullen onderaan bij
+    // elkaar. Het totaal blijft de tweede sleutel, de naam de derde.
     const rijen = Object.entries(perPloeg).map(([, p]) => p).filter(p => p.n)
-      .sort((a, b) => b.n - a.n || ploegNaamVgl(a.naam || '', b.naam || ''));
+      .sort((a, b) => b.live - a.live || b.n - a.n || ploegNaamVgl(a.naam || '', b.naam || ''));
     const kort = iso => iso ? iso.split('-').reverse().slice(0, 2).join('/') + '/' + iso.slice(2, 4) : '—';
     return kop + `<div class="card">
       ${gebruikGrafiekHtml(reeks)}
