@@ -1462,14 +1462,18 @@ function telGebruik(ruw, dagen, nu) {
 // andere, als het hoogste telt wat hij is. Zie gebruikRol in core.js voor de letters.
 const ROL_RANG = { e: 5, c: 4, b: 3, k: 2, g: 1 };
 const ROL_WOORD = { e: 'Eigenaar', c: 'Clubbeheerders', b: 'Ploegbeheerders', k: 'Kijkers', g: 'Gasten' };
-function telDaden(ruw, dagen, nu, negeer) {
+// `magPloeg` (v2.20.0) zegt of een ploeg meetelt — zo filtert de clubkiezer álles wat hieruit komt,
+// zonder dat er iets extra gemeten moest worden. Niet meegegeven = alles telt mee.
+function telDaden(ruw, dagen, nu, negeer, magPloeg) {
   const vanaf = gebruikDag(nu - (dagen - 1) * 86400000);
   const perDaad = {}, perPloeg = {}, rolVan = {}, dagenVan = {};
+  const mag = magPloeg || (() => true);
   for (const daad in DADEN) perDaad[daad] = new Set();
   for (const dag in (ruw || {})) {
     if (dag < vanaf) continue;
     for (const daad in (ruw[dag] || {})) {
       for (const ploeg in (ruw[dag][daad] || {})) {
+        if (!mag(ploeg)) continue;        // buiten de gekozen club
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
           if (uid === negeer) continue;   // de eigenaar telt nergens mee
           if (perDaad[daad]) perDaad[daad].add(uid);
@@ -1521,6 +1525,8 @@ function telDaden(ruw, dagen, nu, negeer) {
 // venster opgevuld; zonder dat schuiven drukke dagen tegen elkaar en lijkt elke week even druk.
 // TWEE TONEN IN ÉÉN BALK en niet twee balken naast elkaar: de vraag is niet "hoeveel van elk" maar
 // "hoeveel van de mensen die er waren, deden ook iets" — dat lees je binnen één balk af.
+let _gebruikClub = '';                 // '' = alle clubs, anders een clubId (v2.20.0)
+function zetGebruikClub(cid) { if (cid !== _gebruikClub) { _gebruikClub = cid; _geschiedenis = null; loadGebruikView(); } }
 let _gebruikEenheid = 'dag';           // 'dag' (30 dagen) of 'maand' (12 maanden)
 let _gebruikRuim = null;               // de ruimere lezing voor de maandweergave, één keer per bezoek
 function zetGebruikEenheid(e) { if (e !== _gebruikEenheid) { _gebruikEenheid = e; loadGebruikView(); } }
@@ -1529,7 +1535,8 @@ function maandLabel(ym) {
   const M = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
   return M[Number(String(ym).slice(5, 7)) - 1] || ym;
 }
-function gebruikReeks(ruw, eenheid, nu, negeer) {
+function gebruikReeks(ruw, eenheid, nu, negeer, magPloeg) {
+  const mag = magPloeg || (() => true);
   const vakken = [], index = {};
   const maak = (sleutel, label) => { const v = { sleutel, label, mensen: new Set(), werk: new Set() }; vakken.push(v); index[sleutel] = v; return v; };
   if (eenheid === 'maand') {
@@ -1550,6 +1557,7 @@ function gebruikReeks(ruw, eenheid, nu, negeer) {
     if (!v) continue;
     for (const daad in (ruw[dag] || {})) {
       for (const ploeg in (ruw[dag][daad] || {})) {
+        if (!mag(ploeg)) continue;        // buiten de gekozen club
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
           if (uid === negeer) continue;   // de eigenaar telt nergens mee
           v.mensen.add(uid);
@@ -1622,7 +1630,12 @@ async function gebruikGeschiedenisOphalen() {
   try {
     const clubs = (await fbOnce(fbdb.ref('clubs'))).val() || {};
     const tids = new Set();
-    Object.values(clubs).forEach(c => Object.keys((c && c.teams) || {}).forEach(t => tids.add(t)));
+    // Enkel de gekozen club, als er een gekozen is (v2.20.0). Scheelt meteen ook een hoop lezen: bij
+    // één club van dertien ploegen haal je niet de wedstrijden van alle andere clubs binnen.
+    Object.entries(clubs).forEach(([cid, c]) => {
+      if (_gebruikClub && cid !== _gebruikClub) return;
+      Object.keys((c && c.teams) || {}).forEach(t => tids.add(t));
+    });
     const perPloeg = {}, perMaand = {};
     for (const tid of tids) {
       let wed = {};
@@ -1697,6 +1710,23 @@ async function loadGebruikView() {
   const vanafDag = gebruikDag(nu - (_gebruikEenheid === 'maand' ? 400 : GEBRUIK_DAGEN - 1) * 86400000);
   try { daden = (await fbOnce(fbdb.ref('daden').orderByKey().startAt(vanafDag))).val() || {}; }
   catch (e) { daden = null; }   // regels nog niet gepubliceerd → de blokken hieronder blijven weg
+  // ---- PER CLUB (v2.20.0, Tim: "die gebruikscijfers zouden per club verdeeld moeten zijn, dus
+  // bovenaan een selectievenster van de club") ----
+  // De briefjes dragen de PLOEG, niet de club. Dat hoeft ook niet: de clublijst zegt welke ploeg bij
+  // welke club hoort, en die lezing is klein. Daardoor werkt deze indeling meteen ook op alles wat er
+  // al geteld is — er moest niets bijgemeten worden.
+  let clubNaam = {}, ploegClub = {};
+  try {
+    const clubs = (await fbOnce(fbdb.ref('clubs'))).val() || {};
+    Object.entries(clubs).forEach(([cid, c]) => {
+      clubNaam[cid] = ((c && c.info && c.info.name) || cid);
+      Object.keys((c && c.teams) || {}).forEach(tid => { ploegClub[tid] = cid; });
+    });
+  } catch (e) { clubNaam = {}; ploegClub = {}; }
+  // Staat de gekozen club er niet meer (verwijderd, of geen leesrecht), val dan terug op alles —
+  // anders staar je naar een leeg scherm zonder te weten waarom.
+  if (_gebruikClub && !clubNaam[_gebruikClub]) _gebruikClub = '';
+  const magPloeg = pid => !_gebruikClub || ploegClub[pid] === _gebruikClub;
   let online = null;
   try { online = telNuOnline((await fbOnce(fbdb.ref('presence'))).val() || {}); } catch (e) {}
   // DE NOEMER (v2.17.0, Tim: "kan er nog meer data en detail op die pagina?"). "18 actief" zegt weinig
@@ -1742,6 +1772,23 @@ async function loadGebruikView() {
   const actiefMaand = ruw === null ? null : telGebruik(ruw, GEBRUIK_DAGEN, nu).a.mensen.size;
   const noemerRegel = (accounts && actiefMaand != null) ? `<p style="font-size:13px;color:var(--txt2);margin:10px 0 0;text-align:center">
     <b style="font-size:16px;color:var(--txt)">${actiefMaand}</b> van je <b>${accounts}</b> accounts ${actiefMaand === 1 ? 'was' : 'waren'} de laatste 30 dagen actief.</p>` : '';
+  // De clubkiezer bovenaan. Enkel bij MEER dan één club: met één club is het een keuzelijst zonder
+  // keuze, en die kost enkel plaats. Zelfde afweging als de ploegfilter in de wedstrijdenlijst.
+  const clubIds = Object.keys(clubNaam).sort((a, b) => (clubNaam[a] || '').localeCompare(clubNaam[b] || '', 'nl'));
+  const clubKiezer = clubIds.length > 1 ? `<div class="fg" style="margin:0 0 12px">
+    <label>Club</label>
+    <select onchange="zetGebruikClub(this.value)">
+      <option value="" ${_gebruikClub ? '' : 'selected'}>Alle clubs</option>
+      ${clubIds.map(cid => `<option value="${esc(cid)}" ${_gebruikClub === cid ? 'selected' : ''}>${esc(clubNaam[cid])}</option>`).join('')}
+    </select></div>` : '';
+  // WAT NIET PER CLUB TE SPLITSEN VALT, en waarom dat eerlijk moet staan: de bezoekersteller, "nu
+  // online" en "laatst binnengekomen" komen uit takken die GEEN ploeg bijhouden (usage, presence,
+  // lastSeen). Die cijfers onder een clubnaam tonen zou ze iets laten beweren wat ze niet weten.
+  // Dus vallen ze weg zodra je een club kiest, met één regel die zegt waarom.
+  const clubGekozen = !!_gebruikClub;
+  const clubBeperking = clubGekozen ? `<div class="card" style="margin-bottom:12px">
+    <p style="margin:0;font-size:13px;color:var(--txt2)">${icI(IC.warn)} <b>Bezoekers, nu online en 'laatst binnengekomen' staan hier niet.</b> Die tellingen houden geen ploeg bij, dus ze zijn niet per club te splitsen. Kies <b>Alle clubs</b> om ze te zien.</p>
+  </div>` : '';
   const onlineKaart = `<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
     <div style="text-align:center;min-width:64px">
       <div style="font-size:30px;font-weight:800;line-height:1.1;color:${online ? 'var(--grn2)' : 'inherit'}">${online === null ? '—' : online}</div>
@@ -1758,7 +1805,7 @@ async function loadGebruikView() {
   // verschillende mensen deden dit in deze periode"; het is niet gevolgd per persoon van stap naar
   // stap. Wie het zo leest, trekt de juiste conclusie ("van de 40 die de app openden, openden er 12
   // een wedstrijd") zonder te doen alsof we weten dat het dezelfde twaalf zijn.
-  const daadTel = daden === null ? null : GEBRUIK_VENSTERS.map(([, dagen]) => telDaden(daden, dagen, nu, negeer));
+  const daadTel = daden === null ? null : GEBRUIK_VENSTERS.map(([, dagen]) => telDaden(daden, dagen, nu, negeer, magPloeg));
   // ZEG HET WANNEER DE TAK NOG NIET LEESBAAR IS. Zonder deze kaart verdwijnen de twee blokken hieronder
   // gewoon, en dan lijkt de app stuk terwijl er enkel nog een regel gepubliceerd moet worden. Dit is
   // precies het geval dat zich voordoet zodra deze versie live staat en de regels nog niet.
@@ -1785,7 +1832,7 @@ async function loadGebruikView() {
     </div>
     </div>`;
   // De grafiek: hetzelfde cijfer, maar als verloop. Hier zie je of het stijgt of wegzakt.
-  const reeks = !daadTel ? null : gebruikReeks(daden, _gebruikEenheid, nu, negeer);
+  const reeks = !daadTel ? null : gebruikReeks(daden, _gebruikEenheid, nu, negeer, magPloeg);
   const knop = (e, lbl) => `<button class="btn ${_gebruikEenheid === e ? 'btn-green' : 'btn-pale'} btn-sm" style="width:auto;margin:0;padding:4px 12px" onclick="zetGebruikEenheid('${e}')">${lbl}</button>`;
   const grafiekBlok = !reeks ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.chart)} Verloop</div>
     <div class="card">
@@ -1981,7 +2028,7 @@ async function loadGebruikView() {
     ${u('Wat telt als live gevolgd?', 'Enkel een wedstrijd waarbij er écht een klok liep aan de lijn. Een wedstrijd waarvan je achteraf de uitslag ingaf telt niet mee, en een wedstrijd waarvan de speelminuten van het officiële wedstrijdblad komen ook niet — daar stond niemand met een klok, ook al staat er speeltijd op.')}
   </details>`;
 
-  el.innerHTML = onlineKaart + nogNiet + `<div class="card">
+  const bezoekersBlok = clubGekozen ? '' : onlineKaart + nogNiet + `<div class="card">
     <table style="width:100%;border-collapse:collapse">
       <thead>
         <tr>
@@ -1999,9 +2046,10 @@ async function loadGebruikView() {
       </thead>
       <tbody>${rijen}</tbody>
     </table>
-  </div>${noemerRegel}`
+  </div>${noemerRegel}`;
+  el.innerHTML = clubKiezer + clubBeperking + bezoekersBlok
   + daadNogNiet + daadBlok + nieuwRegel + grafiekBlok + wieBlok + terugBlok + ploegBlok
-  + historieBlok + geschBlok + uitlegBlok;
+  + (clubGekozen ? '' : historieBlok) + geschBlok + uitlegBlok;
   opkuisGebruik();
 }
 
@@ -4245,13 +4293,16 @@ function speeldagDoorTekst() {
   const rest = Math.max(0, g.bezig.length - 2);
   const delen = [];
   if (rest) delen.push(rest === 1 ? 'nog 1 andere loopt' : `nog ${rest} andere lopen`);
-  // WAT BLIJVEN LIGGEN IS, STAAT VOORAAN NA WAT LOOPT: daar moet je iets mee, de rest is nieuws.
-  if (g.nietAf.length) delen.push(g.nietAf.length === 1 ? '1 niet afgesloten' : `${g.nietAf.length} niet afgesloten`);
+  // TWEE GETALLEN OP HET BEGINSCHERM, MEER NIET (Tim, 18-10-2026: "die moeten ook niet op het
+  // homescherm in die melding erbij staan in aantal — enkel hoeveel gespeeld en hoeveel gepland").
+  // Een wedstrijd die bleef liggen telt hier dus gewoon mee als GEPLAND, zoals vóór v2.18.0: dat is
+  // wat ze is. Het onderscheid hoort op het scherm erachter, niet in een doorklikregel van één zin.
+  const gepland = g.komt.length + g.nietAf.length;
   const tel = [];
-  if (g.komt.length) tel.push(`${g.komt.length} geplande`);
+  if (gepland) tel.push(`${gepland} geplande`);
   if (g.gespeeld.length) tel.push(`${g.gespeeld.length} gespeelde`);
   if (tel.length) {
-    const n = g.komt.length + g.gespeeld.length;
+    const n = gepland + g.gespeeld.length;
     delen.push(tel.join(', ') + (n === 1 ? ' wedstrijd' : ' wedstrijden'));
   }
   // OP EEN STILLE DAG ZEGT DEZE REGEL WAT ER ACHTER ZIT (Tim, 15-10-2026: "moet daar ook iets staan
@@ -4340,12 +4391,17 @@ function speeldagVolledigHtml() {
   // OP EEN VOORBIJE DAG VALLEN DE TWEE SAMEN: een wedstrijd die bleef lopen en een die nooit begon
   // zijn allebei "niet afgesloten". Twee keer dezelfde kop boven elkaar leest als een fout, dus dan
   // komen ze onder één kop — de kaartjes zelf verschillen in kleur en zeggen wat er aan de hand is.
-  // VOLGORDE: wat loopt, dan wat is blijven liggen (daar moet je iets mee), dan wat gespeeld is, en
-  // pas daarna wat nog komt. Het eerste gevulde hoopje krijgt `margin-top:0` — vandaar dat de lijst
-  // hier als geheel opgebouwd wordt en niet met een vooraf geraden "eerste kop".
+  // VOLGORDE: wat loopt, wat gespeeld is, wat nog komt — en HELEMAAL ONDERAAN wat blijven liggen is
+  // (Tim, 18-10-2026: "bij vandaag moeten de niet afgesloten onderaan staan"). Ik had ze bovenaan
+  // gezet omdat je er iets mee moet, maar dit scherm gaat over de dag zoals ze loopt; wat er nog
+  // openstaat hoort achteraan, niet vóór de wedstrijden die nu bezig zijn.
+  // Op een VOORBIJE dag staat het wél vooraan: daar is "niet afgesloten" het nieuws van die dag, en
+  // het valt er samen met de wedstrijden die bleven lopen.
+  // Het eerste gevulde hoopje krijgt `margin-top:0` — vandaar dat de lijst als geheel opgebouwd wordt
+  // en niet met een vooraf geraden "eerste kop".
   const hoopjes = voorbij
     ? [[kopBezig, g.bezig.concat(g.nietAf)], [kopGespeeld, g.gespeeld], [kopKomt, g.komt]]
-    : [[kopBezig, g.bezig], ['Niet afgesloten', g.nietAf], [kopGespeeld, g.gespeeld], [kopKomt, g.komt]];
+    : [[kopBezig, g.bezig], [kopGespeeld, g.gespeeld], [kopKomt, g.komt], ['Niet afgesloten', g.nietAf]];
   const gevuld = hoopjes.filter(([, rijen]) => rijen.length);
   return mislukteRegel + gevuld.map(([kop, rijen], i) => deel(kop, rijen, i === 0)).join('');
 }

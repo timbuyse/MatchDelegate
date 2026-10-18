@@ -9,6 +9,30 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.20.0
+
+**Bovenaan *Beheer → Gebruik* staat nu een clubkiezer.** Kies je een club, dan gaan *Wat mensen doen*,
+*Verloop*, *Wie het zijn*, *Hoe vaak ze terugkomen*, *Per ploeg* en *Wedstrijden per maand* allemaal
+over die ene club.
+
+Er moest niets extra gemeten worden: de briefjes dragen al de ploeg, en de clublijst zegt welke ploeg
+bij welke club hoort. **Deze indeling werkt dus meteen ook op alles wat er al geteld is.** De
+kiezer verschijnt alleen bij meer dan één club.
+
+> **Drie dingen vallen weg zodra je een club kiest**: de bezoekersteller, *nu online* en *wanneer ze
+> voor het laatst binnenkwamen*. Die tellingen houden geen ploeg bij, dus ze zijn niet per club te
+> splitsen — ze onder een clubnaam tonen zou ze iets laten beweren wat ze niet weten. Er staat één
+> regel die dat zegt.
+
+**Op het vandaag-scherm staan de niet-afgesloten wedstrijden nu onderaan**, na wat nog te spelen is.
+Op een dag die voorbij is blijven ze bovenaan: daar zijn ze het nieuws van die dag.
+
+**En op het beginscherm noemt de doorklikregel ze niet meer apart.** Daar staan weer gewoon twee
+getallen — hoeveel gepland en hoeveel gespeeld — waarbij een wedstrijd die bleef liggen meetelt als
+gepland. Het onderscheid hoort op het scherm erachter, niet in een regel van één zin.
+
+---
+
 ## v2.19.0
 
 **Bij een vrije trap vóór je ploeg kan je nu ook ingeven op wie de fout gemaakt is.** Dat is vaak het
