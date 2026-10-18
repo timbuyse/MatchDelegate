@@ -16,6 +16,9 @@ function renderDetail() {
   const opSlot = matchVergrendeld(match);
   const vast = ro || opSlot;
   const mins = calcMinutes(match);
+  // Heeft niemand ook maar één minuut? Dan valt de lijst met speelminuten weg (v2.21.0) — zie de
+  // uitleg bij die sectie. Ook het bijschrift over de balkjes gaat dan weg: er staan geen balkjes.
+  const geenMinuten = !Object.values(mins).some(v => v && v.ms > 0);
   // Hoeveel delen toont de opstellingssectie, en komen ze uit het plan? Zie verslagDelen.
   const vdelen = verslagDelen(match);
   const qSummary = match.quarters.map(q => {
@@ -309,7 +312,7 @@ function renderDetail() {
           ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">${icI(IC.compass)} Dit zijn de ${pPlural(match)} en de wissels <b>zoals je ze had klaargezet</b>. Niemand volgde de klok tijdens deze wedstrijd, dus wat er écht op het veld gebeurde, is niet vastgelegd.</p>`
           : ''}${renderLineupCarousel(match)}</div>`)}
     ${match.quarters.length ? vsec('perdeel', `Per ${pSingLow(match)}`, `<div class="card">${qSummary}</div>`) : ''}
-    ${!statSectionVisible('minutes') ? '' : vsec('speelminuten', `Speelminuten <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span>`, `
+    ${!statSectionVisible('minutes') ? '' : vsec('speelminuten', `Speelminuten${geenMinuten ? '' : ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span>`}`, `
     ${/* MET EEN MAN MINDER (Tims keuze, 24-08-2026). Na een rode kaart of een eenzijdige wissel
          klopten de minuten wel, maar nergens stond dát je een tijd met minder spelers speelde —
          terwijl dat de eerste vraag is als iemand de percentages nakijkt. Berekend uit de cijfers
@@ -337,7 +340,12 @@ function renderDetail() {
       if (ms < 60000) return '';
       return `<p style="font-size:12px;color:var(--txt2);margin:-4px 0 8px">${icI(IC.warn)} Ongeveer <b>${Math.round(ms / 60000)} min</b> speelde je met minder spelers op het veld dan er plaatsen zijn.</p>`;
     })()}
-    <div class="card">
+    ${/* GEEN LIJST VAN NULLEN (Tim, 18-10-2026: "kan je dan niet best ook die namenlijst telkens met 0
+         minuten gespeeld wegdoen?"). Staat er van niemand één minuut, dan was dit een kolom nullen
+         naast elke naam — veertien regels die alleen maar herhalen wat de zin erboven al zegt, en die
+         bovendien lezen alsof die spelers er niets van gebakken hebben. De zin blijft wél staan: die
+         legt uit waarom er geen minuten zijn en wat er wél meetelt. Zelfde grens in de PDF. */ ''}
+    ${geenMinuten ? '' : `<div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
         ${/* Lege plaatshouder voor het rugnummerbolletje — enkel als er in deze wedstrijd effectief
              nummers staan, anders schuift deze kopregel op t.o.v. de rijen eronder. */ ''}
@@ -360,7 +368,7 @@ function renderDetail() {
           return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
         }).join('');
       })()}
-    </div>`)}
+    </div>`}`)}
     ${/* Het getal telt nu wat er ECHT staat (audit 25-08-2026): match.events.length bevat ook de
          begin- en eindmarkeringen van elk blok, die de tijdlijn niet toont — en voor een kijker
          vallen er nog meer weg. "Events (24)" boven een lijst van 16 regels klopt niet. */ ''}
@@ -1879,23 +1887,31 @@ async function pdfMatchBody(doc, L, m) {
   }
 
   // ---- Spelers ----
-  const qCols = qData ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
+  // GEEN KOLOM NULLEN (Tim, 18-10-2026, zelfde vraag als op het scherm). Heeft niemand ook maar één
+  // minuut, dan valt de kolom met de speeltijd weg; de rest van deze tabel — doelpunten, assists,
+  // kaarten, wie er niet bij was — blijft wél staan, want die zegt nog iets. Op het scherm verdwijnt
+  // de hele lijst, hier enkel de kolom: daar gaat het om een lijst die alleen minuten toont, hier om
+  // een tabel die veel meer draagt. "Niet aanwezig" stond in diezelfde kolom en verhuist dan naar de
+  // naam.
+  const geenMin = !Object.values(mins).some(v => v && v.ms > 0);
+  const qCols = (qData && !geenMin) ? qData.qNums.map(qNum => `${pAbbr(m)}${qNum}`) : [];
+  const minCol = geenMin ? [] : ['Totaal'];
   // De '#'-kolom valt weg als geen enkele speler een rugnummer heeft: rugnummers zijn optioneel
   // (zie teamUsesNumbers), en een kolom met louter lege cellen is enkel ruis.
   const anyNum = m.players.some(p => pNum(p));
   const numCol = anyNum ? ['#'] : [];
   const numCell = p => anyNum ? [pNum(p)] : [];
-  const playerHead = [...numCol, 'Naam', 'Totaal', ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
+  const playerHead = [...numCol, 'Naam', ...minCol, ...qCols, 'Goals', 'Assists', 'Geel', 'Rood'];
   const absentRowIdx = new Set();
   const playerRows = sortedByName(m.players).map((p, idx) => {
-    if (p.absent) { absentRowIdx.add(idx); return [...numCell(p), p.name || '', 'Niet aanwezig', ...qCols.map(() => ''), '', '', '', '']; }
+    if (p.absent) { absentRowIdx.add(idx); return [...numCell(p), (p.name || '') + (geenMin ? ' (niet aanwezig)' : ''), ...(geenMin ? [] : ['Niet aanwezig']), ...qCols.map(() => ''), '', '', '', '']; }
     const min = mins[p.id] ? playedMin(mins[p.id].ms) : 0;
     const g = m.events.filter(e => (e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id).length;
     const a = m.events.filter(e => e.type === 'goal_us' && e.assistId === p.id).length;
     const yc = m.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id && !_opPdf.has(e.id)).length;
     const rc = m.events.filter(e => e.type === 'red_card' && e.playerId === p.id).length;
-    const qVals = qData ? qData.qNums.map(qNum => deelMinTxt(qData.result[p.id]?.[qNum] || 0)) : [];
-    return [...numCell(p), p.name || '', `${min}'`, ...qVals, g || '', a || '', yc || '', rc || ''];
+    const qVals = qCols.length ? qData.qNums.map(qNum => deelMinTxt(qData.result[p.id]?.[qNum] || 0)) : [];
+    return [...numCell(p), p.name || '', ...(geenMin ? [] : [`${min}'`]), ...qVals, g || '', a || '', yc || '', rc || ''];
   });
   // Iets minder celvulling zodat de 12 kolommen bij een grotere letter nog naast elkaar passen.
   // Deze tabel bevat de speelminuten per speler (en wie niet aanwezig was), dus ze volgt dezelfde

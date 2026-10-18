@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.22.0
+
+**Geen lijst van nullen meer bij de speelminuten.** Bij een wedstrijd waar niemand ook maar één
+minuut heeft, stond er toch een rij namen met overal `0' · 0%` naast. Dat herhaalde alleen wat de zin
+erboven al zegt, en het leest bovendien alsof die spelers er niets van gebakken hebben. De lijst valt
+nu weg; de uitleg waarom er geen minuten zijn blijft staan, samen met wat er wél meetelt. Het
+bijschrift over de gekleurde balkjes verdwijnt mee — er zijn geen balkjes.
+
+In de PDF gaat enkel de **kolom** met de speeltijd weg: die tabel draagt ook de doelpunten, de
+assists, de kaarten en wie er niet bij was, en dat zegt nog altijd iets. "Niet aanwezig" stond in
+diezelfde kolom en staat dan achter de naam.
+
+---
+
 ## v2.21.0
 
 **Geen velddiagram meer bij een wedstrijd waarvan niets is bijgehouden.** Sloot je een wedstrijd af
