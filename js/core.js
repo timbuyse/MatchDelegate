@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.18.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.19.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4168,7 +4168,10 @@ function herstelKlokUitEvents(m) {
 // mist precies de verwijzingen die je zoekt — bij het herstel van 15-09-2026 was dat `assistId`, en
 // dan blijven er vier doelpunten zonder assistgever achter terwijl alles "opgelost" lijkt.
 // detail-pdf.js gebruikt dezelfde lijst (SEL_EVT_VELDEN); dit bestand laadt eerst.
-const EVENT_SPELER_VELDEN = ['playerId', 'playerInId', 'playerOutId', 'assistId', 'fromId', 'pA', 'pB'];
+// `fouledId` kwam erbij in v2.19.0: bij een vrije trap VOOR ons de speler op wie de fout gemaakt is
+// (playerId blijft wie ze neemt). Hier bijzetten is geen formaliteit — vergeet je dat, dan blijft er
+// bij het wissen van een speler een verwijzing naar hem achter en denkt het herstel dat alles klopt.
+const EVENT_SPELER_VELDEN = ['playerId', 'playerInId', 'playerOutId', 'assistId', 'fromId', 'pA', 'pB', 'fouledId'];
 // Naar welke spelers verwijzen de gebeurtenissen van deze wedstrijd?
 function eventSpelerIds(m) {
   const uit = new Set();

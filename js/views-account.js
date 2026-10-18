@@ -5167,7 +5167,7 @@ function evtLabelBasis(e, m, kort) {
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
     // vrije trap VOOR ons is `playerId` wie ze neemt; bij een vrije trap TEGEN ons is het onze speler
     // die de fout maakte — vandaar het woordje "door", anders leest het als de nemer.
-    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
+    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.fouledId?` <span style="color:var(--txt2)">(fout op ${pn(e.fouledId)})</span>`:''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
     case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen${e.playerId?' · door '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
     // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
     // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
@@ -5221,7 +5221,7 @@ function evtLabelPlainBasis(e, m) {
     case 'red_card_trainer': return `Rode kaart ${stafZin(e, m)}`;
     case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
     case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
+    case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.fouledId?` (fout op ${pName(m,e.fouledId)})`:''}${e.reden?` (${e.reden})`:''}`;
     case 'freekick_them': return `Vrije trap tegen${e.playerId?' · door '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
     case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}${e.notReturning?' (komt niet meer terug)':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;

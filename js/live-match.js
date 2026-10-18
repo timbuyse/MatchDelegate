@@ -3011,6 +3011,8 @@ function exportMatchCSV() {
       if (e.leavesField) extraInfo += (extraInfo ? ' · ' : '') + 'Verlaat veld';
       // Ook in de export zichtbaar dat deze rode kaart een tweede geel was — zie isTweedeGeel.
       if (isTweedeGeel(e)) extraInfo += (extraInfo ? ' · ' : '') + 'Tweede gele kaart';
+      // En op wie de fout gemaakt is bij een vrije trap voor ons (v2.19.0).
+      if (e.fouledId) extraInfo += (extraInfo ? ' · ' : '') + 'Fout op ' + pName(m, e.fouledId);
     }
     if (e.type === 'note' && e.text) extraInfo = e.text;
     // Hoe het doelpunt viel, achteraan in dezelfde kolom (zie GOAL_WIJZEN in core.js). Hier BUITEN de
@@ -3403,7 +3405,8 @@ function modalEditEvent(id) {
   // VRIJE TRAP, achteraf (v1.92.0). Twee kanten, twee betekenissen van dezelfde keuzelijst: voor ons
   // is het de nemer, tegen ons is het onze speler die de fout maakte. De reden is een vrij tekstveld —
   // je kan er zelf iets intikken, en de twee vaste woorden staan als plaatshouder in het veld.
-  else if (t === 'freekick_us') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`
+  else if (t === 'freekick_us') fields = `<div class="fg"><label>Wie nam de vrije trap?</label><select id="ee-player">${opts(e.playerId, true)}</select></div>`
+    + `<div class="fg"><label>Op wie is de fout gemaakt? <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><select id="ee-opwie">${opts(e.fouledId, true)}</select></div>`
     + `<div class="fg"><label>Waarom <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-reden" type="text" value="${esc(e.reden || '')}" placeholder="bv. Buitenspel, Fout, hands" autocomplete="off"></div>`;
   else if (t === 'freekick_them') fields = `<div class="fg"><label>Wie maakte de fout? <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><select id="ee-player">${opts(e.playerId, true)}</select></div>`
     + `<div class="fg"><label>Waarom <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label><input id="ee-reden" type="text" value="${esc(e.reden || '')}" placeholder="bv. Buitenspel, Fout, hands" autocomplete="off"></div>`;
@@ -3664,6 +3667,12 @@ async function saveEditEvent(id) {
   if (has('ee-reden')) {
     const r = String(val('ee-reden') || '').trim().slice(0, 60);
     if (r) e.reden = r; else delete e.reden;
+  }
+  // Op wie de fout gemaakt is (v2.19.0). Zelfde regel: leeg wist het veld weer weg, zodat een vrije
+  // trap zonder dat gegeven er precies zo uitziet als een van vóór deze versie.
+  if (has('ee-opwie')) {
+    const w = val('ee-opwie');
+    if (w) e.fouledId = w; else delete e.fouledId;
   }
   // Gepaarde 2e gele die naar een andere speler verhuist: de automatische rode blijft bij de
   // oorspronkelijke speler staan — dat kan juist zijn (die heeft misschien nog 2 gele) of niet;
@@ -6912,6 +6921,16 @@ function modalFreekick() {
          dezelfde, net als "Hoe viel het?" bij een doelpunt. */ ''}
     ${fkRedenHtml()}
     <div id="fk-us-section">
+      ${/* OP WIE IS DE FOUT GEMAAKT (Tim, 18-10-2026)? Bij een vrije trap VOOR ons is dat vaak het
+           interessantere feit: wie wordt er neergelegd. Optioneel, en BOVEN het raster om dezelfde
+           reden als de reden zelf — de tik op een speler legt meteen vast, dus wat je erna nog zou
+           moeten kiezen, kan je niet meer kwijt.
+           EEN KEUZELIJST EN GEEN TWEEDE RASTER: twee volle spelersrasters onder elkaar wordt een muur
+           van knoppen op een telefoon, net op het scherm dat snel moet gaan. */ ''}
+      <div class="fg" style="margin-top:12px">
+        <label>Op wie is de fout gemaakt? <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
+        <select id="fk-opwie"><option value="">— niet ingeven</option>${on.map(p => `<option value="${esc(p.id)}">${esc(p.name || '')}</option>`).join('')}</select>
+      </div>
       <div class="sec">Wie neemt de vrije trap?</div>
       ${raster('logFreekick')}
     </div>
@@ -6928,14 +6947,20 @@ function tglFk(team, btn) {
   document.getElementById('fk-us-section').classList.toggle('hidden', team !== 'us');
   document.getElementById('fk-them-section').classList.toggle('hidden', team !== 'them');
 }
-// Vrije trap VOOR ons: `playerId` is wie ze neemt (zoals voordien).
+// Vrije trap VOOR ons: `playerId` is wie ze neemt (zoals voordien), `fouledId` op wie de fout gemaakt
+// is (v2.19.0, optioneel). Het veld wordt enkel weggeschreven wanneer je het invult, zodat een vrije
+// trap zonder dat veld exact hetzelfde object blijft als vroeger.
 async function logFreekick(pid) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    addEvent('freekick_us', { playerId: pid || null, ...(fkReden ? { reden: fkReden } : {}) });
+    const sel = document.getElementById('fk-opwie');
+    const opWie = (sel && sel.value) || '';
+    addEvent('freekick_us', { playerId: pid || null,
+      ...(opWie ? { fouledId: opWie } : {}), ...(fkReden ? { reden: fkReden } : {}) });
     await dbSave(match); closeModal(); render();
-    meldVastgelegd('Vrije trap', [pid ? pName(match, pid) : tName(match), fkReden].filter(Boolean).join(' · '));
+    meldVastgelegd('Vrije trap', [pid ? pName(match, pid) : tName(match),
+      opWie ? 'fout op ' + pName(match, opWie) : '', fkReden].filter(Boolean).join(' · '));
   } finally { _eventBusy = false; }
 }
 // Vrije trap TEGEN ons: `playerId` is dan ONZE speler die de fout maakte. Dat veld wordt nergens

@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.19.0
+
+**Bij een vrije trap vóór je ploeg kan je nu ook ingeven op wie de fout gemaakt is.** Dat is vaak het
+interessantere feit: wie wordt er neergelegd. Het staat in het venster *Vrije trap* als een keuzelijst
+boven het spelersraster, en het is optioneel.
+
+De bediening verandert niet: een tik op een speler legt nog altijd meteen vast. Daarom staat die
+keuze erbóven — wat je erna nog zou moeten kiezen, kan je niet meer kwijt.
+
+Je ziet het terug in het verloop (*Vrije trap voor U17 · Jef Viaene (fout op Sam Peeters)*), in het
+verslag, in de PDF en in de export. Achteraf aanpassen of weghalen kan via het potloodje.
+
+---
+
 ## v2.18.0
 
 **Op het vandaag-scherm staat een wedstrijd die nooit begon nu onder *Niet afgesloten*.** Was het
