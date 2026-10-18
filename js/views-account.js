@@ -4297,16 +4297,19 @@ function speeldagDoorTekst() {
   const rest = Math.max(0, g.bezig.length - 2);
   const delen = [];
   if (rest) delen.push(rest === 1 ? 'nog 1 andere loopt' : `nog ${rest} andere lopen`);
-  // TWEE GETALLEN OP HET BEGINSCHERM, MEER NIET (Tim, 18-10-2026: "die moeten ook niet op het
-  // homescherm in die melding erbij staan in aantal — enkel hoeveel gespeeld en hoeveel gepland").
-  // Een wedstrijd die bleef liggen telt hier dus gewoon mee als GEPLAND, zoals vóór v2.18.0: dat is
-  // wat ze is. Het onderscheid hoort op het scherm erachter, niet in een doorklikregel van één zin.
-  const gepland = g.komt.length + g.nietAf.length;
+  // ELK HOOPJE BIJ ZIJN EIGEN NAAM (Tim, 18-10-2026 's avonds). Eerder die dag vroeg hij hier twee
+  // getallen — "enkel hoeveel gespeeld en hoeveel gepland" — en toen telde een wedstrijd die bleef
+  // liggen gewoon mee als gepland. Diezelfde avond zag hij waar dat op uitdraait: "9 gespeelde en 2
+  // geplande, maar die 2 zijn niet afgesloten, dus dat klopt niet echt." Een teller die iets fout
+  // benoemt is erger dan een teller meer, dus volgt deze regel nu de drie hoopjes van het scherm
+  // erachter. Enkel wat er ook écht is komt in de zin: op een gewone zaterdagochtend staat er nog
+  // altijd één getal.
   const tel = [];
-  if (gepland) tel.push(`${gepland} geplande`);
+  if (g.komt.length) tel.push(`${g.komt.length} geplande`);
+  if (g.nietAf.length) tel.push(`${g.nietAf.length} niet afgesloten`);
   if (g.gespeeld.length) tel.push(`${g.gespeeld.length} gespeelde`);
   if (tel.length) {
-    const n = gepland + g.gespeeld.length;
+    const n = g.komt.length + g.nietAf.length + g.gespeeld.length;
     delen.push(tel.join(', ') + (n === 1 ? ' wedstrijd' : ' wedstrijden'));
   }
   // OP EEN STILLE DAG ZEGT DEZE REGEL WAT ER ACHTER ZIT (Tim, 15-10-2026: "moet daar ook iets staan

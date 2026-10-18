@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.3
+
+**De regel op het beginscherm noemt elk hoopje bij zijn naam.** Er stond vanavond "2 geplande, 9
+gespeelde wedstrijden", terwijl die twee niet gepland maar nooit afgesloten waren. Nu volgt de regel
+de drie hoopjes van het scherm erachter: *geplande*, *niet afgesloten* en *gespeelde*. Enkel wat er
+ook echt is komt in de zin, dus op een gewone zaterdagochtend staat er nog altijd één getal.
+
+---
+
 ## v2.23.2
 
 **De opstelling bleef bij sommigen altijd dicht.** De app onthoudt per stuk van het verslag wat je
