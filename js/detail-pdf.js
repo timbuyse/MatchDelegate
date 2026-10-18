@@ -306,7 +306,12 @@ function renderDetail() {
          dit diagram dat die elf daar stonden, terwijl het verslag er net onder zegt dat niemand
          speelminuten heeft. Nu beslist één keuze over allebei — zie verslagDelen in wizard-prep.js,
          dat hier dan nul delen teruggeeft. */ ''}
-    ${vsec('opstelling', vdelen.aantal > 1 ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', !heeftOpstelling(match)
+    ${/* DE KOP BELOOFT NIETS DAT ER NIET STAAT (Tim, 18-10-2026). "Opstelling per helft" hing ook
+         boven een sectie zonder één getekende opstelling — de kop keek enkel naar het aantal delen,
+         en dat zijn er bij een wedstrijd van het bondsblad gewoon twee. Ingeklapt las die regel dan
+         als een opstelling per helft die achter het pijltje zou zitten. Staat er niets, dan heet ze
+         gewoon "Opstelling". */ ''}
+    ${vsec('opstelling', (heeftOpstelling(match) && vdelen.aantal > 1) ? `Opstelling per ${pSingLow(match)}` : 'Opstelling', !heeftOpstelling(match)
       ? `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Geen opstelling ingegeven.</b>${(match.events || []).some(e => e.bron === 'vv')
           ? ' Het wedstrijdblad van de bond zegt wél wie speelde, maar niet waar op het veld — dat staat er niet op.'
           : ' Deze wedstrijd is afgesloten zonder de spelers op het veld te zetten.'}${vast ? '' : ' Weet je ze nog? Dan kan je ze zelf tekenen via <b>Bewerken → Startopstelling ingeven</b>.'}</p></div>`
@@ -450,7 +455,15 @@ async function toggleMatchSlot() {
 //
 // `<details>` doet het openklappen zelf, zonder JavaScript: dat werkt ook wanneer er iets anders in
 // de app stukloopt, en het is wat de printweergave en de zoekfunctie van de browser verwachten.
-const VERSLAG_VOUW_KEY = 'voetbal_verslag_dicht';
+// EEN NIEUWE SLEUTEL IN v2.23.2, en dat is geen schoonmaak maar een reparatie (Tim, 18-10-2026:
+// "opstelling per kwart is altijd dicht"). Wat hier onder de oude naam stond, is bewaard ONDER DE
+// OUDE REGEL — toen stond elke sectie standaard open en betekende een bewaarde sleutel enkel "deze
+// klapte ik ooit weg". Klapte je in oktober de opstelling één keer dicht, dan bleef ze dicht bij
+// élke wedstrijd, voor altijd, zonder dat ergens nog te zien was waarom. Sinds de standaard per
+// sectie verschilt, is die oude voorraad niet meer te lezen zonder te raden. Dus één keer vergeten:
+// iedereen begint bij de nieuwe standaard, en wat je daarna dichtklapt blijft gewoon dicht.
+const VERSLAG_VOUW_KEY = 'voetbal_verslag_vouw';
+try { localStorage.removeItem('voetbal_verslag_dicht'); } catch (e) {}
 function verslagDicht() {
   try { return JSON.parse(localStorage.getItem(VERSLAG_VOUW_KEY) || '{}') || {}; } catch (e) { return {}; }
 }

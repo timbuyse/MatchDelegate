@@ -9,6 +9,22 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.2
+
+**De opstelling bleef bij sommigen altijd dicht.** De app onthoudt per stuk van het verslag wat je
+dichtklapte. Die voorkeuren zijn bewaard onder de oude regel — toen stond alles standaard open en
+betekende zo'n bewaarde keuze enkel "deze klapte ik ooit weg". Klapte je in oktober de opstelling één
+keer dicht, dan bleef ze dicht bij élke wedstrijd. Nu de standaard per stuk verschilt, zijn die oude
+keuzes niet meer te lezen zonder te raden, dus vergeet de app ze één keer. Iedereen begint bij de
+nieuwe standaard; wat je vanaf nu dichtklapt blijft gewoon dicht.
+
+**En de titel belooft niets meer dat er niet staat.** Bij een wedstrijd waarvan de gegevens van het
+bondsblad komen, staat er wel een aantal helften maar geen getekende opstelling. De titel zei dan
+"Opstelling per helft" boven een stuk waar niets in zit — ingeklapt las dat als een opstelling die
+achter het pijltje verstopt zat. Staat er niets, dan heet het gewoon "Opstelling".
+
+---
+
 ## v2.23.1
 
 **De notities staan altijd open**, ook als er nog niets in staat. Het is het enige lege stuk met een
