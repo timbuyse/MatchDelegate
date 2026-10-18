@@ -9,6 +9,28 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.18.0
+
+**Op het vandaag-scherm staat een wedstrijd die nooit begon nu onder *Niet afgesloten*.** Was het
+aftrapuur meer dan twee uur voorbij en staat ze nog altijd als gepland, dan is "nog te spelen" gewoon
+onwaar: er valt niets meer te spelen, er is iets blijven liggen. Het kaartje kleurt geel en toont het
+uur waarop ze had moeten beginnen.
+
+Twee uur, en niet meteen na het aftrapuur: een wedstrijd van tien uur die om kwart over tien begint,
+is niet vergeten. Zonder aftrapuur zegt de app niets, en een geannuleerde wedstrijd blijft gewoon
+geannuleerd.
+
+**"Niet gespeeld" heet nu "Niet afgesloten"**, hetzelfde woord dat de rest van de app gebruikt. Op een
+dag die voorbij is vallen "bleef lopen" en "nooit begonnen" samen onder die ene kop; wat daar dan nog
+onder *Niet doorgegaan* staat, is afgelast.
+
+**En in de wedstrijdgeschiedenis klopt *live gevolgd* nu.** Een wedstrijd waarvan de speelminuten van
+het officiële wedstrijdblad komen, telde mee als live gevolgd — terwijl daar niemand met een klok
+stond. Alleen een wedstrijd waarbij er écht een klok liep, telt nog. De laatste balk van de grafiek is
+de lopende maand tot vandaag; dat staat er nu ook bij, zodat die lagere balk niet als terugval leest.
+
+---
+
 ## v2.17.3
 
 **"Wedstrijden per maand" liep stuk** met de melding *m.quarters is not iterable*. De oorzaak: een

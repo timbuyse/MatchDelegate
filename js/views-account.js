@@ -1645,12 +1645,13 @@ async function gebruikGeschiedenisOphalen() {
         if (m.teamName) p.naam = m.teamName;
         if (m.status !== 'done') return;         // enkel wat écht gespeeld is
         p.n++;
-        if (getGameTimeMs(m) > 0) p.live++;
+        const live = echtLiveGevolgd(m);
+        if (live) p.live++;
         if (!p.eerste || m.date < p.eerste) p.eerste = m.date;
         if (m.date > p.laatste) p.laatste = m.date;
         const ym = String(m.date).slice(0, 7);
         const mnd = perMaand[ym] || (perMaand[ym] = { n: 0, live: 0 });
-        mnd.n++; if (getGameTimeMs(m) > 0) mnd.live++;
+        mnd.n++; if (live) mnd.live++;
       });
       } catch (e) { /* één ploeg met een onleesbare wedstrijd: de rest telt gewoon door */ }
     }
@@ -1866,6 +1867,11 @@ async function loadGebruikView() {
       </div>
     </div>
     <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>${tot}</b> afgewerkte ${tot === 1 ? 'wedstrijd' : 'wedstrijden'} over ${_geschiedenis.ploegen} ${_geschiedenis.ploegen === 1 ? 'ploeg' : 'ploegen'}, waarvan er <b>${totLive}</b> live gevolgd ${totLive === 1 ? 'werd' : 'werden'}. Tornooiwedstrijden staan er niet in.</p>
+    ${/* DE LAATSTE BALK IS DE LOPENDE MAAND (Tim, 18-10-2026: "wedstrijden in de maand, het deel dat
+         nog komt kan nog niet gevolgd zijn"). Hij telt enkel wat er AL gespeeld is — wat later deze
+         maand nog op het programma staat, is niet afgewerkt en komt er dus niet in. Dat die balk
+         daardoor lager staat, is geen terugval maar een maand die nog loopt, en dat hoort erbij. */ ''}
+    <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${icI(IC.timer)} De laatste balk is <b>deze maand tot vandaag</b>: wat er later nog op het programma staat, is nog niet gespeeld en telt dus nog niet mee.</p>
     ${rijen.length ? `<div class="card" style="margin-top:10px">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
         <div style="flex:1"></div><div style="min-width:52px;text-align:right">totaal</div><div style="min-width:52px;text-align:right">live</div>
@@ -1971,7 +1977,8 @@ async function loadGebruikView() {
     ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul. <b>Laatst</b> is de laatste dag waarop er iets gebeurde; vanaf veertien dagen kleurt dat rood.')}
     ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. <b>Er wordt niets meer opgeruimd</b>: wat ooit geteld is, blijft staan, zodat je over een jaar kan vergelijken.')}
     ${u('Wanneer ze voor het laatst binnenkwamen.', 'Dit ene blok loopt wél terug tot augustus 2026: de app bewaart per account het laatste moment dat hij ze opende. Wie in de accountlijst staat maar daar nergens in, heeft de app na het registreren nooit meer geopend.')}
-    ${u('Wedstrijden per maand.', 'Dat is de langste geschiedenis die er is: ze loopt terug tot de eerste wedstrijd die ooit ingevoerd werd. Het donkere deel is wat live gevolgd werd; de rest kreeg enkel een uitslag. Per ploeg staan de eerste en de laatste wedstrijd erbij. Tornooiwedstrijden blijven erbuiten, want een tornooidag is vijf korte wedstrijdjes en zou het beeld vertekenen.')}
+    ${u('Wedstrijden per maand.', 'Dat is de langste geschiedenis die er is: ze loopt terug tot de eerste wedstrijd die ooit ingevoerd werd. Per ploeg staan de eerste en de laatste wedstrijd erbij. Tornooiwedstrijden blijven erbuiten, want een tornooidag is vijf korte wedstrijdjes en zou het beeld vertekenen.')}
+    ${u('Wat telt als live gevolgd?', 'Enkel een wedstrijd waarbij er écht een klok liep aan de lijn. Een wedstrijd waarvan je achteraf de uitslag ingaf telt niet mee, en een wedstrijd waarvan de speelminuten van het officiële wedstrijdblad komen ook niet — daar stond niemand met een klok, ook al staat er speeltijd op.')}
   </details>`;
 
   el.innerHTML = onlineKaart + nogNiet + `<div class="card">
@@ -4030,7 +4037,12 @@ async function speeldagOpen(id) {
 // Alles blijft op één regel per onderdeel, met overlopende tekst afgekapt.
 function speeldagKaartHtml(rij) {
   const m = rij.m;
-  const af = matchCancelled(m), nietAf = matchNietAfgesloten(m);
+  // `nietAf` dekt sinds v2.18.0 ook de wedstrijd van VANDAAG waarvan het aftrapuur meer dan twee uur
+  // voorbij is: die staat op dit scherm onder "Niet afgesloten" en hoort er dan ook zo uit te zien —
+  // geel in plaats van het oranje van iets wat nog moet komen. matchNietAfgesloten zelf blijft
+  // ongemoeid: die stuurt badges, filters en lijsten door de hele app aan, en kent bewust geen uur.
+  const af = matchCancelled(m);
+  const nietAf = matchNietAfgesloten(m) || speeldagNietAfgesloten(rij, speeldagFocusDag());
   // EEN WEDSTRIJD DIE BLIJVEN STAAN IS (Tim, 16-10-2026): ze staat nog als lopend in de app, maar haar
   // dag is voorbij — dus niemand heeft ze afgesloten. Op het scherm van die oude dag is "nu bezig" dan
   // onwaar. Bewust NIET matchNietAfgesloten uitgebreid: die sluit een lopende wedstrijd uitdrukkelijk
@@ -4061,7 +4073,10 @@ function speeldagKaartHtml(rij) {
     : m.status === 'live'
       ? `<span class="sd-live sd-live-stil">${esc(blok)}${plaats}</span>`
     : af ? '<span>Geannuleerd</span>'
-    : nietAf ? '<span>Niet afgesloten</span>'
+    // HET AFTRAPUUR BLIJFT STAAN (v2.18.0). Bij een wedstrijd van vandaag die nooit begon, is dat net
+    // wat je wil zien: "10:00" zegt meteen hoe lang ze al wacht. Zonder uur blijft het bij het woord
+    // alleen, zoals voordien.
+    : nietAf ? `<span>Niet afgesloten${m.time ? ' · ' + esc(m.time) : ''}</span>`
     : m.status === 'planned' ? `<span>${esc(m.time || 'Gepland')}${m.location ? ' · ' + esc(m.location) : ''}</span>`
     // BIJ EEN GESPEELDE WEDSTRIJD DE PLAATS (Tim, 03-10-2026: "er staat altijd gespeeld bij de matchen
     // die gespeeld zijn, dat is logisch want er is een score zichtbaar — zet daar opnieuw uit of
@@ -4181,15 +4196,40 @@ function speeldagTeken() {
 // NIET `speeldagGroepen` NOEMEN: die naam is al bezet in stats-settings.js, dat ná dit bestand
 // geladen wordt — en in één gedeelde naamruimte wint de laatste. De eerste poging heette zo en
 // leverde stil een lege lijst op in plaats van deze drie hoopjes.
+// EEN WEDSTRIJD DIE NOOIT GESTART IS (v2.18.0, Tim: "kan je de geplande wedstrijden die meer dan 2u
+// na de starttijd zijn als 'niet gespeeld' plaatsen"). Om kwart voor zes stond de wedstrijd van
+// tien uur nog bij "Nog te spelen", en dat is dan gewoon onwaar — er is niets meer te spelen, er is
+// iets blijven liggen.
+//
+// TWEE UUR, en niet meteen na het aftrapuur: een wedstrijd van tien uur die om kwart over tien
+// begint, is niet vergeten. Pas wanneer ze ook afgelopen zou moeten zijn, wordt het een signaal.
+//
+// Zonder UUR zeggen we niets: dan valt er vandaag niet uit op te maken of er iets misliep. Op een
+// dag die voorbij is wél — die dag is hoe dan ook voorbij.
+// GEANNULEERD IS GEEN VERGETEN WEDSTRIJD: die bleef niet liggen, die gaat niet door. Ze blijft bij
+// "nog te spelen" staan, waar het kaartje zelf in het grijs zegt dat ze niet doorgaat.
+const SPEELDAG_NIET_AF_MS = 2 * 3600000;
+function speeldagNietAfgesloten(r, dag) {
+  const m = r && r.m;
+  if (!m || m.status === 'live' || m.status === 'done' || matchCancelled(m)) return false;
+  const vandaag = isoVandaag();
+  if (dag < vandaag) return true;        // die dag is voorbij, en er staat nog een geplande wedstrijd
+  if (dag > vandaag) return false;       // staat gewoon nog op het programma
+  if (!m.time) return false;             // vandaag zonder aftrapuur: daar valt niets over te zeggen
+  const start = new Date(`${dag}T${m.time}:00`).getTime();
+  return Number.isFinite(start) && (Date.now() - start) > SPEELDAG_NIET_AF_MS;
+}
 function speeldagVerdeling() {
   const rijen = (_speeldag && _speeldag.rijen) || [];
   // De dag waar het scherm over gaat: vandaag, of de dag die je zelf koos.
   const vandaag = speeldagFocusDag();
   const vanVandaag = r => String(r.m.date || '') === vandaag;
+  const gepland = rijen.filter(r => r.m.status !== 'live' && r.m.status !== 'done' && vanVandaag(r));
   return {
     bezig: rijen.filter(r => r.m.status === 'live' && vanVandaag(r)),
     gespeeld: rijen.filter(r => r.m.status === 'done' && vanVandaag(r)),
-    komt: rijen.filter(r => r.m.status !== 'live' && r.m.status !== 'done' && vanVandaag(r)),
+    nietAf: gepland.filter(r => speeldagNietAfgesloten(r, vandaag)),
+    komt: gepland.filter(r => !speeldagNietAfgesloten(r, vandaag)),
   };
 }
 // DE DOORKLIKREGEL ZEGT WAT ER ACHTER ZIT (Tim, 13-10-2026: "maak daar iets anders van: X geplande
@@ -4205,6 +4245,8 @@ function speeldagDoorTekst() {
   const rest = Math.max(0, g.bezig.length - 2);
   const delen = [];
   if (rest) delen.push(rest === 1 ? 'nog 1 andere loopt' : `nog ${rest} andere lopen`);
+  // WAT BLIJVEN LIGGEN IS, STAAT VOORAAN NA WAT LOOPT: daar moet je iets mee, de rest is nieuws.
+  if (g.nietAf.length) delen.push(g.nietAf.length === 1 ? '1 niet afgesloten' : `${g.nietAf.length} niet afgesloten`);
   const tel = [];
   if (g.komt.length) tel.push(`${g.komt.length} geplande`);
   if (g.gespeeld.length) tel.push(`${g.gespeeld.length} gespeelde`);
@@ -4230,13 +4272,17 @@ function speeldagAantalTekst() {
   const stukken = [];
   // Dezelfde woorden als de koppen in het scherm: op een dag die voorbij is, is niets meer "bezig".
   const voorbij = !!_speeldagDag && _speeldagDag < isoVandaag();
-  if (g.bezig.length) stukken.push(`${g.bezig.length} ${voorbij ? 'niet afgesloten' : 'bezig'}`);
+  // Op een voorbije dag vallen "bleef lopen" en "nooit begonnen" samen onder niet afgesloten —
+  // precies zoals de koppen in het scherm zelf (zie speeldagVolledigHtml).
+  const nietAf = voorbij ? g.bezig.length + g.nietAf.length : g.nietAf.length;
+  if (!voorbij && g.bezig.length) stukken.push(`${g.bezig.length} bezig`);
+  if (nietAf) stukken.push(`${nietAf} niet afgesloten`);
   if (g.gespeeld.length) stukken.push(`${g.gespeeld.length} gespeeld`);
-  // Dezelfde woorden als de koppen in het scherm zelf (zie speeldagVolledigHtml): "nog te spelen"
-  // klopt niet meer boven een dag die al voorbij is.
+  // Dezelfde woorden als de koppen in het scherm zelf: "nog te spelen" klopt niet meer boven een dag
+  // die al voorbij is, en wat daar dan nog staat is geannuleerd.
   if (g.komt.length) {
     const woord = !_speeldagDag ? 'nog te spelen'
-      : (_speeldagDag < isoVandaag()) ? 'niet gespeeld' : 'op het programma';
+      : (_speeldagDag < isoVandaag()) ? 'niet doorgegaan' : 'op het programma';
     stukken.push(`${g.komt.length} ${woord}`);
   }
   return stukken.length ? stukken.join(' · ') : (_speeldagDag ? 'niets die dag' : 'niets vandaag');
@@ -4274,23 +4320,34 @@ function speeldagVolledigHtml() {
   const deel = (kop, rijen, eerste) => rijen.length
     ? `<div class="sec"${eerste ? ' style="margin-top:0"' : ''}>${kop}</div>
        <div class="sd-rooster sd-ruim">${rijen.map(r => speeldagKaartHtml(r)).join('')}</div>` : '';
-  const eersteKop = g.bezig.length ? 'bezig' : g.gespeeld.length ? 'gespeeld' : 'komt';
   // DE KOPPEN STAAN IN DE TIJD VAN VANDAAG, en dat klopt niet meer zodra je een andere dag opvraagt.
   // "Nog te spelen" boven een wedstrijd van vorige zaterdag is gewoon onwaar: die is niet meer te
   // spelen, ze is nooit afgesloten. En een wedstrijd van volgende week is niet "nog te spelen" maar
   // staat op het programma.
   const voorbij = !!_speeldagDag && _speeldagDag < isoVandaag();
   const kopGespeeld = _speeldagDag ? 'Gespeeld' : 'Al gespeeld';
-  const kopKomt = !_speeldagDag ? 'Nog te spelen' : voorbij ? 'Niet gespeeld' : 'Op het programma';
+  // "NIET GESPEELD" HEET NU "NIET AFGESLOTEN" (Tim, 18-10-2026). Dat is ook wat er al boven een
+  // blijven-staande lopende wedstrijd stond, en het is het woord dat de rest van de app gebruikt
+  // (matchNietAfgesloten in core.js). "Niet gespeeld" klonk als een uitspraak over de wedstrijd zelf
+  // — misschien is ze wél gespeeld en is ze enkel niet ingegeven, en dát is net wat er moet gebeuren.
+  // Wat er op een voorbije dag nog bij `komt` staat, is geannuleerd: die hebben hun eigen kop.
+  const kopKomt = !_speeldagDag ? 'Nog te spelen' : voorbij ? 'Niet doorgegaan' : 'Op het programma';
   // OOK 'NU BEZIG' KLOPT NIET OP EEN OUDE DAG (Tim, 16-10-2026: "ja maak daar niet afgesloten van").
   // Staat een wedstrijd van vorige week nog als lopend, dan is ze niet bezig maar blijven staan. Het
   // rode bolletje gaat dan mee weg — dat betekent in deze app "er wordt nu gevoetbald". Het kaartje
   // zelf zegt hetzelfde en kleurt geel; zie blijvenStaan in speeldagKaartHtml.
   const kopBezig = voorbij ? 'Niet afgesloten' : `<span class="sd-live">Nu bezig</span>`;
-  return mislukteRegel
-    + deel(kopBezig, g.bezig, eersteKop === 'bezig')
-    + deel(kopGespeeld, g.gespeeld, eersteKop === 'gespeeld')
-    + deel(kopKomt, g.komt, eersteKop === 'komt');
+  // OP EEN VOORBIJE DAG VALLEN DE TWEE SAMEN: een wedstrijd die bleef lopen en een die nooit begon
+  // zijn allebei "niet afgesloten". Twee keer dezelfde kop boven elkaar leest als een fout, dus dan
+  // komen ze onder één kop — de kaartjes zelf verschillen in kleur en zeggen wat er aan de hand is.
+  // VOLGORDE: wat loopt, dan wat is blijven liggen (daar moet je iets mee), dan wat gespeeld is, en
+  // pas daarna wat nog komt. Het eerste gevulde hoopje krijgt `margin-top:0` — vandaar dat de lijst
+  // hier als geheel opgebouwd wordt en niet met een vooraf geraden "eerste kop".
+  const hoopjes = voorbij
+    ? [[kopBezig, g.bezig.concat(g.nietAf)], [kopGespeeld, g.gespeeld], [kopKomt, g.komt]]
+    : [[kopBezig, g.bezig], ['Niet afgesloten', g.nietAf], [kopGespeeld, g.gespeeld], [kopKomt, g.komt]];
+  const gevuld = hoopjes.filter(([, rijen]) => rijen.length);
+  return mislukteRegel + gevuld.map(([kop, rijen], i) => deel(kop, rijen, i === 0)).join('');
 }
 function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);

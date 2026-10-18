@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.17.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.18.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1913,6 +1913,18 @@ function tweedeGeelIds(m) {
   }
   return uit;
 }
+// IS ER ÉCHT EEN KLOK GELOPEN TIJDENS DEZE WEDSTRIJD (v2.18.0)?
+// Tim, 18-10-2026: "live gevolgd mag enkel zijn als er effectief een klok heeft gelopen tijdens die
+// wedstrijd, en dus niet als er achteraf enkel een uitslag is ingegeven of de speeltijd enkel is
+// binnengekomen via het wedstrijdblad van de RBFA."
+//
+// `getGameTimeMs(m) > 0` ALLEEN VOLSTAAT NIET, en dat is de val: het wedstrijdblad van de bond zet
+// óók blokken met tijden op de wedstrijd (zie de klok van het blad in import-vv.js). Zo'n wedstrijd
+// heeft dus speeltijd zonder dat er iemand aan de lijn stond — precies het verschil dat Tim wil zien.
+// `klokVanBlad` is het merkje dat die import erop zet.
+// Speelminuten uit het PLAN komen hier niet eens in de buurt: die laten de blokken leeg, dus
+// getGameTimeMs geeft er nul (zie planMinutenAan).
+function echtLiveGevolgd(m) { return !!m && !m.klokVanBlad && getGameTimeMs(m) > 0; }
 function uitgeslotenIds(m) {
   return new Set(((m && m.events) || []).filter(e => e.type === 'red_card' && e.playerId).map(e => e.playerId));
 }
