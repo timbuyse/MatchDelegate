@@ -19,6 +19,10 @@ function renderDetail() {
   // Heeft niemand ook maar één minuut? Dan valt de lijst met speelminuten weg (v2.21.0) — zie de
   // uitleg bij die sectie. Ook het bijschrift over de balkjes gaat dan weg: er staan geen balkjes.
   const geenMinuten = !Object.values(mins).some(v => v && v.ms > 0);
+  // De regels van Wedstrijdinfo die écht ingevuld zijn. Hier en niet in de sjabloon hieronder, omdat
+  // het antwoord twee keer nodig is: om ze te tonen, en om te weten of deze sectie dicht mag starten.
+  const infoRijen = [['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],[responsibleLabel(matchResponsible(match)),matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')],['Bijgehouden door',match.bijgehoudenDoor]].filter(([k,v])=>v);
+  const aantalEvents = eventsByQuarter(match).reduce((n, g) => n + (g.list || []).length, 0);
   // Hoeveel delen toont de opstellingssectie, en komen ze uit het plan? Zie verslagDelen.
   const vdelen = verslagDelen(match);
   const qSummary = match.quarters.map(q => {
@@ -228,7 +232,7 @@ function renderDetail() {
       ${ro ? '' : `<button class="btn btn-pale btn-sm" style="min-height:32px;font-size:13px;padding:6px 4px;gap:5px;min-width:0" onclick="exportMatchModal()">${icI(IC.download)} Export</button>`}
     </div>`}
     ${vsec('info', 'Wedstrijdinfo', `<div class="card">
-      ${[['Tornooi', match.tournamentId ? ((tournamentById(match.tournamentId) || {}).name || '') : ''],['Ploeg-label',match.subteam],['Formatie',match.formation],[trainerLabel(matchTrainer(match)),matchTrainer(match)],[responsibleLabel(matchResponsible(match)),matchResponsible(match)],['Soort',match.competition],['Speeldag',match.matchday],['Scheidsrechter',match.referee],['Truikleur',match.jersey],['Adres',match.venue],['Terrein',match.terrein],['Kapitein(s)',allCaptains(match).map(id=>pName(match,id)).join(' | ')],['Bijgehouden door',match.bijgehoudenDoor]].filter(([k,v])=>v).map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
+      ${infoRijen.map(([k,v])=>`<div class="stat-row"><span style="color:var(--txt2);min-width:120px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('') || '<p style="color:var(--txt2);font-size:14px">Geen extra info ingevuld.</p>'}
       <div class="stat-row"><span style="color:var(--txt2);min-width:120px">${icI(IC.motm)} Man v/d match</span><span style="font-weight:600">${match.motmId?esc(pName(match,match.motmId)):'—'}</span>${vast?'':`<button class="btn btn-pale btn-sm no-print" style="margin-left:auto;width:auto" onclick="modalMotm()">Kiezen</button>`}</div>
       ${/* WIE ER HET LAATST AAN KWAM (Tim, 04-10-2026), met `no-print`: dit is huishouding tussen
            beheerders onderling, geen feit over de wedstrijd — het hoort niet op een blad dat je
@@ -245,7 +249,7 @@ function renderDetail() {
         <span style="color:var(--txt2);min-width:120px">${icI(IC.edit)} Laatst bewerkt</span>
         <span style="font-weight:600">${match.updatedByNaam ? esc(match.updatedByNaam) + ' · ' : ''}${esc(bewerktTekst(match.updatedAt))}</span>
       </div>` : ''}
-    </div>`)}
+    </div>`, !infoRijen.length && !match.motmId)}
     ${/* DE VOLGORDE VAN HET VERSLAG (Tim, 01-10-2026): wie meedeed, dan wat er gebeurde, dan wat je
          erover schreef (eerst over de wedstrijd, dan over de spelers), en pas daarna waar ze stonden.
          De selectie stond hiervoor ná de notities, onder de statistieken; de spelernotities stonden
@@ -310,7 +314,7 @@ function renderDetail() {
       ? `<div class="card"><p style="font-size:13px;color:var(--txt2);margin:0">${icI(IC.compass)} <b>Niet getoond.</b> Je had een opstelling klaargezet, maar niemand volgde de klok tijdens deze wedstrijd — ze hier tekenen zou een wedstrijd laten zien die misschien heel anders liep. Wie meeging, staat hierboven bij de selectie.${vast ? '' : ` Hoorde het plan wél te gelden? Zet dan bij <b>Uitslag aanpassen</b> het vinkje bij de speelminuten aan.`}</p></div>`
       : `<div class="card">${vdelen.uitPlan
           ? `<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">${icI(IC.compass)} Dit zijn de ${pPlural(match)} en de wissels <b>zoals je ze had klaargezet</b>. Niemand volgde de klok tijdens deze wedstrijd, dus wat er écht op het veld gebeurde, is niet vastgelegd.</p>`
-          : ''}${renderLineupCarousel(match)}</div>`)}
+          : ''}${renderLineupCarousel(match)}</div>`, !heeftOpstelling(match) || !vdelen.aantal)}
     ${match.quarters.length ? vsec('perdeel', `Per ${pSingLow(match)}`, `<div class="card">${qSummary}</div>`) : ''}
     ${!statSectionVisible('minutes') ? '' : vsec('speelminuten', `Speelminuten${geenMinuten ? '' : ` <span style="font-weight:400;text-transform:none;color:var(--txt2)">(balk = % van de speeltijd · groen ≥75% · oranje ≥50% · rood &lt;50%)</span>`}`, `
     ${/* MET EEN MAN MINDER (Tims keuze, 24-08-2026). Na een rode kaart of een eenzijdige wissel
@@ -368,11 +372,11 @@ function renderDetail() {
           return row + `<div style="font-size:11px;color:var(--txt2);padding:0 0 8px 42px">${parts.join(' · ')}</div>`;
         }).join('');
       })()}
-    </div>`}`)}
+    </div>`}`, geenMinuten)}
     ${/* Het getal telt nu wat er ECHT staat (audit 25-08-2026): match.events.length bevat ook de
          begin- en eindmarkeringen van elk blok, die de tijdlijn niet toont — en voor een kijker
          vallen er nog meer weg. "Events (24)" boven een lijst van 16 regels klopt niet. */ ''}
-    ${vsec('events', `Events (${eventsByQuarter(match).reduce((n, g) => n + (g.list || []).length, 0)})`, `<div class="card">${renderEventLog(match)}</div>`)}
+    ${vsec('events', `Events (${aantalEvents})`, `<div class="card">${renderEventLog(match)}</div>`, !aantalEvents)}
     ${(() => {
       // Keeperminuten zijn speelminuten, dus ze volgen het oogje 'minutes' (Tims keuze, 25-08-2026).
       // De sectie Speelminuten hierboven doet dat al; deze stond er voor een kijker altijd, met
@@ -450,17 +454,32 @@ const VERSLAG_VOUW_KEY = 'voetbal_verslag_dicht';
 function verslagDicht() {
   try { return JSON.parse(localStorage.getItem(VERSLAG_VOUW_KEY) || '{}') || {}; } catch (e) { return {}; }
 }
-function verslagVouw(sleutel, open) {
+// OPENKLAPPEN WORDT NU OOK ONTHOUDEN (v2.23.0). Vroeger werd de sleutel bij het openklappen gewist,
+// dus "open" en "nog nooit aangeraakt" zagen er hetzelfde uit. Dat kon niet meer sinds een lege
+// sectie vanzelf dicht staat: klapte je ze open, dan stond ze de volgende keer weer dicht en leek
+// het alsof je keuze genegeerd werd. Nu staat er 0 (open) of 1 (dicht). Oude opslag blijft kloppen:
+// daar staat enkel een 1 in, en dat betekende en betekent dicht.
+//
+// ENKEL WAT AFWIJKT VAN DE STANDAARD WORDT BEWAARD, en daar hangt meer aan vast dan opruimen. Een
+// `<details open>` die in de HTML geplakt wordt, stuurt bij het tekenen zélf een toggle: zonder deze
+// regel schreef elk verslag dat je opende "open" weg voor elke sectie die toevallig gevuld was — en
+// stond diezelfde sectie bij een andere wedstrijd, waar ze leeg is, alsnog open. Gemeten op
+// 18-10-2026. Valt de waarde samen met de standaard, dan verdwijnt de sleutel dus gewoon.
+function verslagVouw(sleutel, open, leeg) {
   const d = verslagDicht();
-  if (open) delete d[sleutel]; else d[sleutel] = 1;
+  if (open === !leeg) delete d[sleutel]; else d[sleutel] = open ? 0 : 1;
   try { localStorage.setItem(VERSLAG_VOUW_KEY, JSON.stringify(d)); } catch (e) {}
 }
 // `kop` mag HTML bevatten (de grijze bijschriften die er al stonden); `inhoud` is alles wat onder de
 // kop hoort. Lege inhoud geeft lege uitvoer — zo blijft elke sectie zelf beslissen of ze er staat.
-function vsec(sleutel, kop, inhoud) {
+// `leeg` (Tim, 18-10-2026: "als er niks staat, kan je dat dan automatisch inklappen"): de sectie
+// bestaat wel, maar er staat enkel "er is hier niets". Die begint dicht — de kop blijft staan, zodat
+// je ze met één tik alsnog opent, en die keuze wordt onthouden zoals elke andere.
+function vsec(sleutel, kop, inhoud, leeg) {
   if (!inhoud) return '';
-  const open = !verslagDicht()[sleutel];
-  return `<details class="vsec"${open ? ' open' : ''} ontoggle="verslagVouw('${sleutel}', this.open)">
+  const keuze = verslagDicht()[sleutel];
+  const open = keuze === undefined ? !leeg : !keuze;
+  return `<details class="vsec"${open ? ' open' : ''} ontoggle="verslagVouw('${sleutel}', this.open, ${leeg ? 1 : 0})">
     <summary>${kop}</summary>
     ${inhoud}
   </details>`;
@@ -498,7 +517,7 @@ function notitieKaartHtml(m, vast) {
           </div>`).join('')
         : `<p class="notes-txt" style="color:var(--txt2);margin:0">Geen notities.</p>`}
       ${vast ? '' : `<button class="btn btn-pale btn-sm no-print" style="margin-top:14px" onclick="modalNotes()">${icI(IC.edit)} Bewerken</button>`}
-    </div>`);
+    </div>`, !stukken.length);
 }
 // EEN EIGEN KADER, METEEN ONDER DE NOTITIES (Tim, 01-10-2026). Bewust niet mee in de kaart hierboven:
 // dit is een lijst namen met een regel per speler, en dat leest anders dan een lopende tekst.

@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.0
+
+**Een leeg stuk van het verslag start ingeklapt.** Staat er niets bij de opstelling, de speelminuten,
+de events, de notities of de wedstrijdinfo, dan zie je daar voortaan enkel de titel met een pijltje.
+Eén tik en het gaat open. Het verslag van een wedstrijd waar weinig van bijgehouden is, past zo weer
+op één scherm.
+
+Je eigen keuze gaat altijd voor: klap je zo'n leeg stuk open, dan blijft het open — ook bij de
+volgende wedstrijd en de volgende keer dat je de app opent. Wat je dichtklapt blijft dicht, zoals
+voorheen.
+
+---
+
 ## v2.22.0
 
 **Geen lijst van nullen meer bij de speelminuten.** Bij een wedstrijd waar niemand ook maar één
