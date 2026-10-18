@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.17.3
+
+**"Wedstrijden per maand" liep stuk** met de melding *m.quarters is not iterable*. De oorzaak: een
+wedstrijd die je enkel afsloot heeft geen klok, en dan bewaart de databank dat veld helemaal niet.
+Het nieuwe overzicht las de wedstrijden rechtstreeks en sloeg de stap over die zo'n wedstrijd
+opvangt. In een club met een handvol ploegen is er altijd wel zo één, dus het lukte zo goed als nooit.
+
+Opgelost, en meteen ook steviger gemaakt: struikelt één ploeg, dan valt enkel die ploeg weg en telt
+de rest gewoon door — in plaats van dat het hele overzicht verdwijnt.
+
+---
+
 ## v2.17.2
 
 **De gebruikscijfers worden niet meer opgeruimd.** Bezoeken werden na zes weken weggegooid en de

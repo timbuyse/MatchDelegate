@@ -1626,9 +1626,20 @@ async function gebruikGeschiedenisOphalen() {
     const perPloeg = {}, perMaand = {};
     for (const tid of tids) {
       let wed = {};
-      try { wed = (await fbOnce(fbdb.ref('teams/' + tid + '/matches'))).val() || {}; }
-      catch (e) { continue; }   // geen leesrecht of leesfout: die ploeg valt weg, de rest niet
-      Object.values(wed).filter(Boolean).forEach(m => {
+      // ÉÉN PLOEG MAG DE REST NIET MEESLEUREN. Het ging hier eerst enkel om een leesfout, maar de
+      // verwerking hieronder kan óók struikelen over een wedstrijd met een rare vorm — en dan was
+      // het hele overzicht weg in plaats van één ploeg. Vandaar dat de verwerking mee in deze try zit.
+      try {
+        wed = (await fbOnce(fbdb.ref('teams/' + tid + '/matches'))).val() || {};
+      } catch (e) { continue; }   // geen leesrecht of leesfout: die ploeg valt weg, de rest niet
+      try {
+      // DOOR cloudWedstrijdVeilig, ALTIJD (v2.17.3 — hier ging het mis: "m.quarters is not
+      // iterable"). Firebase bewaart geen lege lijst, dus een wedstrijd die je enkel afsloot komt
+      // terug ZONDER quarters, en een lijst met gaten komt terug als object. getGameTimeMs doet
+      // `for (const q of m.quarters)` en loopt daarop stuk. De gewone weg vangt dat op in
+      // applyCloudMatch; wie rechtstreeks leest, moet het zelf doen. Zie de uitleg bij die functie —
+      // daar staat exact dit geval beschreven, en ik ben er alsnog ingetrapt.
+      Object.values(wed).filter(Boolean).map(cloudWedstrijdVeilig).forEach(m => {
         if (!m.date || m.tournamentId) return;   // zonder datum valt er niets te plaatsen; tornooien apart
         const p = perPloeg[tid] || (perPloeg[tid] = { naam: m.teamName || '', n: 0, live: 0, eerste: '', laatste: '' });
         if (m.teamName) p.naam = m.teamName;
@@ -1641,6 +1652,7 @@ async function gebruikGeschiedenisOphalen() {
         const mnd = perMaand[ym] || (perMaand[ym] = { n: 0, live: 0 });
         mnd.n++; if (getGameTimeMs(m) > 0) mnd.live++;
       });
+      } catch (e) { /* één ploeg met een onleesbare wedstrijd: de rest telt gewoon door */ }
     }
     _geschiedenis = { perPloeg, perMaand, ploegen: tids.size };
   } catch (e) {
