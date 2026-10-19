@@ -852,7 +852,9 @@ function lastSeenRegel(uid) {
 // DE ROL IS GEEN SORTEEROPTIE MEER. Tot hier stonden de ploegbeheerders binnen een ploeg bovenaan;
 // Tim koos bij het bouwen van deze schakelaar bewust enkel naam en laatst actief. Het rolbadge staat
 // nog altijd naast elke naam, dus er gaat niets verloren.
-let allUsersSort = 'naam';       // 'naam' | 'actief'
+// Het scherm opent op laatst actief (Tim, 19-10-2026): bij ~50 accounts is "wie was er recent" de
+// gewone vraag, niet "wie heet er A".
+let allUsersSort = 'actief';     // 'naam' | 'actief'
 function allUsersSorteer(lijst) {
   const sleutel = u => ((u && (u.naam || u.email)) || '').trim();
   return (lijst || []).slice().sort((a, b) => {

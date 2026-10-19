@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.4
+
+**"Alle gebruikers" opent op laatst actief.** Het scherm stond standaard op naam; nu staat
+de recentst actieve bovenaan. De schakelaar naar naam blijft er gewoon staan. Wie geen datum
+heeft, blijft achteraan.
+
 ## v2.23.3
 
 **De regel op het beginscherm noemt elk hoopje bij zijn naam.** Er stond vanavond "2 geplande, 9
