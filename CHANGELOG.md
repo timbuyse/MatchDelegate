@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.7
+
+**Een tik op een wedstrijd opent niet meer een eerder geopende.** Bij een tik op een wedstrijd van
+een andere ploeg schakelde de app eerst het scherm om en las pas daarna de nieuwe wedstrijd in. In
+die tussentijd startte de cloudverversing een herlezing van de vorige wedstrijd, en die kwam
+achteraf terug en zette de oude wedstrijd weer neer. Nu wordt zo'n herlezing enkel nog toegepast
+als er nog altijd dezelfde wedstrijd open staat.
+
 ## v2.23.6
 
 **Een wedstrijd stond twee keer op het vandaag-scherm.** Het scherm leest alle ploegmappen van de

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.23.6'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.23.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4818,7 +4818,13 @@ function cloudRefreshUI() {
     // Niet verversen terwijl een popup openstaat — dat zou in-flight bewerkingen
     // (bv. "Spelers bewerken") stilletjes weggooien.
     const modalOpen = isAdmin && !document.getElementById('modal').classList.contains('hidden');
-    if (!modalOpen) dbGet(match.id).then(m => { if (m) { match = m; render(); } });
+    // ENKEL TOEPASSEN ALS HET NOG DEZELFDE WEDSTRIJD IS (Tim, 28-10-2026: "ik tik op een wedstrijd en
+    // kom op een eerder geopende terecht"). go() zet eerst het scherm en leest pas daarna de nieuwe
+    // wedstrijd in; in die tussentijd start deze herlezing met het id van de VORIGE wedstrijd, en komt
+    // ze na go() terug en zet de oude wedstrijd weer neer. Bij een tik op een andere ploeg komt er
+    // altijd cloudverkeer binnen, vandaar dat het zo vaak gebeurde.
+    const idNu = match.id;
+    if (!modalOpen) dbGet(idNu).then(m => { if (m && match && match.id === idNu) { match = m; render(); } });
   }
 }
 
