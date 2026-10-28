@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.23.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.23.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2621,7 +2621,9 @@ const _daadGedaan = new Set();         // wat dit toestel vandaag al gemeld heef
 // hoogste wat hij is, net zoals de app zelf zijn rechten bepaalt.
 function gebruikRol() {
   if (isGuest) return 'g';
-  if (isOwner) return 'e';
+  // Een eigenaar schrijft enkel nog een briefje voor een ploeg waar hij zelf beheerder is (zie
+  // schrijfDaad), en daar werkt hij als ploegbeheerder: zo staat hij niet als 'eigenaar' bij de rollen.
+  if (isOwner) return (activeTeamId && (userTeams || {})[activeTeamId] === 'admin') ? 'b' : 'e';
   if (isClubAdmin) return 'c';
   if (isAdmin) return 'b';
   return 'k';
@@ -2629,7 +2631,11 @@ function gebruikRol() {
 const GEEN_PLOEG = 'geen';             // sleutel voor wat buiten een ploeg gebeurt (gast, keuzescherm)
 function schrijfDaad(daad) {
   if (!cloudReady || !fbdb || !currentUser || _gebruikUit || !DADEN[daad]) return;
-  if (benIkDeEigenaar()) return;   // zie de uitleg bij benIkDeEigenaar
+  // DE EIGENAAR TELT ENKEL MEE IN PLOEGEN WAAR HIJ ZELF PLOEGBEHEERDER IS (Tim, 28-10-2026: "ik moet ook
+  // terug zichtbaar zijn, maar niet als iemand die iets ingeeft in een ploeg, behalve bij de U11IP want
+  // dat is mijn ploeg"). De eigenaar komt overal binnen en heeft overal beheerrechten; dat is geen
+  // gebruik. Zijn eigen ploeg wél. Zie ook benIkDeEigenaar hierboven en telDaden.
+  if (benIkDeEigenaar() && !(activeTeamId && (userTeams || {})[activeTeamId] === 'admin')) return;
   const dag = gebruikDag(presenceNu());
   const ploeg = activeTeamId || GEEN_PLOEG;
   const sleutel = dag + '/' + daad + '/' + ploeg;

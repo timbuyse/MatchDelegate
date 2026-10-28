@@ -9,6 +9,20 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.8
+
+**Gebruikscijfers: jijzelf in je eigen ploegen, en wedstrijden met enkel een opstelling.**
+
+- De eigenaar telt weer mee in *Wat mensen doen*, *Verloop* en *Per ploeg*, maar enkel in een ploeg
+  waar hij zelf ploegbeheerder is (nu de U11IP), en dan als ploegbeheerder. Waar hij als eigenaar
+  even binnenkijkt, valt hij nog steeds weg. Dat geldt ook voor zijn oude briefjes.
+- *Wedstrijden per maand* kent nu een tweede soort gebruik: een afgewerkte wedstrijd die niet live
+  gevolgd werd, maar waarvoor wel een opstelling met plaatsen is ingegeven. Een bond vraagt geen
+  live uitslag, dus veel ploegen gebruiken de app enkel daarvoor. Ze staan niet meer op nul. In de
+  balkjes is het een middelste tint, in de lijst per ploeg een kolom *opstel.*.
+- De kolom en het donkere deel *gaf iets in* zijn weg: ze telden enkel live volgen en een uitslag
+  ingeven en misten zo precies die ploegen.
+
 ## v2.23.7
 
 **Een tik op een wedstrijd opent niet meer een eerder geopende.** Bij een tik op een wedstrijd van

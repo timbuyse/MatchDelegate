@@ -1463,6 +1463,10 @@ function telGebruik(ruw, dagen, nu) {
 // De rollen van hoog naar laag, zodat iemand die beheerder is van de ene ploeg en kijker van de
 // andere, als het hoogste telt wat hij is. Zie gebruikRol in core.js voor de letters.
 const ROL_RANG = { e: 5, c: 4, b: 3, k: 2, g: 1 };
+// TELT DE EIGENAAR MEE IN DEZE PLOEG? Enkel waar hij zelf ploegbeheerder is (Tim, 28-10-2026). Dit
+// scherm is er enkel voor de eigenaar, dus `userTeams` is die van hem. Zijn briefjes van vóór v2.13.1
+// voor andere ploegen blijven er staan, maar tellen zo niet mee.
+function eigenaarTeltIn(ploegId) { return (userTeams || {})[ploegId] === 'admin'; }
 const ROL_WOORD = { e: 'Eigenaar', c: 'Clubbeheerders', b: 'Ploegbeheerders', k: 'Kijkers', g: 'Gasten' };
 // `magPloeg` (v2.20.0) zegt of een ploeg meetelt — zo filtert de clubkiezer álles wat hieruit komt,
 // zonder dat er iets extra gemeten moest worden. Niet meegegeven = alles telt mee.
@@ -1477,24 +1481,23 @@ function telDaden(ruw, dagen, nu, negeer, magPloeg) {
       for (const ploeg in (ruw[dag][daad] || {})) {
         if (!mag(ploeg)) continue;        // buiten de gekozen club
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
-          if (uid === negeer) continue;   // de eigenaar telt nergens mee
+          // De eigenaar telt enkel mee in een ploeg waar hijzelf beheerder is, en dan als ploegbeheerder.
+          const eigenaar = uid === negeer;
+          if (eigenaar && !eigenaarTeltIn(ploeg)) continue;
           if (perDaad[daad]) perDaad[daad].add(uid);
           // De naam komt uit het briefje zelf, zodat het overzicht ook ploegen kan tonen waar de
           // eigenaar niet in zit. Het laatst gelezen briefje wint — bij een hernoemde ploeg zie je
           // dus de nieuwste naam, wat is wat je wil.
-          const p = perPloeg[ploeg] || (perPloeg[ploeg] = { naam: '', mensen: new Set(), werk: new Set(), laatst: '' });
+          const p = perPloeg[ploeg] || (perPloeg[ploeg] = { naam: '', mensen: new Set(), laatst: '' });
           const b = ruw[dag][daad][ploeg][uid] || {};
           if (b.n) p.naam = b.n;
           p.mensen.add(uid);
           // De laatste dag waarop deze ploeg iets deed. Dagsleutels zijn 2026-10-17, dus als tekst
           // vergelijken geeft dezelfde volgorde als als datum.
           if (dag > p.laatst) p.laatst = dag;
-          // "Werk" = zelf iets ingegeven, niet enkel gekeken. Dat is het verschil tussen een ploeg
-          // die de app gebruikt en een ploeg waar men ze openhoudt.
-          if (daad === 'live' || daad === 'uitslag') p.werk.add(uid);
           // ROL PER PERSOON, EN HET HOOGSTE WAT HIJ IS (v2.17.0). Iemand kan beheerder zijn van de ene
           // ploeg en kijker van de andere; hem bij allebei tellen zou meer mensen geven dan er zijn.
-          const rang = ROL_RANG[b.r] || 0;
+          const rang = ROL_RANG[eigenaar ? 'b' : b.r] || 0;   // oude briefjes van de eigenaar dragen nog 'e'
           if (rang > (rolVan[uid] || 0)) rolVan[uid] = rang;
           // Op hoeveel verschillende DAGEN was deze persoon actief? Dat zegt of iemand één keer
           // binnenkeek of de app echt gebruikt.
@@ -1540,7 +1543,7 @@ function maandLabel(ym) {
 function gebruikReeks(ruw, eenheid, nu, negeer, magPloeg) {
   const mag = magPloeg || (() => true);
   const vakken = [], index = {};
-  const maak = (sleutel, label) => { const v = { sleutel, label, mensen: new Set(), werk: new Set() }; vakken.push(v); index[sleutel] = v; return v; };
+  const maak = (sleutel, label) => { const v = { sleutel, label, mensen: new Set() }; vakken.push(v); index[sleutel] = v; return v; };
   if (eenheid === 'maand') {
     const d = new Date(nu);
     for (let i = 11; i >= 0; i--) {
@@ -1561,14 +1564,13 @@ function gebruikReeks(ruw, eenheid, nu, negeer, magPloeg) {
       for (const ploeg in (ruw[dag][daad] || {})) {
         if (!mag(ploeg)) continue;        // buiten de gekozen club
         for (const uid in (ruw[dag][daad][ploeg] || {})) {
-          if (uid === negeer) continue;   // de eigenaar telt nergens mee
+          if (uid === negeer && !eigenaarTeltIn(ploeg)) continue;   // zie telDaden
           v.mensen.add(uid);
-          if (daad === 'live' || daad === 'uitslag') v.werk.add(uid);
         }
       }
     }
   }
-  return vakken.map(v => ({ label: v.label, mensen: v.mensen.size, werk: v.werk.size }));
+  return vakken.map(v => ({ label: v.label, mensen: v.mensen.size }));
 }
 // De balkjes als gewone SVG — geen bibliotheek, geen bouwstap, zoals overal in deze app. De breedte
 // volgt het kader (viewBox), dus het schaalt mee op elke telefoon.
@@ -1583,8 +1585,11 @@ function gebruikGrafiekHtml(reeks) {
     // het op één persoon lijkt.
     if (!v.mensen) return `<rect x="${x.toFixed(2)}" y="${H - 0.6}" width="${bw.toFixed(2)}" height="0.6" fill="var(--bdr)"/>`;
     const hTot = H - y(v.mensen), hWerk = v.werk ? H - y(v.werk) : 0;
+    // Optionele middelste laag (enkel de wedstrijdgeschiedenis): tussen "alles" en "live".
+    const hMid = v.midden ? H - y(v.midden) : 0;
     return `<rect x="${x.toFixed(2)}" y="${y(v.mensen).toFixed(2)}" width="${bw.toFixed(2)}" height="${hTot.toFixed(2)}" fill="var(--grn2)" opacity=".35"/>`
-      + (hWerk ? `<rect x="${x.toFixed(2)}" y="${(H - hWerk).toFixed(2)}" width="${bw.toFixed(2)}" height="${hWerk.toFixed(2)}" fill="var(--grn)"/>` : '');
+      + (hMid ? `<rect x="${x.toFixed(2)}" y="${(H - hMid).toFixed(2)}" width="${bw.toFixed(2)}" height="${hMid.toFixed(2)}" fill="var(--grn2)" opacity=".7"/>` : '')
+      + (hWerk ?`<rect x="${x.toFixed(2)}" y="${(H - hWerk).toFixed(2)}" width="${bw.toFixed(2)}" height="${hWerk.toFixed(2)}" fill="var(--grn)"/>` : '');
   }).join('');
   // Niet elk label passen: om de zoveel balken één, anders lopen de cijfers over elkaar.
   const om = Math.ceil(reeks.length / 8);
@@ -1656,17 +1661,23 @@ async function gebruikGeschiedenisOphalen() {
       // daar staat exact dit geval beschreven, en ik ben er alsnog ingetrapt.
       Object.values(wed).filter(Boolean).map(cloudWedstrijdVeilig).forEach(m => {
         if (!m.date || m.tournamentId) return;   // zonder datum valt er niets te plaatsen; tornooien apart
-        const p = perPloeg[tid] || (perPloeg[tid] = { naam: m.teamName || '', n: 0, live: 0, eerste: '', laatste: '' });
+        const p = perPloeg[tid] || (perPloeg[tid] = { naam: m.teamName || '', n: 0, live: 0, opst: 0, eerste: '', laatste: '' });
         if (m.teamName) p.naam = m.teamName;
         if (m.status !== 'done') return;         // enkel wat écht gespeeld is
         p.n++;
         const live = echtLiveGevolgd(m);
         if (live) p.live++;
+        // ENKEL DE OPSTELLING INGEGEVEN (Tim, 28-10-2026: "de app wordt ook gebruikt om de opstelling
+        // in te geven, maar de wedstrijd niet live bij te houden, omdat dat voor de RBFA niet nodig is
+        // om een uitslag te hebben"). Een ploeg zoals U9G stond zo op nul terwijl ze de app voor elke
+        // wedstrijd gebruikt. Telt enkel wat NIET live gevolgd is, zodat de twee niet overlappen.
+        const opst = !live && heeftOpstelling(m);
+        if (opst) p.opst++;
         if (!p.eerste || m.date < p.eerste) p.eerste = m.date;
         if (m.date > p.laatste) p.laatste = m.date;
         const ym = String(m.date).slice(0, 7);
-        const mnd = perMaand[ym] || (perMaand[ym] = { n: 0, live: 0 });
-        mnd.n++; if (live) mnd.live++;
+        const mnd = perMaand[ym] || (perMaand[ym] = { n: 0, live: 0, opst: 0 });
+        mnd.n++; if (live) mnd.live++; if (opst) mnd.opst++;
       });
       } catch (e) { /* één ploeg met een onleesbare wedstrijd: de rest telt gewoon door */ }
     }
@@ -1842,7 +1853,6 @@ async function loadGebruikView() {
       ${gebruikGrafiekHtml(reeks)}
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt2)">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.35;margin-right:4px"></span>actief</span>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>gaf iets in</span>
       </div>
     </div>`;
   // NIEUW DEZE WEEK: wie er deze week was en de drie weken daarvóór niet. Berekend binnen de dertig
@@ -1899,27 +1909,31 @@ async function loadGebruikView() {
     if (cur < start) cur = new Date(start.getFullYear(), start.getMonth(), 1);
     while (cur <= eind) {
       const ym = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
-      const v = perMaand[ym] || { n: 0, live: 0 };
-      reeks.push({ label: maandLabel(ym), mensen: v.n, werk: v.live });
+      const v = perMaand[ym] || { n: 0, live: 0, opst: 0 };
+      // Drie lagen in één balk: alle wedstrijden, daarbinnen die waar de app voor gebruikt werd
+      // (live of opstelling), daarbinnen die live gevolgd werden.
+      reeks.push({ label: maandLabel(ym), mensen: v.n, midden: v.live + v.opst, werk: v.live });
       cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
     }
     const tot = Object.values(perMaand).reduce((a, v) => a + v.n, 0);
     const totLive = Object.values(perMaand).reduce((a, v) => a + v.live, 0);
+    const totOpst = Object.values(perMaand).reduce((a, v) => a + (v.opst || 0), 0);
     // OP LIVE GEVOLGDE WEDSTRIJDEN, NIET OP HET TOTAAL (Tim, 18-10-2026). Dat is het cijfer waar het
     // om gaat: een ploeg kan twintig uitslagen ingetikt hebben en nog nooit aan de lijn gestaan
     // hebben. Zo staan de ploegen die de app écht gebruiken bovenaan, en de nullen onderaan bij
     // elkaar. Het totaal blijft de tweede sleutel, de naam de derde.
     const rijen = Object.entries(perPloeg).map(([, p]) => p).filter(p => p.n)
-      .sort((a, b) => b.live - a.live || b.n - a.n || ploegNaamVgl(a.naam || '', b.naam || ''));
+      .sort((a, b) => (b.live + b.opst) - (a.live + a.opst) || b.live - a.live || b.n - a.n || ploegNaamVgl(a.naam || '', b.naam || ''));
     const kort = iso => iso ? iso.split('-').reverse().slice(0, 2).join('/') + '/' + iso.slice(2, 4) : '—';
     return kop + `<div class="card">
       ${gebruikGrafiekHtml(reeks)}
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--txt2)">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.35;margin-right:4px"></span>wedstrijden</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn2);opacity:.7;margin-right:4px"></span>met opstelling</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--grn);margin-right:4px"></span>live gevolgd</span>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>${tot}</b> afgewerkte ${tot === 1 ? 'wedstrijd' : 'wedstrijden'} over ${_geschiedenis.ploegen} ${_geschiedenis.ploegen === 1 ? 'ploeg' : 'ploegen'}, waarvan er <b>${totLive}</b> live gevolgd ${totLive === 1 ? 'werd' : 'werden'}. Tornooiwedstrijden staan er niet in.</p>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0"><b>${tot}</b> afgewerkte ${tot === 1 ? 'wedstrijd' : 'wedstrijden'} over ${_geschiedenis.ploegen} ${_geschiedenis.ploegen === 1 ? 'ploeg' : 'ploegen'}: <b>${totLive}</b> live gevolgd en nog eens <b>${totOpst}</b> waarvan enkel de opstelling in de app is ingegeven. Tornooiwedstrijden staan er niet in.</p>
     ${/* DE LAATSTE BALK IS DE LOPENDE MAAND (Tim, 18-10-2026: "wedstrijden in de maand, het deel dat
          nog komt kan nog niet gevolgd zijn"). Hij telt enkel wat er AL gespeeld is — wat later deze
          maand nog op het programma staat, is niet afgewerkt en komt er dus niet in. Dat die balk
@@ -1927,12 +1941,13 @@ async function loadGebruikView() {
     <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${icI(IC.timer)} De laatste balk is <b>deze maand tot vandaag</b>: wat er later nog op het programma staat, is nog niet gespeeld en telt dus nog niet mee.</p>
     ${rijen.length ? `<div class="card" style="margin-top:10px">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
-        <div style="flex:1"></div><div style="min-width:52px;text-align:right">totaal</div><div style="min-width:52px;text-align:right">live</div>
+        <div style="flex:1"></div><div style="min-width:44px;text-align:right">totaal</div><div style="min-width:44px;text-align:right">opstel.</div><div style="min-width:44px;text-align:right">live</div>
       </div>
       ${rijen.map(p => `<div class="stat-row" style="align-items:flex-start">
         <span style="flex:1;min-width:0">${esc(p.naam || 'Onbekende ploeg')}<small style="color:var(--txt2);display:block">${esc(kort(p.eerste))} — ${esc(kort(p.laatste))}</small></span>
-        <span style="min-width:52px;text-align:right;font-weight:800">${p.n}</span>
-        <span style="min-width:52px;text-align:right;color:${p.live ? 'var(--txt2)' : 'var(--rd)'}">${p.live}</span>
+        <span style="min-width:44px;text-align:right;font-weight:800">${p.n}</span>
+        <span style="min-width:44px;text-align:right;color:var(--txt2)">${p.opst}</span>
+        <span style="min-width:44px;text-align:right;color:${(p.live || p.opst) ? 'var(--txt2)' : 'var(--rd)'}">${p.live}</span>
       </div>`).join('')}
     </div>` : ''}`;
   })();
@@ -1979,7 +1994,11 @@ async function loadGebruikView() {
       ${rij('Eén dag', t.een)}${rij('Twee tot vier dagen', t.paar)}${rij('Vijf dagen of meer', t.vaak)}
     </div>`;
   })();
-  // Per ploeg: gesorteerd op wie het meest actief is, met het aantal dat ook écht iets ingaf, plus
+  // GEEN KOLOM "GAF IETS IN" MEER (Tim, 28-10-2026: "misschien moeten we die gewoon weglaten"). Ze telde
+  // enkel live volgen en een uitslag ingeven, en miste daardoor de ploegen die de app voor de opstelling
+  // gebruiken: die stonden op nul terwijl ze de app wel degelijk gebruiken. Wat een ploeg ingeeft staat
+  // bij de wedstrijdgeschiedenis (live en opstelling), waar het uit de wedstrijden zelf komt.
+  // Per ploeg: gesorteerd op wie het meest actief is, plus
   // wanneer die ploeg voor het laatst iets deed en of het stijgt of zakt (7 dagen tegenover 30).
   // DAT LAATSTE IS HET SIGNAAL waar dit hele scherm voor gemaakt is: welke ploeg valt stil.
   const dagenGeleden = iso => {
@@ -1990,22 +2009,19 @@ async function loadGebruikView() {
   const week = daadTel ? daadTel[1] : null;   // GEBRUIK_VENSTERS[1] = laatste 7 dagen
   const ploegRijen = !daadTel ? [] : Object.entries(daadTel[daadTel.length - 1].perPloeg)
     .map(([id, p]) => ({ id, naam: p.naam || (id === GEEN_PLOEG ? 'Buiten een ploeg' : 'Onbekende ploeg'),
-      mensen: p.mensen.size, werk: p.werk.size, geleden: dagenGeleden(p.laatst),
+      mensen: p.mensen.size, geleden: dagenGeleden(p.laatst),
       deze: (week && week.perPloeg[id]) ? week.perPloeg[id].mensen.size : 0 }))
     .sort((a, b) => b.mensen - a.mensen || ploegNaamVgl(a.naam, b.naam));
   const laatstTxt = n => n == null ? '' : n === 0 ? 'vandaag' : n === 1 ? 'gisteren' : `${n} dagen geleden`;
   const ploegBlok = !daadTel ? '' : `<div class="sec" style="margin-top:20px">${icI(IC.players)} Per ploeg · laatste 30 dagen</div>
     ${ploegRijen.length ? `<div class="card">
       <div class="prow" style="opacity:.5;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px">
-        <div style="flex:1"></div><div style="min-width:52px;text-align:right">deze week</div><div style="min-width:52px;text-align:right">30 dagen</div><div style="min-width:70px;text-align:right">gaf iets in</div>
+        <div style="flex:1"></div><div style="min-width:52px;text-align:right">deze week</div><div style="min-width:52px;text-align:right">30 dagen</div>
       </div>
       ${ploegRijen.map(r => `<div class="stat-row" style="align-items:flex-start">
         <span style="flex:1;min-width:0">${esc(r.naam)}${r.geleden != null ? `<small style="color:${r.geleden >= 14 ? 'var(--rd)' : 'var(--txt2)'};display:block">laatst ${esc(laatstTxt(r.geleden))}</small>` : ''}</span>
         <span style="min-width:52px;text-align:right;font-weight:800;color:${r.deze ? 'inherit' : 'var(--txt2)'}">${r.deze}</span>
         <span style="min-width:52px;text-align:right;font-weight:800">${r.mensen}</span>
-        ${/* Een nul kleurt enkel rood bij een ECHTE ploeg: "buiten een ploeg" is een gast op het
-             keuzescherm, en daar valt per definitie niets in te geven. */ ''}
-        <span style="min-width:70px;text-align:right;color:${(r.werk || r.id === GEEN_PLOEG) ? 'var(--txt2)' : 'var(--rd)'}">${r.werk}</span>
       </div>`).join('')}
     </div>`
     : `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Nog geen ploegen in deze periode.</p></div>`}`;
@@ -2020,18 +2036,19 @@ async function loadGebruikView() {
   const u = (kop, tekst) => `<p style="font-size:12px;color:var(--txt2);margin:10px 0 0"><b>${kop}</b> ${tekst}</p>`;
   const uitlegBlok = `<details class="more-details" style="margin-top:20px">
     <summary>Hoe lees je deze cijfers?</summary>
-    ${u('Jij telt wél mee bovenaan, maar niet in de drie blokken daaronder.', 'In de bezoekersteller ben je één uniek account van de zoveel; dat vertekent niets. Bij <i>Wat mensen doen</i>, <i>Verloop</i> en <i>Per ploeg</i> val je weg: jij opent de app het vaakst van iedereen, dus daar zou elke lijn je eigen werkdagen tonen in plaats van die van de clubs.')}
+    ${u('Jij telt mee bovenaan, en in de drie blokken daaronder enkel in je eigen ploegen.', 'In de bezoekersteller ben je één uniek account van de zoveel; dat vertekent niets. Bij <i>Wat mensen doen</i>, <i>Verloop</i> en <i>Per ploeg</i> tel je enkel mee in een ploeg waar je zelf ploegbeheerder van bent, als ploegbeheerder. Waar je als eigenaar even binnenkijkt, val je weg: jij opent de app het vaakst van iedereen, dus daar zou elke lijn je eigen werkdagen tonen in plaats van die van de clubs.')}
     ${u('Bezoekers en sessies.', 'Bezoekers is hoeveel verschillende mensen de app openden; wie drie keer kwam, telt één keer. Sessies is hoe vaak ze ze openden. Sluiten en binnen het halfuur opnieuw openen blijft hetzelfde bezoek, dus herladen telt niet als een tweede keer.')}
     ${u('Gasten staan apart en zijn een ruwer cijfer.', 'Een gast kijkt mee via een uitnodigingslink zonder eigen account. Hij krijgt er bij elke installatie automatisch een nieuw, dus dezelfde ouder kan er meer dan één keer in staan — bij accounts is één mens één account.')}
     ${u('Wat mensen doen is geen trechter per persoon.', 'Elk getal is hoeveel verschillende mensen dat in die periode minstens één keer deden. Dat er twaalf een wedstrijd openden, betekent niet dat het twaalf van de veertig zijn die de app openden.')}
-    ${u('Het verloop.', 'Hoeveel verschillende mensen er die dag of maand actief waren, met het donkere deel voor wie ook een wedstrijd live volgde of een uitslag ingaf. Een lege dag is een streepje op de grondlijn.')}
+    ${u('Het verloop.', 'Hoeveel verschillende mensen er die dag of maand actief waren. Een lege dag is een streepje op de grondlijn.')}
     ${u('Wie het zijn.', 'Iedereen telt één keer, als het hoogste wat hij is: wie beheerder is van de ene ploeg en kijker van de andere, staat enkel bij de beheerders.')}
     ${u('Hoe vaak ze terugkomen.', 'Op hoeveel verschillende dagen iemand de app opende in de laatste dertig. Eén dag is iemand die kwam kijken; vijf of meer is iemand die ze echt gebruikt.')}
-    ${u('Per ploeg.', 'Actief is iedereen die de app in die ploeg opende. Gaf iets in is wie ook live volgde of een uitslag ingaf — een ploeg die wel staat te kijken maar niets ingeeft, staat daar op nul. <b>Laatst</b> is de laatste dag waarop er iets gebeurde; vanaf veertien dagen kleurt dat rood.')}
+    ${u('Per ploeg.', 'Dit is iedereen die de app in die ploeg opende, deze week en de laatste dertig dagen. Wat een ploeg zelf ingeeft, zie je bij <i>Wedstrijden per maand</i>. <b>Laatst</b> is de laatste dag waarop er iets gebeurde; vanaf veertien dagen kleurt dat rood.')}
     ${u('Vanaf wanneer.', 'Geteld vanaf de dag dat de app deze versie kreeg en de regels gepubliceerd werden. Wie sindsdien niet meer opende, staat er niet in; dat betekent niet dat hij de app niet gebruikt. <b>Er wordt niets meer opgeruimd</b>: wat ooit geteld is, blijft staan, zodat je over een jaar kan vergelijken.')}
     ${u('Wanneer ze voor het laatst binnenkwamen.', 'Dit ene blok loopt wél terug tot augustus 2026: de app bewaart per account het laatste moment dat hij ze opende. Wie in de accountlijst staat maar daar nergens in, heeft de app na het registreren nooit meer geopend.')}
     ${u('Wedstrijden per maand.', 'Dat is de langste geschiedenis die er is: ze loopt terug tot de eerste wedstrijd die ooit ingevoerd werd. Per ploeg staan de eerste en de laatste wedstrijd erbij. Tornooiwedstrijden blijven erbuiten, want een tornooidag is vijf korte wedstrijdjes en zou het beeld vertekenen.')}
     ${u('Wat telt als live gevolgd?', 'Enkel een wedstrijd waarbij er écht een klok liep aan de lijn. Een wedstrijd waarvan je achteraf de uitslag ingaf telt niet mee, en een wedstrijd waarvan de speelminuten van het officiële wedstrijdblad komen ook niet — daar stond niemand met een klok, ook al staat er speeltijd op.')}
+    ${u('En wat is "opstelling"?', 'Een afgewerkte wedstrijd die niet live gevolgd werd, maar waarvoor wel een opstelling met plaatsen op het veld is ingegeven. Dat is ook gebruik van de app: voor de bond is een live uitslag niet nodig, dus veel ploegen gebruiken de app enkel om de opstelling te maken. Zo een wedstrijd telt dus in één van de twee kolommen, nooit in allebei. Alleen een selectie zonder opstelling telt in geen van beide.')}
   </details>`;
 
   const bezoekersBlok = clubGekozen ? '' : onlineKaart + nogNiet + `<div class="card">
