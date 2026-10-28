@@ -3961,6 +3961,19 @@ async function speeldagOphalen(stil) {
         rijen.push(rij);
       });
     }));
+    // ÉÉN WEDSTRIJD, ÉÉN RIJ (Tim, 28-10-2026: Harelbeke en TK Meldert stonden dubbel). Dit scherm
+    // leest elke ploegmap rechtstreeks, en een wedstrijd die ooit in een tweede ploegmap terechtkwam
+    // (zelfde id, andere map) stond er dus twee keer op, terwijl de kalender van de ploeg enkel haar
+    // eigen map leest en niets merkte. Per id blijft de rij over waarvan de ploegnaam bij de map past;
+    // is er geen, dan de eerste. Dit verbergt het enkel hier: de kopie in de databank blijft staan.
+    const perId = new Map();
+    rijen.forEach(r => {
+      const bij = perId.get(r.m.id);
+      const past = x => !!teamNames[x.tid] && teamNames[x.tid] === x.m.teamName;
+      if (!bij || (!past(bij) && past(r))) perId.set(r.m.id, r);
+    });
+    const uniek = rijen.filter(r => perId.get(r.m.id) === r);
+    rijen.length = 0; uniek.forEach(r => rijen.push(r));
     rijen.sort(speeldagVolgorde);
     // HOEVEEL PLOEGEN KWAMEN ER NIET BINNEN. Dit werd geteld maar nergens getoond zolang er íets
     // binnenkwam, en dat is precies hoe een geweigerde lezing onzichtbaar bleef (v2.8.6): je eigen
@@ -4060,8 +4073,12 @@ function speeldagZoNodig() {
 // Naar die wedstrijd toe. Hoort ze bij een andere ploeg, dan wisselt de app eerst van ploeg langs
 // precies dezelfde weg als het clubbeheer (openTeamFromClub) en wacht ze tot die wedstrijd binnen is
 // — anders landt je tik op een scherm waar ze nog niet staat.
-async function speeldagOpen(id) {
-  const rij = ((_speeldag || {}).rijen || []).find(r => r.m.id === id);
+async function speeldagOpen(id, tid) {
+  // OP ID ÉN PLOEG ZOEKEN (Tim, 28-10-2026: "ik open heel vaak in een verkeerde wedstrijd/ploeg"). Enkel
+  // op id vinden gaf de eerste rij met dat id, en dat was bij een wedstrijd die in twee ploegmappen
+  // stond een kwestie van wie het eerst antwoordde.
+  const rijen = (_speeldag || {}).rijen || [];
+  const rij = rijen.find(r => r.m.id === id && (!tid || r.tid === tid)) || rijen.find(r => r.m.id === id);
   if (!rij) return;
   // Zeg wáárom er niets gebeurt: een tik die stil niets doet, leest als een defect. Sinds v2.6.0 staan
   // hier ook ploegen waar je niet bij hoort, en dat is veruit de gewoonste reden.
@@ -4161,7 +4178,7 @@ function speeldagKaartHtml(rij) {
   // Een kaartje dat niet opengaat, hoort er ook niet uit te zien alsof het dat wel doet — zelfde
   // afspraak als in de wedstrijdenlijst (matchItemHtml): geen handje, en de tik zegt wáárom.
   const mag = speeldagMagOpenen(rij);
-  return `<div class="sd-kaart" style="border-left-color:${kleur}${mag ? '' : ';cursor:default'}" onclick="speeldagOpen('${m.id}')">
+  return `<div class="sd-kaart" style="border-left-color:${kleur}${mag ? '' : ';cursor:default'}" onclick="speeldagOpen('${m.id}','${rij.tid}')">
       ${ploeg}${tegen}<div class="sd-onder">${toestand}${stand}</div>
     </div>`;
 }

@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.6
+
+**Een wedstrijd stond twee keer op het vandaag-scherm.** Het scherm leest alle ploegmappen van de
+club rechtstreeks, en een wedstrijd die ooit ook in de map van een andere ploeg was beland (zelfde
+id) stond er dus dubbel. Nu blijft per id één rij over, die waarvan de ploegnaam bij de map past.
+Een tik op een kaartje zoekt bovendien op wedstrijd én ploeg, niet meer enkel op het id.
+
 ## v2.23.5
 
 **Het logo bij het opstarten staat lager.** Het zat sinds 13-10 een hele cel boven het midden,
