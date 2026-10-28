@@ -662,7 +662,10 @@
     .lc-btn{background:var(--blk2);color:#fff;border:none;border-radius:8px;width:34px;height:34px;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
     .lc-btn:disabled{opacity:.25;cursor:default}
     /* Splash */
-    /* DE BAL STAAT IN DE CEL BOVEN HET MIDDEN (Tim, 13-10-2026). Dit was een kolom met de bal, de
+    /* NU EEN HALVE CEL BOVEN HET MIDDEN (Tim, 28-10-2026: "terug iets naar beneden, niet in het midden
+       van zo'n vijfhoek"). Een hele cel hoger zette de bal precies in het hart van een cel; een halve
+       cel zet hem op de rand tussen twee cellen. Alle `/ 2` hieronder zijn die halve cel.
+       DE BAL STAAT BOVEN HET MIDDEN (Tim, 13-10-2026). Dit was een kolom met de bal, de
        balk en de naam samen gecentreerd, waardoor de bal ergens tussen twee cellen in uitkwam.
        De achtergrond staat op `center`, dus het middelpunt van de foto valt op het middelpunt van het
        scherm — en daar ligt een celmiddelpunt (nagerekend: platte zeshoeken, straal 70,5 px).
@@ -673,7 +676,7 @@
        maat; alles eronder rekent ermee verder. */
     #splash{--splash-cel:max(10.23vw,18.17vh);position:fixed;inset:0;background:url('background_logo.jpg') center/cover no-repeat;z-index:9999;pointer-events:none}
     #splash::before{content:'';position:absolute;inset:0;background:rgba(10,18,35,0.55)}
-    #splash img{position:absolute;left:50%;top:calc(50% - var(--splash-cel));transform:translate(-50%,-50%);width:170px;height:170px;object-fit:contain}
+    #splash img{position:absolute;left:50%;top:calc(50% - var(--splash-cel) / 2);transform:translate(-50%,-50%);width:170px;height:170px;object-fit:contain}
     /* DE OPSTARTANIMATIE IS INGEKORT van 1,4 s naar 750 ms (Tim, 12-10-2026: de opstart duurde te
        lang, maar hij wil de animatie wél zien). De balk liep vol in 1 s na 0,4 s wachten, de naam
        verscheen op 0,7 s. Nu: balk 0,6 s na 0,15 s, naam op 0,4 s — dezelfde beweging, alleen
@@ -687,11 +690,11 @@
        DE NAAM KRIJGT DE VOLLE BREEDTE (`left:0;right:0`) en niet `left:50%`. Met enkel een linkerrand
        op de helft is er maar een halve schermbreedte beschikbaar, en dan brak "MANAGE · TRACK ·
        SHARE" over twee regels — en stond de ondertitel dus scheef. */
-    #splash-bar{position:absolute;left:50%;margin-left:-75px;top:calc(50% - var(--splash-cel) + 107px);width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;animation:splashBar .6s .15s cubic-bezier(.22,1,.36,1) forwards}
-    #splash-titles{position:absolute;left:0;right:0;top:calc(50% - var(--splash-cel) + 128px);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;animation:splashFade .35s .4s ease forwards}
+    #splash-bar{position:absolute;left:50%;margin-left:-75px;top:calc(50% - var(--splash-cel) / 2 + 107px);width:150px;height:3px;background:var(--grn);border-radius:2px;transform:scaleX(0);transform-origin:center;animation:splashBar .6s .15s cubic-bezier(.22,1,.36,1) forwards}
+    #splash-titles{position:absolute;left:0;right:0;top:calc(50% - var(--splash-cel) / 2 + 128px);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;animation:splashFade .35s .4s ease forwards}
     #splash-title{color:#fff;font-size:24px;font-weight:800;letter-spacing:2px;font-variant:small-caps}
     #splash-name{color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase}
-    #splash-spinner{position:absolute;left:50%;margin-left:-17px;top:calc(50% - var(--splash-cel) + 200px);width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;display:none;animation:splashSpin .8s linear infinite}
+    #splash-spinner{position:absolute;left:50%;margin-left:-17px;top:calc(50% - var(--splash-cel) / 2 + 200px);width:28px;height:28px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;display:none;animation:splashSpin .8s linear infinite}
     @keyframes splashLogo{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
     @keyframes splashBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
     @keyframes splashFade{from{opacity:0}to{opacity:1}}

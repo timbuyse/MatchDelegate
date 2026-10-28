@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.23.5
+
+**Het logo bij het opstarten staat lager.** Het zat sinds 13-10 een hele cel boven het midden,
+precies in het hart van één zeshoek. Nu een halve cel: op de rand tussen twee cellen. De balk
+en de naam eronder schuiven mee.
+
 ## v2.23.4
 
 **"Alle gebruikers" opent op laatst actief.** Het scherm stond standaard op naam; nu staat
