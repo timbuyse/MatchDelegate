@@ -1574,10 +1574,12 @@ async function doWisShootout() {
   try { delete match.shootout; await dbSave(match); closeModal(); render(); }
   finally { _eventBusy = false; }
 }
-// Eén strafschop achteraf aanpassen (raak/gemist, en bij onze ploeg wie nam). De reeks blijft
-// dezelfde `m.shootout.schoten`-lijst: we vervangen enkel het schot op plaats i, dus er is geen
-// migratie en de volgorde (wie aan de beurt was) verandert niet.
-let soEdit = null;   // { i, raak, schutter }
+// Strafschoppen achteraf aanpassen, wissen en toevoegen — per schot. Raak/gemist en, bij onze
+// ploeg, wie nam. De reeks blijft dezelfde `m.shootout.schoten`-lijst (`ploeg`, `raak`, `playerId`
+// per schot), dus er is geen migratie. Toevoegen zet het schot achteraan en laat je zelf de ploeg
+// kiezen: na het wissen van een schot in het midden klopt het strikte afwisselen niet meer, en het
+// verslag mag dat niet opdringen.
+let soEdit = null;   // { i, raak, schutter, ploeg } — i === aantal schoten betekent "toevoegen"
 // De lijst staat standaard dicht; het potloodje klapt ze open. Onthouden in `_soLijstOpen`, zodat ze
 // open blijft na het bewaren van een schot (dat tekent het verslag opnieuw).
 let _soLijstOpen = false;
@@ -1602,19 +1604,31 @@ function shootoutSchotLijstHtml(m) {
         <span><span class="pen-bol ${s.raak ? 'raak' : 'mis'}" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:6px"></span>${esc(naam)} · ${nr}</span>
         <span>${s.raak ? 'Raak' : 'Gemist'} ${icI(IC.edit)}</span></button>`;
     }).join('')}
+    <button type="button" class="btn btn-pale btn-sm no-print" style="margin:6px 0 0;width:100%" onclick="modalShootoutSchot(${alle.length})">${icI(IC.plus)} Strafschop toevoegen</button>
   </div>`;
 }
 function modalShootoutSchot(i, behoudKeuze) {
   if (slotWeigert()) return;
   if (!canLive()) return;
+  if (!match.shootout) return;
   const alle = shootoutSchoten(match);
-  const s = alle[i]; if (!s) return;
-  if (!behoudKeuze || !soEdit || soEdit.i !== i) soEdit = { i, raak: !!s.raak, schutter: s.playerId || null };
-  const eigen = s.ploeg !== 'them';
-  const nr = alle.slice(0, i + 1).filter(x => (x.ploeg === 'them') === !eigen).length;
-  const kiesbaar = eigen ? (match.players || []).filter(p => magNogMeedoen(match, p) || p.id === s.playerId) : [];
+  const nieuw = i >= alle.length;
+  const s = nieuw ? null : alle[i];
+  if (!nieuw && !s) return;
+  if (!behoudKeuze || !soEdit || soEdit.i !== i) {
+    soEdit = nieuw
+      ? { i: alle.length, raak: true, schutter: null, ploeg: shootoutAanZet(match) }
+      : { i, raak: !!s.raak, schutter: s.playerId || null, ploeg: s.ploeg === 'them' ? 'them' : 'us' };
+  }
+  const eigen = soEdit.ploeg !== 'them';
+  const nr = (nieuw ? alle : alle.slice(0, i + 1)).filter(x => (x.ploeg === 'them') === !eigen).length + (nieuw ? 1 : 0);
+  const kiesbaar = eigen ? (match.players || []).filter(p => magNogMeedoen(match, p) || p.id === soEdit.schutter) : [];
   const naam = eigen ? tName(match) : (match.opponent || 'Tegenstander');
-  openModal(`<h3>${icI(IC.penalty)} Strafschop aanpassen</h3>
+  openModal(`<h3>${icI(IC.penalty)} Strafschop ${nieuw ? 'toevoegen' : 'aanpassen'}</h3>
+    ${nieuw ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <button class="btn ${eigen ? 'btn-green' : 'btn-pale'}" style="margin:0" onclick="zetShootoutEditPloeg('us')">${esc(tName(match))}</button>
+      <button class="btn ${!eigen ? 'btn-green' : 'btn-pale'}" style="margin:0" onclick="zetShootoutEditPloeg('them')">${esc(match.opponent || 'Tegenstander')}</button>
+    </div>` : ''}
     <div class="sec" style="margin-top:0">${esc(naam)} · strafschop ${nr}</div>
     ${eigen ? `<p style="font-size:13px;color:var(--txt2);margin:-4px 0 8px">Wie nam hem?</p>
       <div id="so-edit-spelers">${pgGrid(kiesbaar.map(p => pgBtn(p, 'so-pb', `selectShootoutEditSchutter('${p.id}',this)`)).join(''))}</div>` : ''}
@@ -1622,7 +1636,8 @@ function modalShootoutSchot(i, behoudKeuze) {
       <button class="btn ${soEdit.raak ? 'btn-green' : 'btn-pale'}" onclick="zetShootoutEditRaak(true)">${icI(IC.goal)} Raak</button>
       <button class="btn ${!soEdit.raak ? 'btn-red' : 'btn-pale'}" onclick="zetShootoutEditRaak(false)">${icI(IC.close)} Gemist</button>
     </div>
-    <button class="btn btn-orgpale" style="margin-top:10px" onclick="bewaarShootoutSchot()">${icI(IC.check)} Bewaren</button>
+    <button class="btn btn-orgpale" style="margin-top:10px" onclick="bewaarShootoutSchot()">${icI(IC.check)} ${nieuw ? 'Toevoegen' : 'Bewaren'}</button>
+    ${nieuw ? '' : `<button class="btn btn-pale" style="margin-top:8px" onclick="wisShootoutSchot()">${icI(IC.trash)} Deze strafschop wissen</button>`}
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
   if (eigen && soEdit.schutter) {
     const el = document.querySelector(`#so-edit-spelers button[data-id="${soEdit.schutter}"]`);
@@ -1631,16 +1646,41 @@ function modalShootoutSchot(i, behoudKeuze) {
 }
 function selectShootoutEditSchutter(id, el) { if (soEdit) soEdit.schutter = id; gpSelIn('so-edit-spelers', el); }
 function zetShootoutEditRaak(raak) { if (!soEdit) return; soEdit.raak = !!raak; modalShootoutSchot(soEdit.i, true); }
+function zetShootoutEditPloeg(ploeg) {
+  if (!soEdit) return;
+  soEdit.ploeg = ploeg === 'them' ? 'them' : 'us';
+  if (soEdit.ploeg === 'them') soEdit.schutter = null;
+  modalShootoutSchot(soEdit.i, true);
+}
 async function bewaarShootoutSchot() {
   if (_eventBusy) return;
-  if (slotWeigert() || !canLive() || !soEdit) return;
-  const s = shootoutSchoten(match)[soEdit.i]; if (!s) return;
-  const eigen = s.ploeg !== 'them';
+  if (slotWeigert() || !canLive() || !soEdit || !match.shootout) return;
+  const alle = shootoutSchoten(match);
+  const nieuw = soEdit.i >= alle.length;
+  if (!nieuw && !alle[soEdit.i]) return;
+  const eigen = soEdit.ploeg !== 'them';
   if (eigen && !soEdit.schutter) { showToast('Kies wie de strafschop nam.', 'err'); return; }
   _eventBusy = true;
   try {
-    match.shootout.schoten = shootoutSchoten(match).map((x, k) =>
-      k === soEdit.i ? Object.assign({}, x, { raak: !!soEdit.raak, playerId: eigen ? soEdit.schutter : null }) : x);
+    const schot = { ploeg: eigen ? 'us' : 'them', raak: !!soEdit.raak, playerId: eigen ? soEdit.schutter : null };
+    match.shootout.schoten = nieuw
+      ? alle.concat([schot])
+      : alle.map((x, k) => k === soEdit.i ? Object.assign({}, x, { raak: schot.raak, playerId: schot.playerId }) : x);
+    await dbSave(match);
+    soEdit = null; closeModal(); render();
+  } finally { _eventBusy = false; }
+}
+// Eén strafschop uit de reeks halen (bv. verkeerd ingegeven). Zonder schoten blijft er geen lege
+// reeks achter: net als stopShootout verdwijnt dan het hele veld.
+async function wisShootoutSchot() {
+  if (_eventBusy) return;
+  if (slotWeigert() || !canLive() || !soEdit || !match.shootout) return;
+  const alle = shootoutSchoten(match);
+  if (!alle[soEdit.i]) return;
+  _eventBusy = true;
+  try {
+    const rest = alle.filter((_, k) => k !== soEdit.i);
+    if (rest.length) match.shootout.schoten = rest; else delete match.shootout;
     await dbSave(match);
     soEdit = null; closeModal(); render();
   } finally { _eventBusy = false; }

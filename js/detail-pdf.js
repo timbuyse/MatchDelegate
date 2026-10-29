@@ -156,9 +156,10 @@ function renderDetail() {
         ${!toonShootout(match) ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} De stand is niet gelijk (${esc(scoreTxt(match))}), dus deze reeks staat niet bij de uitslag. Een strafschoppenreeks beslist enkel een gelijkspel — wis ze hieronder als ze hier niet hoort.</div>` : ''}
         ${penaltyReeksHtml(match)}
         ${vast ? '' : shootoutSchotLijstHtml(match)}
-        ${vast ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
-          <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
-          <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
+        ${/* "Aanpassen" is weg (Tim, 29-10-2026): het potloodje hierboven doet nu alles per schot —
+             aanpassen, wissen en toevoegen. Enkel de hele reeks wissen blijft hier staan. */ ''}
+        ${vast ? '' : `<div style="margin-top:10px" class="no-print">
+          <button class="btn btn-pale btn-sm" style="margin:0;width:100%" onclick="confirmWisShootout()">${icI(IC.trash)} Hele reeks wissen</button>
         </div>`}
       </div>`)}
     ${/* ÉÉN RIJ MET WAT JE MET DEZE WEDSTRIJD DOET (Tim, 30-08-2026). Hier stonden twee knoppen los

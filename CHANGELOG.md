@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.2
+
+**Strafschoppen in het verslag: per schot aanpassen, wissen en toevoegen.**
+
+- Onder het potloodje kan je nu per strafschop: aanpassen (raak/gemist en de nemer), wissen, en een strafschop toevoegen achteraan de reeks. Bij toevoegen kies je zelf de ploeg, want na het wissen van een schot in het midden klopt het strikte afwisselen niet meer. Wis je het laatste schot, dan verdwijnt de hele reeks. Het opgeslagen veld `m.shootout` blijft dezelfde vorm; er is geen migratie.
+- De knop "Aanpassen" naast "Wissen" is verdwenen (die deed minder dan het potloodje). "Wissen" heet nu "Hele reeks wissen".
+
 ## v2.24.1
 
 **Speler vervangen ook na de wedstrijd, en de strafschoppenlijst klapt in.**
