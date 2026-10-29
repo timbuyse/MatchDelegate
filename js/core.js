@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.24.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.24.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -910,6 +910,35 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  // Voorstel van 29-10-2026, nog door Tim goed te keuren; het laatste punt is zijn eigen tekst. Dit is
+  // de EERSTE tekst sinds 1.72 (27-09): alles uit 1.73–2.24 dat nooit aangekondigd werd, in vier
+  // punten gebundeld — dit venster komt bij elke beheerder en een lange lijst wordt weggeklikt.
+  // Bewust zonder `ookKijkers`: het gaat over wat een beheerder doet, niet over wat een ouder ziet.
+  // Een kijker krijgt daarom zijn EIGEN, kortere tekst (`kijkers`, Tim 29-10-2026): enkel het deel over
+  // het vandaag-scherm, want dat is het enige van de vier dat voor hem telt. Zie nieuwsBeheerder.
+  // Geen `handleiding`: er is geen pagina die deze vier onderwerpen samen dekt.
+  '2.24': {
+    kijkers: {
+      kop: 'Wat er vandaag bij je club speelt',
+      intro: 'Je ziet nu in één oogopslag wat er vandaag bij de hele club gespeeld wordt, ook bij ploegen die je zelf niet volgt.',
+      kopPunten: 'Zo werkt het',
+      punten: [
+        'Op “Jouw ploegen” staat het kadertje “Vandaag in jouw club”. Wat er bezig is, zie je meteen, met de stand erbij.',
+        'Tik de regel eronder aan voor alle wedstrijden van vandaag: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
+        'Bij een ploeg die je niet volgt lees je de stand en de tegenstander, maar open je de wedstrijd niet. Bij je eigen ploeg tik je er gewoon op.',
+      ],
+    },
+    titel: 'Nieuw in MatchDelegate',
+    kop: 'Veel nieuw sinds de vorige keer',
+    intro: 'Sinds de vorige melding is er heel wat bijgekomen. Dit zijn vier dingen die je het vaakst zal merken.',
+    kopPunten: 'Wat je nu kan',
+    punten: [
+      'Alles van vandaag in je club. Het kadertje “Vandaag in jouw club” op “Jouw ploegen” toont wat er bezig is. Tik de regel eronder aan en je ziet alle wedstrijden van vandaag bij je hele club: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
+      'Kaarten voor de trainer en geel-rood. Op het kaartenscherm staan nu ook “Trainer” en “Afgev.”, voor een kaart aan de trainer of de afgevaardigde. Een tweede gele kaart wordt vanzelf rood en staat als één geel-rood kaartje in het verslag. Bij de tegenstander heeft de app daarvoor het rugnummer nodig.',
+      'Speelminuten volgens het plan. Sluit je een wedstrijd af met enkel de uitslag, dan stond iedereen op 0 minuten. Staat er een opstelling en blokduur klaar, dan staat bij “Uitslag ingeven” nu het vinkje “Speelminuten volgens het plan bewaren” standaard aan. Die minuten zijn gepland en niet gemeten, en dat staat overal bij vermeld.',
+      'Fouten achteraf rechtzetten. Een verkeerde speler in de selectie? Gebruik “Speler vervangen”: tijdens de wedstrijd of wacht tot na de wedstrijd om dit te doen. Posities, speeltijd, doelpunten en kaarten schuiven mee naar de andere speler. Een strafschop verkeerd ingegeven? Tik in het verslag bij “Strafschoppen” op het potloodje om er een aan te passen, te wissen of toe te voegen.',
+    ],
+  },
   // Goedgekeurd door Tim, 27-09-2026. Dit venster komt bij ÍEDEREEN, dus de tekst spreekt allebei de
   // kanten aan: de ouder die het moet vragen, en de beheerder die het moet geven. Het eerste punt is
   // de handeling die de lezer zelf moet stellen — zonder die vraag gebeurt er niets, en dan zou de
@@ -1043,6 +1072,12 @@ function magNieuwsZien() {
   if (isGuest) return false;
   const nt = RELEASE_NOTES[notesSleutel(APP_VERSION)];
   if (nt && nt.ookKijkers) return true;
+  if (nt && nt.kijkers) return true;   // een tekst met een eigen kijkersversie: iedereen krijgt er een
+  return nieuwsBeheerder();
+}
+// Wie telt hier als beheerder? Eén plek voor de regel, want ze beslist twee dingen: wie de melding
+// krijgt (magNieuwsZien) en welke versie van de tekst hij leest (`kijkers` of de gewone).
+function nieuwsBeheerder() {
   if (!cloudReady) return true;                                  // lokaal, zonder rollen: één gebruiker
   if (isOwner || Object.keys(myClubs || {}).length) return true;  // eigenaar of clubbeheerder
   return Object.values(userTeams || {}).some(r => r === 'admin'); // beheerder van eender welke ploeg
@@ -1100,8 +1135,10 @@ async function toonNieuwAlsNodig() {
     if (!magNieuwsZien()) return;
     const st = nieuwsStatus(huidig);
     if (st.klaar || (st.n || 0) >= NIEUWS_MAX) return;
-    const notes = RELEASE_NOTES[huidig];
-    if (!notes) { nieuwsStatusZet(huidig, { klaar: true }); return; }
+    const basis = RELEASE_NOTES[huidig];
+    if (!basis) { nieuwsStatusZet(huidig, { klaar: true }); return; }
+    // Een kijker leest de kijkersversie, als die er is: de gewone tekst met enkel zijn velden erover.
+    const notes = (basis.kijkers && !nieuwsBeheerder()) ? Object.assign({}, basis, basis.kijkers, { handleiding: '' }) : basis;
     // Bestaande gebruiker? Dan is er al iets ingesteld of gespeeld. Wie de app voor het EERST
     // installeert krijgt niets: "nieuw sinds vorige keer" slaat dan nergens op.
     let bestaand = setupDone() || getTeamsV2().length > 0;

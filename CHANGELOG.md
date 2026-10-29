@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.3
+
+**Een "Wat is er nieuw"-venster voor 2.24, met een eigen korte tekst voor kijkers.**
+
+- De eerste melding sinds 1.72. Voor beheerders vier punten die nooit aangekondigd werden: het vandaag-scherm (*Vandaag in jouw club*), kaarten voor de trainer of afgevaardigde en geel-rood, speelminuten volgens het plan bewaren, en fouten achteraf rechtzetten (speler vervangen en strafschoppen aanpassen).
+- Een kijker krijgt dezelfde melding in een eigen, kortere tekst met enkel het vandaag-scherm. Daarvoor kan een tekst in `RELEASE_NOTES` nu een `kijkers`-versie dragen; zonder die versie werkt alles zoals voordien. De regel *wie telt als beheerder* staat nu op één plek (`nieuwsBeheerder` in `core.js`).
+- Zoals altijd: één keer per toestel, tot maximaal drie keer, met het vinkje *Niet meer tonen*, en niet voor wie de app voor het eerst installeert of als gast kijkt.
+
 ## v2.24.2
 
 **Strafschoppen in het verslag: per schot aanpassen, wissen en toevoegen.**
