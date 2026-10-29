@@ -337,7 +337,10 @@ function renderLive() {
         ${absent.length ? `<hr><div class="sec" style="color:var(--rd)">Niet aanwezig (${absent.length})</div>${absent.map(p => `<div class="prow">${numDot(p, 'pnum pnum-off', 'opacity:.4')}<div style="flex:1"><div class="pname" style="opacity:.5;text-decoration:line-through">${esc(p.name)}</div>${p.absentReason ? `<div style="font-size:11px;color:var(--txt2)">${esc(absentReasonLabel(p.absentReason))}</div>` : ''}</div>${(ro || isDone) ? '' : `<button class="btn btn-sm btn-pale" style="font-size:11px;padding:3px 8px" onclick="doUnmarkAbsent('${p.id}')">Herstel</button>`}</div>`).join('')}` : ''}
         ${/* Zie modalAddPlayerLive: de selectie lag vast vanaf de aftrap, en dat botst met de
              laatkomer en met de speler die van het tweede veld komt bijspringen. */ ''}
-        ${(ro || isDone) ? '' : `<hr><button class="btn btn-pale btn-sm" style="width:100%" onclick="modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>`}`;
+        ${(ro || isDone) ? '' : `<hr><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-pale btn-sm" style="margin:0" onclick="_vervangId=null;modalAddPlayerLive()">${icI(IC.plus)} Speler bijzetten</button>
+          <button class="btn btn-pale btn-sm" style="margin:0" onclick="modalVervangSpeler()">${icI(IC.edit)} Speler vervangen</button>
+        </div>`}`;
     tabContent = `
       ${miniScore}
       ${/* 'paused' erbij (audit 24-08-2026): tijdens een klokpauze viel dit terug op een veld waar je
@@ -1570,6 +1573,66 @@ async function doWisShootout() {
   if (_eventBusy) return; _eventBusy = true;
   try { delete match.shootout; await dbSave(match); closeModal(); render(); }
   finally { _eventBusy = false; }
+}
+// Eén strafschop achteraf aanpassen (raak/gemist, en bij onze ploeg wie nam). De reeks blijft
+// dezelfde `m.shootout.schoten`-lijst: we vervangen enkel het schot op plaats i, dus er is geen
+// migratie en de volgorde (wie aan de beurt was) verandert niet.
+let soEdit = null;   // { i, raak, schutter }
+function shootoutSchotLijstHtml(m) {
+  const alle = shootoutSchoten(m);
+  const geteld = { us: 0, them: 0 };
+  return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bdr)">
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">Tik een strafschop aan om ze aan te passen.</div>
+    ${alle.map((s, i) => {
+      const ploeg = s.ploeg === 'them' ? 'them' : 'us';
+      const nr = ++geteld[ploeg];
+      const naam = ploeg === 'us' ? (s.playerId ? fieldName(m, s.playerId) : tName(m)) : (m.opponent || 'Tegenstander');
+      return `<button type="button" class="btn btn-pale btn-sm no-print" style="margin:3px 0;width:100%;justify-content:space-between;text-align:left" onclick="modalShootoutSchot(${i})">
+        <span><span class="pen-bol ${s.raak ? 'raak' : 'mis'}" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:6px"></span>${esc(naam)} · ${nr}</span>
+        <span>${s.raak ? 'Raak' : 'Gemist'} ${icI(IC.edit)}</span></button>`;
+    }).join('')}
+  </div>`;
+}
+function modalShootoutSchot(i, behoudKeuze) {
+  if (slotWeigert()) return;
+  if (!canLive()) return;
+  const alle = shootoutSchoten(match);
+  const s = alle[i]; if (!s) return;
+  if (!behoudKeuze || !soEdit || soEdit.i !== i) soEdit = { i, raak: !!s.raak, schutter: s.playerId || null };
+  const eigen = s.ploeg !== 'them';
+  const nr = alle.slice(0, i + 1).filter(x => (x.ploeg === 'them') === !eigen).length;
+  const kiesbaar = eigen ? (match.players || []).filter(p => magNogMeedoen(match, p) || p.id === s.playerId) : [];
+  const naam = eigen ? tName(match) : (match.opponent || 'Tegenstander');
+  openModal(`<h3>${icI(IC.penalty)} Strafschop aanpassen</h3>
+    <div class="sec" style="margin-top:0">${esc(naam)} · strafschop ${nr}</div>
+    ${eigen ? `<p style="font-size:13px;color:var(--txt2);margin:-4px 0 8px">Wie nam hem?</p>
+      <div id="so-edit-spelers">${pgGrid(kiesbaar.map(p => pgBtn(p, 'so-pb', `selectShootoutEditSchutter('${p.id}',this)`)).join(''))}</div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <button class="btn ${soEdit.raak ? 'btn-green' : 'btn-pale'}" onclick="zetShootoutEditRaak(true)">${icI(IC.goal)} Raak</button>
+      <button class="btn ${!soEdit.raak ? 'btn-red' : 'btn-pale'}" onclick="zetShootoutEditRaak(false)">${icI(IC.close)} Gemist</button>
+    </div>
+    <button class="btn btn-orgpale" style="margin-top:10px" onclick="bewaarShootoutSchot()">${icI(IC.check)} Bewaren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+  if (eigen && soEdit.schutter) {
+    const el = document.querySelector(`#so-edit-spelers button[data-id="${soEdit.schutter}"]`);
+    if (el) gpSel(el);
+  }
+}
+function selectShootoutEditSchutter(id, el) { if (soEdit) soEdit.schutter = id; gpSelIn('so-edit-spelers', el); }
+function zetShootoutEditRaak(raak) { if (!soEdit) return; soEdit.raak = !!raak; modalShootoutSchot(soEdit.i, true); }
+async function bewaarShootoutSchot() {
+  if (_eventBusy) return;
+  if (slotWeigert() || !canLive() || !soEdit) return;
+  const s = shootoutSchoten(match)[soEdit.i]; if (!s) return;
+  const eigen = s.ploeg !== 'them';
+  if (eigen && !soEdit.schutter) { showToast('Kies wie de strafschop nam.', 'err'); return; }
+  _eventBusy = true;
+  try {
+    match.shootout.schoten = shootoutSchoten(match).map((x, k) =>
+      k === soEdit.i ? Object.assign({}, x, { raak: !!soEdit.raak, playerId: eigen ? soEdit.schutter : null }) : x);
+    await dbSave(match);
+    soEdit = null; closeModal(); render();
+  } finally { _eventBusy = false; }
 }
 // ===================== NOTITIES: ALGEMEEN, PER BLOK, PER SPELER =====================
 // Tim, 01-10-2026: "ik wil het notitieveld opdelen in een algemeen stuk en een stuk per kwart".
@@ -3826,8 +3889,11 @@ function modalAddPlayerLive() {
   // zijn.
   warmClubZusters();
   const zusters = clubZustersGekend();
-  openModal(`<h3>${icI(IC.plus)} Speler bijzetten</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>
+  const vervangP = _vervangId ? (match.players || []).find(x => x.id === _vervangId) : null;
+  openModal(`<h3>${icI(vervangP ? IC.edit : IC.plus)} ${vervangP ? 'Speler vervangen' : 'Speler bijzetten'}</h3>
+    ${vervangP
+      ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie komt er in de plaats van <b>${esc(vervangP.name)}</b>? De nieuwe speler neemt zijn <b>plek, speeltijd en doelpunten/kaarten</b> over — alsof hij van in het begin geselecteerd was.</p>`
+      : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>`}
     ${lijst}
     ${(zusters === null || zusters.length) ? `<button class="btn btn-orgpale" style="margin-top:12px" onclick="modalAddGuestLive()">Speler van een andere ploeg</button>` : ''}
     <button class="btn btn-pale" style="margin-top:8px" onclick="addLoosePlayerLiveModal()">Losse speler (niet in het rooster)</button>
@@ -3877,6 +3943,7 @@ async function addGuestPlayerLive(teamId, playerId) {
 }
 // Gemeenschappelijk stuk voor beide ingangen: de speler in de selectie zetten en opslaan.
 async function _voegSpelerToeAanWedstrijd(veld) {
+  if (_vervangId) return _vervangSpeler(veld);   // "Speler vervangen" gebruikt dezelfde keuzevensters
   match.players.push(Object.assign({
     id: uid(), rosterId: null, globalId: null, name: 'Speler', number: '',
     line: 'Middenveld', posNum: '', starting: false, onField: false, guest: false,
@@ -3895,6 +3962,44 @@ async function _voegSpelerToeAanWedstrijd(veld) {
   showToast(trn.length
     ? `${naam} staat op de bank en in de tornooiselectie van vandaag.`
     : `${naam} staat op de bank. Breng hem in met een wissel.`, 'ok');
+}
+// ----- Een speler vervangen terwijl de wedstrijd loopt -----
+// Voor de verkeerde naam die per ongeluk gekozen werd. We vervangen enkel WIE de speler is
+// (rosterId, globalId, naam, rugnummer, gast-merkje) op het BESTAANDE spelersobject. Zijn `id` blijft,
+// en dus ook alles wat daaraan hangt: plek op het veld, starting/onField, speeltijd (calcMinutes
+// rekent per id), doelpunten, kaarten, wissels en de kapiteinskeuze. Daardoor is er geen migratie en
+// hoeft geen enkel event aangepast te worden. De notitie bij de speler (`note`) blijft staan.
+// Dit is een CORRECTIE: iemand die echt de plaats van een ander inneemt, doe je met een wissel.
+let _vervangId = null;
+function modalVervangSpeler() {
+  if (!canLive() || !match || slotWeigert()) return;
+  const status = p => p.absent ? 'afwezig' : (p.onField ? 'op het veld' : 'bank');
+  openModal(`<h3>${icI(IC.edit)} Speler vervangen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Per ongeluk een verkeerde naam gekozen? Tik de speler aan die <b>weg moet</b>; daarna kies je wie zijn plaats inneemt.</p>
+    ${pgGrid((match.players || []).map(p => pgBtn(p, 'addp-pb', `kiesVervangSpeler('${p.id}')`, `<span style="font-size:9px;color:var(--txt2)">${status(p)}</span>`)).join(''))}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
+function kiesVervangSpeler(id) {
+  if (!(match.players || []).some(p => p.id === id)) return;
+  _vervangId = id;
+  modalAddPlayerLive();
+}
+async function _vervangSpeler(veld) {
+  const p = (match.players || []).find(x => x.id === _vervangId);
+  _vervangId = null;
+  if (!p) { showToast('Die speler zit niet meer in de wedstrijd.', 'err'); closeModal(); return; }
+  const oud = p.name || 'Speler';
+  p.rosterId = veld.rosterId || null;
+  p.globalId = veld.globalId || null;
+  p.name = veld.name || 'Speler';
+  p.number = veld.number || '';
+  p.guest = !!veld.guest;
+  if (p.guest) p.fromName = veld.fromName || ''; else delete p.fromName;
+  const trn = syncMatchPlayersToTournamentSquad(match);
+  recomputeOnField(match);
+  await dbSave(match);
+  closeModal(); render();
+  showToast(`${oud} is vervangen door ${p.name}.${trn.length ? ' Hij staat ook in de tornooiselectie van vandaag.' : ''}`, 'ok');
 }
 async function addPlayerLive(rosterId) {
   const team = _liveTeam();

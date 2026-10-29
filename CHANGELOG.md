@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.0
+
+**Strafschoppen achteraf aanpassen, en een speler vervangen tijdens de wedstrijd.**
+
+- In het verslag staat onder "Strafschoppen" nu per strafschop een knop. Tik hem aan om te wijzigen of hij raak of gemist was en, bij onze ploeg, wie hem nam. Voordien kon je enkel de laatste strafschop wissen of er één bijzetten. Het opgeslagen veld `m.shootout` blijft dezelfde vorm; er is geen migratie.
+- Nieuw in het livescherm: **Speler vervangen**, naast "Speler bijzetten". Voor een verkeerde naam die per ongeluk gekozen werd. De nieuwe speler (uit het rooster, een zusterploeg of een losse speler) neemt de plek, speeltijd, doelpunten, kaarten en kapiteinsrol over: enkel de identiteit op het bestaande spelersobject verandert, het `id` blijft. Een notitie bij de speler blijft staan. Iemand die echt de plaats van een ander inneemt, blijft een wissel.
+
 ## v2.23.8
 
 **Gebruikscijfers: jijzelf in je eigen ploegen, en wedstrijden met enkel een opstelling.**

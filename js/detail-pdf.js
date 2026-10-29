@@ -155,6 +155,7 @@ function renderDetail() {
     ${!heeftShootout(match) ? '' : vsec('strafschoppen', `${icI(IC.penalty)} Strafschoppen`, `<div class="card">
         ${!toonShootout(match) ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} De stand is niet gelijk (${esc(scoreTxt(match))}), dus deze reeks staat niet bij de uitslag. Een strafschoppenreeks beslist enkel een gelijkspel — wis ze hieronder als ze hier niet hoort.</div>` : ''}
         ${penaltyReeksHtml(match)}
+        ${vast ? '' : shootoutSchotLijstHtml(match)}
         ${vast ? '' : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px" class="no-print">
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="shootoutVanuitVerslag()">${icI(IC.edit)} Aanpassen</button>
           <button class="btn btn-pale btn-sm" style="margin:0" onclick="confirmWisShootout()">${icI(IC.trash)} Wissen</button>
