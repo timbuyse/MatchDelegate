@@ -1578,10 +1578,21 @@ async function doWisShootout() {
 // dezelfde `m.shootout.schoten`-lijst: we vervangen enkel het schot op plaats i, dus er is geen
 // migratie en de volgorde (wie aan de beurt was) verandert niet.
 let soEdit = null;   // { i, raak, schutter }
+// De lijst staat standaard dicht; het potloodje klapt ze open. Onthouden in `_soLijstOpen`, zodat ze
+// open blijft na het bewaren van een schot (dat tekent het verslag opnieuw).
+let _soLijstOpen = false;
+function toggleShootoutLijst() {
+  _soLijstOpen = !_soLijstOpen;
+  const el = document.getElementById('so-lijst');
+  if (el) el.style.display = _soLijstOpen ? 'block' : 'none';
+}
 function shootoutSchotLijstHtml(m) {
   const alle = shootoutSchoten(m);
   const geteld = { us: 0, them: 0 };
-  return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bdr)">
+  return `<div class="no-print" style="display:flex;justify-content:flex-end;margin-top:6px">
+      <button type="button" class="btn btn-pale btn-sm" style="margin:0;padding:6px 10px" title="Strafschoppen aanpassen" aria-label="Strafschoppen aanpassen" onclick="toggleShootoutLijst()">${icI(IC.edit)}</button>
+    </div>
+    <div id="so-lijst" style="display:${_soLijstOpen ? 'block' : 'none'};margin-top:6px;padding-top:8px;border-top:1px solid var(--bdr)">
     <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">Tik een strafschop aan om ze aan te passen.</div>
     ${alle.map((s, i) => {
       const ploeg = s.ploeg === 'them' ? 'them' : 'us';
@@ -3973,7 +3984,8 @@ async function _voegSpelerToeAanWedstrijd(veld) {
 let _vervangId = null;
 function modalVervangSpeler() {
   if (!canLive() || !match || slotWeigert()) return;
-  const status = p => p.absent ? 'afwezig' : (p.onField ? 'op het veld' : 'bank');
+  // Na de wedstrijd zegt "op het veld" niets meer (onField is dan de eindstand): dan geen status.
+  const status = p => match.status === 'done' ? '' : (p.absent ? 'afwezig' : (p.onField ? 'op het veld' : 'bank'));
   openModal(`<h3>${icI(IC.edit)} Speler vervangen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Per ongeluk een verkeerde naam gekozen? Tik de speler aan die <b>weg moet</b>; daarna kies je wie zijn plaats inneemt.</p>
     ${pgGrid((match.players || []).map(p => pgBtn(p, 'addp-pb', `kiesVervangSpeler('${p.id}')`, `<span style="font-size:9px;color:var(--txt2)">${status(p)}</span>`)).join(''))}
@@ -3996,7 +4008,9 @@ async function _vervangSpeler(veld) {
   p.guest = !!veld.guest;
   if (p.guest) p.fromName = veld.fromName || ''; else delete p.fromName;
   const trn = syncMatchPlayersToTournamentSquad(match);
-  recomputeOnField(match);
+  // Het `id` verandert niet, dus de veldbezetting ook niet; enkel tijdens de wedstrijd herrekenen,
+  // zoals de andere bijzet-stappen. Een afgesloten wedstrijd laten we ongemoeid.
+  if (match.status !== 'done') recomputeOnField(match);
   await dbSave(match);
   closeModal(); render();
   showToast(`${oud} is vervangen door ${p.name}.${trn.length ? ' Hij staat ook in de tornooiselectie van vandaag.' : ''}`, 'ok');

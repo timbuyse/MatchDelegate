@@ -616,6 +616,11 @@ function modalDetailEditMenu() {
          naam rechtzetten juist dán aan de orde is. Zelfde venster, zelfde werking: het raakt enkel
          deze wedstrijd, niet het rooster van de ploeg. */ ''}
     ${menuItemHtml(IC.edit, 'Namen, nummers &amp; notities', 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.', 'modalEditPlayers()')}
+    ${/* Een verkeerde naam die per ongeluk gekozen werd (Tim, 29-10-2026). Zie modalVervangSpeler in
+         live-match.js: enkel de identiteit op het spelersobject wisselt, het id — en dus plek,
+         minuten en events — blijft. De seizoensstatistiek leest de spelers per wedstrijd opnieuw
+         (getp in stats-settings.js), dus die schuift vanzelf mee. */ ''}
+    ${menuItemHtml(IC.swap, 'Speler vervangen', 'Een verkeerde speler door de juiste vervangen: die neemt zijn plek, speeltijd, doelpunten en kaarten over.', 'modalVervangSpeler()')}
     ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
     ${/* "Startopstelling aanpassen" gaat over de AFTRAP. Sinds v1.47.0 mag dat altijd (de latere delen
          worden herrekend), en sinds v1.49.0 kan je er ook iemand van de bank inbrengen — vandaar

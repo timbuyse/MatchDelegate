@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.1
+
+**Speler vervangen ook na de wedstrijd, en de strafschoppenlijst klapt in.**
+
+- "Speler vervangen" staat nu ook in het Bewerken-menu van het verslag (afgesloten wedstrijd). Dezelfde werking als in het livescherm: plek, speeltijd en events blijven, enkel de identiteit van de speler wisselt. De seizoensstatistiek leest de spelers per wedstrijd opnieuw en schuift dus mee. Bij een afgesloten wedstrijd wordt de veldbezetting niet herrekend.
+- De lijst met strafschoppen in het verslag staat standaard dicht; het potloodje klapt ze open.
+
 ## v2.24.0
 
 **Strafschoppen achteraf aanpassen, en een speler vervangen tijdens de wedstrijd.**
