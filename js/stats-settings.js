@@ -1943,7 +1943,7 @@ const HANDLEIDING_PAGINAS = [
         <li><b>'Uitslag aanpassen'</b> — enkel bij een wedstrijd die je niet live gevolgd hebt.</li>
         <li><b>'Event toevoegen'</b> — voeg achteraf nog een event toe.</li>
         <li><b>'Wedstrijdinfo ophalen'</b> — vul een wedstrijd aan met wat er op de wedstrijdpagina staat.</li>
-        <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden.</li>
+        <li><b>'Selectie aanpassen'</b> — haal spelers uit de selectie die uiteindelijk niets deden. Een speler die niet geselecteerd was, zet je er ook achteraf op <b>niet beschikbaar</b> met een reden.</li>
         <li><b>'Spelernotities'</b> en <b>'Rugnummers'</b> — per speler, enkel voor deze wedstrijd.</li>
         <li><b>'Startopstelling aanpassen'</b> — verzet de spelers van de aftrap, of wissel iemand van de bank erin.</li>
         <li><b>'Opstelling van een deel rechtzetten'</b> — pas de opstelling van een later blok aan.</li>

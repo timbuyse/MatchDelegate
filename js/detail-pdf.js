@@ -883,12 +883,62 @@ function _tekenSelectieVerslag() {
       </div></div>`;
   }).join('');
   const gekozen = _selWeg.size;
+  // ACHTERAF EEN REDEN GEVEN AAN WIE NIET MEE WAS (Tim, 30-10-2026: "ik speel de match, en nadien wil ik
+  // een jongen die niet mee was toch nog op NB zetten met een reden"). Twee groepen: wie al op niet
+  // beschikbaar staat (de reden wijzigen of weghalen) en wie niet geselecteerd was (op NB zetten).
+  // Wie in de selectie zat, staat hierboven en blijft daar: dit raakt hem niet.
+  const gr = matchSelectionGroups(m);
+  _nbRijen = [...gr.notAvailable.map(p => ({ ...p, nb: true })), ...gr.notSelected.map(p => ({ ...p, nb: false }))];
+  const nbRij = (r, i) => `<div class="selrow"><div class="nm">${esc(r.number ? r.number + ' ' : '')}${esc(r.name || 'Speler')}</div>
+    <select class="abs-reason" onchange="_nbZet(${i},this.value)" aria-label="Reden niet beschikbaar">
+      <option value="" ${r.nb && r.reason ? '' : 'selected'}>${r.nb ? 'geen reden' : 'niet geselecteerd'}</option>
+      ${ABSENT_REASONS.map(a => `<option value="${a.key}" ${r.reason === a.key ? 'selected' : ''}>${a.label}</option>`).join('')}
+      ${r.nb ? '<option value="__weg">terug naar niet geselecteerd</option>' : ''}
+    </select></div>`;
+  const nbBlok = (titel, nb) => {
+    const lijst = _nbRijen.map((r, i) => ({ r, i })).filter(x => x.r.nb === nb);
+    return lijst.length ? `<p style="font-weight:700;font-size:13px;margin:16px 0 6px">${titel}</p>${lijst.map(x => nbRij(x.r, x.i)).join('')}` : '';
+  };
+  const nbHtml = nbBlok('Niet beschikbaar', true) + nbBlok('Niet geselecteerd — kies een reden om hem op niet beschikbaar te zetten', false);
   openModal(`<h3>${icI(IC.players)} Selectie aanpassen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij.</p>
     ${kanAantal ? '' : `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Iedereen in deze selectie heeft meegespeeld of staat ergens in het verslag. Er valt hier dus niemand weg te halen.</div>`}
     <div>${rijen || `<p style="color:var(--txt2);font-size:14px">Deze wedstrijd heeft geen selectie.</p>`}</div>
+    ${nbHtml}
     <button class="btn ${gekozen ? 'btn-red' : 'btn-gray'}" style="margin-top:12px" ${gekozen ? 'onclick="confirmSelectieVerslag()"' : 'disabled'}>${icI(IC.trash)} ${gekozen ? `${gekozen} ${gekozen === 1 ? 'speler' : 'spelers'} weghalen` : 'Niemand gekozen'}</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="_selWeg=null;closeModal()">Annuleren</button>`);
+}
+// Een speler achteraf op niet beschikbaar zetten, zijn reden wijzigen, of hem terugzetten naar niet
+// geselecteerd. Het schrijft enkel in m.absentPlayers — dezelfde lijst als de selectiestap van de
+// wizard — en raakt m.players niet. Staat hij daar niet in, dan kan hij ook niet op NB komen: dit venster
+// toont enkel wie buiten de selectie valt. De reden 'elders' haalt die speeldag uit zijn
+// selectiepercentage (zie ABSENT_REASONS); de andere redenen zijn informatie voor het verslag.
+let _nbRijen = [];
+async function _nbZet(i, waarde) {
+  const m = match, r = _nbRijen[i];
+  if (!m || !r || !magWijzigen(m)) { if (m && matchVergrendeld(m)) slotWeigert(m); return; }
+  if (!r.nb && !waarde) return;                 // "niet geselecteerd" gekozen bij iemand die dat al is
+  const lijst = Array.isArray(m.absentPlayers) ? m.absentPlayers : [];
+  const dezelfde = a => {
+    const x = typeof a === 'string' ? { name: a, rosterId: null } : a;
+    return r.rosterId ? x.rosterId === r.rosterId : x.name === r.name;
+  };
+  const bij = lijst.findIndex(dezelfde);
+  if (waarde === '__weg') {
+    if (bij < 0) return;
+    lijst.splice(bij, 1);
+  } else if (bij >= 0) {
+    const x = lijst[bij];
+    if (typeof x === 'string') lijst[bij] = { name: x, rosterId: null, reason: waarde };
+    else x.reason = waarde;
+  } else {
+    lijst.push({ name: r.name, rosterId: r.rosterId || null, reason: waarde });
+  }
+  m.absentPlayers = lijst;
+  recomputeScore(m); recomputeOnField(m);
+  await dbSave(m);
+  render();
+  if (_selWeg) _tekenSelectieVerslag();
 }
 function _selWegZet(id, weg) {
   if (!_selWeg) return;

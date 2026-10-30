@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.4
+
+**Achteraf een reden geven aan wie niet mee was, en een nieuwe reden "Gestraft".**
+
+- In *Selectie aanpassen* op een gespeeld verslag staan nu ook twee lijsten. Bij *Niet beschikbaar*
+  wijzig je de reden van wie er al op staat, of zet je hem terug naar niet geselecteerd. Bij *Niet
+  geselecteerd* zet je een speler achteraf op niet beschikbaar, met een reden. Wie in de selectie
+  zat, blijft ongemoeid. Enkel "Speelt elders" verandert de cijfers: die speeldag telt dan niet als
+  gemist. De andere redenen staan enkel in het verslag.
+- **Gestraft** is een nieuwe reden bij niet beschikbaar, overal waar je een reden kiest.
+- Dit zit niet in het "Wat is er nieuw"-venster: daar staat geen goedgekeurde tekst voor klaar.
+
 ## v2.24.3
 
 **Een "Wat is er nieuw"-venster voor 2.24, met een eigen korte tekst voor kijkers.**
