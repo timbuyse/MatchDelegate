@@ -1764,7 +1764,13 @@ async function clubRondeKalendersDoen() {
       const doel = r.naarTid ? (st.ploegen || []).find(p => p.tid === r.naarTid) : rij.p;
       if (!doel) { mis++; continue; }
       meld(`${doel.naam}: ${r.tegenstander}…`);
-      if (clubKalStaatErAl(doel, r)) { dubbel++; continue; }
+      if (clubKalStaatErAl(doel, r)) {
+        // STOND ER BIJ DE DOELPLOEG AL (Tim, 30-10-2026): ook dan is de verplaatsing een keuze die
+        // onthouden moet worden. Zonder dit kwam dezelfde wedstrijd elke ronde opnieuw bij de
+        // 'foute' bondsploeg terug, want daar staat ze nog altijd niet. Zie clubKalOnthouden.
+        if (r.naarTid) r._gedaan = true;
+        dubbel++; continue;
+      }
       try {
         const m = await clubWedstrijdAanmaken(doel, r);
         doel.wedstrijden.push(m); gemaakt++;

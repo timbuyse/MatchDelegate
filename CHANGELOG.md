@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.6
+
+- **Clubronde: een verplaatste wedstrijd die er al stond, komt niet meer terug.** Zette je een wedstrijd
+  naar een andere ploeg en stond ze daar al, dan werd dat niet onthouden en stelde de volgende ronde ze
+  opnieuw voor bij de bondsploeg die het fout had. Nu wordt de keuze ook dan onthouden.
+
 ## v2.24.5
 
 - **Selectie aanpassen (verslag): bevestigingsknop.** De reden bij een speler die niet mee was, wordt nu
