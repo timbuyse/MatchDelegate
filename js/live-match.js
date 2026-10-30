@@ -4025,7 +4025,7 @@ let _vervangId = null;
 function modalVervangSpeler() {
   if (!canLive() || !match || slotWeigert()) return;
   // Na de wedstrijd zegt "op het veld" niets meer (onField is dan de eindstand): dan geen status.
-  const status = p => match.status === 'done' ? '' : (p.absent ? 'afwezig' : (p.onField ? 'op het veld' : 'bank'));
+  const status = p => (match.status === 'done' || (match.status || 'planned') === 'planned') ? '' : (p.absent ? 'afwezig' : (p.onField ? 'op het veld' : 'bank'));
   openModal(`<h3>${icI(IC.edit)} Speler vervangen</h3>
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Per ongeluk een verkeerde naam gekozen? Tik de speler aan die <b>weg moet</b>; daarna kies je wie zijn plaats inneemt.</p>
     ${pgGrid((match.players || []).map(p => pgBtn(p, 'addp-pb', `kiesVervangSpeler('${p.id}')`, `<span style="font-size:9px;color:var(--txt2)">${status(p)}</span>`)).join(''))}
@@ -4050,7 +4050,7 @@ async function _vervangSpeler(veld) {
   const trn = syncMatchPlayersToTournamentSquad(match);
   // Het `id` verandert niet, dus de veldbezetting ook niet; enkel tijdens de wedstrijd herrekenen,
   // zoals de andere bijzet-stappen. Een afgesloten wedstrijd laten we ongemoeid.
-  if (match.status !== 'done') recomputeOnField(match);
+  if (match.status === 'live') recomputeOnField(match);   // gepland: er is nog geen veldbezetting om te herrekenen
   await dbSave(match);
   closeModal(); render();
   showToast(`${oud} is vervangen door ${p.name}.${trn.length ? ' Hij staat ook in de tornooiselectie van vandaag.' : ''}`, 'ok');

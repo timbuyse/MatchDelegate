@@ -859,6 +859,7 @@ function modalSelectieVerslag() {
   // Hier leegmaken en niet enkel bij "Annuleren": je kan dit venster ook sluiten door naast het kader
   // te tikken, en dan blijft je keuze staan. Zo begint elke opening met een schone lei.
   _selWeg = new Set();
+  _nbWijz = {};
   _tekenSelectieVerslag();
 }
 function _tekenSelectieVerslag() {
@@ -889,12 +890,18 @@ function _tekenSelectieVerslag() {
   // Wie in de selectie zat, staat hierboven en blijft daar: dit raakt hem niet.
   const gr = matchSelectionGroups(m);
   _nbRijen = [...gr.notAvailable.map(p => ({ ...p, nb: true })), ...gr.notSelected.map(p => ({ ...p, nb: false }))];
-  const nbRij = (r, i) => `<div class="selrow"><div class="nm">${esc(r.number ? r.number + ' ' : '')}${esc(r.name || 'Speler')}</div>
+  // Wat je kiest blijft in het venster staan (`_nbWijz`) tot je op Bewaren tikt; Annuleren gooit het weg.
+  const nbRij = (r, i) => {
+    const st = _nbWijz[_nbSleutel(r)];
+    const cur = st ? st.waarde : (r.nb ? (r.reason || '') : '');
+    return `<div class="selrow"><div class="nm"${st ? ' style="font-weight:700"' : ''}>${esc(r.number ? r.number + ' ' : '')}${esc(r.name || 'Speler')}</div>
     <select class="abs-reason" onchange="_nbZet(${i},this.value)" aria-label="Reden niet beschikbaar">
-      <option value="" ${r.nb && r.reason ? '' : 'selected'}>${r.nb ? 'geen reden' : 'niet geselecteerd'}</option>
-      ${ABSENT_REASONS.map(a => `<option value="${a.key}" ${r.reason === a.key ? 'selected' : ''}>${a.label}</option>`).join('')}
-      ${r.nb ? '<option value="__weg">terug naar niet geselecteerd</option>' : ''}
+      <option value="" ${cur === '' ? 'selected' : ''}>${r.nb ? 'geen reden' : 'niet geselecteerd'}</option>
+      ${ABSENT_REASONS.map(a => `<option value="${a.key}" ${cur === a.key ? 'selected' : ''}>${a.label}</option>`).join('')}
+      ${r.nb ? `<option value="__weg" ${cur === '__weg' ? 'selected' : ''}>terug naar niet geselecteerd</option>` : ''}
     </select></div>`;
+  };
+  const nbAantal = Object.keys(_nbWijz).length;
   const nbBlok = (titel, nb) => {
     const lijst = _nbRijen.map((r, i) => ({ r, i })).filter(x => x.r.nb === nb);
     return lijst.length ? `<p style="font-weight:700;font-size:13px;margin:16px 0 6px">${titel}</p>${lijst.map(x => nbRij(x.r, x.i)).join('')}` : '';
@@ -905,40 +912,65 @@ function _tekenSelectieVerslag() {
     ${kanAantal ? '' : `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Iedereen in deze selectie heeft meegespeeld of staat ergens in het verslag. Er valt hier dus niemand weg te halen.</div>`}
     <div>${rijen || `<p style="color:var(--txt2);font-size:14px">Deze wedstrijd heeft geen selectie.</p>`}</div>
     ${nbHtml}
-    <button class="btn ${gekozen ? 'btn-red' : 'btn-gray'}" style="margin-top:12px" ${gekozen ? 'onclick="confirmSelectieVerslag()"' : 'disabled'}>${icI(IC.trash)} ${gekozen ? `${gekozen} ${gekozen === 1 ? 'speler' : 'spelers'} weghalen` : 'Niemand gekozen'}</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="_selWeg=null;closeModal()">Annuleren</button>`);
+    ${nbAantal ? `<button class="btn btn-green" style="margin-top:12px" onclick="_nbBewaar()">${icI(IC.check)} ${nbAantal === 1 ? 'Wijziging' : nbAantal + ' wijzigingen'} bewaren</button>` : ''}
+    <button class="btn ${gekozen ? 'btn-red' : 'btn-gray'}" style="margin-top:${nbAantal ? 8 : 12}px" ${gekozen ? 'onclick="confirmSelectieVerslag()"' : 'disabled'}>${icI(IC.trash)} ${gekozen ? `${gekozen} ${gekozen === 1 ? 'speler' : 'spelers'} weghalen` : 'Niemand gekozen om weg te halen'}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_selWeg=null;_nbWijz={};closeModal()">Annuleren</button>`);
 }
 // Een speler achteraf op niet beschikbaar zetten, zijn reden wijzigen, of hem terugzetten naar niet
 // geselecteerd. Het schrijft enkel in m.absentPlayers — dezelfde lijst als de selectiestap van de
 // wizard — en raakt m.players niet. Staat hij daar niet in, dan kan hij ook niet op NB komen: dit venster
 // toont enkel wie buiten de selectie valt. De reden 'elders' haalt die speeldag uit zijn
 // selectiepercentage (zie ABSENT_REASONS); de andere redenen zijn informatie voor het verslag.
+// Wat je kiest wordt eerst in het venster verzameld (`_nbWijz`) en pas bij "Bewaren" weggeschreven, of
+// samen met het weghalen van spelers hieronder. Annuleren gooit het weg. (Eerst bewaarde elke keuze
+// meteen, en dan klopte "Annuleren" niet meer en was er niets te bevestigen — Tim, 30-10-2026.)
 let _nbRijen = [];
-async function _nbZet(i, waarde) {
+let _nbWijz = {};     // sleutel -> { r: rij, waarde: gekozen reden | '__weg' }
+function _nbSleutel(r) { return r.rosterId || ('n:' + (r.name || '')); }
+function _nbZet(i, waarde) {
   const m = match, r = _nbRijen[i];
-  if (!m || !r || !magWijzigen(m)) { if (m && matchVergrendeld(m)) slotWeigert(m); return; }
-  if (!r.nb && !waarde) return;                 // "niet geselecteerd" gekozen bij iemand die dat al is
+  if (!m || !r || !_selWeg) return;
+  const sleutel = _nbSleutel(r);
+  // Terug op wat er al stond = geen wijziging meer.
+  const huidig = r.nb ? (r.reason || '') : '';
+  if (waarde === huidig) delete _nbWijz[sleutel]; else _nbWijz[sleutel] = { r, waarde };
+  _tekenSelectieVerslag();
+}
+// De verzamelde wijzigingen in de wedstrijd zetten (nog zonder bewaren). Geeft terug hoeveel het er waren.
+function _nbToepas(m) {
   const lijst = Array.isArray(m.absentPlayers) ? m.absentPlayers : [];
-  const dezelfde = a => {
-    const x = typeof a === 'string' ? { name: a, rosterId: null } : a;
-    return r.rosterId ? x.rosterId === r.rosterId : x.name === r.name;
-  };
-  const bij = lijst.findIndex(dezelfde);
-  if (waarde === '__weg') {
-    if (bij < 0) return;
-    lijst.splice(bij, 1);
-  } else if (bij >= 0) {
-    const x = lijst[bij];
-    if (typeof x === 'string') lijst[bij] = { name: x, rosterId: null, reason: waarde };
-    else x.reason = waarde;
-  } else {
-    lijst.push({ name: r.name, rosterId: r.rosterId || null, reason: waarde });
+  let n = 0;
+  for (const { r, waarde } of Object.values(_nbWijz)) {
+    const bij = lijst.findIndex(a => {
+      const x = typeof a === 'string' ? { name: a, rosterId: null } : a;
+      return r.rosterId ? x.rosterId === r.rosterId : x.name === r.name;
+    });
+    if (waarde === '__weg') {
+      if (bij < 0) continue;
+      lijst.splice(bij, 1);
+    } else if (bij >= 0) {
+      const x = lijst[bij];
+      if (typeof x === 'string') lijst[bij] = { name: x, rosterId: null, reason: waarde };
+      else x.reason = waarde;
+    } else {
+      lijst.push({ name: r.name, rosterId: r.rosterId || null, reason: waarde });
+    }
+    n++;
   }
   m.absentPlayers = lijst;
+  _nbWijz = {};
+  return n;
+}
+async function _nbBewaar() {
+  const m = match;
+  if (!m || !_selWeg || !Object.keys(_nbWijz).length) return;
+  if (!magWijzigen(m)) { if (matchVergrendeld(m)) slotWeigert(m); return; }
+  const n = _nbToepas(m);
   recomputeScore(m); recomputeOnField(m);
   await dbSave(m);
-  render();
-  if (_selWeg) _tekenSelectieVerslag();
+  _selWeg = null;
+  closeModal(); render();
+  showToast(n === 1 ? 'Wijziging bewaard.' : `${n} wijzigingen bewaard.`, 'ok');
 }
 function _selWegZet(id, weg) {
   if (!_selWeg) return;
@@ -965,7 +997,11 @@ async function saveSelectieVerslag() {
   const weg = new Set(m.players.filter(p => _selWeg.has(p.id) && !selectieBezwaren(m, p, mins).length).map(p => p.id));
   const geweigerd = _selWeg.size - weg.size;
   _selWeg = null;
-  if (!weg.size) { closeModal(); render(); showToast('Niemand weggehaald — die spelers staan intussen wél in het verslag.', 'err'); return; }
+  if (!weg.size) {
+    // De verzamelde NB-wijzigingen gaan niet verloren omdat er niemand meer weg mocht.
+    if (_nbToepas(m)) await dbSave(m);
+    closeModal(); render(); showToast('Niemand weggehaald — die spelers staan intussen wél in het verslag.', 'err'); return;
+  }
   const namen = m.players.filter(p => weg.has(p.id)).map(p => p.name || 'Speler');
   m.players = m.players.filter(p => !weg.has(p.id));
   // Alles opruimen wat nog naar hem verwees. Gebeurtenissen zitten er niet bij — die zijn hierboven
@@ -982,6 +1018,8 @@ async function saveSelectieVerslag() {
       m.plannedLineups[k] = (m.plannedLineups[k] || []).filter(e => !weg.has(e.id));
     }
   }
+  // De NB-wijzigingen uit hetzelfde venster gaan in één keer mee.
+  _nbToepas(m);
   // Vaste volgorde vóór het bewaren (zie CLAUDE.md): de afgeleide stand en het veld volgen de events.
   recomputeScore(m); recomputeOnField(m);
   await dbSave(m);

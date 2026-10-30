@@ -2081,6 +2081,12 @@ function modalEditMatchMenu() {
     ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSel
       ? 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.'
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}
+    ${/* VERVANGEN OOK VÓÓR DE AFTRAP (Tim, 30-10-2026). Zie modalVervangSpeler in live-match.js: enkel
+         de identiteit op het spelersobject wisselt, het id niet — dus de nieuwe speler erft zijn plek in
+         de opstelling per deel en in de geplande wissels, zonder dat die herbouwd hoeven te worden. */ ''}
+    ${item(IC.swap, 'Speler vervangen', heeftSel
+      ? 'Een speler uit de selectie door een andere vervangen: die neemt zijn plek in de opstelling en in de geplande wissels over.'
+      : 'Geef eerst de selectie in.', 'modalVervangSpeler()', !heeftSel)}
     ${/* "Wissels plannen" en de opstelling staan als eigen knop onder het veld — daar hoor je ze te
          vinden terwijl je naar de opstelling kijkt, niet weggestopt in dit menu. */ ''}
     ${/* Dezelfde ingang als het oogje in de kopregel — wie hier zoekt, vindt het hier (Tims regel bij

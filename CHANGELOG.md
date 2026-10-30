@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.24.5
+
+- **Selectie aanpassen (verslag): bevestigingsknop.** De reden bij een speler die niet mee was, wordt nu
+  eerst in het venster verzameld en pas bewaard met de groene knop *Bewaren*. *Annuleren* gooit de keuzes
+  weg; naast de wijzigingen kan je ook nog iemand weghalen. Buiten het venster tikken bewaart niets meer.
+- **Speler vervangen vóór de aftrap.** Staat nu ook in het bewerkmenu van een geplande wedstrijd: de
+  nieuwe speler erft de plek in de opstelling per deel en de geplande wissels.
+
 ## v2.24.4
 
 **Achteraf een reden geven aan wie niet mee was, en een nieuwe reden "Gestraft".**
