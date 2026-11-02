@@ -1032,7 +1032,11 @@ async function loadTournamentDetail() {
     // Enkel vermelden als de puntenverdeling afwijkt van de standaard 3/1/0, anders is het ruis.
     // Alles op 0 = er wordt niet op punten gespeeld; dan hoort er geen "0/0/0"-regel te staan.
     ['Punten', (!tournamentUsesPoints(t) || tournamentPointsLabel(t) === '3/1/0') ? '' : tournamentPointsLabel(t) + ' (' + tournamentPointsLegend(t) + ')'],
-  ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
+  ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('')
+    // Tournify-link voor iedereen, kijkers incluis. Opnieuw door trnTournifyNorm gehaald: ook een
+    // waarde die uit de cloud komt mag nooit als iets anders dan http(s) in een href belanden.
+    + (trnTournifyNorm(t.tournifyUrl) ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Uitslagen &amp; stand</span><span style="font-weight:600"><a href="${esc(trnTournifyNorm(t.tournifyUrl))}" target="_blank" rel="noopener noreferrer" style="color:var(--grn)">Bekijk op Tournify ↗</a></span></div>` : '')
+    + ((t.subteams || []).length === 2 ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Ploegen</span><span style="font-weight:600">${esc(t.subteams.map(s => (team ? team.name : (t.teamName || '')) + ' ' + s).join(' · '))}</span></div>` : '');
   // Selectie van de tornooidag. NB en "niet geselecteerd" gelden voor de hele dag en zijn dus
   // identiek voor elke wedstrijd: ze staan hier (en in het tornooiverslag), niet in elk
   // wedstrijdverslag apart. Namen staan als doorlopende, links uitgelijnde tekst onder elkaar —
@@ -1287,7 +1291,8 @@ async function loadTournamentReport() {
     [trainerLabel(t.trainer), t.trainer],
     [responsibleLabel(t.responsible), t.responsible],
     ['Eindstand', t.standing],
-  ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('');
+  ].filter(([, v]) => v).map(([k, v]) => `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">${k}</span><span style="font-weight:600">${esc(v)}</span></div>`).join('')
+    + (trnTournifyNorm(t.tournifyUrl) ? `<div class="stat-row"><span style="color:var(--txt2);min-width:140px">Uitslagen &amp; stand</span><span style="font-weight:600"><a href="${esc(trnTournifyNorm(t.tournifyUrl))}" target="_blank" rel="noopener noreferrer" style="color:var(--grn)">Bekijk op Tournify ↗</a></span></div>` : '');
   // Resultaten: één rij per wedstrijd, met de doelpuntenmakers eronder. Tikken opent het verslag
   // van die wedstrijd.
   const resColor = res => res === 'W' ? 'var(--grn)' : res === 'V' ? 'var(--rd)' : 'var(--txt2)';
@@ -1888,6 +1893,7 @@ function newTournament() {
     trainer: teamTrainerNames(team)[0] || '',
     responsible: teamResponsibleNames(team)[0] || '',
     pool: [], poolTeamId: null,
+    tournifyUrl: '', subteams: [],
   };
   trnWiz._sig = trnWizSig(); // vertrekpunt voor de "niet bewaard"-vraag bij het verlaten
   go('tournamentNew');
@@ -1991,6 +1997,24 @@ function trnDefPeriodChange() {
   const ci = document.getElementById('trn-qd-custom');
   if (ci) { ci.style.display = qd.value === '0' ? '' : 'none'; if (qd.value !== '0') ci.value = ''; }
 }
+// De Tournify-link wordt met de kijkers gedeeld, dus enkel een echte http(s)-link laten door: een
+// "javascript:"-adres in een href zou bij een kijker code uitvoeren. Zonder schema zetten we https://
+// ervoor (men plakt vaak "tournify.be/live/…"). Onbruikbaar = leeg, geen foutmelding: het veld is optioneel.
+function trnTournifyNorm(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s;
+  try {
+    const u = new URL(s);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.')) return '';
+    return u.href;
+  } catch (e) { return ''; }
+}
+function trnTwoToggle() {
+  const on = document.getElementById('trn-two')?.checked;
+  const box = document.getElementById('trn-two-box');
+  if (box) box.style.display = on ? '' : 'none';
+}
 function captureTrnStep1() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const ts = document.getElementById('trn-team-sel'); if (ts) trnWiz.teamId = ts.value;
@@ -2005,6 +2029,19 @@ function captureTrnStep1() {
     if (ptEl.value === '1') { trnWiz.periodKey = 'delen'; trnWiz.numQuarters = 1; }
     else if (PERIOD_TYPES[ptEl.value]) { trnWiz.periodKey = ptEl.value; trnWiz.numQuarters = PERIOD_TYPES[ptEl.value].count; }
     trnWiz.quarterDuration = readDur('trn-qd', 'trn-qd-custom', tournamentPeriods(trnWiz).quarterDuration);
+  }
+  // Tournify-link (zie trnTournifyNorm) en de optionele twee deelploegen. Enkel overnemen als de
+  // velden op dit scherm staan, net als hieronder bij de eindstand.
+  const tfEl = document.getElementById('trn-tournify');
+  if (tfEl) trnWiz.tournifyUrl = trnTournifyNorm(tfEl.value);
+  const twoEl = document.getElementById('trn-two');
+  if (twoEl) {
+    if (twoEl.checked) {
+      const a = (v('trn-sub1') || '').trim() || 'A';
+      let b = (v('trn-sub2') || '').trim() || 'B';
+      if (b.toLowerCase() === a.toLowerCase()) b = a === 'B' ? 'A' : 'B';
+      trnWiz.subteams = [a, b];
+    } else trnWiz.subteams = [];
   }
   trnWiz.trainer = readStaffPicker('trn', 'trn', trnWiz.trainer);
   trnWiz.responsible = readStaffPicker('trn', 'resp', trnWiz.responsible);
@@ -2036,6 +2073,7 @@ function trnWizSig() {
   if (!trnWiz) return '';
   return JSON.stringify([trnWiz.name, trnWiz.date, trnWiz.location, trnWiz.matchType, trnWiz.trainer,
     trnWiz.responsible, trnWiz.standing, trnWiz.points, trnWiz.teamId, tournamentPeriods(trnWiz),
+    trnWiz.tournifyUrl || '', trnWiz.subteams || [],
     // Enkel wie effectief gekozen is: bij een nieuw tornooi is de pool op stap 1 nog leeg en wordt
     // hij pas op stap 2 opgebouwd (allemaal 'none'). Zonder deze filter zou dat alleen al als een
     // wijziging tellen.
@@ -2099,6 +2137,8 @@ async function saveTournamentWiz() {
     quarterDuration: tournamentPeriods(trnWiz).quarterDuration,
     trainer: trnWiz.trainer || '', responsible: trnWiz.responsible || '',
     standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
+    // Nieuwe, optionele velden: een tornooi zonder ze (alles van vóór deze versie) blijft ongewijzigd.
+    tournifyUrl: trnWiz.tournifyUrl || '', subteams: trnWiz.subteams || [],
   };
   // Is de standaardduur gewijzigd? Dan vragen we achteraf of de al geplande wedstrijden mee moeten
   // (zie vraagDuurToepassen). Vóór het opslaan bepalen, want daarna is de oude waarde weg.
@@ -2174,6 +2214,22 @@ function renderTrnStep1() {
     <div class="fg"><label>Ploeg</label>${teamSel}</div>
     <div class="fg"><label>Datum</label><input id="trn-date" type="date" value="${esc(trnWiz.date)}"></div>
     <div class="fg"><label>Locatie</label><input id="trn-location" type="text" placeholder="bv. Sportpark Gent" value="${esc(trnWiz.location)}" autocomplete="off"></div>
+    <div class="fg"><label>Tournify-link (optioneel)</label>
+      <input id="trn-tournify" type="url" inputmode="url" placeholder="bv. https://tournify.be/live/…" value="${esc(trnWiz.tournifyUrl||'')}" autocomplete="off" autocapitalize="off">
+      <div style="font-size:11px;color:var(--txt2);padding-top:4px">Met de uitslagen en de stand van alle ploegen. Kijkers zien de link bij dit tornooi.</div>
+    </div>
+    ${(() => {
+      const two = (trnWiz.subteams || []).length === 2;
+      const [a, b] = two ? trnWiz.subteams : ['A', 'B'];
+      return `<div class="fg"><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px"><input id="trn-two" type="checkbox" style="width:auto" ${two ? 'checked' : ''} onchange="trnTwoToggle()"> Twee ploegen van ons spelen mee</label>
+        <div id="trn-two-box" style="${two ? '' : 'display:none;'}margin-top:6px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <input id="trn-sub1" type="text" value="${esc(a)}" maxlength="12" aria-label="Label eerste ploeg" autocomplete="off">
+            <input id="trn-sub2" type="text" value="${esc(b)}" maxlength="12" aria-label="Label tweede ploeg" autocomplete="off">
+          </div>
+          <div style="font-size:11px;color:var(--txt2);padding-top:4px">Dezelfde selectie voor beide ploegen. Per wedstrijd kies je welke ploeg speelt; het label staat achter de ploegnaam.</div>
+        </div></div>`;
+    })()}
     <div class="fg"><label>Type wedstrijd</label><select id="trn-matchtype">${['3v3','5v5','8v8','11v11'].map(t=>`<option value="${t}" ${(trnWiz.matchType||'8v8')===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
     ${(() => {
       // Standaardduur van de dag. Op een tornooi spelen alle wedstrijden even lang, dus geef je dat
@@ -2296,6 +2352,7 @@ function addTournamentMatch(trnId) {
     competition: 'Tornooi', matchday: '', referee: '', jersey: '', venue: '', terrein: '',
     trainer: t.trainer || '', responsible: t.responsible || '',
     pool, poolTeamId: t.teamId, formationIndex: 0, selPlace: null,
+    subteam: (t.subteams || []).length === 2 ? t.subteams[0] : '',
   };
   go('new');
 }
@@ -2351,6 +2408,7 @@ async function cloneTournamentMatch(matchId, trnId) {
     venue: '', terrein: src.terrein || '', trainer: src.trainer || t.trainer || '',
     responsible: src.responsible || t.responsible || '',
     pool, poolTeamId: t.teamId, formationIndex: fi, selPlace: null,
+    subteam: src.subteam || '',
   };
   // Basisspelers terugplaatsen op hun roosterplek, met dezelfde regel als overal (poolPlekTerug in
   // core.js). Hier stond een exacte match op x/y in de formatie, die sinds v0.34.0 nooit meer lukt:
@@ -2388,6 +2446,14 @@ function renderTrnMatchStep1() {
       <select id="n-type" onchange="trnWizTypeChange()">
         ${['3v3','5v5','8v8','11v11'].map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${tp.replace('v',' tegen ')}</option>`).join('')}
       </select></div>
+    ${(() => {
+      // Alleen bij een tornooi met twee ploegen. Het label gaat in m.subteam, het bestaande
+      // "Ploeg-label" van een wedstrijd — dus titels, PDF's en de kalender tonen het al.
+      const subs = (tournamentById(wiz.tournamentId) || {}).subteams || [];
+      if (subs.length !== 2) return '';
+      const cur = subs.includes(wiz.subteam) ? wiz.subteam : subs[0];
+      return `<div class="fg"><label>Ploeg</label><select id="n-subteam">${subs.map(s => `<option value="${esc(s)}" ${cur===s?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`;
+    })()}
     ${trnStandaardHint(t => t.matchType ? (t.matchType || '').replace('v', ' tegen ') : '')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>
@@ -2443,6 +2509,7 @@ function trnMatchNext() {
   wiz.date = document.getElementById('n-date')?.value || wiz.date;
   wiz.time = document.getElementById('n-time')?.value || wiz.time;
   wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
+  const subEl = document.getElementById('n-subteam'); if (subEl) wiz.subteam = subEl.value;
   readTrnPeriodSel();
   wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   if (!wiz.opponent) { showToast('Vul de naam van de tegenstander in.', 'err'); return; }

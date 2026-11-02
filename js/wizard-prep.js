@@ -2195,6 +2195,7 @@ async function finishStep1Only(alGelezen) {
     wiz.date = document.getElementById('n-date')?.value || wiz.date;
     wiz.time = document.getElementById('n-time')?.value || wiz.time;
     wiz.matchType = document.getElementById('n-type')?.value || wiz.matchType;
+    const subEl = document.getElementById('n-subteam'); if (subEl) wiz.subteam = subEl.value;
     // Ook de gekozen periode + blokduur meenemen (die werden anders genegeerd bij "plannen zonder
     // opstelling"). Via readTrnPeriodSel (teams-tournaments.js): zet periodKey ÉN numQuarters,
     // incl. de "1 blok"-optie.

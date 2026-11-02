@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.25.0
+
+- **Tournify-link bij een tornooi.** In de info van het tornooi kan je een link naar Tournify ingeven. Kijkers
+  zien ze als "Bekijk op Tournify" bij het tornooi en in het tornooiverslag. Enkel http(s)-links worden getoond.
+- **Tornooi met twee eigen ploegen.** Vink in de info "Twee ploegen van ons spelen mee" aan en geef elke ploeg een
+  label (standaard A en B). Bij elke wedstrijd kies je welke ploeg speelt; het label is het bestaande ploeg-label
+  van de wedstrijd. De selectie blijft één dagselectie. Nieuwe, optionele velden: bestaande tornooien merken niets.
+
 ## v2.24.6
 
 - **Clubronde: een verplaatste wedstrijd die er al stond, komt niet meer terug.** Zette je een wedstrijd
