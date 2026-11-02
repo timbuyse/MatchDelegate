@@ -511,6 +511,10 @@ function wizStep2() {
          ploegen van de gebruiker in userTeams, ook al bevat de lokale lijst enkel de actieve — dus die
          telt mee, anders zou de knop juist daar verdwijnen waar hij nodig is. "+ Losse speler" blijft
          altijd: die heeft geen tweede ploeg nodig. */ ''}
+    ${/* Tornooi met twee ploegen: wie voor de andere ploeg bedoeld is, staat niet in deze lijst, maar
+         kan er altijd bij (een invaller). Het blijft dezelfde dagselectie, dus geen gastspeler. */ ''}
+    ${(wiz.trnMode && typeof trnAnderePloegSpelers === 'function' && trnAnderePloegSpelers().length)
+      ? `<button class="btn btn-orgpale" style="margin-bottom:8px" onclick="trnAnderePloegModal()">+ Speler van de andere ploeg</button>` : ''}
     ${wiz.noGuests ? '' : (() => {
       // Sinds v1.17.0 tellen ook de ZUSTERPLOEGEN van de eigen club mee: wie maar één ploeg beheert
       // had deze knop nooit, terwijl net daar de nood zit (U11 leent een speler van U10). Die lijst
@@ -1526,7 +1530,7 @@ async function editMatchWizard(m) {
     // naamgenoten (bv. twee keer "Lucas Peeters") met elk hun eigen srcId zijn twee spelers, en de
     // tweede verdween hier stil uit de pool.
     const usedName = new Set(pool.filter(p => !p.srcId).map(p => (p.name || '').trim().toLowerCase()));
-    tournamentSquadMee(trn).forEach(s => {
+    trnSquadVoorPloeg(trn, m.subteam || '').forEach(s => {
       if (s.srcId ? usedSrc.has(s.srcId) : usedName.has((s.name || '').trim().toLowerCase())) return;
       pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: m.teamName, guest: false, sel: 'none', slot: null });
     });

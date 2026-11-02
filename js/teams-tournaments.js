@@ -1025,6 +1025,7 @@ async function loadTournamentDetail() {
   const infoRows = [
     ['Ploeg', team ? team.name : (t.teamName || '')],
     ['Locatie', t.location],
+    ...trnExtraInfoRows(t),
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     [trainerLabel(t.trainer), t.trainer],
     [responsibleLabel(t.responsible), t.responsible],
@@ -1286,6 +1287,7 @@ async function loadTournamentReport() {
   const infoRows = [
     ['Ploeg', team ? team.name : (t.teamName || '')],
     ['Locatie', t.location],
+    ...trnExtraInfoRows(t),
     ['Format', t.matchType],
     ['Wedstrijdduur', tournamentPeriodsLabel(t)],
     [trainerLabel(t.trainer), t.trainer],
@@ -1894,6 +1896,7 @@ function newTournament() {
     responsible: teamResponsibleNames(team)[0] || '',
     pool: [], poolTeamId: null,
     tournifyUrl: '', subteams: [],
+    omgeving: '', ondergrond: '', gatherTime: '', startTime: '',
   };
   trnWiz._sig = trnWizSig(); // vertrekpunt voor de "niet bewaard"-vraag bij het verlaten
   go('tournamentNew');
@@ -1919,6 +1922,7 @@ function editTournament(id) {
     // hoort ook leeg te blijven: met `if (s.number)` viel het terug op het roosternummer, en dan
     // stond er in het verslag weer een nummer dat je net had weggehaald.
     if (s && s.sel) p.number = s.number || '';
+    p.ploeg = s ? (s.ploeg || '') : '';
   });
   // Squadleden zonder tegenhanger in het rooster achteraan toevoegen i.p.v. ze te laten vallen:
   // gastspelers en losse spelers staan per definitie niet in het rooster, en een speler die de
@@ -1931,7 +1935,7 @@ function editTournament(id) {
     trnWiz.pool.push({
       pid: s.pid || uid(), srcId: s.srcId, srcGlobalId: s.globalId || null,
       name: s.name || '', number: s.number || '', pos: s.pos || '', side: s.side || '',
-      guest: !!s.guest, fromName: s.fromName || '',
+      guest: !!s.guest, fromName: s.fromName || '', ploeg: s.ploeg || '',
       sel: s.sel === 'absent' ? 'absent' : 'mee',
       absentReason: s.sel === 'absent' ? (s.absentReason || '') : '',
     });
@@ -1997,6 +2001,17 @@ function trnDefPeriodChange() {
   const ci = document.getElementById('trn-qd-custom');
   if (ci) { ci.style.display = qd.value === '0' ? '' : 'none'; if (qd.value !== '0') ci.value = ''; }
 }
+// Praktische info van de dag (alle optioneel): indoor/outdoor, ondergrond, verzamelen en startuur.
+// Eén bron voor de tornooipagina en het verslag, zodat ze niet uit elkaar lopen.
+const TRN_OMGEVING = { indoor: 'Indoor', outdoor: 'Outdoor' };
+function trnExtraInfoRows(t) {
+  return [
+    ['Indoor / outdoor', TRN_OMGEVING[t.omgeving] || ''],
+    ['Ondergrond', t.ondergrond],
+    ['Verzamelen om', t.gatherTime],
+    ['Startuur', t.startTime],
+  ];
+}
 // De Tournify-link wordt met de kijkers gedeeld, dus enkel een echte http(s)-link laten door: een
 // "javascript:"-adres in een href zou bij een kijker code uitvoeren. Zonder schema zetten we https://
 // ervoor (men plakt vaak "tournify.be/live/…"). Onbruikbaar = leeg, geen foutmelding: het veld is optioneel.
@@ -2034,6 +2049,13 @@ function captureTrnStep1() {
   // velden op dit scherm staan, net als hieronder bij de eindstand.
   const tfEl = document.getElementById('trn-tournify');
   if (tfEl) trnWiz.tournifyUrl = trnTournifyNorm(tfEl.value);
+  if (document.getElementById('trn-omg')) {
+    const omg = v('trn-omg');
+    trnWiz.omgeving = TRN_OMGEVING[omg] ? omg : '';
+    trnWiz.ondergrond = (v('trn-ond') || '').trim();
+    trnWiz.gatherTime = v('trn-gather');
+    trnWiz.startTime = v('trn-start');
+  }
   const twoEl = document.getElementById('trn-two');
   if (twoEl) {
     if (twoEl.checked) {
@@ -2074,11 +2096,12 @@ function trnWizSig() {
   return JSON.stringify([trnWiz.name, trnWiz.date, trnWiz.location, trnWiz.matchType, trnWiz.trainer,
     trnWiz.responsible, trnWiz.standing, trnWiz.points, trnWiz.teamId, tournamentPeriods(trnWiz),
     trnWiz.tournifyUrl || '', trnWiz.subteams || [],
+    trnWiz.omgeving || '', trnWiz.ondergrond || '', trnWiz.gatherTime || '', trnWiz.startTime || '',
     // Enkel wie effectief gekozen is: bij een nieuw tornooi is de pool op stap 1 nog leeg en wordt
     // hij pas op stap 2 opgebouwd (allemaal 'none'). Zonder deze filter zou dat alleen al als een
     // wijziging tellen.
     (trnWiz.pool || []).filter(p => p.sel && p.sel !== 'none')
-      .map(p => [p.pid, p.sel, p.absentReason || '', p.number || '']).sort()]);
+      .map(p => [p.pid, p.sel, p.absentReason || '', p.number || '', p.ploeg || '']).sort()]);
 }
 function trnWizLeave() {
   // Stap 1 staat nog in de DOM: eerst overnemen, anders ziet de signatuur een net getypte naam niet.
@@ -2098,6 +2121,53 @@ function setTrnSel(pid, val) {
   p.sel = (p.sel === val) ? 'none' : val; // tweede tik = terug naar niet-geselecteerd (de standaard)
   if (p.sel !== 'absent') p.absentReason = '';
   render();
+}
+function setTrnPloeg(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) { p.ploeg = (p.ploeg === val) ? '' : val; render(); } }
+// Zit deze speler van de dagselectie in de ploeg met dit label? Leeg label (geen twee ploegen, of nog
+// niet gekozen) of een speler zonder ploeg = ja: "voor beide" is de standaard.
+function trnSpelerInPloeg(s, label) { return !label || !s.ploeg || s.ploeg === label; }
+function trnSquadVoorPloeg(t, label) { return tournamentSquadMee(t).filter(s => trnSpelerInPloeg(s, label)); }
+// Stap 1 van een tornooiwedstrijd: ploeg gewijzigd. Bij een nieuwe wedstrijd zit er nog niets
+// opgesteld; de pool wordt dan herbouwd uit de spelers van die ploeg. Bij herbewerken enkel het label
+// zetten — daar staat een selectie die je niet stil mag weggooien.
+function trnWizSubteamChange() {
+  const el = document.getElementById('n-subteam'); if (!el || !wiz) return;
+  wiz.subteam = el.value;
+  const t = tournamentById(wiz.tournamentId);
+  if (!t || wiz.editId) return;
+  const sq = tournamentSquadMee(t);
+  const van = p => sq.find(s => s.srcId ? s.srcId === p.srcId : (s.name || '').trim() === (p.name || '').trim());
+  wiz.pool = wiz.pool.filter(p => { const s = van(p); return !s || trnSpelerInPloeg(s, wiz.subteam); });
+  const team = teamById(t.teamId);
+  const standaard = wiz.pool.some(p => p.sel === 'basis') ? 'none' : 'bank';
+  trnSquadVoorPloeg(t, wiz.subteam).forEach(s => {
+    if (wiz.pool.some(p => s.srcId ? p.srcId === s.srcId : (p.name || '').trim() === (s.name || '').trim())) return;
+    wiz.pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest, sel: standaard, slot: null });
+  });
+}
+// Spelers van de tornooiselectie die niet in de pool van deze wedstrijd zitten omdat ze voor de
+// andere ploeg bedoeld zijn. Leeg bij een tornooi zonder twee ploegen: dan zitten ze er allemaal in.
+function trnAnderePloegSpelers() {
+  const t = wiz && wiz.tournamentId ? tournamentById(wiz.tournamentId) : null;
+  if (!t || (t.subteams || []).length !== 2) return [];
+  return tournamentSquadMee(t).filter(s => !wiz.pool.some(p => s.srcId ? p.srcId === s.srcId : (p.name || '').trim() === (s.name || '').trim()));
+}
+function trnAnderePloegModal() {
+  const lijst = trnAnderePloegSpelers();
+  if (!lijst.length) { closeModal(); render(); return; }
+  openModal(`<h3>Speler van de andere ploeg</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Tik op een speler om hem aan deze wedstrijd toe te voegen. Hij komt op de bank.</p>
+    ${lijst.map(s => `<div class="selrow"><div class="nm">${esc(s.name)}<small>${s.ploeg ? 'Ploeg ' + esc(s.ploeg) : ''}</small></div>
+      <button class="btn btn-green btn-sm" style="width:auto" onclick="trnAnderePloegVoegToe('${esc(s.srcId || '').replace(/'/g, '')}','${esc(s.name || '').replace(/'/g, '&#39;')}')">+</button></div>`).join('')}
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal();render()">Klaar</button>`);
+}
+function trnAnderePloegVoegToe(srcId, naam) {
+  const s = trnAnderePloegSpelers().find(x => srcId ? x.srcId === srcId : (x.name || '').trim() === naam.trim());
+  if (s) {
+    const t = tournamentById(wiz.tournamentId), team = t ? teamById(t.teamId) : null;
+    wiz.pool.push({ pid: uid(), srcId: s.srcId || null, srcGlobalId: s.globalId || null, name: s.name, number: s.number || '', pos: s.pos || '', side: s.side || '', fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest, sel: 'bank', slot: null });
+  }
+  trnAnderePloegModal();
 }
 function setTrnPoolNum(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) p.number = val; }
 function setTrnAbsentReason(pid, val) { const p = trnWiz.pool.find(x => x.pid === pid); if (p) { p.absentReason = val; render(); } }
@@ -2123,7 +2193,10 @@ async function saveTournamentWiz() {
       .map(p => Object.assign(stempel(p), { pid: p.pid, srcId: p.srcId, globalId: p.srcGlobalId || null, name: p.name, number: p.number, pos: p.pos, side: p.side || '', sel: p.sel, absentReason: p.sel === 'absent' ? (p.absentReason || '') : '',
         // Gasten (andere ploeg of losse speler) horen bij de dagselectie zelf, niet bij het rooster.
         // Zo blijven de selectiegroepen, speeltijd, verslag en PDF vanzelf kloppen.
-        guest: !!p.guest, fromName: p.guest ? (p.fromName || '') : '' })),
+        guest: !!p.guest, fromName: p.guest ? (p.fromName || '') : '',
+        // Bij twee ploegen: voor welke ploeg de speler bedoeld is; leeg = voor beide. Een label dat
+        // niet (meer) bestaat — bv. na het uitvinken van "twee ploegen" — valt weg naar leeg.
+        ploeg: (p.sel === 'mee' && (trnWiz.subteams || []).includes(p.ploeg)) ? p.ploeg : '' })),
   };
   const team = teamById(trnWiz.teamId);
   const obj = {
@@ -2139,6 +2212,8 @@ async function saveTournamentWiz() {
     standing: trnWiz.standing || '', points: tournamentPoints(trnWiz), squad,
     // Nieuwe, optionele velden: een tornooi zonder ze (alles van vóór deze versie) blijft ongewijzigd.
     tournifyUrl: trnWiz.tournifyUrl || '', subteams: trnWiz.subteams || [],
+    omgeving: trnWiz.omgeving || '', ondergrond: trnWiz.ondergrond || '',
+    gatherTime: trnWiz.gatherTime || '', startTime: trnWiz.startTime || '',
   };
   // Is de standaardduur gewijzigd? Dan vragen we achteraf of de al geplande wedstrijden mee moeten
   // (zie vraagDuurToepassen). Vóór het opslaan bepalen, want daarna is de oude waarde weg.
@@ -2214,6 +2289,12 @@ function renderTrnStep1() {
     <div class="fg"><label>Ploeg</label>${teamSel}</div>
     <div class="fg"><label>Datum</label><input id="trn-date" type="date" value="${esc(trnWiz.date)}"></div>
     <div class="fg"><label>Locatie</label><input id="trn-location" type="text" placeholder="bv. Sportpark Gent" value="${esc(trnWiz.location)}" autocomplete="off"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fg"><label>Indoor / outdoor</label><select id="trn-omg"><option value="">—</option>${Object.entries(TRN_OMGEVING).map(([k, l]) => `<option value="${k}" ${trnWiz.omgeving===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fg"><label>Ondergrond</label><input id="trn-ond" type="text" placeholder="bv. kunstgras" value="${esc(trnWiz.ondergrond||'')}" autocomplete="off"></div>
+      <div class="fg"><label>Verzamelen om</label><input id="trn-gather" type="time" value="${esc(trnWiz.gatherTime||'')}"></div>
+      <div class="fg"><label>Startuur</label><input id="trn-start" type="time" value="${esc(trnWiz.startTime||'')}"></div>
+    </div>
     <div class="fg"><label>Tournify-link (optioneel)</label>
       <input id="trn-tournify" type="url" inputmode="url" placeholder="bv. https://tournify.be/live/…" value="${esc(trnWiz.tournifyUrl||'')}" autocomplete="off" autocapitalize="off">
       <div style="font-size:11px;color:var(--txt2);padding-top:4px">Met de uitslagen en de stand van alle ploegen. Kijkers zien de link bij dit tornooi.</div>
@@ -2221,7 +2302,7 @@ function renderTrnStep1() {
     ${(() => {
       const two = (trnWiz.subteams || []).length === 2;
       const [a, b] = two ? trnWiz.subteams : ['A', 'B'];
-      return `<div class="fg"><label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px"><input id="trn-two" type="checkbox" style="width:auto" ${two ? 'checked' : ''} onchange="trnTwoToggle()"> Twee ploegen van ons spelen mee</label>
+      return `<div class="fg"><label class="chkrow" style="margin-top:0;font-size:14px;color:var(--txt);text-transform:none;letter-spacing:0"><input id="trn-two" type="checkbox" ${two ? 'checked' : ''} onchange="trnTwoToggle()"> Twee ploegen van ons spelen mee</label>
         <div id="trn-two-box" style="${two ? '' : 'display:none;'}margin-top:6px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <input id="trn-sub1" type="text" value="${esc(a)}" maxlength="12" aria-label="Label eerste ploeg" autocomplete="off">
@@ -2277,10 +2358,12 @@ function renderTrnStep2() {
   const mee = trnWiz.pool.filter(p => p.sel === 'mee').length;
   const ab  = trnWiz.pool.filter(p => p.sel === 'absent').length;
   const own = trnWiz.pool.filter(p => !p.guest), guests = trnWiz.pool.filter(p => p.guest);
+  const subs = trnWiz.subteams || [], twee = subs.length === 2;
   const selRow2 = p => `<div class="selrow">
     <input type="number" class="pn-inp" value="${esc(p.number)}" placeholder="" onchange="setTrnPoolNum('${p.pid}',this.value)" inputmode="numeric" aria-label="Rugnummer">
     <div class="nm">${esc(p.name)}<small>${p.guest ? 'Gast · ' + esc(p.fromName || 'andere ploeg') : (posDisplay(p) || '—')}</small>
-      ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}</div>
+      ${p.sel === 'absent' ? absentReasonSelect(p.pid, p.absentReason || '', 'setTrnAbsentReason') : ''}
+      ${(p.sel === 'mee' && twee) ? `<div class="seg" style="margin-top:6px">${subs.map(s => `<button class="${p.ploeg===s?'basis':''}" onclick="setTrnPloeg('${p.pid}','${esc(s).replace(/'/g, '&#39;')}')">${esc(s)}</button>`).join('')}</div><small>${p.ploeg ? 'Enkel ploeg ' + esc(p.ploeg) : 'Voor beide ploegen'}</small>` : ''}</div>
     <div class="seg">
       <button class="${p.sel==='mee'?'basis':''}" onclick="setTrnSel('${p.pid}','mee')">Mee</button>
       <button class="${p.sel==='absent'?'absent':''}" onclick="setTrnSel('${p.pid}','absent')" title="Niet beschikbaar — telt mee in het aanwezigheids-%">NB</button>
@@ -2331,7 +2414,10 @@ function addTournamentMatch(trnId) {
   // (N uit het matchType) — dat is een gok op alfabetische volgorde, en sinds v0.33.0 beslist de app
   // niet meer wie begint. Allemaal 'bank' = geselecteerd, nog geen plaats op het veld.
   const matchType = t.matchType || '8v8';
-  const pool = allSquadPlayers.map(s => ({
+  // Bij twee ploegen start de pool met de spelers van de eerste ploeg (+ wie voor beide bedoeld is);
+  // wissel je op stap 1 van ploeg, dan volgt trnWizSubteamChange.
+  const eerste = (t.subteams || []).length === 2 ? t.subteams[0] : '';
+  const pool = trnSquadVoorPloeg(t, eerste).map(s => ({
     pid: uid(), srcId: s.srcId, srcGlobalId: s.globalId || null, name: s.name, number: s.number, pos: s.pos, side: s.side || '',
     fromName: s.guest ? (s.fromName || '') : (team ? team.name : ''), guest: !!s.guest,
     sel: 'bank', slot: null,
@@ -2386,7 +2472,7 @@ async function cloneTournamentMatch(matchId, trnId) {
   // Tornooispelers die niet in de bronmatch stonden (die wedstrijd niet geselecteerd) toch in de
   // pool opnemen als 'none' — anders zijn ze in de kloon enkel via de gast-modal (fout gelabeld als
   // gast) terug toe te voegen. Enkel wie meegaat: NB-spelers horen hier niet meer bij.
-  const _sqList = tournamentSquadMee(t);
+  const _sqList = trnSquadVoorPloeg(t, src.subteam || '');
   const _usedSrc = new Set(pool.map(p => p.srcId).filter(Boolean));
   _sqList.forEach(s => {
     if (s.srcId ? _usedSrc.has(s.srcId) : pool.some(p => (p.name || '').trim() === (s.name || '').trim())) return;
@@ -2452,7 +2538,7 @@ function renderTrnMatchStep1() {
       const subs = (tournamentById(wiz.tournamentId) || {}).subteams || [];
       if (subs.length !== 2) return '';
       const cur = subs.includes(wiz.subteam) ? wiz.subteam : subs[0];
-      return `<div class="fg"><label>Ploeg</label><select id="n-subteam">${subs.map(s => `<option value="${esc(s)}" ${cur===s?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`;
+      return `<div class="fg"><label>Ploeg</label><select id="n-subteam" onchange="trnWizSubteamChange()">${subs.map(s => `<option value="${esc(s)}" ${cur===s?'selected':''}>${esc(s)}</option>`).join('')}</select></div>`;
     })()}
     ${trnStandaardHint(t => t.matchType ? (t.matchType || '').replace('v', ' tegen ') : '')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">

@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.26.0
+
+- **Spelers toekennen aan de twee ploegen van een tornooi.** In de selectie kies je per speler die meegaat:
+  enkel ploeg A, enkel ploeg B, of voor beide (standaard). In de wedstrijdwizard staan enkel de spelers van de
+  gekozen ploeg; met "+ Speler van de andere ploeg" haal je er toch een bij (op de bank).
+- **Praktische info bij een tornooi.** Nieuwe optionele velden: indoor/outdoor, ondergrond, verzamelen om en
+  startuur, zichtbaar voor kijkers en in het tornooiverslag.
+- **Fix:** het vinkje "Twee ploegen van ons spelen mee" was onzichtbaar en staat nu weer zichtbaar.
+
 ## v2.25.0
 
 - **Tournify-link bij een tornooi.** In de info van het tornooi kan je een link naar Tournify ingeven. Kijkers
