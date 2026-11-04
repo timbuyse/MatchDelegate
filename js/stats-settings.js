@@ -1735,7 +1735,12 @@ const HANDLEIDING_PAGINAS = [
       <p>Werkt je trainer in <b>ProSoccerData</b>, dan staat op zijn wedstrijdvoorbereiding alles wat je hier
         anders met de hand intikt: wie meegaat, wie start, waar iedereen staat, en hoe de ploeg er bij elk
         volgend moment hoort te staan. Dat blad kan je inlezen in plaats van alles over te tikken.</p>
-      <div class="sec">Waar staat de knop?</div>
+      <div class="sec">Eerst het blad, dan de wedstrijd</div>
+      <p>Op het scherm <b>Wedstrijden</b> staat <b>'Voorbereiding inlezen'</b>. Kies de PDF en de app zoekt zelf
+        de wedstrijd erbij, op de datum en de tegenstander in de kop van het blad. Past er maar één wedstrijd,
+        dan ga je meteen naar het voorstel; past er niets of meer dan één, dan kies je zelf. Alleen geplande
+        wedstrijden van de ploeg waarin je zit komen in aanmerking.</p>
+      <div class="sec">Of vanuit de wedstrijd zelf</div>
       <p>Open een <b>geplande wedstrijd</b> waar nog <b>geen selectie</b> is ingegeven. Onder de knoppenrij
         staat <b>'Voorbereiding van de trainer (PDF)'</b>. Is er al een selectie, dan is die knop weg: het
         inlezen zou ze vervangen, en dat mag niet per ongeluk gebeuren. Wil je toch opnieuw beginnen, wis de

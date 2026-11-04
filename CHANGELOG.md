@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.0
+
+- **Voorbereiding van de trainer: eerst het blad, dan de wedstrijd.** Op het scherm *Wedstrijden* staat
+  *Voorbereiding inlezen*. Je kiest de PDF uit ProSoccerData en de app zoekt zelf de wedstrijd erbij,
+  op de datum en de tegenstander in de kop van het blad. Eén treffer: meteen naar het voorstelscherm.
+  Geen of meerdere: je kiest zelf. Enkel geplande wedstrijden van de actieve ploeg. Het voorstelscherm,
+  het koppelen van namen en de waarschuwing bij een bestaande selectie zijn ongewijzigd.
+  Intern: `psdLeesKop` leest de kop los van de rest, `psdVerwerk` is het gedeelde stuk van beide wegen.
+
 ## v2.26.0
 
 - **Spelers toekennen aan de twee ploegen van een tornooi.** In de selectie kies je per speler die meegaat:

@@ -684,18 +684,22 @@ function psdPlekkenVoorRijen(rijen, matchType) {
 // Het hele blad omzetten in: de selectie, en per moment een opstelling.
 // `blokken` krijgt per moment de minuut (null voor de startopstelling), de namen per plek en de
 // wisselspelers die eronder vermeld staan.
-function psdLeesVoorbereiding(paginas, matchType) {
+// De kop van het blad: "Game Racing Club Harelbeke - Sparta Petegem Deinze", "Date 2026-10-31",
+// "Time 09:30" (gemeten op een blad van 04-11-2026). Apart van de rest omdat de wedstrijd er al uit te
+// halen valt vóór je weet bij WELKE wedstrijd van de app het blad hoort (psdStartLos).
+function psdLeesKop(paginas) {
   const p1 = paginas[0].regels;
-  const wedstrijd = {};
   const veld = (label) => {
     const r = p1.find(x => x.text.trim().toLowerCase() === label);
     if (!r) return '';
     const naast = p1.filter(x => Math.abs(x.y - r.y) < 2 && x.x > r.x + 10).sort((a, b) => a.x - b.x)[0];
     return naast ? naast.text.trim() : '';
   };
-  wedstrijd.titel = veld('game');
-  wedstrijd.datum = veld('date');
-  wedstrijd.tijd = veld('time');
+  return { titel: veld('game'), datum: veld('date'), tijd: veld('time') };
+}
+function psdLeesVoorbereiding(paginas, matchType) {
+  const p1 = paginas[0].regels;
+  const wedstrijd = psdLeesKop(paginas);
 
   const tabel = psdLeesTabel(p1);
   if (!tabel) throw new Error('We vinden op dit blad geen spelerslijst met geboortedata. Is dit wel een wedstrijdvoorbereiding uit ProSoccerData?');
@@ -955,21 +959,121 @@ async function psdBestand(inp) {
   try {
     const buf = await f.arrayBuffer();
     const paginas = await psdLeesPdf(buf);
-    const m = match;
-    const lezing = psdLeesVoorbereiding(paginas, MATCH_TYPES[m.matchType] ? m.matchType : '8v8');
-    psdSt.lezing = lezing;
-    // De kernen van de zusterploegen erbij halen vóór we koppelen (v1.17.0): een naam op het blad die
-    // niet in de eigen kern staat, is vaak een speler die van een andere ploeg van de club komt
-    // meehelpen. Mislukt dit (geen club, geen rechten, geen net), dan koppelen we gewoon zoals
-    // voordien — enkel tegen de eigen kern.
-    try { psdSt.zusters = await clubZusterPloegen(); } catch (e) { psdSt.zusters = []; }
-    psdKoppelAutomatisch();
-    psdSt.fase = 'na';
+    await psdVerwerk(paginas);
   } catch (e) {
     psdSt.fout = (e && e.message) || 'Dit bestand konden we niet lezen.';
   }
   psdSt.bezig = false;
   render();
+}
+// Het ingelezen blad bij de wedstrijd in `match` leggen en de namen koppelen. Gedeeld door de gewone
+// weg (eerst de wedstrijd, dan het blad) en door psdStartLos (eerst het blad, dan de wedstrijd).
+async function psdVerwerk(paginas) {
+  const m = match;
+  psdSt.lezing = psdLeesVoorbereiding(paginas, MATCH_TYPES[m.matchType] ? m.matchType : '8v8');
+  // De kernen van de zusterploegen erbij halen vóór we koppelen (v1.17.0): een naam op het blad die
+  // niet in de eigen kern staat, is vaak een speler die van een andere ploeg van de club komt
+  // meehelpen. Mislukt dit (geen club, geen rechten, geen net), dan koppelen we gewoon zoals
+  // voordien — enkel tegen de eigen kern.
+  try { psdSt.zusters = await clubZusterPloegen(); } catch (e) { psdSt.zusters = []; }
+  psdKoppelAutomatisch();
+  psdSt.fase = 'na';
+}
+
+// ---------------------------------------------------------------------------------------------
+// EERST HET BLAD, DAN DE WEDSTRIJD (Tim, 04-11-2026)
+// ---------------------------------------------------------------------------------------------
+// Vroeger moest je eerst de juiste wedstrijd openen en dan het blad kiezen; kies je daar de verkeerde
+// wedstrijd, dan leest ze het blad in bij een andere tegenstander. De kop van het blad zegt welke
+// wedstrijd het is (datum + de twee clubs), dus de app zoekt die zelf op. Wat daarna gebeurt is het
+// gewone voorstelscherm: je ziet eerst wat ze begrepen heeft en er wordt niets bewaard voor je
+// bevestigt.
+//
+// OP DE KOP, NIET OP DE PLOEG: er staat geen ploegnaam (U11IP zwart of groen) op het blad, enkel de
+// clubs. We zoeken dus enkel in de wedstrijden van de actieve ploeg; staan er daar meerdere, dan kies
+// je zelf. Alleen GEPLANDE wedstrijden komen in aanmerking: een voorbereiding inlezen in een
+// afgewerkte wedstrijd is zinloos.
+let _psdLos = null;   // { paginas, kop, kandidaten }
+function psdDatumIso(s) {
+  s = String(s || '').trim();
+  let r = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (r) return `${r[1]}-${r[2]}-${r[3]}`;
+  r = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);
+  return r ? `${r[3]}-${r[2].padStart(2, '0')}-${r[1].padStart(2, '0')}` : '';
+}
+// "Racing Club Harelbeke - Sparta Petegem Deinze" -> ['Racing Club Harelbeke', 'Sparta Petegem Deinze']
+function psdKopClubs(titel) { return String(titel || '').split(/\s+-\s+/).map(x => x.trim()).filter(Boolean); }
+function psdLosKandidaten(kop, alle) {
+  const dag = psdDatumIso(kop.datum);
+  const clubs = psdKopClubs(kop.titel);
+  const eigen = teamNames[activeTeamId] || null;
+  const opDag = alle.filter(m => !m.tournamentId && (m.status || 'planned') === 'planned' && m.date === dag
+    && (!cloudReady || !eigen || m.teamName === eigen));
+  const opTegenstander = opDag.filter(m => clubs.some(c => impZelfdeClub(c, m.opponent) || impNorm(c) === impNorm(m.opponent)));
+  return { opDag, opTegenstander };
+}
+function psdStartLos() {
+  if (!canManage()) { showToast('Enkel een beheerder kan een voorbereiding inlezen.', 'err'); return; }
+  _psdLos = null;
+  openModal(`<h3>${icI(IC.upload)} Voorbereiding inlezen</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Kies de PDF van de wedstrijdvoorbereiding uit ProSoccerData. De app zoekt zelf de wedstrijd erbij.</p>
+    <input id="psd-los-file" type="file" accept=".pdf,application/pdf" onchange="psdLosBestand(this)"
+      style="width:100%;padding:10px;border:2px dashed var(--bdr);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt)">
+    <div id="psd-los-uit" style="margin-top:10px;font-size:13px"></div>
+    <details style="margin-top:10px;font-size:13px;color:var(--txt2)"><summary style="cursor:pointer">Hoe maak ik die PDF?</summary>
+      <ol style="margin:8px 0 0;padding-left:20px;line-height:1.7">${PSD_STAPPEN.slice(0, 4).map(s => `<li>${s}</li>`).join('')}</ol></details>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
+}
+function psdLosMelding(html, fout) {
+  const el = document.getElementById('psd-los-uit');
+  if (el) el.innerHTML = `<div style="padding:10px 12px;border-radius:8px;${fout ? 'background:rgba(220,60,60,.12);color:var(--rd);font-weight:600' : 'color:var(--txt2)'}">${html}</div>`;
+}
+async function psdLosBestand(inp) {
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  psdLosMelding('Bezig met lezen…');
+  try {
+    const paginas = await psdLeesPdf(await f.arrayBuffer());
+    const kop = psdLeesKop(paginas);
+    if (!psdDatumIso(kop.datum)) throw new Error('We vinden op dit blad geen datum. Is dit wel een wedstrijdvoorbereiding uit ProSoccerData?');
+    const { opDag, opTegenstander } = psdLosKandidaten(kop, await dbAll());
+    _psdLos = { paginas, kop, bestand: f.name };
+    const kies = opTegenstander.length ? opTegenstander : opDag;
+    if (opTegenstander.length === 1) { psdLosGa(opTegenstander[0].id); return; }
+    const wat = `${esc(kop.titel || 'Dit blad')} · ${esc(kop.datum)}${kop.tijd ? ' · ' + esc(kop.tijd) : ''}`;
+    if (!kies.length) {
+      psdLosMelding(`<b>${wat}</b><br>Er staat geen geplande wedstrijd op die dag bij deze ploeg. Maak de wedstrijd eerst aan (of haal de kalender op) en probeer het dan opnieuw.`, true);
+      return;
+    }
+    psdLosMelding(`<b>${wat}</b><br>${opTegenstander.length ? 'Meerdere wedstrijden passen' : 'Geen wedstrijd met deze tegenstander, wel op die dag'}. Welke bedoel je?` +
+      kies.map(m => `<button class="btn btn-pale" style="margin-top:8px;text-align:left;display:block;width:100%" onclick="psdLosGa('${m.id}')">${esc(m.date)}${m.time ? ' · ' + esc(m.time) : ''} · ${esc(m.opponent || '?')}</button>`).join(''));
+  } catch (e) {
+    psdLosMelding(esc((e && e.message) || 'Dit bestand konden we niet lezen.'), true);
+  }
+}
+async function psdLosGa(id) {
+  const los = _psdLos; if (!los) return;
+  const m = await dbGet(id);
+  if (!m) { showToast('Die wedstrijd bestaat niet meer.', 'err'); return; }
+  closeModal();
+  if (!rosterReady()) { showToast('Spelers zijn nog aan het laden — probeer het over een paar seconden opnieuw.', 'err'); return; }
+  match = m;
+  const verder = async () => {
+    psdSt = { fase: 'kies', fout: '', bezig: true, matchId: m.id, bestand: los.bestand, lezing: null, koppel: {}, los: {}, zusters: [], waarschuwingen: [] };
+    go('importpsd');
+    try { await psdVerwerk(los.paginas); } catch (e) { psdSt.fout = (e && e.message) || 'Dit bestand konden we niet lezen.'; }
+    psdSt.bezig = false;
+    _psdLos = null;
+    render();
+  };
+  if (heeftSelectie(m)) {
+    // Zelfde waarschuwing als bij de gewone weg, maar nu mét de wedstrijd erbij: de app koos ze zelf.
+    showConfirm(`Dit blad hoort bij <b>${esc(m.opponent || 'deze wedstrijd')}</b> op ${esc(m.date)}. Het <b>vervangt</b> de selectie en de opstelling die daar nu in staan.` +
+      `<br><br>Je krijgt eerst te zien wat we van het blad begrepen hebben. Er wordt pas iets vervangen wanneer je daar op <b>Overnemen</b> tikt.`,
+      verder, 'Blad inlezen', 'btn-green');
+  } else {
+    await verder();
+  }
 }
 
 // Elke naam van het blad aan een speler van de kern hangen. Wat eenduidig is doen we zelf; de rest

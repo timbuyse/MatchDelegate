@@ -7433,7 +7433,9 @@ async function loadMatches() {
   // bestaat "meerdere aanpassen" niet en krijgt importeren de hele regel.
   const nieuwBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   const impBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="impStart()">${icI(IC.upload)} Kalender importeren</button>` : '';
-  const maakBtns = nieuwBtn + (impBtn ? `<div style="margin-bottom:12px">${impBtn}</div>` : '');
+  // Het blad van de trainer inlezen zonder eerst de wedstrijd te openen: de app zoekt ze zelf (psdStartLos).
+  const psdBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="psdStartLos()">${icI(IC.clipboard)} Voorbereiding inlezen</button>` : '';
+  const maakBtns = nieuwBtn + (impBtn ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${impBtn}${psdBtn}</div>` : '');
   if (!all.length) {
     // Ook hier stond "tik dan +" terwijl die knop (met de andere twee) enkel voor een beheerder
     // getekend wordt: een kijker kreeg drie handelingen aangeraden die voor hem niet bestaan.
@@ -7497,10 +7499,13 @@ async function loadMatches() {
     return;
   }
   const bulkBtn = (canManage() && list.length > 1)
-    ? `<button class="btn btn-pale btn-sm" style="margin:0" onclick="bulkStart()">${icI(IC.edit)} Meerdere aanpassen</button>` : '';
+    ? `<button class="btn btn-pale btn-sm" style="margin:0;width:100%" onclick="bulkStart()">${icI(IC.edit)} Meerdere aanpassen</button>` : '';
   // De twee bijzaken naast elkaar op halve breedte; staat er maar één, dan vult die de regel.
+  // Drie bijzaken: importeren en het blad van de trainer inlezen delen de eerste regel, "meerdere
+  // aanpassen" krijgt er een eigen eronder (op een gsm is een derde knop op een regel te smal).
   const rijBtns = (impBtn || bulkBtn)
-    ? `<div style="display:grid;grid-template-columns:${impBtn && bulkBtn ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:12px">${impBtn}${bulkBtn}</div>` : '';
+    ? `<div style="display:grid;grid-template-columns:${impBtn ? '1fr 1fr' : '1fr'};gap:8px;margin-bottom:${bulkBtn ? '8px' : '12px'}">${impBtn}${psdBtn}</div>`
+      + (bulkBtn ? `<div style="margin-bottom:12px">${bulkBtn}</div>` : '') : '';
   // BIJ DE BOND NAKIJKEN (v1.31.0). Op een eigen regel onder de twee bijzaken, en ENKEL wanneer er echt
   // iets na te kijken valt: een niet-afgesloten wedstrijd uit het verleden mét een wedstrijdnummer van
   // de bond. Zonder die voorwaarde staat er een knop die altijd "niets gevonden" antwoordt.
