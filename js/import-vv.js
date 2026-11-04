@@ -107,7 +107,14 @@ async function vvHaalOp(nummer) {
     });
     if (!r.ok) throw new Error(`De wedstrijdpagina antwoordde niet (${r.status}). Probeer het later opnieuw.`);
     const j = await r.json();
-    if (j && j.errors && j.errors.length) throw new Error('De wedstrijdpagina gaf een foutmelding terug. Klopt het wedstrijdnummer?');
+    if (j && j.errors && j.errors.length) {
+      // De echte fout van de dienst erbij (v2.27.1): "Klopt het wedstrijdnummer?" was te vaag om te
+      // zien of de bond haar schema gewijzigd heeft (een hernoemd of verwijderd veld geeft precies
+      // dezelfde melding als een fout nummer). Korte technische regel, ook in de console.
+      const tech = String((j.errors[0] && j.errors[0].message) || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      try { console.warn('RBFA-fout bij wedstrijd ' + nummer, j.errors); } catch (e) { /* console is bijzaak */ }
+      throw new Error('De wedstrijdpagina gaf een foutmelding terug. Klopt het wedstrijdnummer?' + (tech ? ` (Technisch: ${tech})` : ''));
+    }
     return (j && j.data && j.data.matchDetail) || null;
   } catch (e) {
     if (e && e.name === 'AbortError') throw new Error('Het ophalen duurde te lang. Kijk je verbinding na en probeer opnieuw.');
