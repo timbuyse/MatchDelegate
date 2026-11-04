@@ -58,6 +58,8 @@ const VV_TIMEOUT_MS = 15000;
 // `eventType` staat er sinds 04-11-2026 niet meer in: de bond heeft dat veld uit MatchDetail gehaald
 // ("Cannot query field eventType on type MatchDetail"), waarna élk ophalen een foutmelding gaf. Het
 // soort wedstrijd (vvLees: `soort`) blijft daardoor leeg en wordt dus niet meer overgenomen.
+// Idem `id` op MatchDetailPlayer (v2.27.3): ook dat veld bestaat niet meer. De app las het nergens;
+// spelers worden op naam gekoppeld (vvKoppelAutomatisch), niet op een id van de bond.
 const VV_QUERY = `query GetMatchDetail($matchId: ID!, $language: Language!) {
   matchDetail(matchId: $matchId, language: $language) {
     id title startTime state
@@ -75,7 +77,7 @@ const VV_QUERY = `query GetMatchDetail($matchId: ID!, $language: Language!) {
     }
   }
 }
-fragment P on MatchDetailPlayer { id lastName firstName shirtNumber badges events { type minute } }`;
+fragment P on MatchDetailPlayer { lastName firstName shirtNumber badges events { type minute } }`;
 
 // Toestand van het ophaalscherm. Leeft enkel zolang je op dat scherm bent.
 let vvSt = null;
