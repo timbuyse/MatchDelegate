@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.1
+
+- **Wedstrijdbladen ophalen: de echte foutmelding van de bond zichtbaar.** Gaf de wedstrijdpagina een
+  fout terug, dan stond er enkel "Klopt het wedstrijdnummer?". Nu staat er een korte technische regel
+  achter (en in de console), zodat te zien is of de bond iets aan haar gegevens gewijzigd heeft.
+  Verder verandert er niets aan het ophalen.
+
 ## v2.27.0
 
 - **Voorbereiding van de trainer: eerst het blad, dan de wedstrijd.** Op het scherm *Wedstrijden* staat
