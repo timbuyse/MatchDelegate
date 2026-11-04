@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.3
+
+- **Wedstrijdbladen ophalen: tweede veld dat de bond verwijderd had.** Na v2.27.2 gaf de bond nog een
+  fout op het veld `id` van een speler. De app las dat veld nergens (spelers worden op naam gekoppeld),
+  dus het is uit de vraag gehaald. Er verandert niets aan wat je te zien krijgt.
+
 ## v2.27.2
 
 - **Wedstrijdbladen ophalen werkt weer.** De bond heeft het veld `eventType` uit haar wedstrijdgegevens
