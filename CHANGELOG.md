@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.2
+
+- **Wedstrijdbladen ophalen werkt weer.** De bond heeft het veld `eventType` uit haar wedstrijdgegevens
+  gehaald, waardoor elk ophalen een foutmelding gaf. De app vraagt het veld niet meer op.
+  Gevolg: het *Soort* wedstrijd (Vriendschappelijk, Competitie, Beker) wordt niet meer automatisch
+  overgenomen; je vult dat zelf in. Bij een fout toont de technische regel nu tot drie meldingen.
+
 ## v2.27.1
 
 - **Wedstrijdbladen ophalen: de echte foutmelding van de bond zichtbaar.** Gaf de wedstrijdpagina een

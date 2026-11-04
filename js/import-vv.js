@@ -55,9 +55,12 @@ const VV_ENDPOINT = 'https://datalake-prod2018.rbfa.be/graphql';
 const VV_TIMEOUT_MS = 15000;
 
 // De vraag zoals de site ze zelf stelt. Fragmenten uitgeschreven, zodat hier één blok tekst staat.
+// `eventType` staat er sinds 04-11-2026 niet meer in: de bond heeft dat veld uit MatchDetail gehaald
+// ("Cannot query field eventType on type MatchDetail"), waarna élk ophalen een foutmelding gaf. Het
+// soort wedstrijd (vvLees: `soort`) blijft daardoor leeg en wordt dus niet meer overgenomen.
 const VV_QUERY = `query GetMatchDetail($matchId: ID!, $language: Language!) {
   matchDetail(matchId: $matchId, language: $language) {
-    id title startTime eventType state
+    id title startTime state
     series { id name }
     location { name city postalCode address pitchCode synthetic }
     officials { lastName firstName function }
@@ -111,7 +114,8 @@ async function vvHaalOp(nummer) {
       // De echte fout van de dienst erbij (v2.27.1): "Klopt het wedstrijdnummer?" was te vaag om te
       // zien of de bond haar schema gewijzigd heeft (een hernoemd of verwijderd veld geeft precies
       // dezelfde melding als een fout nummer). Korte technische regel, ook in de console.
-      const tech = String((j.errors[0] && j.errors[0].message) || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      // Tot drie regels: een gewijzigd schema geeft vaak meerdere onbekende velden tegelijk.
+      const tech = j.errors.slice(0, 3).map(x => String((x && x.message) || '').replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).join(' | ');
       try { console.warn('RBFA-fout bij wedstrijd ' + nummer, j.errors); } catch (e) { /* console is bijzaak */ }
       throw new Error('De wedstrijdpagina gaf een foutmelding terug. Klopt het wedstrijdnummer?' + (tech ? ` (Technisch: ${tech})` : ''));
     }
