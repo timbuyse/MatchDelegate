@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.4
+
+- **Wedstrijdblad inlezen: kaarten en doelpunten komen op hun minuut, ook bij een live gevolgde
+  wedstrijd.** Zette je achteraf een kaart van het blad bij een wedstrijd die je zelf met de klok volgde,
+  dan kwam die helemaal achteraan in de tijdlijn. Nu krijgt hij zijn minuut en kwart op de eigen klok
+  van de wedstrijd. Wissels en speelminuten blijven ongewijzigd; zonder eigen klok verandert er niets.
+
 ## v2.27.3
 
 - **Wedstrijdbladen ophalen: tweede veld dat de bond verwijderd had.** Na v2.27.2 gaf de bond nog een

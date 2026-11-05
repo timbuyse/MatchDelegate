@@ -1231,7 +1231,30 @@ function vvNeemOver() {
   if (doetUitslag) vvWisEigenEvents(m, VV_WISSEL_TYPES);
   // De minuut van het blad als tijdstip voor een event — leeg wanneer er geen klok is, en dan blijft
   // het `gameTimeMs: 0` van hieronder gewoon staan, precies zoals vóór v1.28.0.
+  // LIVE GEVOLGDE WEDSTRIJD (v2.27.4): daar staat al een echte klok (m.quarters), en dan gold dit niet
+  // meer: een kaart die je achteraf van het blad bijzette, bleef op minuut 0 zonder kwart staan en
+  // kwam helemaal achteraan in de tijdlijn. Nu krijgt hij zijn minuut op de eigen klok van de wedstrijd
+  // — de speeltijd (gameTimeMs) is doorlopend en zonder pauzes, dus (minuut-1) volle minuten klopt
+  // ook als er live gepauzeerd is. Het kwart volgt uit de gespeelde duur van elk kwart.
+  const eigenKlok = !metKlok && !m.klokVanBlad && getGameTimeMs(m) > 0;
+  const kwartEigenKlok = gms => {
+    let tot = 0, laatste = null;
+    for (const q of (m.quarters || [])) {
+      if (!q.startTime) continue;
+      laatste = q.num;
+      const dur = q.endTime ? q.endTime - q.startTime - (q.totalPaused || 0)
+        : (q.pausedAt ? q.pausedAt : Date.now()) - q.startTime - (q.totalPaused || 0);
+      tot += Math.max(0, dur);
+      if (gms < tot) return q.num;
+    }
+    return laatste;
+  };
   const tijd = minuut => {
+    if (eigenKlok && Number(minuut) > 0) {
+      const gms = vvGameMs(minuut);
+      const kw = kwartEigenKlok(gms);
+      return kw ? { gameTimeMs: gms, quarterNum: kw } : {};
+    }
     if (!metKlok || !(Number(minuut) > 0)) return {};
     const gms = vvGameMs(minuut);
     return { gameTimeMs: gms, quarterNum: vvKwartVan(klok, gms) };
