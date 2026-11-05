@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.27.5
+
+- **Clubronde (ruim): elke ronde pakt écht de volgende wedstrijden.** Aankomende wedstrijden gingen
+  altijd voor, en op één club waren dat 73 van de 100 plaatsen — elke ronde dezelfde, waardoor de
+  gespeelde wedstrijden amper aan bod kwamen. Nu gaat een aankomende wedstrijd enkel voor als ze langer
+  dan 12 uur niet nagekeken is. Daarna wacht ze op haar beurt; een dag later staat ze weer vooraan.
+
 ## v2.27.4
 
 - **Wedstrijdblad inlezen: kaarten en doelpunten komen op hun minuut, ook bij een live gevolgde

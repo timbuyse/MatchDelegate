@@ -1889,9 +1889,17 @@ function clubBladGrensTot() {
 // De laatste trap is bewust OPLOPEND op datum, waar de gewone ronde aflopend sorteert: bij wat nog
 // moet komen is dat "eerst wat het eerst gespeeld wordt", en bij het gespeelde deel "eerst wat het
 // langst wacht". Allebei het dringendste eerst; het is dus geen tikfout.
+// MAAR NIET ELKE RONDE OPNIEUW DEZELFDE (Tim, 05-11-2026: "ik test 100 wedstrijden, dan de volgende 100,
+// maar hij neemt toch dezelfde"). Gemeten op zijn club: 73 aankomende wedstrijden gingen ALTIJD voor,
+// dus elke ronde was die 73 plus 27 uit de 322 gespeelde — en die 73 waren telkens dezelfde. Nu gaat
+// een aankomende wedstrijd enkel voor wanneer ze langer dan 12 uur niet nagekeken is. Net nagekeken?
+// Dan wacht ze op haar beurt, en komen de gespeelde wedstrijden aan bod. Een dag later staat ze weer
+// vooraan, dus terrein en scheidsrechter blijven vers.
+const CLUB_BLAD_VERS_MS = 12 * 3600 * 1000;
 function clubBladVolgordeRuim(a, b) {
   const vandaag = isoVandaag();
-  const komt = m => ((m.date || '') >= vandaag) ? 0 : 1;
+  const nu = Date.now();
+  const komt = m => (((m.date || '') >= vandaag) && (nu - clubBladGekeken(m)) > CLUB_BLAD_VERS_MS) ? 0 : 1;
   return (komt(a) - komt(b))
     || (clubBladGekeken(a) - clubBladGekeken(b))
     || String(a.date || '').localeCompare(String(b.date || ''));
