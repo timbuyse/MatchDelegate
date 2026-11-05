@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.27.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.28.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -937,7 +937,7 @@ const RELEASE_NOTES = {
       'Alles van vandaag in je club. Het kadertje “Vandaag in jouw club” op “Jouw ploegen” toont wat er bezig is. Tik de regel eronder aan en je ziet alle wedstrijden van vandaag bij je hele club: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
       'Kaarten voor de trainer en geel-rood. Op het kaartenscherm staan nu ook “Trainer” en “Afgev.”, voor een kaart aan de trainer of de afgevaardigde. Een tweede gele kaart wordt vanzelf rood en staat als één geel-rood kaartje in het verslag. Bij de tegenstander heeft de app daarvoor het rugnummer nodig.',
       'Speelminuten volgens het plan. Sluit je een wedstrijd af met enkel de uitslag, dan stond iedereen op 0 minuten. Staat er een opstelling en blokduur klaar, dan staat bij “Uitslag ingeven” nu het vinkje “Speelminuten volgens het plan bewaren” standaard aan. Die minuten zijn gepland en niet gemeten, en dat staat overal bij vermeld.',
-      'Fouten achteraf rechtzetten. Een verkeerde speler in de selectie? Gebruik “Speler vervangen”: tijdens de wedstrijd of wacht tot na de wedstrijd om dit te doen. Posities, speeltijd, doelpunten en kaarten schuiven mee naar de andere speler. Een strafschop verkeerd ingegeven? Tik in het verslag bij “Strafschoppen” op het potloodje om er een aan te passen, te wissen of toe te voegen.',
+      'Fouten achteraf rechtzetten. Een verkeerde speler in de selectie? Gebruik “Speler vervangen”: tijdens de wedstrijd (onder de spelerslijst) of na de wedstrijd (in het menu onder “Selectie aanpassen”, waar je ook een speler kan toevoegen of weghalen). Posities, speeltijd, doelpunten en kaarten schuiven mee naar de andere speler. Een strafschop verkeerd ingegeven? Tik in het verslag bij “Strafschoppen” op het potloodje om er een aan te passen, te wissen of toe te voegen.',
     ],
   },
   // Goedgekeurd door Tim, 27-09-2026. Dit venster komt bij ÍEDEREEN, dus de tekst spreekt allebei de

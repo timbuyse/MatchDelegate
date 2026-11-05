@@ -9,6 +9,18 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.28.0
+
+- **Selectie aanpassen na de wedstrijd: speler toevoegen, vervangen en weghalen op één plek.** Er kon
+  tijdens de wedstrijd een speler bijgezet worden, maar achteraf niet. Nu staat in het venster
+  *Selectie aanpassen* van een afgelopen wedstrijd bovenaan *Speler toevoegen* en *Speler vervangen*,
+  met daaronder zoals vroeger het weghalen van wie niets deed. Het losse menu-item *Speler vervangen*
+  is daarheen verhuisd.
+- Een achteraf toegevoegde speler komt in de selectie zonder speeltijd en zonder het merkje
+  "bijgekomen"; aan de cijfers van de anderen verandert niets.
+- Bij een tornooiwedstrijd opent het venster nu ook, met enkel toevoegen en vervangen (vervangen kon
+  daar al). Weghalen blijft op de tornooipagina.
+
 ## v2.27.5
 
 - **Clubronde (ruim): elke ronde pakt écht de volgende wedstrijden.** Aankomende wedstrijden gingen

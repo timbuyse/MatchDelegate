@@ -3944,7 +3944,11 @@ function modalAddPlayerLive() {
   openModal(`<h3>${icI(vervangP ? IC.edit : IC.plus)} ${vervangP ? 'Speler vervangen' : 'Speler bijzetten'}</h3>
     ${vervangP
       ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie komt er in de plaats van <b>${esc(vervangP.name)}</b>? De nieuwe speler neemt zijn <b>plek, speeltijd en doelpunten/kaarten</b> over — alsof hij van in het begin geselecteerd was.</p>`
-      : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>`}
+      : (match.status === 'done'
+        // NA DE WEDSTRIJD (v2.28.0): geen bank en geen "inbrengen" meer. Hij komt in de selectie zonder
+        // speeltijd — voor wie er wel bij hoorde maar vergeten werd, of een speler die je nu pas kent.
+        ? `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een speler die er wél bij hoorde maar nog niet in de selectie stond. Hij komt erbij <b>zonder speeltijd</b>: aan de minuten, doelpunten en kaarten van de anderen verandert niets.</p>`
+        : `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Voor een laatkomer of iemand die komt bijspringen. Hij komt op de <b>bank</b> — zijn speeltijd start pas wanneer je hem effectief inbrengt.</p>`)}
     ${lijst}
     ${(zusters === null || zusters.length) ? `<button class="btn btn-orgpale" style="margin-top:12px" onclick="modalAddGuestLive()">Speler van een andere ploeg</button>` : ''}
     <button class="btn btn-pale" style="margin-top:8px" onclick="addLoosePlayerLiveModal()">Losse speler (niet in het rooster)</button>
@@ -3995,24 +3999,30 @@ async function addGuestPlayerLive(teamId, playerId) {
 // Gemeenschappelijk stuk voor beide ingangen: de speler in de selectie zetten en opslaan.
 async function _voegSpelerToeAanWedstrijd(veld) {
   if (_vervangId) return _vervangSpeler(veld);   // "Speler vervangen" gebruikt dezelfde keuzevensters
+  // NA DE WEDSTRIJD (v2.28.0) is hij geen "bijgekomen" speler: er werd niets gespeeld dat zijn lagere
+  // speeltijd moet verklaren, dus geen merkje. Ook geen herrekening van het veld: een afgesloten
+  // wedstrijd laten we ongemoeid (zelfde regel als in _vervangSpeler), en hij staat in geen enkel event.
+  const klaar = match.status === 'done';
   match.players.push(Object.assign({
     id: uid(), rosterId: null, globalId: null, name: 'Speler', number: '',
     line: 'Middenveld', posNum: '', starting: false, onField: false, guest: false,
     // Waaraan je later ziet dat hij niet vanaf de aftrap in de selectie zat — het verslag en de PDF
     // tonen dat als "bijgekomen", zodat zijn lagere speeltijd verklaard staat. Wedstrijden van vóór
     // deze versie hebben het veld niet en tonen dus niets.
-    addedDuringMatch: true, addedQuarter: match.currentQuarter || 0,
+    ...(klaar ? {} : { addedDuringMatch: true, addedQuarter: match.currentQuarter || 0 }),
   }, veld));
   // Bij een tornooiwedstrijd komt de dagselectie uit het tornooi: zonder deze stap krijgt hij
   // speelminuten zonder in enige groep te staan (zelfde reden als bij "Spelers bewerken").
   const trn = syncMatchPlayersToTournamentSquad(match);
-  recomputeOnField(match);
+  if (!klaar) recomputeOnField(match);
   await dbSave(match);
   closeModal(); render();
   const naam = veld.name || 'Speler';
-  showToast(trn.length
-    ? `${naam} staat op de bank en in de tornooiselectie van vandaag.`
-    : `${naam} staat op de bank. Breng hem in met een wissel.`, 'ok');
+  showToast(klaar
+    ? `${naam} staat nu in de selectie, zonder speeltijd.${trn.length ? ' Ook in de tornooiselectie van vandaag.' : ''}`
+    : trn.length
+      ? `${naam} staat op de bank en in de tornooiselectie van vandaag.`
+      : `${naam} staat op de bank. Breng hem in met een wissel.`, 'ok');
 }
 // ----- Een speler vervangen terwijl de wedstrijd loopt -----
 // Voor de verkeerde naam die per ongeluk gekozen werd. We vervangen enkel WIE de speler is

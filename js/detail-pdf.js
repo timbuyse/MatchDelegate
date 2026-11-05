@@ -592,10 +592,13 @@ function modalDetailEditMenu() {
       : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
       'vvStart()', !canManage())}
     ${/* Enkel bij een gewone wedstrijd — zie de uitleg bij modalSelectieVerslag. */ ''}
+    ${/* v2.28.0 (Tim, 05-11-2026): toevoegen, vervangen en weghalen staan samen onder één ingang. Het
+         losse item "Speler vervangen" is hierheen verhuisd. Ook bij een tornooiwedstrijd bereikbaar,
+         want vervangen kon daar al: enkel het WEGHALEN blijft er uit (zie _tekenSelectieVerslag). */ ''}
     ${menuItemHtml(IC.players, 'Selectie aanpassen', m.tournamentId
-      ? 'Kan niet bij een tornooiwedstrijd: daar geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'
-      : 'Haal spelers uit de selectie die uiteindelijk niets deden — bv. wie de hele tijd bij de andere wedstrijd bleef.',
-      'modalSelectieVerslag()', !!m.tournamentId)}
+      ? 'Een speler toevoegen of vervangen. Iemand weghalen kan hier niet: bij een tornooi geldt één selectie voor de hele dag, die je op de tornooipagina aanpast.'
+      : 'Een speler toevoegen, een verkeerde speler vervangen, of iemand weghalen die uiteindelijk niets deed.',
+      'modalSelectieVerslag()')}
     ${/* Zelfde ingang als bij een geplande wedstrijd (modalEditMatchMenu) en als het oogje in de
          kopregel van het voorbereidingsscherm. Ook ná de wedstrijd zinvol: het verslag blijft anders
          gewoon leesbaar voor wie je er net buiten wou houden.
@@ -617,11 +620,9 @@ function modalDetailEditMenu() {
          naam rechtzetten juist dán aan de orde is. Zelfde venster, zelfde werking: het raakt enkel
          deze wedstrijd, niet het rooster van de ploeg. */ ''}
     ${menuItemHtml(IC.edit, 'Namen, nummers &amp; notities', 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.', 'modalEditPlayers()')}
-    ${/* Een verkeerde naam die per ongeluk gekozen werd (Tim, 29-10-2026). Zie modalVervangSpeler in
-         live-match.js: enkel de identiteit op het spelersobject wisselt, het id — en dus plek,
-         minuten en events — blijft. De seizoensstatistiek leest de spelers per wedstrijd opnieuw
-         (getp in stats-settings.js), dus die schuift vanzelf mee. */ ''}
-    ${menuItemHtml(IC.swap, 'Speler vervangen', 'Een verkeerde speler door de juiste vervangen: die neemt zijn plek, speeltijd, doelpunten en kaarten over.', 'modalVervangSpeler()')}
+    ${/* "Speler vervangen" (Tim, 29-10-2026) staat sinds v2.28.0 in "Selectie aanpassen" hierboven.
+         De werking is ongewijzigd, zie modalVervangSpeler in live-match.js: enkel de identiteit op het
+         spelersobject wisselt, het id — en dus plek, minuten en events — blijft. */ ''}
     ${menuItemHtml(IC.shirt, 'Rugnummers', 'Enkel de nummers van deze wedstrijd; het rooster van je ploeg blijft ongewijzigd.', 'modalMatchNumbers()')}
     ${/* "Startopstelling aanpassen" gaat over de AFTRAP. Sinds v1.47.0 mag dat altijd (de latere delen
          worden herrekend), en sinds v1.49.0 kan je er ook iemand van de bank inbrengen — vandaar
@@ -855,15 +856,39 @@ async function _gkSchrijf(m, sp, r, t, naamOvernemen) {
 let _selWeg = null;   // werkkopie: de id's die je in dit venster uit de selectie wil halen
 function modalSelectieVerslag() {
   const m = match; if (!m || !canLive()) return;
-  if (m.tournamentId) { showToast('Bij een tornooi geldt één selectie voor de hele dag — pas ze aan op de tornooipagina.', 'err'); return; }
+  // Bij een tornooiwedstrijd opent dit venster ook (v2.28.0), maar zonder het weghalen: zie
+  // _tekenSelectieVerslag.
   // Hier leegmaken en niet enkel bij "Annuleren": je kan dit venster ook sluiten door naast het kader
   // te tikken, en dan blijft je keuze staan. Zo begint elke opening met een schone lei.
   _selWeg = new Set();
   _nbWijz = {};
   _tekenSelectieVerslag();
 }
+// Toevoegen en vervangen vanuit "Selectie aanpassen" (v2.28.0). Dezelfde keuzevensters als op het
+// livescherm (modalAddPlayerLive / modalVervangSpeler in live-match.js), dus dezelfde werking: een
+// speler uit het rooster, uit een andere ploeg van de club, of een losse speler.
+function modalSelectieToevoegen() {
+  const m = match; if (!m || !canLive() || slotWeigert(m)) return;
+  _selWeg = null; _nbWijz = {}; _vervangId = null;
+  modalAddPlayerLive();
+}
+function modalSelectieVervangen() {
+  const m = match; if (!m || !canLive() || slotWeigert(m)) return;
+  _selWeg = null; _nbWijz = {}; _vervangId = null;
+  modalVervangSpeler();
+}
 function _tekenSelectieVerslag() {
   const m = match; if (!m || !_selWeg) return;
+  // Bij een tornooi geldt één dagselectie voor alle wedstrijden (zie de uitleg bij modalSelectieVerslag):
+  // toevoegen en vervangen mogen, weghalen en "niet beschikbaar" niet.
+  if (m.tournamentId) {
+    openModal(`<h3>${icI(IC.players)} Selectie aanpassen</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Bij een tornooiwedstrijd geldt één selectie voor de hele dag. Iemand <b>weghalen</b> doe je op de tornooipagina; hier kan je een speler toevoegen of vervangen.</p>
+      <button class="btn btn-pale" onclick="modalSelectieToevoegen()">${icI(IC.plus)} Speler toevoegen</button>
+      <button class="btn btn-pale" style="margin-top:8px" onclick="modalSelectieVervangen()">${icI(IC.swap)} Speler vervangen</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="_selWeg=null;_nbWijz={};closeModal()">Sluiten</button>`);
+    return;
+  }
   const mins = calcMinutes(m);
   let kanAantal = 0;
   const rijen = sortedByName(m.players).map(p => {
@@ -908,7 +933,11 @@ function _tekenSelectieVerslag() {
   };
   const nbHtml = nbBlok('Niet beschikbaar', true) + nbBlok('Niet geselecteerd — kies een reden om hem op niet beschikbaar te zetten', false);
   openModal(`<h3>${icI(IC.players)} Selectie aanpassen</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Je kan enkel spelers weghalen die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <button class="btn btn-pale btn-sm" style="margin:0" onclick="modalSelectieToevoegen()">${icI(IC.plus)} Speler toevoegen</button>
+      <button class="btn btn-pale btn-sm" style="margin:0" onclick="modalSelectieVervangen()">${icI(IC.swap)} Speler vervangen</button>
+    </div>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Hieronder kan je spelers <b>weghalen</b> die in deze wedstrijd <b>niets gedaan hebben</b>: geen speelminuut en geen enkele gebeurtenis op hun naam. Wie wél meespeelde staat grijs, met de reden erbij.</p>
     ${kanAantal ? '' : `<div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} Iedereen in deze selectie heeft meegespeeld of staat ergens in het verslag. Er valt hier dus niemand weg te halen.</div>`}
     <div>${rijen || `<p style="color:var(--txt2);font-size:14px">Deze wedstrijd heeft geen selectie.</p>`}</div>
     ${nbHtml}
