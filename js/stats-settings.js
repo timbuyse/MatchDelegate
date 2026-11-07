@@ -418,6 +418,14 @@ async function loadStats() {
   // Hoeveel wedstrijden leveren hun speelminuten uit het PLAN? Nodig voor de regel onder de
   // speelminuten: gepland is niet gemeten, en dat hoort erbij te staan zolang het zo is.
   let planWedstrijden = 0;
+  // AFGEMELD TELT PER SPEELDAG, NIET PER WEDSTRIJD (Tim, 07-11-2026). Wie zich afmeldt voor twee
+  // wedstrijden die op dezelfde dag vallen (twee ploegen tegelijk, of een uitgestelde wedstrijd met
+  // hetzelfde speeldagnummer), was één keer afgemeld — hij kon er één dag niet bij zijn. Het percentage
+  // rekende al zo (dagenGemist, hieronder); enkel de teller "N× afgemeld" telde per wedstrijd en gaf 2.
+  // Zelfde indeling in speeldagen als dat percentage: speeldagGroepen.
+  const dagVanWedstrijd = new Map();
+  speeldagGroepen(sortedList).forEach((g, i) => g.matches.forEach(x => dagVanWedstrijd.set(x, i)));
+  const afgemeldOpDag = new Set();
   for (const m of sortedList) {
     // GESPEELD ZONDER UITSLAG (v1.6.0): telt mee in het aantal gespeelde wedstrijden — daarvoor
     // staat ze in deze lijst — maar levert geen doelpunten en geen W/G/V. Zonder deze uitzondering
@@ -525,6 +533,10 @@ async function loadStats() {
       // statistieken. Dat is dus geen gemiste wedstrijd — zelfde gedachte als de A/B-correctie
       // hierboven, maar dan handmatig aangegeven omdat die wedstrijd hier niet in de lijst zit.
       if (ab.reason === 'elders') continue;
+      // Al afgemeld gerekend op deze speeldag (zie dagVanWedstrijd hierboven)? Dan niet nog eens.
+      const dagSleutel = (ab.rosterId || (ab.name || 'Speler').trim()) + '|' + (dagVanWedstrijd.has(m) ? dagVanWedstrijd.get(m) : 'm:' + m.id);
+      if (afgemeldOpDag.has(dagSleutel)) continue;
+      afgemeldOpDag.add(dagSleutel);
       const r = getp(ab.rosterId, ab.name); r.absent++; r.nb++;
     }
     // De tweede gele die rood werd, telt NIET als gele kaart (Tims keuze, 17-10-2026): zo sluit de

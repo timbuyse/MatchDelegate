@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.28.1
+
+- **Statistieken: afgemeld telt per speeldag.** Wie zich afmeldt voor twee wedstrijden die op dezelfde
+  dag vallen, stond bij *Geselecteerd* als "2× afgemeld", terwijl hij maar één dag miste. Het
+  percentage rekende al per speeldag; nu doet de teller dat ook, met dezelfde indeling in speeldagen.
+  Het lijstje per wedstrijd op het spelersdetail blijft ongewijzigd.
+
 ## v2.28.0
 
 - **Selectie aanpassen na de wedstrijd: speler toevoegen, vervangen en weghalen op één plek.** Er kon
