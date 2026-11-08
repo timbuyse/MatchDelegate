@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.28.2
+
+- **Uitnodigingscode: een verlopen code vervangt zichzelf.** Een uitnodiging geldt 60 dagen. Opent een
+  beheerder *Iemand uitnodigen* en is de code verlopen, dan maakt de app automatisch een nieuwe aan
+  (nieuwe link en QR-code) en zegt dat in het venster. Een ouder die een oude link opent kan zelf niets
+  aanmaken en krijgt nog steeds "verlopen"; de beheerder opent het venster en deelt de nieuwe link.
+  Lukt het aanmaken niet (offline), dan verandert er niets en blijft de knop voor een nieuwe code.
+  Geen wijziging aan de Firebase-regels.
+
 ## v2.28.1
 
 - **Statistieken: afgemeld telt per speeldag.** Wie zich afmeldt voor twee wedstrijden die op dezelfde

@@ -3084,7 +3084,7 @@ async function showInviteModal(teamId) {
   }
 
   // Haal token op en zorg dat het ook in /invites/ staat
-  let info, token, inv = null;
+  let info, token, inv = null, autoNieuw = false;
   try {
     const infoSnap = await fbOnce(fbdb.ref('teams/' + tid + '/info'));
     info = infoSnap.val() || {};
@@ -3095,6 +3095,24 @@ async function showInviteModal(teamId) {
       inv = { teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() };
       await fbdb.ref('invites/' + token).set(inv);
     } else inv = invSnap.val();
+    // EEN VERLOPEN CODE VERVANGT ZICHZELF (Tim, 08-11-2026: "kan de app niet automatisch een nieuwe
+    // maken als die vervallen is?"). Dit venster is het moment waarop je een link deelt, dus hier
+    // zorgen we dat ze geldig is. Enkel voor een beheerder: de regels laten niemand anders een
+    // uitnodiging schrijven, en een ouder die een oude link opent kan dus niets aanmaken (die krijgt
+    // de melding "verlopen" en vraagt het aan jou). De oude code blijft in /invites staan, zodat zo'n
+    // ouder "verlopen" leest en niet "niet gevonden". Eerst de nieuwe uitnodiging wegschrijven en pas
+    // dan de ploeg erheen laten wijzen: mislukt het halverwege, dan blijft de oude toestand heel.
+    // Lukt het niet (offline), dan verandert er niets: het venster toont de verlopen code zoals
+    // voorheen, met de knop om zelf een nieuwe te maken.
+    if (isAdmin && currentUser && inv && inviteVerlopen(inv)) {
+      try {
+        const nieuwToken = genInviteToken();
+        const verse = { teamId: tid, createdBy: currentUser.uid, createdAt: Date.now() };
+        await fbdb.ref('invites/' + nieuwToken).set(verse);
+        await fbdb.ref('teams/' + tid + '/info/inviteToken').set(nieuwToken);
+        token = nieuwToken; inv = verse; autoNieuw = true;
+      } catch (e) { /* blijft verlopen tonen, zie hierboven */ }
+    }
   } catch (e) {
     showToast('Kon de uitnodiging niet laden (geen verbinding). Probeer het later opnieuw.', 'err');
     return;
@@ -3105,9 +3123,12 @@ async function showInviteModal(teamId) {
   // in de uitnodiging (oude ploegen) zeggen we niets: dan vervalt ze ook niet.
   const verlopenNu = inviteVerlopen(inv);
   const geldigTot = inviteGeldigTot(inv);
-  const geldigRegel = verlopenNu
+  const nieuwRegel = autoNieuw
+    ? `<p style="text-align:center;font-size:12px;color:var(--org2);font-weight:600;margin:0 0 6px">${icI(IC.warn)} De vorige code was verlopen, dus er is automatisch een nieuwe aangemaakt. Oude links werken niet meer: deel deze opnieuw.</p>`
+    : '';
+  const geldigRegel = nieuwRegel + (verlopenNu
     ? `<p style="text-align:center;font-size:12px;color:var(--org2);font-weight:600;margin:0 0 10px">${icI(IC.warn)} Deze uitnodiging is verlopen. Maak hieronder een nieuwe code aan.</p>`
-    : (geldigTot ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin:0 0 10px">Geldig tot <b>${esc(geldigTot)}</b>. Daarna maak je hieronder een nieuwe code aan.</p>` : '');
+    : (geldigTot ? `<p style="text-align:center;font-size:12px;color:var(--txt2);margin:0 0 10px">Geldig tot <b>${esc(geldigTot)}</b>. Daarna maakt de app zelf een nieuwe code aan zodra je dit venster opent.</p>` : ''));
 
   const joinUrl = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
   const shareText = 'Volg ' + teamName + ' via MatchDelegate. Open de link of gebruik code ' + token + '.';
