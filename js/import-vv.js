@@ -1045,7 +1045,7 @@ function vvVoorstelHtml() {
       ${(magUitslag && lz.gespeeld && uitslagTekst) ? `${vvChk('uitslag', `Uitslag <b>${esc(uitslagTekst)}</b> overnemen`, scorersTxt)}
       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">${icI(IC.timer)} ${kanMinuten
         ? 'De doelpunten en de kaarten komen op <b>de minuut van het blad</b> te staan. Zie hieronder bij de speelminuten.'
-        : 'Er komen <b>geen speelminuten</b> bij: niemand volgde de klok en het blad geeft er geen. De selectie, de doelpunten en de assists tellen wél mee.'}</p>`
+        : 'Er komen <b>geen speelminuten</b> bij: niemand volgde de klok en het blad geeft er geen. De selectie, de doelpunten en de assists tellen wél mee. Staat er bij een doelpunt of kaart een minuut, dan krijgt die die minuut; omdat het deel niet gekend is, staan ze in het verloop onder "Overig".'}</p>`
       : `<p style="font-size:13px;color:var(--txt2);margin:0">${magUitslag ? 'Er staat nog geen uitslag op de pagina.' : 'De uitslag van deze wedstrijd halen we hier niet op — zie hieronder.'}</p>`}
     </div>
 
@@ -1255,7 +1255,14 @@ function vvNeemOver() {
       const kw = kwartEigenKlok(gms);
       return kw ? { gameTimeMs: gms, quarterNum: kw } : {};
     }
-    if (!metKlok || !(Number(minuut) > 0)) return {};
+    if (!(Number(minuut) > 0)) return {};
+    // GEEN KLOK, WEL EEN MINUUT (v2.29.0, Tim 08-11-2026). Staan er geen wissels op het blad, dan kan de
+    // app geen speeltijd rekenen en zet ze dus ook geen klok — maar een doelpunt of kaart met een minuut
+    // erbij is daarmee niet minder bekend. Die minuut gaat mee als speeltijd van het event, zonder deel
+    // (quarterNum blijft leeg, want we weten niet in welk blok het viel). Het verloop toont ze dan als
+    // "12'" onder "Overig", op volgorde, in plaats van achteraan met een streepje. Er komt géén klok bij:
+    // getGameTimeMs blijft 0, dus de wedstrijd blijft "niet bijgehouden" en kan opnieuw ingelezen worden.
+    if (!metKlok) return { gameTimeMs: vvGameMs(minuut) };
     const gms = vvGameMs(minuut);
     return { gameTimeMs: gms, quarterNum: vvKwartVan(klok, gms) };
   };

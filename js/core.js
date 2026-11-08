@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.28.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.29.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4222,6 +4222,121 @@ function eventSpelerIds(m) {
   ((m && m.events) || []).forEach(e => EVENT_SPELER_VELDEN.forEach(v => { if (e && e[v]) uit.add(e[v]); }));
   return uit;
 }
+// ===================== EEN OUDERE KOPIE DIE TEVOORSCHIJN KOMT (v2.29.0) =====================
+// Tim, 08-11-2026: "als er een lokale kopie is die ouder is dan van de persoon die hem live bijhield en
+// die dan ineens tevoorschijn komt, kan hij dan niet gevraagd worden wat hij wil doen?"
+//
+// WAT ER VROEGER GEBEURDE. Heeft dit toestel een kopie met een NIEUWER tijdstip (`updatedAt`) dan wat
+// uit de cloud binnenkomt, dan won die kopie stil en werd ze teruggeduwd (zie het offline-vangnet in
+// applyCloudMatch). Dat klopt voor wie offline iets bijhield: de cloud loopt dan achter. Maar het
+// tijdstip zegt enkel wélke kopie het laatst bewaard werd, niet welke VERDER gevorderd is. Een kopie
+// die in de voorbereiding bleef staan en achteraf nog eens aangeraakt werd, heeft een nieuwer tijdstip
+// dan de wedstrijd die iemand anders live volgde — en kon die zo overschrijven of overstemmen.
+//
+// WANNEER WE NU VRAGEN. Enkel wanneer de lokale kopie nieuwer is ÉN de cloud verder gevorderd is op een
+// manier die niet samen te voegen valt (cloudVoorsprong): een hogere status (gepland → bezig → afgelopen)
+// of meer / afgesloten blokken (speeltijd). Wie zelf live bijhoudt of offline bijhield, is altijd de
+// verste, en krijgt dus nooit een vraag. Een bewuste terugname (opnieuw beginnen) ook niet:
+// _terugnameDektCloud herkent die.
+//
+// WAT DE STANDAARD IS. Tot je kiest, geldt de CLOUD-versie, met de gebeurtenissen die enkel hier staan
+// erbij (de gewone samenvoeging). Je lokale kopie gaat intussen in het geheugen opzij (_conflictLokaal),
+// zodat "mijn kopie bewaren" ze kan terugzetten. Sluit je het venster zonder te kiezen, dan blijft de
+// cloud-versie staan: dat is de kant waar niets verloren gaat dat iemand live bijhield.
+const STATUS_RANG = { planned: 0, live: 1, done: 2 };
+function cloudVoorsprong(lokaal, cloud) {
+  const uit = [];
+  const rang = s => STATUS_RANG[s] ?? 0;
+  if (rang(cloud.status) > rang(lokaal.status)) uit.push('status');
+  const qL = Array.isArray(lokaal.quarters) ? lokaal.quarters : [];
+  const qC = Array.isArray(cloud.quarters) ? cloud.quarters : [];
+  const afgesloten = (lijst, num) => { const q = lijst.find(x => x && x.num === num); return !!(q && q.endTime); };
+  if (qC.length > qL.length || qC.some(q => q && q.endTime && !afgesloten(qL, q.num))) uit.push('klok');
+  return uit;
+}
+const _conflictLokaal = new Map();   // matchId -> kopie van dit toestel, vóór de cloud erover ging
+const _conflictCloud = new Map();    // matchId -> wat er uit de cloud kwam
+const _conflictGezien = new Set();   // matchId|cloudStempel: niet twee keer vragen over dezelfde cloudversie
+// Eén zin over een versie van de wedstrijd, in gebruikerstaal.
+function conflictSamenvatting(x) {
+  const delen = [];
+  delen.push(x.status === 'done' ? 'afgelopen' : x.status === 'live' ? 'bezig' : 'gepland');
+  if (typeof heeftPlekkenOpHetVeld === 'function' && heeftPlekkenOpHetVeld(x)) delen.push('startopstelling ingevuld');
+  else if ((x.players || []).length) delen.push('selectie ingevuld');
+  const heeftUitslag = x.status === 'done' && !x.geenUitslag;
+  if (heeftUitslag) {
+    const thuis = (typeof isAway === 'function' && isAway(x)) ? `${x.scoreThem || 0}-${x.scoreUs || 0}` : `${x.scoreUs || 0}-${x.scoreThem || 0}`;
+    delen.push('uitslag ' + thuis);
+  }
+  const q = Array.isArray(x.quarters) ? x.quarters : [];
+  const gespeeld = q.filter(z => z && z.endTime).length;
+  delen.push(q.length ? `speeltijd bijgehouden (${gespeeld} ${gespeeld === 1 ? 'deel' : 'delen'} afgesloten)` : 'speeltijd niet bijgehouden');
+  const n = (Array.isArray(x.events) ? x.events : []).length;
+  delen.push(`${n} gebeurtenis${n === 1 ? '' : 'sen'}`);
+  const wanneer = x.updatedAt ? new Date(x.updatedAt).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  if (wanneer) delen.push(`laatst bewerkt ${wanneer}${x.updatedByNaam ? ' door ' + x.updatedByNaam : ''}`);
+  return delen.join(' · ');
+}
+// Het venster. Staat er al een ander venster open (je zit midden in iets), dan wachten we: een
+// formulier dat je aan het invullen bent, mag hier niet door verdwijnen.
+function conflictVraag(id, poging) {
+  const lokaal = _conflictLokaal.get(id), cloud = _conflictCloud.get(id);
+  if (!lokaal || !cloud) return;
+  const modal = document.getElementById('modal');
+  const bezet = !modal || !modal.classList.contains('hidden');
+  if (bezet) { if ((poging || 0) < 40) setTimeout(() => conflictVraag(id, (poging || 0) + 1), 3000); return; }
+  const titel = esc(lokaal.opponent || cloud.opponent || 'deze wedstrijd') + (lokaal.date ? ' (' + esc(lokaal.date.split('-').reverse().join('/')) + ')' : '');
+  openModal(`<h3>${icI(IC.warn)} Twee versies van een wedstrijd</h3>
+    <p style="font-size:14px;color:var(--txt2);margin-bottom:12px">Voor <b>${titel}</b> is de versie op dit toestel later bewerkt, maar de cloud is verder gevorderd.</p>
+    <div class="card" style="margin-bottom:8px"><b>In de cloud</b><br><span style="font-size:13px;color:var(--txt2)">${esc(conflictSamenvatting(cloud))}</span></div>
+    <div class="card" style="margin-bottom:12px"><b>Op dit toestel</b><br><span style="font-size:13px;color:var(--txt2)">${esc(conflictSamenvatting(lokaal))}</span></div>
+    <button class="btn btn-green" onclick="conflictKies('${id}','cloud')">${icI(IC.check)} De cloud-versie houden (aanbevolen)</button>
+    <p style="font-size:12px;color:var(--txt2);margin:4px 0 12px">Dat is wat nu al geldt. Gebeurtenissen die enkel op dit toestel staan, blijven erbij.</p>
+    <button class="btn btn-red" onclick="conflictKies('${id}','vraag')">Mijn versie van dit toestel bewaren…</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="conflictKies('${id}','later')">Later beslissen</button>`);
+}
+function conflictKies(id, keuze) {
+  if (keuze === 'later') { closeModal(); return; }   // de cloud-versie blijft intussen staan
+  if (keuze === 'cloud') {
+    _conflictLokaal.delete(id); _conflictCloud.delete(id);
+    closeModal(); showToast('De cloud-versie blijft staan.', 'ok'); return;
+  }
+  const lokaal = _conflictLokaal.get(id), cloud = _conflictCloud.get(id);
+  if (!lokaal || !cloud) { closeModal(); return; }
+  if (keuze === 'vraag') {
+    // Tweede stap, met de gevolgen erbij: dit is niet terug te draaien.
+    const weg = [];
+    if (cloud.status !== lokaal.status) weg.push('de status ("' + (cloud.status === 'done' ? 'afgelopen' : cloud.status === 'live' ? 'bezig' : 'gepland') + '")');
+    if ((cloud.quarters || []).length > (lokaal.quarters || []).length) weg.push('de bijgehouden speeltijd en de delen van de cloud-versie');
+    openModal(`<h3>${icI(IC.warn)} Je versie bewaren?</h3>
+      <p style="font-size:14px;color:var(--txt2);margin-bottom:10px">Jouw kopie wordt naar de cloud gestuurd en <b>vervangt</b> wat daar staat, voor alle toestellen.</p>
+      <div class="nudge" style="margin-bottom:12px">${icI(IC.warn)} <b>Bestaande gegevens gaan verloren</b>${weg.length ? ': ' + esc(weg.join(', ')) : ''}. Wie de wedstrijd live bijhield, ziet zijn gegevens verdwijnen. Dit kan je niet ongedaan maken.</div>
+      <button class="btn btn-red" onclick="conflictKies('${id}','lokaal')">Ja, mijn versie vervangt de cloud</button>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="conflictVraag('${id}')">Terug</button>`);
+    return;
+  }
+  if (keuze === 'lokaal') {
+    (async () => {
+      try {
+        if (!isAdmin) { showToast('Enkel een ploegbeheerder kan dit.', 'err'); closeModal(); return; }
+        // De versie van dit toestel zoals ze was, vóór de cloud erover ging. Nieuw tijdstip: dit is nu
+        // het laatste woord, ook voor wie de oude cloud-versie nog op zijn toestel heeft staan.
+        const k = jclone(lokaal);
+        k.updatedAt = Date.now();
+        if (typeof currentUser !== 'undefined' && currentUser) { k.updatedBy = currentUser.uid; if (currentUser.displayName) k.updatedByNaam = currentUser.displayName; }
+        await dbPutLocal(k);
+        const r = teamRef('matches/' + id);
+        // Rechtstreeks schrijven: het voorzichtige pad (_cloudMatchSchrijfVoorzichtig) weigert een kopie
+        // zonder blokken over een cloud mét blokken, en dat is hier net wat je bewust gekozen hebt.
+        if (r) _cloudMatchSchrijf(r, k);
+        if (typeof match !== 'undefined' && match && match.id === id) match = k;
+        _conflictLokaal.delete(id); _conflictCloud.delete(id);
+        closeModal(); cloudRefreshUI();
+        showToast('Jouw versie staat nu in de cloud.', 'ok');
+      } catch (e) { showToast('Bewaren mislukt, probeer opnieuw.', 'err'); }
+    })();
+  }
+}
 async function applyCloudMatch(id, m) {
   if (!db || !m) return;
   m.id = id; m.fromCloud = true;
@@ -4245,6 +4360,22 @@ async function applyCloudMatch(id, m) {
     return;
   }
   const existing = await dbGet(id);
+  // EEN NIEUWERE LOKALE KOPIE DIE ACHTER STAAT OP DE CLOUD? Dan vragen we wat je wil (zie het blok
+  // "Een oudere kopie die tevoorschijn komt" hierboven) en geldt tot dan de cloud-versie: het
+  // offline-vangnet hieronder slaat dit geval over. Enkel voor een beheerder, en één keer per cloudversie.
+  let conflictVoorsprong = [];
+  if (existing && isAdmin && (existing.updatedAt || 0) > (m.updatedAt || 0) && !_terugnameDektCloud(existing, m)) {
+    conflictVoorsprong = cloudVoorsprong(existing, m);
+    if (conflictVoorsprong.length) {
+      const sleutel = id + '|' + (m.updatedAt || 0);
+      if (!_conflictGezien.has(sleutel)) {
+        _conflictGezien.add(sleutel);
+        _conflictLokaal.set(id, jclone(existing));
+        _conflictCloud.set(id, jclone(m));
+        setTimeout(() => conflictVraag(id), 0);
+      }
+    }
+  }
   // Offline-vangnet: is de lokale versie recenter bewerkt dan wat de cloud heeft
   // (bv. wedstrijd offline afgewerkt en app afgesloten vóór de sync kon gebeuren)?
   // Dan lokaal behouden en opnieuw pushen i.p.v. overschrijven met de oude cloud-versie.
@@ -4271,7 +4402,7 @@ async function applyCloudMatch(id, m) {
   // elkaar en geen einde in zicht. Hier overslaan breekt de lus bij de wortel; de gewone samenvoeging
   // hieronder kent de grafstenen en handelt een echte terugname correct af.
   const lokaalZonderBlokken = !!existing && !((existing.quarters || []).length) && !!((m.quarters || []).length);
-  if (existing && isAdmin && !lokaalZonderBlokken && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
+  if (existing && isAdmin && !lokaalZonderBlokken && !conflictVoorsprong.length && (existing.updatedAt || 0) > (m.updatedAt || 0)) {
     if (!Array.isArray(existing.events)) existing.events = [];
     // Tombstones van beide kanten verenigen, net als bij de gewone merge hieronder. De vergelijking
     // gaat over de VERZAMELING en niet over de lijstlengte: een dubbel merkje in de lijst zou anders

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.29.0
+
+- **Wedstrijdblad inlezen: goals en kaarten krijgen hun minuut, ook zonder wissels.** Staan er geen
+  wissels op het blad, dan kan de app geen speeltijd rekenen en zet ze geen klok. Een doelpunt of kaart
+  met een minuut erbij kreeg dan toch geen tijd en kwam achteraan met een streepje. Nu krijgt het event
+  zijn minuut en staat het op volgorde in het verloop, onder *Overig* (het deel is niet gekend). Er komt
+  geen klok bij: de wedstrijd blijft "niet bijgehouden" en kan opnieuw ingelezen worden. Startopstelling
+  en selectie blijven ongewijzigd. Kaarten die eerder zonder minuut werden ingelezen, worden niet
+  bijgewerkt.
+- **Een nieuwere lokale kopie die achterloopt op de cloud: eerst vragen.** Heeft dit toestel een kopie
+  met een nieuwer tijdstip, maar is de cloud verder gevorderd (hogere status, of meer afgesloten delen),
+  dan vraagt de app wat je wil: de cloud-versie houden (aanbevolen) of je eigen kopie bewaren, waarna je
+  nog eens bevestigt dat bestaande gegevens verloren gaan. Tot je kiest geldt de cloud-versie. Wie zelf
+  live of offline bijhield krijgt geen vraag.
+
 ## v2.28.2
 
 - **Uitnodigingscode: een verlopen code vervangt zichzelf.** Een uitnodiging geldt 60 dagen. Opent een
