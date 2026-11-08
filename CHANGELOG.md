@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.30.0
+
+- **Kijker uit de ploeg halen: blokkeren of enkel verwijderen.** "Verwijderen" in de ledenlijst vraagt nu wat je wil. *Blokkeren* werkt als voorheen: hij staat bij de geweerde leden en kan zich niet meer aansluiten tot je hem toelaat. *Enkel verwijderen* haalt hem uit de ploeg zonder blokkade, zodat hij zich met een uitnodiging opnieuw kan aansluiten. De Firebase-regels zijn ongewijzigd. In de lijst van geweerde leden staat nu "geblokkeerd op".
+- **Geen valse "klok loopt nog"-melding meer.** De melding op het beginscherm steunde enkel op de kopie op dit toestel, die kan achterlopen op een wedstrijd die een ander toestel afsloot. Ze kijkt nu eerst in de cloud: staat de wedstrijd daar afgesloten of loopt de klok niet, dan geen melding. Offline of bij een time-out blijft de melding staan.
+
+---
 ## v2.29.0
 
 - **Wedstrijdblad inlezen: goals en kaarten krijgen hun minuut, ook zonder wissels.** Staan er geen

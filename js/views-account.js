@@ -3336,7 +3336,7 @@ async function showMembersModal() {
       const naam = naamRuw || 'Zonder naam';
       const wanneer = r.at ? new Date(r.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       return `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email + ' ' + kenmerk).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;opacity:.75">
-        <div><b>${esc(naam)}</b>${naamRuw ? '' : ` <small style="color:var(--txt2);font-weight:400;font-family:monospace">${esc(kenmerk)}</small>`}${email ? `<br><small style="color:var(--txt2)">${esc(email)}</small>` : ''}${wanneer ? `<br><small style="color:var(--txt2)">verwijderd op ${esc(wanneer)}</small>` : ''}</div>
+        <div><b>${esc(naam)}</b>${naamRuw ? '' : ` <small style="color:var(--txt2);font-weight:400;font-family:monospace">${esc(kenmerk)}</small>`}${email ? `<br><small style="color:var(--txt2)">${esc(email)}</small>` : ''}${wanneer ? `<br><small style="color:var(--txt2)">geblokkeerd op ${esc(wanneer)}</small>` : ''}</div>
         <div style="display:flex;gap:6px"><button class="btn btn-pale btn-sm" onclick="herstelToegang('${uid}')">Toegang herstellen</button></div>
       </div>`;
     });
@@ -3602,24 +3602,66 @@ async function matchZetKijkerBlok(id, uid, blokkeren) {
   render();              // het oogje in de kopregel mee laten kleuren; de modal staat in een eigen laag
   modalWieZietWedstrijd(id);
 }
-async function removeMember(uid) {
+// TWEE MANIEREN OM IEMAND UIT DE PLOEG TE HALEN (Tim, 08-11-2026): "permanent blokkeren" (hij staat dan
+// in `removed` en kan zichzelf niet meer toevoegen tot je hem toelaat — het gedrag van voor deze wijziging)
+// of "enkel verwijderen" (geen blokkade: hij verliest zijn plaats nu, maar kan zich met een uitnodiging
+// gewoon opnieuw aansluiten). De regels blijven ongewijzigd: het verschil zit enkel in het wel of niet
+// schrijven van `removed/<uid>`.
+function removeMember(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
-  showConfirm('Ben je zeker dat je deze kijker wil verwijderen? Ze verliezen toegang tot de ploeg en kunnen zichzelf niet opnieuw toevoegen met een oude uitnodigingslink.', async () => {
-    try {
-      // Naam en e-mail eerst lezen: memberInfo gaat hieronder weg, en zonder die gegevens staat er
-      // straks een kale gebruikerscode in de lijst van geweerde leden.
-      let naam = '', email = '';
-      try { const mi = (await fbOnce(fbdb.ref('memberInfo/' + activeTeamId + '/' + uid))).val() || {};
-        naam = mi.name || ''; email = mi.email || ''; } catch (e) {}
-      await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
-      // De blokkade zetten NA het verwijderen van het lidmaatschap: de rule op `removed` eist geen
-      // lidmaatschap, maar zo is de volgorde ook logisch als er iets halverwege misloopt.
-      await fbdb.ref('teams/' + activeTeamId + '/removed/' + uid).set({ name: naam, email: email, at: Date.now() });
-      await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
-      fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
-      showMembersModal();
-    } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
-  }, 'Verwijderen');
+  openModal(`<h3>${icI(IC.warn)} Deze kijker uit de ploeg halen</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:14px">Kies wat je wil:</p>
+    <button class="btn btn-red" onclick="closeModal();removeMemberDoe('${uid}',true)">Blokkeren</button>
+    <p style="font-size:12px;color:var(--txt2);margin:4px 0 12px">Hij verliest de toegang en kan zich niet meer aansluiten, ook niet met een uitnodiging. Je moet hem later zelf weer toelaten.</p>
+    <button class="btn btn-orgpale" onclick="closeModal();removeMemberDoe('${uid}',false)">Enkel verwijderen</button>
+    <p style="font-size:12px;color:var(--txt2);margin:4px 0 12px">Hij verliest de toegang nu, maar kan zich opnieuw aansluiten met een uitnodiging.</p>
+    <button class="btn btn-gray" onclick="closeModal()">Annuleren</button>`);
+}
+// Staat deze wedstrijd in de CLOUD nog live met een lopende klok? true bij twijfel (offline, fout,
+// time-out, wedstrijd niet gevonden): dan blijft de melding staan. Resultaat 60 s onthouden, want het
+// beginscherm tekent vaak opnieuw.
+const _cloudKlokCache = new Map();
+async function cloudKlokLoopt(m) {
+  const c = _cloudKlokCache.get(m.id);
+  if (c && Date.now() - c.t < 60000) return c.v;
+  let v = true;
+  try {
+    const r = teamRef('matches/' + m.id);
+    if (r) {
+      const [st, qs] = await Promise.all([fbOnce(r.child('status')), fbOnce(r.child('quarters'))]);
+      const status = st.val();
+      if (status !== null && status !== undefined) {
+        if (status !== 'live') v = false;
+        else {
+          const q = qs.val();
+          const lijst = Array.isArray(q) ? q.filter(Boolean) : (q && typeof q === 'object' ? Object.values(q) : []);
+          lijst.sort((a, b) => (a.num || 0) - (b.num || 0));
+          const l = lijst[lijst.length - 1];
+          // Geen blokken, of het laatste is gepauzeerd/afgesloten: er loopt daar niets.
+          if (!l || !l.startTime || l.pausedAt || l.endTime) v = false;
+        }
+      }
+    }
+  } catch (e) { v = true; }
+  _cloudKlokCache.set(m.id, { t: Date.now(), v });
+  return v;
+}
+async function removeMemberDoe(uid, blokkeren) {
+  if (!isAdmin || !activeTeamId || !fbdb) return;
+  try {
+    // Naam en e-mail eerst lezen: memberInfo gaat hieronder weg, en zonder die gegevens staat er
+    // straks een kale gebruikerscode in de lijst van geweerde leden.
+    let naam = '', email = '';
+    try { const mi = (await fbOnce(fbdb.ref('memberInfo/' + activeTeamId + '/' + uid))).val() || {};
+      naam = mi.name || ''; email = mi.email || ''; } catch (e) {}
+    await fbdb.ref('teams/' + activeTeamId + '/members/' + uid).remove();
+    // De blokkade zetten NA het verwijderen van het lidmaatschap: de rule op `removed` eist geen
+    // lidmaatschap, maar zo is de volgorde ook logisch als er iets halverwege misloopt.
+    if (blokkeren) await fbdb.ref('teams/' + activeTeamId + '/removed/' + uid).set({ name: naam, email: email, at: Date.now() });
+    await fbdb.ref('memberInfo/' + activeTeamId + '/' + uid).remove();
+    fbdb.ref('users/' + uid + '/teams/' + activeTeamId).remove().catch(() => {});
+    showMembersModal();
+  } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
 }
 // De blokkade weer opheffen. Hij wordt géén lid: hij mag zichzelf weer toevoegen met een geldige
 // uitnodiging, of jij nodigt hem opnieuw uit. Zo blijft "toelaten" en "lid maken" uit elkaar.
@@ -6853,7 +6895,17 @@ async function loadHome() {
   // vastzittende wedstrijd vindbaar maken. Je moest dan al ín die wedstrijd zitten om het te zien.
   const eigenPloeg = m => homeFilter === 'all' || m.teamName === homeFilter;
   const klokAbsurd = m => typeof absurdeKlokMs === 'function' && absurdeKlokMs(m) > 0;
-  const forgotten = canLive() ? all.filter(m => looksForgotten(m) && (eigenPloeg(m) || klokAbsurd(m))) : [];
+  let forgotten = canLive() ? all.filter(m => looksForgotten(m) && (eigenPloeg(m) || klokAbsurd(m))) : [];
+  // DE MELDING MAG ENKEL OP EEN LOKALE KOPIE STEUNEN ALS DE CLOUD HET BEVESTIGT (Tim, 08-11-2026: de
+  // melding zei dat de klok van een wedstrijd van een andere ploeg nog liep, maar bij het openen stond
+  // ze afgesloten). Dit scherm las enkel de kopie op dit toestel; die kan achterlopen op wat een ander
+  // toestel afsloot. Daarom eerst de status en de blokken in de cloud nakijken; staat de wedstrijd daar
+  // afgesloten of loopt haar klok niet, dan geen melding. Zonder verbinding (of bij een time-out) blijft
+  // de melding staan: liever een overbodige dan een gemiste tikkende klok.
+  if (forgotten.length && cloudReady && activeTeamId) {
+    const nogLopend = await Promise.all(forgotten.map(m => cloudKlokLoopt(m)));
+    forgotten = forgotten.filter((m, i) => nogLopend[i]);
+  }
   // Live maar de klok staat stil: geen vertekende minuten, wel een wedstrijd die nog afgewerkt of
   // gedeblokkeerd moet worden (zie vastgelopenLive in live-match.js). Andere tekst, want "de klok
   // loopt door" zou hier gewoon niet waar zijn.
