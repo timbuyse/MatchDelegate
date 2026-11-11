@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.1
+
+- **Vandaag-scherm: een dag met enkel niet afgesloten wedstrijden toont ze nu.** Staan er op een dag alleen wedstrijden die nooit afgesloten werden, dan zei het scherm "er stond niets op het programma" en bleef de lijst met niet afgesloten wedstrijden onzichtbaar. De controle of een dag leeg is, telt die wedstrijden nu mee.
+
+---
+
 ## v2.31.0
 
 - **Vorige opstelling terugzetten.** Overschreef je de opstelling of selectie van een geplande wedstrijd, dan kon je de oude niet terughalen. Nu bewaart de app bij elke wijziging vóór de aftrap de vorige versie (selectie, plekken, plan per deel, geplande wissels, formatie). Onder **Bewerken** staat dan "Vorige opstelling terugzetten"; terugzetten wisselt de twee, dus je kan heen en weer. Het zit in `dbSave`, dus het dekt de wizard, de planner en het PSD-blad. Wijzigingen kort na elkaar (binnen 30 minuten) behouden de oorspronkelijke versie, en een naam of rugnummer wijzigen maakt geen nieuwe versie. Enkel vóór de aftrap. Het is één optioneel veld op de wedstrijd (`vorigeOpstelling`): bestaande wedstrijden en oudere app-versies blijven ongewijzigd leesbaar.

@@ -4468,7 +4468,10 @@ function speeldagVolledigHtml() {
     : '';
   const g = speeldagVerdeling();
   const bij = speeldagClubbreed() ? 'je club' : 'je ploegen';
-  if (!g.bezig.length && !g.gespeeld.length && !g.komt.length) {
+  // OOK NIET-AFGESLOTEN TELT MEE (Tim, 11-11-2026: "als er op een dag enkel niet afgesloten wedstrijden
+  // staan, dan worden ze niet getoond"). Die vierde hoopje werd onderaan wél getekend, maar deze
+  // controle zei al eerder "er staat niets" zodra de andere drie leeg waren.
+  if (!g.bezig.length && !g.gespeeld.length && !g.komt.length && !g.nietAf.length) {
     const wanneer = _speeldagDag ? `Op ${speeldagDagTekst(_speeldagDag)} stond er niets` : 'Vandaag staat er niets';
     return mislukteRegel + `<div class="empty"><div class="ei">${IC.ball}</div><p>${esc(wanneer)} op het programma bij ${bij}.</p></div>`;
   }
