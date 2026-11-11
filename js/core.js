@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.30.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2184,11 +2184,91 @@ function dbSave(m, opt) {
     const _naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
     if (_naam) m.updatedByNaam = _naam;
   }
-  return new Promise((res, rej) => {
+  const schrijf = () => new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').put(m);
     r.onsuccess = () => { cloudOnLocalMatchSave(m); res(); };
     r.onerror = e => rej(e.target.error);
   });
+  // VÓÓR DE AFTRAP EERST DE VORIGE OPSTELLING BEWAREN (Tim, 11-11-2026: "ik heb net een opstelling
+  // ingevuld maar er stond er al een in, en ik wil die terughalen"). Enkel voor een geplande wedstrijd
+  // zonder blokken of gebeurtenissen: eens er gespeeld wordt, hangen minuten aan de spelers en is een
+  // eenvoudige terugzetting niet meer veilig. Elke andere bewaring loopt zoals altijd meteen door.
+  const wacht = !(opt && opt.zonderVorige) && (m.status || 'planned') === 'planned'
+    && !(m.quarters || []).length && !(m.events || []).length;
+  if (!wacht) return schrijf();
+  return _bewaarVorigeOpstelling(m).catch(() => {}).then(schrijf);
+}
+// ---- Vorige opstelling terugzetten (v2.31.0) ----
+// `m.vorigeOpstelling = { at, laatst, door, data }` — ÉÉN vorige versie, optioneel veld: oudere
+// wedstrijden en oudere app-versies hebben het niet en lezen het niet. `data` is de selectie en de
+// opstelling zoals ze waren (spelers met hun plekken, plan per deel, geplande wissels, formatie).
+// Het zit in dbSave zodat elke weg ernaartoe gedekt is: de wizard, de planner, het PSD-blad en de
+// import. Wijzigingen kort na elkaar (de planner bewaart per deel tussentijds) behouden de OORSPRONKELIJKE
+// versie van voor die bewerking, anders zou je enkel het tussenstapje kunnen terugzetten.
+const OPST_VORIGE_VENSTER_MS = 30 * 60000;
+function _opstellingSnap(m) {
+  const c = {
+    players: jclone(m.players || []),
+    formation: m.formation || null,
+    captainId: m.captainId || null,
+    lineupPending: !!m.lineupPending,
+    absentPlayers: jclone(m.absentPlayers || []),
+  };
+  ['plannedLineups', 'plannedSubs', 'plannedPosSwaps'].forEach(k => { c[k] = m[k] ? jclone(m[k]) : null; });
+  return c;
+}
+// Enkel wat bij de opstelling hoort telt: een naam of rugnummer wijzigen maakt geen nieuwe versie.
+function _opstellingSig(c) {
+  const plek = v => (v === undefined || v === null ? null : v);
+  return JSON.stringify([
+    (c.players || []).map(p => [p.id, !!p.starting, plek(p.x), plek(p.y), p.posCodeVeld || '']).sort(),
+    c.formation, c.plannedLineups, c.plannedSubs, c.plannedPosSwaps,
+  ]);
+}
+async function _bewaarVorigeOpstelling(m) {
+  const oud = await dbGet(m.id);
+  if (!oud || (oud.status || 'planned') !== 'planned') return;
+  const oudSnap = _opstellingSnap(oud);
+  if (!oudSnap.players.length) return;          // eerste keer invullen: er valt niets terug te zetten
+  if (_opstellingSig(oudSnap) === _opstellingSig(_opstellingSnap(m))) return;
+  const nu = Date.now();
+  const v = m.vorigeOpstelling || oud.vorigeOpstelling;
+  if (v && v.data && v.laatst && nu - v.laatst < OPST_VORIGE_VENSTER_MS) {
+    m.vorigeOpstelling = Object.assign({}, v, { laatst: nu });
+  } else {
+    const naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+    m.vorigeOpstelling = { at: nu, laatst: nu, door: naam, data: oudSnap };
+  }
+}
+function vorigeOpstellingBeschikbaar(m) {
+  return !!(m && m.vorigeOpstelling && m.vorigeOpstelling.data && (m.status || 'planned') === 'planned'
+    && !(m.quarters || []).length && !(m.events || []).length);
+}
+function bevestigVorigeOpstelling() {
+  const v = match && match.vorigeOpstelling; if (!v) return;
+  const wanneer = new Date(v.at).toLocaleString('nl-BE', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  showConfirm(`De opstelling en selectie van vóór ${wanneer}${v.door ? ' (aangepast door ' + v.door + ')' : ''} terugzetten? De opstelling die er nu staat wordt de "vorige" — je kan dus weer wisselen.`,
+    herstelVorigeOpstelling, 'Terugzetten');
+}
+async function herstelVorigeOpstelling() {
+  const m = match;
+  if (!m || !canManage()) return;
+  if (!vorigeOpstellingBeschikbaar(m)) { showToast('Er is geen vorige opstelling om terug te zetten.', 'err'); return; }
+  const d = m.vorigeOpstelling.data;
+  const nu = _opstellingSnap(m);
+  m.players = jclone(d.players);
+  if (d.formation) m.formation = d.formation;
+  m.captainId = d.captainId || null;
+  m.absentPlayers = jclone(d.absentPlayers || []);
+  if (d.lineupPending) m.lineupPending = true; else delete m.lineupPending;
+  ['plannedLineups', 'plannedSubs', 'plannedPosSwaps'].forEach(k => { if (d[k]) m[k] = jclone(d[k]); else delete m[k]; });
+  // Wisselen: de opstelling die je net verving wordt de "vorige". `laatst: 0` zodat een volgende
+  // wijziging een nieuwe versie maakt in plaats van deze samen te voegen.
+  const naam = ((typeof currentUser !== 'undefined' && currentUser && currentUser.displayName) || '').trim();
+  m.vorigeOpstelling = { at: Date.now(), laatst: 0, door: naam, data: nu };
+  await dbSave(m, { zonderVorige: true });
+  closeModal(); render();
+  showToast('Vorige opstelling teruggezet.', 'ok');
 }
 function dbDel(id) {
   return new Promise((res, rej) => {

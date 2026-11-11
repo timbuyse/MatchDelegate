@@ -2082,6 +2082,8 @@ function modalEditMatchMenu() {
       ? 'Geef eerst de selectie in.'
       : 'Zet de spelers op het veld — dat moet nog gebeuren.',
       'startOpstellingWizard()', !heeftSel)}
+    ${/* Alleen vóór de aftrap en enkel als er iets te herstellen valt (core.js, bij dbSave). */ ''}
+    ${vorigeOpstellingBeschikbaar(m) ? item(IC.history, 'Vorige opstelling terugzetten', 'De selectie en opstelling van vóór de laatste wijziging komen terug. De huidige wordt dan de "vorige".', 'bevestigVorigeOpstelling()') : ''}
     ${item(IC.edit, 'Namen, nummers &amp; notities', heeftSel
       ? 'Enkel voor deze wedstrijd: naam, rugnummer, kapitein en een notitie per speler.'
       : 'Geef eerst de selectie in.', 'modalEditPlayers()', !heeftSel)}

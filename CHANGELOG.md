@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.0
+
+- **Vorige opstelling terugzetten.** Overschreef je de opstelling of selectie van een geplande wedstrijd, dan kon je de oude niet terughalen. Nu bewaart de app bij elke wijziging vóór de aftrap de vorige versie (selectie, plekken, plan per deel, geplande wissels, formatie). Onder **Bewerken** staat dan "Vorige opstelling terugzetten"; terugzetten wisselt de twee, dus je kan heen en weer. Het zit in `dbSave`, dus het dekt de wizard, de planner en het PSD-blad. Wijzigingen kort na elkaar (binnen 30 minuten) behouden de oorspronkelijke versie, en een naam of rugnummer wijzigen maakt geen nieuwe versie. Enkel vóór de aftrap. Het is één optioneel veld op de wedstrijd (`vorigeOpstelling`): bestaande wedstrijden en oudere app-versies blijven ongewijzigd leesbaar.
+
+---
+
 ## v2.30.0
 
 - **Kijker uit de ploeg halen: blokkeren of enkel verwijderen.** "Verwijderen" in de ledenlijst vraagt nu wat je wil. *Blokkeren* werkt als voorheen: hij staat bij de geweerde leden en kan zich niet meer aansluiten tot je hem toelaat. *Enkel verwijderen* haalt hem uit de ploeg zonder blokkade, zodat hij zich met een uitnodiging opnieuw kan aansluiten. De Firebase-regels zijn ongewijzigd. In de lijst van geweerde leden staat nu "geblokkeerd op".
