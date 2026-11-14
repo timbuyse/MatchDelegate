@@ -1185,7 +1185,7 @@ function tournamentReportData(t, matches) {
   const getp = (rosterId, name, number) => {
     const k = rosterId ? 'r:' + rosterId : 'n:' + (name || '').trim().toLowerCase();
     if (!pl[k]) pl[k] = { name: name || '', number: number || '', rosterId: rosterId || null,
-      squad: 0, timed: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
+      squad: 0, timed: 0, fMs: 0, fTimed: 0, mp: 0, ms: 0, goals: 0, assists: 0, yc: 0, rc: 0, keeperMp: 0, keeperMs: 0, cs: 0, notPresent: 0 };
     const r = pl[k];
     if (!r.number && number) r.number = number;
     return r;
@@ -1218,6 +1218,9 @@ function tournamentReportData(t, matches) {
       if (gemeten) r.timed++;
       const ms = mins[p.id] ? mins[p.id].ms : 0;
       r.ms += ms;
+      // Vertrokken telt niet mee voor fair play (Tim, 14-11-2026) — zelfde regel als in de
+      // statistieken: de minuten blijven staan, enkel het gemiddelde per selectie slaat die wedstrijd over.
+      if (gemeten && !isVertrokken(m, p.id)) { r.fTimed++; r.fMs += ms; }
       if (ms > 0) r.mp++;
       const wasKeeper = (m.keeperByQ && Object.keys(m.keeperByQ).length) ? wasKeeperAtAll(m, p.id) : p.line === 'Doel';
       if (ms > 0 && wasKeeper) {
@@ -1315,7 +1318,7 @@ async function loadTournamentReport() {
   // Fair-play rekent per wedstrijd waarin er tijd geregistreerd is (timed), niet per selectie:
   // een "Snel resultaat" heeft geen speelminuten en zou het gemiddelde van iedereen omlaag halen.
   // Wie enkel zulke wedstrijden had, kan hier dus niet in staan — er is niets om te vergelijken.
-  const fair = played.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
+  const fair = played.filter(p => p.fTimed > 0).sort((a, b) => (a.fMs / a.fTimed) - (b.fMs / b.fTimed));
   const scorers = r.players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
   const assisters = r.players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists);
   const carded = r.players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
@@ -1379,7 +1382,7 @@ async function loadTournamentReport() {
       // Iedereen die in de selectie zat, ook wie enkel wedstrijden zonder geregistreerde tijd had
       // ("Snel resultaat"): die heeft geen gemiddelde per selectie, maar hoort wel in de lijst.
       const lijst = played.slice().sort(toonFair
-        ? (a, b) => (a.timed ? a.ms / a.timed : Infinity) - (b.timed ? b.ms / b.timed : Infinity)
+        ? (a, b) => (a.fTimed ? a.fMs / a.fTimed : Infinity) - (b.fTimed ? b.fMs / b.fTimed : Infinity)
         : (a, b) => b.ms - a.ms);
       if (!lijst.length) return sec(`${icI(IC.timer)} Speeltijd over de dag`, '<p style="color:var(--txt2);font-size:14px">—</p>');
       const uitleg = `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">${toonFair
@@ -1389,8 +1392,8 @@ async function loadTournamentReport() {
         const bits = [`${p.mp} van ${p.squad} gespeeld`];
         if (p.notPresent) bits.push(`${p.notPresent}× niet aanwezig`);
         if (toonMin && p.mp) bits.push(`gem. ${mn(p.ms / p.mp)}'/gespeelde match`);
-        if (toonFair && p.timed) bits.push(`gem. ${mn(p.ms / p.timed)}'/selectie`);
-        const rechts = toonMin ? `${mn(p.ms)}'` : (p.timed ? `${mn(p.ms / p.timed)}'` : '–');
+        if (toonFair && p.fTimed) bits.push(`gem. ${mn(p.fMs / p.fTimed)}'/selectie`);
+        const rechts = toonMin ? `${mn(p.ms)}'` : (p.fTimed ? `${mn(p.fMs / p.fTimed)}'` : '–');
         return row(esc(p.name) + `<small style="color:var(--txt2);display:block">${bits.join(' · ')}</small>`, '', rechts);
       }).join('');
       return sec(`${icI(IC.timer)} Speeltijd over de dag`, uitleg + rijen);
@@ -1568,7 +1571,7 @@ async function exportTournamentPDF() {
     // fair-play-lijst); anders de langste totale speeltijd eerst. Wie enkel wedstrijden zonder
     // geregistreerde tijd had ("Snel resultaat") heeft geen gemiddelde en komt achteraan.
     const rijen = played.slice().sort(toonFair
-      ? (a, b) => (a.timed ? a.ms / a.timed : Infinity) - (b.timed ? b.ms / b.timed : Infinity)
+      ? (a, b) => (a.fTimed ? a.fMs / a.fTimed : Infinity) - (b.fTimed ? b.fMs / b.fTimed : Infinity)
       : (a, b) => b.ms - a.ms);
     // Kopletter 9 en gemeten kolombreedtes, zodat elke titel op één regel past; alles rechts
     // uitgelijnd behalve de naam, net als de cijfers eronder (zie didParseCell).
@@ -1582,7 +1585,7 @@ async function exportTournamentPDF() {
       body: rijen.map(p => {
         const rij = [...numCell(p), p.name || '', `${p.mp} van ${p.squad}${p.notPresent ? ` · ${p.notPresent}× niet aanwezig` : ''}`];
         if (toonMin) rij.push(`${mn(p.ms)}'`, p.mp ? `${mn(p.ms / p.mp)}'` : '-');
-        if (toonFair) rij.push(p.timed ? `${mn(p.ms / p.timed)}'` : '-');
+        if (toonFair) rij.push(p.fTimed ? `${mn(p.fMs / p.fTimed)}'` : '-');
         return rij;
       }),
       styles: { fontSize: 10, cellPadding: 5 },

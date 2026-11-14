@@ -386,7 +386,7 @@ async function loadStats() {
     // `absent` blijft de som (het spelerdetail rekent erop); daarnaast apart geteld (Tims keuze,
     // 25-08-2026): `nb` = vooraf afgemeld / niet beschikbaar, `noshow` = wél in de selectie maar niet
     // komen opdagen. "3× afgemeld, 1× niet komen opdagen" is voor een trainer een ander gesprek.
-    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, absent: 0, nb: 0, noshow: 0, lines: {}, plekken: {} });
+    const r = pl[k] || (pl[k] = { name: nm, rosterId: rosterId || null, number: num || '', goals: 0, assists: 0, ms: 0, yc: 0, rc: 0, mp: 0, cs: 0, squad: 0, timed: 0, fMs: 0, fTimed: 0, absent: 0, nb: 0, noshow: 0, lines: {}, plekken: {} });
     if (name) r.name = nm;
     if (num) r.number = num;
     return r;
@@ -479,7 +479,13 @@ async function loadStats() {
       // maar het wordt bij zijn naam gezet. Zo'n speler heeft weinig minuten bij een volle wedstrijd
       // en klom daardoor naar de top van "Fair-play · minste speeltijd" — de lijst die juist moet
       // tonen wie meer kansen verdient. Nu zie je waarom zijn gemiddelde laag is.
-      if (typeof isVertrokken === 'function' && isVertrokken(m, p.id)) r.vertrok = (r.vertrok || 0) + 1;
+      // VERTROKKEN TELT NIET MEE VOOR FAIR PLAY (Tim, 14-11-2026): wie ziek werd tijdens de opwarming
+      // en in minuut 1 naar huis ging, kreeg 0 minuten en trok zijn eigen gemiddelde omlaag, terwijl
+      // de trainer hem niets te verwijten valt. Zijn minuten blijven wél gewoon bij de speelminuten
+      // (r.ms) staan; enkel de fair-play-gemiddelden rekenen met fMs/fTimed, zonder die wedstrijd.
+      const weg = typeof isVertrokken === 'function' && isVertrokken(m, p.id);
+      if (weg) r.vertrok = (r.vertrok || 0) + 1;
+      else if (heeftMinuten) { r.fTimed++; r.fMs += ms; }
       if (p.addedDuringMatch) r.bijgekomen = (r.bijgekomen || 0) + 1;
       // Per PLEK bijhouden (CAM, RM, LCV …) en de linie erbij als samenvatting. "Middenveld 9×" zegt een
     // trainer niets; "CAM 5× · CM 3× · RM 1×" wel. Voor wedstrijden van vóór v0.34.0 bestaat de code
@@ -612,7 +618,7 @@ async function loadStats() {
     ? `<p style="font-size:12px;color:var(--org2);margin:0 0 8px">${icI(IC.warn)} Bij ${planWedstrijden === 1 ? 'één wedstrijd' : planWedstrijden + ' wedstrijden'} komen de speelminuten uit het <b>wedstrijdplan</b>: gepland, niet gemeten.</p>`
     : '';
   const minutes = players.filter(p => p.squad > 0).sort((a, b) => b.ms - a.ms);
-  const fairplay = players.filter(p => p.timed > 0).sort((a, b) => (a.ms / a.timed) - (b.ms / b.timed));
+  const fairplay = players.filter(p => p.fTimed > 0).sort((a, b) => (a.fMs / a.fTimed) - (b.fMs / b.fTimed));
   const keepers = players.filter(p => p.cs > 0).sort((a, b) => b.cs - a.cs);
   const carded = players.filter(p => p.yc || p.rc).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
   const stafRijen = Object.values(stafKaarten).sort((a, b) => (b.yc + b.rc * 2) - (a.yc + a.rc * 2));
@@ -760,8 +766,8 @@ async function loadStats() {
     + sect('fairplay', `${icI(IC.balance)} Fair-play · minste speeltijd`, `<p style="font-size:12px;color:var(--txt2);margin-bottom:8px">Gemiddelde speeltijd per keer dat de speler in de selectie stond (bank inbegrepen) — zo zie je wie meer speelkansen verdient. Wie geselecteerd werd maar niet speelde, staat bovenaan met 0'. Een wedstrijd waarvan je enkel de uitslag ingaf telt hier niet mee: zonder gelopen klok is er niet uit af te leiden wie hoe lang speelde.</p>${planRegel}${fairplay.length ? fairplay.map(p=>{
       // (Hier stond van v1.8.0 tot v1.22.0 ook "N× speeltijd volgens het wedstrijdplan". Die minuten
       // bestaan niet meer sinds Tims regel van 29-08-2026, dus valt het merkje weg.)
-      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
-      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.ms/p.timed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
+      const merk = [p.vertrok ? `${p.vertrok}× vertrokken tijdens de wedstrijd (telt niet mee in het gemiddelde)` : '', p.bijgekomen ? `${p.bijgekomen}× onderweg bijgekomen` : ''].filter(Boolean).join(' · ');
+      return `<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}${merk ? `<small style="color:var(--txt2);display:block">${merk}</small>` : ''}</span><span style="color:var(--txt2);font-size:13px">${p.mp}/${p.timed} gesp.</span><span style="font-weight:800;min-width:64px;text-align:right">${Math.round(p.fMs/p.fTimed/60000)}'/match</span></div>`;}).join('') : '<p style="color:var(--txt2);font-size:14px">—</p>'}`)
     + sect('cleansheets', `${icI(IC.save)} Clean sheets`, `<div class="stat-row"><span style="flex:1">Ploeg (geen tegendoel)</span><span style="font-weight:800">${cleanSheets}/${gemetenAantal}</span></div>${(list.length - gemetenAantal) > 0 ? `<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">${list.length - gemetenAantal === 1 ? '1 wedstrijd telt' : (list.length - gemetenAantal) + ' wedstrijden tellen'} hier niet mee: daar is enkel de uitslag ingegeven of helemaal geen uitslag, dus er valt niet uit af te leiden of er tegengescoord is.</p>` : ''}${keepers.map(p=>`<div class="stat-row" ${prow(p)}><span style="flex:1">${esc(p.name)}</span><span style="font-weight:800">${p.cs}</span></div>`).join('')}`)
     // DE STAF STAAT ONDERAAN IN DEZELFDE LIJST, zonder chevron: er is geen spelersblad om naartoe te
     // gaan. De lijst verschijnt nu ook wanneer ENKEL de staf een kaart kreeg — voordien hing ze

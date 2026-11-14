@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.2
+
+- **Wie vertrekt tijdens de wedstrijd, telt voor die wedstrijd niet meer mee in Fair-play.** Een speler
+  die ziek werd tijdens de opwarming en in minuut 1 naar huis ging, kreeg 0 minuten en trok zijn eigen
+  gemiddelde omlaag. Zijn gespeelde minuten blijven gewoon bij de speelminuten staan; enkel het
+  fair-play-gemiddelde (seizoensstatistieken en tornooiverslag, ook de PDF) slaat die wedstrijd over.
+  Een speler die enkel in zulke wedstrijden zat, staat niet in de fair-play-lijst.
+
 ## v2.31.1
 
 - **Vandaag-scherm: een dag met enkel niet afgesloten wedstrijden toont ze nu.** Staan er op een dag alleen wedstrijden die nooit afgesloten werden, dan zei het scherm "er stond niets op het programma" en bleef de lijst met niet afgesloten wedstrijden onzichtbaar. De controle of een dag leeg is, telt die wedstrijden nu mee.
