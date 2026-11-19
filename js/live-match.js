@@ -2109,6 +2109,19 @@ function _opstTap(st, kind, id) {
   }
   return false;
 }
+// Een geselecteerde speler van het veld naar de bank zetten, ZONDER invaller. Tot nu kon dat enkel als
+// ruil met een bankspeler of met iemand uit "Nog te plaatsen", dus een deel dat per ongeluk met één
+// speler te veel begon (12 i.p.v. 11) was hier niet recht te zetten. Iemand naar de bank is zijn
+// sleutel weghalen uit `plaats` (zie de uitleg bij _opstTap); _qlZetGrens en _saveEpPositions
+// schrijven dat al weg als een wissel zonder invaller. Er verandert dus niets aan de opslag.
+function _opstNaarBank(st) {
+  if (!st || !st.sel || st.sel.kind !== 'field') return false;
+  delete st.plaats[st.sel.id];
+  st.sel = null;
+  return true;
+}
+function _epNaarBank() { if (_opstNaarBank(_ep)) _renderEpModal(); }
+function _qlNaarBank() { if (_opstNaarBank(_ql)) _renderQlModal(); }
 function _epSpeler(id) { return (match.players || []).find(p => p.id === id); }
 // WIE JE UIT EEN OPSTELLING HAALT, LAAT ZIJN GEBEURTENISSEN STAAN (v1.49.0). Haal je een basisspeler
 // eruit die in dat deel een kaart kreeg of scoorde, dan blijft dat event op zijn naam terwijl hij
@@ -2171,6 +2184,7 @@ function _renderEpModal() {
       ? 'Er staat nog niemand op het veld. Tik een speler uit de lijst onderaan en dan zijn plek. Wie erna inviel blijft zonder plek — het wedstrijdblad zegt niet waar hij ging staan.'
       : 'Zo stonden ze bij de aftrap. Tik een <b>speler</b> en dan een <b>andere plek</b> of een <b>andere speler</b>. Tik iemand van de <b>bank</b> om te wisselen.'}</p>
     <div class="card" style="padding:8px">${renderPitch(match, veld, match.captainId, null, { fn: '_epTap', selId, plek: true })}</div>
+    ${(_ep.sel && _ep.sel.kind === 'field') ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="_epNaarBank()">${icI(IC.close)} ${esc(fieldName(match, _ep.sel.id))} naar de bank (zonder invaller)</button>` : ''}
     <div class="sec" style="margin-top:8px">Bank (${bank.length})</div>
     <div class="place-chips">${bank.length
       ? bank.map(p => `<span class="place-chip ${selId === p.id ? 'sel' : ''}" onclick="_epTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')
@@ -2432,6 +2446,7 @@ function _renderQlModal() {
       `<button class="tgl-btn${n === _ql.deel ? ' act' : ''}" onclick="modalDeelOpstelling(${n})">${esc(label)} ${n}</button>`).join('')}</div>` : ''}
     <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Zo begon ${pSingLow(match)} ${_ql.deel}. Tik een <b>speler</b> en dan een <b>lege plek</b> of een <b>andere speler</b>. Tik iemand van de <b>bank</b> om te wisselen.</p>
     ${renderPitch(match, opVeld, captainAtStartOfQuarter(match, _ql.deel), null, { fn: '_qlTap', selId: _ql.sel ? _ql.sel.id : null, plek: true })}
+    ${(_ql.sel && _ql.sel.kind === 'field') ? `<button class="btn btn-orgpale btn-sm" style="margin-top:8px;width:100%" onclick="_qlNaarBank()">${icI(IC.close)} ${esc(fieldName(match, _ql.sel.id))} naar de bank (zonder invaller)</button>` : ''}
     <div class="sec">Bank (${bank.length})</div>
     <div class="place-chips">${bank.length
       ? bank.map(p => `<span class="place-chip ${_ql.sel && _ql.sel.id === p.id ? 'sel' : ''}" onclick="_qlTap('bench','${p.id}')">${numSpan(p, 'pcn')}${esc(fieldName(match, p.id))}</span>`).join('')

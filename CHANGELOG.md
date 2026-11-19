@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.3
+
+- **Een speler naar de bank zonder invaller, ook achteraf.** Begon een kwart per ongeluk met één speler
+  te veel (12 i.p.v. 11), dan was dat in een afgesloten wedstrijd niet recht te zetten: elke tik op de
+  bank was een ruil. In "Opstelling van een deel rechtzetten" en "Startopstelling aanpassen" staat nu een
+  knop "naar de bank (zonder invaller)" zodra je een speler op het veld aantikt. Geen wijziging aan de
+  opgeslagen gegevens.
+
 ## v2.31.2
 
 - **Wie vertrekt tijdens de wedstrijd, telt voor die wedstrijd niet meer mee in Fair-play.** Een speler
