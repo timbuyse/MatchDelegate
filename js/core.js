@@ -1,11 +1,15 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.31.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
   '5v5':  { field: 5,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '8v8':  { field: 8,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '11v11':{ field: 11, lines: ['Doel','Verdediging','Middenveld','Aanval'] },
+  // Zaalhockey: zes spelers met de keeper erbij (spelregels indoor hockey, art. 2.1). Staat hier voor
+  // ALLE sporten in de tabel, maar wordt enkel aangeboden aan hockeyclubs: zie SPORTS hieronder en
+  // matchTypesVoorSport(). Een voetbalclub ziet dit type nooit in een keuzelijst.
+  '6v6':  { field: 6,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
 };
 // SOORT WEDSTRIJD. Stond tot v0.58.1 in stats-settings.js en daarnaast nog eens letterlijk
 // uitgeschreven in de wizard, het bewerkscherm, de kalenderimport en het bulk-bewerken — vier
@@ -325,6 +329,65 @@ function absentReasonLabel(key) { const r = ABSENT_REASONS.find(x => x.key === k
 // normale wedstrijdvorm. Deze lijst voedt zowel de wizard als de standaardinstelling van een ploeg.
 const DURATIONS = { helften: [30, 45], delen: [10, 15, 20], kwarten: [10, 15, 20] };
 const DUR_DEFAULT = { helften: 30, delen: 20, kwarten: 15 };
+
+// ===================== SPORTEN =====================
+// De sport ligt VAST PER CLUB en wordt enkel door de eigenaar gekozen, bij het aanmaken van de club
+// (clubs/{id}/info/sport). Een ontbrekende waarde betekent voetbal: elke club van vóór deze versie
+// blijft dus precies zoals ze was, zonder migratie. De sport wordt ook op elke ploeg van die club
+// gekopieerd (teams/{id}/info/sport), zoals clubName — een gewone trainer of kijker mag clubs/{id}
+// niet lezen. De club blijft de bron.
+//
+// Veld of zaal is bij hockey GEEN sport maar een wedstrijdvorm: een hockeyclub speelt allebei met
+// dezelfde spelers. Daarom zit zaalhockey in de wedstrijdtypes ('6v6') en niet hier. Minivoetbal en
+// veldhockey hergebruiken bestaande types ('5v5' en '11v11'), zodat er niets nieuws bij de gegevens
+// van een wedstrijd komt.
+//
+// `matchTypes` is wat een club van die sport in de keuzelijsten krijgt. `standaard` is wat een NIEUWE
+// ploeg zonder eigen voorkeur krijgt; voetbal heeft er geen, want daar blijven '8v8' en 4 kwarten van
+// 15 gelden (zie teamMatchDefaults). De duren komen uit de officiële reglementen (hockey.be 2024-25,
+// Voetbal Vlaanderen minivoetbal): veldhockey 2 x 35 (U14: 2 x 30), zaalhockey 4 x 15, minivoetbal 4 x 13.
+const SPORTS = {
+  voetbal:     { naam: 'Voetbal',     matchTypes: ['3v3', '5v5', '8v8', '11v11'] },
+  hockey:      { naam: 'Hockey',      matchTypes: ['6v6', '11v11'],
+                 standaard: { matchType: '11v11', periodKey: 'helften', dur: 35 },
+                 // Per wedstrijdvorm: zaal speelt anders dan veld.
+                 perType: { '6v6': { periodKey: 'kwarten', dur: 15 }, '11v11': { periodKey: 'helften', dur: 35 } },
+                 extraDuren: { helften: [35], kwarten: [10, 15] } },
+  minivoetbal: { naam: 'Minivoetbal', matchTypes: ['5v5'],
+                 standaard: { matchType: '5v5', periodKey: 'kwarten', dur: 13 },
+                 extraDuren: { kwarten: [13] } },
+};
+const SPORT_STANDAARD = 'voetbal';
+let activeSport = SPORT_STANDAARD;   // sport van de actieve ploeg (teams/{id}/info/sport)
+// Elke onbekende of ontbrekende waarde is voetbal.
+function sportVan(s) { return SPORTS[s] ? s : SPORT_STANDAARD; }
+function sportNaam(s) { return SPORTS[sportVan(s)].naam; }
+function matchTypesVoorSport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].matchTypes; }
+// Leesbaar label van een wedstrijdvorm. Voetbal en minivoetbal: "8 tegen 8" zoals altijd. Bij hockey
+// zegt het erbij of het veld of zaal is, want dat is het enige dat een hockeytrainer wil weten.
+function matchTypeLabel(t, s) {
+  const basis = String(t || '').replace('v', ' tegen ');
+  if (sportVan(s === undefined ? activeSport : s) !== 'hockey') return basis;
+  return t === '6v6' ? basis + ' (zaal)' : t === '11v11' ? basis + ' (veld)' : basis;
+}
+// Waarden voor een nieuwe ploeg of wedstrijd. null voor voetbal: dan gelden de oude standaarden.
+function sportStandaard(s, matchType) {
+  const sp = SPORTS[sportVan(s === undefined ? activeSport : s)];
+  if (!sp.standaard) return null;
+  const mt = sp.matchTypes.includes(matchType) ? matchType : sp.standaard.matchType;
+  return Object.assign({ matchType: mt }, sp.perType && sp.perType[mt] ? sp.perType[mt] : sp.standaard);
+}
+// Het wedstrijdtype dat een keuzelijst voorselecteert als er nog niets gekozen is: '8v8' voor voetbal
+// (zoals altijd), de standaard van de sport voor de andere.
+function sportStandaardType(s) { const sd = sportStandaard(s); return sd ? sd.matchType : '8v8'; }
+// De vaste duurkeuzes voor een blokvorm, met de extra duren van de sport erbij. Eén functie in plaats
+// van DURATIONS[periodKey] op zeven plaatsen, zodat een hockeyclub 35 minuten per helft kan kiezen
+// zonder dat een voetbalclub die optie ineens in zijn lijst krijgt.
+function duurKeuzes(periodKey, s) {
+  const basis = DURATIONS[periodKey] || [15];
+  const extra = ((SPORTS[sportVan(s === undefined ? activeSport : s)].extraDuren || {})[periodKey]) || [];
+  return [...new Set([...basis, ...extra])].sort((a, b) => a - b);
+}
 // Veelgebruikte formaties per wedstrijdtype. Slot = {line, x, y} (x,y in % van het veld; doel onderaan).
 const D = 'Doel', V = 'Verdediging', M = 'Middenveld', A = 'Aanval';
 const FORMATIONS = {
@@ -335,6 +398,13 @@ const FORMATIONS = {
   '5v5': [
     { name: 'Ruit (1-2-1)', slots: [{line:D,x:50,y:90},{line:V,x:50,y:68},{line:M,x:26,y:46},{line:M,x:74,y:46},{line:A,x:50,y:24}] },
     { name: 'Vierkant (2-2)', slots: [{line:D,x:50,y:90},{line:V,x:30,y:66},{line:V,x:70,y:66},{line:A,x:30,y:34},{line:A,x:70,y:34}] },
+  ],
+  // Zaalhockey: keeper + vijf veldspelers. Geen formatienummers (FORMATIE_NUMMERS): de plekken vallen
+  // terug op de algemene tabel, en een plek zonder nummer toont gewoon haar code.
+  '6v6': [
+    { name: '2-2-1', slots: [{line:D,x:50,y:90},{line:V,x:30,y:70},{line:V,x:70,y:70},{line:M,x:30,y:46},{line:M,x:70,y:46},{line:A,x:50,y:22}] },
+    { name: '1-2-2', slots: [{line:D,x:50,y:90},{line:V,x:50,y:70},{line:M,x:26,y:46},{line:M,x:74,y:46},{line:A,x:30,y:22},{line:A,x:70,y:22}] },
+    { name: '2-1-2', slots: [{line:D,x:50,y:90},{line:V,x:30,y:70},{line:V,x:70,y:70},{line:M,x:50,y:46},{line:A,x:30,y:22},{line:A,x:70,y:22}] },
   ],
   '8v8': [
     { name: 'Dubbele ruit', slots: [{line:D,x:50,y:92},{line:V,x:50,y:77},{line:V,x:24,y:65},{line:V,x:76,y:65},{line:M,x:50,y:50},{line:M,x:24,y:38},{line:M,x:76,y:38},{line:A,x:50,y:22}] },
@@ -2397,6 +2467,21 @@ function rememberTeamClubLogo(teamId, logo) {
     try { localStorage.setItem('voetbal_teamClubLogos', JSON.stringify(logo ? { [teamId]: logo } : {})); } catch (e2) {}
   }
 }
+// De sport van een ploeg onthouden op dit toestel, zodat een hockeyploeg ook zonder verbinding of vóór
+// de eerste fetch de juiste keuzelijsten krijgt (zie fetchTeamInfo). Enkel een label per ploeg; stuk
+// of leeg betekent voetbal, de oude werking.
+function rememberTeamSport(teamId, sport) {
+  if (!teamId) return;
+  try {
+    const c = JSON.parse(localStorage.getItem('md_teamSports') || '{}');
+    if (sportVan(sport) === SPORT_STANDAARD) delete c[teamId]; else c[teamId] = sportVan(sport);
+    localStorage.setItem('md_teamSports', JSON.stringify(c));
+  } catch (e) {}
+}
+function recallTeamSport(teamId) {
+  try { return sportVan((JSON.parse(localStorage.getItem('md_teamSports') || '{}'))[teamId]); }
+  catch (e) { return SPORT_STANDAARD; }
+}
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
@@ -2949,7 +3034,7 @@ async function onAuthChanged(user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
-    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false; archivedTeams = {};
+    myClubs = {}; activeClubId = null; activeClubName = ''; activeSport = SPORT_STANDAARD; isClubAdmin = false; archivedTeams = {};
     // De clubnamen en -logo's die voor DEZE gebruiker opgehaald zijn, horen niet bij de volgende die
     // zich op dit toestel aanmeldt. (views-account.js laadt later dan dit bestand, vandaar de wachter.)
     if (typeof clubNaamCache !== 'undefined') { clubNaamCache = {}; clubLogoCache = {}; }
@@ -2965,7 +3050,7 @@ async function onAuthChanged(user) {
     isGuest = true; isAdmin = false;
     presenceStart();
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
-    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
+    myClubs = {}; activeClubId = null; activeClubName = ''; activeSport = SPORT_STANDAARD; isClubAdmin = false;
     // Onderhoudsmodus geldt ook voor gasten — anders werken die gewoon door tijdens onderhoud.
     await initMaintenanceWatch();
     if (maintenanceActive) { await go('maintenance', undefined, true); return; }
@@ -3488,6 +3573,7 @@ async function selectTeam(teamId) {
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal.
   activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
+  activeSport = recallTeamSport(teamId);   // laatst gekende sport van deze ploeg; fetchTeamInfo bevestigt
   isClubAdmin = isOwner;
   // Kennen we de club van deze ploeg al van een vorige keer? Dan isClubAdmin (en dus isAdmin)
   // meteen zetten, vóór cloudListen() en go('home'). Zo hangen de beheerknoppen en de
@@ -3555,6 +3641,9 @@ async function fetchTeamInfo(teamId, poging = 0) {
     const info = s.val() || {};
     activeClubId = info.clubId || null;
     activeClubName = info.clubName || '';
+    // Sport van de club, gedenormaliseerd op de ploeg (zie SPORTS). Ontbreekt ze, dan is het voetbal.
+    activeSport = sportVan(info.sport);
+    rememberTeamSport(teamId, activeSport);
     activeClubLogo = info.clubLogo || '';
     activeStatsPublic = info.statsPublic || {};
     rememberTeamClubId(teamId, activeClubId); // ook wissen als de ploeg géén club (meer) heeft

@@ -1784,7 +1784,7 @@ function modalEditMatchInfo() {
   // wél mee.
   const duurVeld = `<div class="fg"><label>Duur van een blok</label>
         <select id="ei-qd" onchange="onDurChange('ei-qd','ei-qd-custom')">${durOptsHtml(match.periodKey, match.quarterDuration)}</select>
-        <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>`;
+        <input id="ei-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${!duurKeuzes(match.periodKey).includes(match.quarterDuration)&&match.quarterDuration?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;background:var(--card);-webkit-appearance:none" value="${!(DURATIONS[match.periodKey]||[]).includes(match.quarterDuration)&&match.quarterDuration?match.quarterDuration:''}"></div>`;
   const partsBlock = notStarted ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Aantal blokken</label>

@@ -440,6 +440,11 @@ function clubSchermHertekenen() {
 function showCreateClubModal() {
   openModal(`<h3>${icI(IC.plus)} Nieuwe club</h3>
     <div class="fg"><label>Naam van de club</label><input id="new-club-name" type="text" placeholder="bv. KFC Voorbeeld" autofocus></div>
+    ${/* De sport ligt vast zodra de club bestaat (enkel de eigenaar kiest ze, hier): ze bepaalt welke
+         wedstrijdvormen, duren en regels de ploegen van deze club krijgen. Later wijzigen kan niet in de
+         app, want bestaande wedstrijden zouden dan van sport veranderen. */ ''}
+    <div class="fg"><label>Sport</label><select id="new-club-sport">${Object.keys(SPORTS).map(k => `<option value="${k}" ${k === SPORT_STANDAARD ? 'selected' : ''}>${esc(SPORTS[k].naam)}</option>`).join('')}</select>
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Ligt vast na het aanmaken en geldt voor alle ploegen van de club.</p></div>
     <div class="auth-err" id="cc-err"></div>
     <button class="btn btn-green" id="cc-btn" onclick="doCreateClub()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -453,7 +458,12 @@ async function doCreateClub() {
   const btn = document.getElementById('cc-btn'); if (btn) btn.disabled = true;
   try {
     const cid = fbdb.ref('clubs').push().key;
-    await fbdb.ref('clubs/' + cid).set({ info: { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() }, admins: {}, teams: {} });
+    // Enkel een bekende sport wegschrijven; alles anders is voetbal (zie sportVan). Bij voetbal laten we
+    // het veld weg, precies zoals alle bestaande clubs: geen verschil tussen "voetbal" en "niets".
+    const sport = sportVan((document.getElementById('new-club-sport') || {}).value);
+    const info = { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() };
+    if (sport !== SPORT_STANDAARD) info.sport = sport;
+    await fbdb.ref('clubs/' + cid).set({ info, admins: {}, teams: {} });
     closeModal(); clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; if (btn) btn.disabled = false; }
 }
@@ -2941,6 +2951,10 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // moment bestaan — een ploeg die je daarna aanmaakte, bleef dus zonder logo (in de app én op elke
     // PDF) tot iemand het logo opnieuw opsloeg.
     try { const cl = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/logo'))).val(); if (cl) info.clubLogo = cl; } catch (e) {}
+    // De sport van de club gaat mee naar de ploeg, om dezelfde reden als de naam: een trainer of kijker
+    // mag clubs/{id} niet lezen. Enkel als de club een andere sport heeft dan voetbal; ontbreekt het
+    // veld, of mislukt het lezen, dan is de ploeg voetbal — de oude werking. Zie SPORTS in core.js.
+    try { const sp = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val(); if (SPORTS[sp] && sp !== SPORT_STANDAARD) info.sport = sp; } catch (e) {}
   }
   await fbdb.ref('teams/' + teamId).set({
     info,
@@ -4780,11 +4794,21 @@ function initTeamReorder() {
 }
 
 let _pendingCreateClubId = null; // club waarin een nieuwe ploeg wordt aangemaakt (clubbeheer-flow)
-function showCreateTeamModal(clubId) {
+let _pendingCreateSport = SPORT_STANDAARD; // sport van die club: bepaalt welke vormen en duren de keuzelijsten tonen
+async function showCreateTeamModal(clubId) {
   // Als er een eigenaar is ingesteld en je bent niet goedgekeurd → eerst toestemming vragen.
   // Uitzondering: een clubbeheerder mag altijd een ploeg aanmaken binnen zijn eigen club.
   if (ownerUid && !isApprovedAdmin && !(clubId && myClubs[clubId])) { showRequestAdminModal(); return; }
   _pendingCreateClubId = clubId || null;
+  // De sport van DEZE club, niet van de ploeg die je nu toevallig open hebt: de eigenaar maakt hier ook
+  // ploegen aan voor andere clubs. Lukt het lezen niet, dan is het voetbal (de oude werking).
+  _pendingCreateSport = SPORT_STANDAARD;
+  if (clubId && fbdb) { try { _pendingCreateSport = sportVan((await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val()); } catch (e) {} }
+  const sp = _pendingCreateSport;
+  const sd = sportStandaard(sp);   // null bij voetbal: daar blijven 8v8 en 4 x 15 de standaard
+  const mt0 = sd ? sd.matchType : '8v8';
+  const pk0 = sd ? sd.periodKey : 'kwarten';
+  const dur0 = sd ? sd.dur : DUR_DEFAULT['kwarten'];
   // In clubcontext: laat de clubbeheerder kiezen of hij deze ploeg zelf mee beheert (als lid) of
   // enkel via zijn clubrol. Standaard aangevinkt, want in de praktijk beheert hij ze vaak zelf.
   // MAAR NIET ALS JE DEZE CLUB ZELF NIET BEHEERT (v1.41.0). Sinds de knop ook in App-beheer → Clubs
@@ -4795,11 +4819,11 @@ function showCreateTeamModal(clubId) {
   const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join"${zelfBeheerder ? ' checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
-    <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>
-    <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS['8v8'].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
-    <div class="fg"><label>Standaard aantal blokken</label><select id="ct-pk" onchange="ctPeriodChange()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k==='kwarten'?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${matchTypesVoorSport(sp).map(k => `<option value="${k}" ${k===mt0?'selected':''}>${sp === SPORT_STANDAARD ? k : matchTypeLabel(k, sp)}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS[mt0].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard aantal blokken</label><select id="ct-pk" onchange="ctPeriodChange()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k===pk0?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
     <div class="fg"><label>Standaard duur per blok</label>
-      <select id="ct-dur" onchange="onDurChange('ct-dur','ct-dur-custom')">${durOptsHtml('kwarten', DUR_DEFAULT['kwarten'])}</select>
+      <select id="ct-dur" onchange="onDurChange('ct-dur','ct-dur-custom')">${durOptsHtml(pk0, dur0, sp)}</select>
       <input id="ct-dur-custom" type="number" min="1" max="60" inputmode="numeric" placeholder="minuten per blok" style="display:none;margin-top:6px"></div>
     <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen en later wijzigen bij "Ploeg bewerken".</p>
     ${joinRow}
@@ -4813,12 +4837,21 @@ function ctFormatChange() {
   const mt = (document.getElementById('ct-mt') || {}).value || '8v8';
   const sel = document.getElementById('ct-form'); if (!sel) return;
   sel.innerHTML = (FORMATIONS[mt] || []).map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');
+  // Bij hockey hoort bij de vorm ook een speelduur: zaal is 4 x 15, veld 2 x 35. Voetbal heeft dat niet.
+  const sd = sportStandaard(_pendingCreateSport, mt);
+  const pk = document.getElementById('ct-pk'), dur = document.getElementById('ct-dur');
+  if (sd && pk && dur && _pendingCreateSport === 'hockey') {
+    pk.value = sd.periodKey;
+    dur.innerHTML = durOptsHtml(sd.periodKey, sd.dur, _pendingCreateSport);
+    const inp = document.getElementById('ct-dur-custom'); if (inp) inp.style.display = 'none';
+  }
 }
 // Idem voor de duurtijden: welke er te kiezen zijn, hangt af van het aantal blokken.
 function ctPeriodChange() {
   const pk = (document.getElementById('ct-pk') || {}).value || 'kwarten';
   const sel = document.getElementById('ct-dur'); if (!sel) return;
-  sel.innerHTML = durOptsHtml(pk, DUR_DEFAULT[pk]);
+  const sd = sportStandaard(_pendingCreateSport, (document.getElementById('ct-mt') || {}).value);
+  sel.innerHTML = durOptsHtml(pk, (sd && sd.periodKey === pk) ? sd.dur : DUR_DEFAULT[pk], _pendingCreateSport);
   const inp = document.getElementById('ct-dur-custom'); if (inp) inp.style.display = 'none';
 }
 async function doCreateTeam() {
@@ -7234,7 +7267,7 @@ const BULK_VELDEN = [
   { key: 'jersey',          label: 'Truikleur',              soort: 'tekst', plaatshouder: 'bv. rood-wit' },
   { key: 'trainer',         label: 'Trainer',                soort: 'tekst', plaatshouder: 'naam' },
   { key: 'responsible',     label: 'Afgevaardigde', soort: 'tekst', plaatshouder: 'naam' },
-  { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => Object.keys(MATCH_TYPES) },
+  { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => matchTypesVoorSport() },
   // LET OP — dit veld zit in TWEE eigenschappen: periodKey ('kwarten') én numQuarters (4). Overal in
   // de app worden die samen gezet (zie wizPeriodChange, trnPeriodChange), en "1 deel" is de
   // uitzondering die het duidelijk maakt: dat is periodKey 'delen' mét numQuarters 1, terwijl

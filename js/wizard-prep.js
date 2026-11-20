@@ -3,16 +3,20 @@ let wiz = null;
 // Standaard wedstrijdvorm + opstelling van een ploeg (ingesteld bij het aanmaken / in de editor).
 // Valt terug op 8v8 / eerste formatie voor ploegen zonder ingestelde voorkeur.
 function teamMatchDefaults(team) {
-  const mt = (team && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : '8v8';
+  // Een ploeg zonder eigen voorkeur valt terug op '8v8' en 4 kwarten van 15 — voor voetbal blijft dat zo.
+  // Bij een andere sport (hockey, minivoetbal) is dat geen zinnige standaard: daar komt de standaard van
+  // de sport (zie SPORTS in core.js). `sd` is null voor voetbal en verandert dus niets voor bestaande ploegen.
+  const sd = sportStandaard(undefined, team && team.defaultMatchType);
+  const mt = (team && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : (sd ? sd.matchType : '8v8');
   const forms = FORMATIONS[mt] || [];
   let fi = (team && team.defaultFormation) ? forms.findIndex(f => f.name === team.defaultFormation) : 0;
   if (fi < 0) fi = 0;
   // Aantal blokken en blokduur horen ook bij de ploeg: een U8 speelt geen 4x15. Ploegen van vóór
   // v0.45.0 hebben deze velden niet, en vallen dan terug op wat er tot nu vast in de wizard stond
   // (4 kwarten van 15 minuten) — dus voor bestaande ploegen verandert er niets tot je het instelt.
-  const pk = (team && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : 'kwarten';
+  const pk = (team && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : (sd ? sd.periodKey : 'kwarten');
   const dur = (team && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
-    : (DUR_DEFAULT[pk] || 15);
+    : ((sd && sd.periodKey === pk) ? sd.dur : (DUR_DEFAULT[pk] || 15));
   return { matchType: mt, formationIndex: fi, periodKey: pk, quarterDuration: dur };
 }
 function startWizard() {
@@ -58,8 +62,8 @@ function wizTeamChange() {
   }
   render();
 }
-function durOptsHtml(periodKey, currentDur) {
-  const fixed = DURATIONS[periodKey] || [15];
+function durOptsHtml(periodKey, currentDur, sport) {
+  const fixed = duurKeuzes(periodKey, sport);   // met de extra duren van de sport (35 min per helft bij hockey)
   const isCustom = !!currentDur && !fixed.includes(currentDur);
   return fixed.map(v => `<option value="${v}" ${v===currentDur?'selected':''}>${v} min</option>`).join('')
     + `<option value="0" ${isCustom?'selected':''}>Vrij...</option>`;
@@ -93,7 +97,21 @@ function selectedCount() { return wiz.pool.filter(isSel).length; }
 // een speler op CAM blijft op CAM staan. Enkel hoeveel spelers er op het veld horen en welke plekken
 // een positienummer dragen, verandert mee. De formatiekeuze valt wel terug op de eerste, want de
 // formatielijst hoort bij de wedstrijdvorm. Voordien werd hier de hele opstelling gewist.
-function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; }
+function wizTypeChange() {
+  wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true;
+  // Hockey: veld en zaal hebben elk hun eigen speelduur (2 x 35 tegenover 4 x 15), dus die schuift mee
+  // met de vorm. Voetbal en minivoetbal hebben één standaard per ploeg en blijven hier ongemoeid.
+  if (activeSport === 'hockey') {
+    const sd = sportStandaard('hockey', wiz.matchType);
+    const pt = document.getElementById('n-pt'), qd = document.getElementById('n-qd');
+    if (sd && pt && qd) {
+      pt.value = sd.periodKey;
+      qd.innerHTML = durOptsHtml(sd.periodKey, sd.dur);
+      const ci = document.getElementById('n-qd-custom'); if (ci) ci.style.display = 'none';
+      wiz.periodKey = sd.periodKey; wiz.quarterDuration = sd.dur;
+    }
+  }
+}
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
 // Aantal delen van de wedstrijd in de wizard: een tornooimatch draagt zijn eigen aantal (numQuarters),
@@ -170,7 +188,7 @@ function wizStep1() {
       ? `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Spelers laden…</div>`
       : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
-  const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
+  const isCustomDur = wiz.quarterDuration && !duurKeuzes(wiz.periodKey).includes(wiz.quarterDuration);
   return `
     <div class="card">
       <div class="fg"><label>Eigen ploeg</label>${teamSel}</div>
@@ -194,7 +212,7 @@ function wizStep1() {
       <div class="fg"><label>Adres</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. Sportstraat 12, 9700 Oudenaarde" autocomplete="off"></div>
       <div class="fg"><label>Format</label>
         <select id="n-type" onchange="wizTypeChange()">
-          ${['3v3','5v5','8v8','11v11'].map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}
+          ${matchTypesVoorSport().map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${matchTypeLabel(t)}</option>`).join('')}
         </select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Aantal blokken</label>

@@ -113,7 +113,7 @@ function impLijstHtml() {
   const aan = rs.filter(r => r.aan).length;
   const nieuw = rs.filter(r => r.aan && !r.bestaat).length;
   const bij = aan - nieuw;
-  const isCustomDur = impSt.quarterDuration && !(DURATIONS[impSt.periodKey] || []).includes(impSt.quarterDuration);
+  const isCustomDur = impSt.quarterDuration && !duurKeuzes(impSt.periodKey).includes(impSt.quarterDuration);
   // Komt de kalender van de bond, dan staan twee dingen al per wedstrijd vast en horen hun velden
   // hier dus niet: het ploeg-label (dat komt van de bondsploeg waar de wedstrijd uit komt) en de
   // soort (uit de reeks — vriendschappelijk, beker of competitie). Een veld voor de hele import zou
@@ -172,7 +172,7 @@ function impLijstHtml() {
         <input type="text" value="${esc(impSt.subteam)}" oninput="impVeld('subteam',this.value)" onchange="impHermarkeer()" placeholder="bv. A of B" autocomplete="off">
         ${impSt.subteamVoorstel ? `<div style="font-size:12px;color:var(--txt2);margin-top:4px">Uit de reeksnaam in het bestand (<b>${esc(impSt.subteamVoorstel)}</b>). Lees je de kalender van je andere ploeg in, zet hier dan haar label.</div>` : ''}</div>`}
       <div class="fg"><label>Format</label>
-        <select onchange="impVeld('matchType',this.value)">${Object.keys(MATCH_TYPES).map(t => `<option value="${t}" ${impSt.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
+        <select onchange="impVeld('matchType',this.value)">${matchTypesVoorSport().map(t => `<option value="${t}" ${impSt.matchType===t?'selected':''}>${matchTypeLabel(t)}</option>`).join('')}</select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Aantal blokken</label>
           <select id="imp-pt" onchange="impPeriode()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${impSt.periodKey===k?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>

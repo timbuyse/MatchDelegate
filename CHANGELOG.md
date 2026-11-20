@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.4
+
+- **Eerste stap naar hockey en minivoetbal: de sport ligt vast per club.** Bij het aanmaken van een club
+  kiest de eigenaar voetbal, hockey of minivoetbal (`clubs/{id}/info/sport`); de sport wordt als bij
+  `clubName` gekopieerd naar elke ploeg van die club. Een ontbrekend veld betekent voetbal, dus bestaande
+  clubs en wedstrijden blijven ongewijzigd en er is geen migratie.
+- **Wedstrijdvormen en duren per sport.** Voetbal houdt 3v3 tot 11v11. Hockey kiest tussen veld (11v11,
+  standaard 2 x 35) en zaal (nieuw 6v6, standaard 4 x 15); de speelduur schuift mee met de vorm.
+  Minivoetbal speelt 5v5 met 4 x 13. De keuzelijsten (wizard, ploegbewerker, nieuwe ploeg, tornooi,
+  kalenderimport, bulkbewerking) tonen enkel de vormen van de sport.
+- Nog niet in deze versie: hockey-events en kaarten met timer, de cornerteller en cornerbalreeks van
+  minivoetbal, en de sportspecifieke teksten.
+
 ## v2.31.3
 
 - **Een speler naar de bank zonder invaller, ook achteraf.** Begon een kwart per ongeluk met één speler
