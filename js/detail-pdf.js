@@ -266,7 +266,7 @@ function renderDetail() {
       const rows = [
         [icI(IC.corner) + ' ' + cornerWoorden(), st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
-        [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
+        [icI(IC.penalty)+ ' ' + (activeSport === 'hockey' ? 'Strafballen' : 'Penalty\'s'),   st('penalty_us'),  st('penalty_them')],
         // HET OOGJE 'cards' GELDT HIER NIET MEER (Tim, 01-10-2026, herziening van zijn keuze van
         // 25-08-2026). Dat oogje hoort bij de RANGLIJST in het seizoensoverzicht — "wie kreeg er dit
         // jaar de meeste kaarten", een oordeel over een kind dat je mag willen afschermen. Wat er in
@@ -1094,7 +1094,7 @@ function cloneMatch() {
   wiz = {
     step: 1,
     teamId: src.teamId || (team ? team.id : ''),
-    opponent: '', subteam: src.subteam || '',
+    opponent: '', subteam: src.subteam || '', zaal: !!src.zaal,
     date: new Date().toISOString().split('T')[0],
     time: src.time || '10:00',
     location: src.location || 'Thuis',
@@ -1243,7 +1243,7 @@ function rasterizeToPngFit(src, maxW, maxH, dichtheid = 1) {
 // Wijzig je daar het icoon van een gebeurtenis, pas het hier ook aan.
 const PDF_EVT_ICON = {
   goal_us: 'goal', goal_them: 'goal', own_goal: 'goal', own_goal_them: 'goal',
-  corner_us: 'corner', corner_them: 'corner', cornerbal_mis_us: 'corner', cornerbal_mis_them: 'corner', substitution: 'swap', posSwap: 'compass',
+  corner_us: 'corner', corner_them: 'corner', cornerbal_mis_us: 'corner', cornerbal_mis_them: 'corner', green_card: 'cardG', green_card_them: 'cardG', substitution: 'swap', posSwap: 'compass',
   posSwapReeks: 'compass',
   yellow_card: 'cardY', red_card: 'cardR',
   yellow_card_them: 'cardY', red_card_them: 'cardR',
@@ -1352,9 +1352,12 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   const L = n => n * S;
   // Gras: basisvlak in de donkere tint, daarbovenop de lichtere banen. De banen worden geklemd
   // tot binnen de afronding, zodat er geen vierkante hoekjes buiten de ronde rand vallen.
-  // Het zaalveld van minivoetbal heeft een blauwe vloer en eigen belijning (zie pitchLinesZaal in views-account.js).
-  const zaal = (typeof veldVariant === 'function') && veldVariant() === 'minivoetbal';
-  const vlak = zaal ? [[42, 95, 163], [46, 103, 176]] : [[27, 128, 64], [30, 148, 73]];
+  // Het veld volgt de sport (zie veldVariant en de pitchLines-functies in views-account.js): minivoetbal een blauwe zaalvloer,
+  // hockey een blauwgroen veld en in de zaal een houten vloer, voetbal het gras.
+  const variant = (typeof veldVariant === 'function') ? veldVariant(m) : 'voetbal';
+  const zaal = variant === 'minivoetbal';
+  const hockey = variant === 'hockey' || variant === 'hockeyzaal';
+  const vlak = { minivoetbal: [[42, 95, 163], [46, 103, 176]], hockey: [[29, 127, 135], [33, 137, 143]], hockeyzaal: [[197, 143, 74], [207, 154, 85]] }[variant] || [[27, 128, 64], [30, 148, 73]];
   doc.setFillColor(...vlak[0]);
   doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'F');
   doc.setFillColor(...vlak[1]);
@@ -1367,8 +1370,26 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   doc.setLineWidth(L(2.5)); doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'S');
   doc.setLineWidth(L(2));
   doc.line(ux(0), uy(H / 2), ux(W), uy(H / 2));
-  doc.circle(ux(W / 2), uy(H / 2), L(zaal ? 48 : CCR), 'S');
-  if (zaal) {
+  if (!hockey) doc.circle(ux(W / 2), uy(H / 2), L(zaal ? 48 : CCR), 'S');
+  if (hockey) {
+    // Hockeyveld (afmetingen: zie pitchLinesHockey in views-account.js): de cirkel is twee kwartellipsen met een rechte lijn
+    // ertussen, in lijnstukjes getekend. Buiten ook de 23-meterlijnen.
+    const hz = variant === 'hockeyzaal';
+    const px = W / (hz ? 22 : 55), py = H / (hz ? 44 : 91.4);
+    const half = (hz ? 1.5 : 1.83) * px, p1 = W / 2 - half, p2 = W / 2 + half;
+    const Rm = hz ? 9 : 14.63, rx = Rm * px, ry = Rm * py, stip = (hz ? 7 : 6.4) * py;
+    const boog = (cx, cy, a0, a1) => {   // kwartellips in 10 stukjes
+      let vorig = null;
+      for (let i = 0; i <= 10; i++) { const a = a0 + (a1 - a0) * (i / 10); const pt = [ux(cx + Math.cos(a) * rx), uy(cy + Math.sin(a) * ry)]; if (vorig) doc.line(vorig[0], vorig[1], pt[0], pt[1]); vorig = pt; }
+    };
+    if (!hz) { const w23 = 22.9 * py; doc.line(ux(0), uy(w23), ux(W), uy(w23)); doc.line(ux(0), uy(H - w23), ux(W), uy(H - w23)); }
+    boog(p1, 0, Math.PI, Math.PI / 2); boog(p2, 0, Math.PI / 2, 0);
+    boog(p1, H, Math.PI, Math.PI * 1.5); boog(p2, H, Math.PI * 1.5, Math.PI * 2);
+    doc.line(ux(p1), uy(ry), ux(p2), uy(ry)); doc.line(ux(p1), uy(H - ry), ux(p2), uy(H - ry));
+    doc.setFillColor(255, 255, 255);
+    doc.circle(ux(W / 2), uy(stip), L(3), 'F'); doc.circle(ux(W / 2), uy(H - stip), L(3), 'F');
+    doc.setLineWidth(L(5)); doc.line(ux(p1), uy(1), ux(p2), uy(1)); doc.line(ux(p1), uy(H - 1), ux(p2), uy(H - 1));
+  } else if (zaal) {
     // Strafschoplijn over de volle breedte op 5 m, strafschoppunten op 15 m, cornerbalpunten op 6,25 m van het midden.
     doc.line(ux(0), uy(60), ux(W), uy(60));
     doc.line(ux(0), uy(H - 60), ux(W), uy(H - 60));
@@ -2028,7 +2049,7 @@ async function pdfMatchBody(doc, L, m) {
   const pdfStats = [
     [stat('corner_us') + stat('corner_them'), `${cornerWoorden()}: ${vt('corner_us', 'corner_them')}`],
     [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${vt('freekick_us', 'freekick_them')}`],
-    [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
+    [stat('penalty_us') + stat('penalty_them'), `${activeSport === 'hockey' ? 'Strafballen' : 'Penalty\'s'}: ${vt('penalty_us', 'penalty_them')}`],
     // Zelfde lijn als op het scherm (Tim, 01-10-2026): het oogje 'cards' geldt enkel voor de ranglijst
     // in het seizoensoverzicht, niet voor wat er in deze ene wedstrijd gebeurde.
     // Kaarten voor de tegenstander staan er in dezelfde 'voor / tegen'-vorm als de regels hierboven,

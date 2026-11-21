@@ -2746,7 +2746,12 @@ function rbfaTeamSectieHtml(team) {
 // maar een 11v11-ploeg met vier kwarten is zo verkeerd dat 'geen gok' hier de slechtere keuze is.
 // De gok staat zichtbaar in de rij vóór je op Toepassen tikt.
 // Belgische jeugdreeksen: U6-U7 3v3, U8-U9 5v5, U10-U13 8v8, vanaf U14 (en bij de kernploegen) 11v11.
-function rbfaVormGok(naam) {
+function rbfaVormGok(naam, sport) {
+  // MINIVOETBAL SPEELT ALTIJD 5 TEGEN 5 (spelregels minivoetbal, art. 90), in 4 periodes van 13 minuten, wat de leeftijd ook
+  // is. De leeftijdstabel hieronder is die van het voetbal (3v3 tot 11v11) en klopt hier niet: bij een minivoetbalclub
+  // stelde de app 8 tegen 8 en 11 tegen 11 voor (Tim, 21-11-2026). De sport is die van de CLUB, niet van de ploeg die je
+  // toevallig open hebt, dus ze wordt meegegeven vanuit het koppelvenster.
+  if (sportVan(sport) === 'minivoetbal') return { matchType: '5v5', periodKey: 'kwarten', dur: 13 };
   const m = String(naam || '').match(/\bU\s?(\d{1,2})\b/i);
   if (m) {
     const n = parseInt(m[1], 10);
@@ -2853,10 +2858,12 @@ async function rbfaClubKoppelOpen(clubId) {
   };
   rbfaCkRender();
   try {
-    const [naam, kernen] = await Promise.all([
+    const [naam, kernen, sportRuw] = await Promise.all([
       (async () => { try { return (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/name'))).val() || ''; } catch (e) { return ''; } })(),
       rbfaKernenVanClub(clubId),
+      (async () => { try { return (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val() || ''; } catch (e) { return ''; } })(),
     ]);
+    rbfaCkSt.sport = sportVan(sportRuw);   // de sport van deze club: bepaalt het voorgestelde formaat van nieuwe ploegen
     rbfaCkSt.clubNaam = naam || 'deze club';
     rbfaCkSt.kernen = kernen;
     // Het clubnummer van de bond staat nergens op de CLUB bewaard — op `clubs/<id>` mag enkel de
@@ -3094,7 +3101,7 @@ function rbfaCkHtml() {
     // voor dezelfde ploeg is de verwarring die dit venster juist moet wegnemen.
     const naamHier = !!nieuwId && eersteVanGroep[naar] === id;
     const nieuwNaam = nieuwId ? String((s.nieuw[nieuwId] || {}).naam || '') : '';
-    const gok = naamHier ? rbfaVormGok(nieuwNaam || p.name) : null;
+    const gok = naamHier ? rbfaVormGok(nieuwNaam || p.name, s.sport) : null;
     const opties = `<option value="" ${!naar ? 'selected' : ''}>— niets doen —</option>`
       + kernen.map(kn => `<option value="${esc(kn.kernId)}" ${naar === kn.kernId ? 'selected' : ''}>${esc(kn.kernNaam)}${kn.meerdereKernen ? ` (in ${esc(kn.ploegNaam)})` : ''}</option>`).join('')
       + nieuwe.map(nid => `<option value="#nieuw:${esc(nid)}" ${nieuwId === nid ? 'selected' : ''}>${esc(rbfaCkNieuwOptieTxt((s.nieuw[nid] || {}).naam))}</option>`).join('')
@@ -3186,13 +3193,13 @@ async function rbfaCkToepassen() {
     // ploeg, dan wordt die hier één keer aangemaakt en krijgen beide rijen daarna hetzelfde kern-id.
     for (const sleutel of nieuwe) {
       const naam = String((s.nieuw[sleutel] || {}).naam || '').trim();
-      const gok = rbfaVormGok(naam);
+      const gok = rbfaVormGok(naam, s.sport);
       s.bezigTxt = `"${naam}" aanmaken…`; rbfaCkRender();
       // joinAsMember false: de clubbeheerder beheert deze ploegen via zijn clubrol, zoals bij
       // "Nieuwe ploeg in deze club" de niet-aangevinkte keuze. Hij kan zich er later bij zetten met
       // "Bij mijn ploegen" op het clubscherm — dertig ploegen in "Jouw ploegen" duwen zou het
       // ploegkeuzescherm onbruikbaar maken.
-      const res = await createTeam(naam, s.clubId, false, gok.matchType, '', gok.periodKey, 0, true);
+      const res = await createTeam(naam, s.clubId, false, gok.matchType, '', gok.periodKey, gok.dur || 0, true);
       if (!res || !res.teamId) { misluktBij.push(naam); continue; }
       gemaakt++;
       // De verse ploeg wordt vanaf nu een gewone bestemming: één kern, waarvan createTeam ons het

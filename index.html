@@ -315,6 +315,10 @@
     .evtbtn.ec{border-color:var(--orgb);background:var(--orgp)}
     .evtbtn.es{border-color:#bcd0ee;background:var(--blp)}
     .evtbtn.eyel{border-color:#fde047;background:var(--ylp)}
+    .evtbtn.egrn{border-color:#86efac;background:#f0fdf4}
+    /* Hockey: een lopende schorsing (groene of gele kaart) als kaartje onder de stand, met de tijd die nog rest. */
+    .schors-chip{display:inline-flex;align-items:center;gap:5px;margin:5px 4px 0;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.45)}
+    .schors-chip b{font-variant-numeric:tabular-nums}
     .evtbtn.ered{border-color:#fca5a5;background:var(--rdp)}
     .evtbtn.epen{border-color:var(--grnb);background:#fff}
     .evtbtn.efk{border-color:var(--bdr);background:#fff}
@@ -603,6 +607,10 @@
        donkere zijbanden in plaats van gras. Zelfde afmetingen en plaatsing van de spelers als het grasveld; enkel
        het uiterlijk en de belijning (pitchLines('minivoetbal') in views-account.js) verschillen. */
     .pitch.pitch-mv{background:repeating-linear-gradient(to bottom,#2a5fa3 0px,#2a5fa3 30px,#2e67b0 30px,#2e67b0 60px);border:4px solid #1c3a63}
+    /* Hockey: een blauwgroen kunstgrasveld (een ander groen dan het voetbalgras, met de cirkels als herkenning) en, in de
+       zaal, een houten vloer met donkere zijbanden. Belijning: pitchLinesHockey() in views-account.js. */
+    .pitch.pitch-hk{background:repeating-linear-gradient(to bottom,#1d7f87 0px,#1d7f87 30px,#21898f 30px,#21898f 60px)}
+    .pitch.pitch-hkz{background:repeating-linear-gradient(to bottom,#c58f4a 0px,#c58f4a 30px,#cf9a55 30px,#cf9a55 60px);border:4px solid #5b3d17}
     /* Naamlabel onder het shirt: donker doorschijnend plaatje eronder, zodat twee labels die bij
        lange familienamen tegen elkaar aanschuiven toch leesbaar blijven (i.p.v. wit-op-gras
        dat in elkaar overloopt). z-index tilt het label boven de buurbol. */

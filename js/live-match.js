@@ -92,7 +92,7 @@ function renderLive() {
   const volgersBadge = (!ro && match.fromCloud && cloudReady)
     ? `<span id="live-volgers" style="margin-left:9px;font-weight:700;opacity:.85">${(() => { const n = volgersVanMatch(match.id); return n ? `${icI(IC.eye)}${n}` : ''; })()}</span>`
     : '';
-  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Rust · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge + cornerRegelHtml(match);
+  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Rust · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge + cornerRegelHtml(match) + schorsingRegelHtml(match);
   // DE SCOREKOP OP OPSTELLING EN VERLOOP IS EEN BALK GEWORDEN (Tim, 04-09-2026). Ze was tot nu exact
   // dezelfde kop als op het wedstrijdtabblad — cijfers van 64 punten, opgemeten 153 px. Daardoor viel
   // op een telefoon de onderrand van het veld weg en zag je de bank helemaal niet. De balk is 61 px:
@@ -263,11 +263,19 @@ function renderLive() {
              spelvormen weg, maar "Meer" bood de rode onvoorwaardelijk aan en "Event toevoegen" beide
              — dus de beperking gold enkel op dit scherm en was daardoor vooral verwarrend. Tim koos
              voor overal toelaten in plaats van overal weglaten. */ ''}
+        ${activeSport === 'hockey' ? `
+        ${/* HOCKEY: de drie kaarten op één rij (groen, geel, rood), de strafbal op de plek van de penalty, en de vrije slag
+             onder "Meer" (modalExtra): die komt zelden voor en het raster heeft maar negen plaatsen. */ ''}
+        <div class="evtbtn egrn ${dis}" onclick="modalCard('green')"><span class="ei">${IC.cardG}</span><span class="el">Groene kaart</span></div>
+        <div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
+        <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>
+        <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
+        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">${penaltyWoord()}</span></div>` : `
         <div class="evtbtn eyel ${dis}" onclick="modalCard('yellow')"><span class="ei">${IC.cardY}</span><span class="el">Gele kaart</span></div>
         <div class="evtbtn einj ${dis}" onclick="modalInjury()"><span class="ei">${IC.injury}</span><span class="el">Blessure</span></div>
-        <div class="evtbtn efk ${dis}" onclick="modalFreekick()"><span class="ei">${IC.bolt}</span><span class="el">Vrije trap</span></div>
+        <div class="evtbtn efk ${dis}" onclick="modalFreekick()"><span class="ei">${IC.bolt}</span><span class="el">${vrijeWoord()}</span></div>
         <div class="evtbtn ered ${dis}" onclick="modalCard('red')"><span class="ei">${IC.cardR}</span><span class="el">Rode kaart</span></div>
-        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">Penalty</span></div>
+        <div class="evtbtn epen ${dis}" onclick="modalPenalty()"><span class="ei">${IC.penalty}</span><span class="el">${penaltyWoord()}</span></div>`}
         <div class="evtbtn ${dis}" onclick="modalExtra()"><span class="ei">${IC.more}</span><span class="el">Meer</span></div>
       </div>
       ${/* Klaargezette wissels: altijd bereikbaar, met een telletje zodat je ziet dat er iets
@@ -1798,6 +1806,7 @@ function modalEditMatchInfo() {
   openModal(`<h3>${icI(IC.edit)} Wedstrijdinfo bewerken</h3>
     <input type="hidden" id="ei-loc" value="${esc(match.location||'')}">
     <div class="fg"><label>Ploeg-label (optioneel)</label><input id="ei-subteam" type="text" value="${esc(match.subteam||'')}" placeholder="bv. A of B — enkel invullen als je ploeg in meerdere delen speelt" autocomplete="off"></div>
+    ${activeSport === 'hockey' ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:0 0 12px;cursor:pointer"><input type="checkbox" id="ei-zaal" ${match.zaal ? 'checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Zaalhockey <span style="color:var(--txt2)">(zaalveld en zaalstraffen)</span></label>` : ''}
     <div class="fg"><label>Tegenstander</label><input id="ei-opp" type="text" value="${esc(match.opponent||'')}" placeholder="Naam ploeg" autocomplete="off"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg"><label>Datum</label><input id="ei-date" type="date" value="${match.date||''}"></div>
@@ -1879,6 +1888,10 @@ async function saveMatchInfo() {
   const v = id => { const e = document.getElementById(id); return e ? e.value : ''; };
   const opp = v('ei-opp').trim(); if (opp) match.opponent = opp;
   match.subteam = v('ei-subteam').trim();
+  // Zaalhockey: enkel het merkteken zelf. Het formaat en de duur blijven zoals ze staan (die wijzig je hieronder), want een
+  // wedstrijd die al bezig is mag niet van duur veranderen door een vinkje.
+  const zaalVak = document.getElementById('ei-zaal');
+  if (zaalVak) { if (zaalVak.checked) match.zaal = true; else delete match.zaal; }
   match.date = v('ei-date') || match.date;
   match.time = v('ei-time');
   const loc = v('ei-loc'); if (loc) match.location = loc;
@@ -3108,8 +3121,9 @@ function exportMatchCSV() {
     yellow_card_them: 'Gele kaart tegen', red_card_them: 'Rode kaart tegen',
     yellow_card_trainer: 'Gele kaart staf', red_card_trainer: 'Rode kaart staf',
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
-    injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
-    freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
+    injury: 'Blessure', penalty_us: penaltyWoord() + ' voor', penalty_them: penaltyWoord() + ' tegen',
+    freekick_us: vrijeWoord() + ' voor', freekick_them: vrijeWoord() + ' tegen',
+    green_card: 'Groene kaart', green_card_them: 'Groene kaart tegen',
     corner_us: cornerWoord() + ' voor', corner_them: cornerWoord() + ' tegen',
     cornerbal_mis_us: 'Cornerbal gemist', cornerbal_mis_them: 'Cornerbal tegen gemist',
     motm: 'Man v/d match', note: 'Notitie'
@@ -3860,6 +3874,7 @@ function modalExtra() {
     extraTegel(IC.injury, 'Blessure', 'modalInjury()'),
     extraTegel(IC.corner, cornerWoord(), "logCorner('us')"),
     extraTegel(IC.corner, cornerWoord() + ' tegen', "logCorner('them')"));
+  if (activeSport === 'hockey' && !achteraf) gebeurtenissen.push(extraTegel(IC.bolt, vrijeWoord(), 'modalFreekick()'));
   gebeurtenissen.push(
     extraTegel(IC.disallowed, 'Afgekeurd doelpunt', "modalDisallowed('us')"),
     extraTegel(IC.disallowed, 'Afgekeurd tegen', "modalDisallowed('them')"));
@@ -4881,6 +4896,98 @@ async function cornerbalGemist(team) {
   } finally { _eventBusy = false; }
 }
 
+// ===================== HOCKEY: TIJDELIJKE KAARTEN =====================
+// Zie HOCKEY_KAARTEN en schorsingen() in core.js voor hoe dit in de gegevens staat.
+// Geel: eerst de duur kiezen (5 of 10 minuten buiten, 2 of 4 in de zaal), want de scheidsrechter bepaalt ze per kaart.
+function modalKaartDuur(color, pid) {
+  const duren = kaartDuren(match, color);
+  openModal(`<h3>${icI(IC.cardY)} Gele kaart voor ${esc(pName(match, pid))}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Hoe lang moet hij eruit? De scheidsrechter bepaalt dat.</p>
+    ${duren.map(d => `<button class="btn btn-orgpale" style="margin-bottom:8px" onclick="logCardHockey('${color}','${pid}',${d})">${d} minuten</button>`).join('')}
+    <button class="btn btn-gray" style="margin-top:4px" onclick="closeModal()">Annuleren</button>`);
+}
+// Een groene of gele kaart voor een eigen speler: de kaart zelf, en meteen eruit zonder invaller. De ploeg speelt een man
+// minder tot de tijd om is en je hem met "Terug op het veld" (kaartTerug) laat terugkeren.
+async function logCardHockey(color, pid, duurMin) {
+  const duren = kaartDuren(match, color);
+  if (color === 'yellow' && duurMin === undefined && duren.length > 1) { modalKaartDuur(color, pid); return; }
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    const dur = duurMin !== undefined ? Number(duurMin) : duren[0];
+    addEvent(color === 'green' ? 'green_card' : 'yellow_card', { playerId: pid, tijdelijk: true, duurMin: dur });
+    const kaart = match.events[match.events.length - 1];
+    addEvent('substitution', { playerOutId: pid, playerInId: null, kaartId: kaart.id, reden: 'schorsing' });
+    const p = match.players.find(x => x.id === pid); if (p) p.onField = false;
+    await dbSave(match); closeModal(); render();
+    kaartAnim(color);
+    meldVastgelegd(color === 'green' ? 'Groene kaart' : 'Gele kaart', `${pName(match, pid)} · ${dur} ${dur === 1 ? 'minuut' : 'minuten'}`);
+  } finally { _eventBusy = false; }
+}
+// De speler laten terugkeren na zijn schorsing: op zijn eigen plek, of op de dichtstbijzijnde vrije plek van zijn lijn als er
+// intussen iemand anders staat. Zonder vrije plek (de ploeg staat al vol) vraagt de app eerst iemand te wisselen.
+async function kaartTerug(kaartId) {
+  if (_eventBusy || !match) return;
+  const s = schorsingen(match).find(x => x.kaartId === kaartId && x.kant === 'us');
+  if (!s || s.terug) return;
+  const p = match.players.find(x => x.id === s.playerId); if (!p) return;
+  const bezet = new Set(match.players.filter(x => x.onField && x.id !== p.id).map(x => spelerGridCode(x)).filter(Boolean));
+  let code = spelerGridCode(p);
+  if (!code || bezet.has(code)) {
+    const vrij = POS_GRID.filter(g => !bezet.has(g.code));
+    const lijst = vrij.filter(g => g.line === p.line);
+    const afst = g => typeof p.x === 'number' ? (g.x - p.x) * (g.x - p.x) + (g.y - p.y) * (g.y - p.y) : 0;
+    const keuze = (lijst.length ? lijst : vrij).sort((a, b) => afst(a) - afst(b))[0];
+    code = keuze ? keuze.code : null;
+  }
+  const opVeld = match.players.filter(x => x.onField).length;
+  const maxVeld = (MATCH_TYPES[match.matchType] || {}).field || 99;
+  if (!code || opVeld >= maxVeld) { showToast('Er staat al een volledige ploeg op het veld. Wissel eerst iemand.', 'err'); return; }
+  _eventBusy = true;
+  try {
+    zetOpGridPlek(p, gridPlek(code), match);
+    addEvent('substitution', { playerInId: p.id, playerOutId: null, naarPlek: code, kaartId, reden: 'schorsing-einde' });
+    p.onField = true;
+    await dbSave(match); render();
+    meldVastgelegd('Terug op het veld', pName(match, p.id));
+  } finally { _eventBusy = false; }
+}
+function schorsTijdTxt(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+// De lopende schorsingen onder de stand (enkel hockey): wie eruit staat en hoe lang nog, met een knop zodra de tijd om is. Een
+// kaart voor de tegenstander toont enkel de aftelling. Wat al teruggekeerd of verstreken is, verdwijnt.
+function schorsingRegelHtml(m) {
+  if (activeSport !== 'hockey' || !m) return '';
+  const nu = getGameTimeMs(m);
+  const chips = schorsingen(m).filter(s => !s.terug).map(s => {
+    const rest = s.eindMs - nu;
+    const kleur = s.color === 'green' ? IC.cardG : IC.cardY;
+    const naam = s.kant === 'us' ? esc(pName(m, s.playerId)) : `tegenstander${s.oppNumber ? ' nr. ' + esc(s.oppNumber) : ''}`;
+    if (rest > 0) return `<span class="schors-chip" data-schors-eind="${s.eindMs}" data-kaart="${s.kaartId}">${icI(kleur)} ${naam} <b class="schors-tijd">${schorsTijdTxt(rest)}</b></span>`;
+    if (s.kant === 'them') return '';   // tegenstander: de straf is voorbij, er valt niets te registreren
+    return canLive() ? `<button class="btn btn-orgpale btn-sm" style="margin:5px 4px 0;width:auto" onclick="kaartTerug('${s.kaartId}')">${icI(kleur)} ${naam}: terug op het veld</button>` : '';
+  }).join('');
+  return chips ? `<div class="sb-schors" style="margin-top:3px">${chips}</div>` : '';
+}
+// De aftelling van de chips bijhouden (aangeroepen door updateTimerDisplay, elke halve seconde). Loopt een tijd af, dan
+// hertekent het scherm één keer, zodat het chipje de knop "terug op het veld" wordt, met een melding.
+const _schorsGemeld = new Set();
+function updateSchorsingen() {
+  if (activeSport !== 'hockey' || !match) return;
+  const nu = getGameTimeMs(match);
+  let herteken = false;
+  document.querySelectorAll('[data-schors-eind]').forEach(el => {
+    const rest = Number(el.getAttribute('data-schors-eind')) - nu;
+    if (rest > 0) { const t = el.querySelector('.schors-tijd'); if (t) t.textContent = schorsTijdTxt(rest); return; }
+    const id = el.getAttribute('data-kaart');
+    if (!_schorsGemeld.has(id)) { _schorsGemeld.add(id); showToast('Een schorsing is afgelopen.', 'ok'); }
+    herteken = true;
+  });
+  if (herteken) render();
+}
+
 // ===================== MODAL: SUB =====================
 let subOut = null, subIn = null;
 // Wie er op het veld staat op het moment waarover dit scherm gaat, MET de posities van dat moment —
@@ -4981,6 +5088,16 @@ async function confirmSub() {
   if (isUitgesloten(match, subIn)) {
     showToast(`${pName(match, subIn)} is uitgesloten (rode kaart) en mag niet meer op het veld.`, 'err');
     subIn = null; modalSub(true); return;
+  }
+  // Hockey: een geschorste speler (groene of gele kaart) mag niet gewisseld worden zolang zijn straftijd loopt (spelregels
+  // hockey, art. 2.3d). Is zijn tijd om, dan mag het weer, ook zonder dat hij eerst terug op het veld geweest is (art. 2.3e).
+  if (activeSport === 'hockey') {
+    const nu = getGameTimeMs(match);
+    const straf = schorsingen(match).find(x => x.kant === 'us' && !x.terug && x.playerId === subIn && x.eindMs > nu);
+    if (straf) {
+      showToast(`${pName(match, subIn)} is nog geschorst (nog ${schorsTijdTxt(straf.eindMs - nu)}) en kan niet gewisseld worden.`, 'err');
+      subIn = null; modalSub(true); return;
+    }
   }
   // Zelfde vangnet voor wie de wedstrijd verliet: hij staat niet meer in de banklijst, maar een
   // selectie die nog van vóór zijn vertrek dateert (of een tweede toestel) zou hier alsnog door.
@@ -6648,8 +6765,10 @@ function modalCard(color) {
   // blessuremodal bood de bank al aan. Zie spelersVoorEventKeuze.
   const keuze = spelersVoorEventKeuze(match, true);
   const on = keuze.lijst;
-  const ico = color === 'yellow' ? icI(IC.cardY) : icI(IC.cardR);
-  const lbl = color === 'yellow' ? 'Gele kaart' : 'Rode kaart';
+  const ico = color === 'yellow' ? icI(IC.cardY) : color === 'green' ? icI(IC.cardG) : icI(IC.cardR);
+  const lbl = color === 'yellow' ? 'Gele kaart' : color === 'green' ? 'Groene kaart' : 'Rode kaart';
+  // Hockey: de duur van een groene of gele kaart voor de tegenstander kies je hier; voor een eigen speler vraagt logCardHockey ze.
+  const hkDuren = (activeSport === 'hockey' && color !== 'red') ? kaartDuren(match, color) : [];
   openModal(`<h3>${ico} ${lbl}${retroMomentLabel(match)}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
     <div class="tgl" id="card-team">
@@ -6671,13 +6790,13 @@ function modalCard(color) {
            uit twee gele kwam. Met dit merkje weet je vóór de tik wat er gaat gebeuren.
            Enkel op de gele knop: bij een rechtstreekse rode kaart verandert er niets. */ ''}
       ${pgGrid(on.map(p=>{
-        const geel = color === 'yellow' ? match.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length : 0;
+        const geel = (color === 'yellow' && activeSport !== 'hockey') ? match.events.filter(e => e.type === 'yellow_card' && e.playerId === p.id).length : 0;
         // ROOD en niet var(--org): die laatste is in deze app BLAUW (historische naam), en blauw zegt
         // hier niets. Rood zegt precies wat de volgende tik doet. Enkel het merkje kleurt mee; de knop
         // zelf houdt zijn gewone rand, anders leest ze als geblokkeerd terwijl je er juist op moet.
         return `<button type="button" onclick="logCard('${color}','${p.id}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px solid var(--bdr);background:var(--card);cursor:pointer;gap:2px">${playerBtnInner(p, 'var(--txt)')}${geel ? `<span style="font-size:9px;font-weight:800;color:var(--rd);border:1px solid var(--rd);border-radius:5px;padding:0 4px;white-space:nowrap">${geel === 1 ? '2e geel = rood' : 'heeft al rood'}</span>` : bankTag(keuze.bank, p)}</button>`;
       }).join('')
-        + ['trainer', 'afgevaardigde'].map(wie => `<button type="button" onclick="logCardStaf('${color}','${wie}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px">
+        + (color === 'green' ? [] : ['trainer', 'afgevaardigde']).map(wie => `<button type="button" onclick="logCardStaf('${color}','${wie}')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;border-radius:10px;border:2px dashed var(--bdr);background:var(--card);cursor:pointer;gap:2px">
              <span style="font-size:13px;font-weight:900;color:var(--txt);line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wie === 'trainer' ? 'Trainer' : 'Afgev.'}</span>
              <span style="font-size:9px;font-weight:800;color:var(--txt2);border:1px solid var(--bdr);border-radius:5px;padding:0 4px">staf</span>
            </button>`).join(''))}
@@ -6691,7 +6810,7 @@ function modalCard(color) {
            deze versie ook vanzelf rood, maar enkel MÉT rugnummer — zonder nummer weet de app niet wie
            het is. Dus hier zowel wat er al staat als die voorwaarde, vóór je het veld invult. */ ''}
       ${(() => {
-        if (color === 'red') return '';
+        if (color === 'red' || activeSport === 'hockey') return '';
         const tel = {};
         (match.events || []).forEach(e => { if (e.type === 'yellow_card_them' && e.oppNumber) tel[e.oppNumber] = (tel[e.oppNumber] || 0) + 1; });
         // Wie al rood heeft, hoort hier niet meer bij: die is weg, en nog een gele kaart voor hem
@@ -6702,6 +6821,7 @@ function modalCard(color) {
           ? `${icI(IC.cardY)} Al geel bij de tegenstander: <b>${nrs.map(n => 'nr. ' + esc(n) + (tel[n] > 1 ? ` (${tel[n]}×)` : '')).join(', ')}</b>. Geef je er nog een, dan wordt het rood.`
           : 'Geef je het rugnummer mee, dan ziet de app een tweede gele kaart en maakt er vanzelf rood van.'}</p>`;
       })()}
+      ${hkDuren.length ? `<div class="fg" style="margin-top:12px"><label>Hoe lang eruit?</label><select id="card-them-dur">${hkDuren.map(d => `<option value="${d}">${d} ${d === 1 ? 'minuut' : 'minuten'}</option>`).join('')}</select></div>` : ''}
       <div class="fg" style="margin-top:12px">
         <label>Rugnummer <span style="font-weight:400;color:var(--txt2)">(optioneel)</span></label>
         ${/* Geen maxlength: wie "nr. 7" typt zou dan op "nr." blijven staan en zijn cijfer kwijt zijn.
@@ -6720,6 +6840,7 @@ function tglCardTeam(team, btn) {
   document.getElementById('card-them-section').classList.toggle('hidden', team !== 'them');
 }
 async function logCard(color, pid) {
+  if (activeSport === 'hockey' && color !== 'red') return logCardHockey(color, pid);
   if (_eventBusy) return;
   _eventBusy = true;
   let tweedeGeel = false;
@@ -6759,7 +6880,7 @@ async function logCard(color, pid) {
 // de tegenstander, dus één plek.
 function kaartAnim(color) {
   requestAnimationFrame(() => {
-    const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : '.evtbtn.eyel .ei');
+    const ic = document.querySelector(color === 'red' ? '.evtbtn.ered .ei' : color === 'green' ? '.evtbtn.egrn .ei' : '.evtbtn.eyel .ei');
     if (ic) { ic.classList.remove('card-anim'); void ic.offsetWidth; ic.classList.add('card-anim'); }
   });
 }
@@ -6773,13 +6894,18 @@ async function logCardThem(color) {
   try {
     const el = document.getElementById('card-them-nr');
     const nr = ((el && el.value) || '').replace(/[^0-9]/g, '').slice(0, 3);
-    addEvent(color === 'red' ? 'red_card_them' : 'yellow_card_them', nr ? { oppNumber: nr } : {});
+    // Hockey: een groene of gele kaart is een tijdelijke schorsing met een duur, en een tweede gele geeft geen rood.
+    const hk = activeSport === 'hockey' && color !== 'red';
+    const dEl = document.getElementById('card-them-dur');
+    const hkDuur = hk ? (Number(dEl && dEl.value) || kaartDuren(match, color)[0]) : 0;
+    addEvent(color === 'red' ? 'red_card_them' : color === 'green' ? 'green_card_them' : 'yellow_card_them',
+      Object.assign(nr ? { oppNumber: nr } : {}, hk ? { tijdelijk: true, duurMin: hkDuur } : {}));
     // TWEEDE GEEL VOOR DE TEGENSTANDER (v2.15.2, Tim: "voor de tegenstander moet dit ook kunnen als
     // je het nummer ingeeft"). Zelfde regel als bij een eigen speler (zie logCard), met één verschil
     // dat in de voorwaarde zit: ZONDER RUGNUMMER KAN HET NIET. Dan weten we niet wie die kaart kreeg,
     // en zouden twee kaarten voor twee verschillende tegenspelers één uitsluiting opleveren.
     // Exact twee en nog geen automatische rode, om dezelfde reden als daar.
-    if (color !== 'red' && nr) {
+    if (color !== 'red' && color !== 'green' && nr && activeSport !== 'hockey') {
       const geel = match.events.filter(e => e.type === 'yellow_card_them' && e.oppNumber === nr).length;
       const alRood = match.events.some(e => e.type === 'red_card_them' && e.autoSecondYellow && e.oppNumber === nr);
       if (geel === 2 && !alRood) {
@@ -6790,7 +6916,7 @@ async function logCardThem(color) {
     }
     await dbSave(match); closeModal(); render();
     kaartAnim(color);
-    if (!tweedeGeel) meldVastgelegd(color === 'red' ? 'Rode kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
+    if (!tweedeGeel) meldVastgelegd(color === 'red' ? 'Rode kaart' : color === 'green' ? 'Groene kaart' : 'Gele kaart', nr ? `${tegenstanderNaam(match)} nr. ${nr}` : tegenstanderNaam(match));
   } finally { _eventBusy = false; }
 }
 // EEN KAART VOOR DE STAF, MET EEN EIGEN SOORT EVENT (v1.99.5). Dezelfde redenering als bij de kaart

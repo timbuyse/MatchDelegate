@@ -5349,13 +5349,15 @@ function evtLabelBasis(e, m, kort) {
     }
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
-    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
+    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card': return `${icI(IC.cardG)} Groene kaart ${pn(e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card_them': return `${icI(IC.cardG)} Groene kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     // Rood na twee keer geel krijgt het geel-rode kaartje van het bondsblad (IC.cardYR), niet twee
     // losse kaartjes naast elkaar: het is één gebeurtenis.
     case 'red_card': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} ${pn(e.playerId)}`;
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
     // rugnummer dat aan de lijn genoteerd is.
-    case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
+    case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card_them': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     // DEZELFDE VORM ALS OVERAL ELDERS (Tim, 04-10-2026). Eerst stond de rol hier vooraan — "Gele
     // kaart trainer · Jan Peeters" — terwijl het onder het velddiagram en bij de statistieken "Jan
@@ -5364,13 +5366,13 @@ function evtLabelBasis(e, m, kort) {
     // trainer", precies zoals voordien.
     case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafZin(e, m))}`;
     case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafZin(e, m))}`;
-    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
-    case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'penalty_us': return `${icI(IC.penalty)} ${penaltyWoord()} voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `${icI(IC.penalty)} ${penaltyWoord()} tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
     // vrije trap VOOR ons is `playerId` wie ze neemt; bij een vrije trap TEGEN ons is het onze speler
     // die de fout maakte — vandaar het woordje "door", anders leest het als de nemer.
-    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.fouledId?` <span style="color:var(--txt2)">(fout op ${pn(e.fouledId)})</span>`:''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
-    case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen${e.playerId?' · door '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
+    case 'freekick_us': return `${icI(IC.bolt)} ${vrijeWoord()} voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.fouledId?` <span style="color:var(--txt2)">(fout op ${pn(e.fouledId)})</span>`:''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
+    case 'freekick_them': return `${icI(IC.bolt)} ${vrijeWoord()} tegen${e.playerId?' · door '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
     // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
     // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
     // dat staat al in het woord zelf.
@@ -5417,16 +5419,18 @@ function evtLabelPlainBasis(e, m) {
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
     case 'posSwap': return `${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
     case 'posSwapReeks': return `${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
-    case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
+    case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card': return `Groene kaart ${pName(m,e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card_them': return `Groene kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card': return `${roodWoord(e)} ${pName(m,e.playerId)}`;
-    case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
+    case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card_them': return `${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'yellow_card_trainer': return `Gele kaart ${stafZin(e, m)}`;
     case 'red_card_trainer': return `Rode kaart ${stafZin(e, m)}`;
-    case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
-    case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.fouledId?` (fout op ${pName(m,e.fouledId)})`:''}${e.reden?` (${e.reden})`:''}`;
-    case 'freekick_them': return `Vrije trap tegen${e.playerId?' · door '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
+    case 'penalty_us': return `${penaltyWoord()} voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `${penaltyWoord()} tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'freekick_us': return `${vrijeWoord()} voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.fouledId?` (fout op ${pName(m,e.fouledId)})`:''}${e.reden?` (${e.reden})`:''}`;
+    case 'freekick_them': return `${vrijeWoord()} tegen${e.playerId?' · door '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
     case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}${e.notReturning?' (komt niet meer terug)':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
@@ -5815,6 +5819,7 @@ function updateTimerDisplay() {
   // Stilgezet = gedempt én met het opschrift PAUZE eronder (Tims keuze, 24-08-2026). De kleur hoort
   // hier en niet enkel in de render: deze functie tikt elke seconde en zette ze anders weer terug.
   const gepauzeerd = !!(q && q.startTime && q.pausedAt && !q.endTime);
+  if (typeof updateSchorsingen === 'function') updateSchorsingen();
   el.textContent = timerText(match);
   el.style.color = overtime ? 'var(--org)' : (gepauzeerd ? 'var(--org)' : '');
   el.style.opacity = gepauzeerd ? '.6' : '';
@@ -6155,11 +6160,17 @@ function fieldName(m, id) {
   if (!p) return '?';
   return fieldDisplayNames(m.players).get(id) || _firstName(p.name || '');
 }
-// WELK VELD, per sport. Voetbal en (voorlopig) hockey: het grasveld. Minivoetbal: het zaalveld. `pitchKlasse` geeft de
-// CSS-klassen van het vak, `pitchLines` de belijning; beide kiezen op de sport van de actieve ploeg.
-function veldVariant() { return activeSport === 'minivoetbal' ? 'minivoetbal' : 'voetbal'; }
-function pitchKlasse() { return veldVariant() === 'minivoetbal' ? 'pitch pitch-mv' : 'pitch'; }
-// Het zaalveld op dezelfde 320 x 480 als het grasveld. De breedte (20 m) is 320 eenheden en de lengte (40 m) 480, dus 16
+// WELK VELD, per sport. Voetbal: het grasveld. Minivoetbal: het zaalveld. Hockey: het hockeyveld, en in de zaal (wedstrijd
+// met `zaal: true`) het zaalhockeyveld. `pitchKlasse` geeft de CSS-klassen van het vak, `pitchLines` de belijning; beide
+// kiezen op de sport van de actieve ploeg en, bij hockey, op de wedstrijd.
+function veldVariant(m) {
+  if (activeSport === 'minivoetbal') return 'minivoetbal';
+  if (activeSport === 'hockey') return (m && m.zaal) ? 'hockeyzaal' : 'hockey';
+  return 'voetbal';
+}
+const PITCH_KLASSE = { minivoetbal: 'pitch pitch-mv', hockey: 'pitch pitch-hk', hockeyzaal: 'pitch pitch-hkz' };
+function pitchKlasse(m) { return PITCH_KLASSE[veldVariant(m)] || 'pitch'; }
+// Het zaalveld van minivoetbal op dezelfde 320 x 480 als het grasveld. De breedte (20 m) is 320 eenheden en de lengte (40 m) 480, dus 16
 // en 12 eenheden per meter: de strafschoplijn op 5 m ligt op 60, het strafschoppunt op 15 m op 180 (en 300 aan de andere
 // kant), het cornerbalpunt op 6,25 m van het midden van de doellijn (x 60 en 260), het doel is 3 m breed (x 136 tot 184).
 // De middencirkel (4 m) is rond getekend en geen ellips, zodat hij er als cirkel uitziet in het 2:3-vak.
@@ -6179,8 +6190,37 @@ function pitchLinesZaal() {
     <circle cx="60" cy="478" r="3.5" fill="${f}"/><circle cx="260" cy="478" r="3.5" fill="${f}"/>
   </svg>`;
 }
-function pitchLines() {
-  if (veldVariant() === 'minivoetbal') return pitchLinesZaal();
+// HET HOCKEYVELD, afmetingen uit de spelregels van Hockey Belgium (art. 1 en de technische specificaties):
+//   buiten  91,40 x 55,00 m, 23-meterlijnen op 22,90 m, cirkel = twee kwartcirkels van 14,63 m rond de binnenkant van de
+//           doelpalen, verbonden door een lijn van 3,66 m (de breedte van het doel), strafbalstip op 6,40 m.
+//   zaal    44 x 22 m, geen 23-meterlijnen, cirkel van 9 m rond de palen met een lijn van 3 m, strafbalstip op 7 m.
+// Beide staan op de 320 x 480 van de andere velden, dus de eenheden per meter verschillen per richting (de cirkel wordt een
+// ellips in het 2:3-vak). Er is geen middencirkel in hockey, enkel de middenlijn.
+function pitchLinesHockey(zaal) {
+  const l = 'rgba(255,255,255,.88)', f = 'rgba(255,255,255,.95)';
+  const px = 320 / (zaal ? 22 : 55), py = 480 / (zaal ? 44 : 91.4);
+  const half = (zaal ? 1.5 : 1.83) * px, p1 = 160 - half, p2 = 160 + half;
+  const R = zaal ? 9 : 14.63, rx = R * px, ry = R * py, stip = (zaal ? 7 : 6.4) * py;
+  const n = v => Math.round(v * 100) / 100;
+  const boven = `M ${n(p1 - rx)} 0 A ${n(rx)} ${n(ry)} 0 0 0 ${n(p1)} ${n(ry)} L ${n(p2)} ${n(ry)} A ${n(rx)} ${n(ry)} 0 0 0 ${n(p2 + rx)} 0`;
+  const onder = `M ${n(p1 - rx)} 480 A ${n(rx)} ${n(ry)} 0 0 1 ${n(p1)} ${n(480 - ry)} L ${n(p2)} ${n(480 - ry)} A ${n(rx)} ${n(ry)} 0 0 1 ${n(p2 + rx)} 480`;
+  const w23 = 22.9 * py;
+  return `<svg class="pitch-lines" viewBox="0 0 320 480">
+    <line x1="0" y1="240" x2="320" y2="240" stroke="${l}" stroke-width="2"/>
+    ${zaal ? '' : `<line x1="0" y1="${n(w23)}" x2="320" y2="${n(w23)}" stroke="${l}" stroke-width="2"/>
+    <line x1="0" y1="${n(480 - w23)}" x2="320" y2="${n(480 - w23)}" stroke="${l}" stroke-width="2"/>`}
+    <path d="${boven}" fill="none" stroke="${l}" stroke-width="2"/>
+    <path d="${onder}" fill="none" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="${n(stip)}" r="3" fill="${f}"/>
+    <circle cx="160" cy="${n(480 - stip)}" r="3" fill="${f}"/>
+    <line x1="${n(p1)}" y1="1" x2="${n(p2)}" y2="1" stroke="#fff" stroke-width="5"/>
+    <line x1="${n(p1)}" y1="479" x2="${n(p2)}" y2="479" stroke="#fff" stroke-width="5"/>
+  </svg>`;
+}
+function pitchLines(m) {
+  const v = veldVariant(m);
+  if (v === 'minivoetbal') return pitchLinesZaal();
+  if (v === 'hockey' || v === 'hockeyzaal') return pitchLinesHockey(v === 'hockeyzaal');
   return `<svg class="pitch-lines" viewBox="0 0 320 480">
     <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
     <circle cx="160" cy="240" r="43" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
@@ -6296,7 +6336,7 @@ function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
   const verplaats = (m && !tap) ? (uitPlan ? planPosRijen(m, qNum) : periodPosSwapList(m, qNum)) : [];
   // Kaarten bestaan niet in een plan: je plant geen gele kaart. Dus bij uitPlan nooit een kaartregel.
   const kaarten = (m && !tap && !uitPlan) ? periodCardList(m, qNum) : [];
-  return `<div class="${pitchKlasse()}">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
+  return `<div class="${pitchKlasse(m)}">${pitchLines(m)}${pitchOpenPlekken(m, players, tap)}${dots}</div>
   ${/* De drie soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
         wissel op 12' te staan, en een kaart op 10' daartussen. Apart onder elkaar zetten leest als
         losse lijstjes en dwingt de lezer om zelf de volgorde te maken. */ ''}

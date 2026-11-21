@@ -309,7 +309,10 @@ function hbeWedstrijdSleutels(lijst) {
 // Een nieuwe wedstrijd, in dezelfde vorm als impVoerUit ze maakt. De competitienaam ("U9 Boys - Reg. 2 G") staat
 // in de notities: het is geen veld dat de app kent, en wat niet in het model past hoort daar.
 function hbeNieuweWedstrijd(w, kernId, ploegNaam, vorm) {
-  return {
+  // Een zaalwedstrijd ("Indoor" in de bron) is altijd 6 tegen 6 in 4 blokken van 15, wat de leeftijd ook is, en draagt `zaal`.
+  const zaal = /indoor|zaal/i.test(w.soort || '');
+  if (zaal) vorm = { matchType: '6v6', periodKey: 'kwarten', dur: 15 };
+  return Object.assign({
     id: uid(), createdAt: Date.now(), notes: w.competitie || '', motmId: null, captainId: null,
     quarters: [], currentQuarter: 0, quarterStatus: 'not_started', scoreUs: 0, scoreThem: 0, events: [],
     formation: '', players: [], absentPlayers: [], status: 'planned',
@@ -320,7 +323,7 @@ function hbeNieuweWedstrijd(w, kernId, ploegNaam, vorm) {
     matchType: vorm.matchType, fieldSize: MATCH_TYPES[vorm.matchType].field,
     periodKey: vorm.periodKey, numQuarters: PERIOD_TYPES[vorm.periodKey].count, quarterDuration: vorm.dur,
     hbeKey: w.sleutel,
-  };
+  }, zaal ? { zaal: true } : {});
 }
 // De velden die een tweede keer inlezen mag aanpassen op een bestaande, nog geplande wedstrijd: precies wat
 // de bron weet. Selectie, opstelling en notities blijven staan.

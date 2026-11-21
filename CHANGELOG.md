@@ -9,6 +9,23 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.9
+
+- **Hockey: kaarten met een tijd.** Groene kaart (2 min, zaal 1) en gele kaart (buiten 5 of 10 min, zaal 2 of 4, te kiezen per
+  kaart) zijn tijdelijke schorsingen: de speler gaat eruit zonder invaller en onder de stand loopt een aftelling per
+  geschorste speler, in speeltijd. Is de tijd om, dan staat er een knop "terug op het veld". Een geschorste speler kan niet
+  gewisseld worden zolang zijn straftijd loopt. Een kaart voor de tegenstander telt ook af. Een tweede gele geeft in hockey geen
+  rood; rood blijft blijvend. Nieuwe gebeurtenissen `green_card`/`green_card_them` en een optioneel `tijdelijk`/`duurMin` op
+  gele kaarten; eruit gaan en terugkeren zijn gewone wissels zonder invaller, dus opstelling en speelminuten kloppen vanzelf.
+- **Hockeyvelden:** een blauwgroen veld met de schietcirkel (14,63 m), de 23-meterlijnen en de strafbalstip, en in de zaal een houten
+  vloer met de cirkel van 9 m, op de afmetingen uit de spelregels. Ook in de pdf. Een wedstrijd onthoudt of ze in de zaal
+  gespeeld wordt (optioneel veld `zaal`): vinkje "Zaalhockey" bij een nieuwe wedstrijd en in "Info bewerken", en de import zet het voor
+  "Indoor"-wedstrijden (dan 6v6, 4 x 15).
+- **Hockeywoorden:** Strafcorner, Strafbal, Vrije slag, en bij "Hoe viel het?" Strafcorner, Vrije slag en Inslag. De knoppen staan
+  anders: de drie kaarten op één rij, de vrije slag onder "Meer".
+- **Minivoetbal: het voorgestelde formaat bij de voetbalbond-koppeling** is nu altijd 5 tegen 5 in 4 x 13 minuten, voor elke
+  leeftijd. Voorheen volgde het de leeftijdstabel van het voetbal (8v8 en 11v11).
+
 ## v2.31.8
 
 - **Minivoetbal: corners en cornerbal volgens de spelregels.** Corners zijn een teller: na de vierde corner krijgt een

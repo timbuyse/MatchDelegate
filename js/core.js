@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.31.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -411,6 +411,39 @@ function cornerWoorden(s) {
   const sp = sportVan(s === undefined ? activeSport : s);
   return sp === 'minivoetbal' ? 'Corners' : sp === 'hockey' ? 'Strafcorners' : 'Hoekschoppen';
 }
+// Hockey kent een strafbal (penalty stroke) en een vrije slag, geen penalty en vrije trap. Dezelfde gebeurtenissen
+// (`penalty_us`, `freekick_us`), enkel de woorden verschillen.
+function penaltyWoord(s) { return sportVan(s === undefined ? activeSport : s) === 'hockey' ? 'Strafbal' : 'Penalty'; }
+function vrijeWoord(s) { return sportVan(s === undefined ? activeSport : s) === 'hockey' ? 'Vrije slag' : 'Vrije trap'; }
+// ===================== HOCKEY: KAARTEN MET EEN TIJD =====================
+// Een groene of gele kaart in hockey is een TIJDELIJKE schorsing (spelregels hockey, art. 14): de speler gaat eruit en de
+// ploeg speelt een man minder tot zijn tijd om is. Buiten: groen 2 minuten, geel minstens 5 (de scheidsrechter bepaalt: 5 of
+// 10). Zaal: groen 1 minuut, geel minstens 2 (2 of 4). Rood blijft blijvend. De tijd is SPEELTIJD: ze loopt mee met de klok
+// van de wedstrijd en staat stil als die stilstaat.
+//
+// HOE DAT IN DE GEGEVENS STAAT, zonder dat opstelling, speelminuten of verslag iets nieuws moeten leren:
+//   de kaart     -> `green_card` of `yellow_card` met `tijdelijk: true`, `duurMin` en de speler;
+//   eruit gaan   -> een gewone wissel zonder invaller (`substitution`, `playerOutId`, `kaartId`, `reden: 'schorsing'`),
+//                   dezelfde gebeurtenis als "naar de bank zonder invaller";
+//   terugkeren   -> een gewone wissel zonder uitgaande speler (`playerInId`, `naarPlek`, `kaartId`).
+// De terugkeer is een BEWUSTE tik ("Terug op het veld") en geen automatisme: zo kloppen veld en speelminuten altijd met wat
+// er echt gebeurde, ook als de scheidsrechter de speler nog even laat wachten. De kaart voor de tegenstander
+// (`*_card_them`) draagt dezelfde `duurMin`; die heeft geen terugkeer, enkel een aftelling.
+const HOCKEY_KAARTEN = { veld: { green: [2], yellow: [5, 10] }, zaal: { green: [1], yellow: [2, 4] } };
+function kaartDuren(m, color) { return (HOCKEY_KAARTEN[(m && m.zaal) ? 'zaal' : 'veld'] || {})[color] || []; }
+function schorsingen(m) {
+  const ev = (m && m.events) || [];
+  const eigen = ev.filter(e => (e.type === 'green_card' || e.type === 'yellow_card') && e.tijdelijk && e.playerId).map(e => ({
+    kaartId: e.id, kant: 'us', playerId: e.playerId, color: e.type === 'green_card' ? 'green' : 'yellow', duurMin: e.duurMin || 0,
+    eindMs: (e.gameTimeMs || 0) + (e.duurMin || 0) * 60000,
+    terug: ev.some(x => x.type === 'substitution' && x.kaartId === e.id && x.playerInId === e.playerId),
+  }));
+  const tegen = ev.filter(e => (e.type === 'green_card_them' || e.type === 'yellow_card_them') && e.tijdelijk && e.duurMin).map(e => ({
+    kaartId: e.id, kant: 'them', oppNumber: e.oppNumber || '', color: e.type === 'green_card_them' ? 'green' : 'yellow', duurMin: e.duurMin,
+    eindMs: (e.gameTimeMs || 0) + e.duurMin * 60000, terug: false,
+  }));
+  return eigen.concat(tegen);
+}
 // De keuzewoorden bij "Hoe viel het?" per sport. Voetbal en hockey: de bestaande lijst. Minivoetbal kent geen hoekschop
 // die rechtstreeks scoort maar een cornerbal, en een intrap in plaats van een ingooi. Een woord dat al bij een doelpunt
 // staat, blijft er gewoon bij staan, ook als het hier niet meer gekozen kan worden.
@@ -423,6 +456,8 @@ function reeksNemer(s) { const sp = sportVan(s === undefined ? activeSport : s);
 function goalWijzenVoor(s) {
   const sp = sportVan(s === undefined ? activeSport : s);
   if (sp === 'minivoetbal') return GOAL_WIJZEN.map(w => w === 'Hoekschop' ? WIJZE_CORNERBAL : w === 'Ingooi' ? 'Intrap' : w);
+  // Hockey: strafcorner, vrije slag en inslag in plaats van hoekschop, vrije trap en ingooi.
+  if (sp === 'hockey') return GOAL_WIJZEN.map(w => w === 'Hoekschop' ? 'Strafcorner' : w === 'Vrije trap' ? 'Vrije slag' : w === 'Ingooi' ? 'Inslag' : w);
   return GOAL_WIJZEN;
 }
 // Waarden voor een nieuwe ploeg of wedstrijd. null voor voetbal: dan gelden de oude standaarden.
@@ -573,6 +608,8 @@ const IC = {
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
   cardR: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/>'),
+  // De groene kaart van hockey: een tijdelijke schorsing van 2 minuten (zaal: 1). Zelfde vorm als de gele en de rode.
+  cardG: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#16a34a" stroke="#166534" stroke-width="1.2"/>'),
   // GEEL-ROOD ALS ÉÉN KAARTJE (v2.15.1). Zoals op het wedstrijdblad van de bond: het rode steekt
   // achter het gele uit. Twee losse kaartjes naast elkaar lazen als twee gebeurtenissen, terwijl het
   // er één is. Zelfde maten als de twee hierboven, enkel smaller en elk een kant op gedraaid zodat

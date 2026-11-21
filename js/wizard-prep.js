@@ -28,7 +28,7 @@ function startWizard() {
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
-    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '', terrein: '',
+    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '', terrein: '', zaal: false,
     // Standaard staat de eerste trainer en de eerste ploegverantwoordelijke van de ploeg
     // aangevinkt; de rest vink je er per wedstrijd bij.
     trainer: teamTrainerNames(team)[0] || '',
@@ -97,6 +97,16 @@ function selectedCount() { return wiz.pool.filter(isSel).length; }
 // een speler op CAM blijft op CAM staan. Enkel hoeveel spelers er op het veld horen en welke plekken
 // een positienummer dragen, verandert mee. De formatiekeuze valt wel terug op de eerste, want de
 // formatielijst hoort bij de wedstrijdvorm. Voordien werd hier de hele opstelling gewist.
+// Zaalhockey aan- of uitzetten: zaal is altijd 6 tegen 6 in 4 blokken van 15 minuten (spelregels indoor hockey). Uitzetten
+// zet het formaat terug op wat de ploeg gewoonlijk speelt. Het scherm wordt hertekend omdat formaat en duur meeveranderen.
+function wizZaalChange(aan) {
+  captureStep1();
+  wiz.zaal = !!aan; wiz._typeTouched = true;
+  if (aan) { wiz.matchType = '6v6'; wiz.periodKey = 'kwarten'; wiz.numQuarters = 4; wiz.quarterDuration = 15; }
+  else { const md = teamMatchDefaults(kernById(wiz.teamId)); wiz.matchType = md.matchType; wiz.periodKey = md.periodKey; wiz.numQuarters = PERIOD_TYPES[md.periodKey].count; wiz.quarterDuration = md.quarterDuration; }
+  wiz.formationIndex = 0;
+  render();
+}
 function wizTypeChange() {
   wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true;
   // Hockey: veld en zaal hebben elk hun eigen speelduur (2 x 35 tegenover 4 x 15), dus die schuift mee
@@ -210,6 +220,7 @@ function wizStep1() {
            Het TERREIN blijft wél in het blok hieronder staan: dat is een detail voor ter plaatse
            ("terrein 2"), geen reisinformatie. */ ''}
       <div class="fg"><label>Adres</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. Sportstraat 12, 9700 Oudenaarde" autocomplete="off"></div>
+      ${activeSport === 'hockey' ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:0 0 12px;cursor:pointer"><input type="checkbox" id="n-zaal" ${wiz.zaal ? 'checked' : ''} onchange="wizZaalChange(this.checked)" style="width:18px;height:18px;flex-shrink:0"> Zaalhockey <span style="color:var(--txt2)">(binnen: 6 tegen 6, 4 × 15 minuten)</span></label>` : ''}
       <div class="fg"><label>Format</label>
         <select id="n-type" onchange="wizTypeChange()">
           ${matchTypesVoorSport().map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${matchTypeLabel(t)}</option>`).join('')}
@@ -274,6 +285,7 @@ function captureStep1() {
   wiz.subteam = (v('n-subteam') || '').trim();
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
+  const zaalVak = document.getElementById('n-zaal'); if (zaalVak) wiz.zaal = zaalVak.checked;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   // numQuarters volgt de selector. Deze wizard kent geen "1 blok"-optie, maar finishWizard laat
   // wiz.numQuarters wél voorgaan op periodKey: "Gebruik als template" op een tornooiwedstrijd van
@@ -863,7 +875,7 @@ function wizPitch(form) {
     return `<div class="pslot pslot-open${voorstel.has(plek.code) ? ' pslot-tip' : ''}" style="${pos}" onclick="placeSlot('${plek.code}')">`
       + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
   }).join('');
-  return `<div class="${pitchKlasse()}">${pitchLines()}${slots}</div>`;
+  return `<div class="${pitchKlasse(wiz)}">${pitchLines(wiz)}${slots}</div>`;
 }
 function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];
@@ -1432,6 +1444,8 @@ async function finishWizard(startNow, zonderOpstelling, formatieBevestigd, veldM
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
+    // `zaal` is een optioneel veld, enkel bij zaalhockey: het bepaalt het veldplaatje en de duur van de kaartstraffen.
+    ...((activeSport === 'hockey' && wiz.zaal) ? { zaal: true } : {}),
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
     players: allP,
     absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null, reason: p.absentReason || '' })),
