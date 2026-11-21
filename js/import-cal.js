@@ -2707,7 +2707,7 @@ async function impRbfaOphalen() {
 // clubscherm om het vanaf te doen. Tims antwoord (31-08-2026): er worden nooit ploegen gemaakt die
 // niet aan een club hangen.
 function rbfaTeamSectieHtml(team) {
-  if (!team || team.isNew || !canManage()) return '';
+  if (!team || team.isNew || !canManage() || !voetbalbondImport()) return '';
   const ploegen = rbfaPloegen(team);
   if (!ploegen.length) return '';
   return `<div class="sec">Kalender van de voetbalbond</div>
@@ -2797,6 +2797,8 @@ async function rbfaKernenVanClub(clubId) {
         meerdereKernen: paren.length > 1,
         rbfaClubId: String(kern.rbfaClubId || ''),
         rbfaTeams: rbfaPloegen(kern),
+        // De koppeling met Hockey Belgium (import-hockey.js): de ploegcode en het club-id op hockey.be.
+        hbeCode: String(kern.hbeCode || ''), hbeClubId: String(kern.hbeClubId || ''),
       });
     });
   }));

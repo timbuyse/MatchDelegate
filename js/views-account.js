@@ -91,9 +91,10 @@ async function loadClubBeheerView() {
       try { const v = (await fbOnce(fbdb.ref('clubs/' + clubId + '/' + pad))).val(); return (v === null || v === undefined) ? leeg : v; }
       catch (e) { return leeg; }
     };
-    const [clubNaamRuw, clubAdmins, clubTeams] = await Promise.all([
-      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}),
+    const [clubNaamRuw, clubAdmins, clubTeams, clubSportRuw] = await Promise.all([
+      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}), leesClub('info/sport', ''),
     ]);
+    const clubSport = sportVan(clubSportRuw);   // de sport van DEZE club (zie SPORTS in core.js)
     const clubName = clubNaamRuw || 'Mijn club';
     const teamIds = Object.keys(clubTeams);
     // Altijd vers de naam ophalen (niet op de cache vertrouwen): zo weten we of de ploeg nog
@@ -170,7 +171,8 @@ async function loadClubBeheerView() {
             maar de aanroep gebeurt pas bij het aantikken, dus dat mag (zie CLAUDE.md). */ ''}
       <div style="display:grid;gap:8px;margin-bottom:16px">
         <button class="btn btn-green" style="margin:0" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-        <button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
+        ${voetbalbondImport(clubSport) ? `<button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>` : ''}
+        ${clubSport === 'hockey' ? `<button class="btn btn-pale" style="margin:0" onclick="hbeClubOpen('${clubId}')">${icI(IC.link)} Ploegen van Hockey Belgium</button>` : ''}
         ${/* De clubronde: werken over alle ploegen heen in plaats van ploeg per ploeg (v1.84.0).
               Staat in import-cal.js, dat ná dit bestand laadt — de aanroep gebeurt pas bij het
               aantikken, dus dat mag (zie CLAUDE.md). */''}
@@ -7543,7 +7545,7 @@ async function loadMatches() {
   const nieuwBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   const impBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="impStart()">${icI(IC.upload)} Kalender importeren</button>` : '';
   // Het blad van de trainer inlezen zonder eerst de wedstrijd te openen: de app zoekt ze zelf (psdStartLos).
-  const psdBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="psdStartLos()">${icI(IC.clipboard)} Voorbereiding inlezen</button>` : '';
+  const psdBtn = (canManage() && voetbalbondImport()) ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="psdStartLos()">${icI(IC.clipboard)} Voorbereiding inlezen</button>` : '';
   const maakBtns = nieuwBtn + (impBtn ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${impBtn}${psdBtn}</div>` : '');
   if (!all.length) {
     // Ook hier stond "tik dan +" terwijl die knop (met de andere twee) enkel voor een beheerder

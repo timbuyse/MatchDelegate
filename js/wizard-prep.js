@@ -1966,7 +1966,7 @@ function renderPrep() {
          (tournamentSquadMee) en geldt ze voor alle wedstrijden van die dag; een PSD-blad inlezen zou
          hier spelers zetten die bij de eerstvolgende bewerking langs de tornooiwizard weer wegvallen.
          Zelfde grens als vvMagSelectie in import-vv.js en als "Selectie aanpassen" op het verslag. */ ''}
-    ${m.tournamentId ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
+    ${(m.tournamentId || !voetbalbondImport()) ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
     ${/* ZICHTBAAR VOOR KIJKERS, JA OF NEE (Tim, 01-09-2026). Enkel bij een GEPLANDE wedstrijd: vanaf de
          aftrap is ze altijd zichtbaar (zie matchVerborgenVoorKijkers in core.js), dus een schakelaar
          daarna zou een keuze voorstellen die niets meer doet. En enkel bij een ploeg met kijkers in de
@@ -2087,7 +2087,7 @@ function modalEditMatchMenu() {
          MAAR NIET BIJ EEN TORNOOIWEDSTRIJD (Tim, 01-09-2026): daar komt de selectie van de tornooidag
          en zou een ingelezen blad bij de eerstvolgende bewerking langs de tornooiwizard weer
          verdwijnen. Houd dit gelijk met de knop in het voorbereidingsscherm hierboven. */ ''}
-    ${m.tournamentId ? '' : item(IC.upload, 'Voorbereiding van de trainer', heeftSel
+    ${(m.tournamentId || !voetbalbondImport()) ? '' : item(IC.upload, 'Voorbereiding van de trainer', heeftSel
       ? 'Lees het PSD-blad van de trainer in. Let op: dat vervangt de selectie en de opstelling die er nu staan.'
       : 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
@@ -2122,7 +2122,7 @@ function modalEditMatchMenu() {
     ${/* De openbare wedstrijdpagina van de bond uitlezen (zie import-vv.js). Staat hier onder
          "Uitslag ingeven", want het is dezelfde soort handeling: een wedstrijd die je niet gevolgd
          hebt achteraf invullen — alleen haalt deze het op in plaats van dat je het tikt. */ ''}
-    ${item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.', 'vvStart()')}
+    ${!voetbalbondImport() ? '' : item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.', 'vvStart()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
     ${(heeftSel && (m.status || 'planned') === 'planned')

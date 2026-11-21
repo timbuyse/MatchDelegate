@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.5
+
+- **Hockey: ploegen en kalender inlezen vanaf hockey.be.** In Clubbeheer van een hockeyclub staat nu de knop
+  "Ploegen van Hockey Belgium". De clubbeheerder zoekt zijn club, ziet de jeugdploegen (U7 tot U19) die uit het
+  seizoenprogramma volgen, en maakt ze met één tik aan, elk met hun volledige kalender. Een tweede keer inlezen
+  voegt enkel nieuwe wedstrijden toe en past verzette aan. Startwaarden per leeftijd: U7-U8 3 tegen 3, U9 6 tegen 6,
+  U10-U12 8 tegen 8, vanaf U14 11 tegen 11. Nieuw, optioneel veld `hbeKey` op een wedstrijd (voor het ontdubbelen) en
+  `hbeClubId`/`hbeCode` op de ploeg; bestaande gegevens blijven ongewijzigd.
+- **Hockey kent nu 3v3, 6v6, 8v8 en 11v11**, en "6 tegen 6" draagt geen "(zaal)" meer: U9 speelt het ook op het veld.
+- **De voetbalbond-onderdelen verdwijnen voor hockey:** "Ploegen van de voetbalbond", "Kalender van de voetbalbond",
+  "Wedstrijdinfo ophalen" en het inlezen van het ProSoccerData-blad.
+- Bugfix: een gekozen wedstrijdvorm kon door de standaard van de sport overschreven worden.
+
 ## v2.31.4
 
 - **Eerste stap naar hockey en minivoetbal: de sport ligt vast per club.** Bij het aanmaken van een club

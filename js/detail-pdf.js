@@ -587,7 +587,7 @@ function modalDetailEditMenu() {
     ${/* Grijs zonder verbinding: dit venster staat open zodra je mag bijhouden (canLive), maar
          ophalen kan enkel mét net. Zelfde reden als de knop "Bewerken" die op het
          voorbereidingsscherm wegvalt zonder verbinding. */ ''}
-    ${menuItemHtml(IC.link, 'Wedstrijdinfo ophalen', canManage()
+    ${!voetbalbondImport() ? '' : menuItemHtml(IC.link, 'Wedstrijdinfo ophalen', canManage()
       ? 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.'
       : 'Kan niet zonder verbinding: hiervoor moet de wedstrijdpagina opgehaald worden.',
       'vvStart()', !canManage())}

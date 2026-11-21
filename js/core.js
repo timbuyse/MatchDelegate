@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.31.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -348,11 +348,19 @@ const DUR_DEFAULT = { helften: 30, delen: 20, kwarten: 15 };
 // Voetbal Vlaanderen minivoetbal): veldhockey 2 x 35 (U14: 2 x 30), zaalhockey 4 x 15, minivoetbal 4 x 13.
 const SPORTS = {
   voetbal:     { naam: 'Voetbal',     matchTypes: ['3v3', '5v5', '8v8', '11v11'] },
-  hockey:      { naam: 'Hockey',      matchTypes: ['6v6', '11v11'],
+  // Hockey Belgium speelt de jeugd op kleinere velden: U7 en U8 3 tegen 3, U9 6 tegen 6, U10 tot U12 8 tegen 8,
+  // vanaf U14 11 tegen 11 (tabel van Tim, 21-11-2026). Zaalhockey is altijd 6 tegen 6. `6v6` is dus zowel veld
+  // (U9) als zaal: het label zegt het daarom niet, en de wedstrijd zelf draagt wel of het veld of zaal was.
+  // DE DUREN: enkel 2 x 35 op een groot veld (U14: 2 x 30) en 4 x 15 in de zaal staan in de reglementen. Voor
+  // 3v3 en 8v8 is er geen bron, dus daar staat 4 x 15 als startwaarde, per ploeg en per wedstrijd aan te passen.
+  hockey:      { naam: 'Hockey',      matchTypes: ['3v3', '6v6', '8v8', '11v11'],
                  standaard: { matchType: '11v11', periodKey: 'helften', dur: 35 },
-                 // Per wedstrijdvorm: zaal speelt anders dan veld.
-                 perType: { '6v6': { periodKey: 'kwarten', dur: 15 }, '11v11': { periodKey: 'helften', dur: 35 } },
-                 extraDuren: { helften: [35], kwarten: [10, 15] } },
+                 perType: { '3v3': { periodKey: 'kwarten', dur: 15 }, '6v6': { periodKey: 'kwarten', dur: 15 },
+                            '8v8': { periodKey: 'kwarten', dur: 15 }, '11v11': { periodKey: 'helften', dur: 35 } },
+                 extraDuren: { helften: [35], kwarten: [10, 15] },
+                 // Hockey valt onder Hockey Belgium: de koppelingen met de voetbalbond (rbfa.be,
+                 // voetbalvlaanderen.be, het ProSoccerData-blad) bestaan er niet.
+                 voetbalImport: false },
   minivoetbal: { naam: 'Minivoetbal', matchTypes: ['5v5'],
                  standaard: { matchType: '5v5', periodKey: 'kwarten', dur: 13 },
                  extraDuren: { kwarten: [13] } },
@@ -363,19 +371,20 @@ let activeSport = SPORT_STANDAARD;   // sport van de actieve ploeg (teams/{id}/i
 function sportVan(s) { return SPORTS[s] ? s : SPORT_STANDAARD; }
 function sportNaam(s) { return SPORTS[sportVan(s)].naam; }
 function matchTypesVoorSport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].matchTypes; }
-// Leesbaar label van een wedstrijdvorm. Voetbal en minivoetbal: "8 tegen 8" zoals altijd. Bij hockey
-// zegt het erbij of het veld of zaal is, want dat is het enige dat een hockeytrainer wil weten.
-function matchTypeLabel(t, s) {
-  const basis = String(t || '').replace('v', ' tegen ');
-  if (sportVan(s === undefined ? activeSport : s) !== 'hockey') return basis;
-  return t === '6v6' ? basis + ' (zaal)' : t === '11v11' ? basis + ' (veld)' : basis;
-}
+// Leesbaar label van een wedstrijdvorm: "8 tegen 8". Voor alle sporten hetzelfde; bij hockey zegt "6 tegen 6" niet
+// of het veld of zaal is, want U9 speelt op het veld ook 6 tegen 6.
+function matchTypeLabel(t) { return String(t || '').replace('v', ' tegen '); }
+// Horen de koppelingen met de voetbalbond bij deze sport: "Ploegen van de voetbalbond" (rbfa.be),
+// "Wedstrijdinfo ophalen" (voetbalvlaanderen.be) en het inlezen van het ProSoccerData-blad? Voor een
+// hockeyclub staan die knoppen er niet. Alleen weergave: de gegevens eronder blijven bestaan.
+function voetbalbondImport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].voetbalImport !== false; }
 // Waarden voor een nieuwe ploeg of wedstrijd. null voor voetbal: dan gelden de oude standaarden.
 function sportStandaard(s, matchType) {
   const sp = SPORTS[sportVan(s === undefined ? activeSport : s)];
   if (!sp.standaard) return null;
   const mt = sp.matchTypes.includes(matchType) ? matchType : sp.standaard.matchType;
-  return Object.assign({ matchType: mt }, sp.perType && sp.perType[mt] ? sp.perType[mt] : sp.standaard);
+  // Volgorde telt: de gekozen vorm komt als laatste, anders overschrijft de standaard hem met haar eigen vorm.
+  return Object.assign({}, sp.standaard, sp.perType && sp.perType[mt] ? sp.perType[mt] : {}, { matchType: mt });
 }
 // Het wedstrijdtype dat een keuzelijst voorselecteert als er nog niets gekozen is: '8v8' voor voetbal
 // (zoals altijd), de standaard van de sport voor de andere.
