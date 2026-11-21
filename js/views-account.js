@@ -3493,7 +3493,7 @@ function mijnSpelerNamen() {
 }
 // De ploegnaam waarop de spelerpagina filtert, is dezelfde waarop het startscherm filtert.
 function _mijnSpelerPloeg() { return homeFilter === 'all' ? '' : homeFilter; }
-// `half`: staat naast deze tegel ook "Mijn trainerscijfers" (een trainer die ook een kind volgt), dan nemen
+// `half`: staat naast deze tegel ook "Trainerscijfers" (een trainer die ook een kind volgt), dan nemen
 // ze samen één rij van twee halve tegels. Is er maar één, dan blijft ze over de volle breedte.
 function mijnSpelerTegelHtml(half) {
   if (typeof heeftGekoppeldeSpeler !== 'function' || !heeftGekoppeldeSpeler()) return '';
@@ -3660,7 +3660,7 @@ function setTrainerSeizoen(v) { trainerSt.seizoen = v; loadTrainerCijfers(); }
 function trainerTegelHtml(half) {
   if (typeof heeftTrainerKoppeling !== 'function' || !trainerTegelZichtbaar()) return '';
   return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="openMijnTrainerCijfers()"><span class="tile-fi ic-i" aria-hidden="true">${IC.clipboard}</span>`
-    + `<span class="tl">Mijn trainerscijfers</span></button>`;
+    + `<span class="tl">Trainerscijfers</span></button>`;
 }
 function renderTrainerCijfers() {
   setTimeout(loadTrainerCijfers, 0);

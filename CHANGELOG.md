@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.2
+
+- **De tegel "Mijn trainerscijfers" heet nu "Trainerscijfers".** Korter, zodat de naam op een telefoon op één regel past, ook als de tegel op halve breedte naast de tegel van een kind staat. Verder verandert er niets.
+
+---
+
+
 ## v2.37.1
 
 - **Clubscherm: ploegen en trainers standaard ingeklapt.** De lijst met ploegen en het blok Trainers zijn de langste stukken van het clubscherm en staan nu dicht, in dezelfde uitklapopmaak als op de statistiekenpagina. In de kop staat hoe het ervoor staat: het aantal ploegen, en bij trainers hoeveel er zijn en hoeveel een account hebben (elke naam één keer, ook als hij bij meer ploegen staat). Wat je openklapt blijft open zolang de app openstaat, ook als het scherm opnieuw tekent na ontkoppelen of bewaren.

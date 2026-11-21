@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.37.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.37.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3595,7 +3595,7 @@ async function fetchTeamInfo(teamId, poging = 0) {
     rememberTeamClubLogo(teamId, activeClubLogo); // ook op het toestel, voor de PDF's zonder bereik
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
-    // Staat mijn account als trainer gekoppeld in deze club? Bepaalt de tegel "Mijn trainerscijfers".
+    // Staat mijn account als trainer gekoppeld in deze club? Bepaalt de tegel "Trainerscijfers".
     laadMijnTrainerKoppeling();
     // Ontbreekt het clublogo op deze ploeg terwijl de club er een heeft? Dan is ze aangemaakt vóór
     // v0.31.8 (createTeam nam het logo toen niet mee) of dateert ze van na de laatste keer dat het
