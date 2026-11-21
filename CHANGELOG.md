@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.33.0
+
+- **Een trainer als trainer herkend, met zijn eigen cijfers.** De eigenaar of een clubbeheerder koppelt bij een ploegbeheerder (Leden › "Koppel aan trainer") de naam of namen waaronder die persoon als trainer in wedstrijden staat, bijvoorbeeld "Kenny Dehaes, K. Dehaes". De trainer krijgt dan op het startscherm een tegel **Mijn trainerscijfers**: per seizoen hoeveel afgesloten wedstrijden hij trainde, met winst, gelijk en verlies, per ploeg van de club. Tornooiwedstrijden staan apart en tellen niet mee in die cijfers. De wedstrijden komen uit de cloud, ook van ploegen die dit toestel nooit opende; lukt dat niet, dan staat er dat de cijfers enkel van dit toestel komen. Op het clubscherm staat een blok **Trainers** met per trainer de knoppen Cijfers en Ontkoppelen. Wie het ziet: de trainer zelf, de clubbeheerders van die club en de eigenaar; niet andere ploegbeheerders, kijkers of gasten. Dat is een gordijn en geen slot, net als bij een speler gekoppeld aan een kijker: de wedstrijden zijn voor elk clublid leesbaar. Er verandert niets aan bestaande wedstrijden of ploegen; er is één nieuwe, optionele node (`clubs/<club>/trainers/<uid>`). **De nieuwe databankregels moeten nog gepubliceerd worden** (zie `database.rules.json` voor de bestaande regels; het voorstel staat apart). Zolang ze niet live staan, geeft koppelen een nette melding en verschijnt de tegel niet.
+
+---
+
+
 ## v2.32.0
 
 - **Een speler die van ploeg veranderde: zijn cijfers bij de vorige ploeg staan nu apart.** Onder "Carrière" op de spelerspagina stond de vorige ploeg enkel als één regel (wedstrijden, goals, assists). Die rij is nu aantikbaar en opent zijn volledige pagina bij die ploeg, met seizoenskiezer, soortfilter en alle cijfers. De terugknop brengt je naar de huidige ploeg. Het blok heet nu "Carrière — andere ploeg", want vanaf de oude ploeg bekeken is de nieuwe de latere. Er staat bij dat enkel wedstrijden op dit toestel meetellen. Een kijker of ouder ziet de rij als gewone tekst: die mag enkel zijn eigen kind openen. Geen wijziging aan opgeslagen gegevens of rechten.

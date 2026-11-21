@@ -91,8 +91,8 @@ async function loadClubBeheerView() {
       try { const v = (await fbOnce(fbdb.ref('clubs/' + clubId + '/' + pad))).val(); return (v === null || v === undefined) ? leeg : v; }
       catch (e) { return leeg; }
     };
-    const [clubNaamRuw, clubAdmins, clubTeams] = await Promise.all([
-      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}),
+    const [clubNaamRuw, clubAdmins, clubTeams, clubTrainers] = await Promise.all([
+      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}), leesClub('trainers', {}),
     ]);
     const clubName = clubNaamRuw || 'Mijn club';
     const teamIds = Object.keys(clubTeams);
@@ -213,6 +213,20 @@ async function loadClubBeheerView() {
           ? `<button class="btn btn-pale" style="margin-top:10px" onclick="showAppointClubAdmin('${clubId}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>`
           : '<p style="font-size:12px;color:var(--txt2);margin-top:10px">Een clubbeheerder wordt aangesteld door de maker van de app.</p>'}
       </div>
+      ${/* TRAINERS (21-11-2026). Wie als trainer aan een account gekoppeld is, met zijn cijfers één tik
+            ver. De naam is de tekst van de koppeling zelf: een clubbeheerder mag de gebruikersnodes
+            niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een
+            ploegbeheerder onder "Mensen met toegang". */ ''}
+      ${(() => {
+        const uids = Object.keys(clubTrainers || {}).filter(u => typeof clubTrainers[u] === 'string' && clubTrainers[u].trim());
+        return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
+          ${uids.length ? uids.map(u => `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(clubTrainers[u])}</span>
+              <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTrainerCijfers('${jsq(u)}','${jsq(clubTrainers[u])}','${jsq(staffList(clubTrainers[u])[0] || '')}','${jsq(clubId)}')">${icI(IC.chart)} Cijfers</button>
+              <button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="ontkoppelTrainer('${jsq(clubId)}','${jsq(u)}')">Ontkoppelen</button></div>`).join('')
+            : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen trainers gekoppeld.</p>'}
+          <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Koppelen doe je op het ploegscherm bij "Mensen met toegang": tik bij een ploegbeheerder op "Koppel aan trainer". De trainer zelf, de clubbeheerders en de eigenaar zien deze cijfers.</p>
+        </div>`;
+      })()}
       <div class="sec" style="margin-top:20px">Extra</div>
       ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
@@ -3211,6 +3225,10 @@ async function showMembersModal() {
     // De koppelingen kijker → speler. Even tolerant als de aanvragen hierboven: staan de regels nog
     // niet gepubliceerd, dan blijft dit leeg en toont de lijst gewoon geen gekoppelde spelers.
     const mpSnap = await fbOnce(fbdb.ref('teams/' + tid + '/memberPlayers')).catch(() => null);
+    // De koppelingen account → trainer van de hele club. Enkel voor wie ze mag leggen (eigenaar of
+    // clubbeheerder); een gewone ploegbeheerder leest deze tak niet en ziet hier dus niets van.
+    const trSnap = magTrainersKoppelen() ? await fbOnce(fbdb.ref('clubs/' + activeClubId + '/trainers')).catch(() => null) : null;
+    const trainersMap = (trSnap && trSnap.val()) || {};
     const info = miSnap.val() || {};
     const members = memSnap.val() || {};
     const requests = (reqSnap && reqSnap.val()) || {};
@@ -3280,6 +3298,14 @@ async function showMembersModal() {
         ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.shirt)} Volgt: <b>${gekoppeld.map(r => esc(kernNaam(r))).join(', ')}</b></div>` : '';
       const koppelBtn = kernLijst.length
         ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelSpelers('${uid}')">${icI(IC.shirt)} ${gekoppeld.length ? 'Spelers wijzigen' : 'Koppel aan speler'}</button>` : '';
+      // ALS TRAINER HERKEND (Tim, 21-11-2026). Enkel bij een ploegbeheerder — de trainer is dezelfde
+      // persoon — en enkel voor wie koppelen mag (eigenaar, clubbeheerder). Een trainersnaam hangt aan
+      // het account op CLUBniveau: dezelfde persoon bij twee ploegen heeft één koppeling.
+      const trainerNamen = typeof trainersMap[uid] === 'string' ? trainersMap[uid] : '';
+      const trainerRegel = (role === 'admin' && trainerNamen)
+        ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.clipboard)} Trainer: <b>${esc(trainerNamen)}</b></div>` : '';
+      const trainerBtn = (role === 'admin' && magTrainersKoppelen())
+        ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelTrainer('${uid}')">${icI(IC.clipboard)} ${trainerNamen ? 'Trainer wijzigen' : 'Koppel aan trainer'}</button>` : '';
       // Bij een NAAMLOZE regel enkel verwijderen. Van zo iemand weet je niet wie hij is: hem
       // ploegbeheerder maken of aan een kind koppelen is geen keuze die je op niets wil baseren, en
       // achter een gastlink zit vaak niet eens een echt account.
@@ -3288,7 +3314,7 @@ async function showMembersModal() {
         : role !== 'admin'
         ? `${koppelBtn}<button class="btn btn-pale btn-sm" onclick="promoteMember('${uid}',${bevestigd ? 1 : 0})">Maak ploegbeheerder</button>
            <button class="btn btn-red btn-sm" onclick="removeMember('${uid}')">Verwijderen</button>`
-        : `${koppelBtn}${uid !== currentUser?.uid
+        : `${koppelBtn}${trainerBtn}${uid !== currentUser?.uid
           ? `<button class="btn btn-gray btn-sm" onclick="demoteMember('${uid}')">Maak kijker</button>`
           : ''}`;
       return { uid, naamloos, html: `<div class="ts-team-row ml-row" data-search="${esc((naam + ' ' + email + ' ' + kenmerk).toLowerCase())}" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
@@ -3297,7 +3323,8 @@ async function showMembersModal() {
           ${badge}
         </div>
         ${koppelRegel}
-        ${btns ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>` : ''}
+        ${trainerRegel}
+        ${btns ?`<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>` : ''}
       </div>` };
     });
     const rows = rijen.filter(r => !r.naamloos).map(r => r.html);
@@ -3482,6 +3509,231 @@ function modalMijnSpelers() {
   openModal(`<h3>${icI(IC.shirt)} Mijn spelers</h3>
     <div class="place-chips">${lijst.map(x => `<span class="place-chip" onclick="closeModal();openPlayerDetail('${jsq(x.naam)}','${jsq(_mijnSpelerPloeg())}','${jsq(x.id)}')">${esc(x.naam)}</span>`).join('')}</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+// ===================== TRAINERSCIJFERS =====================
+// Tim, 21-11-2026: een trainer ziet zijn EIGEN cijfers (wedstrijden getraind, bij welke ploegen, per
+// seizoen). Wie het mag zien: de trainer zelf, de clubbeheerders van die club en de eigenaar — niet
+// andere ploegbeheerders, niet de kijkers. Zie mijnTrainerNamen in core.js voor wat de koppeling is en
+// waarom het een gordijn is en geen slot.
+// Wie legt de koppeling? De eigenaar of de clubbeheerder van de club van de actieve ploeg.
+function magTrainersKoppelen() {
+  if (isGuest || !currentUser || !activeClubId) return false;
+  return !!(isOwner || (myClubs && myClubs[activeClubId]));
+}
+// Mag ik de trainerscijfers van deze koppeling zien? Mijn eigen: ja. Die van een ander: enkel de
+// eigenaar en de clubbeheerder van DIE club.
+function magTrainerCijfersZien(uid, clubId) {
+  if (isGuest || !currentUser || !uid) return false;
+  if (uid === currentUser.uid) return true;
+  return !!(isOwner || (clubId && myClubs && myClubs[clubId]));
+}
+// DE TELLING. Zuiver en zonder opslag, zodat ze los te testen is. Een wedstrijd telt als "getraind"
+// wanneer ze AFGESLOTEN is (Tim) en zijn naam in de trainerslijst staat, gelezen via matchTrainer:
+// bij een tornooiwedstrijd komt de trainer van het tornooi. Namen vergelijken we op de HELE naam, na
+// naamNorm (accenten, hoofdletters, leestekens) — niet met de losse gelijkenis van de dubbelcontrole
+// bij spelers, want die is bedoeld om te waarschuwen en niet om te tellen. Afwijkende schrijfwijzen
+// lost de beheerder op door ze bij de koppeling erbij te zetten. Tornooiwedstrijden staan APART (Tim):
+// ze tellen niet mee in gespeeld/winst/gelijk/verlies, zoals op de statistiekenpagina. W/G/V komt
+// uitsluitend uit matchResultaat, zodat een gewonnen strafschoppenreeks ook hier een winst is.
+function trainerTelling(lijst, namen) {
+  const nn = new Set(staffList(namen).map(naamNorm).filter(Boolean));
+  const perSeizoen = {};
+  const gezien = new Set();
+  let totaal = 0;
+  (lijst || []).forEach(m => {
+    if (!m || m.status !== 'done') return;
+    if (typeof matchCancelled === 'function' && matchCancelled(m)) return;
+    if (m.id) { if (gezien.has(m.id)) return; gezien.add(m.id); }   // één wedstrijd, één keer
+    if (!staffList(matchTrainer(m)).some(n => nn.has(naamNorm(n)))) return;
+    const sz = seasonOf(m);
+    const pl = m.teamName || 'Onbekende ploeg';
+    const b = ((perSeizoen[sz] = perSeizoen[sz] || {})[pl] = perSeizoen[sz][pl] || { mp: 0, W: 0, G: 0, V: 0, Z: 0, tornooi: 0 });
+    totaal++;
+    if (m.tournamentId) { b.tornooi++; return; }
+    b.mp++;
+    const r = matchResultaat(m);
+    if (r === 'W') b.W++; else if (r === 'G') b.G++; else if (r === 'V') b.V++; else b.Z++;
+  });
+  return { perSeizoen, totaal };
+}
+// Een seizoen loopt van juli tot en met juni, zoals seasonOf.
+function trainerSeizoenen() {
+  const nu = new Date();
+  const start = nu.getMonth() >= 6 ? nu.getFullYear() : nu.getFullYear() - 1;
+  return Array.from({ length: 6 }, (_, i) => `${start - i}/${start - i + 1}`);
+}
+// De wedstrijden van één seizoen voor de hele club. UIT DE CLOUD, want op dit toestel staan enkel de
+// ploegen die je ooit opende: een trainer van twee ploegen zou de andere anders nooit zien. Elk clublid
+// mag de wedstrijden van de ploegen van zijn club lezen (v2.6.0), dus dit vraagt geen nieuwe regel.
+// Ook GEARCHIVEERDE ploegen horen erbij: dit is zijn loopbaan, geen agenda. Lukt de cloud niet
+// (offline, regels), dan vallen we terug op dit toestel, beperkt tot de ploegen van deze club.
+const _trainerWedstrijdenCache = {};
+async function trainerWedstrijden(clubId, seizoen) {
+  const sleutel = clubId + '|' + seizoen;
+  const c = _trainerWedstrijdenCache[sleutel];
+  if (c && Date.now() - c.tijd < 300000) return c;
+  const cloud = [];
+  let ploegen = 0, mislukt = 0;
+  if (cloudReady && fbdb && currentUser && clubId) {
+    let ids = [];
+    try { ids = Object.keys((await fbOnce(fbdb.ref('clubs/' + clubId + '/teams'))).val() || {}); } catch (e) {}
+    const jaar = parseInt(seizoen, 10);
+    const van = jaar + '-07-01', tot = (jaar + 1) + '-06-30';
+    ploegen = ids.length;
+    await Promise.all(ids.map(async tid => {
+      const res = await fbZoek('teams/' + tid + '/matches', 'date', van, tot);
+      if (res === null || res === 'geen-zoekregel') { mislukt++; return; }
+      Object.keys(res).forEach(k => {
+        const ruw = res[k];
+        if (!ruw || typeof ruw !== 'object') return;
+        const m = cloudWedstrijdVeilig(ruw);
+        if (!m.id) m.id = k;
+        cloud.push(m);
+      });
+    }));
+  }
+  let lijst = cloud, terugval = false;
+  if (!cloud.length && (mislukt || !ploegen)) {
+    terugval = true;
+    const clubNamen = new Set(Object.keys(teamClubIds || {}).filter(t => teamClubIds[t] === clubId).map(t => teamNames[t]).filter(Boolean));
+    lijst = (await dbAll()).filter(m => seasonOf(m) === seizoen && (!clubNamen.size || clubNamen.has(m.teamName)));
+  }
+  return (_trainerWedstrijdenCache[sleutel] = { lijst, mislukt, ploegen, terugval, tijd: Date.now() });
+}
+let trainerSt = { uid: null, namen: '', label: '', clubId: null, seizoen: null, van: 'home' };
+function openTrainerCijfers(uid, namen, label, clubId) {
+  if (!magTrainerCijfersZien(uid, clubId) || !staffList(namen).length) return;
+  trainerSt = { uid, namen, label: label || '', clubId, seizoen: null, van: view };
+  go('trainerCijfers');
+}
+function openMijnTrainerCijfers() {
+  if (!currentUser || !heeftTrainerKoppeling()) return;
+  openTrainerCijfers(currentUser.uid, mijnTrainerNamen, '', activeClubId);
+}
+function setTrainerSeizoen(v) { trainerSt.seizoen = v; loadTrainerCijfers(); }
+function trainerTegelHtml() {
+  if (typeof heeftTrainerKoppeling !== 'function' || !heeftTrainerKoppeling()) return '';
+  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="openMijnTrainerCijfers()"><span class="tile-fi ic-i" aria-hidden="true">${IC.clipboard}</span>`
+    + `<span class="tl">Mijn trainerscijfers</span></button>`;
+}
+function renderTrainerCijfers() {
+  setTimeout(loadTrainerCijfers, 0);
+  return `<div class="hdr"><button class="back" onclick="terug('${trainerSt.van || 'home'}')">‹</button><h1>${icI(IC.clipboard)} Trainer</h1></div>
+  <div class="content" id="trainer-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`;
+}
+async function loadTrainerCijfers() {
+  const el = document.getElementById('trainer-content');
+  if (!el) return;
+  const s = trainerSt;
+  const seizoenen = trainerSeizoenen();
+  if (!s.seizoen || !seizoenen.includes(s.seizoen)) s.seizoen = seizoenen[0];
+  const kop = `<div class="card"><div style="text-align:center">
+      <div style="font-size:20px;font-weight:800">${esc(s.label || staffList(s.namen)[0] || 'Trainer')}</div>
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Geteld op de naam: <b>${esc(staffList(s.namen).join(', '))}</b></div></div></div>`;
+  const filter = `<div class="filterbar"><select onchange="setTrainerSeizoen(this.value)">
+      ${seizoenen.map(z => `<option value="${z}" ${s.seizoen === z ? 'selected' : ''}>Seizoen ${z}</option>`).join('')}
+    </select></div>`;
+  el.innerHTML = filter + kop + `<div class="empty"><div class="ei">${IC.timer}</div></div>`;
+  const res = await trainerWedstrijden(s.clubId, s.seizoen);
+  // Intussen van scherm, trainer of seizoen gewisseld? Dan hoort dit antwoord hier niet meer.
+  if (view !== 'trainerCijfers' || trainerSt !== s || document.getElementById('trainer-content') !== el) return;
+  const t = trainerTelling(res.lijst, s.namen);
+  const ploegen = t.perSeizoen[s.seizoen] || {};
+  const namenPl = Object.keys(ploegen).sort((a, b) => ploegen[b].mp - ploegen[a].mp || a.localeCompare(b, 'nl'));
+  let mp = 0, W = 0, G = 0, V = 0, Z = 0, tornooi = 0;
+  namenPl.forEach(p => { const b = ploegen[p]; mp += b.mp; W += b.W; G += b.G; V += b.V; Z += b.Z; tornooi += b.tornooi; });
+  // EERLIJK ZEGGEN WAT ONTBREEKT. Kwamen er ploegen niet binnen, of leest dit enkel dit toestel, dan
+  // zijn de cijfers mogelijk te laag — en dat hoort er dan te staan, anders lees je ze als volledig.
+  const waarschuwing = res.terugval
+    ? 'De ploegen van de club konden niet opgehaald worden. Dit zijn enkel de wedstrijden die op dit toestel staan.'
+    : res.mislukt ? `${res.mislukt === 1 ? 'Eén ploeg' : res.mislukt + ' ploegen'} van de ${res.ploegen} konden niet opgehaald worden: de cijfers kunnen te laag zijn.` : '';
+  const inhoud = !namenPl.length
+    ? `<div class="empty"><div class="ei">${IC.chart}</div><p>Geen afgesloten wedstrijden gevonden waar ${esc(staffList(s.namen)[0])} als trainer bij staat in seizoen ${esc(s.seizoen)}.</p></div>`
+    : `<div class="card"><div class="stat-big">
+        <div class="stat-box"><div class="v">${mp}</div><div class="l">Getraind</div></div>
+        <div class="stat-box"><div class="v" style="color:var(--grn)">${W}</div><div class="l">Winst</div></div>
+        <div class="stat-box"><div class="v">${G}</div><div class="l">Gelijk</div></div>
+        <div class="stat-box"><div class="v" style="color:var(--rd)">${V}</div><div class="l">Verlies</div></div>
+      </div>${Z ? `<p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">${Z === 1 ? 'Eén wedstrijd telt niet mee' : Z + ' wedstrijden tellen niet mee'} voor winst, gelijk en verlies: geen uitslag bijgehouden.</p>` : ''}</div>
+      <div class="sec">${icI(IC.players)} Per ploeg</div>
+      <div class="card">${namenPl.map(p => { const b = ploegen[p]; return `<div class="stat-row"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}</span></div>`; }).join('')}
+        <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
+      ${tornooi ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Tornooiwedstrijden begeleid</span><span style="font-weight:800">${tornooi}</span></div></div>` : ''}`;
+  el.innerHTML = filter + kop + inhoud
+    + `<p style="font-size:12px;color:var(--txt2);margin:10px 0 0">Enkel afgesloten wedstrijden tellen. De naam komt uit het veld "Trainer" van de wedstrijd.</p>`
+    + (waarschuwing ? `<div class="nudge" style="margin-top:10px">${icI(IC.warn)} ${esc(waarschuwing)}</div>` : '');
+}
+// ----- Koppelen: enkel de eigenaar en de clubbeheerder -----
+let _trainerKoppel = null;   // { uid, namen: [..] } — de gekozen namen, in hoofdletters zoals ze staan
+function modalKoppelTrainer(uid) {
+  if (!magTrainersKoppelen() || !fbdb) return;
+  const kern = teamTrainerNames(getTeamsV2()[0] || null);
+  fbOnce(fbdb.ref('clubs/' + activeClubId + '/trainers/' + uid))
+    .then(s => s.val()).catch(() => null)
+    .then(v => {
+      _trainerKoppel = { uid, namen: staffList(typeof v === 'string' ? v : ''), kern };
+      _renderKoppelTrainerModal();
+    });
+}
+function _renderKoppelTrainerModal() {
+  const k = _trainerKoppel; if (!k) return;
+  const laag = k.namen.map(n => n.toLowerCase());
+  const bekend = k.kern.map(n => n.toLowerCase());
+  const extra = k.namen.filter(n => !bekend.includes(n.toLowerCase()));
+  openModal(`<h3>${icI(IC.clipboard)} Koppel aan trainer</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Onder welke naam staat deze persoon als <b>trainer</b> bij wedstrijden? Hij ziet dan zijn eigen trainerscijfers, en jij en de andere clubbeheerders ook. Andere ploegbeheerders en kijkers niet.</p>
+    ${k.kern.length ? `<div class="place-chips">${k.kern.map((n, i) => `<span class="place-chip ${laag.includes(n.toLowerCase()) ? 'sel' : ''}" onclick="_koppelTrainerTik(${i})">${esc(n)}</span>`).join('')}</div>` : ''}
+    <div class="fg" style="margin-top:12px"><label>Andere schrijfwijzen of namen</label>
+      <input id="tk-extra" type="text" value="${esc(extra.join(', '))}" placeholder="bv. K. Dehaes" autocomplete="off">
+      <div style="font-size:11px;color:var(--txt2);margin-top:5px">Meerdere namen mogen, gescheiden door een komma. Zet erbij elke schrijfwijze die in wedstrijden voorkomt: er wordt op de volledige naam geteld.</div></div>
+    <button class="btn btn-green" style="margin-top:10px" onclick="_koppelTrainerBewaar()">${icI(IC.check)} Bewaren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="showMembersModal()">Annuleren</button>`);
+}
+function _koppelTrainerTik(i) {
+  const k = _trainerKoppel; if (!k) return;
+  const naam = k.kern[i]; if (!naam) return;
+  // Wat in het vrije veld getypt staat gaat niet verloren bij het aantikken van een naam.
+  const veld = document.getElementById('tk-extra');
+  const extraNu = veld ? staffList(veld.value) : [];
+  const bekend = k.kern.map(n => n.toLowerCase());
+  const gekozen = k.namen.filter(n => bekend.includes(n.toLowerCase()));
+  const idx = gekozen.findIndex(n => n.toLowerCase() === naam.toLowerCase());
+  if (idx >= 0) gekozen.splice(idx, 1); else gekozen.push(naam);
+  k.namen = [...gekozen, ...extraNu.filter(n => !bekend.includes(n.toLowerCase()))];
+  _renderKoppelTrainerModal();
+}
+async function _koppelTrainerBewaar() {
+  const k = _trainerKoppel;
+  if (!k || !magTrainersKoppelen() || !fbdb) return;
+  const bekend = k.kern.map(n => n.toLowerCase());
+  const veld = document.getElementById('tk-extra');
+  const alles = [...k.namen.filter(n => bekend.includes(n.toLowerCase())), ...(veld ? staffList(veld.value) : [])];
+  // Dubbels weg, hoofdletters niet aanraken: zo staat de naam er zoals hij in de wedstrijden staat.
+  const uniek = []; alles.forEach(n => { if (!uniek.some(x => x.toLowerCase() === n.toLowerCase())) uniek.push(n); });
+  const tekst = staffJoin(uniek);
+  try {
+    await fbdb.ref('clubs/' + activeClubId + '/trainers/' + k.uid).set(tekst || null);
+    _trainerKoppel = null;
+    delete _trainerWedstrijdenCache[activeClubId + '|' + trainerSt.seizoen];
+    showMembersModal();
+    showToast(tekst ? 'Trainer gekoppeld.' : 'Koppeling verwijderd.', 'ok');
+  } catch (e) {
+    // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat, en verzin geen
+    // technische foutmelding — de beheerder kan er zelf niets aan doen.
+    showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live — probeer later opnieuw.', 'err');
+  }
+}
+// Ontkoppelen vanuit het clubscherm.
+async function ontkoppelTrainer(clubId, uid) {
+  if (!fbdb || !clubId || !uid) return;
+  if (!(isOwner || (myClubs && myClubs[clubId]))) return;
+  showConfirm('Deze trainerskoppeling verwijderen? De wedstrijden zelf blijven ongewijzigd.', async () => {
+    try {
+      await fbdb.ref('clubs/' + clubId + '/trainers/' + uid).set(null);
+      loadClubBeheerView();
+      showToast('Koppeling verwijderd.', 'ok');
+    } catch (e) { showToast('Verwijderen mislukt, probeer opnieuw.', 'err'); }
+  }, 'Verwijderen', 'btn-red');
 }
 async function promoteMember(uid, bevestigd) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
@@ -5849,6 +6101,9 @@ async function go(v, id, _histReplace) {
   // Blokkeert ook back-/console-navigatie naar playerDetail: de toets staat op het roosterid dat
   // openPlayerDetail net gezet heeft, niet op de knop waarmee je er kwam.
   if (v === 'playerDetail' && !magSpelerZien(typeof playerDetailRosterId !== 'undefined' ? playerDetailRosterId : null)) v = 'home';
+  // Trainerscijfers: enkel de trainer zelf, de clubbeheerder van die club en de eigenaar. Dezelfde
+  // reden als hierboven: de terugtoets of de console mag er niet langs.
+  if (v === 'trainerCijfers' && !(typeof trainerSt !== 'undefined' && magTrainerCijfersZien(trainerSt.uid, trainerSt.clubId))) v = 'home';
   // Beheer vereist een ingelogde gebruiker (was vroeger de guard in cloudLoginModal()).
   if ((v === 'beheer' || v === 'clubbeheer' || v === 'clubsadmin') && !currentUser) v = 'auth';
   // Kalender importeren kan enkel wie mag beheren. Deze poortwachter ontbrak, en de knop verbergen
@@ -6557,6 +6812,7 @@ const views = {
   stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="playerDetailTerug()">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playertransfer: renderPlayerTransfer,
+  trainerCijfers: () => renderTrainerCijfers(),
   // Wordt bij de aanroep opgelost, niet bij het laden: renderImportCal woont in import-cal.js, dat
   // ná dit bestand geladen wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
   importcal: () => renderImportCal(),
@@ -6744,6 +7000,9 @@ async function loadHome() {
           pagina; bij meer kinderen opent er een keuzelijstje. Een beheerder krijgt deze tegel niet:
           die bereikt elke speler al via de statistieken. Zie mijnSpelerIds in core.js. */ ''}
     ${mijnSpelerTegelHtml()}
+    ${/* MIJN TRAINERSCIJFERS (21-11-2026) — enkel voor een account dat door de eigenaar of een
+          clubbeheerder aan een trainersnaam gekoppeld werd. Zie mijnTrainerNamen in core.js. */ ''}
+    ${trainerTegelHtml()}
     ${/* Over de volle breedte: een vijfde tegel zou anders een gat naast zich laten. De agenda is
           de enige plek waar wedstrijden en tornooien samen op één kalender staan. */ ''}
     <button class="tile tile-breed" style="grid-column:1/-1" onclick="go('agenda')"><span class="tile-fi ic-i" aria-hidden="true">${IC.calendar}</span><span class="tl">Agenda</span></button>

@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.32.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.33.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3562,6 +3562,8 @@ async function fetchTeamInfo(teamId, poging = 0) {
     rememberTeamClubLogo(teamId, activeClubLogo); // ook op het toestel, voor de PDF's zonder bereik
     if (info.archived) archivedTeams[teamId] = true; else delete archivedTeams[teamId];
     isClubAdmin = isOwner || !!(activeClubId && myClubs[activeClubId]);
+    // Staat mijn account als trainer gekoppeld in deze club? Bepaalt de tegel "Mijn trainerscijfers".
+    laadMijnTrainerKoppeling();
     // Ontbreekt het clublogo op deze ploeg terwijl de club er een heeft? Dan is ze aangemaakt vóór
     // v0.31.8 (createTeam nam het logo toen niet mee) of dateert ze van na de laatste keer dat het
     // logo opgeslagen werd. Een clubbeheerder vult het hier bij — één schrijfactie, en daarna zien
@@ -4047,6 +4049,46 @@ function magSpelerZien(rosterId) {
 // statistieken bij elke speler — maar een trainer is vaak zelf ouder, en dan is die ene tik naar zijn
 // eigen kind precies even handig. Wat hij op die pagina ziet, blijft de volledige beheerdersweergave.
 function heeftGekoppeldeSpeler() { return !isGuest && mijnSpelerIds.length > 0; }
+// ===================== EEN ACCOUNT GEKOPPELD AAN ZIJN TRAINERSNAAM =====================
+// Tim, 21-11-2026: een trainer (dezelfde persoon als de ploegbeheerder) moet als trainer herkend
+// worden en zijn EIGEN cijfers kunnen zien: hoeveel wedstrijden hij trainde, bij welke ploegen.
+// De koppeling staat op CLUBNIVEAU (`clubs/<clubId>/trainers/<uid>`) en is een tekst met de namen
+// waaronder hij in wedstrijden staat, komma-gescheiden zoals het veld `trainer` van een wedstrijd
+// (bv. "Kenny Dehaes, K. Dehaes"). Enkel de eigenaar en de clubbeheerder leggen ze, en de beheerder
+// kiest de naam zelf — zo moet de vrije tekst in een wedstrijd niet exact met het account kloppen.
+//
+// HET IS EEN GORDIJN, GEEN SLOT, net als bij mijnSpelerIds: de wedstrijden van de club zijn voor elk
+// clublid leesbaar en daar staat de trainer al bij. De regel bepaalt wie de koppeling kent en dus
+// wie in de app zijn cijfers krijgt. STIL LEEG BIJ EEN FOUT: staan de regels nog niet gepubliceerd,
+// dan blijft dit gewoon leeg en verschijnt er geen tegel. Het datamodel van wedstrijden en ploegen
+// verandert niet; dit is één nieuwe, optionele node.
+let mijnTrainerNamen = '';
+const MIJN_TRAINER_KEY = 'voetbal_mijn_trainer';
+function _trainerCache() { try { return JSON.parse(localStorage.getItem(MIJN_TRAINER_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function heeftTrainerKoppeling() { return !isGuest && staffList(mijnTrainerNamen).length > 0; }
+// Haalt de koppeling van DEZE gebruiker voor de club van de actieve ploeg op. Eerst de laatst gekende
+// waarde uit het toestel (zodat de tegel er meteen staat, zonder flits), dan de cloud. Hertekent het
+// startscherm enkel als er echt iets verandert — zie dezelfde les bij mijnSpelersOnthoud.
+function laadMijnTrainerKoppeling() {
+  const clubId = activeClubId;
+  if (!clubId || !currentUser || isGuest || !fbdb) {
+    if (mijnTrainerNamen) { mijnTrainerNamen = ''; if (view === 'home') render(); }
+    return;
+  }
+  const uitCache = _trainerCache()[clubId] || '';
+  if (uitCache !== mijnTrainerNamen) mijnTrainerNamen = uitCache;
+  const uid = currentUser.uid;
+  // once() met een tweede callback: zo schrijft Firebase bij een geweigerde lezing (regels nog niet
+  // live) geen rode fout in de log. Zelfde reden als de memberPlayers-luisteraar hierboven.
+  fbdb.ref('clubs/' + clubId + '/trainers/' + uid).once('value', s => {
+    if (activeClubId !== clubId) return;   // intussen van club gewisseld
+    const nieuw = typeof s.val() === 'string' ? s.val().trim() : '';
+    try { const c = _trainerCache(); if (nieuw) c[clubId] = nieuw; else delete c[clubId]; localStorage.setItem(MIJN_TRAINER_KEY, JSON.stringify(c)); } catch (e) {}
+    if (nieuw === mijnTrainerNamen) return;
+    mijnTrainerNamen = nieuw;
+    if (view === 'home') render();
+  }, () => { /* geen leesrecht of geen net: de tegel blijft zoals ze was */ });
+}
 function cloudListen() {
   if (!cloudReady || !activeTeamId) return;
   const addL = (path, event, fn) => {
