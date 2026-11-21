@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.35.1
+
+- **Trainers koppelen vertrekt nu van de trainerslijst.** Het scherm "Trainers koppelen" (clubscherm › Trainers) toont elke trainersnaam uit de ploeggegevens één keer, met de ploegen erbij, en per naam een keuzelijst met de ploegbeheerders van de club. Je kiest een account i.p.v. een naam te typen. Een account wordt voorgesteld als de naam overeenkomt (ook met een andere woordvolgorde); bij twee accounts met dezelfde naam stelt de app niets voor. Dezelfde persoon met een afwijkende schrijfwijze ("K. Dehaes") krijgt beide namen in één koppeling. Bewaren raakt enkel de namen die je veranderde: een oude schrijfwijze die alleen bij de koppeling staat, blijft staan. In het blok per ploeg heeft elke trainer zonder koppeling een knop "Koppelen" die het scherm opent met zijn rij in beeld. Koppelen bij een ploegbeheerder (Leden › "Koppel aan trainer") blijft bestaan, voor namen die niet in een trainerslijst staan.
+
+---
+
+
 ## v2.35.0
 
 - **Een trainer hernoemen werkt door in bestaande wedstrijden.** Verbeter je in het ploegrooster de schrijfwijze van een trainer, dan vraagt de app of ze ook de oude wedstrijden en tornooien van die ploeg moet aanpassen, met het aantal erbij. Pas na "Ja, aanpassen" verandert enkel het trainerveld (uitslag, spelers en gebeurtenissen blijven staan). Staat de trainer gekoppeld aan een account, dan volgt de koppeling mee, mits een clubbeheerder of de eigenaar het doet. Dit gebeurt alleen bij een tikfout of een andere woordvolgorde, met een gelijk aantal trainers: verdwijnt een trainer en komt er een andere voor in de plaats, dan blijven zijn wedstrijden bij hem. Zonder dit vond de telling de oude wedstrijden niet meer onder de verbeterde naam.

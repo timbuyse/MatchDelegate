@@ -3809,7 +3809,9 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
         const ook = k ? (ploegenVan[k.uid] || []).filter(x => x !== p.naam) : [];
         return `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(n)}${k
           ? `<br><small style="color:var(--grn)">${icI(IC.check)} gekoppeld${ook.length ? ` · ook bij ${esc(ook.join(', '))}` : ''}</small>`
-          : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k) : ''}</div>`;
+          : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k)
+          // Bij een trainer zonder koppeling: rechtstreeks naar het koppelscherm, met zijn rij in beeld.
+          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainersKoppelen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
       }).join('')}</div>`).join('');
   const losse = koppels.filter(k => !gebruikt.has(k.uid));
   return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
@@ -3836,18 +3838,24 @@ async function ontkoppelTrainer(clubId, uid) {
   }, 'Verwijderen', 'btn-red');
 }
 // ----- Alle trainers van de club in één keer koppelen (clubbeheerder of eigenaar) -----
-// Per ploeg koppelen is veel werk bij een club met veel ploegen, en dezelfde persoon staat vaak bij
-// meer dan één ploeg. Dit scherm leest van elke ploeg de ploegbeheerders en haar trainerslijst, zet elk
-// account EENMAAL in één lijst en stelt een naam voor. Alles wat je wijzigt gaat in één schrijfbeurt weg.
-// Wat dit mag lezen: een clubbeheerder leest de leden en de kern van alle ploegen van zijn club al (zie
-// teams/$teamId in de regels), en de schrijfregel van clubs/$clubId/trainers is dezelfde als voor één
-// koppeling. Er verandert dus niets aan de regels.
-let _tkAlles = null;   // { clubId, rijen: [{ uid, naam, email, ploegen, bestaand, voorstel, kandidaten }] }
+// VERTREKKEN VAN DE TRAINERSLIJST (Tim, 21-11-2026: "is het niet makkelijker om van daaruit de accounts te
+// koppelen?"). De trainerslijst van elke ploeg is de bron die jullie al bijhouden. Dit scherm toont elke
+// trainersnaam van de club ÉÉN keer, met de ploegen erbij, en per naam een keuzelijst met de
+// ploegbeheerders. Je kiest een account i.p.v. een naam te typen, dus er sluipt geen tikfout in.
+//
+// De koppeling zelf blijft wat ze was: per account een tekst met namen (`clubs/<club>/trainers/<uid>`).
+// Eén naam hoort bij één account; staat dezelfde naam bij twee ploegen, dan is dat één rij. Een
+// afwijkende schrijfwijze ("K. Dehaes") is een eigen rij, en kies je daar hetzelfde account, dan krijgt
+// de koppeling beide namen. Namen die NIET in een trainerslijst staan (bv. een oude schrijfwijze die
+// enkel nog in wedstrijden zit) blijven bij de koppeling staan: dit scherm raakt alleen de namen die het
+// zelf toont. Wat dit mag lezen: een clubbeheerder leest de leden en de kern van alle ploegen van zijn
+// club al (zie teams/$teamId in de regels), en de schrijfregel is dezelfde als voor één koppeling.
+let _tkAlles = null;   // { clubId, rijen: [{ naam, sleutel, ploegen, huidig, voorstel }], accounts, bestaand }
 // Twee namen zijn dezelfde persoon als ze dezelfde WOORDEN hebben, in welke volgorde ook: "Jan Peeters"
-// en "Peeters Jan". Bewust strenger dan de dubbelcontrole bij spelers: dit vult een naam VOOR, en een
-// verkeerde naam geeft iemand de cijfers van een ander. Een gedeelde familienaam is dus niet genoeg.
+// en "Peeters Jan". Bewust streng: dit stelt een account VOOR, en een verkeerd account geeft iemand de
+// cijfers van een ander. Een gedeelde familienaam is dus niet genoeg, en bij twee treffers stelt het niets voor.
 function _naamSleutel(s) { return naamNorm(s).split(' ').filter(Boolean).sort().join(' '); }
-async function modalTrainersKoppelen(clubId) {
+async function modalTrainersKoppelen(clubId, focusNaam) {
   if (!fbdb || !clubId || !(isOwner || (myClubs && myClubs[clubId]))) return;
   openModal(`<h3>${icI(IC.clipboard)} Trainers koppelen</h3>
     <div id="tka-lijst"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
@@ -3856,7 +3864,8 @@ async function modalTrainersKoppelen(clubId) {
     const lees = async pad => { try { return (await fbOnce(fbdb.ref(pad))).val(); } catch (e) { return null; } };
     const clubTeams = (await lees('clubs/' + clubId + '/teams')) || {};
     const bestaand = (await lees('clubs/' + clubId + '/trainers')) || {};
-    const perUid = {};
+    const accounts = {};   // uid -> { uid, naam, email }
+    const trainers = {};   // naamNorm -> { naam, sleutel, ploegen }
     let ploegenGelezen = 0, ploegenTotaal = 0;
     await Promise.all(Object.keys(clubTeams).map(async tid => {
       ploegenTotaal++;
@@ -3866,26 +3875,37 @@ async function modalTrainersKoppelen(clubId) {
       ploegenGelezen++;
       const kern = normalizeRosterArray(kernRuw)[0] || {};
       const ploegNaam = kern.name || teamNames[tid] || '(naamloze ploeg)';
-      const trainers = teamTrainerNames(kern);
+      teamTrainerNames(kern).forEach(n => {
+        const sleutel = naamNorm(n);
+        if (!sleutel) return;
+        const t = trainers[sleutel] || (trainers[sleutel] = { naam: n, sleutel, ploegen: [] });
+        if (!t.ploegen.includes(ploegNaam)) t.ploegen.push(ploegNaam);
+      });
       Object.keys(leden).forEach(uid => {
         if (leden[uid] !== 'admin') return;   // een trainer is dezelfde persoon als de ploegbeheerder
         const mi = (info || {})[uid] || {};
         if (mi.role === 'guest' || (!mi.name && !mi.email)) return;   // naamloos: niemand om te koppelen
-        const r = perUid[uid] || (perUid[uid] = { uid, naam: mi.name || '', email: mi.email || '', ploegen: [], kandidaten: [] });
-        if (!r.naam && mi.name) r.naam = mi.name;
-        if (!r.email && mi.email) r.email = mi.email;
-        r.ploegen.push(ploegNaam);
-        trainers.forEach(n => { if (!r.kandidaten.includes(n)) r.kandidaten.push(n); });
+        const a = accounts[uid] || (accounts[uid] = { uid, naam: mi.name || '', email: mi.email || '' });
+        if (!a.naam && mi.name) a.naam = mi.name;
+        if (!a.email && mi.email) a.email = mi.email;
       });
     }));
-    const rijen = Object.values(perUid).map(r => {
-      const reeds = typeof bestaand[r.uid] === 'string' ? bestaand[r.uid].trim() : '';
-      // Een voorstel enkel waar het account nog niet gekoppeld is, en enkel op de volledige naam.
-      const sleutel = _naamSleutel(r.naam);
-      const treffers = sleutel ? r.kandidaten.filter(n => _naamSleutel(n) === sleutel) : [];
-      return { ...r, bestaand: reeds, voorstel: reeds ? '' : staffJoin(treffers) };
-    }).sort((a, b) => byLastNameNl({ name: a.naam || a.email }, { name: b.naam || b.email }));
-    _tkAlles = { clubId, rijen, ploegenGelezen, ploegenTotaal };
+    const accLijst = Object.values(accounts);
+    const rijen = Object.values(trainers).map(t => {
+      const huidig = Object.keys(bestaand).find(u => typeof bestaand[u] === 'string' && staffList(bestaand[u]).some(n => naamNorm(n) === t.sleutel)) || '';
+      // Een account dat al aan deze naam hangt maar hier niet meer als ploegbeheerder te vinden is, moet
+      // toch in de keuzelijst staan, anders zou bewaren hem stil ontkoppelen.
+      if (huidig && !accounts[huidig] && !accLijst.some(a => a.uid === huidig)) accLijst.push({ uid: huidig, naam: 'Ander account #' + String(huidig).slice(-6), email: '' });
+      let voorstel = '';
+      if (!huidig) {
+        const sl = _naamSleutel(t.naam);
+        const treffers = sl ? accLijst.filter(a => _naamSleutel(a.naam) === sl) : [];
+        if (treffers.length === 1) voorstel = treffers[0].uid;   // bij twee treffers niets: dat is raden
+      }
+      return { naam: t.naam, sleutel: t.sleutel, ploegen: t.ploegen, huidig, voorstel };
+    }).sort((a, b) => byLastNameNl({ name: a.naam }, { name: b.naam }));
+    accLijst.sort((a, b) => byLastNameNl({ name: a.naam || a.email }, { name: b.naam || b.email }));
+    _tkAlles = { clubId, rijen, accounts: accLijst, bestaand, ploegenGelezen, ploegenTotaal, focus: focusNaam ? naamNorm(focusNaam) : '' };
     _renderTrainersKoppelen();
   } catch (e) {
     const el = document.getElementById('tka-lijst');
@@ -3897,37 +3917,56 @@ function _renderTrainersKoppelen() {
   const s = _tkAlles;
   if (!el || !s) return;
   if (!s.rijen.length) {
-    el.innerHTML = '<p style="text-align:center;color:var(--txt2);font-size:14px">Geen ploegbeheerders gevonden in de ploegen van deze club.</p>';
+    el.innerHTML = '<p style="text-align:center;color:var(--txt2);font-size:14px">Bij geen enkele ploeg van deze club staat een trainer ingevuld. Vul eerst de trainers in bij de ploeggegevens.</p>';
     return;
   }
   const voorgesteld = s.rijen.filter(r => r.voorstel).length;
   const gemist = s.ploegenTotaal - s.ploegenGelezen;
-  el.innerHTML = `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Elke ploegbeheerder van de club, één keer. Vul in onder welke naam hij als <b>trainer</b> in wedstrijden staat; laat het leeg als hij geen trainer is. Meerdere schrijfwijzen mogen, gescheiden door een komma.</p>
-    ${voorgesteld ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.check)} ${voorgesteld === 1 ? 'Eén naam is' : voorgesteld + ' namen zijn'} voorgesteld omdat de naam van het account overeenkomt met een trainer in de ploeg. Nakijken, dan bewaren.</div>` : ''}
-    ${gemist > 0 ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} ${gemist === 1 ? 'Eén ploeg kon' : gemist + ' ploegen konden'} niet gelezen worden. Wie enkel daar ploegbeheerder is, staat hier niet.</div>` : ''}
-    <div style="max-height:52vh;overflow:auto">${s.rijen.map((r, i) => `<div class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-        <div style="font-size:14px"><b>${esc(r.naam || r.email)}</b>${r.naam && r.email ? `<br><small style="color:var(--txt2)">${esc(r.email)}</small>` : ''}</div>
+  const opties = r => `<option value="">— geen account —</option>` + s.accounts.map(a =>
+    `<option value="${esc(a.uid)}" ${(r.huidig || r.voorstel) === a.uid ? 'selected' : ''}>${esc(a.naam || a.email)}${a.naam && a.email ? ' (' + esc(a.email) + ')' : ''}</option>`).join('');
+  el.innerHTML = `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Elke trainer uit de ploeggegevens, één keer. Kies bij welk account hij hoort; laat <b>geen account</b> staan als hij er (nog) geen heeft. Je kiest uit de ploegbeheerders van de club.</p>
+    ${voorgesteld ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.check)} ${voorgesteld === 1 ? 'Eén account is' : voorgesteld + ' accounts zijn'} voorgesteld omdat de naam overeenkomt. Nakijken, dan bewaren.</div>` : ''}
+    ${gemist > 0 ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} ${gemist === 1 ? 'Eén ploeg kon' : gemist + ' ploegen konden'} niet gelezen worden. Haar trainers en ploegbeheerders staan hier niet.</div>` : ''}
+    <div style="max-height:52vh;overflow:auto">${s.rijen.map((r, i) => `<div id="tka-rij-${i}" class="ts-team-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+        <div style="font-size:14px"><b>${esc(r.naam)}</b></div>
         <div style="font-size:12px;color:var(--txt2)">${esc(r.ploegen.join(', '))}</div>
-        <input id="tka-${i}" type="text" value="${esc(r.bestaand || r.voorstel)}" placeholder="Trainersnaam (leeg = geen trainer)" autocomplete="off">
-        ${r.voorstel ? `<small style="color:var(--org2);font-weight:600">voorgesteld</small>` : (r.bestaand ? '<small style="color:var(--txt2)">gekoppeld</small>' : '')}
+        <select id="tka-${i}">${opties(r)}</select>
+        ${r.voorstel ? '<small style="color:var(--org2);font-weight:600">voorgesteld</small>' : (r.huidig ? '<small style="color:var(--grn)">gekoppeld</small>' : '<small style="color:var(--txt2)">niet gekoppeld</small>')}
       </div>`).join('')}</div>
     <button class="btn btn-green" style="margin-top:10px" onclick="_trainersKoppelenBewaar()">${icI(IC.check)} Alles bewaren</button>`;
+  // Kwam je hier via "Koppelen" bij één trainer, dan staat zijn rij in beeld en is ze omlijnd.
+  if (s.focus) {
+    const i = s.rijen.findIndex(r => r.sleutel === s.focus);
+    const rij = i >= 0 ? document.getElementById('tka-rij-' + i) : null;
+    if (rij) { rij.style.outline = '2px solid var(--org)'; rij.scrollIntoView({ block: 'center' }); }
+  }
 }
 async function _trainersKoppelenBewaar() {
   const s = _tkAlles;
   if (!s || !fbdb || !(isOwner || (myClubs && myClubs[s.clubId]))) return;
-  // ENKEL WAT VERANDERD IS gaat weg, en in één schrijfbeurt: zo blijft een koppeling die je niet
-  // aanraakte onaangeroerd, en verdwijnt een leeggemaakt veld echt (null).
-  const wijzigingen = {};
+  // ENKEL RIJEN DIE JE VERANDERDE, en enkel de NAAM van die rij: wat al bij een koppeling stond maar niet
+  // in dit scherm voorkomt (een oude schrijfwijze) blijft staan. Een voorgesteld account telt als
+  // verandering, want het staat nog nergens. Alles gaat in één schrijfbeurt weg; leeg wordt null.
+  const lijsten = {};   // uid -> namen, vertrekkend van wat er nu staat
+  Object.keys(s.bestaand).forEach(u => { if (typeof s.bestaand[u] === 'string') lijsten[u] = staffList(s.bestaand[u]); });
   let nieuw = 0, weg = 0;
   s.rijen.forEach((r, i) => {
     const veld = document.getElementById('tka-' + i);
     if (!veld) return;
-    const uniek = []; staffList(veld.value).forEach(n => { if (!uniek.some(x => x.toLowerCase() === n.toLowerCase())) uniek.push(n); });
-    const tekst = staffJoin(uniek);
-    if (tekst === r.bestaand) return;
-    wijzigingen[r.uid] = tekst || null;
-    if (tekst) nieuw++; else weg++;
+    const keuze = veld.value;
+    if (keuze === r.huidig) return;   // niets veranderd bij deze naam
+    Object.keys(lijsten).forEach(u => { if (u !== keuze) lijsten[u] = lijsten[u].filter(n => naamNorm(n) !== r.sleutel); });
+    if (keuze) {
+      lijsten[keuze] = lijsten[keuze] || [];
+      if (!lijsten[keuze].some(n => naamNorm(n) === r.sleutel)) lijsten[keuze].push(r.naam);
+      nieuw++;
+    } else weg++;
+  });
+  const wijzigingen = {};
+  Object.keys(lijsten).forEach(u => {
+    const tekst = staffJoin(lijsten[u]);
+    const was = typeof s.bestaand[u] === 'string' ? staffJoin(staffList(s.bestaand[u])) : '';
+    if (tekst !== was) wijzigingen[u] = tekst || null;
   });
   if (!Object.keys(wijzigingen).length) { showToast('Niets gewijzigd.', 'ok'); return; }
   try {
