@@ -53,12 +53,14 @@ let clubLogoCache = {};
 // Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Jouw ploegen te
 // zetten (zelfde patroon als _settingsFrom en _tgvFrom — zie de projectnotities).
 let _clubBeheerFrom = 'teamselect';
-// STANDAARD DICHT (Tim, 21-11-2026: "die schermen met ploegen en trainers zijn lang, laat die standaard
-// inklappen"). De lijst met ploegen en het blok Trainers zijn de langste stukken van het clubscherm.
-// Dezelfde uitklapopmaak als op de statistiekenpagina (.stat-acc). Wat je openklapt, onthoudt dit scherm
-// zolang de app openstaat: na ontkoppelen of bewaren tekent het scherm opnieuw en moet het blok dan
-// niet weer dichtvallen terwijl je ermee bezig bent.
-const _clubBeheerOpen = new Set();
+// STANDAARD DICHT, BEHALVE DE PLOEGEN (Tim, 21-11-2026: "die schermen met ploegen en trainers zijn lang,
+// laat die standaard inklappen", en later: "de ploegenlijst mag je standaard uitklappen"). Clubbeheerders,
+// Trainers en Extra staan dicht; de ploegenlijst is waar je het vaakst heen gaat en staat open.
+// Dezelfde uitklapopmaak als op de statistiekenpagina (.stat-acc). De set zegt wat OPEN staat en
+// onthoudt je keuze zolang de app openstaat: na ontkoppelen of bewaren tekent het scherm opnieuw en
+// moet een blok dan niet terugspringen naar zijn beginstand terwijl je ermee bezig bent. Klap je de
+// ploegen dicht, dan blijven ze dicht.
+const _clubBeheerOpen = new Set(['ploegen']);
 function clubBeheerVouw(sleutel, open) { if (open) _clubBeheerOpen.add(sleutel); else _clubBeheerOpen.delete(sleutel); }
 function naarClubbeheer(cid, vanaf) { _clubBeheerId = cid || null; _clubBeheerFrom = vanaf || 'teamselect'; go('clubbeheer'); }
 function renderClubBeheer() {
@@ -237,7 +239,8 @@ async function loadClubBeheerView() {
             niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een
             ploegbeheerder onder "Mensen met toegang". */ ''}
       ${clubTrainersBlokHtml(clubId, trainersPerPloeg, clubTrainers)}
-      <div class="sec" style="margin-top:20px">Extra</div>
+      <details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('extra') ? ' open' : ''} ontoggle="clubBeheerVouw('extra', this.open)"><summary>Extra</summary>
+      <div style="margin-top:8px">
       ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="showClubCijfers('${clubId}')">${icI(IC.chart)} Cijfers per ploeg</button>
@@ -247,7 +250,8 @@ async function loadClubBeheerView() {
             lijken het twee knoppen voor hetzelfde. */''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="clubBackup('${clubId}')">${icI(IC.download)} Back-up van de hele club</button>
       <p style="font-size:12px;color:var(--txt2);margin-top:6px">De Excel is om te lezen; de back-up is om terug te zetten. Allebei halen ze <b>alle</b> ploegen van de club op, ook die niet bij "Jouw ploegen" staan.</p>
-      ${archivedRows.length ? `<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
+      </div></details>
+      ${archivedRows.length ?`<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
         ${archivedRows.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
           <span style="flex:1;font-size:14px;color:var(--txt2)">${esc(t.name)}</span>

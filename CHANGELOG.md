@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.4
+
+- **Clubscherm: "Extra" staat standaard dicht, de ploegenlijst standaard open.** Clubbeheerders, Trainers en Extra zijn ingeklapt; de lijst met ploegen, waar je het vaakst naartoe gaat, staat open. Wat je open- of dichtklapt blijft zo zolang de app openstaat, ook als het scherm opnieuw tekent.
+- **`database.rules.json` bevat nu de tak `trainers`** (`clubs/<club>/trainers/<uid>`), gelijk aan wat in de Firebase-console gepubliceerd staat sinds v2.33.0. Alleen het bestand in de repo is bijgewerkt, zodat de repo weer overeenkomt met de live regels; er verandert niets aan de app of aan de regels zelf.
+
+---
+
+
 ## v2.37.3
 
 - **Clubscherm: Clubbeheerders staat bovenaan en is ingeklapt.** Het blok staat nu boven de ploegen, standaard dicht zoals de ploegen en de trainers, met het aantal in de kop. De lijst en de knoppen (aanstellen en verwijderen, enkel voor de eigenaar) zijn ongewijzigd. Wat je openklapt blijft open zolang de app openstaat.
