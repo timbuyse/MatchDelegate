@@ -814,7 +814,29 @@ function openPlayerDetail(name, teamName, rosterId) {
   name = (name || '').trim();
   if (!name) return;
   playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = null; _playerDetailFrom = view;
+  _pdStack = [];   // een verse start: een eerdere ronde langs andere ploegen vervalt
   go('playerDetail');
+}
+// Dezelfde speler bekijken bij een ANDERE ploeg waar hij speelde (rij onder "Carrière"), zonder het
+// scherm te verlaten: we wisselen enkel van ploeg en kenmerk en tekenen opnieuw. De vorige stand gaat
+// op een stapeltje, zodat de terugknop naar de huidige ploeg terugkeert in plaats van het scherm te
+// verlaten. Geen go() hier: dat zou een extra geschiedenisregel zetten die de globals niet herstelt.
+let _pdStack = [];
+function openPlayerDetailAndere(name, teamName, rosterId) {
+  if (!magSpelerZien(rosterId || null)) return;
+  name = (name || '').trim();
+  if (!name) return;
+  _pdStack.push({ name: playerDetailName, team: playerDetailTeamName, roster: playerDetailRosterId, season: playerDetailSeason });
+  playerDetailName = name; playerDetailTeamName = teamName || null; playerDetailRosterId = rosterId || null; playerDetailSeason = null;
+  loadPlayerDetail();
+  window.scrollTo(0, 0);
+}
+function playerDetailTerug() {
+  const v = _pdStack.pop();
+  if (!v) { terug(_playerDetailFrom || 'stats'); return; }
+  playerDetailName = v.name; playerDetailTeamName = v.team; playerDetailRosterId = v.roster; playerDetailSeason = v.season;
+  loadPlayerDetail();
+  window.scrollTo(0, 0);
 }
 function setPlayerDetailSeason(v) { playerDetailSeason = v; loadPlayerDetail(); }
 async function loadPlayerDetail() {
@@ -1073,7 +1095,10 @@ async function loadPlayerDetail() {
       if (rosterId && p.rosterId === rosterId) continue;
       const mins = calcMinutes(m);
       if (!(mins[p.id] && mins[p.id].ms > 0)) continue;
-      const c = careerElsewhere[m.teamName] || (careerElsewhere[m.teamName] = { mp: 0, goals: 0, assists: 0 });
+      const c = careerElsewhere[m.teamName] || (careerElsewhere[m.teamName] = { mp: 0, goals: 0, assists: 0, rosterId: null });
+      // Het kenmerk dat HIJ in die oude ploeg droeg: de oude wedstrijden bewaren het, ook nu hij uit
+      // dat rooster is verdwenen. Daarmee opent de rij hieronder zijn volledige pagina bij die ploeg.
+      if (!c.rosterId && p.rosterId) c.rosterId = p.rosterId;
       c.mp++;
       for (const e of m.events) {
         if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id) c.goals++;
@@ -1146,7 +1171,14 @@ async function loadPlayerDetail() {
     ${ownEntries.length ? `<div class="sec">${icI(IC.players)} Eigen ploeg</div><div class="card">${ownEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}
       <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Hij hoort bij ${ownEntries.length === 1 ? 'deze ploeg' : 'deze ploegen'} en kwam hier als gast meespelen.</p></div>` : ''}
     ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
-    ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — eerder bij</div><div class="card">${careerEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span></div>`).join('')}</div>` : ''}
+    ${/* Elke rij opent zijn VOLLEDIGE pagina bij die andere ploeg (apart van deze). Dezelfde pagina,
+         dezelfde berekening: ze filtert op ploegnaam en op het kenmerk dat hij daar droeg. Heeft een
+         kijker geen recht op dat kenmerk (magSpelerZien), dan blijft de rij gewoon tekst. Titel: niet
+         "eerder bij", want vanaf de oude ploeg bekeken is de nieuwe ploeg de LATERE. */ ''}
+    ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — andere ploeg</div><div class="card">${careerEntries.map(([t, c]) => {
+      const open = magSpelerZien(c.rosterId || null);
+      return `<div class="stat-row"${open ? ` style="cursor:pointer" onclick="openPlayerDetailAndere('${jsq(name)}','${jsq(t)}','${jsq(c.rosterId || '')}')"` : ''}><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span>${open ? '<span style="color:var(--txt2);margin-left:8px">›</span>' : ''}</div>`;
+    }).join('')}<p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Enkel wedstrijden die op dit toestel staan.</p></div>` : ''}
     ${/* HOE HIJ SCOORDE (Tim, 27-09-2026: "zet het er misschien toch maar bij per speler, maar met een
          melding, enkel wanneer geregistreerd"). Ik had dit bij het ontwerp bewust weggelaten: een
          jeugdspeler maakt er een handvol per seizoen, en dan lees je ruis als een patroon. Daarom

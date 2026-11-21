@@ -9,13 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
-## v2.31.10
+## v2.38.0
+
+Hockey en minivoetbal naast voetbal: de sport ligt vast per club. Deze versie voegt de tussenversies 2.31.4 tot 2.31.10 van een aparte
+werkbranch samen en brengt ze boven de huidige versie van master.
 
 - **Minivoetbal is altijd 5 tegen 5.** Een ploeg van een minivoetbalclub die vroeger met een voetbalformaat (8v8 of 11v11) werd
   aangemaakt, start een nieuwe wedstrijd nu toch als 5v5 in 4 blokken van 13 minuten, en het ploegscherm toont en bewaart 5 tegen 5.
   Een nieuwe ploeg in een minivoetbalclub wordt altijd zo aangemaakt, wat de aanroeper ook meegeeft. Voetbal en hockey ongewijzigd.
-
-## v2.31.9
 
 - **Hockey: kaarten met een tijd.** Groene kaart (2 min, zaal 1) en gele kaart (buiten 5 of 10 min, zaal 2 of 4, te kiezen per
   kaart) zijn tijdelijke schorsingen: de speler gaat eruit zonder invaller en onder de stand loopt een aftelling per
@@ -32,8 +33,6 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 - **Minivoetbal: het voorgestelde formaat bij de voetbalbond-koppeling** is nu altijd 5 tegen 5 in 4 x 13 minuten, voor elke
   leeftijd. Voorheen volgde het de leeftijdstabel van het voetbal (8v8 en 11v11).
 
-## v2.31.8
-
 - **Minivoetbal: corners en cornerbal volgens de spelregels.** Corners zijn een teller: na de vierde corner krijgt een
   ploeg een cornerbal en zakt de teller met vier. De stand toont "Corners 2 – 3", en bij de vierde corner opent een
   venster om de cornerbal vast te leggen (doelpunt of niet). Een gescoorde cornerbal is een gewoon doelpunt met "Hoe viel
@@ -47,22 +46,16 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 - **Eigen woorden per sport:** "Corner" en "Intrap" bij minivoetbal, "Strafcorner" en "Shoot-out" bij hockey. Voetbal blijft
   ongewijzigd.
 
-## v2.31.7
-
 - **Hockey-import: één ploeg per leeftijd en geslacht.** U7B-1, U7B-2 en U7B-3 zijn drie labels van dezelfde
   U7-jongensploeg en komen nu samen in één ploeg "U7B". Elke wedstrijd draagt het label van zijn eigen team in het
   bestaande veld "Ploeg-label" (de kaart toont "U7B (U7B-3)"; de statistieken filteren erop). Een wedstrijd tussen
   twee labels van dezelfde bundel is één wedstrijd, geen twee. De lijst toont per bundel de labels, het formaat en het
   aantal wedstrijden.
 
-## v2.31.6
-
 - **Hockey-import: het programma wordt per maand opgevraagd.** De bron van hockey.be bleek een heel seizoen in
   één verzoek leeg te kunnen beantwoorden, waardoor de import "geen wedstrijden dit seizoen" meldde terwijl die er
   wel waren. Nu twaalf kleine verzoeken, samengevoegd en ontdubbeld. De melding zegt ook wat er misging: niets
   ontvangen, of wel ontvangen maar niet leesbaar.
-
-## v2.31.5
 
 - **Hockey: ploegen en kalender inlezen vanaf hockey.be.** In Clubbeheer van een hockeyclub staat nu de knop
   "Ploegen van Hockey Belgium". De clubbeheerder zoekt zijn club, ziet de jeugdploegen (U7 tot U19) die uit het
@@ -75,8 +68,6 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   "Wedstrijdinfo ophalen" en het inlezen van het ProSoccerData-blad.
 - Bugfix: een gekozen wedstrijdvorm kon door de standaard van de sport overschreven worden.
 
-## v2.31.4
-
 - **Eerste stap naar hockey en minivoetbal: de sport ligt vast per club.** Bij het aanmaken van een club
   kiest de eigenaar voetbal, hockey of minivoetbal (`clubs/{id}/info/sport`); de sport wordt als bij
   `clubName` gekopieerd naar elke ploeg van die club. Een ontbrekend veld betekent voetbal, dus bestaande
@@ -87,6 +78,89 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
   kalenderimport, bulkbewerking) tonen enkel de vormen van de sport.
 - Nog niet in deze versie: hockey-events en kaarten met timer, de cornerteller en cornerbalreeks van
   minivoetbal, en de sportspecifieke teksten.
+
+## v2.37.4
+
+- **Clubscherm: "Extra" staat standaard dicht, de ploegenlijst standaard open.** Clubbeheerders, Trainers en Extra zijn ingeklapt; de lijst met ploegen, waar je het vaakst naartoe gaat, staat open. Wat je open- of dichtklapt blijft zo zolang de app openstaat, ook als het scherm opnieuw tekent.
+- **`database.rules.json` bevat nu de tak `trainers`** (`clubs/<club>/trainers/<uid>`), gelijk aan wat in de Firebase-console gepubliceerd staat sinds v2.33.0. Alleen het bestand in de repo is bijgewerkt, zodat de repo weer overeenkomt met de live regels; er verandert niets aan de app of aan de regels zelf.
+
+---
+
+
+## v2.37.3
+
+- **Clubscherm: Clubbeheerders staat bovenaan en is ingeklapt.** Het blok staat nu boven de ploegen, standaard dicht zoals de ploegen en de trainers, met het aantal in de kop. De lijst en de knoppen (aanstellen en verwijderen, enkel voor de eigenaar) zijn ongewijzigd. Wat je openklapt blijft open zolang de app openstaat.
+
+---
+
+
+## v2.37.2
+
+- **De tegel "Mijn trainerscijfers" heet nu "Trainerscijfers".** Korter, zodat de naam op een telefoon op één regel past, ook als de tegel op halve breedte naast de tegel van een kind staat. Verder verandert er niets.
+
+---
+
+
+## v2.37.1
+
+- **Clubscherm: ploegen en trainers standaard ingeklapt.** De lijst met ploegen en het blok Trainers zijn de langste stukken van het clubscherm en staan nu dicht, in dezelfde uitklapopmaak als op de statistiekenpagina. In de kop staat hoe het ervoor staat: het aantal ploegen, en bij trainers hoeveel er zijn en hoeveel een account hebben (elke naam één keer, ook als hij bij meer ploegen staat). Wat je openklapt blijft open zolang de app openstaat, ook als het scherm opnieuw tekent na ontkoppelen of bewaren.
+- **Startscherm: twee brede tegels naast elkaar.** Een trainer die ook een kind volgt had "Mijn spelers" en "Mijn trainerscijfers" als twee volle rijen onder elkaar. Die komen nu naast elkaar op halve breedte. Met één van de twee blijft die tegel over de volle breedte.
+
+---
+
+
+## v2.37.0
+
+- **Eén trainer koppelen in een eigen venster.** De knop "Koppelen" bij een trainer zonder koppeling (clubscherm › Trainers) opent niet meer het scherm met alle trainers, maar een venster voor alleen die trainer. Bovenaan staan de accounts die bij zijn naam passen: eerst die met dezelfde woorden ("zelfde naam"), dan die waarvan de naam er sterk op lijkt. Daaronder alle ploegbeheerders van de club, met een zoekveld en bij elk account de ploeg(en) waar hij ploegbeheerder is. Eén tik op "Kies" bewaart meteen; is de trainer al gekoppeld, dan kun je hem ontkoppelen of aan een ander account hangen, zonder dat een oude schrijfwijze bij de vorige koppeling verdwijnt. Het scherm voor alle trainers blijft bereikbaar via "Alle trainers tegelijk koppelen".
+- **Een trainer die verhuist: geplande wedstrijden bijwerken.** Haal je een trainer uit de lijst van een ploeg of zet je er een bij, dan vraagt de app bij het opslaan of de geplande wedstrijden van die ploeg mee moeten, met het aantal en een vinkje per trainer. Zo vervangt de nieuwe trainer de vertrokken trainer in de komende wedstrijden. Enkel het trainerveld van wedstrijden met status gepland verandert; afgesloten, lopende en tornooiwedstrijden blijven zoals ze zijn, dus zijn cijfers tot nu toe veranderen niet. Bij een hernoeming (tikfout) verschijnt alleen het hernoemvenster.
+
+---
+
+
+## v2.36.0
+
+- **Een gasttrainer kiezen uit een lijstje.** Bij de trainer van een wedstrijd (wedstrijdinfo, nieuwe wedstrijd en tornooiwizard) staat onder de trainers van de eigen ploeg een uitklapbare groep "Gasttrainer van een andere ploeg" met de trainers van de andere ploegen van de club, met de ploeg erbij. Dezelfde persoon bij twee ploegen staat er één keer. De naam komt zoals hij in zijn eigen ploeg geschreven staat, en dat is wat de trainerscijfers terugvinden. Het vrije veld blijft bestaan voor wie in geen enkele lijst staat. De lijst verschijnt enkel voor een ploegbeheerder (enkel die kan de andere ploegen lezen) en wordt op de achtergrond opgehaald, zoals bij gastspelers. Er verandert niets aan opgeslagen wedstrijden: het blijft dezelfde tekst in het trainerveld.
+
+---
+
+
+## v2.35.1
+
+- **Trainers koppelen vertrekt nu van de trainerslijst.** Het scherm "Trainers koppelen" (clubscherm › Trainers) toont elke trainersnaam uit de ploeggegevens één keer, met de ploegen erbij, en per naam een keuzelijst met de ploegbeheerders van de club. Je kiest een account i.p.v. een naam te typen. Een account wordt voorgesteld als de naam overeenkomt (ook met een andere woordvolgorde); bij twee accounts met dezelfde naam stelt de app niets voor. Dezelfde persoon met een afwijkende schrijfwijze ("K. Dehaes") krijgt beide namen in één koppeling. Bewaren raakt enkel de namen die je veranderde: een oude schrijfwijze die alleen bij de koppeling staat, blijft staan. In het blok per ploeg heeft elke trainer zonder koppeling een knop "Koppelen" die het scherm opent met zijn rij in beeld. Koppelen bij een ploegbeheerder (Leden › "Koppel aan trainer") blijft bestaan, voor namen die niet in een trainerslijst staan.
+
+---
+
+
+## v2.35.0
+
+- **Een trainer hernoemen werkt door in bestaande wedstrijden.** Verbeter je in het ploegrooster de schrijfwijze van een trainer, dan vraagt de app of ze ook de oude wedstrijden en tornooien van die ploeg moet aanpassen, met het aantal erbij. Pas na "Ja, aanpassen" verandert enkel het trainerveld (uitslag, spelers en gebeurtenissen blijven staan). Staat de trainer gekoppeld aan een account, dan volgt de koppeling mee, mits een clubbeheerder of de eigenaar het doet. Dit gebeurt alleen bij een tikfout of een andere woordvolgorde, met een gelijk aantal trainers: verdwijnt een trainer en komt er een andere voor in de plaats, dan blijven zijn wedstrijden bij hem. Zonder dit vond de telling de oude wedstrijden niet meer onder de verbeterde naam.
+- **Trainerscijfers tonen ook de kaarten van de trainer.** Een rijtje gele en rode kaarten (enkel als er iets te melden valt), per ploeg in de kop en bij de wedstrijd zelf. Kaarten voor een afgevaardigde tellen niet mee. Waren er meerdere trainers en is bij het loggen geen naam gekozen, dan weet de app niet wie de kaart kreeg: die staat apart vermeld en telt bij niemand mee.
+- **Clubscherm: trainers per ploeg gerangschikt.** Elke ploeg heeft een eigen kopje met haar trainers uit de ploeggegevens, elk met "gekoppeld" (en de knoppen Cijfers en Ontkoppelen) of "niet gekoppeld". Een trainer bij meerdere ploegen krijgt "ook bij …". Onderaan staan koppelingen die bij geen enkele ploeg passen, ploegen zonder trainer en ploegen die niet te lezen waren.
+
+---
+
+
+## v2.34.0
+
+- **Alle trainers van de club in één keer koppelen.** Op het clubscherm staat in het blok **Trainers** nu de knop "Trainers koppelen". Die toont elke ploegbeheerder van de club één keer, met de ploegen waar hij ploegbeheerder is, en stelt een trainersnaam voor wanneer de naam van het account overeenkomt met een trainer in zijn ploeg (de volgorde van de woorden maakt niet uit; een gedeelde familienaam volstaat niet). Je kijkt na, past aan en bewaart alles in één keer; een leeggemaakt veld ontkoppelt. Kijkers, accounts zonder naam en gearchiveerde ploegen staan er niet in. Geen nieuwe databankregel nodig: het schrijft naar dezelfde tak als het koppelen per ploeg.
+- **Trainerscijfers: "Gespeeld" en uitklapbare ploegen.** Het eerste vakje heet nu "Gespeeld" in plaats van "Getraind". Elke ploeg klapt uit met al haar wedstrijden: datum, tegenstander, uitslag en W/G/V, nieuwste bovenaan. Een wedstrijd zonder bijgehouden uitslag toont "–"; tornooiwedstrijden staan erbij als "(tornooi)" en tellen niet mee in de cijfers bovenaan.
+- **De tegel "Mijn trainerscijfers" staat enkel in een ploeg waar het account zelf ploegbeheerder is.** De koppeling hangt aan de club, maar in een ploeg zonder rol voor dit account verschijnt de tegel niet, ook niet voor een clubbeheerder of de eigenaar die zo'n ploeg opent. Het overzicht "Trainers" op het clubscherm blijft de hele club tonen.
+
+---
+
+
+## v2.33.0
+
+- **Een trainer als trainer herkend, met zijn eigen cijfers.** De eigenaar of een clubbeheerder koppelt bij een ploegbeheerder (Leden › "Koppel aan trainer") de naam of namen waaronder die persoon als trainer in wedstrijden staat, bijvoorbeeld "Kenny Dehaes, K. Dehaes". De trainer krijgt dan op het startscherm een tegel **Mijn trainerscijfers**: per seizoen hoeveel afgesloten wedstrijden hij trainde, met winst, gelijk en verlies, per ploeg van de club. Tornooiwedstrijden staan apart en tellen niet mee in die cijfers. De wedstrijden komen uit de cloud, ook van ploegen die dit toestel nooit opende; lukt dat niet, dan staat er dat de cijfers enkel van dit toestel komen. Op het clubscherm staat een blok **Trainers** met per trainer de knoppen Cijfers en Ontkoppelen. Wie het ziet: de trainer zelf, de clubbeheerders van die club en de eigenaar; niet andere ploegbeheerders, kijkers of gasten. Dat is een gordijn en geen slot, net als bij een speler gekoppeld aan een kijker: de wedstrijden zijn voor elk clublid leesbaar. Er verandert niets aan bestaande wedstrijden of ploegen; er is één nieuwe, optionele node (`clubs/<club>/trainers/<uid>`). **De nieuwe databankregels moeten nog gepubliceerd worden** (zie `database.rules.json` voor de bestaande regels; het voorstel staat apart). Zolang ze niet live staan, geeft koppelen een nette melding en verschijnt de tegel niet.
+
+---
+
+
+## v2.32.0
+
+- **Een speler die van ploeg veranderde: zijn cijfers bij de vorige ploeg staan nu apart.** Onder "Carrière" op de spelerspagina stond de vorige ploeg enkel als één regel (wedstrijden, goals, assists). Die rij is nu aantikbaar en opent zijn volledige pagina bij die ploeg, met seizoenskiezer, soortfilter en alle cijfers. De terugknop brengt je naar de huidige ploeg. Het blok heet nu "Carrière — andere ploeg", want vanaf de oude ploeg bekeken is de nieuwe de latere. Er staat bij dat enkel wedstrijden op dit toestel meetellen. Een kijker of ouder ziet de rij als gewone tekst: die mag enkel zijn eigen kind openen. Geen wijziging aan opgeslagen gegevens of rechten.
+
+---
 
 ## v2.31.3
 
@@ -4728,7 +4802,6 @@ echte, een later signaal voor hetzelfde kwart is de dubbelloop. Dat gebeurt bij 
 dus **wedstrijden die nu al een scheve klok hebben, zetten zichzelf recht** zodra ze binnenkomen. Een
 duur die je zelf corrigeerde met "Duur aanpassen" blijft daarbij staan — die wordt niet als fout
 gezien.
-
 
 ---
 

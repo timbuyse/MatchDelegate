@@ -410,6 +410,27 @@
             ".write": "auth != null && auth.uid === $adminUid && !newData.exists()"
           }
         },
+
+        // WELK ACCOUNT BIJ WELKE TRAINER HOORT (v2.33.0). trainers/$uid is een tekst met de namen waaronder
+        // deze trainer in wedstrijden staat, komma-gescheiden zoals het veld `trainer` van een wedstrijd
+        // (bv. "Kenny Dehaes, K. Dehaes"). Bewust op CLUBNIVEAU en niet per ploeg: een trainer van twee
+        // ploegen heeft één koppeling.
+        //
+        // Schrijven: enkel de eigenaar of de clubbeheerder van DEZE club — dus niet de ploegbeheerder
+        // zelf en niet een collega. Lezen: de clubbeheerder en de eigenaar lezen de hele tak via de
+        // .read op $clubId hierboven; een trainer leest enkel zijn EIGEN regel. Andere ploegbeheerders
+        // en kijkers lezen hier niets.
+        //
+        // Dit is een GORDIJN, geen slot, net als memberPlayers: de wedstrijden van de club zijn voor elk
+        // clublid leesbaar (zie teams/$teamId/matches), en daar staat de trainer al bij. Deze tak bepaalt wie
+        // de koppeling kent en dus wie in de app zijn cijfers te zien krijgt.
+        "trainers": {
+          ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())",
+          "$trainerUid": {
+            ".read": "auth != null && $trainerUid === auth.uid",
+            ".validate": "newData.isString() && newData.val().length <= 300"
+          }
+        },
         "teams": {
           // De ploeg-index binnen de club mag ook door de clubbeheerder beheerd worden (fase 2d),
           // zodat hij ploegen kan aanmaken/registreren in zijn club. (Niet info of admins.)

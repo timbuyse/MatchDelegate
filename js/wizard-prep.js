@@ -262,7 +262,7 @@ function wizStep1() {
            bestaande wedstrijd iets verhuisd te worden, en wat de kalenderimport erin zet (de plaats
            uit de agenda, meestal een volledig adres) staat meteen onder de juiste naam. */ ''}
       <div class="fg"><label>Terrein</label><input id="n-terrein" type="text" value="${esc(wiz.terrein || '')}" placeholder="bv. terrein 2, kunstgras B" autocomplete="off"></div>
-        ${staffPickerHtml('n', 'trn', teamTrainerNames(selectedTeam), wiz.trainer)}
+        ${staffPickerHtml('n', 'trn', teamTrainerNames(selectedTeam), wiz.trainer, gastTrainerKeuzes(teamTrainerNames(selectedTeam)))}
         ${staffPickerHtml('n', 'resp', teamResponsibleNames(selectedTeam), wiz.responsible)}
       </details>
     </div>

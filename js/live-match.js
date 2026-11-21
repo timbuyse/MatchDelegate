@@ -1863,7 +1863,7 @@ function modalEditMatchInfo() {
             <div style="font-size:15px;font-weight:600;padding:6px 0">${esc(matchResponsible(match) || '—')}</div>
             <div style="font-size:11px;color:var(--txt2)">Trainer(s) en afgevaardigde(n) komen van het tornooi en gelden voor elke wedstrijd ervan. Pas je ze aan, dan doe je dat bij het tornooi zelf.</div>
           </div>`
-        : `${staffPickerHtml('ei', 'trn', teamTrainerNames(teamById(match.teamId)), match.trainer)}
+        : `${staffPickerHtml('ei', 'trn', teamTrainerNames(teamById(match.teamId)), match.trainer, gastTrainerKeuzes(teamTrainerNames(teamById(match.teamId))))}
           ${staffPickerHtml('ei', 'resp', teamResponsibleNames(teamById(match.teamId)), match.responsible)}`}
     </details>
     <button class="btn btn-green" style="margin-top:12px" onclick="saveMatchInfo()">${icI(IC.check)}Opslaan</button>
