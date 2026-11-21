@@ -56,10 +56,33 @@ function hbeSeizoen(nu) {
   const jaar = nu.getMonth() >= 7 ? nu.getFullYear() : nu.getFullYear() - 1;
   return { van: `${jaar}-08-01`, tot: `${jaar + 1}-07-31` };
 }
+// De maanden tussen twee datums ("2026-08-01" tot "2027-07-31"), elk als { van, tot } met de eerste en de laatste dag.
+function hbeMaanden(van, tot) {
+  const uit = [], p = n => String(n).padStart(2, '0');
+  const [y0, m0] = van.split('-').map(Number), [y1, m1] = tot.split('-').map(Number);
+  let y = y0, m = m0;
+  while (y < y1 || (y === y1 && m <= m1)) {
+    const laatste = new Date(Date.UTC(y, m, 0)).getUTCDate();   // dag 0 van de volgende maand = laatste dag van deze
+    uit.push({ van: `${y}-${p(m)}-01`, tot: `${y}-${p(m)}-${p(laatste)}` });
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return uit;
+}
 // Het hele programma van een club in een periode, al gelezen en ontdubbeld.
+// PER MAAND OPGEVRAAGD, NIET IN ÉÉN KEER (21-11-2026). De bron blijkt een groot bereik (een heel seizoen) leeg te
+// kunnen beantwoorden, terwijl een week of een paar maanden wel rijen geeft. Per maand vragen is traag genoeg om
+// te volstaan (twaalf kleine verzoeken) en valt niet om op die grens. Dat elke wedstrijd in de bron dubbel staat,
+// vangt hbeLeesRijen toch al op, dus een rij die in twee antwoorden zit, telt maar één keer.
 async function hbeProgramma(clubId, van, tot) {
-  const j = await hbeVraag({ lang: 'nl', endpoint: 'program', dump: '', clubid: clubId, facilityid: '', poolid: 0, subpool: 'A', from: van, to: tot }, 'het programma');
-  return hbeLeesRijen(j && j.data);
+  const maanden = hbeMaanden(van, tot);
+  const antwoorden = await Promise.all(maanden.map(mnd =>
+    hbeVraag({ lang: 'nl', endpoint: 'program', dump: '', clubid: clubId, facilityid: '', poolid: 0, subpool: 'A', from: mnd.van, to: mnd.tot }, 'het programma van ' + mnd.van.slice(0, 7))));
+  const ruw = [];
+  antwoorden.forEach(j => { if (j && Array.isArray(j.data)) j.data.forEach(r => ruw.push(r)); });
+  const res = hbeLeesRijen(ruw);
+  res.ontvangen = ruw.length;
+  if (!res.rijen.length && ruw.length) { try { console.warn('Hockey Belgium: regels ontvangen maar geen enkele leesbaar. Eerste regel:', ruw[0]); } catch (e) {} }
+  return res;
 }
 
 // ---- Lezen ----
@@ -303,7 +326,13 @@ async function hbeKies(id, label) {
     const res = await hbeProgramma(hbeSt.club.id, s.van, s.tot);
     hbeSt.rijen = res.rijen; hbeSt.tellers = { overgeslagen: res.overgeslagen, dubbel: res.dubbel };
     hbeSt.eigenLogo = hbeEigenLogo(res.rijen);
-    if (!res.rijen.length) { hbeSt.fout = 'Hockey Belgium geeft voor deze club nog geen wedstrijden dit seizoen.'; hbeSt.ploegen = []; }
+    if (!res.rijen.length) {
+      // Zeggen WAT er misging: niets ontvangen is iets anders dan wel ontvangen maar niet kunnen lezen.
+      hbeSt.fout = res.ontvangen
+        ? `Hockey Belgium gaf ${res.ontvangen} regels, maar geen enkele was te lezen (${res.overgeslagen} overgeslagen). Meld dit; de opmaak van hockey.be is mogelijk veranderd.`
+        : `Hockey Belgium gaf geen enkele wedstrijd terug voor deze club tussen ${s.van} en ${s.tot}.`;
+      hbeSt.ploegen = [];
+    }
     else if (!hbeSt.eigenLogo) { hbeSt.fout = 'De ploegen van de club konden niet betrouwbaar herkend worden in dit programma.'; hbeSt.ploegen = []; }
     else {
       hbeSt.ploegen = hbePloegen(res.rijen, hbeSt.eigenLogo).filter(p => hbeJeugdLeeftijd(p.code) !== null);

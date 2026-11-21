@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.6
+
+- **Hockey-import: het programma wordt per maand opgevraagd.** De bron van hockey.be bleek een heel seizoen in
+  één verzoek leeg te kunnen beantwoorden, waardoor de import "geen wedstrijden dit seizoen" meldde terwijl die er
+  wel waren. Nu twaalf kleine verzoeken, samengevoegd en ontdubbeld. De melding zegt ook wat er misging: niets
+  ontvangen, of wel ontvangen maar niet leesbaar.
+
 ## v2.31.5
 
 - **Hockey: ploegen en kalender inlezen vanaf hockey.be.** In Clubbeheer van een hockeyclub staat nu de knop
