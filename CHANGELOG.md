@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.36.0
+
+- **Een gasttrainer kiezen uit een lijstje.** Bij de trainer van een wedstrijd (wedstrijdinfo, nieuwe wedstrijd en tornooiwizard) staat onder de trainers van de eigen ploeg een uitklapbare groep "Gasttrainer van een andere ploeg" met de trainers van de andere ploegen van de club, met de ploeg erbij. Dezelfde persoon bij twee ploegen staat er één keer. De naam komt zoals hij in zijn eigen ploeg geschreven staat, en dat is wat de trainerscijfers terugvinden. Het vrije veld blijft bestaan voor wie in geen enkele lijst staat. De lijst verschijnt enkel voor een ploegbeheerder (enkel die kan de andere ploegen lezen) en wordt op de achtergrond opgehaald, zoals bij gastspelers. Er verandert niets aan opgeslagen wedstrijden: het blijft dezelfde tekst in het trainerveld.
+
+---
+
+
 ## v2.35.1
 
 - **Trainers koppelen vertrekt nu van de trainerslijst.** Het scherm "Trainers koppelen" (clubscherm › Trainers) toont elke trainersnaam uit de ploeggegevens één keer, met de ploegen erbij, en per naam een keuzelijst met de ploegbeheerders van de club. Je kiest een account i.p.v. een naam te typen. Een account wordt voorgesteld als de naam overeenkomt (ook met een andere woordvolgorde); bij twee accounts met dezelfde naam stelt de app niets voor. Dezelfde persoon met een afwijkende schrijfwijze ("K. Dehaes") krijgt beide namen in één koppeling. Bewaren raakt enkel de namen die je veranderde: een oude schrijfwijze die alleen bij de koppeling staat, blijft staan. In het blok per ploeg heeft elke trainer zonder koppeling een knop "Koppelen" die het scherm opent met zijn rij in beeld. Koppelen bij een ploegbeheerder (Leden › "Koppel aan trainer") blijft bestaan, voor namen die niet in een trainerslijst staan.

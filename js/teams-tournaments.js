@@ -2442,7 +2442,7 @@ function renderTrnStep1() {
       </div>
       <div style="font-size:11px;color:var(--txt2);margin:-6px 0 12px">Geldt als standaard voor elke nieuwe wedstrijd van dit tornooi. Per wedstrijd kan je er nog van afwijken.</div>`;
     })()}
-    ${staffPickerHtml('trn', 'trn', teamTrainerNames(selectedTeam), trnWiz.trainer)}
+    ${staffPickerHtml('trn', 'trn', teamTrainerNames(selectedTeam), trnWiz.trainer, gastTrainerKeuzes(teamTrainerNames(selectedTeam)))}
     ${staffPickerHtml('trn', 'resp', teamResponsibleNames(selectedTeam), trnWiz.responsible)}
     <div class="fg"><label>Eindstand (optioneel)</label>
       <input id="trn-standing" type="text" value="${esc(trnWiz.standing||'')}" placeholder="bv. 3e van 8" autocomplete="off">

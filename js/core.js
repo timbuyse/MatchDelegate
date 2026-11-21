@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.35.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.36.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -1741,15 +1741,25 @@ const STAFF_KIND = {
   trn:  { label: 'Trainer(s)', een: 'trainer', hint: 'Meerdere trainers mogen: vink er meerdere aan, of scheid namen met een komma.' },
   resp: { label: 'Afgevaardigde(n)', een: 'afgevaardigde', hint: 'Meerdere afgevaardigden mogen: vink er meerdere aan, of scheid namen met een komma.' },
 };
-function staffPickerHtml(prefix, soort, namen, current) {
+// GASTTRAINERS (Tim, 21-11-2026: "kan je geen gasttrainer kiezen uit een lijstje?"). `gasten` is een lijst
+// { naam, ploeg } van trainers uit andere ploegen van de club (zie gastTrainerKeuzes). Ze staan in een eigen
+// groep onder de trainers van de eigen ploeg en komen na het aanvinken in HETZELFDE veld terecht, met de
+// naam zoals ze in hun eigen ploeg geschreven staan — dat is wat de trainerscijfers terugvinden. Een
+// gekozen gast die niet (meer) in de lijst staat, valt zoals vroeger in het vrije veld.
+function staffPickerHtml(prefix, soort, namen, current, gasten) {
   const k = STAFF_KIND[soort];
   const gekozen = staffList(current);
   const laag = gekozen.map(n => n.toLowerCase());
   const known = (namen || []).map(n => String(n || '').trim()).filter(Boolean);
-  const extra = gekozen.filter(n => !known.some(x => x.toLowerCase() === n.toLowerCase()));
+  const gastLijst = (gasten || []).filter(g => g && g.naam && !known.some(x => naamNorm(x) === naamNorm(g.naam)));
+  const bekend = [...known, ...gastLijst.map(g => g.naam)];
+  const extra = gekozen.filter(n => !bekend.some(x => x.toLowerCase() === n.toLowerCase()));
   const boxes = known.map(n => `<label class="chkrow"><input type="checkbox" class="${prefix}-${soort}-cb" value="${esc(n)}" ${laag.includes(n.toLowerCase()) ? 'checked' : ''}> ${esc(n)}</label>`).join('');
+  const gastBoxes = gastLijst.map(g => `<label class="chkrow"><input type="checkbox" class="${prefix}-${soort}-gcb" value="${esc(g.naam)}" ${laag.includes(g.naam.toLowerCase()) ? 'checked' : ''}> ${esc(g.naam)} <small style="color:var(--txt2)">· ${esc(g.ploeg)}</small></label>`).join('');
+  const gastOpen = gastLijst.some(g => laag.includes(g.naam.toLowerCase()));
   return `<div class="fg"><label>${k.label}</label>
     ${boxes ? `<div class="trn-pick">${boxes}</div>` : ''}
+    ${gastBoxes ? `<details style="margin-top:8px" ${gastOpen ? 'open' : ''}><summary style="cursor:pointer;font-size:13px;color:var(--txt2)">Gasttrainer van een andere ploeg</summary><div class="trn-pick" style="margin-top:6px">${gastBoxes}</div></details>` : ''}
     <input id="${prefix}-${soort}-other" type="text" value="${esc(extra.join(', '))}" placeholder="${known.length ? 'Andere ' + k.een + ' (optioneel)' : 'Naam ' + k.een + ' (optioneel)'}" autocomplete="off" style="margin-top:8px">
     <div style="font-size:11px;color:var(--txt2);margin-top:5px">${k.hint}</div>
   </div>`;
@@ -1758,12 +1768,35 @@ function staffPickerHtml(prefix, soort, namen, current) {
 // waar trainer en ploegverantwoordelijke van het tornooi komen), dan blijft de bestaande waarde
 // ongemoeid.
 function readStaffPicker(prefix, soort, fallback) {
-  const boxes = Array.from(document.querySelectorAll('.' + prefix + '-' + soort + '-cb'));
+  // De gewone vakjes ('-cb') en die van de gasttrainers ('-gcb') gaan samen in één veld.
+  const boxes = Array.from(document.querySelectorAll('.' + prefix + '-' + soort + '-cb, .' + prefix + '-' + soort + '-gcb'));
   const other = document.getElementById(prefix + '-' + soort + '-other');
   if (!boxes.length && !other) return fallback || '';
   const namen = boxes.filter(b => b.checked).map(b => b.value);
   if (other) staffList(other.value).forEach(n => { if (!namen.some(x => x.toLowerCase() === n.toLowerCase())) namen.push(n); });
   return staffJoin(namen);
+}
+// De trainers van de ANDERE ploegen van de club, als keuzelijst voor een gasttrainer. Dezelfde bron als
+// de gastspelers (clubZustersGekend): enkel voor een ploegbeheerder, en zonder nieuwe leesregel. Staat de
+// lijst nog niet in het geheugen, dan geeft dit [] en haalt warmClubZusters ze op de achtergrond op; het
+// scherm tekent zichzelf opnieuw zodra ze er is. `eigenNamen` zijn de trainers van de ploeg zelf: die staan
+// al bovenaan en komen hier niet nog eens. Dezelfde persoon bij twee ploegen staat er één keer, met beide
+// ploegen erbij.
+function gastTrainerKeuzes(eigenNamen) {
+  if (typeof clubZustersGekend !== 'function') return [];
+  const lijst = clubZustersGekend();
+  if (lijst === null) { if (typeof warmClubZusters === 'function') warmClubZusters(); return []; }
+  const eigen = new Set((eigenNamen || []).map(naamNorm));
+  const uit = new Map();
+  lijst.forEach(t => teamTrainerNames(t).forEach(n => {
+    const s = naamNorm(n);
+    if (!s || eigen.has(s)) return;
+    const x = uit.get(s) || { naam: n, ploegen: [] };
+    if (t.name && !x.ploegen.includes(t.name)) x.ploegen.push(t.name);
+    uit.set(s, x);
+  }));
+  return [...uit.values()].map(x => ({ naam: x.naam, ploeg: x.ploegen.join(', ') }))
+    .sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
 }
 // De terugvalkopie in de wedstrijd bijwerken telkens ze bewaard wordt, zodat ze niet verouderd
 // raakt tegenover het tornooi. Roep dit aan vlak vóór dbSave() van een tornooiwedstrijd.
