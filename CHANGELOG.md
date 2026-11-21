@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.0
+
+- **Eén trainer koppelen in een eigen venster.** De knop "Koppelen" bij een trainer zonder koppeling (clubscherm › Trainers) opent niet meer het scherm met alle trainers, maar een venster voor alleen die trainer. Bovenaan staan de accounts die bij zijn naam passen: eerst die met dezelfde woorden ("zelfde naam"), dan die waarvan de naam er sterk op lijkt. Daaronder alle ploegbeheerders van de club, met een zoekveld en bij elk account de ploeg(en) waar hij ploegbeheerder is. Eén tik op "Kies" bewaart meteen; is de trainer al gekoppeld, dan kun je hem ontkoppelen of aan een ander account hangen, zonder dat een oude schrijfwijze bij de vorige koppeling verdwijnt. Het scherm voor alle trainers blijft bereikbaar via "Alle trainers tegelijk koppelen".
+- **Een trainer die verhuist: geplande wedstrijden bijwerken.** Haal je een trainer uit de lijst van een ploeg of zet je er een bij, dan vraagt de app bij het opslaan of de geplande wedstrijden van die ploeg mee moeten, met het aantal en een vinkje per trainer. Zo vervangt de nieuwe trainer de vertrokken trainer in de komende wedstrijden. Enkel het trainerveld van wedstrijden met status gepland verandert; afgesloten, lopende en tornooiwedstrijden blijven zoals ze zijn, dus zijn cijfers tot nu toe veranderen niet. Bij een hernoeming (tikfout) verschijnt alleen het hernoemvenster.
+
+---
+
+
 ## v2.36.0
 
 - **Een gasttrainer kiezen uit een lijstje.** Bij de trainer van een wedstrijd (wedstrijdinfo, nieuwe wedstrijd en tornooiwizard) staat onder de trainers van de eigen ploeg een uitklapbare groep "Gasttrainer van een andere ploeg" met de trainers van de andere ploegen van de club, met de ploeg erbij. Dezelfde persoon bij twee ploegen staat er één keer. De naam komt zoals hij in zijn eigen ploeg geschreven staat, en dat is wat de trainerscijfers terugvinden. Het vrije veld blijft bestaan voor wie in geen enkele lijst staat. De lijst verschijnt enkel voor een ploegbeheerder (enkel die kan de andere ploegen lezen) en wordt op de achtergrond opgehaald, zoals bij gastspelers. Er verandert niets aan opgeslagen wedstrijden: het blijft dezelfde tekst in het trainerveld.

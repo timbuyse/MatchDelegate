@@ -3811,7 +3811,7 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
           ? `<br><small style="color:var(--grn)">${icI(IC.check)} gekoppeld${ook.length ? ` · ook bij ${esc(ook.join(', '))}` : ''}</small>`
           : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k)
           // Bij een trainer zonder koppeling: rechtstreeks naar het koppelscherm, met zijn rij in beeld.
-          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainersKoppelen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
+          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
       }).join('')}</div>`).join('');
   const losse = koppels.filter(k => !gebruikt.has(k.uid));
   return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
@@ -3976,6 +3976,125 @@ async function _trainersKoppelenBewaar() {
     closeModal();
     if (view === 'clubbeheer') loadClubBeheerView();
     showToast(`Bewaard: ${nieuw} gekoppeld${weg ? ', ' + weg + ' ontkoppeld' : ''}.`, 'ok');
+  } catch (e) {
+    // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat, en verzin geen
+    // technische foutmelding — de beheerder kan er zelf niets aan doen.
+    showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live — probeer later opnieuw.', 'err');
+  }
+}
+// ----- Eén trainer koppelen: de accounts die bij zijn naam passen staan bovenaan -----
+// Tim, 21-11-2026: bij één trainer op "Koppelen" tikken opende het scherm met ALLE trainers. Voor één
+// naam hoort er één venster te zijn: "hé, er is een account van iemand met die naam, dus die is misschien
+// goed". Bovenaan staan de accounts die op de naam lijken (eerst die met dezelfde woorden, dan die
+// waarvan de naam er sterk op lijkt), daaronder alle ploegbeheerders van de club met een zoekveld.
+// Eén tik op "Kies" bewaart meteen; de knop is bewust een knop en geen hele rij, tegen misklikken.
+let _tkEen = null;   // { clubId, naam, accounts, bestaand, huidig }
+// De wijziging die ontstaat als `naam` bij account `keuze` hoort ('' = bij niemand). Alleen deze naam
+// verandert: wat er verder bij een koppeling staat (een oude schrijfwijze) blijft. Eén naam hoort bij
+// één account, dus ze gaat ook weg bij wie ze nu heeft. Geeft enkel de accounts terug die echt anders worden.
+function trainerKoppelWijziging(bestaand, naam, keuze) {
+  const sl = naamNorm(naam);
+  const lijsten = {};
+  Object.keys(bestaand || {}).forEach(u => { if (typeof bestaand[u] === 'string') lijsten[u] = staffList(bestaand[u]); });
+  Object.keys(lijsten).forEach(u => { if (u !== keuze) lijsten[u] = lijsten[u].filter(n => naamNorm(n) !== sl); });
+  if (keuze) {
+    lijsten[keuze] = lijsten[keuze] || [];
+    if (!lijsten[keuze].some(n => naamNorm(n) === sl)) lijsten[keuze].push(naam);
+  }
+  const wijz = {};
+  Object.keys(lijsten).forEach(u => {
+    const tekst = staffJoin(lijsten[u]);
+    const was = typeof (bestaand || {})[u] === 'string' ? staffJoin(staffList(bestaand[u])) : '';
+    if (tekst !== was) wijz[u] = tekst || null;
+  });
+  return wijz;
+}
+async function modalTrainerKiezen(clubId, naam) {
+  if (!fbdb || !clubId || !naam || !(isOwner || (myClubs && myClubs[clubId]))) return;
+  openModal(`<h3>${icI(IC.clipboard)} Koppel ${esc(naam)}</h3>
+    <div id="tke-lijst"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeModal()">Sluiten</button>`);
+  try {
+    const lees = async pad => { try { return (await fbOnce(fbdb.ref(pad))).val(); } catch (e) { return null; } };
+    const clubTeams = (await lees('clubs/' + clubId + '/teams')) || {};
+    const bestaand = (await lees('clubs/' + clubId + '/trainers')) || {};
+    const accounts = {};
+    let gelezen = 0, totaal = 0;
+    await Promise.all(Object.keys(clubTeams).map(async tid => {
+      totaal++;
+      if (await lees('teams/' + tid + '/info/archived')) return;
+      const [leden, info, ploegNaamRuw] = await Promise.all([lees('teams/' + tid + '/members'), lees('memberInfo/' + tid), lees('teams/' + tid + '/info/name')]);
+      if (!leden) return;
+      gelezen++;
+      const ploegNaam = ploegNaamRuw || teamNames[tid] || '(naamloze ploeg)';
+      Object.keys(leden).forEach(uid => {
+        if (leden[uid] !== 'admin') return;   // een trainer is dezelfde persoon als de ploegbeheerder
+        const mi = (info || {})[uid] || {};
+        if (mi.role === 'guest' || (!mi.name && !mi.email)) return;
+        const a = accounts[uid] || (accounts[uid] = { uid, naam: mi.name || '', email: mi.email || '', ploegen: [] });
+        if (!a.naam && mi.name) a.naam = mi.name;
+        if (!a.email && mi.email) a.email = mi.email;
+        if (!a.ploegen.includes(ploegNaam)) a.ploegen.push(ploegNaam);
+      });
+    }));
+    const sl = naamNorm(naam);
+    const huidig = Object.keys(bestaand).find(u => typeof bestaand[u] === 'string' && staffList(bestaand[u]).some(n => naamNorm(n) === sl)) || '';
+    const lijst = Object.values(accounts);
+    if (huidig && !accounts[huidig]) lijst.push({ uid: huidig, naam: 'Ander account #' + String(huidig).slice(-6), email: '', ploegen: [] });
+    _tkEen = { clubId, naam, accounts: lijst, bestaand, huidig, gemist: totaal - gelezen };
+    _renderTrainerKiezen();
+  } catch (e) {
+    const el = document.getElementById('tke-lijst');
+    if (el) el.innerHTML = '<p style="text-align:center;color:var(--txt2)">De ploegen van de club konden niet opgehaald worden. Probeer opnieuw.</p>';
+  }
+}
+function _renderTrainerKiezen() {
+  const el = document.getElementById('tke-lijst');
+  const s = _tkEen;
+  if (!el || !s) return;
+  const sleutel = _naamSleutel(s.naam);
+  // Sterk: dezelfde woorden (in welke volgorde ook). Lijkt: naamLijktOp, de losse vergelijking van de
+  // dubbelcontrole bij spelers — goed genoeg om VOOR TE STELLEN, nooit om zelf te koppelen.
+  const sterk = a => !!sleutel && _naamSleutel(a.naam) === sleutel;
+  const lijkt = a => !sterk(a) && !!a.naam && naamLijktOp(a.naam, s.naam);
+  const op = (x, y) => byLastNameNl({ name: x.naam || x.email }, { name: y.naam || y.email });
+  const passend = [...s.accounts.filter(sterk).sort(op), ...s.accounts.filter(lijkt).sort(op)];
+  const overig = s.accounts.filter(a => !sterk(a) && !lijkt(a)).sort(op);
+  const rij = (a, label, groen) => `<div class="ts-team-row ke-rij" data-zoek="${esc(((a.naam || '') + ' ' + (a.email || '') + ' ' + a.ploegen.join(' ')).toLowerCase())}" style="cursor:default;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;font-size:14px"><b>${esc(a.naam || a.email)}</b>${a.uid === s.huidig ? ' <span class="ts-role admin">nu gekoppeld</span>' : ''}
+        <br><small style="color:var(--txt2)">${esc([a.naam ? a.email : '', a.ploegen.length ? 'ploegbeheerder bij ' + a.ploegen.join(', ') : ''].filter(Boolean).join(' · '))}</small>
+        ${label ? `<br><small style="color:var(--org2);font-weight:600">${label}</small>` : ''}</div>
+      <button class="btn ${groen ? 'btn-green' : 'btn-pale'} btn-sm" style="width:auto;margin:0" onclick="_trainerKiezenDoe('${jsq(a.uid)}')">${a.uid === s.huidig ? 'Behouden' : 'Kies'}</button></div>`;
+  const huidigAcc = s.huidig ? s.accounts.find(a => a.uid === s.huidig) : null;
+  el.innerHTML = `<p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Welk account is <b>${esc(s.naam)}</b>? De trainer ziet dan zijn eigen trainerscijfers, en jij en de andere clubbeheerders ook.</p>
+    ${huidigAcc ? `<div class="nudge" style="margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Nu gekoppeld aan <b>${esc(huidigAcc.naam || huidigAcc.email)}</b>.</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="_trainerKiezenDoe('')">Ontkoppelen</button></div>` : ''}
+    ${s.gemist > 0 ? `<div class="nudge" style="margin-bottom:10px">${icI(IC.warn)} ${s.gemist === 1 ? 'Eén ploeg kon' : s.gemist + ' ploegen konden'} niet gelezen worden: wie enkel daar ploegbeheerder is, staat hier niet.</div>` : ''}
+    <div class="sec" style="margin-top:6px">Past bij de naam</div>
+    ${passend.length
+      ? passend.map(a => rij(a, sterk(a) ? 'zelfde naam' : 'lijkt op de naam', sterk(a))).join('')
+      : '<p style="font-size:13px;color:var(--txt2);margin:4px 0 8px">Geen account gevonden dat op deze naam lijkt. Kies hieronder zelf, of laat het zo als deze trainer geen account heeft.</p>'}
+    ${overig.length ? `<div class="sec" style="margin-top:12px">Alle ploegbeheerders van de club</div>
+      <div class="fg" style="margin-bottom:6px"><input id="tke-zoek" type="text" placeholder="Zoek op naam of e-mail..." oninput="_trainerKiezenZoek(this.value)" autocomplete="off"></div>
+      <div style="max-height:34vh;overflow:auto" id="tke-overig">${overig.map(a => rij(a, '', false)).join('')}</div>` : ''}
+    <button class="btn btn-gray btn-sm" style="margin-top:10px;width:auto" onclick="modalTrainersKoppelen('${jsq(s.clubId)}','${jsq(s.naam)}')">Alle trainers tegelijk koppelen</button>`;
+}
+function _trainerKiezenZoek(q) {
+  const t = String(q || '').trim().toLowerCase();
+  document.querySelectorAll('#tke-overig .ke-rij').forEach(r => { r.style.display = (!t || (r.dataset.zoek || '').includes(t)) ? '' : 'none'; });
+}
+async function _trainerKiezenDoe(uid) {
+  const s = _tkEen;
+  if (!s || !fbdb || !(isOwner || (myClubs && myClubs[s.clubId]))) return;
+  if (uid === s.huidig) { closeModal(); return; }   // "Behouden": niets te doen
+  const wijz = trainerKoppelWijziging(s.bestaand, s.naam, uid);
+  if (!Object.keys(wijz).length) { closeModal(); return; }
+  try {
+    await fbdb.ref('clubs/' + s.clubId + '/trainers').update(wijz);
+    _tkEen = null;
+    Object.keys(_trainerWedstrijdenCache).forEach(k => delete _trainerWedstrijdenCache[k]);
+    closeModal();
+    if (view === 'clubbeheer') loadClubBeheerView();
+    showToast(uid ? 'Trainer gekoppeld.' : 'Koppeling verwijderd.', 'ok');
   } catch (e) {
     // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat, en verzin geen
     // technische foutmelding — de beheerder kan er zelf niets aan doen.

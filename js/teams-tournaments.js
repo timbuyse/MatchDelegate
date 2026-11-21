@@ -590,6 +590,66 @@ async function trainerHernoemingDoe() {
   showToast(`Trainersnaam aangepast in ${aantal} wedstrijd${aantal === 1 ? '' : 'en'}.`, 'ok');
 }
 // ---------------------------------------------------------------------------------------------
+// EEN TRAINER DIE VERHUIST (Tim, 21-11-2026): weg bij ploeg A, erbij bij ploeg B, volgend seizoen bij C.
+// De CIJFERS kloppen vanzelf: ze volgen de naam in elke afgesloten wedstrijd, en die wedstrijden blijven
+// zoals ze waren. Wat NIET meeverhuist zijn de GEPLANDE wedstrijden: een nieuwe wedstrijd (wizard,
+// kalenderimport) krijgt bij het aanmaken de eerste trainer van de ploeg als tekstkopie. Verhuist hij
+// halverwege, dan staan de komende wedstrijden van A nog op zijn naam en die van B niet.
+//
+// Daarom vraagt de app bij het opslaan van een ploeg of ze de GEPLANDE wedstrijden moet bijwerken, met het
+// aantal erbij en per trainer een vinkje. ENKEL status 'planned', nooit een lopende of afgesloten
+// wedstrijd, en niet de tornooiwedstrijden: die lezen hun trainer van het tornooi. Alleen het trainerveld
+// verandert. Een hernoeming (tikfout) loopt via trainerHernoemingVragen en raakt al deze wedstrijden.
+function trainerNaamWeg(tekst, naam) {
+  const sl = naamNorm(naam);
+  const lijst = staffList(tekst);
+  if (!lijst.some(n => naamNorm(n) === sl)) return null;
+  return staffJoin(lijst.filter(n => naamNorm(n) !== sl));
+}
+function trainerNaamBij(tekst, naam) {
+  const sl = naamNorm(naam);
+  const lijst = staffList(tekst);
+  if (lijst.some(n => naamNorm(n) === sl)) return null;
+  return staffJoin([...lijst, naam]);
+}
+let _twSt = null;   // { rijen: [{ soort: 'weg'|'erbij', naam, aantal }], ploegNamen }
+async function trainerWisselVragen(verdwenen, erbij, ploegNamen) {
+  const alle = await dbAll();
+  const gepland = alle.filter(m => m.status === 'planned' && !m.tournamentId && ploegNamen.includes(m.teamName));
+  if (!gepland.length) return;
+  const rijen = [
+    ...verdwenen.map(naam => ({ soort: 'weg', naam, aantal: gepland.filter(m => trainerNaamWeg(m.trainer, naam) !== null).length })),
+    ...erbij.map(naam => ({ soort: 'erbij', naam, aantal: gepland.filter(m => trainerNaamBij(m.trainer, naam) !== null).length })),
+  ].filter(r => r.aantal);
+  if (!rijen.length) return;   // niets in de geplande wedstrijden raakt deze trainers
+  _twSt = { rijen, ploegNamen };
+  const regel = (r, i) => `<label class="chkrow" style="align-items:flex-start"><input type="checkbox" id="tw-${i}" checked>
+      <span><b>${esc(r.naam)}</b> ${r.soort === 'weg' ? 'weghalen bij' : 'toevoegen aan'} ${r.aantal} ${r.aantal === 1 ? 'geplande wedstrijd' : 'geplande wedstrijden'}</span></label>`;
+  openModal(`<h3>${icI(IC.edit)} Geplande wedstrijden aanpassen?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">De trainerslijst van deze ploeg is gewijzigd. Een geplande wedstrijd draagt nog de trainer van toen ze werd aangemaakt. Vink aan wat je wilt aanpassen. Afgesloten en lopende wedstrijden blijven zoals ze zijn, en zijn cijfers tot nu toe veranderen niet.</p>
+    <div class="card" style="margin-bottom:10px">${rijen.map(regel).join('')}</div>
+    <button class="btn btn-green" onclick="trainerWisselDoe()">${icI(IC.check)} Aanpassen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_twSt=null;closeModal()">Laten staan</button>`);
+}
+async function trainerWisselDoe() {
+  const s = _twSt; _twSt = null;
+  const gekozen = s ? s.rijen.filter((r, i) => { const v = document.getElementById('tw-' + i); return !v || v.checked; }) : [];
+  closeModal();
+  if (!s || !gekozen.length) return;
+  let aantal = 0;
+  const alle = await dbAll();
+  for (const m of alle) {
+    if (m.status !== 'planned' || m.tournamentId || !s.ploegNamen.includes(m.teamName)) continue;
+    let nu = m.trainer || '';
+    // Eerst weghalen, dan toevoegen: zo vervangt de nieuwe trainer de vertrokken trainer in dezelfde wedstrijd.
+    gekozen.filter(r => r.soort === 'weg').forEach(r => { const n = trainerNaamWeg(nu, r.naam); if (n !== null) nu = n; });
+    gekozen.filter(r => r.soort === 'erbij').forEach(r => { const n = trainerNaamBij(nu, r.naam); if (n !== null) nu = n; });
+    if (nu !== (m.trainer || '')) { m.trainer = nu; await dbSave(m); aantal++; }
+  }
+  if (typeof _trainerWedstrijdenCache !== 'undefined') Object.keys(_trainerWedstrijdenCache).forEach(k => delete _trainerWedstrijdenCache[k]);
+  showToast(aantal ? `Trainer aangepast in ${aantal} geplande wedstrijd${aantal === 1 ? '' : 'en'}.` : 'Niets aangepast.', 'ok');
+}
+// ---------------------------------------------------------------------------------------------
 // DEZELFDE JONGEN TWEE KEER OPVANGEN
 // ---------------------------------------------------------------------------------------------
 // Een speler bijzetten deed tot nu toe geen enkele controle: elke rij kreeg een verse `id` én een
@@ -888,6 +948,11 @@ async function ploegWegschrijven(clean, hernoemd) {
   // Vóór het vervangen: welke trainers kregen een andere naam? Nadien is de oude naam weg.
   const trainerParen = idx >= 0 ? trainerHernoemingen(teamTrainerNames(arr[idx]), teamTrainerNames(clean)) : [];
   const vorigePloegNaam = idx >= 0 ? (arr[idx].name || '') : '';
+  // En wie is er bij of weg? Een trainer die naar een andere ploeg verhuist, verdwijnt hier en duikt
+  // daar op. Zie trainerWisselVragen voor wat dat met geplande wedstrijden doet.
+  const oudeTr = idx >= 0 ? teamTrainerNames(arr[idx]) : [], nieuweTr = teamTrainerNames(clean);
+  const verdwenen = idx >= 0 ? oudeTr.filter(n => !nieuweTr.some(x => naamNorm(x) === naamNorm(n))) : [];
+  const erbij = idx >= 0 ? nieuweTr.filter(n => !oudeTr.some(x => naamNorm(x) === naamNorm(n))) : [];
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
   if (hernoemd.length) {
@@ -897,8 +962,13 @@ async function ploegWegschrijven(clean, hernoemd) {
   // Een trainer hernoemd? Dan eerst tonen hoeveel wedstrijden het raakt en pas na een ja aanpassen.
   // Op het einde en met een venster: de ploeg zelf is hierboven al opgeslagen, dit raakt enkel wat
   // bestaat. Een fout hier mag het opslaan niet ongedaan maken.
+  const ploegNamenTr = [...new Set([vorigePloegNaam, clean.name].filter(Boolean))];
   if (trainerParen.length) {
-    try { await trainerHernoemingVragen(trainerParen, [...new Set([vorigePloegNaam, clean.name].filter(Boolean))], clean.id); } catch (e) {}
+    try { await trainerHernoemingVragen(trainerParen, ploegNamenTr, clean.id); } catch (e) {}
+  } else if (verdwenen.length || erbij.length) {
+    // Enkel als er GEEN hernoeming is: twee vensters tegelijk kunnen niet, en een hernoeming raakt al
+    // alle wedstrijden, ook de geplande.
+    try { await trainerWisselVragen(verdwenen, erbij, ploegNamenTr); } catch (e) {}
   }
 }
 function deleteTeamConfirm() {
