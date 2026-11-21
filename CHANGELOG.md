@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.32.0
+
+- **Een speler die van ploeg veranderde: zijn cijfers bij de vorige ploeg staan nu apart.** Onder "Carrière" op de spelerspagina stond de vorige ploeg enkel als één regel (wedstrijden, goals, assists). Die rij is nu aantikbaar en opent zijn volledige pagina bij die ploeg, met seizoenskiezer, soortfilter en alle cijfers. De terugknop brengt je naar de huidige ploeg. Het blok heet nu "Carrière — andere ploeg", want vanaf de oude ploeg bekeken is de nieuwe de latere. Er staat bij dat enkel wedstrijden op dit toestel meetellen. Een kijker of ouder ziet de rij als gewone tekst: die mag enkel zijn eigen kind openen. Geen wijziging aan opgeslagen gegevens of rechten.
+
+---
+
 ## v2.31.3
 
 - **Een speler naar de bank zonder invaller, ook achteraf.** Begon een kwart per ongeluk met één speler
@@ -4649,7 +4655,6 @@ echte, een later signaal voor hetzelfde kwart is de dubbelloop. Dat gebeurt bij 
 dus **wedstrijden die nu al een scheve klok hebben, zetten zichzelf recht** zodra ze binnenkomen. Een
 duur die je zelf corrigeerde met "Duur aanpassen" blijft daarbij staan — die wordt niet als fout
 gezien.
-
 
 ---
 

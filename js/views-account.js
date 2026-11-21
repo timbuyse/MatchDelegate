@@ -6555,7 +6555,7 @@ const views = {
   live: () => renderLive(),
   detail: () => renderDetail(),
   stats: () => { statsFilter = homeFilter; loadStats(); return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.chart)} Statistieken</h1></div><div class="content" id="stats-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
-  playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="terug(_playerDetailFrom||'stats')">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
+  playerDetail: () => { loadPlayerDetail(); return `<div class="hdr"><button class="back" onclick="playerDetailTerug()">‹</button><h1>${icI(IC.shirt)} Speler</h1></div><div class="content" id="player-detail-content"><div class="empty"><div class="ei">${IC.timer}</div></div></div>`; },
   playertransfer: renderPlayerTransfer,
   // Wordt bij de aanroep opgelost, niet bij het laden: renderImportCal woont in import-cal.js, dat
   // ná dit bestand geladen wordt (zie de waarschuwing over dispatchtabellen in CLAUDE.md).
