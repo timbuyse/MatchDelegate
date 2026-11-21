@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.34.0
+
+- **Alle trainers van de club in één keer koppelen.** Op het clubscherm staat in het blok **Trainers** nu de knop "Trainers koppelen". Die toont elke ploegbeheerder van de club één keer, met de ploegen waar hij ploegbeheerder is, en stelt een trainersnaam voor wanneer de naam van het account overeenkomt met een trainer in zijn ploeg (de volgorde van de woorden maakt niet uit; een gedeelde familienaam volstaat niet). Je kijkt na, past aan en bewaart alles in één keer; een leeggemaakt veld ontkoppelt. Kijkers, accounts zonder naam en gearchiveerde ploegen staan er niet in. Geen nieuwe databankregel nodig: het schrijft naar dezelfde tak als het koppelen per ploeg.
+- **Trainerscijfers: "Gespeeld" en uitklapbare ploegen.** Het eerste vakje heet nu "Gespeeld" in plaats van "Getraind". Elke ploeg klapt uit met al haar wedstrijden: datum, tegenstander, uitslag en W/G/V, nieuwste bovenaan. Een wedstrijd zonder bijgehouden uitslag toont "–"; tornooiwedstrijden staan erbij als "(tornooi)" en tellen niet mee in de cijfers bovenaan.
+- **De tegel "Mijn trainerscijfers" staat enkel in een ploeg waar het account zelf ploegbeheerder is.** De koppeling hangt aan de club, maar in een ploeg zonder rol voor dit account verschijnt de tegel niet, ook niet voor een clubbeheerder of de eigenaar die zo'n ploeg opent. Het overzicht "Trainers" op het clubscherm blijft de hele club tonen.
+
+---
+
+
 ## v2.33.0
 
 - **Een trainer als trainer herkend, met zijn eigen cijfers.** De eigenaar of een clubbeheerder koppelt bij een ploegbeheerder (Leden › "Koppel aan trainer") de naam of namen waaronder die persoon als trainer in wedstrijden staat, bijvoorbeeld "Kenny Dehaes, K. Dehaes". De trainer krijgt dan op het startscherm een tegel **Mijn trainerscijfers**: per seizoen hoeveel afgesloten wedstrijden hij trainde, met winst, gelijk en verlies, per ploeg van de club. Tornooiwedstrijden staan apart en tellen niet mee in die cijfers. De wedstrijden komen uit de cloud, ook van ploegen die dit toestel nooit opende; lukt dat niet, dan staat er dat de cijfers enkel van dit toestel komen. Op het clubscherm staat een blok **Trainers** met per trainer de knoppen Cijfers en Ontkoppelen. Wie het ziet: de trainer zelf, de clubbeheerders van die club en de eigenaar; niet andere ploegbeheerders, kijkers of gasten. Dat is een gordijn en geen slot, net als bij een speler gekoppeld aan een kijker: de wedstrijden zijn voor elk clublid leesbaar. Er verandert niets aan bestaande wedstrijden of ploegen; er is één nieuwe, optionele node (`clubs/<club>/trainers/<uid>`). **De nieuwe databankregels moeten nog gepubliceerd worden** (zie `database.rules.json` voor de bestaande regels; het voorstel staat apart). Zolang ze niet live staan, geeft koppelen een nette melding en verschijnt de tegel niet.
