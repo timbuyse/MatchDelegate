@@ -2931,13 +2931,13 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
   if (!currentUser || !fbdb) return null;
   name = (name || '').trim(); if (!name) return null;
   // Standaard wedstrijdvorm + opstelling (staan klaar bij een nieuwe wedstrijd, per wedstrijd aanpasbaar).
-  const dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
-  const dForms = FORMATIONS[dMatchType] || [];
-  const dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
+  let dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
+  let dForms = FORMATIONS[dMatchType] || [];
+  let dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
   // Aantal blokken + blokduur horen ook bij de ploeg (sinds v0.45.0). Ongeldig of niets meegegeven:
   // 4 kwarten van 15, precies wat er vroeger vast in de wizard stond.
-  const dPeriodKey = PERIOD_TYPES[defaultPeriodKey] ? defaultPeriodKey : 'kwarten';
-  const dDur = Number(defaultQuarterDuration) > 0 ? Number(defaultQuarterDuration) : (DUR_DEFAULT[dPeriodKey] || 15);
+  let dPeriodKey = PERIOD_TYPES[defaultPeriodKey] ? defaultPeriodKey : 'kwarten';
+  let dDur = Number(defaultQuarterDuration) > 0 ? Number(defaultQuarterDuration) : (DUR_DEFAULT[dPeriodKey] || 15);
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = genInviteToken();
@@ -2957,6 +2957,13 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // mag clubs/{id} niet lezen. Enkel als de club een andere sport heeft dan voetbal; ontbreekt het
     // veld, of mislukt het lezen, dan is de ploeg voetbal — de oude werking. Zie SPORTS in core.js.
     try { const sp = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val(); if (SPORTS[sp] && sp !== SPORT_STANDAARD) info.sport = sp; } catch (e) {}
+  }
+  // MINIVOETBAL IS ALTIJD 5 TEGEN 5 (Tim, 21-11-2026): wat de aanroeper ook meegaf (de voetbalbond-koppeling gaf vroeger een voetbal-
+  // formaat mee), een ploeg van een minivoetbalclub start met 5v5 in 4 blokken van 13 minuten. De sport komt uit de club hierboven.
+  if (info.sport === 'minivoetbal') {
+    dMatchType = '5v5'; dForms = FORMATIONS['5v5'] || [];
+    if (!dForms.some(f => f.name === defaultFormation)) dFormation = dForms[0] ? dForms[0].name : '';
+    dPeriodKey = 'kwarten'; dDur = 13;
   }
   await fbdb.ref('teams/' + teamId).set({
     info,

@@ -150,7 +150,7 @@ function renderTeamView() {
 // van dezelfde ploeg laat lopen. Onderaan elk gezicht staat de weg naar het andere.
 function renderTeamOverview() {
   const t = editingTeam;
-  const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
+  const oDmt = geldigeVorm(t.defaultMatchType);
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
   // De beheerblokken gelden de ACTIEVE cloud-ploeg. In lokale modus (geen cloud) en bij een ploeg
@@ -284,7 +284,7 @@ function renderTeamEdit() {
     + `<button class="btn btn-pale btn-sm" onclick="addStaffName('trainers')">+ Nog een trainer</button>`;
   const respRows = staffRows('responsible', staffNames('responsible'), 'Afgevaardigde')
     + `<button class="btn btn-pale btn-sm" onclick="addStaffName('responsible')">+ Nog een afgevaardigde</button>`;
-  const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const dmt = geldigeVorm(editingTeam.defaultMatchType);
   const dForms = FORMATIONS[dmt] || [];
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
   const dpk = PERIOD_TYPES[editingTeam.defaultPeriodKey] ? editingTeam.defaultPeriodKey : 'kwarten';
@@ -349,7 +349,7 @@ function renderTeamEdit() {
 function teamToggleNumbers(aan) { editingTeam.useNumbers = !!aan; render(); }
 // Standaard opstelling volgt de gekozen wedstrijdvorm in de ploeg-editor.
 function teamFormatChange(val) {
-  editingTeam.defaultMatchType = MATCH_TYPES[val] ? val : '8v8';
+  editingTeam.defaultMatchType = geldigeVorm(val);
   const forms = FORMATIONS[editingTeam.defaultMatchType] || [];
   editingTeam.defaultFormation = forms[0] ? forms[0].name : '';
   render();
@@ -702,7 +702,7 @@ async function dubbelDoorgaan() {
 async function saveTeamEdit() {
   if (dubbelBezig) return;   // twee keer tikken op Opslaan zou twee vensters openen
   if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
-  const eDmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const eDmt = geldigeVorm(editingTeam.defaultMatchType);
   const eDforms = FORMATIONS[eDmt] || [];
   const eDform = eDforms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (eDforms[0] ? eDforms[0].name : '');
   const clean = {

@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.10
+
+- **Minivoetbal is altijd 5 tegen 5.** Een ploeg van een minivoetbalclub die vroeger met een voetbalformaat (8v8 of 11v11) werd
+  aangemaakt, start een nieuwe wedstrijd nu toch als 5v5 in 4 blokken van 13 minuten, en het ploegscherm toont en bewaart 5 tegen 5.
+  Een nieuwe ploeg in een minivoetbalclub wordt altijd zo aangemaakt, wat de aanroeper ook meegeeft. Voetbal en hockey ongewijzigd.
+
 ## v2.31.9
 
 - **Hockey: kaarten met een tijd.** Groene kaart (2 min, zaal 1) en gele kaart (buiten 5 of 10 min, zaal 2 of 4, te kiezen per

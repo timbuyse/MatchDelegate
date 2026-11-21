@@ -7,15 +7,18 @@ function teamMatchDefaults(team) {
   // Bij een andere sport (hockey, minivoetbal) is dat geen zinnige standaard: daar komt de standaard van
   // de sport (zie SPORTS in core.js). `sd` is null voor voetbal en verandert dus niets voor bestaande ploegen.
   const sd = sportStandaard(undefined, team && team.defaultMatchType);
-  const mt = (team && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : (sd ? sd.matchType : '8v8');
+  // Een opgeslagen vorm die niet bij de sport hoort (een minivoetbalploeg die vroeger als 8v8 of 11v11 werd aangemaakt) telt
+  // niet: dan geldt de standaard van de sport, ook voor het aantal blokken en de duur.
+  const vormOngeldig = !!(team && team.defaultMatchType && !matchTypesVoorSport().includes(team.defaultMatchType));
+  const mt = (team && !vormOngeldig && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : (sd ? sd.matchType : '8v8');
   const forms = FORMATIONS[mt] || [];
   let fi = (team && team.defaultFormation) ? forms.findIndex(f => f.name === team.defaultFormation) : 0;
   if (fi < 0) fi = 0;
   // Aantal blokken en blokduur horen ook bij de ploeg: een U8 speelt geen 4x15. Ploegen van vóór
   // v0.45.0 hebben deze velden niet, en vallen dan terug op wat er tot nu vast in de wizard stond
   // (4 kwarten van 15 minuten) — dus voor bestaande ploegen verandert er niets tot je het instelt.
-  const pk = (team && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : (sd ? sd.periodKey : 'kwarten');
-  const dur = (team && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
+  const pk = (team && !vormOngeldig && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : (sd ? sd.periodKey : 'kwarten');
+  const dur = (team && !vormOngeldig && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
     : ((sd && sd.periodKey === pk) ? sd.dur : (DUR_DEFAULT[pk] || 15));
   return { matchType: mt, formationIndex: fi, periodKey: pk, quarterDuration: dur };
 }

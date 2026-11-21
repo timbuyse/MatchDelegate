@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.31.9'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.10'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -471,6 +471,14 @@ function sportStandaard(s, matchType) {
 // Het wedstrijdtype dat een keuzelijst voorselecteert als er nog niets gekozen is: '8v8' voor voetbal
 // (zoals altijd), de standaard van de sport voor de andere.
 function sportStandaardType(s) { const sd = sportStandaard(s); return sd ? sd.matchType : '8v8'; }
+// Een opgeslagen wedstrijdvorm die bij de sport past, of anders de standaard van de sport. Zo kan een minivoetbalploeg die
+// vroeger met een voetbalformaat (8v8, 11v11) werd aangemaakt, nergens meer op een ander formaat uitkomen: minivoetbal is
+// altijd 5 tegen 5. Voor voetbal verandert er niets: een onbekende waarde valt terug op 8v8, zoals altijd.
+function geldigeVorm(mt, s) {
+  if (matchTypesVoorSport(s).includes(mt)) return mt;
+  const sd = sportStandaard(s);
+  return sd ? sd.matchType : '8v8';
+}
 // De vaste duurkeuzes voor een blokvorm, met de extra duren van de sport erbij. Eén functie in plaats
 // van DURATIONS[periodKey] op zeven plaatsen, zodat een hockeyclub 35 minuten per helft kan kiezen
 // zonder dat een voetbalclub die optie ineens in zijn lijst krijgt.
