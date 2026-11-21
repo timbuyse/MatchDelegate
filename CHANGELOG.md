@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.7
+
+- **Hockey-import: één ploeg per leeftijd en geslacht.** U7B-1, U7B-2 en U7B-3 zijn drie labels van dezelfde
+  U7-jongensploeg en komen nu samen in één ploeg "U7B". Elke wedstrijd draagt het label van zijn eigen team in het
+  bestaande veld "Ploeg-label" (de kaart toont "U7B (U7B-3)"; de statistieken filteren erop). Een wedstrijd tussen
+  twee labels van dezelfde bundel is één wedstrijd, geen twee. De lijst toont per bundel de labels, het formaat en het
+  aantal wedstrijden.
+
 ## v2.31.6
 
 - **Hockey-import: het programma wordt per maand opgevraagd.** De bron van hockey.be bleek een heel seizoen in

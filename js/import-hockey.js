@@ -202,6 +202,41 @@ function hbeWedstrijdenVan(rijen, eigenLogo, code) {
   });
   return uit.sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd));
 }
+// De wedstrijden van een BUNDEL (alle labels van één leeftijd en geslacht), elk met het label van zijn eigen team in
+// `eigenCode`. Een wedstrijd tussen twee labels van dezelfde bundel is één wedstrijd in het echt en wordt hier één
+// wedstrijd (vanuit de thuisploeg gezien), niet twee. Spelen twee labels uit VERSCHILLENDE bundels tegen elkaar, dan
+// krijgt elke bundel zijn eigen kant.
+function hbeWedstrijdenVanBundel(rijen, eigenLogo, bundel) {
+  const uit = [];
+  rijen.forEach(r => {
+    const thuisHier = hbeIsEigen(r.thuis, eigenLogo) && hbeBundelCode(r.thuis.code) === bundel;
+    const uitHier = hbeIsEigen(r.uit, eigenLogo) && hbeBundelCode(r.uit.code) === bundel;
+    if (!thuisHier && !uitHier) return;
+    const kanten = (thuisHier && uitHier) ? [true] : [thuisHier];   // beide in de bundel: enkel de thuiskant
+    kanten.forEach(thuis => {
+      const wij = thuis ? r.thuis : r.uit, zij = thuis ? r.uit : r.thuis;
+      uit.push({
+        datum: r.datum, tijd: r.tijd, terrein: r.terrein, competitie: r.competitie,
+        thuis, soort: wij.soort, eigenCode: wij.code,
+        tegenstander: `${zij.club} ${zij.code}`.trim(), tegenstanderClub: zij.club, tegenstanderCode: zij.code,
+        intern: hbeIsEigen(zij, eigenLogo),
+      });
+    });
+  });
+  return uit.sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd));
+}
+// De bundels van de club: elke jeugdbundel één keer, met haar labels en het aantal wedstrijden.
+function hbeBundels(rijen, eigenLogo) {
+  const per = new Map();
+  hbePloegen(rijen, eigenLogo).forEach(p => {
+    const b = hbeBundelCode(p.code);
+    if (!b) return;
+    if (!per.has(b)) per.set(b, { code: b, labels: [] });
+    per.get(b).labels.push(p.code);
+  });
+  return [...per.values()].map(b => Object.assign(b, { aantal: hbeWedstrijdenVanBundel(rijen, eigenLogo, b.code).length }))
+    .sort((a, b) => a.code.localeCompare(b.code, 'nl', { numeric: true }));
+}
 // Veld of zaal volgens de soort in de bron. null = niet te zeggen (Trimmers, onbekend): dan geldt de
 // standaard van de ploeg. Een inschatting: enkel "Indoor"/"Zaal" geeft zaal, enkel "Outdoor" geeft veld.
 function hbeMatchTypeVoorSoort(soort) {
@@ -234,8 +269,16 @@ let hbeSt = null;
 
 // Leeftijd uit een jeugdcode: "U7B-3" -> 7, "U10G-2" -> 10. null voor al de rest (H-2, D-4, T-1, JL-1).
 function hbeJeugdLeeftijd(code) {
-  const m = /^U(\d{1,2})[A-Z]?-\d+$/i.exec(String(code || '').trim());
+  const m = /^U(\d{1,2})[A-Z]?(-\d+)?$/i.exec(String(code || '').trim());
   return m ? parseInt(m[1], 10) : null;
+}
+// DE BUNDEL: een leeftijd met geslacht, zonder het nummer. "U7B-1", "U7B-2" en "U7B-3" zijn drie teams (labels) van
+// dezelfde U7-jongensploeg (Tim, 21-11-2026). Eén ploeg in de app, en het label per wedstrijd in `subteam`, het
+// bestaande "Ploeg-label": de wedstrijd toont dan "U7B (U7B-3)" en de statistieken filteren erop. Senioren en al wat geen
+// jeugdcode is, geeft '' (die blijven toch buiten de import).
+function hbeBundelCode(code) {
+  const m = /^(U\d{1,2}[A-Z]?)-\d+$/i.exec(String(code || '').trim());
+  return m ? m[1].toUpperCase() : '';
 }
 // De startwaarden van een jeugdploeg volgens de indeling van Hockey Belgium (tabel van Tim, 21-11-2026):
 // U7-U8 3 tegen 3, U9 6 tegen 6, U10-U12 8 tegen 8, vanaf U14 11 tegen 11. Alleen de duur van U14 (2 x 30) en
@@ -256,7 +299,8 @@ function hbeVormVoorCode(code) {
 function hbeWedstrijdSleutels(lijst) {
   const teller = {};
   lijst.forEach(w => {
-    const basis = [w.competitie, w.thuis ? 'T' : 'U', w.tegenstanderClub, w.tegenstanderCode].join('|');
+    // Het eigen label hoort erin: binnen een bundel spelen meerdere labels tegen dezelfde tegenstander.
+    const basis = [w.eigenCode || '', w.competitie, w.thuis ? 'T' : 'U', w.tegenstanderClub, w.tegenstanderCode].join('|');
     teller[basis] = (teller[basis] || 0) + 1;
     w.sleutel = basis + '#' + teller[basis];
   });
@@ -271,7 +315,7 @@ function hbeNieuweWedstrijd(w, kernId, ploegNaam, vorm) {
     formation: '', players: [], absentPlayers: [], status: 'planned',
     opponent: w.tegenstander, date: w.datum, time: w.tijd || '00:00', location: w.thuis ? 'Thuis' : 'Uit',
     venue: '', terrein: w.terrein || '',
-    teamName: ploegNaam, teamId: kernId, subteam: '',
+    teamName: ploegNaam, teamId: kernId, subteam: w.eigenCode || '',
     competition: 'Competitie', matchday: '', referee: '', jersey: '', trainer: '', responsible: '',
     matchType: vorm.matchType, fieldSize: MATCH_TYPES[vorm.matchType].field,
     periodKey: vorm.periodKey, numQuarters: PERIOD_TYPES[vorm.periodKey].count, quarterDuration: vorm.dur,
@@ -335,7 +379,7 @@ async function hbeKies(id, label) {
     }
     else if (!hbeSt.eigenLogo) { hbeSt.fout = 'De ploegen van de club konden niet betrouwbaar herkend worden in dit programma.'; hbeSt.ploegen = []; }
     else {
-      hbeSt.ploegen = hbePloegen(res.rijen, hbeSt.eigenLogo).filter(p => hbeJeugdLeeftijd(p.code) !== null);
+      hbeSt.ploegen = hbeBundels(res.rijen, hbeSt.eigenLogo);
       hbeSt.keuze = {}; hbeSt.ploegen.forEach(p => { hbeSt.keuze[p.code] = true; });
       if (!hbeSt.ploegen.length) hbeSt.fout = 'Er staan geen jeugdploegen (U7 tot U19) in het programma van deze club.';
     }
@@ -380,17 +424,18 @@ function hbeHtml() {
   // Stap 2: de ploegen
   const bestaand = new Set(st.kernen.filter(k => k.hbeCode).map(k => k.hbeCode));
   const gekozen = (st.ploegen || []).filter(p => st.keuze[p.code]);
-  const wedstrijdenTotaal = gekozen.reduce((n, p) => n + hbeWedstrijdenVan(st.rijen, st.eigenLogo, p.code).filter(w => st.metVerleden || w.datum >= hbeVandaag()).length, 0);
+  const wedstrijdenTotaal = gekozen.reduce((n, p) => n + hbeWedstrijdenVanBundel(st.rijen, st.eigenLogo, p.code).filter(w => st.metVerleden || w.datum >= hbeVandaag()).length, 0);
   const rij = p => {
     const vorm = hbeVormVoorCode(p.code);
     const al = bestaand.has(p.code);
     return `<label style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--bdr,#e5e5e5);cursor:pointer">
       <input type="checkbox" ${st.keuze[p.code] ? 'checked' : ''} onchange="hbeToggle('${esc(p.code)}')" style="width:18px;height:18px;flex-shrink:0">
-      <span style="flex:1;min-width:0"><b>${esc(p.code)}</b> <span style="color:var(--txt2);font-size:12px">· ${esc(matchTypeLabel(vorm.matchType))} · ${p.aantal} ${p.aantal === 1 ? 'wedstrijd' : 'wedstrijden'}</span></span>
+      <span style="flex:1;min-width:0"><b>${esc(p.code)}</b> <span style="color:var(--txt2);font-size:12px">· ${esc(matchTypeLabel(vorm.matchType))} · ${p.labels.length} ${p.labels.length === 1 ? 'label' : 'labels'} · ${p.aantal} ${p.aantal === 1 ? 'wedstrijd' : 'wedstrijden'}</span>
+        <span style="display:block;color:var(--txt2);font-size:11px;white-space:normal">${p.labels.map(esc).join(', ')}</span></span>
       ${al ? '<span class="badge badge-type" style="font-size:11px">bestaat al</span>' : ''}</label>`;
   };
   return `${kop}
-    <p style="font-size:13px;color:var(--txt2);margin-bottom:8px"><b>${esc(st.club.label)}</b> · alleen de jeugd (U7 tot U19)${st.tellers && st.tellers.dubbel ? ` · ${st.tellers.dubbel} dubbele regels in de bron genegeerd` : ''}</p>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:8px"><b>${esc(st.club.label)}</b> · alleen de jeugd (U7 tot U19), één ploeg per leeftijd en geslacht${st.tellers && st.tellers.dubbel ? ` · ${st.tellers.dubbel} dubbele regels in de bron genegeerd` : ''}</p>
     ${st.fout ? `<div class="auth-err" style="display:block;margin-bottom:8px">${esc(st.fout)}</div>` : ''}
     ${(st.ploegen && st.ploegen.length) ? `
       <div style="display:flex;gap:8px;margin-bottom:6px"><button class="btn btn-pale btn-sm" style="margin:0" onclick="hbeAlles(true)">Alles</button><button class="btn btn-pale btn-sm" style="margin:0" onclick="hbeAlles(false)">Niets</button></div>
@@ -426,7 +471,7 @@ async function hbeUitvoeren() {
         st.kernen.push({ teamId: res.teamId, kernId: res.rosterId, hbeCode: p.code, hbeClubId: st.club.id });
         tot.ploegen++;
       }
-      let lijst = hbeWedstrijdenVan(st.rijen, st.eigenLogo, p.code);
+      let lijst = hbeWedstrijdenVanBundel(st.rijen, st.eigenLogo, p.code);
       hbeWedstrijdSleutels(lijst);
       if (!st.metVerleden) lijst = lijst.filter(w => w.datum >= vandaag);
       // Wat er al staat (enkel bij een ploeg die al bestond): per sleutel de bestaande wedstrijd.
