@@ -192,7 +192,22 @@ async function loadClubBeheerView() {
               aantikken, dus dat mag (zie CLAUDE.md). */''}
         <button class="btn btn-pale" style="margin:0" onclick="clubRondeOpen('${clubId}')">${icI(IC.clipboard)} Clubronde — wat staat er open</button>
       </div>
-      <details class="stat-acc" style="margin-top:4px"${_clubBeheerOpen.has('ploegen') ? ' open' : ''} ontoggle="clubBeheerVouw('ploegen', this.open)"><summary>${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></summary>
+      ${/* CLUBBEHEERDERS, BOVENAAN EN INGEKLAPT (Tim, 21-11-2026). Het is de kortste lijst en de
+            context bij de rest — wie beheert deze club — dus ze staat boven de ploegen, en dicht zoals
+            de ploegen en de trainers. AANSTELLEN GEBEURT HIER (v1.82.0): tot dan stond er een knop die
+            je naar een ánder scherm stuurde om daar dezelfde club nog eens op te zoeken. Voor een
+            clubbeheerder blijft het een leeslijst: wie de club beheert, bepaalt de maker van de app. */ ''}
+      <details class="stat-acc" style="margin-top:4px"${_clubBeheerOpen.has('beheerders') ? ' open' : ''} ontoggle="clubBeheerVouw('beheerders', this.open)"><summary>Clubbeheerders <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${clubAdminUids.length})</span></summary>
+      <div class="card" style="margin-top:8px">
+        ${clubAdminUids.length
+          ? clubAdminUids.map(u => `<div class="stat-row"><span style="flex:1">${esc(clubAdminNamen[u] || u)}</span>${(currentUser && u === currentUser.uid) ? '<span class="ts-role admin">jij</span>' : ''}${isOwner ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${clubId}','${u}')">Verwijderen</button>` : ''}</div>`).join('')
+          : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen clubbeheerder.</p>'}
+        ${isOwner
+          ? `<button class="btn btn-pale" style="margin-top:10px" onclick="showAppointClubAdmin('${clubId}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>`
+          : '<p style="font-size:12px;color:var(--txt2);margin-top:10px">Een clubbeheerder wordt aangesteld door de maker van de app.</p>'}
+      </div>
+      </details>
+      <details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('ploegen') ? ' open' : ''} ontoggle="clubBeheerVouw('ploegen', this.open)"><summary>${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></summary>
       <div class="card" style="margin-top:8px">
         ${rows.length ? rows.map(t =>`<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
           <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
@@ -217,19 +232,6 @@ async function loadClubBeheerView() {
       </div>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
       </details>
-      ${/* AANSTELLEN GEBEURT NU HIER (v1.82.0). Tot dan stond er een knop die je naar een ánder
-            scherm stuurde om daar dezelfde club nog eens op te zoeken — precies het rondlopen dat
-            deze versie weghaalt. Voor een clubbeheerder blijft het een leeslijst: wie de club
-            beheert, bepaalt de maker van de app. */ ''}
-      <div class="sec" style="margin-top:20px">Clubbeheerders</div>
-      <div class="card">
-        ${clubAdminUids.length
-          ? clubAdminUids.map(u => `<div class="stat-row"><span style="flex:1">${esc(clubAdminNamen[u] || u)}</span>${(currentUser && u === currentUser.uid) ? '<span class="ts-role admin">jij</span>' : ''}${isOwner ? `<button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="removeClubAdmin('${clubId}','${u}')">Verwijderen</button>` : ''}</div>`).join('')
-          : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen clubbeheerder.</p>'}
-        ${isOwner
-          ? `<button class="btn btn-pale" style="margin-top:10px" onclick="showAppointClubAdmin('${clubId}')">${icI(IC.plus)} Clubbeheerder aanstellen</button>`
-          : '<p style="font-size:12px;color:var(--txt2);margin-top:10px">Een clubbeheerder wordt aangesteld door de maker van de app.</p>'}
-      </div>
       ${/* TRAINERS (21-11-2026). Wie als trainer aan een account gekoppeld is, met zijn cijfers één tik
             ver. De naam is de tekst van de koppeling zelf: een clubbeheerder mag de gebruikersnodes
             niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een

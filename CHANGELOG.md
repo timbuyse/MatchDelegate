@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.3
+
+- **Clubscherm: Clubbeheerders staat bovenaan en is ingeklapt.** Het blok staat nu boven de ploegen, standaard dicht zoals de ploegen en de trainers, met het aantal in de kop. De lijst en de knoppen (aanstellen en verwijderen, enkel voor de eigenaar) zijn ongewijzigd. Wat je openklapt blijft open zolang de app openstaat.
+
+---
+
+
 ## v2.37.2
 
 - **De tegel "Mijn trainerscijfers" heet nu "Trainerscijfers".** Korter, zodat de naam op een telefoon op één regel past, ook als de tegel op halve breedte naast de tegel van een kind staat. Verder verandert er niets.
