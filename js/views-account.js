@@ -53,6 +53,13 @@ let clubLogoCache = {};
 // Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Jouw ploegen te
 // zetten (zelfde patroon als _settingsFrom en _tgvFrom — zie de projectnotities).
 let _clubBeheerFrom = 'teamselect';
+// STANDAARD DICHT (Tim, 21-11-2026: "die schermen met ploegen en trainers zijn lang, laat die standaard
+// inklappen"). De lijst met ploegen en het blok Trainers zijn de langste stukken van het clubscherm.
+// Dezelfde uitklapopmaak als op de statistiekenpagina (.stat-acc). Wat je openklapt, onthoudt dit scherm
+// zolang de app openstaat: na ontkoppelen of bewaren tekent het scherm opnieuw en moet het blok dan
+// niet weer dichtvallen terwijl je ermee bezig bent.
+const _clubBeheerOpen = new Set();
+function clubBeheerVouw(sleutel, open) { if (open) _clubBeheerOpen.add(sleutel); else _clubBeheerOpen.delete(sleutel); }
 function naarClubbeheer(cid, vanaf) { _clubBeheerId = cid || null; _clubBeheerFrom = vanaf || 'teamselect'; go('clubbeheer'); }
 function renderClubBeheer() {
   setTimeout(loadClubBeheerView, 0);
@@ -185,9 +192,9 @@ async function loadClubBeheerView() {
               aantikken, dus dat mag (zie CLAUDE.md). */''}
         <button class="btn btn-pale" style="margin:0" onclick="clubRondeOpen('${clubId}')">${icI(IC.clipboard)} Clubronde — wat staat er open</button>
       </div>
-      <div class="sec">${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></div>
-      <div class="card">
-        ${rows.length ? rows.map(t => `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <details class="stat-acc" style="margin-top:4px"${_clubBeheerOpen.has('ploegen') ? ' open' : ''} ontoggle="clubBeheerVouw('ploegen', this.open)"><summary>${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></summary>
+      <div class="card" style="margin-top:8px">
+        ${rows.length ? rows.map(t =>`<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
           <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">Openen</button>
@@ -209,6 +216,7 @@ async function loadClubBeheerView() {
         </div>`).join('') : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen ploegen in deze club.</p>'}
       </div>
       <p style="font-size:12px;color:var(--txt2);margin-top:10px">Tik "Openen" bij een ploeg om er trainers of afgevaardigden bij te zetten. Dat doe je op het ploegscherm zelf, bij "Mensen met toegang".</p>
+      </details>
       ${/* AANSTELLEN GEBEURT NU HIER (v1.82.0). Tot dan stond er een knop die je naar een ánder
             scherm stuurde om daar dezelfde club nog eens op te zoeken — precies het rondlopen dat
             deze versie weghaalt. Voor een clubbeheerder blijft het een leeslijst: wie de club
@@ -3485,7 +3493,9 @@ function mijnSpelerNamen() {
 }
 // De ploegnaam waarop de spelerpagina filtert, is dezelfde waarop het startscherm filtert.
 function _mijnSpelerPloeg() { return homeFilter === 'all' ? '' : homeFilter; }
-function mijnSpelerTegelHtml() {
+// `half`: staat naast deze tegel ook "Mijn trainerscijfers" (een trainer die ook een kind volgt), dan nemen
+// ze samen één rij van twee halve tegels. Is er maar één, dan blijft ze over de volle breedte.
+function mijnSpelerTegelHtml(half) {
   if (typeof heeftGekoppeldeSpeler !== 'function' || !heeftGekoppeldeSpeler()) return '';
   const lijst = mijnSpelerNamen();
   if (!lijst.length) return '';
@@ -3499,7 +3509,7 @@ function mijnSpelerTegelHtml() {
   // elders in de app "een speler op het veld", en achter deze tegel zitten cijfers. En niet de
   // staafjes van `chart`: die staan vlak erboven op de tegel Statistieken, en twee keer hetzelfde
   // teken onder elkaar leest slordig.
-  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
+  return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="${actie}"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
     + `<span class="tl">${esc(een ? lijst[0].naam : 'Mijn spelers')}</span>`
     + `${een ? '' : `<span class="tc">${lijst.length} spelers</span>`}</button>`;
 }
@@ -3647,9 +3657,9 @@ function openMijnTrainerCijfers() {
   openTrainerCijfers(currentUser.uid, mijnTrainerNamen, '', activeClubId);
 }
 function setTrainerSeizoen(v) { trainerSt.seizoen = v; loadTrainerCijfers(); }
-function trainerTegelHtml() {
+function trainerTegelHtml(half) {
   if (typeof heeftTrainerKoppeling !== 'function' || !trainerTegelZichtbaar()) return '';
-  return `<button class="tile tile-breed" style="grid-column:1/-1" onclick="openMijnTrainerCijfers()"><span class="tile-fi ic-i" aria-hidden="true">${IC.clipboard}</span>`
+  return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="openMijnTrainerCijfers()"><span class="tile-fi ic-i" aria-hidden="true">${IC.clipboard}</span>`
     + `<span class="tl">Mijn trainerscijfers</span></button>`;
 }
 function renderTrainerCijfers() {
@@ -3814,7 +3824,15 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
           : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
       }).join('')}</div>`).join('');
   const losse = koppels.filter(k => !gebruikt.has(k.uid));
-  return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
+  // De samenvatting in de kop, zodat je ook ingeklapt ziet hoe het ervoor staat: hoeveel trainers de club
+  // heeft (elke naam één keer, ook als hij bij meer ploegen staat) en hoeveel er een account hebben.
+  const unieken = new Map();
+  perPloeg.forEach(p => p.trainers.forEach(n => unieken.set(naamNorm(n), n)));
+  const nGekoppeld = [...unieken.values()].filter(n => koppelVan(n)).length;
+  const kopTekst = unieken.size
+    ? `(${unieken.size} ${unieken.size === 1 ? 'trainer' : 'trainers'} · ${nGekoppeld} gekoppeld)`
+    : '(nog geen)';
+  return `<details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('trainers') ? ' open' : ''} ontoggle="clubBeheerVouw('trainers', this.open)"><summary>Trainers <span style="font-weight:400;text-transform:none;color:var(--txt2)">${kopTekst}</span></summary><div class="card" style="margin-top:8px">
     ${metTrainers.length ? ploegBlokken : '<p style="color:var(--txt2);font-size:14px;margin:0">Bij geen enkele ploeg staat een trainer ingevuld.</p>'}
     ${losse.length ? `<div style="margin-top:14px"><div style="font-size:13px;font-weight:800;color:var(--txt2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Gekoppeld, bij geen ploeg vermeld</div>
       ${losse.map(k => `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(k.tekst)}</span>${knoppen(k)}</div>`).join('')}
@@ -3823,7 +3841,7 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
     ${onleesbaar.length ? `<p style="font-size:12px;color:var(--org2);margin:6px 0 0">${icI(IC.warn)} Niet te lezen: ${esc(onleesbaar.map(p => p.naam).join(', '))}.</p>` : ''}
     <button class="btn btn-pale" style="margin-top:10px" onclick="modalTrainersKoppelen('${jsq(clubId)}')">${icI(IC.clipboard)} Trainers koppelen</button>
     <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Koppel alle ploegbeheerders van de club in één keer. Voor één persoon kan het ook bij de ploeg zelf, onder "Mensen met toegang". De trainer zelf, de clubbeheerders en de eigenaar zien deze cijfers.</p>
-  </div>`;
+  </div></details>`;
 }
 // Ontkoppelen vanuit het clubscherm.
 async function ontkoppelTrainer(clubId, uid) {
@@ -7356,6 +7374,9 @@ async function loadHome() {
   // Een gast mag enkel home/live/instellingen/handleiding openen (GUEST_ALLOWED_VIEWS), dus élke
   // tegel hier was voor hem een dode knop: tikken bracht hem via go() gewoon terug op home. De
   // gastbanner zegt al waar hij aan toe is ("enkel live wedstrijden volgen").
+  // Een trainer die ook een kind volgt heeft twee brede tegels: die komen dan naast elkaar op halve breedte
+  // in plaats van twee volle rijen onder elkaar. Met één van de twee blijft die tegel over de volle breedte.
+  const beideTegels = !isGuest && !!mijnSpelerTegelHtml() && !!trainerTegelHtml();
   const tiles = isGuest ? '' : `<div class="home-tiles" style="grid-template-columns:1fr 1fr">
     <button class="tile" onclick="go('matches')"><span class="tile-fi ic-i" aria-hidden="true">${IC.ball}</span><span class="tl">Wedstrijden</span><span class="tc">${tileMatches.length}</span></button>
     ${teamTile}
@@ -7365,10 +7386,10 @@ async function loadHome() {
           praktijk een ouder. Bij één kind staat zijn naam op de tegel en kom je met één tik op zijn
           pagina; bij meer kinderen opent er een keuzelijstje. Een beheerder krijgt deze tegel niet:
           die bereikt elke speler al via de statistieken. Zie mijnSpelerIds in core.js. */ ''}
-    ${mijnSpelerTegelHtml()}
+    ${mijnSpelerTegelHtml(beideTegels)}
     ${/* MIJN TRAINERSCIJFERS (21-11-2026) — enkel voor een account dat door de eigenaar of een
           clubbeheerder aan een trainersnaam gekoppeld werd. Zie mijnTrainerNamen in core.js. */ ''}
-    ${trainerTegelHtml()}
+    ${trainerTegelHtml(beideTegels)}
     ${/* Over de volle breedte: een vijfde tegel zou anders een gat naast zich laten. De agenda is
           de enige plek waar wedstrijden en tornooien samen op één kalender staan. */ ''}
     <button class="tile tile-breed" style="grid-column:1/-1" onclick="go('agenda')"><span class="tile-fi ic-i" aria-hidden="true">${IC.calendar}</span><span class="tl">Agenda</span></button>

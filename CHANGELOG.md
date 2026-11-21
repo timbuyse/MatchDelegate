@@ -9,6 +9,14 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.1
+
+- **Clubscherm: ploegen en trainers standaard ingeklapt.** De lijst met ploegen en het blok Trainers zijn de langste stukken van het clubscherm en staan nu dicht, in dezelfde uitklapopmaak als op de statistiekenpagina. In de kop staat hoe het ervoor staat: het aantal ploegen, en bij trainers hoeveel er zijn en hoeveel een account hebben (elke naam één keer, ook als hij bij meer ploegen staat). Wat je openklapt blijft open zolang de app openstaat, ook als het scherm opnieuw tekent na ontkoppelen of bewaren.
+- **Startscherm: twee brede tegels naast elkaar.** Een trainer die ook een kind volgt had "Mijn spelers" en "Mijn trainerscijfers" als twee volle rijen onder elkaar. Die komen nu naast elkaar op halve breedte. Met één van de twee blijft die tegel over de volle breedte.
+
+---
+
+
 ## v2.37.0
 
 - **Eén trainer koppelen in een eigen venster.** De knop "Koppelen" bij een trainer zonder koppeling (clubscherm › Trainers) opent niet meer het scherm met alle trainers, maar een venster voor alleen die trainer. Bovenaan staan de accounts die bij zijn naam passen: eerst die met dezelfde woorden ("zelfde naam"), dan die waarvan de naam er sterk op lijkt. Daaronder alle ploegbeheerders van de club, met een zoekveld en bij elk account de ploeg(en) waar hij ploegbeheerder is. Eén tik op "Kies" bewaart meteen; is de trainer al gekoppeld, dan kun je hem ontkoppelen of aan een ander account hangen, zonder dat een oude schrijfwijze bij de vorige koppeling verdwijnt. Het scherm voor alle trainers blijft bereikbaar via "Alle trainers tegelijk koppelen".
