@@ -488,6 +488,108 @@ async function hernoemSpelerInGegevens(hernoemd, opties) {
   return aantal;
 }
 // ---------------------------------------------------------------------------------------------
+// EEN TRAINER HERNOEMEN IN WAT AL BESTAAT (Tim, 21-11-2026). Dezelfde gedachte als bij een speler: een
+// wedstrijd bewaart zijn EIGEN kopie van de trainersnaam (m.trainer, en bij een tornooi t.trainer), en
+// bij een naamcorrectie is die kopie gewoon fout. Zonder dit bleven de oude wedstrijden de foute
+// schrijfwijze dragen, en vonden de trainerscijfers ze niet meer terug onder de verbeterde naam.
+//
+// ANDERS DAN BIJ EEN SPELER VRAAGT DIT EERST OM BEVESTIGING, mét het aantal wedstrijden. Een trainer
+// heeft geen vast id in een wedstrijd om op te matchen: enkel de tekst. En in de ploegeditor krijgen
+// de trainers hun id op POSITIE (zie syncStaffToTeam), dus wie de eerste van twee trainers
+// verwijdert, laat de tweede er uitzien als een hernoeming van de eerste. Daarom telt iets enkel als
+// hernoeming wanneer het AANTAL trainers gelijk bleef, de oude naam nergens meer voorkomt, én de twee
+// namen op een tikfout (of een andere woordvolgorde) na dezelfde zijn.
+//
+// DAT LAATSTE IS WAT EEN VERVANGING UITSLUIT (Tim, 21-11-2026): verdwijnt een trainer en komt er een
+// ándere voor in de plaats, dan blijft het aantal gelijk en is de oude naam ook weg — dat lijkt op een
+// hernoeming, maar zijn wedstrijden horen bij hém en mogen NIET naar de nieuwe trainer verhuizen. Twee
+// verschillende mensen lijken niet op elkaar; een tikfout wel.
+function trainerTikfout(a, b) {
+  const x = naamNorm(a), y = naamNorm(b);
+  if (!x || !y) return false;
+  if (x.split(' ').sort().join(' ') === y.split(' ').sort().join(' ')) return true;   // "Peeters Jan"
+  // Hele naam, niet woord per woord: een gedeelde voornaam of familienaam is geen bewijs. Korte namen
+  // krijgen één fout, vanaf tien tekens mogen het er twee zijn.
+  return naamAfstand(x, y) <= (Math.min(x.length, y.length) >= 10 ? 2 : 1);
+}
+function trainerHernoemingen(oud, nieuw) {
+  if (!oud.length || oud.length !== nieuw.length) return [];
+  const o = new Set(oud.map(naamNorm)), n = new Set(nieuw.map(naamNorm));
+  return oud.map((van, i) => ({ van, naar: nieuw[i] }))
+    .filter(p => naamNorm(p.van) !== naamNorm(p.naar) && !n.has(naamNorm(p.van)) && !o.has(naamNorm(p.naar))
+      && trainerTikfout(p.van, p.naar));
+}
+// Vervangt in een komma-lijst ("Kenny Dehaes, Maxim Verschuren") enkel de vermelding die op de HELE
+// naam overeenkomt, na naamNorm. Geeft null terug als er niets te vervangen viel.
+function trainerNaamVervangen(tekst, van, naar) {
+  const sleutel = naamNorm(van);
+  let geraakt = false;
+  const lijst = staffList(tekst).map(x => { if (naamNorm(x) === sleutel) { geraakt = true; return naar; } return x; });
+  if (!geraakt) return null;
+  const uniek = []; lijst.forEach(x => { if (!uniek.some(y => naamNorm(y) === naamNorm(x))) uniek.push(x); });
+  return staffJoin(uniek);
+}
+let _thSt = null;   // { paren, ploegNamen, ploegId, telling }
+async function trainerHernoemingVragen(paren, ploegNamen, ploegId) {
+  if (!paren.length) return;
+  const alle = await dbAll();
+  const matches = alle.filter(m => ploegNamen.includes(m.teamName));
+  const tornooien = getTournaments().filter(t => t && (t.teamId === ploegId || ploegNamen.includes(t.teamName)));
+  const telling = paren.map(p => ({
+    ...p,
+    m: matches.filter(m => trainerNaamVervangen(m.trainer, p.van, p.naar) !== null).length,
+    t: tornooien.filter(t => trainerNaamVervangen(t.trainer, p.van, p.naar) !== null).length,
+  })).filter(p => p.m || p.t);
+  if (!telling.length) return;   // niets in wat al bestaat draagt de oude naam: niets te vragen
+  _thSt = { telling, ploegNamen, ploegId };
+  const regel = p => `<div class="stat-row" style="flex-wrap:wrap;gap:4px"><span style="flex:1;min-width:150px"><b>${esc(p.van)}</b> → <b>${esc(p.naar)}</b></span><span style="color:var(--txt2);font-size:13px">${p.m} ${p.m === 1 ? 'wedstrijd' : 'wedstrijden'}${p.t ? ` · ${p.t} ${p.t === 1 ? 'tornooi' : 'tornooien'}` : ''}</span></div>`;
+  openModal(`<h3>${icI(IC.edit)} Ook in bestaande wedstrijden aanpassen?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:10px">Elke wedstrijd bewaart zelf de naam van de trainer. Aanpassen zorgt dat de oude wedstrijden onder de juiste naam meetellen in de trainerscijfers. Enkel de naam verandert; uitslag, spelers en gebeurtenissen blijven zoals ze zijn.</p>
+    <div class="card" style="margin-bottom:10px">${telling.map(regel).join('')}</div>
+    ${magTrainersKoppelen() ? '<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">Staat deze trainer gekoppeld aan een account, dan wordt de naam daar ook aangepast.</p>'
+      : '<p style="font-size:12px;color:var(--txt2);margin:0 0 10px">Staat deze trainer gekoppeld aan een account? Vraag dan de eigenaar of een clubbeheerder om de naam ook bij de koppeling aan te passen.</p>'}
+    <button class="btn btn-green" onclick="trainerHernoemingDoe()">${icI(IC.check)} Ja, aanpassen</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="_thSt=null;closeModal()">Nee, laten staan</button>`);
+}
+async function trainerHernoemingDoe() {
+  const s = _thSt; _thSt = null;
+  closeModal();
+  if (!s) return;
+  let aantal = 0;
+  const alle = await dbAll();
+  for (const m of alle) {
+    if (!s.ploegNamen.includes(m.teamName)) continue;
+    let nu = m.trainer, raak = false;
+    for (const p of s.telling) { const n = trainerNaamVervangen(nu, p.van, p.naar); if (n !== null) { nu = n; raak = true; } }
+    if (raak) { m.trainer = nu; await dbSave(m); aantal++; }
+  }
+  // Tornooien: per tornooi opslaan met saveTournament — saveTournaments() schrijft enkel lokaal.
+  getTournaments().filter(t => t && (t.teamId === s.ploegId || s.ploegNamen.includes(t.teamName))).forEach(t => {
+    let nu = t.trainer, raak = false;
+    for (const p of s.telling) { const n = trainerNaamVervangen(nu, p.van, p.naar); if (n !== null) { nu = n; raak = true; } }
+    if (raak) { t.trainer = nu; saveTournament(t); }
+  });
+  // De koppeling account → trainer volgt de naam, anders vindt ze straks geen wedstrijden meer. Enkel
+  // voor wie ze beheert (eigenaar of clubbeheerder); een gewone ploegbeheerder mag ze niet schrijven.
+  // Stil bij een fout: dit mag het aanpassen van de wedstrijden niet breken.
+  if (typeof magTrainersKoppelen === 'function' && magTrainersKoppelen() && fbdb) {
+    try {
+      const pad = 'clubs/' + activeClubId + '/trainers';
+      const huidig = (await fbOnce(fbdb.ref(pad))).val() || {};
+      const wijz = {};
+      Object.keys(huidig).forEach(uid => {
+        if (typeof huidig[uid] !== 'string') return;
+        let nu = huidig[uid], raak = false;
+        for (const p of s.telling) { const n = trainerNaamVervangen(nu, p.van, p.naar); if (n !== null) { nu = n; raak = true; } }
+        if (raak) wijz[uid] = nu;
+      });
+      if (Object.keys(wijz).length) await fbdb.ref(pad).update(wijz);
+    } catch (e) {}
+  }
+  if (typeof _trainerWedstrijdenCache !== 'undefined') Object.keys(_trainerWedstrijdenCache).forEach(k => delete _trainerWedstrijdenCache[k]);
+  showToast(`Trainersnaam aangepast in ${aantal} wedstrijd${aantal === 1 ? '' : 'en'}.`, 'ok');
+}
+// ---------------------------------------------------------------------------------------------
 // DEZELFDE JONGEN TWEE KEER OPVANGEN
 // ---------------------------------------------------------------------------------------------
 // Een speler bijzetten deed tot nu toe geen enkele controle: elke rij kreeg een verse `id` én een
@@ -783,11 +885,20 @@ async function ploegWegschrijven(clean, hernoemd) {
     // (v1.80.0). Die worden door het importscherm bewaard, niet door dit scherm.
     if (Array.isArray(b.kalenderOverslaan) && b.kalenderOverslaan.length) clean.kalenderOverslaan = b.kalenderOverslaan;
   }
+  // Vóór het vervangen: welke trainers kregen een andere naam? Nadien is de oude naam weg.
+  const trainerParen = idx >= 0 ? trainerHernoemingen(teamTrainerNames(arr[idx]), teamTrainerNames(clean)) : [];
+  const vorigePloegNaam = idx >= 0 ? (arr[idx].name || '') : '';
   if (idx >= 0) arr[idx] = clean; else arr.push(clean);
   saveTeamsV2(arr); editingTeam = null; teamDelUndo = []; go(cloudReady ? 'home' : 'teams');
   if (hernoemd.length) {
     const n = await hernoemSpelerInGegevens(hernoemd);
     if (n) showToast(`Naam aangepast in ${n} wedstrijd${n === 1 ? '' : 'en'}.`, 'ok');
+  }
+  // Een trainer hernoemd? Dan eerst tonen hoeveel wedstrijden het raakt en pas na een ja aanpassen.
+  // Op het einde en met een venster: de ploeg zelf is hierboven al opgeslagen, dit raakt enkel wat
+  // bestaat. Een fout hier mag het opslaan niet ongedaan maken.
+  if (trainerParen.length) {
+    try { await trainerHernoemingVragen(trainerParen, [...new Set([vorigePloegNaam, clean.name].filter(Boolean))], clean.id); } catch (e) {}
   }
 }
 function deleteTeamConfirm() {

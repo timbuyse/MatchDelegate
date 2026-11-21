@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.35.0
+
+- **Een trainer hernoemen werkt door in bestaande wedstrijden.** Verbeter je in het ploegrooster de schrijfwijze van een trainer, dan vraagt de app of ze ook de oude wedstrijden en tornooien van die ploeg moet aanpassen, met het aantal erbij. Pas na "Ja, aanpassen" verandert enkel het trainerveld (uitslag, spelers en gebeurtenissen blijven staan). Staat de trainer gekoppeld aan een account, dan volgt de koppeling mee, mits een clubbeheerder of de eigenaar het doet. Dit gebeurt alleen bij een tikfout of een andere woordvolgorde, met een gelijk aantal trainers: verdwijnt een trainer en komt er een andere voor in de plaats, dan blijven zijn wedstrijden bij hem. Zonder dit vond de telling de oude wedstrijden niet meer onder de verbeterde naam.
+- **Trainerscijfers tonen ook de kaarten van de trainer.** Een rijtje gele en rode kaarten (enkel als er iets te melden valt), per ploeg in de kop en bij de wedstrijd zelf. Kaarten voor een afgevaardigde tellen niet mee. Waren er meerdere trainers en is bij het loggen geen naam gekozen, dan weet de app niet wie de kaart kreeg: die staat apart vermeld en telt bij niemand mee.
+- **Clubscherm: trainers per ploeg gerangschikt.** Elke ploeg heeft een eigen kopje met haar trainers uit de ploeggegevens, elk met "gekoppeld" (en de knoppen Cijfers en Ontkoppelen) of "niet gekoppeld". Een trainer bij meerdere ploegen krijgt "ook bij …". Onderaan staan koppelingen die bij geen enkele ploeg passen, ploegen zonder trainer en ploegen die niet te lezen waren.
+
+---
+
+
 ## v2.34.0
 
 - **Alle trainers van de club in één keer koppelen.** Op het clubscherm staat in het blok **Trainers** nu de knop "Trainers koppelen". Die toont elke ploegbeheerder van de club één keer, met de ploegen waar hij ploegbeheerder is, en stelt een trainersnaam voor wanneer de naam van het account overeenkomt met een trainer in zijn ploeg (de volgorde van de woorden maakt niet uit; een gedeelde familienaam volstaat niet). Je kijkt na, past aan en bewaart alles in één keer; een leeggemaakt veld ontkoppelt. Kijkers, accounts zonder naam en gearchiveerde ploegen staan er niet in. Geen nieuwe databankregel nodig: het schrijft naar dezelfde tak als het koppelen per ploeg.

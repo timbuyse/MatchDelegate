@@ -158,6 +158,15 @@ async function loadClubBeheerView() {
     const clubSelector = clubIds.length > 1
       ? `<div class="fg"><label>Club</label><select onchange="_clubBeheerId=this.value;loadClubBeheerView()">${clubIds.map(id => `<option value="${esc(id)}" ${id === clubId ? 'selected' : ''}>${esc(clubNamesById[id] || id)}</option>`).join('')}</select></div>`
       : '';
+    // TRAINERS PER PLOEG (21-11-2026). De trainerslijst van een ploeg staat in haar kern
+    // (`roster[0].trainers`), en een clubbeheerder leest die al (teams/$teamId in de regels). Een
+    // ploeg die niet te lezen valt, laat enkel háár regel weg: het blok blijft staan voor de rest.
+    const trainersPerPloeg = await Promise.all(rows.map(async r => {
+      try {
+        const kern = normalizeRosterArray((await fbOnce(fbdb.ref('teams/' + r.id + '/roster'))).val())[0] || null;
+        return { id: r.id, naam: r.name, trainers: teamTrainerNames(kern) };
+      } catch (e) { return { id: r.id, naam: r.name, trainers: [], fout: true }; }
+    }));
     el.innerHTML = `
       ${clubSelector}
       ${clubLogoCardHtml(clubId, '', 'loadClubBeheerView()', false)}
@@ -217,17 +226,7 @@ async function loadClubBeheerView() {
             ver. De naam is de tekst van de koppeling zelf: een clubbeheerder mag de gebruikersnodes
             niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een
             ploegbeheerder onder "Mensen met toegang". */ ''}
-      ${(() => {
-        const uids = Object.keys(clubTrainers || {}).filter(u => typeof clubTrainers[u] === 'string' && clubTrainers[u].trim());
-        return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
-          ${uids.length ? uids.map(u => `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(clubTrainers[u])}</span>
-              <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTrainerCijfers('${jsq(u)}','${jsq(clubTrainers[u])}','${jsq(staffList(clubTrainers[u])[0] || '')}','${jsq(clubId)}')">${icI(IC.chart)} Cijfers</button>
-              <button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="ontkoppelTrainer('${jsq(clubId)}','${jsq(u)}')">Ontkoppelen</button></div>`).join('')
-            : '<p style="color:var(--txt2);font-size:14px;margin:0">Nog geen trainers gekoppeld.</p>'}
-          <button class="btn btn-pale" style="margin-top:10px" onclick="modalTrainersKoppelen('${jsq(clubId)}')">${icI(IC.clipboard)} Trainers koppelen</button>
-          <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Koppel alle ploegbeheerders van de club in één keer. Voor één persoon kan het ook bij de ploeg zelf, onder "Mensen met toegang". De trainer zelf, de clubbeheerders en de eigenaar zien deze cijfers.</p>
-        </div>`;
-      })()}
+      ${clubTrainersBlokHtml(clubId, trainersPerPloeg, clubTrainers)}
       <div class="sec" style="margin-top:20px">Extra</div>
       ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
       ${rows.length >= 2 ? `<button class="btn btn-pale" onclick="go('playertransfer')">${icI(IC.swap)} Spelers doorschuiven (binnen club)</button>` : ''}
@@ -3528,6 +3527,30 @@ function magTrainerCijfersZien(uid, clubId) {
   if (uid === currentUser.uid) return true;
   return !!(isOwner || (clubId && myClubs && myClubs[clubId]));
 }
+// KAARTEN VOOR DE TRAINER (Tim, 21-11-2026: "soms kan een trainer ook een gele of rode kaart krijgen").
+// Een kaart voor de staf hangt aan geen speler: ze heeft `wie` (trainer of afgevaardigde) en soms
+// `stafNaam`. Wie ze kreeg, zegt stafNaam(e, m) — de gekozen naam, of de enige trainer van de wedstrijd.
+// BIJ MEERDERE TRAINERS EN ZONDER GEKOZEN NAAM WEET DE APP HET NIET (zie de uitleg bij stafNaam in
+// core.js), en dan zou een kaart aan één van de twee hangen een bewering zijn die nergens op steunt.
+// Die tellen we apart als `onbepaald`, en ze staan niet in zijn eigen aantal. Kaarten voor een
+// afgevaardigde horen hier niet: dit zijn de cijfers van de trainer.
+function trainerKaarten(m, namen) {
+  const nn = new Set(staffList(namen).map(naamNorm).filter(Boolean));
+  const k = { geel: 0, rood: 0, onbepaald: 0 };
+  (m.events || []).forEach(e => {
+    if (!e || (e.type !== 'yellow_card_trainer' && e.type !== 'red_card_trainer')) return;
+    if (stafWoord(e) !== 'trainer') return;
+    const naam = stafNaam(e, m);
+    if (!naam) { k.onbepaald++; return; }
+    if (!nn.has(naamNorm(naam))) return;   // de kaart was voor een collega-trainer
+    if (e.type === 'red_card_trainer') k.rood++; else k.geel++;
+  });
+  return k;
+}
+function trainerKaartHtml(geel, rood) {
+  return (geel ? `<span style="white-space:nowrap">${icI(IC.cardY)}${geel > 1 ? '×' + geel : ''}</span>` : '')
+    + (rood ? ` <span style="white-space:nowrap">${icI(IC.cardR)}${rood > 1 ? '×' + rood : ''}</span>` : '');
+}
 // DE TELLING. Zuiver en zonder opslag, zodat ze los te testen is. Een wedstrijd telt als "getraind"
 // wanneer ze AFGESLOTEN is (Tim) en zijn naam in de trainerslijst staat, gelezen via matchTrainer:
 // bij een tornooiwedstrijd komt de trainer van het tornooi. Namen vergelijken we op de HELE naam, na
@@ -3548,9 +3571,12 @@ function trainerTelling(lijst, namen) {
     if (!staffList(matchTrainer(m)).some(n => nn.has(naamNorm(n)))) return;
     const sz = seasonOf(m);
     const pl = m.teamName || 'Onbekende ploeg';
-    const b = ((perSeizoen[sz] = perSeizoen[sz] || {})[pl] = perSeizoen[sz][pl] || { mp: 0, W: 0, G: 0, V: 0, Z: 0, tornooi: 0, lijst: [] });
+    const b = ((perSeizoen[sz] = perSeizoen[sz] || {})[pl] = perSeizoen[sz][pl] || { mp: 0, W: 0, G: 0, V: 0, Z: 0, tornooi: 0, geel: 0, rood: 0, onbepaald: 0, lijst: [] });
     totaal++;
     b.lijst.push(m);   // de wedstrijden zelf, voor de uitklaplijst per ploeg
+    // Kaarten tellen VÓÓR de tornooi-uitzondering hieronder: een kaart is een kaart, ook op een tornooi.
+    const kk = trainerKaarten(m, namen);
+    b.geel += kk.geel; b.rood += kk.rood; b.onbepaald += kk.onbepaald;
     if (m.tournamentId) { b.tornooi++; return; }
     b.mp++;
     const r = matchResultaat(m);
@@ -3650,8 +3676,14 @@ async function loadTrainerCijfers() {
   const t = trainerTelling(res.lijst, s.namen);
   const ploegen = t.perSeizoen[s.seizoen] || {};
   const namenPl = Object.keys(ploegen).sort((a, b) => ploegen[b].mp - ploegen[a].mp || a.localeCompare(b, 'nl'));
-  let mp = 0, W = 0, G = 0, V = 0, Z = 0, tornooi = 0;
-  namenPl.forEach(p => { const b = ploegen[p]; mp += b.mp; W += b.W; G += b.G; V += b.V; Z += b.Z; tornooi += b.tornooi; });
+  let mp = 0, W = 0, G = 0, V = 0, Z = 0, tornooi = 0, geel = 0, rood = 0, onbepaald = 0;
+  namenPl.forEach(p => { const b = ploegen[p]; mp += b.mp; W += b.W; G += b.G; V += b.V; Z += b.Z; tornooi += b.tornooi; geel += b.geel; rood += b.rood; onbepaald += b.onbepaald; });
+  // Het kaartenrijtje staat er enkel als er íets te melden valt: bij de meeste trainers zijn het twee
+  // nullen, en dat is ruis. Zelfde gedachte als bij de spelerspagina.
+  const kaartenRij = (geel || rood || onbepaald) ? `<div class="stat-big" style="margin-top:10px">
+        <div class="stat-box"><div class="v">${geel}</div><div class="l">${icI(IC.cardY)} Gele kaarten</div></div>
+        <div class="stat-box"><div class="v">${rood}</div><div class="l">${icI(IC.cardR)} Rode kaarten</div></div>
+      </div>${onbepaald ? `<p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">${onbepaald === 1 ? 'Eén kaart voor de trainer staat' : onbepaald + ' kaarten voor de trainer staan'} hier niet bij: er waren meerdere trainers en er is niet vastgelegd wie ze kreeg.</p>` : ''}` : '';
   // EERLIJK ZEGGEN WAT ONTBREEKT. Kwamen er ploegen niet binnen, of leest dit enkel dit toestel, dan
   // zijn de cijfers mogelijk te laag — en dat hoort er dan te staan, anders lees je ze als volledig.
   const waarschuwing = res.terugval
@@ -3664,7 +3696,7 @@ async function loadTrainerCijfers() {
         <div class="stat-box"><div class="v" style="color:var(--grn)">${W}</div><div class="l">Winst</div></div>
         <div class="stat-box"><div class="v">${G}</div><div class="l">Gelijk</div></div>
         <div class="stat-box"><div class="v" style="color:var(--rd)">${V}</div><div class="l">Verlies</div></div>
-      </div>${Z ? `<p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">${Z === 1 ? 'Eén wedstrijd telt niet mee' : Z + ' wedstrijden tellen niet mee'} voor winst, gelijk en verlies: geen uitslag bijgehouden.</p>` : ''}</div>
+      </div>${kaartenRij}${Z ? `<p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">${Z === 1 ? 'Eén wedstrijd telt niet mee' : Z + ' wedstrijden tellen niet mee'} voor winst, gelijk en verlies: geen uitslag bijgehouden.</p>` : ''}</div>
       <div class="sec">${icI(IC.players)} Per ploeg</div>
       <div class="card">${namenPl.map(p => {
         const b = ploegen[p];
@@ -3677,10 +3709,11 @@ async function loadTrainerCijfers() {
           const dat = m.date ? new Date(m.date + 'T00:00:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : '';
           return `<div class="stat-row" style="font-size:13px"><span style="color:var(--txt2);min-width:52px">${esc(dat)}</span>
             <span style="flex:1">${esc(m.opponent || 'Wedstrijd')}${m.tournamentId ? ' <small style="color:var(--txt2)">(tornooi)</small>' : ''}</span>
+            ${(() => { const kw = trainerKaarten(m, s.namen); return (kw.geel || kw.rood) ? `<span style="font-size:12px">${trainerKaartHtml(kw.geel, kw.rood)}</span>` : ''; })()}
             <span style="font-weight:700">${esc(geenUitslag(m) ? '–' : uitslagTxt(m))}</span>
             <span style="width:18px;text-align:center;font-weight:800;color:${kleur}">${r || ''}</span></div>`;
         }).join('');
-        return `<details style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
+        return `<details style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}${(b.geel || b.rood) ? ' · ' + trainerKaartHtml(b.geel, b.rood) : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
       }).join('')}
         <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tik op een ploeg voor al haar wedstrijden met uitslag. Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
       ${tornooi ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Tornooiwedstrijden gespeeld</span><span style="font-weight:800">${tornooi}</span></div></div>` : ''}`;
@@ -3747,6 +3780,48 @@ async function _koppelTrainerBewaar() {
     // technische foutmelding — de beheerder kan er zelf niets aan doen.
     showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live — probeer later opnieuw.', 'err');
   }
+}
+// HET BLOK "TRAINERS" OP HET CLUBSCHERM, PER PLOEG (Tim, 21-11-2026: "iets overzichtelijker, met erbij
+// van welke ploeg(en) ze trainer zijn, en beter per ploeg gerangschikt"). Elke ploeg krijgt haar eigen
+// kopje met de trainers uit haar ploeggegevens. Staat zo'n naam bij een koppeling (op de HELE naam, na
+// naamNorm — dezelfde regel als de telling), dan staat er "gekoppeld" bij met de knoppen; anders
+// "niet gekoppeld", zodat je ziet wie nog ontbreekt. Wie bij meer dan één ploeg trainer is, staat bij
+// elke ploeg, met "ook bij …" erbij. Een koppeling die bij géén enkele ploeg past (een andere
+// schrijfwijze, of een ploeg zonder trainerslijst) komt onderaan, zodat ze nooit onzichtbaar wordt.
+function clubTrainersBlokHtml(clubId, perPloeg, links) {
+  const koppels = Object.keys(links || {}).filter(u => typeof links[u] === 'string' && links[u].trim())
+    .map(u => ({ uid: u, tekst: links[u].trim(), sleutels: new Set(staffList(links[u]).map(naamNorm).filter(Boolean)) }));
+  const koppelVan = naam => koppels.find(k => k.sleutels.has(naamNorm(naam))) || null;
+  // Eerst per gekoppeld account bijhouden bij welke ploegen hij staat, voor het "ook bij".
+  const ploegenVan = {};
+  perPloeg.forEach(p => p.trainers.forEach(n => { const k = koppelVan(n); if (k) (ploegenVan[k.uid] = ploegenVan[k.uid] || []).push(p.naam); }));
+  const knoppen = k => `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTrainerCijfers('${jsq(k.uid)}','${jsq(k.tekst)}','${jsq(staffList(k.tekst)[0] || '')}','${jsq(clubId)}')">${icI(IC.chart)} Cijfers</button>
+      <button class="btn btn-pale btn-sm" style="width:auto;margin:0;color:var(--rd)" onclick="ontkoppelTrainer('${jsq(clubId)}','${jsq(k.uid)}')">Ontkoppelen</button>`;
+  const metTrainers = perPloeg.filter(p => p.trainers.length);
+  const zonder = perPloeg.filter(p => !p.trainers.length && !p.fout);
+  const onleesbaar = perPloeg.filter(p => p.fout);
+  const gebruikt = new Set();
+  const ploegBlokken = metTrainers.map(p => `<div style="margin-top:12px">
+      <div style="font-size:13px;font-weight:800;color:var(--txt2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">${esc(p.naam)}</div>
+      ${p.trainers.map(n => {
+        const k = koppelVan(n);
+        if (k) gebruikt.add(k.uid);
+        const ook = k ? (ploegenVan[k.uid] || []).filter(x => x !== p.naam) : [];
+        return `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(n)}${k
+          ? `<br><small style="color:var(--grn)">${icI(IC.check)} gekoppeld${ook.length ? ` · ook bij ${esc(ook.join(', '))}` : ''}</small>`
+          : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k) : ''}</div>`;
+      }).join('')}</div>`).join('');
+  const losse = koppels.filter(k => !gebruikt.has(k.uid));
+  return `<div class="sec" style="margin-top:20px">Trainers</div><div class="card">
+    ${metTrainers.length ? ploegBlokken : '<p style="color:var(--txt2);font-size:14px;margin:0">Bij geen enkele ploeg staat een trainer ingevuld.</p>'}
+    ${losse.length ? `<div style="margin-top:14px"><div style="font-size:13px;font-weight:800;color:var(--txt2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">Gekoppeld, bij geen ploeg vermeld</div>
+      ${losse.map(k => `<div class="stat-row" style="flex-wrap:wrap;gap:6px"><span style="flex:1;min-width:140px">${esc(k.tekst)}</span>${knoppen(k)}</div>`).join('')}
+      <p style="font-size:12px;color:var(--txt2);margin:4px 0 0">Geen enkele naam van deze koppeling staat als trainer in een ploeg. Misschien een andere schrijfwijze, of staat hij niet in de trainerslijst van zijn ploeg.</p></div>` : ''}
+    ${zonder.length ? `<p style="font-size:12px;color:var(--txt2);margin:12px 0 0">Geen trainer ingevuld bij: ${esc(zonder.map(p => p.naam).join(', '))}.</p>` : ''}
+    ${onleesbaar.length ? `<p style="font-size:12px;color:var(--org2);margin:6px 0 0">${icI(IC.warn)} Niet te lezen: ${esc(onleesbaar.map(p => p.naam).join(', '))}.</p>` : ''}
+    <button class="btn btn-pale" style="margin-top:10px" onclick="modalTrainersKoppelen('${jsq(clubId)}')">${icI(IC.clipboard)} Trainers koppelen</button>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Koppel alle ploegbeheerders van de club in één keer. Voor één persoon kan het ook bij de ploeg zelf, onder "Mensen met toegang". De trainer zelf, de clubbeheerders en de eigenaar zien deze cijfers.</p>
+  </div>`;
 }
 // Ontkoppelen vanuit het clubscherm.
 async function ontkoppelTrainer(clubId, uid) {
