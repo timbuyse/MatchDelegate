@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.0
+
+- **Cijfers van een trainer zonder account.** In het blok Trainers op het clubscherm staat bij elke trainer zonder koppeling nu naast "Koppelen" ook een knop **Cijfers**. Die opent dezelfde trainerspagina op zijn naam (gespeeld, winst-gelijk-verlies, kaarten, per ploeg en per seizoen), zonder dat hij een account hoeft te hebben: de cijfers hangen aan de naam in de wedstrijden. Op de pagina staat dat hij niet aan een account gekoppeld is. Enkel de eigenaar en de clubbeheerders van die club kunnen dit openen; een gewone ploegbeheerder, kijker of gast niet, ook niet via de terugtoets. Bij een trainer zonder koppeling telt enkel de naam zoals hij in de trainerslijst staat: een andere schrijfwijze in oude wedstrijden telt dan niet mee.
+
+---
+
+
 ## v2.37.5
 
 - **Trainerscijfers: de wedstrijden per ploeg staan standaard open.** Onder "Per ploeg" stonden de ploegen dicht en moest je ze eerst aantikken. Ze staan nu open, zodat je de wedstrijden met datum, tegenstander, uitslag en W/G/V meteen ziet. Tik op een ploeg om haar lijst dicht te klappen; bij een ander seizoen staan ze weer open.

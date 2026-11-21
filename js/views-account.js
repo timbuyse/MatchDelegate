@@ -3538,10 +3538,14 @@ function magTrainersKoppelen() {
 }
 // Mag ik de trainerscijfers van deze koppeling zien? Mijn eigen: ja. Die van een ander: enkel de
 // eigenaar en de clubbeheerder van DIE club.
+// EEN TRAINER ZONDER ACCOUNT (Tim, 21-11-2026) heeft geen uid: de cijfers hangen aan zijn NAAM in de
+// wedstrijden, niet aan een account. Daarom komt de beheerders-toets vóór de uid-toets: de eigenaar en
+// de clubbeheerder van die club mogen ze zien, wie of wat er ook aan hangt. Een gewone ploegbeheerder
+// of kijker niet — zonder uid is er ook geen "mijn eigen" om op terug te vallen.
 function magTrainerCijfersZien(uid, clubId) {
-  if (isGuest || !currentUser || !uid) return false;
-  if (uid === currentUser.uid) return true;
-  return !!(isOwner || (clubId && myClubs && myClubs[clubId]));
+  if (isGuest || !currentUser) return false;
+  if (isOwner || (clubId && myClubs && myClubs[clubId])) return true;
+  return !!uid && uid === currentUser.uid;
 }
 // KAARTEN VOOR DE TRAINER (Tim, 21-11-2026: "soms kan een trainer ook een gele of rode kaart krijgen").
 // Een kaart voor de staf hangt aan geen speler: ze heeft `wie` (trainer of afgevaardigde) en soms
@@ -3681,7 +3685,8 @@ async function loadTrainerCijfers() {
   if (!s.seizoen || !seizoenen.includes(s.seizoen)) s.seizoen = seizoenen[0];
   const kop = `<div class="card"><div style="text-align:center">
       <div style="font-size:20px;font-weight:800">${esc(s.label || staffList(s.namen)[0] || 'Trainer')}</div>
-      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Geteld op de naam: <b>${esc(staffList(s.namen).join(', '))}</b></div></div></div>`;
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Geteld op de naam: <b>${esc(staffList(s.namen).join(', '))}</b></div>
+      ${s.uid ? '' : '<div style="font-size:12px;color:var(--txt2);margin-top:4px">Niet gekoppeld aan een account. Enkel clubbeheerders en de eigenaar zien deze cijfers.</div>'}</div></div>`;
   const filter = `<div class="filterbar"><select onchange="setTrainerSeizoen(this.value)">
       ${seizoenen.map(z => `<option value="${z}" ${s.seizoen === z ? 'selected' : ''}>Seizoen ${z}</option>`).join('')}
     </select></div>`;
@@ -3829,7 +3834,9 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
           ? `<br><small style="color:var(--grn)">${icI(IC.check)} gekoppeld${ook.length ? ` · ook bij ${esc(ook.join(', '))}` : ''}</small>`
           : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k)
           // Bij een trainer zonder koppeling: rechtstreeks naar het koppelscherm, met zijn rij in beeld.
-          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
+          // Zonder koppeling: "Cijfers" (op zijn naam, zonder account) naast "Koppelen".
+          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTrainerCijfers('','${jsq(n)}','${jsq(n)}','${jsq(clubId)}')">${icI(IC.chart)} Cijfers</button>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
       }).join('')}</div>`).join('');
   const losse = koppels.filter(k => !gebruikt.has(k.uid));
   // De samenvatting in de kop, zodat je ook ingeklapt ziet hoe het ervoor staat: hoeveel trainers de club
