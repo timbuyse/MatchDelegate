@@ -4258,7 +4258,7 @@ function speeldagKaartHtml(rij) {
   // een gewonnen reeks als winst — dus stond hier een groene 1-1 zonder uitleg. Zelfde regeltje als
   // in de wedstrijdenlijst (matchItemHtml), zodat het overal hetzelfde leest.
   const pen = toonShootout(m)
-    ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">pen. ${esc(shootoutTxt(m))}</span>`
+    ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">${reeksKort()} ${esc(shootoutTxt(m))}</span>`
     : '';
   // OOK EEN LOPENDE WEDSTRIJD KLEURT (Tim, 17-10-2026: "de score van een lopende wedstrijd ook al in
   // het rood of groen, afhankelijk van of we aan het winnen of verliezen zijn"). De kleur kwam hier
@@ -5326,8 +5326,10 @@ function evtLabelBasis(e, m, kort) {
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}${hoe}`;
     case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})${hoe}`;
     case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander${hoe}`;
-    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
-    case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
+    case 'cornerbal_mis_us': return `${icI(IC.corner)} Cornerbal gemist · ${esc(tName(m))}`;
+    case 'cornerbal_mis_them': return `${icI(IC.corner)} Cornerbal tegen gemist`;
+    case 'corner_us': { let s = `${icI(IC.corner)} ${e.protest ? 'Protestcorner' : cornerWoord()} voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${icI(IC.corner)} ${e.protest ? 'Protestcorner' : cornerWoord()} tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
     // ELKE NAAM DRAAGT ZIJN EIGEN KANT (Tim, 30-08-2026). Dit stond als "Jan voor Piet" — wie erin
     // kwam vooraan, "voor" wie eraf ging. In een lijst is dat niet te lezen: "voor" betekent net zo
@@ -5400,8 +5402,10 @@ function evtLabelPlainBasis(e, m) {
     case 'goal_them': return `Doelpunt ${oppName(m)}${hoe}`;
     case 'own_goal': return `Owngoal (${pName(m,e.playerId)})${hoe}`;
     case 'own_goal_them': return `Owngoal tegenstander${hoe}`;
-    case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
-    case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
+    case 'cornerbal_mis_us': return `Cornerbal gemist · ${tName(m)}`;
+    case 'cornerbal_mis_them': return 'Cornerbal tegen gemist';
+    case 'corner_us': { let s = `${e.protest ? 'Protestcorner' : cornerWoord()} voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${e.protest ? 'Protestcorner' : cornerWoord()} tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.
     case 'substitution': {
       const kop = e.atBreak ? 'Rustwissel · ' : '';   // zie evtLabel: geen twee dubbele punten
@@ -6151,7 +6155,32 @@ function fieldName(m, id) {
   if (!p) return '?';
   return fieldDisplayNames(m.players).get(id) || _firstName(p.name || '');
 }
+// WELK VELD, per sport. Voetbal en (voorlopig) hockey: het grasveld. Minivoetbal: het zaalveld. `pitchKlasse` geeft de
+// CSS-klassen van het vak, `pitchLines` de belijning; beide kiezen op de sport van de actieve ploeg.
+function veldVariant() { return activeSport === 'minivoetbal' ? 'minivoetbal' : 'voetbal'; }
+function pitchKlasse() { return veldVariant() === 'minivoetbal' ? 'pitch pitch-mv' : 'pitch'; }
+// Het zaalveld op dezelfde 320 x 480 als het grasveld. De breedte (20 m) is 320 eenheden en de lengte (40 m) 480, dus 16
+// en 12 eenheden per meter: de strafschoplijn op 5 m ligt op 60, het strafschoppunt op 15 m op 180 (en 300 aan de andere
+// kant), het cornerbalpunt op 6,25 m van het midden van de doellijn (x 60 en 260), het doel is 3 m breed (x 136 tot 184).
+// De middencirkel (4 m) is rond getekend en geen ellips, zodat hij er als cirkel uitziet in het 2:3-vak.
+function pitchLinesZaal() {
+  const l = 'rgba(255,255,255,.85)', f = 'rgba(255,255,255,.9)';
+  return `<svg class="pitch-lines" viewBox="0 0 320 480">
+    <line x1="0" y1="240" x2="320" y2="240" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="240" r="48" fill="none" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="240" r="3" fill="${f}"/>
+    <line x1="0" y1="60" x2="320" y2="60" stroke="${l}" stroke-width="2"/>
+    <line x1="0" y1="420" x2="320" y2="420" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="180" r="3" fill="${f}"/>
+    <circle cx="160" cy="300" r="3" fill="${f}"/>
+    <line x1="136" y1="1" x2="184" y2="1" stroke="#fff" stroke-width="5"/>
+    <line x1="136" y1="479" x2="184" y2="479" stroke="#fff" stroke-width="5"/>
+    <circle cx="60" cy="2" r="3.5" fill="${f}"/><circle cx="260" cy="2" r="3.5" fill="${f}"/>
+    <circle cx="60" cy="478" r="3.5" fill="${f}"/><circle cx="260" cy="478" r="3.5" fill="${f}"/>
+  </svg>`;
+}
 function pitchLines() {
+  if (veldVariant() === 'minivoetbal') return pitchLinesZaal();
   return `<svg class="pitch-lines" viewBox="0 0 320 480">
     <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
     <circle cx="160" cy="240" r="43" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
@@ -6267,7 +6296,7 @@ function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
   const verplaats = (m && !tap) ? (uitPlan ? planPosRijen(m, qNum) : periodPosSwapList(m, qNum)) : [];
   // Kaarten bestaan niet in een plan: je plant geen gele kaart. Dus bij uitPlan nooit een kaartregel.
   const kaarten = (m && !tap && !uitPlan) ? periodCardList(m, qNum) : [];
-  return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
+  return `<div class="${pitchKlasse()}">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
   ${/* De drie soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
         wissel op 12' te staan, en een kaart op 10' daartussen. Apart onder elkaar zetten leest als
         losse lijstjes en dwingt de lezer om zelf de volgorde te maken. */ ''}
@@ -6647,7 +6676,7 @@ function matchItemHtml(m) {
   const uitslagKleur = st === 'done' ? resultaatKleur(m) : '';
   const right = zonderScore
     ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>`
-    : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
+    : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">${reeksKort()} ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   // MAG WIE HIER KIJKT DEZE RIJ OPENEN? Zie matchOpenbaarVoorMij in core.js. Sinds v2.4.0 mag een

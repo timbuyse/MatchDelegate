@@ -144,7 +144,7 @@ function renderDetail() {
       ${/* toonShootout, niet heeftShootout (24-08-2026): enkel bij een gelijke stand. Na een
            verlenging waarin nog gescoord werd, stond hier "pen. 4-3" onder een 1-0. */ ''}
       ${toonShootout(match) ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">
-        <div style="font-size:22px;font-weight:900">pen. ${esc(shootoutTxt(match))}</div>
+        <div style="font-size:22px;font-weight:900">${reeksKort()} ${esc(shootoutTxt(match))}</div>
         <div style="font-size:13px;color:var(--txt2)">${esc(shootoutZin(match))}</div>
       </div>` : ''}
     </div>
@@ -264,7 +264,7 @@ function renderDetail() {
       const _op = tweedeGeelIds(match);
       const st = (type) => ev.filter(e => e.type === type && !_op.has(e.id)).length;
       const rows = [
-        [icI(IC.corner) + ' Hoekschoppen', st('corner_us'),   st('corner_them')],
+        [icI(IC.corner) + ' ' + cornerWoorden(), st('corner_us'),   st('corner_them')],
         [icI(IC.bolt)   + ' Vrije trappen', st('freekick_us'), st('freekick_them')],
         [icI(IC.penalty)+ ' Penalty\'s',   st('penalty_us'),  st('penalty_them')],
         // HET OOGJE 'cards' GELDT HIER NIET MEER (Tim, 01-10-2026, herziening van zijn keuze van
@@ -1243,7 +1243,7 @@ function rasterizeToPngFit(src, maxW, maxH, dichtheid = 1) {
 // Wijzig je daar het icoon van een gebeurtenis, pas het hier ook aan.
 const PDF_EVT_ICON = {
   goal_us: 'goal', goal_them: 'goal', own_goal: 'goal', own_goal_them: 'goal',
-  corner_us: 'corner', corner_them: 'corner', substitution: 'swap', posSwap: 'compass',
+  corner_us: 'corner', corner_them: 'corner', cornerbal_mis_us: 'corner', cornerbal_mis_them: 'corner', substitution: 'swap', posSwap: 'compass',
   posSwapReeks: 'compass',
   yellow_card: 'cardY', red_card: 'cardR',
   yellow_card_them: 'cardY', red_card_them: 'cardR',
@@ -1352,9 +1352,12 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   const L = n => n * S;
   // Gras: basisvlak in de donkere tint, daarbovenop de lichtere banen. De banen worden geklemd
   // tot binnen de afronding, zodat er geen vierkante hoekjes buiten de ronde rand vallen.
-  doc.setFillColor(27, 128, 64);
+  // Het zaalveld van minivoetbal heeft een blauwe vloer en eigen belijning (zie pitchLinesZaal in views-account.js).
+  const zaal = (typeof veldVariant === 'function') && veldVariant() === 'minivoetbal';
+  const vlak = zaal ? [[42, 95, 163], [46, 103, 176]] : [[27, 128, 64], [30, 148, 73]];
+  doc.setFillColor(...vlak[0]);
   doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'F');
-  doc.setFillColor(30, 148, 73);
+  doc.setFillColor(...vlak[1]);
   for (let top = 30; top < H; top += 60) {
     const a = Math.max(top, RX), b = Math.min(top + 30, H - RX);
     if (b > a) doc.rect(ux(0), uy(a), L(W), L(b - a), 'F');
@@ -1364,7 +1367,19 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
   doc.setLineWidth(L(2.5)); doc.roundedRect(ux(0), uy(0), L(W), L(H), L(RX), L(RX), 'S');
   doc.setLineWidth(L(2));
   doc.line(ux(0), uy(H / 2), ux(W), uy(H / 2));
-  doc.circle(ux(W / 2), uy(H / 2), L(CCR), 'S');
+  doc.circle(ux(W / 2), uy(H / 2), L(zaal ? 48 : CCR), 'S');
+  if (zaal) {
+    // Strafschoplijn over de volle breedte op 5 m, strafschoppunten op 15 m, cornerbalpunten op 6,25 m van het midden.
+    doc.line(ux(0), uy(60), ux(W), uy(60));
+    doc.line(ux(0), uy(H - 60), ux(W), uy(H - 60));
+    doc.setFillColor(255, 255, 255);
+    doc.circle(ux(W / 2), uy(H / 2), L(3), 'F');
+    doc.circle(ux(W / 2), uy(180), L(3), 'F');
+    doc.circle(ux(W / 2), uy(H - 180), L(3), 'F');
+    [60, 260].forEach(cx => { doc.circle(ux(cx), uy(2), L(3.5), 'F'); doc.circle(ux(cx), uy(H - 2), L(3.5), 'F'); });
+    doc.setLineWidth(L(5));
+    doc.line(ux(136), uy(1), ux(184), uy(1)); doc.line(ux(136), uy(H - 1), ux(184), uy(H - 1));
+  } else {
   doc.rect(ux((W - PAW) / 2), uy(0), L(PAW), L(PAD), 'S');
   doc.rect(ux((W - PAW) / 2), uy(H - PAD), L(PAW), L(PAD), 'S');
   doc.rect(ux((W - GAW) / 2), uy(0), L(GAW), L(GAD), 'S');
@@ -1380,6 +1395,7 @@ function drawPitchPdf(doc, m, players, x0, y0, w, capId, qNum) {
     for (let i = 1; i < pts.length; i++) doc.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
   };
   arc(0, 0, 0); arc(W, 0, Math.PI / 2); arc(0, H, -Math.PI / 2); arc(W, H, Math.PI);
+  }
   // Spelers: zelfde plaatsingsregels als renderPitch (x/y indien gekend, anders verdeeld over de lijn).
   const pts = [];
   // Op de roosterplek tekenen, net als renderPitch: de 26 plekken liggen altijd op dezelfde hoogte, en
@@ -2010,7 +2026,7 @@ async function pdfMatchBody(doc, L, m) {
   // bij een uitwedstrijd (waar de score omgewisseld staat) dubbelzinnig.
   const vt = (a, b) => `${stat(a)} voor / ${stat(b)} tegen`;
   const pdfStats = [
-    [stat('corner_us') + stat('corner_them'), `Hoekschoppen: ${vt('corner_us', 'corner_them')}`],
+    [stat('corner_us') + stat('corner_them'), `${cornerWoorden()}: ${vt('corner_us', 'corner_them')}`],
     [stat('freekick_us') + stat('freekick_them'), `Vrije trappen: ${vt('freekick_us', 'freekick_them')}`],
     [stat('penalty_us') + stat('penalty_them'), `Penalty's: ${vt('penalty_us', 'penalty_them')}`],
     // Zelfde lijn als op het scherm (Tim, 01-10-2026): het oogje 'cards' geldt enkel voor de ranglijst

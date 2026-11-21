@@ -92,7 +92,7 @@ function renderLive() {
   const volgersBadge = (!ro && match.fromCloud && cloudReady)
     ? `<span id="live-volgers" style="margin-left:9px;font-weight:700;opacity:.85">${(() => { const n = volgersVanMatch(match.id); return n ? `${icI(IC.eye)}${n}` : ''; })()}</span>`
     : '';
-  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Rust · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge;
+  const statusLine = (isDone ? `${icI(IC.done)} Afgelopen` : (isBetween ? `${icI(IC.timer)} Rust · klaar voor ${pSingLow(match)} ${qNum+1}` : (qNum > 0 ? `${pSing(match)} ${qNum} van ${match.numQuarters} · ${match.matchType}` : `${match.matchType} · nog niet gestart`))) + syncDot + volgersBadge + cornerRegelHtml(match);
   // DE SCOREKOP OP OPSTELLING EN VERLOOP IS EEN BALK GEWORDEN (Tim, 04-09-2026). Ze was tot nu exact
   // dezelfde kop als op het wedstrijdtabblad — cijfers van 64 punten, opgemeten 153 px. Daardoor viel
   // op een telefoon de onderrand van het veld weg en zag je de bank helemaal niet. De balk is 61 px:
@@ -258,7 +258,7 @@ function renderLive() {
              en het tabblad biedt op dat moment de startopstelling aan. Eén woord dat klopt met wat er
              achter zit, in plaats van een belofte die pas na de aftrap waar wordt. */ ''}
         <div class="evtbtn es" onclick="setTab('opstelling')"><span class="ei">${IC.swap}</span><span class="el">${qNum === 0 ? 'Opstelling' : 'Wissel'}</span></div>
-        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">Hoekschop</span></div>
+        <div class="evtbtn ec ${dis}" onclick="modalCorner()"><span class="ei">${IC.corner}</span><span class="el">${cornerWoord()}</span></div>
         ${/* KAARTEN OOK BIJ 3v3 EN 5v5 (Tims keuze, 25-08-2026). De gele kaart viel bij die twee
              spelvormen weg, maar "Meer" bood de rode onvoorwaardelijk aan en "Event toevoegen" beide
              — dus de beperking gold enkel op dit scherm en was daardoor vooral verwarrend. Tim koos
@@ -1432,15 +1432,15 @@ async function confirmEndMatch() {
 // De wedstrijdscore blijft ongemoeid (zie de uitleg bij shootoutSchoten in core.js): de reeks staat
 // ernaast en bepaalt enkel wie wint. Eén scherm dat zichzelf opnieuw tekent na elke strafschop.
 function vraagShootout() {
-  openModal(`<h3>${icI(IC.penalty)} Strafschoppen?</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het staat <b>${esc(scoreTxt(match))}</b>. Volgde er een strafschoppenreeks?</p>
-    <button class="btn btn-green" onclick="startShootout()">${icI(IC.penalty)} Ja, strafschoppen ingeven</button>
+  openModal(`<h3>${icI(IC.penalty)} ${reeksNaam()}?</h3>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">Het staat <b>${esc(scoreTxt(match))}</b>. Volgde er een ${reeksNaam().toLowerCase()}?</p>
+    <button class="btn btn-green" onclick="startShootout()">${icI(IC.penalty)} Ja, ${reeksNaam().toLowerCase()} ingeven</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Nee, het blijft gelijk</button>`);
 }
 // Wie begint? In de reeks wisselen de ploegen elkaar af, dus dit bepaalt de hele volgorde.
 function startShootout() {
   openModal(`<h3>${icI(IC.penalty)} Wie begint?</h3>
-    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De ploegen nemen om beurten een strafschop.</p>
+    <p style="text-align:center;color:var(--txt2);margin-bottom:16px">De ploegen nemen om beurten een ${reeksNemer()}.</p>
     <button class="btn btn-green" onclick="zetShootoutStart('us')">${esc(tName(match))} begint</button>
     <button class="btn btn-pale" style="margin-top:8px" onclick="zetShootoutStart('them')">${esc(match.opponent || 'De tegenstander')} begint</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal();render()">Annuleren</button>`);
@@ -1502,7 +1502,7 @@ function modalShootout() {
   // Wie al genomen heeft, krijgt een merkje: bij een jeugdreeks wil je iedereen een beurt geven.
   const alGenomen = new Set(shootoutSchoten(m).filter(s => s.ploeg === 'us' && s.playerId).map(s => s.playerId));
   const merk = p => alGenomen.has(p.id) ? `<span style="font-size:9px;color:var(--txt2)">nam al</span>` : '';
-  openModal(`<h3>${icI(IC.penalty)} Strafschoppen</h3>
+  openModal(`<h3>${icI(IC.penalty)} ${reeksNaam()}</h3>
     <div class="card" style="padding:10px 14px;margin-bottom:12px">
       ${shootoutRijHtml(m, isAway(m) ? 'them' : 'us')}
       ${shootoutRijHtml(m, isAway(m) ? 'us' : 'them')}
@@ -3110,7 +3110,8 @@ function exportMatchCSV() {
     substitution: 'Wissel', posSwap: 'Positiewisseling', posSwapReeks: 'Positiewisselingen',
     injury: 'Blessure', penalty_us: 'Penalty voor', penalty_them: 'Penalty tegen',
     freekick_us: 'Vrije trap voor', freekick_them: 'Vrije trap tegen',
-    corner_us: 'Hoekschop voor', corner_them: 'Hoekschop tegen',
+    corner_us: cornerWoord() + ' voor', corner_them: cornerWoord() + ' tegen',
+    cornerbal_mis_us: 'Cornerbal gemist', cornerbal_mis_them: 'Cornerbal tegen gemist',
     motm: 'Man v/d match', note: 'Notitie'
   };
   row('EVENTS', 'Periode', 'Minuut', 'Speeltijd (ms)', 'Type', 'Speler', 'Extra info');
@@ -3524,7 +3525,7 @@ function modalEditEvent(id) {
   // zit je rustig na te kijken, niet aan de zijlijn. "—" bovenaan, zodat je de keuze ook weer weg kan
   // halen. Staat bij élk doelpunt, ook een tegendoelpunt — zie GOAL_WIJZEN in core.js.
   const wijzeVeld = ['goal_us', 'goal_them', 'own_goal', 'own_goal_them'].includes(t)
-    ? `<div class="fg"><label>Hoe viel het?</label><select id="ee-wijze"><option value="">—</option>${GOAL_WIJZEN.map(w => `<option value="${esc(w)}" ${e.wijze === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select></div>` : '';
+    ? `<div class="fg"><label>Hoe viel het?</label><select id="ee-wijze"><option value="">—</option>${goalWijzenVoor().map(w => `<option value="${esc(w)}" ${e.wijze === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}</select></div>` : '';
   if (t === 'goal_us') fields = `<div class="fg"><label>Doelpuntenmaker</label><select id="ee-player">${opts(e.playerId)}</select></div><div class="fg"><label>Assist</label><select id="ee-assist">${opts(e.assistId, true)}</select></div>`;
   else if (t === 'yellow_card' || t === 'red_card') fields = `<div class="fg"><label>Speler</label><select id="ee-player">${opts(e.playerId)}</select></div>`;
   // Kaart voor de tegenstander: geen spelerskeuze (we kennen hun kern niet), enkel het rugnummer dat
@@ -3543,7 +3544,7 @@ function modalEditEvent(id) {
   // meer ("overbodig voor jeugd"), dus het bewerkvenster vroeg naar twee dingen die je bij het
   // ingeven nooit invult — en een leeg veld dat je moet bevestigen leest als een ontbrekend
   // gegeven. Enkel de minuut blijft, en die staat er altijd.
-  else if (t === 'corner_us' || t === 'corner_them') fields = '';
+  else if (t === 'corner_us' || t === 'corner_them' || t === 'cornerbal_mis_us' || t === 'cornerbal_mis_them') fields = '';
   else if (t === 'penalty_us') fields = `<div class="fg"><label>Nemer</label><select id="ee-player">${opts(e.playerId, true)}</select></div><div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Gescoord</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'penalty_them') fields = `<div class="fg"><label>Resultaat</label><select id="ee-scored"><option value="1" ${e.scored ? 'selected' : ''}>Tegendoel</option><option value="0" ${!e.scored ? 'selected' : ''}>Gemist</option></select></div>`;
   else if (t === 'substitution') fields = `<div class="fg"><label>Speler eraf</label><select id="ee-out">${opts(e.playerOutId)}</select></div><div class="fg"><label>Speler erin</label><select id="ee-in">${opts(e.playerInId)}</select></div>`;
@@ -3857,8 +3858,8 @@ function modalExtra() {
   if (achteraf) gebeurtenissen.push(
     extraTegel(IC.cardR, 'Rode kaart', "modalCard('red')"),
     extraTegel(IC.injury, 'Blessure', 'modalInjury()'),
-    extraTegel(IC.corner, 'Hoekschop', "logCorner('us')"),
-    extraTegel(IC.corner, 'Hoekschop tegen', "logCorner('them')"));
+    extraTegel(IC.corner, cornerWoord(), "logCorner('us')"),
+    extraTegel(IC.corner, cornerWoord() + ' tegen', "logCorner('them')"));
   gebeurtenissen.push(
     extraTegel(IC.disallowed, 'Afgekeurd doelpunt', "modalDisallowed('us')"),
     extraTegel(IC.disallowed, 'Afgekeurd tegen', "modalDisallowed('them')"));
@@ -4634,7 +4635,7 @@ let goalTeam = 'us', goalPlayerId = null, goalAssistId = null, goalIsOwnGoal = f
 // dit is optioneel, en een keuze die je niet meer kwijtraakt is een val.
 function goalWijzeHtml() {
   return `<div class="sec">Hoe viel het? (optioneel)</div>
-    <div class="place-chips" id="goal-wijze">${GOAL_WIJZEN.map(w =>
+    <div class="place-chips" id="goal-wijze">${goalWijzenVoor().map(w =>
       `<span class="place-chip" data-w="${esc(w)}" onclick="selectGoalWijze('${esc(w)}',this)">${esc(w)}</span>`).join('')}</div>`;
 }
 function selectGoalWijze(w, el) {
@@ -4805,20 +4806,79 @@ let _eventBusy = false;
 // die blijft. Eén tik voor wie, en klaar — aan de zijlijn moet dit in twee tikken kunnen.
 function modalCorner() {
   if (!match) return;
-  openModal(`<h3>${icI(IC.corner)} Hoekschop</h3>
+  const mv = activeSport === 'minivoetbal';
+  const wij = t => `<div class="mopt" onclick="logCorner('${t}')">${icI(IC.corner)} ${esc(t === 'us' ? tName(match) : (match.opponent || 'Tegenstander'))}</div>`;
+  // Minivoetbal: een protestcorner (art. 30) is een extra corner voor de tegenstander van wie protesteerde. Hij telt mee
+  // in de teller en kan dus een cornerbal opleveren, vandaar dat hij hier bij de gewone corner staat.
+  const protest = t => `<div class="mopt" onclick="logCorner('${t}',true)">${icI(IC.corner)} ${esc(t === 'us' ? tName(match) : (match.opponent || 'Tegenstander'))}</div>`;
+  openModal(`<h3>${icI(IC.corner)} ${cornerWoord()}</h3>
     <div class="sec" style="margin-top:0">Voor wie?</div>
-    <div class="mopt" onclick="logCorner('us')">${icI(IC.corner)} ${esc(tName(match))}</div>
-    <div class="mopt" onclick="logCorner('them')">${icI(IC.corner)} ${esc(match.opponent || 'Tegenstander')}</div>
+    ${wij('us')}${wij('them')}
+    ${mv ? `<div class="sec">Protestcorner <span style="font-weight:400;text-transform:none;color:var(--txt2)">(extra corner na protest)</span></div>${protest('us')}${protest('them')}` : ''}
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Annuleren</button>`);
 }
-async function logCorner(team) {
+async function logCorner(team, protest) {
   if (_eventBusy) return;
   _eventBusy = true;
   try {
-    addEvent(team === 'us' ? 'corner_us' : 'corner_them', {}); await dbSave(match); closeModal(); render();
-    meldVastgelegd('Hoekschop', team === 'us' ? tName(match) : tegenstanderNaam(match));
+    addEvent(team === 'us' ? 'corner_us' : 'corner_them', protest ? { protest: true } : {}); await dbSave(match); closeModal(); render();
+    meldVastgelegd(protest ? 'Protestcorner' : cornerWoord(), team === 'us' ? tName(match) : tegenstanderNaam(match));
   }
   finally { _eventBusy = false; }
+  // MINIVOETBAL: de vierde corner geeft een cornerbal. Het venster komt meteen, zodat hij niet vergeten wordt; wie hem
+  // liever later vastlegt, tikt "Later registreren" en vindt de knop terug onder de stand (cornerRegelHtml).
+  if (activeSport === 'minivoetbal') {
+    const c = cornerTelling(match);
+    if ((team === 'us' ? c.openUs : c.openThem) > 0) modalCornerbal(team);
+  }
+}
+// De corner-regel onder de stand (enkel minivoetbal): de teller tot de volgende cornerbal, en een knop voor een cornerbal die
+// verdiend is maar nog niet vastgelegd. De teller toont de corners TOT de volgende cornerbal (0 tot 3), zoals het
+// scorebord in de zaal; het totaal staat in de statistieken.
+function cornerRegelHtml(m) {
+  if (activeSport !== 'minivoetbal' || !m) return '';
+  const c = cornerTelling(m);
+  const knop = (kant, naam) => `<button class="btn btn-orgpale btn-sm" style="margin:6px 4px 0;width:auto" onclick="modalCornerbal('${kant}')">${icI(IC.corner)} Cornerbal ${esc(naam)} registreren</button>`;
+  return `<div class="sb-corners" style="font-size:12px;margin-top:5px;opacity:.95">${cornerWoorden()} ${c.restUs} – ${c.restThem}</div>`
+    + ((canLive() && c.openUs) ? knop('us', tName(m)) : '')
+    + ((canLive() && c.openThem) ? knop('them', m.opponent || 'tegenstander') : '');
+}
+// De cornerbal vastleggen: eerst of er gescoord werd. Bij een doelpunt van ons komt het gewone doelpuntvenster, met
+// "Cornerbal" al aangevinkt bij "Hoe viel het?": de koppende speler is de doelpuntenmaker, de trapper de assist.
+function modalCornerbal(team) {
+  if (!match || !canLive()) return;
+  const naam = team === 'us' ? tName(match) : tegenstanderNaam(match);
+  openModal(`<h3>${icI(IC.corner)} Cornerbal voor ${esc(naam)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Vierde corner: twee spelers voeren de cornerbal uit, de ene trapt en de andere kopt. Werd er gescoord?</p>
+    <button class="btn btn-green" onclick="cornerbalDoelpunt('${team}')">${icI(IC.goal)} Doelpunt</button>
+    <button class="btn btn-orgpale" style="margin-top:8px" onclick="cornerbalGemist('${team}')">Geen doelpunt</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Later registreren</button>`);
+}
+async function cornerbalDoelpunt(team) {
+  if (team === 'us') {
+    closeModal(); modalGoal();
+    // modalGoal zet de wijze op leeg bij het openen; hier staat ze daarna meteen op Cornerbal.
+    goalWijze = WIJZE_CORNERBAL;
+    const chip = document.querySelector('#goal-wijze .place-chip[data-w="' + WIJZE_CORNERBAL + '"]');
+    if (chip) chip.classList.add('sel');
+    return;
+  }
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    addEvent('goal_them', { wijze: WIJZE_CORNERBAL }); match.scoreThem++;
+    await dbSave(match); closeModal(); render();
+    meldVastgelegd('Tegendoelpunt (cornerbal)', tegenstanderNaam(match));
+  } finally { _eventBusy = false; }
+}
+async function cornerbalGemist(team) {
+  if (_eventBusy) return;
+  _eventBusy = true;
+  try {
+    addEvent('cornerbal_mis_' + team, {});
+    await dbSave(match); closeModal(); render();
+    meldVastgelegd('Cornerbal gemist', team === 'us' ? tName(match) : tegenstanderNaam(match));
+  } finally { _eventBusy = false; }
 }
 
 // ===================== MODAL: SUB =====================

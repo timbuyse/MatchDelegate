@@ -863,7 +863,7 @@ function wizPitch(form) {
     return `<div class="pslot pslot-open${voorstel.has(plek.code) ? ' pslot-tip' : ''}" style="${pos}" onclick="placeSlot('${plek.code}')">`
       + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
   }).join('');
-  return `<div class="pitch">${pitchLines()}${slots}</div>`;
+  return `<div class="${pitchKlasse()}">${pitchLines()}${slots}</div>`;
 }
 function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];

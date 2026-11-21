@@ -599,6 +599,10 @@
     /* Pitch (visual field) */
     .pitch{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:2/3;background:repeating-linear-gradient(to bottom,#1b8040 0px,#1b8040 30px,#1e9449 30px,#1e9449 60px);border-radius:12px;border:3px solid #fff;overflow:hidden;box-shadow:var(--shadow)}
     .pitch-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    /* Het zaalveld van minivoetbal (spelregels minivoetbal, art. 60-62): een effen blauwe vloer met witte lijnen en
+       donkere zijbanden in plaats van gras. Zelfde afmetingen en plaatsing van de spelers als het grasveld; enkel
+       het uiterlijk en de belijning (pitchLines('minivoetbal') in views-account.js) verschillen. */
+    .pitch.pitch-mv{background:repeating-linear-gradient(to bottom,#2a5fa3 0px,#2a5fa3 30px,#2e67b0 30px,#2e67b0 60px);border:4px solid #1c3a63}
     /* Naamlabel onder het shirt: donker doorschijnend plaatje eronder, zodat twee labels die bij
        lange familienamen tegen elkaar aanschuiven toch leesbaar blijven (i.p.v. wit-op-gras
        dat in elkaar overloopt). z-index tilt het label boven de buurbol. */

@@ -9,6 +9,21 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.31.8
+
+- **Minivoetbal: corners en cornerbal volgens de spelregels.** Corners zijn een teller: na de vierde corner krijgt een
+  ploeg een cornerbal en zakt de teller met vier. De stand toont "Corners 2 – 3", en bij de vierde corner opent een
+  venster om de cornerbal vast te leggen (doelpunt of niet). Een gescoorde cornerbal is een gewoon doelpunt met "Hoe viel
+  het?" = Cornerbal, de koppende speler als doelpuntenmaker en de trapper als assist, zodat stand en statistieken vanzelf
+  kloppen. Een gemiste cornerbal is een nieuwe gebeurtenis die de stand niet raakt. Ook een protestcorner telt mee. Een
+  cornerbal die nog niet vastgelegd is, blijft als knop onder de stand staan.
+- **Cornerbalreeks bij gelijkspel** in plaats van strafschoppen ("1-1 · cb. 2-1"), met dezelfde gegevens als de
+  strafschoppenreeks.
+- **Zaalveld voor minivoetbal:** blauwe vloer met de belijning uit het reglement (strafschoplijn op 5 m, middencirkel van 4 m,
+  strafschoppunt op 15 m, cornerbalpunten), op het scherm en in de pdf.
+- **Eigen woorden per sport:** "Corner" en "Intrap" bij minivoetbal, "Strafcorner" en "Shoot-out" bij hockey. Voetbal blijft
+  ongewijzigd.
+
 ## v2.31.7
 
 - **Hockey-import: één ploeg per leeftijd en geslacht.** U7B-1, U7B-2 en U7B-3 zijn drie labels van dezelfde

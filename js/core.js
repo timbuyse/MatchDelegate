@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.31.7'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.31.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -378,6 +378,53 @@ function matchTypeLabel(t) { return String(t || '').replace('v', ' tegen '); }
 // "Wedstrijdinfo ophalen" (voetbalvlaanderen.be) en het inlezen van het ProSoccerData-blad? Voor een
 // hockeyclub staan die knoppen er niet. Alleen weergave: de gegevens eronder blijven bestaan.
 function voetbalbondImport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].voetbalImport !== false; }
+// ===================== MINIVOETBAL: CORNERS EN CORNERBAL =====================
+// Bij minivoetbal ZIJN CORNERS EEN TELLER (spelregels minivoetbal, art. 29-39): elke corner wordt opgeteld en op het
+// scorebord getoond, en na de VIERDE corner in zijn voordeel krijgt een ploeg een cornerbal, waarna de teller met vier
+// zakt. Een protestcorner (art. 30) telt als een extra corner. De teller wordt AFGELEID uit de gebeurtenissen en nergens
+// apart bewaard: wie een corner wist of bijmaakt, ziet de stand meteen kloppen, en er valt niets uit de pas te lopen.
+//
+// WAT VAN EEN CORNERBAL BEWAARD WORDT, zonder dat de stand of de statistieken iets nieuws hoeven te leren:
+//   gescoord  -> een GEWOON doelpunt (`goal_us` / `goal_them`) met `wijze: 'Cornerbal'`, de koppende speler als
+//                doelpuntenmaker en de trapper als assist. Stand, topscorers, assists en "hoe viel het" tellen dat
+//                zo vanzelf mee; recomputeScore en scoreUpToQuarter blijven onaangeraakt.
+//   gemist    -> een nieuwe gebeurtenis `cornerbal_mis_us` / `cornerbal_mis_them` (verandert de stand niet).
+// Een cornerbal die verdiend maar nog niet geregistreerd is, heet OPEN; de wedstrijd houdt hem zichtbaar tot hij
+// vastgelegd is (cornerTelling().openUs / openThem).
+const WIJZE_CORNERBAL = 'Cornerbal';
+function cornerTelling(m) {
+  const ev = (m && m.events) || [];
+  const tel = t => ev.filter(e => e.type === t).length;
+  const genomen = kant => ev.filter(e => (e.type === 'goal_' + kant && e.wijze === WIJZE_CORNERBAL) || e.type === 'cornerbal_mis_' + kant).length;
+  const us = tel('corner_us'), them = tel('corner_them');
+  const balUs = Math.floor(us / 4), balThem = Math.floor(them / 4);
+  const gUs = genomen('us'), gThem = genomen('them');
+  return { us, them, restUs: us % 4, restThem: them % 4, balUs, balThem, genomenUs: gUs, genomenThem: gThem,
+           openUs: Math.max(0, balUs - gUs), openThem: Math.max(0, balThem - gThem) };
+}
+// Het woord voor een hoekschop in de sport van de actieve ploeg, enkelvoud en meervoud.
+function cornerWoord(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  return sp === 'minivoetbal' ? 'Corner' : sp === 'hockey' ? 'Strafcorner' : 'Hoekschop';
+}
+function cornerWoorden(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  return sp === 'minivoetbal' ? 'Corners' : sp === 'hockey' ? 'Strafcorners' : 'Hoekschoppen';
+}
+// De keuzewoorden bij "Hoe viel het?" per sport. Voetbal en hockey: de bestaande lijst. Minivoetbal kent geen hoekschop
+// die rechtstreeks scoort maar een cornerbal, en een intrap in plaats van een ingooi. Een woord dat al bij een doelpunt
+// staat, blijft er gewoon bij staan, ook als het hier niet meer gekozen kan worden.
+// DE BESLISSENDE REEKS bij gelijkspel (zie shootout hieronder): strafschoppen bij voetbal, een cornerbalreeks bij minivoetbal
+// (art. 41-46: vier cornerballen per ploeg, om beurten), een shoot-out bij hockey. Dezelfde gegevens (`m.shootout`),
+// enkel andere woorden. `reeksKort` is het voorvoegsel achter de stand ("1-1 · pen. 4-5").
+function reeksNaam(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'Cornerbalreeks' : sp === 'hockey' ? 'Shoot-out' : 'Strafschoppen'; }
+function reeksKort(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'cb.' : sp === 'hockey' ? 'so.' : 'pen.'; }
+function reeksNemer(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'cornerbal' : sp === 'hockey' ? 'shoot-out' : 'strafschop'; }
+function goalWijzenVoor(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  if (sp === 'minivoetbal') return GOAL_WIJZEN.map(w => w === 'Hoekschop' ? WIJZE_CORNERBAL : w === 'Ingooi' ? 'Intrap' : w);
+  return GOAL_WIJZEN;
+}
 // Waarden voor een nieuwe ploeg of wedstrijd. null voor voetbal: dan gelden de oude standaarden.
 function sportStandaard(s, matchType) {
   const sp = SPORTS[sportVan(s === undefined ? activeSport : s)];
@@ -776,7 +823,7 @@ function toonShootout(m) {
   return !geenUitslag(m) && heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0);
 }
 function uitslagTxt(m) {
-  return toonShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
+  return toonShootout(m) ? `${scoreTxt(m)} · ${reeksKort()} ${shootoutTxt(m)}` : scoreTxt(m);
 }
 // W / G / V vanuit het standpunt van de eigen ploeg, mét de reeks meegerekend. Tims keuze
 // (23-08-2026): wie de strafschoppenreeks wint, heeft gewonnen — ook voor de tornooipunten en de
