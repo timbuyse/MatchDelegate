@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.37.5
+
+- **Trainerscijfers: de wedstrijden per ploeg staan standaard open.** Onder "Per ploeg" stonden de ploegen dicht en moest je ze eerst aantikken. Ze staan nu open, zodat je de wedstrijden met datum, tegenstander, uitslag en W/G/V meteen ziet. Tik op een ploeg om haar lijst dicht te klappen; bij een ander seizoen staan ze weer open.
+
+---
+
+
 ## v2.37.4
 
 - **Clubscherm: "Extra" staat standaard dicht, de ploegenlijst standaard open.** Clubbeheerders, Trainers en Extra zijn ingeklapt; de lijst met ploegen, waar je het vaakst naartoe gaat, staat open. Wat je open- of dichtklapt blijft zo zolang de app openstaat, ook als het scherm opnieuw tekent.

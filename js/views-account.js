@@ -3729,9 +3729,11 @@ async function loadTrainerCijfers() {
             <span style="font-weight:700">${esc(geenUitslag(m) ? '–' : uitslagTxt(m))}</span>
             <span style="width:18px;text-align:center;font-weight:800;color:${kleur}">${r || ''}</span></div>`;
         }).join('');
-        return `<details style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}${(b.geel || b.rood) ? ' · ' + trainerKaartHtml(b.geel, b.rood) : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
+        // STANDAARD OPEN (Tim, 21-11-2026): de wedstrijden zijn wat je hier komt zien. Tik op een ploeg
+        // om ze dicht te klappen; bij een ander seizoen staan ze weer open.
+        return `<details open style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}${(b.geel || b.rood) ? ' · ' + trainerKaartHtml(b.geel, b.rood) : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
       }).join('')}
-        <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tik op een ploeg voor al haar wedstrijden met uitslag. Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
+        <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tik op een ploeg om haar wedstrijden in of uit te klappen. Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
       ${tornooi ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Tornooiwedstrijden gespeeld</span><span style="font-weight:800">${tornooi}</span></div></div>` : ''}`;
   el.innerHTML = filter + kop + inhoud
     + `<p style="font-size:12px;color:var(--txt2);margin:10px 0 0">Enkel afgesloten wedstrijden tellen. De naam komt uit het veld "Trainer" van de wedstrijd.</p>`
