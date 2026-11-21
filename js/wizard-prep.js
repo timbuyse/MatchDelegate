@@ -3,16 +3,23 @@ let wiz = null;
 // Standaard wedstrijdvorm + opstelling van een ploeg (ingesteld bij het aanmaken / in de editor).
 // Valt terug op 8v8 / eerste formatie voor ploegen zonder ingestelde voorkeur.
 function teamMatchDefaults(team) {
-  const mt = (team && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : '8v8';
+  // Een ploeg zonder eigen voorkeur valt terug op '8v8' en 4 kwarten van 15 — voor voetbal blijft dat zo.
+  // Bij een andere sport (hockey, minivoetbal) is dat geen zinnige standaard: daar komt de standaard van
+  // de sport (zie SPORTS in core.js). `sd` is null voor voetbal en verandert dus niets voor bestaande ploegen.
+  const sd = sportStandaard(undefined, team && team.defaultMatchType);
+  // Een opgeslagen vorm die niet bij de sport hoort (een minivoetbalploeg die vroeger als 8v8 of 11v11 werd aangemaakt) telt
+  // niet: dan geldt de standaard van de sport, ook voor het aantal blokken en de duur.
+  const vormOngeldig = !!(team && team.defaultMatchType && !matchTypesVoorSport().includes(team.defaultMatchType));
+  const mt = (team && !vormOngeldig && MATCH_TYPES[team.defaultMatchType]) ? team.defaultMatchType : (sd ? sd.matchType : '8v8');
   const forms = FORMATIONS[mt] || [];
   let fi = (team && team.defaultFormation) ? forms.findIndex(f => f.name === team.defaultFormation) : 0;
   if (fi < 0) fi = 0;
   // Aantal blokken en blokduur horen ook bij de ploeg: een U8 speelt geen 4x15. Ploegen van vóór
   // v0.45.0 hebben deze velden niet, en vallen dan terug op wat er tot nu vast in de wizard stond
   // (4 kwarten van 15 minuten) — dus voor bestaande ploegen verandert er niets tot je het instelt.
-  const pk = (team && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : 'kwarten';
-  const dur = (team && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
-    : (DUR_DEFAULT[pk] || 15);
+  const pk = (team && !vormOngeldig && PERIOD_TYPES[team.defaultPeriodKey]) ? team.defaultPeriodKey : (sd ? sd.periodKey : 'kwarten');
+  const dur = (team && !vormOngeldig && Number(team.defaultQuarterDuration) > 0) ? Number(team.defaultQuarterDuration)
+    : ((sd && sd.periodKey === pk) ? sd.dur : (DUR_DEFAULT[pk] || 15));
   return { matchType: mt, formationIndex: fi, periodKey: pk, quarterDuration: dur };
 }
 function startWizard() {
@@ -24,7 +31,7 @@ function startWizard() {
     date: now.toISOString().split('T')[0],
     time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
     location: 'Thuis', matchType: md.matchType, periodKey: md.periodKey, quarterDuration: md.quarterDuration,
-    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '', terrein: '',
+    competition: 'Competitie', matchday: '', referee: '', jersey: '', venue: '', terrein: '', zaal: false,
     // Standaard staat de eerste trainer en de eerste ploegverantwoordelijke van de ploeg
     // aangevinkt; de rest vink je er per wedstrijd bij.
     trainer: teamTrainerNames(team)[0] || '',
@@ -58,8 +65,8 @@ function wizTeamChange() {
   }
   render();
 }
-function durOptsHtml(periodKey, currentDur) {
-  const fixed = DURATIONS[periodKey] || [15];
+function durOptsHtml(periodKey, currentDur, sport) {
+  const fixed = duurKeuzes(periodKey, sport);   // met de extra duren van de sport (35 min per helft bij hockey)
   const isCustom = !!currentDur && !fixed.includes(currentDur);
   return fixed.map(v => `<option value="${v}" ${v===currentDur?'selected':''}>${v} min</option>`).join('')
     + `<option value="0" ${isCustom?'selected':''}>Vrij...</option>`;
@@ -93,7 +100,31 @@ function selectedCount() { return wiz.pool.filter(isSel).length; }
 // een speler op CAM blijft op CAM staan. Enkel hoeveel spelers er op het veld horen en welke plekken
 // een positienummer dragen, verandert mee. De formatiekeuze valt wel terug op de eerste, want de
 // formatielijst hoort bij de wedstrijdvorm. Voordien werd hier de hele opstelling gewist.
-function wizTypeChange() { wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true; }
+// Zaalhockey aan- of uitzetten: zaal is altijd 6 tegen 6 in 4 blokken van 15 minuten (spelregels indoor hockey). Uitzetten
+// zet het formaat terug op wat de ploeg gewoonlijk speelt. Het scherm wordt hertekend omdat formaat en duur meeveranderen.
+function wizZaalChange(aan) {
+  captureStep1();
+  wiz.zaal = !!aan; wiz._typeTouched = true;
+  if (aan) { wiz.matchType = '6v6'; wiz.periodKey = 'kwarten'; wiz.numQuarters = 4; wiz.quarterDuration = 15; }
+  else { const md = teamMatchDefaults(kernById(wiz.teamId)); wiz.matchType = md.matchType; wiz.periodKey = md.periodKey; wiz.numQuarters = PERIOD_TYPES[md.periodKey].count; wiz.quarterDuration = md.quarterDuration; }
+  wiz.formationIndex = 0;
+  render();
+}
+function wizTypeChange() {
+  wiz.matchType = document.getElementById('n-type').value; wiz.formationIndex = 0; wiz._typeTouched = true;
+  // Hockey: veld en zaal hebben elk hun eigen speelduur (2 x 35 tegenover 4 x 15), dus die schuift mee
+  // met de vorm. Voetbal en minivoetbal hebben één standaard per ploeg en blijven hier ongemoeid.
+  if (activeSport === 'hockey') {
+    const sd = sportStandaard('hockey', wiz.matchType);
+    const pt = document.getElementById('n-pt'), qd = document.getElementById('n-qd');
+    if (sd && pt && qd) {
+      pt.value = sd.periodKey;
+      qd.innerHTML = durOptsHtml(sd.periodKey, sd.dur);
+      const ci = document.getElementById('n-qd-custom'); if (ci) ci.style.display = 'none';
+      wiz.periodKey = sd.periodKey; wiz.quarterDuration = sd.dur;
+    }
+  }
+}
 function wizSetLoc(loc, btn) { wiz.location = loc; document.querySelectorAll('#n-loc-tgl button').forEach(b => b.classList.remove('act')); btn.classList.add('act'); }
 
 // Aantal delen van de wedstrijd in de wizard: een tornooimatch draagt zijn eigen aantal (numQuarters),
@@ -170,7 +201,7 @@ function wizStep1() {
       ? `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Spelers laden…</div>`
       : `<div style="font-size:14px;color:var(--txt2);padding:6px 0">Nog geen ploegen. <a onclick="go('teams')" style="color:var(--grn);font-weight:700;cursor:pointer">Maak eerst een ploeg aan →</a></div>`;
   const selectedTeam = teamById(wiz.teamId) || (teams.length ? teams[0] : null);
-  const isCustomDur = wiz.quarterDuration && !(DURATIONS[wiz.periodKey] || []).includes(wiz.quarterDuration);
+  const isCustomDur = wiz.quarterDuration && !duurKeuzes(wiz.periodKey).includes(wiz.quarterDuration);
   return `
     <div class="card">
       <div class="fg"><label>Eigen ploeg</label>${teamSel}</div>
@@ -192,9 +223,10 @@ function wizStep1() {
            Het TERREIN blijft wél in het blok hieronder staan: dat is een detail voor ter plaatse
            ("terrein 2"), geen reisinformatie. */ ''}
       <div class="fg"><label>Adres</label><input id="n-venue" type="text" value="${esc(wiz.venue)}" placeholder="bv. Sportstraat 12, 9700 Oudenaarde" autocomplete="off"></div>
+      ${activeSport === 'hockey' ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:0 0 12px;cursor:pointer"><input type="checkbox" id="n-zaal" ${wiz.zaal ? 'checked' : ''} onchange="wizZaalChange(this.checked)" style="width:18px;height:18px;flex-shrink:0"> Zaalhockey <span style="color:var(--txt2)">(binnen: 6 tegen 6, 4 × 15 minuten)</span></label>` : ''}
       <div class="fg"><label>Format</label>
         <select id="n-type" onchange="wizTypeChange()">
-          ${['3v3','5v5','8v8','11v11'].map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}
+          ${matchTypesVoorSport().map(t => `<option value="${t}" ${wiz.matchType===t?'selected':''}>${matchTypeLabel(t)}</option>`).join('')}
         </select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="fg"><label>Aantal blokken</label>
@@ -256,6 +288,7 @@ function captureStep1() {
   wiz.subteam = (v('n-subteam') || '').trim();
   wiz.date = v('n-date'); wiz.time = v('n-time');
   wiz.matchType = v('n-type') || wiz.matchType;
+  const zaalVak = document.getElementById('n-zaal'); if (zaalVak) wiz.zaal = zaalVak.checked;
   wiz.periodKey = v('n-pt') || wiz.periodKey; wiz.quarterDuration = readDur('n-qd', 'n-qd-custom', wiz.quarterDuration);
   // numQuarters volgt de selector. Deze wizard kent geen "1 blok"-optie, maar finishWizard laat
   // wiz.numQuarters wél voorgaan op periodKey: "Gebruik als template" op een tornooiwedstrijd van
@@ -845,7 +878,7 @@ function wizPitch(form) {
     return `<div class="pslot pslot-open${voorstel.has(plek.code) ? ' pslot-tip' : ''}" style="${pos}" onclick="placeSlot('${plek.code}')">`
       + `${shirtSvg(false, gk, '')}<span class="pmark-code">${plek.code}</span></div>`;
   }).join('');
-  return `<div class="pitch">${pitchLines()}${slots}</div>`;
+  return `<div class="${pitchKlasse(wiz)}">${pitchLines(wiz)}${slots}</div>`;
 }
 function wizStep3() {
   const forms = FORMATIONS[wiz.matchType] || [];
@@ -1414,6 +1447,8 @@ async function finishWizard(startNow, zonderOpstelling, formatieBevestigd, veldM
     trainer: wiz.trainer || '', responsible: wiz.responsible || '',
     opponent: wiz.opponent, subteam: wiz.subteam || '', date: wiz.date, time: wiz.time, location: wiz.location,
     matchType: wiz.matchType, fieldSize: MATCH_TYPES[wiz.matchType].field,
+    // `zaal` is een optioneel veld, enkel bij zaalhockey: het bepaalt het veldplaatje en de duur van de kaartstraffen.
+    ...((activeSport === 'hockey' && wiz.zaal) ? { zaal: true } : {}),
     periodKey: wiz.periodKey, numQuarters: wiz.numQuarters !== undefined ? wiz.numQuarters : PERIOD_TYPES[wiz.periodKey].count, quarterDuration: wiz.quarterDuration,
     players: allP,
     absentPlayers: wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null, reason: p.absentReason || '' })),
@@ -1948,7 +1983,7 @@ function renderPrep() {
          (tournamentSquadMee) en geldt ze voor alle wedstrijden van die dag; een PSD-blad inlezen zou
          hier spelers zetten die bij de eerstvolgende bewerking langs de tornooiwizard weer wegvallen.
          Zelfde grens als vvMagSelectie in import-vv.js en als "Selectie aanpassen" op het verslag. */ ''}
-    ${m.tournamentId ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
+    ${(m.tournamentId || !voetbalbondImport()) ? '' : `<button class="btn ${heeftSelectie(m) ? 'btn-pale' : 'btn-orgpale'}" style="margin-top:8px" onclick="psdStart()">${icI(IC.upload)} Voorbereiding van de trainer (PDF)</button>`}
     ${/* ZICHTBAAR VOOR KIJKERS, JA OF NEE (Tim, 01-09-2026). Enkel bij een GEPLANDE wedstrijd: vanaf de
          aftrap is ze altijd zichtbaar (zie matchVerborgenVoorKijkers in core.js), dus een schakelaar
          daarna zou een keuze voorstellen die niets meer doet. En enkel bij een ploeg met kijkers in de
@@ -2069,7 +2104,7 @@ function modalEditMatchMenu() {
          MAAR NIET BIJ EEN TORNOOIWEDSTRIJD (Tim, 01-09-2026): daar komt de selectie van de tornooidag
          en zou een ingelezen blad bij de eerstvolgende bewerking langs de tornooiwizard weer
          verdwijnen. Houd dit gelijk met de knop in het voorbereidingsscherm hierboven. */ ''}
-    ${m.tournamentId ? '' : item(IC.upload, 'Voorbereiding van de trainer', heeftSel
+    ${(m.tournamentId || !voetbalbondImport()) ? '' : item(IC.upload, 'Voorbereiding van de trainer', heeftSel
       ? 'Lees het PSD-blad van de trainer in. Let op: dat vervangt de selectie en de opstelling die er nu staan.'
       : 'Lees het PSD-blad van de trainer in: selectie, opstelling en de wissels per moment.', 'psdStart()')}
     ${/* Zonder opstelling leidt dit item naar de opstellingsstap van de wizard i.p.v. naar de
@@ -2104,7 +2139,7 @@ function modalEditMatchMenu() {
     ${/* De openbare wedstrijdpagina van de bond uitlezen (zie import-vv.js). Staat hier onder
          "Uitslag ingeven", want het is dezelfde soort handeling: een wedstrijd die je niet gevolgd
          hebt achteraf invullen — alleen haalt deze het op in plaats van dat je het tikt. */ ''}
-    ${item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.', 'vvStart()')}
+    ${!voetbalbondImport() ? '' : item(IC.link, 'Wedstrijdinfo ophalen', 'Van de wedstrijdpagina op voetbalvlaanderen.be: selectie, uitslag, kaarten, scheidsrechter, terrein, trainer en afgevaardigde. Enkel de bovenbouw heeft zo\'n blad, en pas zodra de bond het verwerkt heeft.', 'vvStart()')}
     ${/* Helemaal opnieuw beginnen met de selectie. Enkel zolang de wedstrijd gepland is: eens ze
          loopt hangen er speelminuten en events aan de spelers. */ ''}
     ${(heeftSel && (m.status || 'planned') === 'planned')

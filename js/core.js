@@ -1,11 +1,15 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.38.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.39.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
   '5v5':  { field: 5,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '8v8':  { field: 8,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
   '11v11':{ field: 11, lines: ['Doel','Verdediging','Middenveld','Aanval'] },
+  // Zaalhockey: zes spelers met de keeper erbij (spelregels indoor hockey, art. 2.1). Staat hier voor
+  // ALLE sporten in de tabel, maar wordt enkel aangeboden aan hockeyclubs: zie SPORTS hieronder en
+  // matchTypesVoorSport(). Een voetbalclub ziet dit type nooit in een keuzelijst.
+  '6v6':  { field: 6,  lines: ['Doel','Verdediging','Middenveld','Aanval'] },
 };
 // SOORT WEDSTRIJD. Stond tot v0.58.1 in stats-settings.js en daarnaast nog eens letterlijk
 // uitgeschreven in de wizard, het bewerkscherm, de kalenderimport en het bulk-bewerken — vier
@@ -325,6 +329,164 @@ function absentReasonLabel(key) { const r = ABSENT_REASONS.find(x => x.key === k
 // normale wedstrijdvorm. Deze lijst voedt zowel de wizard als de standaardinstelling van een ploeg.
 const DURATIONS = { helften: [30, 45], delen: [10, 15, 20], kwarten: [10, 15, 20] };
 const DUR_DEFAULT = { helften: 30, delen: 20, kwarten: 15 };
+
+// ===================== SPORTEN =====================
+// De sport ligt VAST PER CLUB en wordt enkel door de eigenaar gekozen, bij het aanmaken van de club
+// (clubs/{id}/info/sport). Een ontbrekende waarde betekent voetbal: elke club van vóór deze versie
+// blijft dus precies zoals ze was, zonder migratie. De sport wordt ook op elke ploeg van die club
+// gekopieerd (teams/{id}/info/sport), zoals clubName — een gewone trainer of kijker mag clubs/{id}
+// niet lezen. De club blijft de bron.
+//
+// Veld of zaal is bij hockey GEEN sport maar een wedstrijdvorm: een hockeyclub speelt allebei met
+// dezelfde spelers. Daarom zit zaalhockey in de wedstrijdtypes ('6v6') en niet hier. Minivoetbal en
+// veldhockey hergebruiken bestaande types ('5v5' en '11v11'), zodat er niets nieuws bij de gegevens
+// van een wedstrijd komt.
+//
+// `matchTypes` is wat een club van die sport in de keuzelijsten krijgt. `standaard` is wat een NIEUWE
+// ploeg zonder eigen voorkeur krijgt; voetbal heeft er geen, want daar blijven '8v8' en 4 kwarten van
+// 15 gelden (zie teamMatchDefaults). De duren komen uit de officiële reglementen (hockey.be 2024-25,
+// Voetbal Vlaanderen minivoetbal): veldhockey 2 x 35 (U14: 2 x 30), zaalhockey 4 x 15, minivoetbal 4 x 13.
+const SPORTS = {
+  voetbal:     { naam: 'Voetbal',     matchTypes: ['3v3', '5v5', '8v8', '11v11'] },
+  // Hockey Belgium speelt de jeugd op kleinere velden: U7 en U8 3 tegen 3, U9 6 tegen 6, U10 tot U12 8 tegen 8,
+  // vanaf U14 11 tegen 11 (tabel van Tim, 21-11-2026). Zaalhockey is altijd 6 tegen 6. `6v6` is dus zowel veld
+  // (U9) als zaal: het label zegt het daarom niet, en de wedstrijd zelf draagt wel of het veld of zaal was.
+  // DE DUREN: enkel 2 x 35 op een groot veld (U14: 2 x 30) en 4 x 15 in de zaal staan in de reglementen. Voor
+  // 3v3 en 8v8 is er geen bron, dus daar staat 4 x 15 als startwaarde, per ploeg en per wedstrijd aan te passen.
+  hockey:      { naam: 'Hockey',      matchTypes: ['3v3', '6v6', '8v8', '11v11'],
+                 standaard: { matchType: '11v11', periodKey: 'helften', dur: 35 },
+                 perType: { '3v3': { periodKey: 'kwarten', dur: 15 }, '6v6': { periodKey: 'kwarten', dur: 15 },
+                            '8v8': { periodKey: 'kwarten', dur: 15 }, '11v11': { periodKey: 'helften', dur: 35 } },
+                 extraDuren: { helften: [35], kwarten: [10, 15] },
+                 // Hockey valt onder Hockey Belgium: de koppelingen met de voetbalbond (rbfa.be,
+                 // voetbalvlaanderen.be, het ProSoccerData-blad) bestaan er niet.
+                 voetbalImport: false },
+  minivoetbal: { naam: 'Minivoetbal', matchTypes: ['5v5'],
+                 standaard: { matchType: '5v5', periodKey: 'kwarten', dur: 13 },
+                 extraDuren: { kwarten: [13] } },
+};
+const SPORT_STANDAARD = 'voetbal';
+let activeSport = SPORT_STANDAARD;   // sport van de actieve ploeg (teams/{id}/info/sport)
+// Elke onbekende of ontbrekende waarde is voetbal.
+function sportVan(s) { return SPORTS[s] ? s : SPORT_STANDAARD; }
+function sportNaam(s) { return SPORTS[sportVan(s)].naam; }
+function matchTypesVoorSport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].matchTypes; }
+// Leesbaar label van een wedstrijdvorm: "8 tegen 8". Voor alle sporten hetzelfde; bij hockey zegt "6 tegen 6" niet
+// of het veld of zaal is, want U9 speelt op het veld ook 6 tegen 6.
+function matchTypeLabel(t) { return String(t || '').replace('v', ' tegen '); }
+// Horen de koppelingen met de voetbalbond bij deze sport: "Ploegen van de voetbalbond" (rbfa.be),
+// "Wedstrijdinfo ophalen" (voetbalvlaanderen.be) en het inlezen van het ProSoccerData-blad? Voor een
+// hockeyclub staan die knoppen er niet. Alleen weergave: de gegevens eronder blijven bestaan.
+function voetbalbondImport(s) { return SPORTS[sportVan(s === undefined ? activeSport : s)].voetbalImport !== false; }
+// ===================== MINIVOETBAL: CORNERS EN CORNERBAL =====================
+// Bij minivoetbal ZIJN CORNERS EEN TELLER (spelregels minivoetbal, art. 29-39): elke corner wordt opgeteld en op het
+// scorebord getoond, en na de VIERDE corner in zijn voordeel krijgt een ploeg een cornerbal, waarna de teller met vier
+// zakt. Een protestcorner (art. 30) telt als een extra corner. De teller wordt AFGELEID uit de gebeurtenissen en nergens
+// apart bewaard: wie een corner wist of bijmaakt, ziet de stand meteen kloppen, en er valt niets uit de pas te lopen.
+//
+// WAT VAN EEN CORNERBAL BEWAARD WORDT, zonder dat de stand of de statistieken iets nieuws hoeven te leren:
+//   gescoord  -> een GEWOON doelpunt (`goal_us` / `goal_them`) met `wijze: 'Cornerbal'`, de koppende speler als
+//                doelpuntenmaker en de trapper als assist. Stand, topscorers, assists en "hoe viel het" tellen dat
+//                zo vanzelf mee; recomputeScore en scoreUpToQuarter blijven onaangeraakt.
+//   gemist    -> een nieuwe gebeurtenis `cornerbal_mis_us` / `cornerbal_mis_them` (verandert de stand niet).
+// Een cornerbal die verdiend maar nog niet geregistreerd is, heet OPEN; de wedstrijd houdt hem zichtbaar tot hij
+// vastgelegd is (cornerTelling().openUs / openThem).
+const WIJZE_CORNERBAL = 'Cornerbal';
+function cornerTelling(m) {
+  const ev = (m && m.events) || [];
+  const tel = t => ev.filter(e => e.type === t).length;
+  const genomen = kant => ev.filter(e => (e.type === 'goal_' + kant && e.wijze === WIJZE_CORNERBAL) || e.type === 'cornerbal_mis_' + kant).length;
+  const us = tel('corner_us'), them = tel('corner_them');
+  const balUs = Math.floor(us / 4), balThem = Math.floor(them / 4);
+  const gUs = genomen('us'), gThem = genomen('them');
+  return { us, them, restUs: us % 4, restThem: them % 4, balUs, balThem, genomenUs: gUs, genomenThem: gThem,
+           openUs: Math.max(0, balUs - gUs), openThem: Math.max(0, balThem - gThem) };
+}
+// Het woord voor een hoekschop in de sport van de actieve ploeg, enkelvoud en meervoud.
+function cornerWoord(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  return sp === 'minivoetbal' ? 'Corner' : sp === 'hockey' ? 'Strafcorner' : 'Hoekschop';
+}
+function cornerWoorden(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  return sp === 'minivoetbal' ? 'Corners' : sp === 'hockey' ? 'Strafcorners' : 'Hoekschoppen';
+}
+// Hockey kent een strafbal (penalty stroke) en een vrije slag, geen penalty en vrije trap. Dezelfde gebeurtenissen
+// (`penalty_us`, `freekick_us`), enkel de woorden verschillen.
+function penaltyWoord(s) { return sportVan(s === undefined ? activeSport : s) === 'hockey' ? 'Strafbal' : 'Penalty'; }
+function vrijeWoord(s) { return sportVan(s === undefined ? activeSport : s) === 'hockey' ? 'Vrije slag' : 'Vrije trap'; }
+// ===================== HOCKEY: KAARTEN MET EEN TIJD =====================
+// Een groene of gele kaart in hockey is een TIJDELIJKE schorsing (spelregels hockey, art. 14): de speler gaat eruit en de
+// ploeg speelt een man minder tot zijn tijd om is. Buiten: groen 2 minuten, geel minstens 5 (de scheidsrechter bepaalt: 5 of
+// 10). Zaal: groen 1 minuut, geel minstens 2 (2 of 4). Rood blijft blijvend. De tijd is SPEELTIJD: ze loopt mee met de klok
+// van de wedstrijd en staat stil als die stilstaat.
+//
+// HOE DAT IN DE GEGEVENS STAAT, zonder dat opstelling, speelminuten of verslag iets nieuws moeten leren:
+//   de kaart     -> `green_card` of `yellow_card` met `tijdelijk: true`, `duurMin` en de speler;
+//   eruit gaan   -> een gewone wissel zonder invaller (`substitution`, `playerOutId`, `kaartId`, `reden: 'schorsing'`),
+//                   dezelfde gebeurtenis als "naar de bank zonder invaller";
+//   terugkeren   -> een gewone wissel zonder uitgaande speler (`playerInId`, `naarPlek`, `kaartId`).
+// De terugkeer is een BEWUSTE tik ("Terug op het veld") en geen automatisme: zo kloppen veld en speelminuten altijd met wat
+// er echt gebeurde, ook als de scheidsrechter de speler nog even laat wachten. De kaart voor de tegenstander
+// (`*_card_them`) draagt dezelfde `duurMin`; die heeft geen terugkeer, enkel een aftelling.
+const HOCKEY_KAARTEN = { veld: { green: [2], yellow: [5, 10] }, zaal: { green: [1], yellow: [2, 4] } };
+function kaartDuren(m, color) { return (HOCKEY_KAARTEN[(m && m.zaal) ? 'zaal' : 'veld'] || {})[color] || []; }
+function schorsingen(m) {
+  const ev = (m && m.events) || [];
+  const eigen = ev.filter(e => (e.type === 'green_card' || e.type === 'yellow_card') && e.tijdelijk && e.playerId).map(e => ({
+    kaartId: e.id, kant: 'us', playerId: e.playerId, color: e.type === 'green_card' ? 'green' : 'yellow', duurMin: e.duurMin || 0,
+    eindMs: (e.gameTimeMs || 0) + (e.duurMin || 0) * 60000,
+    terug: ev.some(x => x.type === 'substitution' && x.kaartId === e.id && x.playerInId === e.playerId),
+  }));
+  const tegen = ev.filter(e => (e.type === 'green_card_them' || e.type === 'yellow_card_them') && e.tijdelijk && e.duurMin).map(e => ({
+    kaartId: e.id, kant: 'them', oppNumber: e.oppNumber || '', color: e.type === 'green_card_them' ? 'green' : 'yellow', duurMin: e.duurMin,
+    eindMs: (e.gameTimeMs || 0) + e.duurMin * 60000, terug: false,
+  }));
+  return eigen.concat(tegen);
+}
+// De keuzewoorden bij "Hoe viel het?" per sport. Voetbal en hockey: de bestaande lijst. Minivoetbal kent geen hoekschop
+// die rechtstreeks scoort maar een cornerbal, en een intrap in plaats van een ingooi. Een woord dat al bij een doelpunt
+// staat, blijft er gewoon bij staan, ook als het hier niet meer gekozen kan worden.
+// DE BESLISSENDE REEKS bij gelijkspel (zie shootout hieronder): strafschoppen bij voetbal, een cornerbalreeks bij minivoetbal
+// (art. 41-46: vier cornerballen per ploeg, om beurten), een shoot-out bij hockey. Dezelfde gegevens (`m.shootout`),
+// enkel andere woorden. `reeksKort` is het voorvoegsel achter de stand ("1-1 · pen. 4-5").
+function reeksNaam(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'Cornerbalreeks' : sp === 'hockey' ? 'Shoot-out' : 'Strafschoppen'; }
+function reeksKort(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'cb.' : sp === 'hockey' ? 'so.' : 'pen.'; }
+function reeksNemer(s) { const sp = sportVan(s === undefined ? activeSport : s); return sp === 'minivoetbal' ? 'cornerbal' : sp === 'hockey' ? 'shoot-out' : 'strafschop'; }
+function goalWijzenVoor(s) {
+  const sp = sportVan(s === undefined ? activeSport : s);
+  if (sp === 'minivoetbal') return GOAL_WIJZEN.map(w => w === 'Hoekschop' ? WIJZE_CORNERBAL : w === 'Ingooi' ? 'Intrap' : w);
+  // Hockey: strafcorner, vrije slag en inslag in plaats van hoekschop, vrije trap en ingooi.
+  if (sp === 'hockey') return GOAL_WIJZEN.map(w => w === 'Hoekschop' ? 'Strafcorner' : w === 'Vrije trap' ? 'Vrije slag' : w === 'Ingooi' ? 'Inslag' : w);
+  return GOAL_WIJZEN;
+}
+// Waarden voor een nieuwe ploeg of wedstrijd. null voor voetbal: dan gelden de oude standaarden.
+function sportStandaard(s, matchType) {
+  const sp = SPORTS[sportVan(s === undefined ? activeSport : s)];
+  if (!sp.standaard) return null;
+  const mt = sp.matchTypes.includes(matchType) ? matchType : sp.standaard.matchType;
+  // Volgorde telt: de gekozen vorm komt als laatste, anders overschrijft de standaard hem met haar eigen vorm.
+  return Object.assign({}, sp.standaard, sp.perType && sp.perType[mt] ? sp.perType[mt] : {}, { matchType: mt });
+}
+// Het wedstrijdtype dat een keuzelijst voorselecteert als er nog niets gekozen is: '8v8' voor voetbal
+// (zoals altijd), de standaard van de sport voor de andere.
+function sportStandaardType(s) { const sd = sportStandaard(s); return sd ? sd.matchType : '8v8'; }
+// Een opgeslagen wedstrijdvorm die bij de sport past, of anders de standaard van de sport. Zo kan een minivoetbalploeg die
+// vroeger met een voetbalformaat (8v8, 11v11) werd aangemaakt, nergens meer op een ander formaat uitkomen: minivoetbal is
+// altijd 5 tegen 5. Voor voetbal verandert er niets: een onbekende waarde valt terug op 8v8, zoals altijd.
+function geldigeVorm(mt, s) {
+  if (matchTypesVoorSport(s).includes(mt)) return mt;
+  const sd = sportStandaard(s);
+  return sd ? sd.matchType : '8v8';
+}
+// De vaste duurkeuzes voor een blokvorm, met de extra duren van de sport erbij. Eén functie in plaats
+// van DURATIONS[periodKey] op zeven plaatsen, zodat een hockeyclub 35 minuten per helft kan kiezen
+// zonder dat een voetbalclub die optie ineens in zijn lijst krijgt.
+function duurKeuzes(periodKey, s) {
+  const basis = DURATIONS[periodKey] || [15];
+  const extra = ((SPORTS[sportVan(s === undefined ? activeSport : s)].extraDuren || {})[periodKey]) || [];
+  return [...new Set([...basis, ...extra])].sort((a, b) => a - b);
+}
 // Veelgebruikte formaties per wedstrijdtype. Slot = {line, x, y} (x,y in % van het veld; doel onderaan).
 const D = 'Doel', V = 'Verdediging', M = 'Middenveld', A = 'Aanval';
 const FORMATIONS = {
@@ -335,6 +497,13 @@ const FORMATIONS = {
   '5v5': [
     { name: 'Ruit (1-2-1)', slots: [{line:D,x:50,y:90},{line:V,x:50,y:68},{line:M,x:26,y:46},{line:M,x:74,y:46},{line:A,x:50,y:24}] },
     { name: 'Vierkant (2-2)', slots: [{line:D,x:50,y:90},{line:V,x:30,y:66},{line:V,x:70,y:66},{line:A,x:30,y:34},{line:A,x:70,y:34}] },
+  ],
+  // Zaalhockey: keeper + vijf veldspelers. Geen formatienummers (FORMATIE_NUMMERS): de plekken vallen
+  // terug op de algemene tabel, en een plek zonder nummer toont gewoon haar code.
+  '6v6': [
+    { name: '2-2-1', slots: [{line:D,x:50,y:90},{line:V,x:30,y:70},{line:V,x:70,y:70},{line:M,x:30,y:46},{line:M,x:70,y:46},{line:A,x:50,y:22}] },
+    { name: '1-2-2', slots: [{line:D,x:50,y:90},{line:V,x:50,y:70},{line:M,x:26,y:46},{line:M,x:74,y:46},{line:A,x:30,y:22},{line:A,x:70,y:22}] },
+    { name: '2-1-2', slots: [{line:D,x:50,y:90},{line:V,x:30,y:70},{line:V,x:70,y:70},{line:M,x:50,y:46},{line:A,x:30,y:22},{line:A,x:70,y:22}] },
   ],
   '8v8': [
     { name: 'Dubbele ruit', slots: [{line:D,x:50,y:92},{line:V,x:50,y:77},{line:V,x:24,y:65},{line:V,x:76,y:65},{line:M,x:50,y:50},{line:M,x:24,y:38},{line:M,x:76,y:38},{line:A,x:50,y:22}] },
@@ -447,6 +616,8 @@ const IC = {
   swap: _svg('<path d="M4 8.5h13M14 5.5l3 3-3 3"/><path d="M20 15.5H7M10 12.5l-3 3 3 3"/>'),
   cardY: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#eab308" stroke="#a16207" stroke-width="1.2"/>'),
   cardR: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/>'),
+  // De groene kaart van hockey: een tijdelijke schorsing van 2 minuten (zaal: 1). Zelfde vorm als de gele en de rode.
+  cardG: _svg('<rect x="6.5" y="3.5" width="9.5" height="15" rx="1.6" transform="rotate(10 12 11)" fill="#16a34a" stroke="#166534" stroke-width="1.2"/>'),
   // GEEL-ROOD ALS ÉÉN KAARTJE (v2.15.1). Zoals op het wedstrijdblad van de bond: het rode steekt
   // achter het gele uit. Twee losse kaartjes naast elkaar lazen als twee gebeurtenissen, terwijl het
   // er één is. Zelfde maten als de twee hierboven, enkel smaller en elk een kant op gedraaid zodat
@@ -697,7 +868,7 @@ function toonShootout(m) {
   return !geenUitslag(m) && heeftShootout(m) && (m.scoreUs || 0) === (m.scoreThem || 0);
 }
 function uitslagTxt(m) {
-  return toonShootout(m) ? `${scoreTxt(m)} · pen. ${shootoutTxt(m)}` : scoreTxt(m);
+  return toonShootout(m) ? `${scoreTxt(m)} · ${reeksKort()} ${shootoutTxt(m)}` : scoreTxt(m);
 }
 // W / G / V vanuit het standpunt van de eigen ploeg, mét de reeks meegerekend. Tims keuze
 // (23-08-2026): wie de strafschoppenreeks wint, heeft gewonnen — ook voor de tornooipunten en de
@@ -2430,6 +2601,21 @@ function rememberTeamClubLogo(teamId, logo) {
     try { localStorage.setItem('voetbal_teamClubLogos', JSON.stringify(logo ? { [teamId]: logo } : {})); } catch (e2) {}
   }
 }
+// De sport van een ploeg onthouden op dit toestel, zodat een hockeyploeg ook zonder verbinding of vóór
+// de eerste fetch de juiste keuzelijsten krijgt (zie fetchTeamInfo). Enkel een label per ploeg; stuk
+// of leeg betekent voetbal, de oude werking.
+function rememberTeamSport(teamId, sport) {
+  if (!teamId) return;
+  try {
+    const c = JSON.parse(localStorage.getItem('md_teamSports') || '{}');
+    if (sportVan(sport) === SPORT_STANDAARD) delete c[teamId]; else c[teamId] = sportVan(sport);
+    localStorage.setItem('md_teamSports', JSON.stringify(c));
+  } catch (e) {}
+}
+function recallTeamSport(teamId) {
+  try { return sportVan((JSON.parse(localStorage.getItem('md_teamSports') || '{}'))[teamId]); }
+  catch (e) { return SPORT_STANDAARD; }
+}
 let archivedTeams = {};    // { teamId: true } — gearchiveerde ploegen (verborgen uit de actieve lijsten)
 
 function cloudAvailable() { return typeof firebase !== 'undefined'; }
@@ -2982,7 +3168,7 @@ async function onAuthChanged(user) {
     // Niet ingelogd → toon auth scherm (pending join blijft bewaard in localStorage)
     isAdmin = false; isGuest = false; viewerMode = false; activeTeamId = null; userTeams = {};
     ownerUid = null; isOwner = false; isApprovedAdmin = false; maintenanceActive = false;
-    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false; archivedTeams = {};
+    myClubs = {}; activeClubId = null; activeClubName = ''; activeSport = SPORT_STANDAARD; isClubAdmin = false; archivedTeams = {};
     // De clubnamen en -logo's die voor DEZE gebruiker opgehaald zijn, horen niet bij de volgende die
     // zich op dit toestel aanmeldt. (views-account.js laadt later dan dit bestand, vandaar de wachter.)
     if (typeof clubNaamCache !== 'undefined') { clubNaamCache = {}; clubLogoCache = {}; }
@@ -2998,7 +3184,7 @@ async function onAuthChanged(user) {
     isGuest = true; isAdmin = false;
     presenceStart();
     ownerUid = null; isOwner = false; isApprovedAdmin = false;
-    myClubs = {}; activeClubId = null; activeClubName = ''; isClubAdmin = false;
+    myClubs = {}; activeClubId = null; activeClubName = ''; activeSport = SPORT_STANDAARD; isClubAdmin = false;
     // Onderhoudsmodus geldt ook voor gasten — anders werken die gewoon door tijdens onderhoud.
     await initMaintenanceWatch();
     if (maintenanceActive) { await go('maintenance', undefined, true); return; }
@@ -3521,6 +3707,7 @@ async function selectTeam(teamId) {
   isAdmin = (userTeams[teamId] === 'admin');
   // Club-context van de actieve ploeg. Owner is impliciet clubbeheerder overal.
   activeClubId = null; activeClubName = ''; activeClubLogo = ''; activeStatsPublic = {};
+  activeSport = recallTeamSport(teamId);   // laatst gekende sport van deze ploeg; fetchTeamInfo bevestigt
   isClubAdmin = isOwner;
   // Kennen we de club van deze ploeg al van een vorige keer? Dan isClubAdmin (en dus isAdmin)
   // meteen zetten, vóór cloudListen() en go('home'). Zo hangen de beheerknoppen en de
@@ -3588,6 +3775,9 @@ async function fetchTeamInfo(teamId, poging = 0) {
     const info = s.val() || {};
     activeClubId = info.clubId || null;
     activeClubName = info.clubName || '';
+    // Sport van de club, gedenormaliseerd op de ploeg (zie SPORTS). Ontbreekt ze, dan is het voetbal.
+    activeSport = sportVan(info.sport);
+    rememberTeamSport(teamId, activeSport);
     activeClubLogo = info.clubLogo || '';
     activeStatsPublic = info.statsPublic || {};
     rememberTeamClubId(teamId, activeClubId); // ook wissen als de ploeg géén club (meer) heeft

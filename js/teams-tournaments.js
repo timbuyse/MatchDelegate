@@ -150,7 +150,7 @@ function renderTeamView() {
 // van dezelfde ploeg laat lopen. Onderaan elk gezicht staat de weg naar het andere.
 function renderTeamOverview() {
   const t = editingTeam;
-  const oDmt = MATCH_TYPES[t.defaultMatchType] ? t.defaultMatchType : '8v8';
+  const oDmt = geldigeVorm(t.defaultMatchType);
   const oForms = FORMATIONS[oDmt] || [];
   const oForm = oForms.some(f => f.name === t.defaultFormation) ? t.defaultFormation : (oForms[0] ? oForms[0].name : '');
   // De beheerblokken gelden de ACTIEVE cloud-ploeg. In lokale modus (geen cloud) en bij een ploeg
@@ -284,7 +284,7 @@ function renderTeamEdit() {
     + `<button class="btn btn-pale btn-sm" onclick="addStaffName('trainers')">+ Nog een trainer</button>`;
   const respRows = staffRows('responsible', staffNames('responsible'), 'Afgevaardigde')
     + `<button class="btn btn-pale btn-sm" onclick="addStaffName('responsible')">+ Nog een afgevaardigde</button>`;
-  const dmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const dmt = geldigeVorm(editingTeam.defaultMatchType);
   const dForms = FORMATIONS[dmt] || [];
   const dfName = dForms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (dForms[0] ? dForms[0].name : '');
   const dpk = PERIOD_TYPES[editingTeam.defaultPeriodKey] ? editingTeam.defaultPeriodKey : 'kwarten';
@@ -306,7 +306,7 @@ function renderTeamEdit() {
     <div class="card">${respRows}</div>
     <div class="sec">Standaard voor nieuwe wedstrijden</div>
     <div class="card">
-      <div class="fg"><label>Standaard wedstrijdvorm</label><select onchange="teamFormatChange(this.value)">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k===dmt?'selected':''}>${k}</option>`).join('')}</select></div>
+      <div class="fg"><label>Standaard wedstrijdvorm</label><select onchange="teamFormatChange(this.value)">${matchTypesVoorSport().map(k => `<option value="${k}" ${k===dmt?'selected':''}>${activeSport === SPORT_STANDAARD ? k : matchTypeLabel(k)}</option>`).join('')}</select></div>
       <div class="fg"><label>Standaard opstelling</label><select onchange="editingTeam.defaultFormation=this.value">${dForms.map(f => `<option value="${esc(f.name)}" ${f.name===dfName?'selected':''}>${esc(f.name)}</option>`).join('')}</select></div>
       ${/* Aantal blokken en blokduur horen hier net zo goed thuis als de vorm: een U8 speelt geen
            4x15. Stond tot v0.45.0 vast in de wizard, waardoor je het bij élke wedstrijd van elke
@@ -319,7 +319,7 @@ function renderTeamEdit() {
       <div class="fg" style="margin-bottom:0"><label>Standaard duur per blok</label>
         <select id="t-dur" onchange="teamDurChange()">${durOptsHtml(dpk, ddur)}</select>
         <input id="t-dur-custom" type="number" min="1" max="60" inputmode="numeric" placeholder="minuten per blok"
-          value="${ddur}" oninput="teamDurCustom(this.value)" style="margin-top:6px;${(DURATIONS[dpk] || []).includes(ddur) ? 'display:none' : ''}"></div>
+          value="${ddur}" oninput="teamDurCustom(this.value)" style="margin-top:6px;${duurKeuzes(dpk).includes(ddur) ? 'display:none' : ''}"></div>
       <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen.</p>
     </div>
     ${/* De koppeling met de ploeg bij de voetbalbond. Staat in import-cal.js, bij de kalenderimport
@@ -349,7 +349,7 @@ function renderTeamEdit() {
 function teamToggleNumbers(aan) { editingTeam.useNumbers = !!aan; render(); }
 // Standaard opstelling volgt de gekozen wedstrijdvorm in de ploeg-editor.
 function teamFormatChange(val) {
-  editingTeam.defaultMatchType = MATCH_TYPES[val] ? val : '8v8';
+  editingTeam.defaultMatchType = geldigeVorm(val);
   const forms = FORMATIONS[editingTeam.defaultMatchType] || [];
   editingTeam.defaultFormation = forms[0] ? forms[0].name : '';
   render();
@@ -864,7 +864,7 @@ async function dubbelDoorgaan() {
 async function saveTeamEdit() {
   if (dubbelBezig) return;   // twee keer tikken op Opslaan zou twee vensters openen
   if (!editingTeam.name.trim()) { showToast('Geef de ploeg een naam.', 'err'); return; }
-  const eDmt = MATCH_TYPES[editingTeam.defaultMatchType] ? editingTeam.defaultMatchType : '8v8';
+  const eDmt = geldigeVorm(editingTeam.defaultMatchType);
   const eDforms = FORMATIONS[eDmt] || [];
   const eDform = eDforms.some(f => f.name === editingTeam.defaultFormation) ? editingTeam.defaultFormation : (eDforms[0] ? eDforms[0].name : '');
   const clean = {
@@ -2495,13 +2495,13 @@ function renderTrnStep1() {
           <div style="font-size:11px;color:var(--txt2);padding-top:4px">Dezelfde selectie voor beide ploegen. Per wedstrijd kies je welke ploeg speelt; het label staat achter de ploegnaam.</div>
         </div></div>`;
     })()}
-    <div class="fg"><label>Type wedstrijd</label><select id="trn-matchtype">${['3v3','5v5','8v8','11v11'].map(t=>`<option value="${t}" ${(trnWiz.matchType||'8v8')===t?'selected':''}>${t.replace('v',' tegen ')}</option>`).join('')}</select></div>
+    <div class="fg"><label>Type wedstrijd</label><select id="trn-matchtype">${matchTypesVoorSport().map(t=>`<option value="${t}" ${(trnWiz.matchType||sportStandaardType())===t?'selected':''}>${matchTypeLabel(t)}</option>`).join('')}</select></div>
     ${(() => {
       // Standaardduur van de dag. Op een tornooi spelen alle wedstrijden even lang, dus geef je dat
       // hier één keer in i.p.v. bij elke wedstrijd opnieuw; de wedstrijdwizard vult ze voor en laat
       // afwijken toe (een halve finale van 2 × 15' bijvoorbeeld).
       const p = tournamentPeriods(trnWiz);
-      const vast = DURATIONS[p.periodKey] || [15];
+      const vast = duurKeuzes(p.periodKey);
       const eigen = !vast.includes(p.quarterDuration);
       return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="fg"><label>Aantal blokken</label>
@@ -2714,7 +2714,7 @@ function renderTrnMatchStep1() {
     </div>
     <div class="fg" style="margin-bottom:6px"><label>Format</label>
       <select id="n-type" onchange="trnWizTypeChange()">
-        ${['3v3','5v5','8v8','11v11'].map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${tp.replace('v',' tegen ')}</option>`).join('')}
+        ${matchTypesVoorSport().map(tp => `<option value="${tp}" ${wiz.matchType===tp?'selected':''}>${matchTypeLabel(tp)}</option>`).join('')}
       </select></div>
     ${(() => {
       // Alleen bij een tornooi met twee ploegen. Het label gaat in m.subteam, het bestaande
@@ -2734,7 +2734,7 @@ function renderTrnMatchStep1() {
           // Vrije duur zichtbaar mét het getal erin, zoals in de gewone wizard. Stond hier
           // hardgecodeerd verborgen en leeg, dus een tornooiwedstrijd met blokken van 12 min toonde
           // bij bewerken "Vrij…" zonder dat je zag hoeveel minuten het was.
-          const vast = DURATIONS[wiz.periodKey] || [15];
+          const vast = duurKeuzes(wiz.periodKey);
           const eigen = !!wiz.quarterDuration && !vast.includes(wiz.quarterDuration);
           return `<input id="n-qd-custom" type="number" min="1" max="99" placeholder="min." style="margin-top:6px;${eigen?'':'display:none'};width:100%;padding:10px;border:2px solid var(--bdr);border-radius:8px;font-size:16px;color:var(--txt);background:var(--card);-webkit-appearance:none" value="${eigen?wiz.quarterDuration:''}">`;
         })()}</div>

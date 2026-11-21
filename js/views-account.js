@@ -100,9 +100,10 @@ async function loadClubBeheerView() {
       try { const v = (await fbOnce(fbdb.ref('clubs/' + clubId + '/' + pad))).val(); return (v === null || v === undefined) ? leeg : v; }
       catch (e) { return leeg; }
     };
-    const [clubNaamRuw, clubAdmins, clubTeams, clubTrainers] = await Promise.all([
-      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}), leesClub('trainers', {}),
+    const [clubNaamRuw, clubAdmins, clubTeams, clubTrainers, clubSportRuw] = await Promise.all([
+      leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}), leesClub('trainers', {}), leesClub('info/sport', ''),
     ]);
+    const clubSport = sportVan(clubSportRuw);   // de sport van DEZE club (zie SPORTS in core.js)
     const clubName = clubNaamRuw || 'Mijn club';
     const teamIds = Object.keys(clubTeams);
     // Altijd vers de naam ophalen (niet op de cache vertrouwen): zo weten we of de ploeg nog
@@ -188,7 +189,8 @@ async function loadClubBeheerView() {
             maar de aanroep gebeurt pas bij het aantikken, dus dat mag (zie CLAUDE.md). */ ''}
       <div style="display:grid;gap:8px;margin-bottom:16px">
         <button class="btn btn-green" style="margin:0" onclick="showCreateTeamModal('${clubId}')">${icI(IC.plus)} Nieuwe ploeg in deze club</button>
-        <button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>
+        ${voetbalbondImport(clubSport) ? `<button class="btn btn-pale" style="margin:0" onclick="rbfaClubKoppelOpen('${clubId}')">${icI(IC.link)} Ploegen van de voetbalbond</button>` : ''}
+        ${clubSport === 'hockey' ? `<button class="btn btn-pale" style="margin:0" onclick="hbeClubOpen('${clubId}')">${icI(IC.link)} Ploegen van Hockey Belgium</button>` : ''}
         ${/* De clubronde: werken over alle ploegen heen in plaats van ploeg per ploeg (v1.84.0).
               Staat in import-cal.js, dat ná dit bestand laadt — de aanroep gebeurt pas bij het
               aantikken, dus dat mag (zie CLAUDE.md). */''}
@@ -468,6 +470,11 @@ function clubSchermHertekenen() {
 function showCreateClubModal() {
   openModal(`<h3>${icI(IC.plus)} Nieuwe club</h3>
     <div class="fg"><label>Naam van de club</label><input id="new-club-name" type="text" placeholder="bv. KFC Voorbeeld" autofocus></div>
+    ${/* De sport ligt vast zodra de club bestaat (enkel de eigenaar kiest ze, hier): ze bepaalt welke
+         wedstrijdvormen, duren en regels de ploegen van deze club krijgen. Later wijzigen kan niet in de
+         app, want bestaande wedstrijden zouden dan van sport veranderen. */ ''}
+    <div class="fg"><label>Sport</label><select id="new-club-sport">${Object.keys(SPORTS).map(k => `<option value="${k}" ${k === SPORT_STANDAARD ? 'selected' : ''}>${esc(SPORTS[k].naam)}</option>`).join('')}</select>
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Ligt vast na het aanmaken en geldt voor alle ploegen van de club.</p></div>
     <div class="auth-err" id="cc-err"></div>
     <button class="btn btn-green" id="cc-btn" onclick="doCreateClub()">Aanmaken</button>
     <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
@@ -481,7 +488,12 @@ async function doCreateClub() {
   const btn = document.getElementById('cc-btn'); if (btn) btn.disabled = true;
   try {
     const cid = fbdb.ref('clubs').push().key;
-    await fbdb.ref('clubs/' + cid).set({ info: { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() }, admins: {}, teams: {} });
+    // Enkel een bekende sport wegschrijven; alles anders is voetbal (zie sportVan). Bij voetbal laten we
+    // het veld weg, precies zoals alle bestaande clubs: geen verschil tussen "voetbal" en "niets".
+    const sport = sportVan((document.getElementById('new-club-sport') || {}).value);
+    const info = { name, logo: '', createdBy: currentUser.uid, createdAt: Date.now() };
+    if (sport !== SPORT_STANDAARD) info.sport = sport;
+    await fbdb.ref('clubs/' + cid).set({ info, admins: {}, teams: {} });
     closeModal(); clubSchermHertekenen();
   } catch (e) { if (err) err.textContent = 'Aanmaken mislukt. Probeer opnieuw.'; if (btn) btn.disabled = false; }
 }
@@ -2947,13 +2959,13 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
   if (!currentUser || !fbdb) return null;
   name = (name || '').trim(); if (!name) return null;
   // Standaard wedstrijdvorm + opstelling (staan klaar bij een nieuwe wedstrijd, per wedstrijd aanpasbaar).
-  const dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
-  const dForms = FORMATIONS[dMatchType] || [];
-  const dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
+  let dMatchType = MATCH_TYPES[defaultMatchType] ? defaultMatchType : '8v8';
+  let dForms = FORMATIONS[dMatchType] || [];
+  let dFormation = dForms.some(f => f.name === defaultFormation) ? defaultFormation : (dForms[0] ? dForms[0].name : '');
   // Aantal blokken + blokduur horen ook bij de ploeg (sinds v0.45.0). Ongeldig of niets meegegeven:
   // 4 kwarten van 15, precies wat er vroeger vast in de wizard stond.
-  const dPeriodKey = PERIOD_TYPES[defaultPeriodKey] ? defaultPeriodKey : 'kwarten';
-  const dDur = Number(defaultQuarterDuration) > 0 ? Number(defaultQuarterDuration) : (DUR_DEFAULT[dPeriodKey] || 15);
+  let dPeriodKey = PERIOD_TYPES[defaultPeriodKey] ? defaultPeriodKey : 'kwarten';
+  let dDur = Number(defaultQuarterDuration) > 0 ? Number(defaultQuarterDuration) : (DUR_DEFAULT[dPeriodKey] || 15);
   const teamId = fbdb.ref('teams').push().key;
   const uid = currentUser.uid;
   const token = genInviteToken();
@@ -2969,6 +2981,17 @@ async function createTeam(name, clubId, joinAsMember, defaultMatchType, defaultF
     // moment bestaan — een ploeg die je daarna aanmaakte, bleef dus zonder logo (in de app én op elke
     // PDF) tot iemand het logo opnieuw opsloeg.
     try { const cl = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/logo'))).val(); if (cl) info.clubLogo = cl; } catch (e) {}
+    // De sport van de club gaat mee naar de ploeg, om dezelfde reden als de naam: een trainer of kijker
+    // mag clubs/{id} niet lezen. Enkel als de club een andere sport heeft dan voetbal; ontbreekt het
+    // veld, of mislukt het lezen, dan is de ploeg voetbal — de oude werking. Zie SPORTS in core.js.
+    try { const sp = (await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val(); if (SPORTS[sp] && sp !== SPORT_STANDAARD) info.sport = sp; } catch (e) {}
+  }
+  // MINIVOETBAL IS ALTIJD 5 TEGEN 5 (Tim, 21-11-2026): wat de aanroeper ook meegaf (de voetbalbond-koppeling gaf vroeger een voetbal-
+  // formaat mee), een ploeg van een minivoetbalclub start met 5v5 in 4 blokken van 13 minuten. De sport komt uit de club hierboven.
+  if (info.sport === 'minivoetbal') {
+    dMatchType = '5v5'; dForms = FORMATIONS['5v5'] || [];
+    if (!dForms.some(f => f.name === defaultFormation)) dFormation = dForms[0] ? dForms[0].name : '';
+    dPeriodKey = 'kwarten'; dDur = 13;
   }
   await fbdb.ref('teams/' + teamId).set({
     info,
@@ -4893,7 +4916,7 @@ function speeldagKaartHtml(rij) {
   // een gewonnen reeks als winst — dus stond hier een groene 1-1 zonder uitleg. Zelfde regeltje als
   // in de wedstrijdenlijst (matchItemHtml), zodat het overal hetzelfde leest.
   const pen = toonShootout(m)
-    ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">pen. ${esc(shootoutTxt(m))}</span>`
+    ? `<span style="display:block;font-size:9.5px;font-weight:700;color:var(--txt2);white-space:nowrap">${reeksKort()} ${esc(shootoutTxt(m))}</span>`
     : '';
   // OOK EEN LOPENDE WEDSTRIJD KLEURT (Tim, 17-10-2026: "de score van een lopende wedstrijd ook al in
   // het rood of groen, afhankelijk van of we aan het winnen of verliezen zijn"). De kleur kwam hier
@@ -5431,11 +5454,21 @@ function initTeamReorder() {
 }
 
 let _pendingCreateClubId = null; // club waarin een nieuwe ploeg wordt aangemaakt (clubbeheer-flow)
-function showCreateTeamModal(clubId) {
+let _pendingCreateSport = SPORT_STANDAARD; // sport van die club: bepaalt welke vormen en duren de keuzelijsten tonen
+async function showCreateTeamModal(clubId) {
   // Als er een eigenaar is ingesteld en je bent niet goedgekeurd → eerst toestemming vragen.
   // Uitzondering: een clubbeheerder mag altijd een ploeg aanmaken binnen zijn eigen club.
   if (ownerUid && !isApprovedAdmin && !(clubId && myClubs[clubId])) { showRequestAdminModal(); return; }
   _pendingCreateClubId = clubId || null;
+  // De sport van DEZE club, niet van de ploeg die je nu toevallig open hebt: de eigenaar maakt hier ook
+  // ploegen aan voor andere clubs. Lukt het lezen niet, dan is het voetbal (de oude werking).
+  _pendingCreateSport = SPORT_STANDAARD;
+  if (clubId && fbdb) { try { _pendingCreateSport = sportVan((await fbOnce(fbdb.ref('clubs/' + clubId + '/info/sport'))).val()); } catch (e) {} }
+  const sp = _pendingCreateSport;
+  const sd = sportStandaard(sp);   // null bij voetbal: daar blijven 8v8 en 4 x 15 de standaard
+  const mt0 = sd ? sd.matchType : '8v8';
+  const pk0 = sd ? sd.periodKey : 'kwarten';
+  const dur0 = sd ? sd.dur : DUR_DEFAULT['kwarten'];
   // In clubcontext: laat de clubbeheerder kiezen of hij deze ploeg zelf mee beheert (als lid) of
   // enkel via zijn clubrol. Standaard aangevinkt, want in de praktijk beheert hij ze vaak zelf.
   // MAAR NIET ALS JE DEZE CLUB ZELF NIET BEHEERT (v1.41.0). Sinds de knop ook in App-beheer → Clubs
@@ -5446,11 +5479,11 @@ function showCreateTeamModal(clubId) {
   const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join"${zelfBeheerder ? ' checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
-    <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>
-    <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS['8v8'].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
-    <div class="fg"><label>Standaard aantal blokken</label><select id="ct-pk" onchange="ctPeriodChange()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k==='kwarten'?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${matchTypesVoorSport(sp).map(k => `<option value="${k}" ${k===mt0?'selected':''}>${sp === SPORT_STANDAARD ? k : matchTypeLabel(k, sp)}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard opstelling</label><select id="ct-form">${FORMATIONS[mt0].map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('')}</select></div>
+    <div class="fg"><label>Standaard aantal blokken</label><select id="ct-pk" onchange="ctPeriodChange()">${Object.keys(PERIOD_TYPES).map(k => `<option value="${k}" ${k===pk0?'selected':''}>${PERIOD_TYPES[k].count} ${PERIOD_TYPES[k].plural}</option>`).join('')}</select></div>
     <div class="fg"><label>Standaard duur per blok</label>
-      <select id="ct-dur" onchange="onDurChange('ct-dur','ct-dur-custom')">${durOptsHtml('kwarten', DUR_DEFAULT['kwarten'])}</select>
+      <select id="ct-dur" onchange="onDurChange('ct-dur','ct-dur-custom')">${durOptsHtml(pk0, dur0, sp)}</select>
       <input id="ct-dur-custom" type="number" min="1" max="60" inputmode="numeric" placeholder="minuten per blok" style="display:none;margin-top:6px"></div>
     <p style="font-size:12px;color:var(--txt2);margin:-4px 0 12px">Staat klaar bij een nieuwe wedstrijd en bij het inlezen van een kalender; je kan het per wedstrijd nog aanpassen en later wijzigen bij "Ploeg bewerken".</p>
     ${joinRow}
@@ -5464,12 +5497,21 @@ function ctFormatChange() {
   const mt = (document.getElementById('ct-mt') || {}).value || '8v8';
   const sel = document.getElementById('ct-form'); if (!sel) return;
   sel.innerHTML = (FORMATIONS[mt] || []).map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`).join('');
+  // Bij hockey hoort bij de vorm ook een speelduur: zaal is 4 x 15, veld 2 x 35. Voetbal heeft dat niet.
+  const sd = sportStandaard(_pendingCreateSport, mt);
+  const pk = document.getElementById('ct-pk'), dur = document.getElementById('ct-dur');
+  if (sd && pk && dur && _pendingCreateSport === 'hockey') {
+    pk.value = sd.periodKey;
+    dur.innerHTML = durOptsHtml(sd.periodKey, sd.dur, _pendingCreateSport);
+    const inp = document.getElementById('ct-dur-custom'); if (inp) inp.style.display = 'none';
+  }
 }
 // Idem voor de duurtijden: welke er te kiezen zijn, hangt af van het aantal blokken.
 function ctPeriodChange() {
   const pk = (document.getElementById('ct-pk') || {}).value || 'kwarten';
   const sel = document.getElementById('ct-dur'); if (!sel) return;
-  sel.innerHTML = durOptsHtml(pk, DUR_DEFAULT[pk]);
+  const sd = sportStandaard(_pendingCreateSport, (document.getElementById('ct-mt') || {}).value);
+  sel.innerHTML = durOptsHtml(pk, (sd && sd.periodKey === pk) ? sd.dur : DUR_DEFAULT[pk], _pendingCreateSport);
   const inp = document.getElementById('ct-dur-custom'); if (inp) inp.style.display = 'none';
 }
 async function doCreateTeam() {
@@ -5942,8 +5984,10 @@ function evtLabelBasis(e, m, kort) {
     case 'goal_them': return `${icI(IC.goal)} Doelpunt ${esc(oppName(m))}${hoe}`;
     case 'own_goal': return `${icI(IC.goal)} Owngoal (${pn(e.playerId)})${hoe}`;
     case 'own_goal_them': return `${icI(IC.goal)} Owngoal tegenstander${hoe}`;
-    case 'corner_us': { let s = `${icI(IC.corner)} Hoekschop voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
-    case 'corner_them': { let s = `${icI(IC.corner)} Hoekschop tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
+    case 'cornerbal_mis_us': return `${icI(IC.corner)} Cornerbal gemist · ${esc(tName(m))}`;
+    case 'cornerbal_mis_them': return `${icI(IC.corner)} Cornerbal tegen gemist`;
+    case 'corner_us': { let s = `${icI(IC.corner)} ${e.protest ? 'Protestcorner' : cornerWoord()} voor ${esc(tName(m))}`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; if (e.playerId) s += ` · ${pn(e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${icI(IC.corner)} ${e.protest ? 'Protestcorner' : cornerWoord()} tegen`; if (e.cornerType) s += ` · ${esc(e.cornerType)}`; return s; }
     // Sinds v0.49.0 kan een wissel eenzijdig zijn; "X voor ?" was de weergave van een lege kant.
     // ELKE NAAM DRAAGT ZIJN EIGEN KANT (Tim, 30-08-2026). Dit stond als "Jan voor Piet" — wie erin
     // kwam vooraan, "voor" wie eraf ging. In een lijst is dat niet te lezen: "voor" betekent net zo
@@ -5963,13 +6007,15 @@ function evtLabelBasis(e, m, kort) {
     }
     case 'posSwap': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${esc(posSwapBeweging(m, e, '→'))}`;
     case 'posSwapReeks': return `${icI(IC.compass)} ${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${esc(posSwapReeksTekst(m, e.events, '→'))}`;
-    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}`;
+    case 'yellow_card': return `${icI(IC.cardY)} Gele kaart ${pn(e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card': return `${icI(IC.cardG)} Groene kaart ${pn(e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card_them': return `${icI(IC.cardG)} Groene kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     // Rood na twee keer geel krijgt het geel-rode kaartje van het bondsblad (IC.cardYR), niet twee
     // losse kaartjes naast elkaar: het is één gebeurtenis.
     case 'red_card': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} ${pn(e.playerId)}`;
     // Kaart voor een tegenspeler: geen naam (we kennen de kern van de tegenstander niet), hooguit het
     // rugnummer dat aan de lijn genoteerd is.
-    case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
+    case 'yellow_card_them': return `${icI(IC.cardY)} Gele kaart tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card_them': return `${icI(isTweedeGeel(e) ? IC.cardYR : IC.cardR)} ${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${esc(e.oppNumber)}` : ''}`;
     // DEZELFDE VORM ALS OVERAL ELDERS (Tim, 04-10-2026). Eerst stond de rol hier vooraan — "Gele
     // kaart trainer · Jan Peeters" — terwijl het onder het velddiagram en bij de statistieken "Jan
@@ -5978,13 +6024,13 @@ function evtLabelBasis(e, m, kort) {
     // trainer", precies zoals voordien.
     case 'yellow_card_trainer': return `${icI(IC.cardY)} Gele kaart ${esc(stafZin(e, m))}`;
     case 'red_card_trainer': return `${icI(IC.cardR)} Rode kaart ${esc(stafZin(e, m))}`;
-    case 'penalty_us': return `${icI(IC.penalty)} Penalty voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
-    case 'penalty_them': return `${icI(IC.penalty)} Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'penalty_us': return `${icI(IC.penalty)} ${penaltyWoord()} voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `${icI(IC.penalty)} ${penaltyWoord()} tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
     // De reden staat er grijs achter (v1.92.0): buitenspel, fout, of wat je zelf intikte. Bij een
     // vrije trap VOOR ons is `playerId` wie ze neemt; bij een vrije trap TEGEN ons is het onze speler
     // die de fout maakte — vandaar het woordje "door", anders leest het als de nemer.
-    case 'freekick_us': return `${icI(IC.bolt)} Vrije trap voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.fouledId?` <span style="color:var(--txt2)">(fout op ${pn(e.fouledId)})</span>`:''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
-    case 'freekick_them': return `${icI(IC.bolt)} Vrije trap tegen${e.playerId?' · door '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
+    case 'freekick_us': return `${icI(IC.bolt)} ${vrijeWoord()} voor ${esc(tName(m))}${e.playerId?' · '+pn(e.playerId):''}${e.fouledId?` <span style="color:var(--txt2)">(fout op ${pn(e.fouledId)})</span>`:''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
+    case 'freekick_them': return `${icI(IC.bolt)} ${vrijeWoord()} tegen${e.playerId?' · door '+pn(e.playerId):''}${e.reden?` <span style="color:var(--txt2)">(${esc(e.reden)})</span>`:''}`;
     // 'vertrokken' is geen blessure maar dezelfde registratie: de speler verlaat het veld en zijn
     // teller stopt (zie markLeftField). Dan ook geen blessurewoord en geen "verlaat veld" erachter —
     // dat staat al in het woord zelf.
@@ -6016,8 +6062,10 @@ function evtLabelPlainBasis(e, m) {
     case 'goal_them': return `Doelpunt ${oppName(m)}${hoe}`;
     case 'own_goal': return `Owngoal (${pName(m,e.playerId)})${hoe}`;
     case 'own_goal_them': return `Owngoal tegenstander${hoe}`;
-    case 'corner_us': { let s = `Hoekschop voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
-    case 'corner_them': { let s = 'Hoekschop tegen'; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
+    case 'cornerbal_mis_us': return `Cornerbal gemist · ${tName(m)}`;
+    case 'cornerbal_mis_them': return 'Cornerbal tegen gemist';
+    case 'corner_us': { let s = `${e.protest ? 'Protestcorner' : cornerWoord()} voor ${tName(m)}`; if (e.cornerType) s += ` · ${e.cornerType}`; if (e.playerId) s += ` · ${pName(m,e.playerId)}`; return s; }
+    case 'corner_them': { let s = `${e.protest ? 'Protestcorner' : cornerWoord()} tegen`; if (e.cornerType) s += ` · ${e.cornerType}`; return s; }
     // Zie evtLabel hierboven voor het waarom van IN:/UIT: en waarom hier geen pijltjes staan.
     case 'substitution': {
       const kop = e.atBreak ? 'Rustwissel · ' : '';   // zie evtLabel: geen twee dubbele punten
@@ -6029,16 +6077,18 @@ function evtLabelPlainBasis(e, m) {
     // deze regel als enige met een kapot/leeg glyph in de PDF verscheen.
     case 'posSwap': return `${e.atBreak?'Rust-positiewissel: ':'Positiewissel: '}${posSwapBeweging(m, e, 'naar')}`;
     case 'posSwapReeks': return `${e.atBreak?'Rust-positiewissels: ':'Positiewissels: '}${posSwapReeksTekst(m, e.events, 'naar')}`;
-    case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}`;
+    case 'yellow_card': return `Gele kaart ${pName(m,e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card': return `Groene kaart ${pName(m,e.playerId)}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
+    case 'green_card_them': return `Groene kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card': return `${roodWoord(e)} ${pName(m,e.playerId)}`;
-    case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
+    case 'yellow_card_them': return `Gele kaart tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}${e.duurMin ? ` · ${e.duurMin} min eruit` : ''}`;
     case 'red_card_them': return `${roodWoord(e)} tegenstander${e.oppNumber ? ` · nr. ${e.oppNumber}` : ''}`;
     case 'yellow_card_trainer': return `Gele kaart ${stafZin(e, m)}`;
     case 'red_card_trainer': return `Rode kaart ${stafZin(e, m)}`;
-    case 'penalty_us': return `Penalty voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
-    case 'penalty_them': return `Penalty tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
-    case 'freekick_us': return `Vrije trap voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.fouledId?` (fout op ${pName(m,e.fouledId)})`:''}${e.reden?` (${e.reden})`:''}`;
-    case 'freekick_them': return `Vrije trap tegen${e.playerId?' · door '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
+    case 'penalty_us': return `${penaltyWoord()} voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.scored===true?' — GOAL':e.scored===false?' — gemist':''}`;
+    case 'penalty_them': return `${penaltyWoord()} tegen${e.scored===true?' — tegendoel':e.scored===false?' — gemist':''}`;
+    case 'freekick_us': return `${vrijeWoord()} voor ${tName(m)}${e.playerId?' · '+pName(m,e.playerId):''}${e.fouledId?` (fout op ${pName(m,e.fouledId)})`:''}${e.reden?` (${e.reden})`:''}`;
+    case 'freekick_them': return `${vrijeWoord()} tegen${e.playerId?' · door '+pName(m,e.playerId):''}${e.reden?` (${e.reden})`:''}`;
     case 'injury': { if (e.injuryType === 'vertrokken') return `Verliet de wedstrijd · ${pName(m,e.playerId)}${e.reason ? ` (${e.reason})` : ''}`; const it = e.injuryType==='kramp'?'Kramp':e.injuryType==='licht'?'Lichte blessure':'Ernstige blessure'; return `${it} · ${pName(m,e.playerId)}${e.leavesField?' — verlaat veld':''}${e.notReturning?' (komt niet meer terug)':''}`; }
     case 'shot_us': return `Schot voor ${tName(m)}${e.onTarget?' (op doel)':''}`;
     case 'shot_them': return `Schot tegen${e.onTarget?' (op doel)':''}`;
@@ -6427,6 +6477,7 @@ function updateTimerDisplay() {
   // Stilgezet = gedempt én met het opschrift PAUZE eronder (Tims keuze, 24-08-2026). De kleur hoort
   // hier en niet enkel in de render: deze functie tikt elke seconde en zette ze anders weer terug.
   const gepauzeerd = !!(q && q.startTime && q.pausedAt && !q.endTime);
+  if (typeof updateSchorsingen === 'function') updateSchorsingen();
   el.textContent = timerText(match);
   el.style.color = overtime ? 'var(--org)' : (gepauzeerd ? 'var(--org)' : '');
   el.style.opacity = gepauzeerd ? '.6' : '';
@@ -6770,7 +6821,67 @@ function fieldName(m, id) {
   if (!p) return '?';
   return fieldDisplayNames(m.players).get(id) || _firstName(p.name || '');
 }
-function pitchLines() {
+// WELK VELD, per sport. Voetbal: het grasveld. Minivoetbal: het zaalveld. Hockey: het hockeyveld, en in de zaal (wedstrijd
+// met `zaal: true`) het zaalhockeyveld. `pitchKlasse` geeft de CSS-klassen van het vak, `pitchLines` de belijning; beide
+// kiezen op de sport van de actieve ploeg en, bij hockey, op de wedstrijd.
+function veldVariant(m) {
+  if (activeSport === 'minivoetbal') return 'minivoetbal';
+  if (activeSport === 'hockey') return (m && m.zaal) ? 'hockeyzaal' : 'hockey';
+  return 'voetbal';
+}
+const PITCH_KLASSE = { minivoetbal: 'pitch pitch-mv', hockey: 'pitch pitch-hk', hockeyzaal: 'pitch pitch-hkz' };
+function pitchKlasse(m) { return PITCH_KLASSE[veldVariant(m)] || 'pitch'; }
+// Het zaalveld van minivoetbal op dezelfde 320 x 480 als het grasveld. De breedte (20 m) is 320 eenheden en de lengte (40 m) 480, dus 16
+// en 12 eenheden per meter: de strafschoplijn op 5 m ligt op 60, het strafschoppunt op 15 m op 180 (en 300 aan de andere
+// kant), het cornerbalpunt op 6,25 m van het midden van de doellijn (x 60 en 260), het doel is 3 m breed (x 136 tot 184).
+// De middencirkel (4 m) is rond getekend en geen ellips, zodat hij er als cirkel uitziet in het 2:3-vak.
+function pitchLinesZaal() {
+  const l = 'rgba(255,255,255,.85)', f = 'rgba(255,255,255,.9)';
+  return `<svg class="pitch-lines" viewBox="0 0 320 480">
+    <line x1="0" y1="240" x2="320" y2="240" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="240" r="48" fill="none" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="240" r="3" fill="${f}"/>
+    <line x1="0" y1="60" x2="320" y2="60" stroke="${l}" stroke-width="2"/>
+    <line x1="0" y1="420" x2="320" y2="420" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="180" r="3" fill="${f}"/>
+    <circle cx="160" cy="300" r="3" fill="${f}"/>
+    <line x1="136" y1="1" x2="184" y2="1" stroke="#fff" stroke-width="5"/>
+    <line x1="136" y1="479" x2="184" y2="479" stroke="#fff" stroke-width="5"/>
+    <circle cx="60" cy="2" r="3.5" fill="${f}"/><circle cx="260" cy="2" r="3.5" fill="${f}"/>
+    <circle cx="60" cy="478" r="3.5" fill="${f}"/><circle cx="260" cy="478" r="3.5" fill="${f}"/>
+  </svg>`;
+}
+// HET HOCKEYVELD, afmetingen uit de spelregels van Hockey Belgium (art. 1 en de technische specificaties):
+//   buiten  91,40 x 55,00 m, 23-meterlijnen op 22,90 m, cirkel = twee kwartcirkels van 14,63 m rond de binnenkant van de
+//           doelpalen, verbonden door een lijn van 3,66 m (de breedte van het doel), strafbalstip op 6,40 m.
+//   zaal    44 x 22 m, geen 23-meterlijnen, cirkel van 9 m rond de palen met een lijn van 3 m, strafbalstip op 7 m.
+// Beide staan op de 320 x 480 van de andere velden, dus de eenheden per meter verschillen per richting (de cirkel wordt een
+// ellips in het 2:3-vak). Er is geen middencirkel in hockey, enkel de middenlijn.
+function pitchLinesHockey(zaal) {
+  const l = 'rgba(255,255,255,.88)', f = 'rgba(255,255,255,.95)';
+  const px = 320 / (zaal ? 22 : 55), py = 480 / (zaal ? 44 : 91.4);
+  const half = (zaal ? 1.5 : 1.83) * px, p1 = 160 - half, p2 = 160 + half;
+  const R = zaal ? 9 : 14.63, rx = R * px, ry = R * py, stip = (zaal ? 7 : 6.4) * py;
+  const n = v => Math.round(v * 100) / 100;
+  const boven = `M ${n(p1 - rx)} 0 A ${n(rx)} ${n(ry)} 0 0 0 ${n(p1)} ${n(ry)} L ${n(p2)} ${n(ry)} A ${n(rx)} ${n(ry)} 0 0 0 ${n(p2 + rx)} 0`;
+  const onder = `M ${n(p1 - rx)} 480 A ${n(rx)} ${n(ry)} 0 0 1 ${n(p1)} ${n(480 - ry)} L ${n(p2)} ${n(480 - ry)} A ${n(rx)} ${n(ry)} 0 0 1 ${n(p2 + rx)} 480`;
+  const w23 = 22.9 * py;
+  return `<svg class="pitch-lines" viewBox="0 0 320 480">
+    <line x1="0" y1="240" x2="320" y2="240" stroke="${l}" stroke-width="2"/>
+    ${zaal ? '' : `<line x1="0" y1="${n(w23)}" x2="320" y2="${n(w23)}" stroke="${l}" stroke-width="2"/>
+    <line x1="0" y1="${n(480 - w23)}" x2="320" y2="${n(480 - w23)}" stroke="${l}" stroke-width="2"/>`}
+    <path d="${boven}" fill="none" stroke="${l}" stroke-width="2"/>
+    <path d="${onder}" fill="none" stroke="${l}" stroke-width="2"/>
+    <circle cx="160" cy="${n(stip)}" r="3" fill="${f}"/>
+    <circle cx="160" cy="${n(480 - stip)}" r="3" fill="${f}"/>
+    <line x1="${n(p1)}" y1="1" x2="${n(p2)}" y2="1" stroke="#fff" stroke-width="5"/>
+    <line x1="${n(p1)}" y1="479" x2="${n(p2)}" y2="479" stroke="#fff" stroke-width="5"/>
+  </svg>`;
+}
+function pitchLines(m) {
+  const v = veldVariant(m);
+  if (v === 'minivoetbal') return pitchLinesZaal();
+  if (v === 'hockey' || v === 'hockeyzaal') return pitchLinesHockey(v === 'hockeyzaal');
   return `<svg class="pitch-lines" viewBox="0 0 320 480">
     <line x1="0" y1="240" x2="320" y2="240" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
     <circle cx="160" cy="240" r="43" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"/>
@@ -6886,7 +6997,7 @@ function renderPitch(m, players, captainId, qNum, tap, uitPlan) {
   const verplaats = (m && !tap) ? (uitPlan ? planPosRijen(m, qNum) : periodPosSwapList(m, qNum)) : [];
   // Kaarten bestaan niet in een plan: je plant geen gele kaart. Dus bij uitPlan nooit een kaartregel.
   const kaarten = (m && !tap && !uitPlan) ? periodCardList(m, qNum) : [];
-  return `<div class="pitch">${pitchLines()}${pitchOpenPlekken(m, players, tap)}${dots}</div>
+  return `<div class="${pitchKlasse(m)}">${pitchLines(m)}${pitchOpenPlekken(m, players, tap)}${dots}</div>
   ${/* De drie soorten door elkaar, op tijd gesorteerd: een positiewissel op 8' hoort boven een
         wissel op 12' te staan, en een kaart op 10' daartussen. Apart onder elkaar zetten leest als
         losse lijstjes en dwingt de lezer om zelf de volgorde te maken. */ ''}
@@ -7267,7 +7378,7 @@ function matchItemHtml(m) {
   const uitslagKleur = st === 'done' ? resultaatKleur(m) : '';
   const right = zonderScore
     ? `<div style="text-align:right;font-size:13px;color:var(--txt2);font-weight:600">${m.location || ''}</div>`
-    : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">pen. ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
+    : `<div style="text-align:right"><div class="mi-score"${uitslagKleur ? ` style="color:${uitslagKleur}"` : ''}>${scoreTxt(m)}</div>${toonShootout(m) ? `<div style="font-size:11px;color:var(--txt2);font-weight:700;white-space:nowrap">${reeksKort()} ${esc(shootoutTxt(m))}</div>` : ''}</div>`;
   const sdata = `${m.opponent||''} ${m.teamName||''} ${m.subteam||''} ${m.location||''} ${m.competition||''} ${matchWhen(m)}`.toLowerCase();
   const ownLabel = esc(tName(m)) + (m.subteam ? ` (${esc(m.subteam)})` : '');
   // MAG WIE HIER KIJKT DEZE RIJ OPENEN? Zie matchOpenbaarVoorMij in core.js. Sinds v2.4.0 mag een
@@ -7895,7 +8006,7 @@ const BULK_VELDEN = [
   { key: 'jersey',          label: 'Truikleur',              soort: 'tekst', plaatshouder: 'bv. rood-wit' },
   { key: 'trainer',         label: 'Trainer',                soort: 'tekst', plaatshouder: 'naam' },
   { key: 'responsible',     label: 'Afgevaardigde', soort: 'tekst', plaatshouder: 'naam' },
-  { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => Object.keys(MATCH_TYPES) },
+  { key: 'matchType',       label: 'Wedstrijdvorm',          soort: 'keuze', enkelGepland: true, opties: () => matchTypesVoorSport() },
   // LET OP — dit veld zit in TWEE eigenschappen: periodKey ('kwarten') én numQuarters (4). Overal in
   // de app worden die samen gezet (zie wizPeriodChange, trnPeriodChange), en "1 deel" is de
   // uitzondering die het duidelijk maakt: dat is periodKey 'delen' mét numQuarters 1, terwijl
@@ -8171,7 +8282,7 @@ async function loadMatches() {
   const nieuwBtn = canManage() ? `<button class="btn btn-org" onclick="newMatch()" style="margin-bottom:8px">${icI(IC.ball)} + Nieuwe wedstrijd</button>` : '';
   const impBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="impStart()">${icI(IC.upload)} Kalender importeren</button>` : '';
   // Het blad van de trainer inlezen zonder eerst de wedstrijd te openen: de app zoekt ze zelf (psdStartLos).
-  const psdBtn = canManage() ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="psdStartLos()">${icI(IC.clipboard)} Voorbereiding inlezen</button>` : '';
+  const psdBtn = (canManage() && voetbalbondImport()) ? `<button class="btn btn-orgpale btn-sm" style="margin:0" onclick="psdStartLos()">${icI(IC.clipboard)} Voorbereiding inlezen</button>` : '';
   const maakBtns = nieuwBtn + (impBtn ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${impBtn}${psdBtn}</div>` : '');
   if (!all.length) {
     // Ook hier stond "tik dan +" terwijl die knop (met de andere twee) enkel voor een beheerder

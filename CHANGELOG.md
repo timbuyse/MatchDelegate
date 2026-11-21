@@ -9,6 +9,76 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.39.0
+
+Hockey en minivoetbal naast voetbal: de sport ligt vast per club. Deze versie voegt de tussenversies 2.31.4 tot 2.31.10 van een aparte
+werkbranch samen en staat boven de versies van master (tot en met 2.38.0).
+
+- **Minivoetbal is altijd 5 tegen 5.** Een ploeg van een minivoetbalclub die vroeger met een voetbalformaat (8v8 of 11v11) werd
+  aangemaakt, start een nieuwe wedstrijd nu toch als 5v5 in 4 blokken van 13 minuten, en het ploegscherm toont en bewaart 5 tegen 5.
+  Een nieuwe ploeg in een minivoetbalclub wordt altijd zo aangemaakt, wat de aanroeper ook meegeeft. Voetbal en hockey ongewijzigd.
+
+- **Hockey: kaarten met een tijd.** Groene kaart (2 min, zaal 1) en gele kaart (buiten 5 of 10 min, zaal 2 of 4, te kiezen per
+  kaart) zijn tijdelijke schorsingen: de speler gaat eruit zonder invaller en onder de stand loopt een aftelling per
+  geschorste speler, in speeltijd. Is de tijd om, dan staat er een knop "terug op het veld". Een geschorste speler kan niet
+  gewisseld worden zolang zijn straftijd loopt. Een kaart voor de tegenstander telt ook af. Een tweede gele geeft in hockey geen
+  rood; rood blijft blijvend. Nieuwe gebeurtenissen `green_card`/`green_card_them` en een optioneel `tijdelijk`/`duurMin` op
+  gele kaarten; eruit gaan en terugkeren zijn gewone wissels zonder invaller, dus opstelling en speelminuten kloppen vanzelf.
+- **Hockeyvelden:** een blauwgroen veld met de schietcirkel (14,63 m), de 23-meterlijnen en de strafbalstip, en in de zaal een houten
+  vloer met de cirkel van 9 m, op de afmetingen uit de spelregels. Ook in de pdf. Een wedstrijd onthoudt of ze in de zaal
+  gespeeld wordt (optioneel veld `zaal`): vinkje "Zaalhockey" bij een nieuwe wedstrijd en in "Info bewerken", en de import zet het voor
+  "Indoor"-wedstrijden (dan 6v6, 4 x 15).
+- **Hockeywoorden:** Strafcorner, Strafbal, Vrije slag, en bij "Hoe viel het?" Strafcorner, Vrije slag en Inslag. De knoppen staan
+  anders: de drie kaarten op één rij, de vrije slag onder "Meer".
+- **Minivoetbal: het voorgestelde formaat bij de voetbalbond-koppeling** is nu altijd 5 tegen 5 in 4 x 13 minuten, voor elke
+  leeftijd. Voorheen volgde het de leeftijdstabel van het voetbal (8v8 en 11v11).
+
+- **Minivoetbal: corners en cornerbal volgens de spelregels.** Corners zijn een teller: na de vierde corner krijgt een
+  ploeg een cornerbal en zakt de teller met vier. De stand toont "Corners 2 – 3", en bij de vierde corner opent een
+  venster om de cornerbal vast te leggen (doelpunt of niet). Een gescoorde cornerbal is een gewoon doelpunt met "Hoe viel
+  het?" = Cornerbal, de koppende speler als doelpuntenmaker en de trapper als assist, zodat stand en statistieken vanzelf
+  kloppen. Een gemiste cornerbal is een nieuwe gebeurtenis die de stand niet raakt. Ook een protestcorner telt mee. Een
+  cornerbal die nog niet vastgelegd is, blijft als knop onder de stand staan.
+- **Cornerbalreeks bij gelijkspel** in plaats van strafschoppen ("1-1 · cb. 2-1"), met dezelfde gegevens als de
+  strafschoppenreeks.
+- **Zaalveld voor minivoetbal:** blauwe vloer met de belijning uit het reglement (strafschoplijn op 5 m, middencirkel van 4 m,
+  strafschoppunt op 15 m, cornerbalpunten), op het scherm en in de pdf.
+- **Eigen woorden per sport:** "Corner" en "Intrap" bij minivoetbal, "Strafcorner" en "Shoot-out" bij hockey. Voetbal blijft
+  ongewijzigd.
+
+- **Hockey-import: één ploeg per leeftijd en geslacht.** U7B-1, U7B-2 en U7B-3 zijn drie labels van dezelfde
+  U7-jongensploeg en komen nu samen in één ploeg "U7B". Elke wedstrijd draagt het label van zijn eigen team in het
+  bestaande veld "Ploeg-label" (de kaart toont "U7B (U7B-3)"; de statistieken filteren erop). Een wedstrijd tussen
+  twee labels van dezelfde bundel is één wedstrijd, geen twee. De lijst toont per bundel de labels, het formaat en het
+  aantal wedstrijden.
+
+- **Hockey-import: het programma wordt per maand opgevraagd.** De bron van hockey.be bleek een heel seizoen in
+  één verzoek leeg te kunnen beantwoorden, waardoor de import "geen wedstrijden dit seizoen" meldde terwijl die er
+  wel waren. Nu twaalf kleine verzoeken, samengevoegd en ontdubbeld. De melding zegt ook wat er misging: niets
+  ontvangen, of wel ontvangen maar niet leesbaar.
+
+- **Hockey: ploegen en kalender inlezen vanaf hockey.be.** In Clubbeheer van een hockeyclub staat nu de knop
+  "Ploegen van Hockey Belgium". De clubbeheerder zoekt zijn club, ziet de jeugdploegen (U7 tot U19) die uit het
+  seizoenprogramma volgen, en maakt ze met één tik aan, elk met hun volledige kalender. Een tweede keer inlezen
+  voegt enkel nieuwe wedstrijden toe en past verzette aan. Startwaarden per leeftijd: U7-U8 3 tegen 3, U9 6 tegen 6,
+  U10-U12 8 tegen 8, vanaf U14 11 tegen 11. Nieuw, optioneel veld `hbeKey` op een wedstrijd (voor het ontdubbelen) en
+  `hbeClubId`/`hbeCode` op de ploeg; bestaande gegevens blijven ongewijzigd.
+- **Hockey kent nu 3v3, 6v6, 8v8 en 11v11**, en "6 tegen 6" draagt geen "(zaal)" meer: U9 speelt het ook op het veld.
+- **De voetbalbond-onderdelen verdwijnen voor hockey:** "Ploegen van de voetbalbond", "Kalender van de voetbalbond",
+  "Wedstrijdinfo ophalen" en het inlezen van het ProSoccerData-blad.
+- Bugfix: een gekozen wedstrijdvorm kon door de standaard van de sport overschreven worden.
+
+- **Eerste stap naar hockey en minivoetbal: de sport ligt vast per club.** Bij het aanmaken van een club
+  kiest de eigenaar voetbal, hockey of minivoetbal (`clubs/{id}/info/sport`); de sport wordt als bij
+  `clubName` gekopieerd naar elke ploeg van die club. Een ontbrekend veld betekent voetbal, dus bestaande
+  clubs en wedstrijden blijven ongewijzigd en er is geen migratie.
+- **Wedstrijdvormen en duren per sport.** Voetbal houdt 3v3 tot 11v11. Hockey kiest tussen veld (11v11,
+  standaard 2 x 35) en zaal (nieuw 6v6, standaard 4 x 15); de speelduur schuift mee met de vorm.
+  Minivoetbal speelt 5v5 met 4 x 13. De keuzelijsten (wizard, ploegbewerker, nieuwe ploeg, tornooi,
+  kalenderimport, bulkbewerking) tonen enkel de vormen van de sport.
+
+---
+
 ## v2.38.0
 
 - **Cijfers van een trainer zonder account.** In het blok Trainers op het clubscherm staat bij elke trainer zonder koppeling nu naast "Koppelen" ook een knop **Cijfers**. Die opent dezelfde trainerspagina op zijn naam (gespeeld, winst-gelijk-verlies, kaarten, per ploeg en per seizoen), zonder dat hij een account hoeft te hebben: de cijfers hangen aan de naam in de wedstrijden. Op de pagina staat dat hij niet aan een account gekoppeld is. Enkel de eigenaar en de clubbeheerders van die club kunnen dit openen; een gewone ploegbeheerder, kijker of gast niet, ook niet via de terugtoets. Bij een trainer zonder koppeling telt enkel de naam zoals hij in de trainerslijst staat: een andere schrijfwijze in oude wedstrijden telt dan niet mee.
