@@ -3561,10 +3561,14 @@ function magTrainersKoppelen() {
 }
 // Mag ik de trainerscijfers van deze koppeling zien? Mijn eigen: ja. Die van een ander: enkel de
 // eigenaar en de clubbeheerder van DIE club.
+// EEN TRAINER ZONDER ACCOUNT (Tim, 21-11-2026) heeft geen uid: de cijfers hangen aan zijn NAAM in de
+// wedstrijden, niet aan een account. Daarom komt de beheerders-toets vóór de uid-toets: de eigenaar en
+// de clubbeheerder van die club mogen ze zien, wie of wat er ook aan hangt. Een gewone ploegbeheerder
+// of kijker niet — zonder uid is er ook geen "mijn eigen" om op terug te vallen.
 function magTrainerCijfersZien(uid, clubId) {
-  if (isGuest || !currentUser || !uid) return false;
-  if (uid === currentUser.uid) return true;
-  return !!(isOwner || (clubId && myClubs && myClubs[clubId]));
+  if (isGuest || !currentUser) return false;
+  if (isOwner || (clubId && myClubs && myClubs[clubId])) return true;
+  return !!uid && uid === currentUser.uid;
 }
 // KAARTEN VOOR DE TRAINER (Tim, 21-11-2026: "soms kan een trainer ook een gele of rode kaart krijgen").
 // Een kaart voor de staf hangt aan geen speler: ze heeft `wie` (trainer of afgevaardigde) en soms
@@ -3704,7 +3708,8 @@ async function loadTrainerCijfers() {
   if (!s.seizoen || !seizoenen.includes(s.seizoen)) s.seizoen = seizoenen[0];
   const kop = `<div class="card"><div style="text-align:center">
       <div style="font-size:20px;font-weight:800">${esc(s.label || staffList(s.namen)[0] || 'Trainer')}</div>
-      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Geteld op de naam: <b>${esc(staffList(s.namen).join(', '))}</b></div></div></div>`;
+      <div style="font-size:12px;color:var(--txt2);margin-top:6px">Geteld op de naam: <b>${esc(staffList(s.namen).join(', '))}</b></div>
+      ${s.uid ? '' : '<div style="font-size:12px;color:var(--txt2);margin-top:4px">Niet gekoppeld aan een account. Enkel clubbeheerders en de eigenaar zien deze cijfers.</div>'}</div></div>`;
   const filter = `<div class="filterbar"><select onchange="setTrainerSeizoen(this.value)">
       ${seizoenen.map(z => `<option value="${z}" ${s.seizoen === z ? 'selected' : ''}>Seizoen ${z}</option>`).join('')}
     </select></div>`;
@@ -3752,9 +3757,11 @@ async function loadTrainerCijfers() {
             <span style="font-weight:700">${esc(geenUitslag(m) ? '–' : uitslagTxt(m))}</span>
             <span style="width:18px;text-align:center;font-weight:800;color:${kleur}">${r || ''}</span></div>`;
         }).join('');
-        return `<details style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}${(b.geel || b.rood) ? ' · ' + trainerKaartHtml(b.geel, b.rood) : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
+        // STANDAARD OPEN (Tim, 21-11-2026): de wedstrijden zijn wat je hier komt zien. Tik op een ploeg
+        // om ze dicht te klappen; bij een ander seizoen staan ze weer open.
+        return `<details open style="border-bottom:1px solid var(--bdr)"><summary class="stat-row" style="cursor:pointer;list-style:none;border:0"><span style="flex:1">${esc(p)}</span><span style="color:var(--txt2);font-size:13px">${b.mp} ${b.mp === 1 ? 'wedstrijd' : 'wedstrijden'}${b.mp ? ` · ${b.W}-${b.G}-${b.V}` : ''}${b.tornooi ? ` · ${b.tornooi} ${b.tornooi === 1 ? 'tornooiwedstrijd' : 'tornooiwedstrijden'}` : ''}${(b.geel || b.rood) ? ' · ' + trainerKaartHtml(b.geel, b.rood) : ''}</span><span style="color:var(--txt2);margin-left:8px">›</span></summary>${rijen}</details>`;
       }).join('')}
-        <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tik op een ploeg voor al haar wedstrijden met uitslag. Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
+        <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Tik op een ploeg om haar wedstrijden in of uit te klappen. Winst-gelijk-verlies staat er per ploeg bij. Tornooiwedstrijden staan apart en tellen niet mee in de cijfers hierboven.</p></div>
       ${tornooi ? `<div class="sec">${icI(IC.medal)} Tornooien</div><div class="card"><div class="stat-row"><span style="flex:1">Tornooiwedstrijden gespeeld</span><span style="font-weight:800">${tornooi}</span></div></div>` : ''}`;
   el.innerHTML = filter + kop + inhoud
     + `<p style="font-size:12px;color:var(--txt2);margin:10px 0 0">Enkel afgesloten wedstrijden tellen. De naam komt uit het veld "Trainer" van de wedstrijd.</p>`
@@ -3850,7 +3857,9 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
           ? `<br><small style="color:var(--grn)">${icI(IC.check)} gekoppeld${ook.length ? ` · ook bij ${esc(ook.join(', '))}` : ''}</small>`
           : '<br><small style="color:var(--txt2)">niet gekoppeld</small>'}</span>${k ? knoppen(k)
           // Bij een trainer zonder koppeling: rechtstreeks naar het koppelscherm, met zijn rij in beeld.
-          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
+          // Zonder koppeling: "Cijfers" (op zijn naam, zonder account) naast "Koppelen".
+          : `<button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTrainerCijfers('','${jsq(n)}','${jsq(n)}','${jsq(clubId)}')">${icI(IC.chart)} Cijfers</button>
+          <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="modalTrainerKiezen('${jsq(clubId)}','${jsq(n)}')">${icI(IC.clipboard)} Koppelen</button>`}</div>`;
       }).join('')}</div>`).join('');
   const losse = koppels.filter(k => !gebruikt.has(k.uid));
   // De samenvatting in de kop, zodat je ook ingeklapt ziet hoe het ervoor staat: hoeveel trainers de club

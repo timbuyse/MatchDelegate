@@ -9,10 +9,10 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
-## v2.38.0
+## v2.39.0
 
 Hockey en minivoetbal naast voetbal: de sport ligt vast per club. Deze versie voegt de tussenversies 2.31.4 tot 2.31.10 van een aparte
-werkbranch samen en brengt ze boven de huidige versie van master.
+werkbranch samen en staat boven de versies van master (tot en met 2.38.0).
 
 - **Minivoetbal is altijd 5 tegen 5.** Een ploeg van een minivoetbalclub die vroeger met een voetbalformaat (8v8 of 11v11) werd
   aangemaakt, start een nieuwe wedstrijd nu toch als 5v5 in 4 blokken van 13 minuten, en het ploegscherm toont en bewaart 5 tegen 5.
@@ -76,8 +76,22 @@ werkbranch samen en brengt ze boven de huidige versie van master.
   standaard 2 x 35) en zaal (nieuw 6v6, standaard 4 x 15); de speelduur schuift mee met de vorm.
   Minivoetbal speelt 5v5 met 4 x 13. De keuzelijsten (wizard, ploegbewerker, nieuwe ploeg, tornooi,
   kalenderimport, bulkbewerking) tonen enkel de vormen van de sport.
-- Nog niet in deze versie: hockey-events en kaarten met timer, de cornerteller en cornerbalreeks van
-  minivoetbal, en de sportspecifieke teksten.
+
+---
+
+## v2.38.0
+
+- **Cijfers van een trainer zonder account.** In het blok Trainers op het clubscherm staat bij elke trainer zonder koppeling nu naast "Koppelen" ook een knop **Cijfers**. Die opent dezelfde trainerspagina op zijn naam (gespeeld, winst-gelijk-verlies, kaarten, per ploeg en per seizoen), zonder dat hij een account hoeft te hebben: de cijfers hangen aan de naam in de wedstrijden. Op de pagina staat dat hij niet aan een account gekoppeld is. Enkel de eigenaar en de clubbeheerders van die club kunnen dit openen; een gewone ploegbeheerder, kijker of gast niet, ook niet via de terugtoets. Bij een trainer zonder koppeling telt enkel de naam zoals hij in de trainerslijst staat: een andere schrijfwijze in oude wedstrijden telt dan niet mee.
+
+---
+
+
+## v2.37.5
+
+- **Trainerscijfers: de wedstrijden per ploeg staan standaard open.** Onder "Per ploeg" stonden de ploegen dicht en moest je ze eerst aantikken. Ze staan nu open, zodat je de wedstrijden met datum, tegenstander, uitslag en W/G/V meteen ziet. Tik op een ploeg om haar lijst dicht te klappen; bij een ander seizoen staan ze weer open.
+
+---
+
 
 ## v2.37.4
 
