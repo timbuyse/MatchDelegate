@@ -558,7 +558,20 @@ function wizStep2() {
 // hebben), dus die functie is weg.
 function saveSelectionOnly() {
   // Niemand aangeduid: geen fout maar "ik vul de selectie later in" — zie bevestigZonderSelectie.
-  if (selectedCount() === 0) { bevestigZonderSelectie(); return; }
+  if (selectedCount() === 0) {
+    // VOORLOPIG OPSLAAN (Tim, 22-11-2026): wie enkel de NB's al kent, wil die bewaren en de rest later
+    // aanvullen. Dat ging niet: "niemand geselecteerd" liep langs bevestigZonderSelectie, en die wist
+    // de NB's mee. Staat er niets aan de selectie vast (opstelling per blok, klaargezette wissels) en
+    // loopt de wedstrijd niet, dan bewaren we de NB's gewoon als selectie-in-wording: geen spelers, wel
+    // absentPlayers en `lineupPending`. Hangt er wel iets aan, dan blijft de bevestiging staan.
+    const m0 = wiz.editId && match && match.id === wiz.editId ? match : null;
+    const hangtErAan = !!(m0 && (plannedLineupCount(m0) || plannedCount(m0)));
+    if (wiz.pool.some(p => p.sel === 'absent') && wiz.editStatus !== 'live' && !hangtErAan) {
+      finishWizard(false, true).then(m => { if (m) showToast('Voorlopig opgeslagen: de niet-beschikbare spelers staan erin. Vul de selectie later aan.', 'ok'); });
+      return;
+    }
+    bevestigZonderSelectie(); return;
+  }
   const alOpstelling = wiz.pool.some(p => p.sel === 'basis' && p.slot != null);
   if (!alOpstelling) { finishWizard(false, true); return; }
   // Blijft het veld half leeg — omdat je iemand uit de selectie haalde die op het veld stond, of
@@ -615,7 +628,9 @@ async function doZonderSelectie() {
   if (wiz.editId && match && match.id === wiz.editId) {
     const extra = [plannedLineupCount(match) ? `de opstelling per ${pSingLow(match)}` : '',
       plannedCount(match) ? 'de klaargezette wissels' : ''].filter(Boolean);
-    await clearSelectie(true);   // wij melden zelf
+    // NB's blijven staan: die gaf je bewust in en horen niet bij "de selectie" die je nu wist.
+    const nbBewaren = wiz.pool.filter(p => p.sel === 'absent').map(p => ({ name: p.name, rosterId: p.srcId || null, reason: p.absentReason || '' }));
+    await clearSelectie(true, nbBewaren);   // wij melden zelf
     showToast(extra.length ? `Opgeslagen zonder selectie — ook ${extra.join(' en ')} zijn weg.` : 'Opgeslagen zonder selectie.', 'ok');
     return;
   }
@@ -2131,10 +2146,10 @@ function confirmClearSelectie() {
 }
 // `eigenMelding`: de aanroeper toont zelf een melding. Gebruikt door selectieLeegmaken, dat er ook
 // bij zegt wat er méé verdween — anders stonden er twee meldingen achter elkaar.
-async function clearSelectie(eigenMelding) {
+async function clearSelectie(eigenMelding, behoudNB) {
   const m = match; if (!m || !canManage() || (m.status || 'planned') !== 'planned') return;
   m.players = [];
-  m.absentPlayers = [];
+  m.absentPlayers = Array.isArray(behoudNB) ? behoudNB : [];
   delete m.lineupPending;   // zonder selectie zegt "opstelling nog te maken" niets meer
   delete m.plannedLineups;
   delete m.plannedSubs;

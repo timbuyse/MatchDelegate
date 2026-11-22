@@ -1328,8 +1328,11 @@ async function psdOvernemen(bevestigd, enkelSelectie) {
   await editMatchWizard(m0);
   if (!wiz) { showToast('De ploeg van deze wedstrijd kon niet geladen worden.', 'err'); return; }
 
-  // 1. Iedereen op 'none', daarna de selectie van het blad erop leggen.
-  wiz.pool.forEach(p => { p.sel = 'none'; p.slot = null; });
+  // 1. Iedereen op 'none', daarna de selectie van het blad erop leggen. Behalve de NB's die er al
+  //    stonden (Tim, 22-11-2026): die gaf je bewust in, dus ze blijven NB — tenzij het blad de speler
+  //    wél in de selectie of opstelling zet, want dan is hij er blijkbaar toch bij (zie hieronder).
+  const reedsNB = new Map(wiz.pool.filter(p => p.sel === 'absent').map(p => [p.pid, p.absentReason || '']));
+  wiz.pool.forEach(p => { p.sel = reedsNB.has(p.pid) ? 'absent' : 'none'; p.slot = null; if (p.sel !== 'absent') p.absentReason = ''; });
   // Wie niet uit de eigen kern komt, staat nog niet in de selectielijst van de wizard: de losse
   // spelers en de gasten uit een zusterploeg erbij zetten (v1.17.0). Dit gebeurt NA editMatchWizard,
   // want die bouwt de lijst opnieuw op. Dezelfde velden als de knoppen "Losse speler" en "Speler van
@@ -1349,7 +1352,7 @@ async function psdOvernemen(bevestigd, enkelSelectie) {
     if (!rid) return;
     const p = poolOp(rid);
     if (!p) return;
-    p.sel = 'bank';
+    p.sel = 'bank'; p.absentReason = '';   // stond hij als NB, dan is hij er volgens het blad toch bij
     // Het rugnummer van het blad, ENKEL VOOR DEZE WEDSTRIJD (Tim, 04-09-2026). Het gaat op de
     // pool-regel staan en die wordt in finishWizard de speler van deze wedstrijd — de kern blijft
     // onaangeroerd. Zo hoeft een ploeg rugnummers niet aan te zetten om ze op één blad te gebruiken,

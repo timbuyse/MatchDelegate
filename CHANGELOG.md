@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.1
+
+- **Selectie voorlopig opslaan met enkel NB's.** Heb je op de selectiestap alleen niet-beschikbare spelers aangeduid, dan bewaart "Opslaan" die nu, zodat je de rest later aanvult. Hangt er al een plan aan de wedstrijd, dan blijft de bevestigingsvraag, maar die wist de NB's niet meer mee.
+- **Voorbereiding inlezen behoudt NB's.** Wie al als NB stond, blijft NB, tenzij het blad hem wel in de selectie of opstelling zet.
+
+---
+
 ## v2.38.0
 
 - **Cijfers van een trainer zonder account.** In het blok Trainers op het clubscherm staat bij elke trainer zonder koppeling nu naast "Koppelen" ook een knop **Cijfers**. Die opent dezelfde trainerspagina op zijn naam (gespeeld, winst-gelijk-verlies, kaarten, per ploeg en per seizoen), zonder dat hij een account hoeft te hebben: de cijfers hangen aan de naam in de wedstrijden. Op de pagina staat dat hij niet aan een account gekoppeld is. Enkel de eigenaar en de clubbeheerders van die club kunnen dit openen; een gewone ploegbeheerder, kijker of gast niet, ook niet via de terugtoets. Bij een trainer zonder koppeling telt enkel de naam zoals hij in de trainerslijst staat: een andere schrijfwijze in oude wedstrijden telt dan niet mee.
