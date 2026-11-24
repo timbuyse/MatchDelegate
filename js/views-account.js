@@ -7183,13 +7183,15 @@ const views = {
         </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
         ${/* HIER PAST GEEN VIERDE KNOP (gemeten 01-09-2026). Een kroontje voor App-beheer erbij — 33 px
              plus 10 px tussenruimte — kneep de ploegnaam van 49 naar 10 px: zelfs "U11IP" stond er dan
              niet meer voluit. Deze regel heeft op 375 px géén slack, zie ook de noot bij .hdr-club-sub
              in index.html. De ingang van de eigenaar staat daarom bovenaan het ploegkeuzescherm, bij de
-             andere beheer-ingangen (renderTeamSelect). */ ''}
+             andere beheer-ingangen (renderTeamSelect). Sinds 24-11-2026 zit er ook een kroontje in
+             DEZE kopregel, maar als linkerdeel van de Beheer-pil (zie updateCloudChip) en niet als vierde
+             knop; daarom ook de gap van 6 px. */ ''}
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>

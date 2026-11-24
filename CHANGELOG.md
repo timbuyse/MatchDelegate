@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.3
+
+- **Kroontje naast Beheer (eigenaar).** In de kopregel van het beginscherm zit het kroontje voor App-beheer nu in de Beheer-pil: links het kroontje, rechts Beheer. Zo past het op een smalle telefoon zonder dat de ploegnaam inkrimpt. De tussenruimte in die kopregel is van 10 naar 6 px gegaan.
+
+---
+
 ## v2.38.2
 
 - **Gebruikersschermen bij elkaar.** Gebruikers, Nu online en Cijfers hebben bovenaan dezelfde tabbalk, zodat je rechtstreeks tussen de drie wisselt. App-beheer heeft nog één knop, "Gebruikers & gebruik". Wisselen van tab telt niet mee in de terug-geschiedenis: de terugpijl gaat altijd naar App-beheer.
