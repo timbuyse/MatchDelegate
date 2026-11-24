@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.2
+
+- **Gebruikersschermen bij elkaar.** Gebruikers, Nu online en Cijfers hebben bovenaan dezelfde tabbalk, zodat je rechtstreeks tussen de drie wisselt. App-beheer heeft nog één knop, "Gebruikers & gebruik". Wisselen van tab telt niet mee in de terug-geschiedenis: de terugpijl gaat altijd naar App-beheer.
+
+---
+
 ## v2.38.1
 
 - **Selectie voorlopig opslaan met enkel NB's.** Heb je op de selectiestap alleen niet-beschikbare spelers aangeduid, dan bewaart "Opslaan" die nu, zodat je de rest later aanvult. Hangt er al een plan aan de wedstrijd, dan blijft de bevestigingsvraag, maar die wist de NB's niet meer mee.

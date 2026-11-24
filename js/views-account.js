@@ -19,8 +19,8 @@ function renderBeheer() {
       ${/* Heet sinds v1.82.0 gewoon "Clubs": het scherm is een lijst geworden, en wat je met één club
             doet — beheerders inbegrepen — staat op het clubscherm zelf. */''}
       <button class="btn btn-dark" onclick="go('clubsadmin')">${icI(IC.players)} Clubs</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.players)} Alle gebruikers</button>
-      <button class="btn btn-dark" style="margin-top:8px" onclick="go('gebruik')">${icI(IC.chart)} Gebruikscijfers</button>
+      ${/* Eén ingang voor de drie gebruikersschermen; wisselen doe je met de tabbalk daarbinnen. */''}
+      <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.chart)} Gebruikers &amp; gebruik</button>
       ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
     </div>
     <div class="sec">${icI(IC.wrench)} Onderhoud</div>
@@ -753,11 +753,24 @@ async function doAppointTeamAdmin(tid) {
 // Systeembreed overzicht van alle gebruikers per ploeg, voor de eigenaar. Vervangt de
 // vroegere showAllUsersModal()-modal door een apart scherm: schaalt beter bij veel ploegen
 // dankzij een zoekveld en per-ploeg inklapbare secties i.p.v. één lange platte lijst.
+// DRIE SCHERMEN, ÉÉN PLEK (Tim, 24-11-2026). Alle gebruikers, Nu online en de Gebruikscijfers zijn drie
+// views, maar ze horen bij elkaar: "wie zijn er", "wie zijn er nu" en "hoeveel komen er". Vroeger had
+// elk een eigen knop op App-beheer en kon je van het ene enkel nog naar een ander via een kleine link.
+// Daarom staat bovenaan elk van de drie dezelfde tabbalk. Wisselen vervangt de huidige stap in de
+// geschiedenis (go met _histReplace), zodat de terugpijl altijd naar App-beheer leidt en niet door
+// de tabs terugloopt. De views blijven apart bestaan: elk heeft zijn eigen laad- en stopgedrag
+// (zie stopOnlineWatch in go).
+const BEHEER_GEBRUIK_TABS = [['allusers', 'Gebruikers', 'players'], ['online', 'Nu online', 'eye'], ['gebruik', 'Cijfers', 'chart']];
+function beheerGebruikTabs(actief) {
+  return `<div class="seg" style="margin-bottom:14px" role="tablist">${BEHEER_GEBRUIK_TABS.map(([v, naam, ic]) =>
+    `<button role="tab" aria-selected="${v === actief}" style="flex:1;padding:10px 6px;${v === actief ? 'background:var(--grn);color:#fff' : ''}" onclick="${v === actief ? '' : `go('${v}',undefined,true)`}">${icI(IC[ic])} ${naam}</button>`).join('')}</div>`;
+}
 function renderAllUsers() {
   if (!isOwner) return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadAllUsersView, 0);
-  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Alle gebruikers</h1></div>
+  return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.players)} Gebruikers</h1></div>
   <div class="content">
+    ${beheerGebruikTabs('allusers')}
     <div class="fg" style="margin-bottom:16px"><input id="allusers-search" type="text" placeholder="Zoek op naam of e-mail..." oninput="filterAllUsersView(this.value)"></div>
     <div id="allusers-view-list"><p style="text-align:center;color:var(--txt2)">Laden...</p></div>
   </div>`;
@@ -1024,9 +1037,7 @@ async function loadAllUsersView() {
     // terwijl "Nu online" een scherm verderop zat. Alles wat over het gebruik van de app gaat, staat
     // nu bij elkaar op één scherm (renderGebruik) — hier blijft de weg ernaartoe. Deze lijst gaat
     // over WIE er is; die over HOEVEEL er komen.
-    const gebruik = `<div class="card" style="margin-bottom:12px">
-      <button class="btn btn-pale btn-sm" style="margin:0" onclick="go('gebruik')">${icI(IC.chart)} Wordt de app gebruikt? Bekijk de cijfers</button>
-    </div>`;
+    const gebruik = '';   // de weg naar de cijfers is nu de tabbalk bovenaan (beheerGebruikTabs)
     const waarschuwing = ploegenVolledig ? '' :
       `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--org)"><p style="font-size:13px;color:var(--txt2);margin:0">De ploegenlijst kon niet opgevraagd worden. Hieronder staan enkel de ploegen die we langs een andere weg kennen — <b>er kunnen ploegen ontbreken</b>. Herlaad het scherm om het opnieuw te proberen.</p></div>`;
     const kop = gebruik + waarschuwing;
@@ -1287,7 +1298,7 @@ function renderOnline() {
     <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(startOnlineWatch, 0);
   return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.eye)} Nu online</h1></div>
-  <div class="content" id="online-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+  <div class="content">${beheerGebruikTabs('online')}<div id="online-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div></div>`;
 }
 function stopOnlineWatch() {
   if (_onlineRef) { try { _onlineRef.off('value'); } catch (e) {} _onlineRef = null; }
@@ -1458,7 +1469,7 @@ function renderGebruik() {
     <div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadGebruikView, 0);
   return `<div class="hdr"><button class="back" onclick="terug('beheer')">‹</button><h1>${icI(IC.chart)} Gebruikscijfers</h1></div>
-  <div class="content" id="gebruik-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+  <div class="content">${beheerGebruikTabs('gebruik')}<div id="gebruik-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div></div>`;
 }
 // Uit de ruwe gebruikstak halen wat één venster (het aantal dagen tot en met vandaag) opgeleverd
 // heeft. De dagsleutels zijn 2026-08-29, dus ze vergelijken als tekst geeft dezelfde volgorde als
