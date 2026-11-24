@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.38.3'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.38.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -5340,16 +5340,4 @@ function updateCloudChip() {
   // eigen schermen met hun eigen naam.
   el.innerHTML = effectiveAdmin ? `${icI(IC.shield)} Beheer${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
-  // KROONTJE VOOR DE EIGENAAR (Tim, 24-11-2026: "van bijna overal naartoe"). Een vierde knop in deze
-  // kopregel kneep de ploegnaam samen (zie de noot in de home-view), dus het kroontje is geen eigen
-  // knop maar het linkerdeel van déze pil: [kroon | Beheer]. Gemeten op 375 px: de ploegnaam houdt
-  // zijn volle breedte, mits de gap in de home-view 6 px is en deze pil zo smal blijft.
-  // Het kroontje stopt de klik (stopPropagation) zodat het niet ook het ploegbeheer opent.
-  if (isOwner && !isGuest) {
-    el.classList.add('split');
-    // Het schildje of oogje valt hier weg: het kroontje komt in de plaats, en die 16 px zijn precies
-    // wat de ploegnaam nodig heeft.
-    const tekst = effectiveAdmin ? `Beheer${coBadge}` : (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
-    el.innerHTML = `<span class="chip-kroon" onclick="event.stopPropagation();_beheerFrom=view;go('beheer')" title="App-beheer">${icI(IC.crown)}</span><span class="chip-tekst">${tekst}</span>`;
-  }
 }

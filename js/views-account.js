@@ -7171,8 +7171,11 @@ const views = {
     // clubnaam kleiner eronder (fase 2f; gedenormaliseerd zodat ook kijkers ze zien).
     const teamName = canSwitch ? esc(teamNames[activeTeamId] || 'Ploeg') : '';
     const clubName = canSwitch ? esc(activeClubName || '') : '';
+    // De eigenaar krijgt een kroontje erbij (zie de noot hieronder), en daarvoor moet de wisselknop
+    // smaller: enkel het icoon, de titel blijft. Andere gebruikers houden het woord "Ploeg".
+    const kroon = (isOwner && !isGuest);
     const switchBtn = canSwitch
-      ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen">${icI(IC.swap)} Ploeg</button>`
+      ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen" aria-label="Van ploeg wisselen">${icI(IC.swap)}${kroon ? '' : ' Ploeg'}</button>`
       : '';
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
@@ -7183,15 +7186,14 @@ const views = {
         </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        ${/* HET KROONTJE VOOR DE EIGENAAR (Tim, 24-11-2026). Op 01-09-2026 was gemeten dat een vierde
+             knop hier de ploegnaam van 49 naar 10 px kneep, en toen bleef het kroontje op het
+             ploegkeuzescherm. Tim wil het toch als aparte knop, "zoals het andere". De plaats komt van de
+             wisselknop, die voor de eigenaar enkel het icoon toont (zie switchBtn): opnieuw gemeten op
+             375 px, de naam houdt dan zijn volle 49 px. Verwijder die inkorting niet zonder te meten. */ ''}
+        ${kroon ? `<span class="cloud-chip owner" onclick="_beheerFrom='home';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
-        ${/* HIER PAST GEEN VIERDE KNOP (gemeten 01-09-2026). Een kroontje voor App-beheer erbij — 33 px
-             plus 10 px tussenruimte — kneep de ploegnaam van 49 naar 10 px: zelfs "U11IP" stond er dan
-             niet meer voluit. Deze regel heeft op 375 px géén slack, zie ook de noot bij .hdr-club-sub
-             in index.html. De ingang van de eigenaar staat daarom bovenaan het ploegkeuzescherm, bij de
-             andere beheer-ingangen (renderTeamSelect). Sinds 24-11-2026 zit er ook een kroontje in
-             DEZE kopregel, maar als linkerdeel van de Beheer-pil (zie updateCloudChip) en niet als vierde
-             knop; daarom ook de gap van 6 px. */ ''}
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
     </div>

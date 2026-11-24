@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.4
+
+- **Kroontje als aparte knop (eigenaar).** Het kroontje voor App-beheer staat in de kopregel van het beginscherm weer los naast Beheer, in plaats van als deel van de Beheer-knop (v2.38.3). Om plaats te maken toont de ploegwisselknop voor de eigenaar enkel het icoon; voor andere gebruikers verandert er niets.
+
+---
+
 ## v2.38.3
 
 - **Kroontje naast Beheer (eigenaar).** In de kopregel van het beginscherm zit het kroontje voor App-beheer nu in de Beheer-pil: links het kroontje, rechts Beheer. Zo past het op een smalle telefoon zonder dat de ploegnaam inkrimpt. De tussenruimte in die kopregel is van 10 naar 6 px gegaan.
