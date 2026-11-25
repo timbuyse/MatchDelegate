@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.38.4'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.38.5'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -5338,6 +5338,10 @@ function updateCloudChip() {
   // (zie openSquad/teamScherm) leidt de chip naar het beheerdeel: mensen met toegang en de ploeg als
   // geheel. De verwarring waar v1.1.0 bang voor was, is intussen weg: Clubbeheer en App-beheer zijn
   // eigen schermen met hun eigen naam.
-  el.innerHTML = effectiveAdmin ? `${icI(IC.shield)} Beheer${coBadge}` : icI(IC.eye) + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
+  // De eigenaar heeft er een kroontje naast staan (zie de home-view) en mist de plaats voor het
+  // schildje of oogje: die 16 px houden de ploegnaam leesbaar.
+  const ico = (isOwner && !isGuest) ? '' : null;
+  el.innerHTML = effectiveAdmin ? `${ico === null ? icI(IC.shield) + ' ' : ''}Beheer${coBadge}` : (ico === null ? icI(IC.eye) : '') + (isAdmin && viewerMode ? 'Kijkmodus' : 'Kijken');
   el.className = 'cloud-chip ' + (effectiveAdmin ? 'admin' : 'viewer');
+  el.style.padding = ico === null ? '' : '5px 8px';
 }

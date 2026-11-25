@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.5
+
+- **Ploegwisselknop weer met tekst.** De knop "Ploeg" in de kopregel van het beginscherm toont voor de eigenaar weer het woord erbij (v2.38.4 had er enkel een icoon van gemaakt). De plaats voor het kroontje komt nu van de Beheer-knop, die voor de eigenaar zonder schildje is, en van kleinere tussenruimtes. Voor andere gebruikers verandert er niets.
+
+---
+
 ## v2.38.4
 
 - **Kroontje als aparte knop (eigenaar).** Het kroontje voor App-beheer staat in de kopregel van het beginscherm weer los naast Beheer, in plaats van als deel van de Beheer-knop (v2.38.3). Om plaats te maken toont de ploegwisselknop voor de eigenaar enkel het icoon; voor andere gebruikers verandert er niets.

@@ -7171,11 +7171,9 @@ const views = {
     // clubnaam kleiner eronder (fase 2f; gedenormaliseerd zodat ook kijkers ze zien).
     const teamName = canSwitch ? esc(teamNames[activeTeamId] || 'Ploeg') : '';
     const clubName = canSwitch ? esc(activeClubName || '') : '';
-    // De eigenaar krijgt een kroontje erbij (zie de noot hieronder), en daarvoor moet de wisselknop
-    // smaller: enkel het icoon, de titel blijft. Andere gebruikers houden het woord "Ploeg".
-    const kroon = (isOwner && !isGuest);
+    const kroon = (isOwner && !isGuest);   // zie de noot bij het kroontje hieronder
     const switchBtn = canSwitch
-      ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen" aria-label="Van ploeg wisselen">${icI(IC.swap)}${kroon ? '' : ' Ploeg'}</button>`
+      ? `<button class="team-switch-btn" onclick="go('teamselect')" title="Van ploeg wisselen">${icI(IC.swap)} Ploeg</button>`
       : '';
     return `<div class="hdr hdr-home" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
@@ -7186,13 +7184,15 @@ const views = {
         </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:${kroon ? 4 : 10}px;flex-shrink:0">
         ${/* HET KROONTJE VOOR DE EIGENAAR (Tim, 24-11-2026). Op 01-09-2026 was gemeten dat een vierde
              knop hier de ploegnaam van 49 naar 10 px kneep, en toen bleef het kroontje op het
-             ploegkeuzescherm. Tim wil het toch als aparte knop, "zoals het andere". De plaats komt van de
-             wisselknop, die voor de eigenaar enkel het icoon toont (zie switchBtn): opnieuw gemeten op
-             375 px, de naam houdt dan zijn volle 49 px. Verwijder die inkorting niet zonder te meten. */ ''}
-        ${kroon ? `<span class="cloud-chip owner" onclick="_beheerFrom='home';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
+             ploegkeuzescherm. Tim wil het toch als aparte knop, en de wisselknop moet "Ploeg" blijven
+             heten. De plaats komt daarom van de rest van deze groep: voor de eigenaar valt het schildje in
+             de Beheer-knop weg (zie updateCloudChip), en zijn de tussenruimte en de opvulling kleiner.
+             Gemeten op 375 px: de naam houdt dan zijn volle 49 px. Met het schildje erbij was het 32 px.
+             Meet opnieuw als je hier iets aan verandert. */ ''}
+        ${kroon ? `<span class="cloud-chip owner" style="padding:5px 6px" onclick="_beheerFrom='home';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
