@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.6
+
+- **Kroontje zonder inkortingen.** De kopregel van het beginscherm is voor de eigenaar weer zoals vóór het kroontje, met het kroontje als aparte knop naast Beheer: het schildje staat weer in de Beheer-knop en de tussenruimtes zijn weer normaal. Op een zeer smalle telefoon kan de ploegnaam van de eigenaar daardoor afgekapt worden. Voor andere gebruikers verandert er niets.
+
+---
+
 ## v2.38.5
 
 - **Ploegwisselknop weer met tekst.** De knop "Ploeg" in de kopregel van het beginscherm toont voor de eigenaar weer het woord erbij (v2.38.4 had er enkel een icoon van gemaakt). De plaats voor het kroontje komt nu van de Beheer-knop, die voor de eigenaar zonder schildje is, en van kleinere tussenruimtes. Voor andere gebruikers verandert er niets.

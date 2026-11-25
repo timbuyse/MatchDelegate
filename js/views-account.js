@@ -7184,15 +7184,13 @@ const views = {
         </div>` : ''}
         ${switchBtn ? `<span style="margin-left:6px">${switchBtn}</span>` : ''}
       </div>
-      <div style="display:flex;align-items:center;gap:${kroon ? 4 : 10}px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         ${/* HET KROONTJE VOOR DE EIGENAAR (Tim, 24-11-2026). Op 01-09-2026 was gemeten dat een vierde
              knop hier de ploegnaam van 49 naar 10 px kneep, en toen bleef het kroontje op het
-             ploegkeuzescherm. Tim wil het toch als aparte knop, en de wisselknop moet "Ploeg" blijven
-             heten. De plaats komt daarom van de rest van deze groep: voor de eigenaar valt het schildje in
-             de Beheer-knop weg (zie updateCloudChip), en zijn de tussenruimte en de opvulling kleiner.
-             Gemeten op 375 px: de naam houdt dan zijn volle 49 px. Met het schildje erbij was het 32 px.
-             Meet opnieuw als je hier iets aan verandert. */ ''}
-        ${kroon ? `<span class="cloud-chip owner" style="padding:5px 6px" onclick="_beheerFrom='home';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
+             ploegkeuzescherm. Tim wil het toch als aparte knop, en zijn eigen telefoon is breed genoeg:
+             hij vroeg uitdrukkelijk om GEEN inkorting (25-11-2026). Op een smalle telefoon (375 px) is de
+             ploegnaam van de eigenaar daardoor afgekapt (gemeten: 10 van 49 px); dat is bewust aanvaard. */ ''}
+        ${kroon ? `<span class="cloud-chip owner" onclick="_beheerFrom='home';go('beheer')" title="App-beheer">${icI(IC.crown)}</span>` : ''}
         <span id="cloud-chip" class="cloud-chip" style="display:none" onclick="openCloudChip()"></span>
         <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
       </div>
