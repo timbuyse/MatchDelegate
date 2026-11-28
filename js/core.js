@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.40.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.40.1'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -3088,6 +3088,10 @@ async function onAuthChanged(user) {
     return ((typeof _speeldag !== 'undefined' && _speeldag && _speeldag.rijen) || []).some(r => r.m.status === 'live');
   };
   const naarKeuzescherm = async () => { await preloadTeamNames(); await go('teamselect', undefined, true); };
+  // STARTEN OP JE PLOEGENLIJST (Tim, 28-11-2026), als je dat zo instelde: per toestel, bij Instellingen →
+  // Opstarten. Enkel bij een verse start (nog geen actieve ploeg), net als de herstelregel hieronder; wie
+  // de app niet instelde, merkt niets.
+  if (!activeTeamId && startSchermKeuze() === 'ploegen') { await naarKeuzescherm(); return; }
   if (teamIds.length === 1 && !activeTeamId) {
     if (await looptErIets()) { await naarKeuzescherm(); return; }
     await selectTeam(teamIds[0]); return;
@@ -4109,6 +4113,11 @@ function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache
 // Zelfde vangnet als bij de aanwezigheidstak (zie hierboven).
 let mijnSpelerIds = [];
 function mijnSpelers() { return mijnSpelerIds.slice(); }
+// Waar start de app? 'ploegen' = op de ploegenlijst (Jouw ploegen); anders zoals altijd (de laatst gekozen
+// ploeg, of de lijst als er iets loopt). Per toestel in de opslag, zoals het donkere thema.
+const START_SCHERM_KEY = 'voetbal_startscherm';
+function startSchermKeuze() { try { return localStorage.getItem(START_SCHERM_KEY) === 'ploegen' ? 'ploegen' : 'ploeg'; } catch (e) { return 'ploeg'; } }
+function setStartScherm(v) { try { if (v === 'ploegen') localStorage.setItem(START_SCHERM_KEY, 'ploegen'); else localStorage.removeItem(START_SCHERM_KEY); } catch (e) {} render(); }
 // DE SPELERS WAARAAN IK GEKOPPELD BEN, ONAFHANKELIJK VAN EEN PLOEG (v2.40.0). globalId -> { t: ploegId, n: naam },
 // uit playerLinks/<eigen uid>. Zie database.rules.json. Stil leeg bij een fout of zolang de regels niet live zijn.
 let mijnSpelerLinks = {};

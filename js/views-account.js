@@ -5585,8 +5585,6 @@ function renderTeamSelect() {
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
-      ${/* De carrière van de gekoppelde speler(s), ook zonder ploeg (v2.40.0). */ ''}
-      ${(!isGuest && Object.keys(mijnSpelerLinks || {}).length) ? `<button class="btn btn-pale" style="margin-bottom:10px" onclick="go('mijnspelers')">${icI(IC.idCard)} ${Object.keys(mijnSpelerLinks).length === 1 ? esc((Object.values(mijnSpelerLinks)[0] || {}).n || 'Mijn speler') + ' — carrière' : 'Mijn spelers — carrière'}</button>` : ''}
       ${/* DE SPEELDAG BOVENAAN (Tim, 02-10-2026). Het enige scherm van de app dat over alle ploegen
             heen gaat, dus de enige plek waar dit hoort. Het blok tekent zichzelf zodra de gegevens
             binnen zijn (speeldagTeken) en blijft leeg wanneer er niets te melden valt — dan ziet dit
@@ -5611,6 +5609,15 @@ function renderTeamSelect() {
         const zonderKop = Object.keys(myClubs || {}).filter(cid => !clubKoppen[cid]);
         if (!zonderKop.length || viewerMode) return '';
         return zonderKop.map(losseClubBalk).join('');
+      })()}
+      ${/* MIJN SPELERS ONDER JOUW PLOEGEN (Tim, 28-11-2026). De spelers aan wie dit account gekoppeld is,
+           met per speler een rij naar zijn carrière over alle ploegen (playerLinks, zie mijnSpelerLinks in
+           core.js). Eigen kop, dezelfde indeling als de ploegen erboven. Alleen als er een koppeling is. */ ''}
+      ${(() => {
+        const links = Object.entries(mijnSpelerLinks || {});
+        if (isGuest || !links.length) return '';
+        return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Mijn spelers</div>
+        <div class="card">${links.map(([gid, l]) => `<div class="stat-row" style="cursor:pointer" data-link="1" onclick="go('mijnspelers')"><span style="flex:1">${icI(IC.idCard)} ${esc((l && l.n) || 'Speler')}</span><span style="color:var(--txt2);font-size:13px">carrière</span><span style="color:var(--txt2);margin-left:8px">›</span></div>`).join('')}</div>`;
       })()}
       ${/* Voor de eigenaar staat de ingang nu als kroontje bovenaan (zie de kopregel hierboven), dus
            hier blijft enkel het geval waarin er nog géén eigenaar is: dat is de claim, en die heeft

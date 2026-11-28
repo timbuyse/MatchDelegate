@@ -1320,6 +1320,15 @@ function renderSettings(isFirst) {
       ${isGuest ? '' : `<button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>`}
     </div>` : ''}
     ${(() => {
+      // OPSTARTEN (Tim, 28-11-2026): waar de app opent. Per toestel; zonder keuze blijft alles zoals voordien.
+      if (!cloudReady || isGuest || !currentUser) return '';
+      const k = startSchermKeuze();
+      return `<div class="sec">Opstarten</div><div class="card">
+        <p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Waar opent de app op dit toestel?</p>
+        <div class="seg" style="width:100%"><button style="flex:1;${k === 'ploeg' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploeg')">Mijn ploeg</button><button style="flex:1;${k === 'ploegen' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploegen')">Jouw ploegen</button></div>
+      </div>`;
+    })()}
+    ${(() => {
       // MIJN PLOEGEN, MET EEN WEG ERUIT (v2.40.0). Enkel de ploegen die je als KIJKER volgt: een beheerder
       // verlaat een ploeg niet zo. Zie confirmPloegVerlaten in views-account.js.
       if (!cloudReady || isGuest || !currentUser) return '';

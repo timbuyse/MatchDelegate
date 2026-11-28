@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.40.1
+
+- **Mijn spelers onder Jouw ploegen.** Op het ploegselectiescherm staat onder de ploegen een kop "Mijn spelers", met per gekoppelde speler een rij naar zijn carrière over alle ploegen. De losse knop bovenaan is weg.
+- **Opstarten.** Nieuwe keuze in Instellingen (per toestel): de app opent op "Mijn ploeg" (zoals voordien) of op "Jouw ploegen". Zonder keuze verandert er niets.
+
+---
+
 ## v2.40.0
 
 - **Het speler-object: de carrière hoort bij de speler.** De cijfers van een speler staan nu ook op spelerniveau (`playerCareer/<globalId>`), met een koppeling per account (`playerLinks/<uid>/<globalId>`). Een ouder die aan een speler gekoppeld is, ziet zijn hele carrière over alle ploegen en seizoenen bij **Mijn spelers**, ook als de speler doorschuift of de ouder een ploeg verlaat. Meerdere accounts per speler en meerdere spelers per account kan. Nieuwe, optionele takken met eigen regels in `database.rules.json` (de regels moeten gepubliceerd zijn). Zonder die regels werkt alles zoals voordien.
