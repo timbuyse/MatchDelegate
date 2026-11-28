@@ -2856,6 +2856,14 @@ async function doTransferPlayer() {
       nieuwe.push(Object.assign({}, p, { id: uid(), globalId }));
     });
     srcRoster[0].players = (srcRoster[0].players || []).filter(p => !gekozen.includes(p.id));
+    // DE GRAFSTEEN (28-11-2026) — dit was de echte oorzaak van "Morris staat nog in beide ploegen".
+    // applyCloudTeams voegt per speler samen en bewaart wie de cloud niet kent maar het toestel wél
+    // ("cloud kent hem niet: bewaren"), tenzij er een grafsteen is. Zonder grafsteen zette elk toestel
+    // dat de speler nog in zijn cache had hem bij het openen van de app terug in de bronploeg. De
+    // gewone verwijderknop zet die steen via saveTeamsV2 (_stempelSpelers); hier schreven we de lijst
+    // rechtstreeks weg en sloegen dat over. Zelfde vorm als _stempelSpelers: speler-id -> tijdstip.
+    srcRoster[0].deletedPlayers = Object.assign({}, srcRoster[0].deletedPlayers || {});
+    gekozen.forEach(id => { srcRoster[0].deletedPlayers[id] = Date.now(); });
     dstRoster[0].players = (dstRoster[0].players || []).concat(nieuwe);
     // Eén schrijfbeurt per ploeg, niet één per speler: bij vijftien spelers zou dat vijftien keer
     // dezelfde lijst overschrijven, met evenveel kansen om er halfweg uit te vallen.

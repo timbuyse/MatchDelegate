@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.8
+
+- **Doorgeschoven speler bleef in de bronploeg staan.** Spelers doorschuiven schreef de bronlijst rechtstreeks weg zonder "grafsteen" voor wie vertrok. Een toestel dat de speler nog in zijn cache had, zette hem bij het openen van de app terug (de app bewaart per speler wat de cloud niet kent). Nu schrijft het doorschuiven de grafsteen mee, zoals de gewone verwijderknop al deed.
+
+---
+
 ## v2.38.7
 
 - **Doorgeschoven spelers tellen als één speler in de statistieken.** Een speler die naar een andere ploeg doorschuift krijgt daar een nieuw kenmerk; zijn eerdere gastwedstrijden bij die ploeg stonden daardoor los naast zijn nieuwe rij. De statistieken en het spelerdetail voegen ze nu samen op zijn blijvende `globalId`. Alleen op een kopie: de opgeslagen wedstrijden veranderen niet, en de wedstrijden van andere ploegen houden hun kenmerk.
