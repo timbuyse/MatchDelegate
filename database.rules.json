@@ -444,9 +444,13 @@
           ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())",
           "$gid": {
             "$uid": {
+              // Het account dat via een UITNODIGING PER SPELER binnenkomt, zet zelf zijn regel in dit overzicht
+              // (zodat de beheerder het ziet), met dezelfde controle op de uitnodiging als bij playerLinks.
+              ".write": "auth != null && $uid === auth.uid && newData.exists() && !data.exists() && newData.child('i').isString() && root.child('invites/' + newData.child('i').val() + '/gid').val() === $gid && root.child('teams/' + root.child('invites/' + newData.child('i').val() + '/teamId').val() + '/info/clubId').val() === $clubId && root.child('invites/' + newData.child('i').val() + '/createdAt').val() + 5184000000 > now",
               "p": { ".validate": "newData.isString() && newData.val().length <= 80" },
               "a": { ".validate": "newData.isString() && newData.val().length <= 120" },
               "t": { ".validate": "newData.isString() && newData.val().length <= 60" },
+              "i": { ".validate": "newData.isString() && newData.val().length <= 20" },
               "$veld": { ".validate": false }
             }
           }
@@ -627,10 +631,16 @@
     "playerLinks": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('owner').val() === auth.uid)",
+        // UITNODIGING PER SPELER (v2.42.0): het account mag ZELF zijn koppeling leggen, enkel met een geldige
+        // uitnodiging voor DEZE speler (invites/<token> met dit globalId, de ploeg uit `t`, nog niet ouder dan
+        // 60 dagen = 5184000000 ms) en niet als het account uit die ploeg geweerd werd. De code van de
+        // uitnodiging gaat mee in `i`, anders kan de regel hem niet nakijken. Enkel nieuw aanmaken, nooit
+        // overschrijven of wissen: ontkoppelen blijft aan de beheerder.
         "$gid": {
-          ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && (root.child('teams/' + newData.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + newData.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || (!newData.exists() && (root.child('teams/' + data.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + data.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())))",
+          ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && (root.child('teams/' + newData.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + newData.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || (!newData.exists() && (root.child('teams/' + data.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + data.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || ($uid === auth.uid && newData.exists() && !data.exists() && newData.child('i').isString() && root.child('invites/' + newData.child('i').val() + '/gid').val() === $gid && root.child('invites/' + newData.child('i').val() + '/teamId').val() === newData.child('t').val() && root.child('invites/' + newData.child('i').val() + '/createdAt').val() + 5184000000 > now && !root.child('teams/' + newData.child('t').val() + '/removed/' + auth.uid).exists()))",
           "t": { ".validate": "newData.isString() && newData.val().length <= 60" },
           "n": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "i": { ".validate": "newData.isString() && newData.val().length <= 20" },
           "$veld": { ".validate": false }
         }
       }

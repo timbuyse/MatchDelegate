@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.41.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.42.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -4093,11 +4093,11 @@ function stopTeamListeners() {
   knownLiveMatchIds = new Set();
   knownScores = {};
   _presTeamData = {};   // aanwezigheid hoort bij de ploeg waar we naar luisterden
-  mijnSpelerIds = [];   // idem: de koppeling geldt per ploeg
+  mijnSpelerIds = []; _mijnSpelerBasis = [];   // idem: de koppeling geldt per ploeg
 }
 // Bij het wisselen van ploeg meteen de laatst gekende koppeling van DIE ploeg neerzetten, zodat de
 // tegel met de naam van je kind er staat vóór de cloud antwoordt. Zie mijnSpelersOnthoud.
-function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache(teamId); }
+function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache(teamId); _mijnSpelerBasis = mijnSpelerIds.slice(); }
 // ===================== EEN KIJKER GEKOPPELD AAN ZIJN EIGEN SPELER(S) =====================
 // Tim, 27-09-2026: "een kijker koppelen aan een speler van een ploeg, dus als ouder eigenlijk, zodat
 // ze ook de statistieken van die speler kunnen zien." De koppeling staat in een EIGEN tak
@@ -4112,7 +4112,29 @@ function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache
 // blijft de lijst gewoon leeg: de ouder ziet dan geen tegel, en verder werkt alles zoals voordien.
 // Zelfde vangnet als bij de aanwezigheidstak (zie hierboven).
 let mijnSpelerIds = [];
+// De koppelingen binnen DEZE ploeg zoals ze in teams/<id>/memberPlayers staan; mijnSpelerIds is die lijst plus
+// wat uit de koppeling op spelerniveau volgt (zie mijnSpelersHerbereken).
+let _mijnSpelerBasis = [];
 function mijnSpelers() { return mijnSpelerIds.slice(); }
+// KOPPELEN OP SPELERNIVEAU, AFGELEID IN DE PLOEG (Tim, 28-11-2026). "Mijn speler" binnen een ploeg is elke speler
+// in haar kern waarvan het globalId in mijnSpelerLinks staat (playerLinks/<eigen uid>), plus wat de beheerder
+// vroeger per ploeg koppelde (memberPlayers). Zo hoeft er bij een doorgeschoven speler niets opnieuw gekoppeld,
+// en bestaat "Koppel aan speler" op ploegniveau niet meer. Enkel wat de APP toont (een gordijn, geen slot).
+// Geeft terug of de lijst veranderde, zodat de aanroeper enkel dan hertekent.
+function mijnSpelersHerbereken() {
+  let afgeleid = [];
+  try {
+    if (activeTeamId && rosterReady() && mijnSpelerLinks && Object.keys(mijnSpelerLinks).length) {
+      const kern = (getTeamsV2()[0] || {}).players || [];
+      afgeleid = kern.filter(p => p && p.id && p.globalId && mijnSpelerLinks[p.globalId]).map(p => p.id);
+    }
+  } catch (e) { afgeleid = []; }
+  const alle = [...new Set([...(_mijnSpelerBasis || []), ...afgeleid])];
+  const zelfde = alle.length === mijnSpelerIds.length && alle.every(id => mijnSpelerIds.includes(id));
+  mijnSpelerIds = alle;
+  if (!zelfde) mijnSpelersOnthoud(activeTeamId, alle);
+  return !zelfde;
+}
 // Waar start de app? STANDAARD op de ploegenlijst (Jouw ploegen) — Tims keuze van 28-11-2026, voor iedereen.
 // Wie liever rechtstreeks in zijn laatst gekozen ploeg opent, zet dat bij Instellingen → Opstarten: dat
 // bewaren we als 'ploeg'. Zonder keuze (of bij een opslagfout) geldt de lijst. Per toestel in de opslag,
@@ -4128,7 +4150,8 @@ async function laadMijnSpelerLinks(user) {
   if (!user || !fbdb) return;
   try { mijnSpelerLinks = (await fbOnce(fbdb.ref('playerLinks/' + user.uid))).val() || {}; } catch (e) { mijnSpelerLinks = {}; }
   // Enkel hertekenen als er echt iets is om te tonen (anders flitst het startscherm voor niets).
-  if (Object.keys(mijnSpelerLinks).length && (view === 'home' || view === 'teamselect')) render();
+  const afgeleidVeranderd = mijnSpelersHerbereken();   // de speler(s) in de actieve ploeg volgen uit deze koppeling
+  if ((Object.keys(mijnSpelerLinks).length || afgeleidVeranderd) && (view === 'home' || view === 'teamselect' || view === 'stats' || view === 'playerDetail')) render();
 }
 // DE KOPPELING WORDT ONTHOUDEN OP DIT TOESTEL (Tim, 04-10-2026: "de naam van de gekoppelde speler
 // komt later" — "en ik zie toch nog die flits"). Dat was één en dezelfde zaak: de koppeling komt uit
@@ -4272,9 +4295,9 @@ function cloudListen() {
       spRef.on('value', s => {
         const v = s.val() || {};
         const nieuw = Object.keys(v).filter(k => v[k]);
-        const zelfde = nieuw.length === mijnSpelerIds.length && nieuw.every(id => mijnSpelerIds.includes(id));
-        mijnSpelerIds = nieuw;
-        mijnSpelersOnthoud(activeTeamId, nieuw);
+        _mijnSpelerBasis = nieuw;
+        const zelfde = !mijnSpelersHerbereken();
+        mijnSpelersOnthoud(activeTeamId, mijnSpelerIds);
         // ENKEL HERTEKENEN ALS ER ÉCHT IETS VERANDERT. Deze luisteraar vuurt meteen bij het openen van
         // een ploeg, en dan staat er doorgaans precies wat er uit de opslag al gezet was (zie
         // selectTeam). Een hertekening zou dan het hele scherm opnieuw opbouwen zonder dat er iets
@@ -4282,7 +4305,7 @@ function cloudListen() {
         if (zelfde) return;
         // Het startscherm en de statistieken tonen hierdoor iets anders; de rest van de app niet.
         if (view === 'home' || view === 'stats' || view === 'playerDetail') render();
-      }, () => { mijnSpelerIds = []; });
+      }, () => { _mijnSpelerBasis = []; mijnSpelersHerbereken(); });
       teamListeners.push({ ref: spRef, event: 'value' });
     }
   }
@@ -5078,6 +5101,8 @@ function applyCloudTeams(val) {
   rosterTeamId = activeTeamId;
   rosterLoaded = true;
   cacheRoster(activeTeamId, merged);
+  // Nu de kern binnen is: wie hier aan mijn koppeling op spelerniveau hangt, is "mijn speler" (zie mijnSpelersHerbereken).
+  if (mijnSpelersHerbereken() && (view === 'home' || view === 'stats' || view === 'playerDetail')) render();
   // Terugpushen wanneer wij iets hadden dat de cloud miste, zodat het andere toestel het ook krijgt.
   // NA het zetten van de vlaggen hierboven: cloudOnLocalTeamsSave weigert te schrijven zolang
   // rosterReady() onwaar is, en dat is precies wat die vlaggen bepalen.

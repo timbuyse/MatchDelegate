@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.42.0
+
+- **Uitnodigingslink per speler.** Bij Clubbeheer → Spelers koppelen kan je bij een speler een uitnodigingslink (met QR en code, 60 dagen geldig) maken. Wie ze opent volgt de ploeg van die speler en is meteen aan hem gekoppeld, ook als hij nog geen account of ploeg had. Meerdere mensen kunnen dezelfde link gebruiken. Het account legt de koppeling zelf, met de code van de uitnodiging (regels bij `playerLinks` en `spelerKoppelingen`).
+- **"Koppel aan speler" bij de ledenlijst is weg.** Een account koppel je nog maar op clubniveau aan een speler. Binnen een ploeg leidt de app "mijn speler" af uit die koppeling (via het `globalId`), dus een doorgeschoven speler werkt meteen in zijn nieuwe ploeg. De oude koppelingen per ploeg blijven gelden.
+
+---
+
 ## v2.41.0
 
 - **Spelers koppelen aan accounts, op clubniveau.** Bij Clubbeheer staat een knop "Spelers koppelen aan accounts" (eigenaar en clubbeheerder). Je kiest een speler uit alle ploegen van de club en koppelt of ontkoppelt er accounts aan, onafhankelijk van de ploeg: meerdere accounts per speler kan, en een account kan aan meerdere spelers hangen. Je kiest uit de accounts die een ploeg van de club volgen. Is het account lid van de ploeg van de speler, dan wordt ook de koppeling binnen die ploeg gelegd. Nieuw regelblok `clubs/<club>/spelerKoppelingen` (overzicht voor de beheerder); de knop "Speler-object vullen" neemt de bestaande koppelingen ook in dat overzicht op.

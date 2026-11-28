@@ -3117,8 +3117,36 @@ async function joinTeamByToken(token) {
     // Cache herstellen (kan leeg zijn na een bug of herinstallatie)
     await fbdb.ref('users/' + uid + '/teams/' + teamId).set(role).catch(() => {});
   }
+  // EEN UITNODIGING PER SPELER (v2.42.0): naast het volgen van de ploeg ook meteen aan die speler gekoppeld.
+  const uitn = snap.val() || {};
+  if (uitn.gid) await spelerUitnodigingAanvaarden(teamId, token, uitn);
   await selectTeam(teamId);
   return 'ok';
+}
+// Legt de koppeling op spelerniveau voor wie via een uitnodiging PER SPELER binnenkomt: playerLinks (het
+// account zelf, met de code van de uitnodiging zodat de regels ze kunnen nakijken) en de spiegel voor het
+// overzicht van de beheerder. Wie al gekoppeld is, blijft zoals hij was. Een fout houdt het volgen van de
+// ploeg niet tegen: de ouder is binnen, enkel de koppeling ontbreekt, en dat zeggen we.
+async function spelerUitnodigingAanvaarden(teamId, token, inv) {
+  try {
+    const uid = currentUser.uid, gid = inv.gid;
+    const bestaat = (await fbOnce(fbdb.ref('playerLinks/' + uid + '/' + gid))).exists();
+    if (!bestaat) {
+      await fbdb.ref('playerLinks/' + uid + '/' + gid).set({ t: teamId, n: inv.p || '', i: token });
+      try {
+        const cid = (await fbOnce(fbdb.ref('teams/' + teamId + '/info/clubId'))).val();
+        if (cid) {
+          const rec = { p: inv.p || '', t: teamId, i: token };
+          const accNaam = currentUser.displayName || currentUser.email || ''; if (accNaam) rec.a = accNaam;
+          await fbdb.ref('clubs/' + cid + '/spelerKoppelingen/' + gid + '/' + uid).set(rec);
+        }
+      } catch (e) { /* het overzicht van de beheerder is bijzaak */ }
+    }
+    mijnSpelerLinks[gid] = mijnSpelerLinks[gid] || { t: teamId, n: inv.p || '' };
+    showToast(`Je bent gekoppeld aan ${inv.p || 'de speler'}.`, 'ok');
+  } catch (e) {
+    showToast('Je volgt de ploeg, maar het koppelen aan de speler lukte niet. Vraag de beheerder om het te controleren.', 'err');
+  }
 }
 
 // ---- Uitnodigingslink tonen ----
@@ -3363,8 +3391,11 @@ async function showMembersModal() {
       const gekoppeld = Object.keys((memberPlayers[uid] || {})).filter(k => memberPlayers[uid][k]);
       const koppelRegel = gekoppeld.length
         ? `<div style="font-size:12px;color:var(--txt2)">${icI(IC.shirt)} Volgt: <b>${gekoppeld.map(r => esc(kernNaam(r))).join(', ')}</b></div>` : '';
-      const koppelBtn = kernLijst.length
-        ? `<button class="btn btn-pale btn-sm" onclick="modalKoppelSpelers('${uid}')">${icI(IC.shirt)} ${gekoppeld.length ? 'Spelers wijzigen' : 'Koppel aan speler'}</button>` : '';
+      // GEEN KNOP "KOPPEL AAN SPELER" MEER OP PLOEGNIVEAU (Tim, 28-11-2026). Een account aan een speler koppelen
+      // gebeurt nu op clubniveau (Clubbeheer → Spelers koppelen) en geldt voor de speler, ook als hij doorschuift;
+      // binnen de ploeg volgt "mijn speler" daaruit (zie mijnSpelersHerbereken in core.js). De regel hierboven
+      // met wie het account volgt blijft, als uitleg.
+      const koppelBtn = '';
       // ALS TRAINER HERKEND (Tim, 21-11-2026). Enkel bij een ploegbeheerder — de trainer is dezelfde
       // persoon — en enkel voor wie koppelen mag (eigenaar, clubbeheerder). Een trainersnaam hangt aan
       // het account op CLUBniveau: dezelfde persoon bij twee ploegen heeft één koppeling.
@@ -3498,68 +3529,10 @@ async function demoteMember(uid) {
 }
 
 // ===================== EEN KIJKER KOPPELEN AAN ZIJN EIGEN SPELER(S) =====================
-// Tim, 27-09-2026: een ouder die de cijfers van zijn kind mag volgen, zonder ploegbeheerder te
-// worden. De beheerder duidt hier aan wie bij wie hoort; de rest staat bij mijnSpelerIds in core.js.
-// Meerdere spelers kan (twee kinderen in dezelfde ploeg), vandaar vinkjes en geen keuzelijst.
-let _koppelUid = null, _koppelSel = new Set(), _koppelVoor = new Set();
-function modalKoppelSpelers(uid) {
-  if (!isAdmin || !activeTeamId || !fbdb) return;
-  const kern = ((getTeamsV2()[0] || {}).players || []).slice()
-    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
-  if (!kern.length) { showToast('Deze ploeg heeft nog geen spelers in de kern.', 'err'); return; }
-  _koppelUid = uid; _koppelSel = new Set(); _koppelVoor = new Set();
-  fbOnce(fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + uid))
-    .then(s => { const v = s.val() || {}; Object.keys(v).forEach(k => { if (v[k]) { _koppelSel.add(k); _koppelVoor.add(k); } }); _renderKoppelModal(kern); })
-    .catch(() => _renderKoppelModal(kern));   // regels nog niet live: gewoon met een lege selectie beginnen
-}
-function _renderKoppelModal(kern) {
-  openModal(`<h3>${icI(IC.shirt)} Koppel aan speler</h3>
-    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">Wie je hier aanvinkt, hoort bij dit lid. Op zijn startscherm komt dan een tegel met die naam, één tik van de persoonlijke cijfers. Meerdere mag — bijvoorbeeld twee kinderen in dezelfde ploeg.</p>
-    <div class="place-chips">${kern.map(p => `<span class="place-chip ${_koppelSel.has(p.id) ? 'sel' : ''}" onclick="_koppelTik('${p.id}')">${esc(p.name)}</span>`).join('')}</div>
-    <p style="font-size:12px;color:var(--txt2);margin:12px 0 0">Is dit lid een <b>kijker</b>, dan is dit meteen zijn enige toegang tot een spelerspagina: hij ziet de doelpunten, assists, speelminuten en wedstrijden van die speler, maar niet waarom iemand afgemeld was en geen notities. Bij een <b>ploegbeheerder</b> verandert er niets aan wat hij mag zien — voor hem is het gewoon een snelkoppeling naar zijn eigen kind.</p>
-    <button class="btn btn-green" style="margin-top:10px" onclick="_koppelBewaar()">${icI(IC.check)} Bewaren</button>
-    <button class="btn btn-gray" style="margin-top:8px" onclick="showMembersModal()">Annuleren</button>`);
-  _koppelKern = kern;
-}
-let _koppelKern = [];
-function _koppelTik(id) {
-  if (_koppelSel.has(id)) _koppelSel.delete(id); else _koppelSel.add(id);
-  _renderKoppelModal(_koppelKern);
-}
-async function _koppelBewaar() {
-  if (!isAdmin || !activeTeamId || !fbdb || !_koppelUid) return;
-  // De hele tak in één keer schrijven: zo verdwijnt een vinkje dat je uitzette ook echt, en blijft er
-  // geen `false` achter die elke lezer opnieuw moet wegfilteren.
-  const data = {};
-  _koppelSel.forEach(id => { data[id] = true; });
-  try {
-    await fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + _koppelUid).set(_koppelSel.size ? data : null);
-    // OOK OP HET NIVEAU VAN DE SPELER (v2.40.0): de koppeling per ploeg hierboven verdwijnt zodra de speler
-    // doorschuift of de ouder de ploeg verlaat; deze volgt het globalId en dus de speler zelf. Meerdere
-    // accounts per speler kan (twee ouders, een grootouder, een coach) — elk account heeft zijn eigen rij.
-    // Stil bij een fout: staan de regels nog niet gepubliceerd, dan blijft enkel de koppeling per ploeg.
-    try {
-      const kern = ((getTeamsV2()[0] || {}).players || []);
-      const gidVan = id => { const p = kern.find(x => x.id === id); return p && p.globalId ? { gid: p.globalId, naam: p.name || '' } : null; };
-      const uidK = _koppelUid, tid = activeTeamId;
-      // Met de spiegel op clubniveau voor het overzicht van de beheerder (zie renderSpelerKoppel).
-      const cid = activeClubId;
-      _koppelSel.forEach(id => { const g = gidVan(id); if (!g) return;
-        fbdb.ref('playerLinks/' + uidK + '/' + g.gid).set({ t: tid, n: g.naam }).catch(() => {});
-        if (cid) fbdb.ref('clubs/' + cid + '/spelerKoppelingen/' + g.gid + '/' + uidK).set({ p: g.naam, t: tid }).catch(() => {}); });
-      _koppelVoor.forEach(id => { if (_koppelSel.has(id)) return; const g = gidVan(id); if (!g) return;
-        fbdb.ref('playerLinks/' + uidK + '/' + g.gid).remove().catch(() => {});
-        if (cid) fbdb.ref('clubs/' + cid + '/spelerKoppelingen/' + g.gid + '/' + uidK).remove().catch(() => {}); });
-    } catch (e) {}
-    _koppelUid = null; _koppelSel = new Set(); _koppelVoor = new Set();
-    showMembersModal();
-    showToast('Koppeling bewaard.', 'ok');
-  } catch (e) {
-    // Meestal: de regels voor deze tak staan nog niet gepubliceerd. Zeg dat, en verzin geen
-    // technische foutmelding — de beheerder kan er zelf niets aan doen.
-    showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live — probeer later opnieuw.', 'err');
-  }
-}
+// Tim, 27-09-2026: een ouder die de cijfers van zijn kind mag volgen. SINDS 28-11-2026 NIET MEER PER PLOEG: de
+// knop "Koppel aan speler" bij de ledenlijst is weg. Koppelen gebeurt op clubniveau (Clubbeheer → Spelers koppelen,
+// renderSpelerKoppel) en volgt de speler; binnen een ploeg leidt de app "mijn speler" daaruit af (zie
+// mijnSpelersHerbereken in core.js). De oude koppelingen per ploeg (memberPlayers) blijven gelden.
 // De tegel "mijn speler" op het startscherm, en het keuzelijstje bij meer dan één kind.
 // De namen komen uit de kern van de actieve ploeg; een koppeling naar een speler die er niet meer in
 // staat, valt er stil uit — dan hoort er ook geen tegel te zijn.
@@ -3872,6 +3845,9 @@ function skOpenSpeler(gid) {
     <div class="sec">Account toevoegen</div>
     <div class="fg" style="margin-bottom:8px"><input type="text" placeholder="Zoek op naam of e-mail…" oninput="_skAccountZoek=this.value;skToonAccounts('${jsq(gid)}')"></div>
     <div id="sk-accounts" style="max-height:34vh;overflow-y:auto"></div>
+    <div class="sec">Nog geen account bij de club?</div>
+    <p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Maak een uitnodigingslink voor ${esc(s.naam)}. Wie de link opent, volgt ${esc(s.ploegen[0].tnaam)} en is meteen aan ${esc(s.naam)} gekoppeld. Ook voor wie al een account heeft.</p>
+    <button class="btn btn-orgpale" onclick="skUitnodiging('${jsq(gid)}')">${icI(IC.link)} Uitnodigingslink maken</button>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
   _skAccountZoek = '';
   skToonAccounts(gid);
@@ -3910,6 +3886,31 @@ async function skKoppel(gid, uid) {
   }
   showToast(`${accNaam || 'Account'} is gekoppeld aan ${s.naam}.`, 'ok');
   skOpenSpeler(gid); tekenSpelerKoppelLijst();
+}
+// EEN UITNODIGINGSLINK PER SPELER (Tim, 28-11-2026). Dezelfde link en QR als de uitnodiging voor een ploeg
+// (invites/<code>, ?join=<code>, 60 dagen geldig), met er de speler bij: wie ze opent volgt de ploeg van die speler
+// én wordt aan hem gekoppeld (joinTeamByToken → spelerUitnodigingAanvaarden). Zo hoeft een ouder niet eerst
+// ergens lid te zijn, en kunnen twee ouders dezelfde link gebruiken. De code is per speler; de uitnodiging voor
+// de hele ploeg blijft ongemoeid.
+async function skUitnodiging(gid) {
+  if (!_sk || !fbdb || !currentUser) return;
+  const s = _sk.spelers.find(x => x.gid === gid); if (!s) return;
+  const ploeg = s.ploegen[0];
+  const token = genInviteToken();
+  try {
+    await fbdb.ref('invites/' + token).set({ teamId: ploeg.tid, createdBy: currentUser.uid, createdAt: Date.now(), gid, p: s.naam });
+  } catch (e) { showToast('De uitnodiging maken lukt nog niet. Staan de nieuwe regels live?', 'err'); return; }
+  const url = 'https://timbuyse.github.io/MatchDelegate/?join=' + token;
+  const tekst = 'Volg ' + s.naam + ' via MatchDelegate (' + ploeg.tnaam + '). Open de link of gebruik code ' + token + '.';
+  const tot = new Date(Date.now() + INVITE_GELDIG_MS).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+  const qr = qrSvg(url);
+  openModal(`<h3>${icI(IC.link)} Uitnodiging — ${esc(s.naam)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:13px;margin-bottom:12px">${qr ? 'Scan de QR-code of deel de link.' : 'Deel de link of de code hieronder.'} Wie ze opent volgt <b>${esc(ploeg.tnaam)}</b> en wordt aan <b>${esc(s.naam)}</b> gekoppeld.</p>
+    ${qr ? `<div style="display:flex;justify-content:center;margin-bottom:12px">${qr}</div>` : ''}
+    <div class="invite-code" style="margin-bottom:8px">${token}</div>
+    <p style="text-align:center;font-size:12px;color:var(--txt2);margin:0 0 10px">Geldig tot <b>${esc(tot)}</b>.</p>
+    <button class="btn btn-green" onclick="(navigator.share ? navigator.share({title:'MatchDelegate',url:'${url}',text:'${tekst.replace(/'/g, "\\'")}'}) : navigator.clipboard.writeText('${url}').then(()=>showToast('Link gekopieerd!','ok')))">${icI(IC.share)} Delen / Link kopiëren</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="skOpenSpeler('${jsq(gid)}')">Terug</button>`);
 }
 async function skOntkoppel(gid, uid) {
   if (!_sk || !fbdb) return;
