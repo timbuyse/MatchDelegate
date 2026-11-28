@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.38.8'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '2.40.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -2304,11 +2304,12 @@ async function herstelVorigeOpstelling() {
   showToast('Vorige opstelling teruggezet.', 'ok');
 }
 function dbDel(id) {
-  return new Promise((res, rej) => {
+  // Eerst de wedstrijd lezen: de rijen van het speler-object moeten weten van wie ze weg moeten.
+  return dbGet(id).catch(() => null).then(oud => new Promise((res, rej) => {
     const r = db.transaction('matches','readwrite').objectStore('matches').delete(id);
-    r.onsuccess = () => { cloudOnLocalMatchDelete(id); res(); };
+    r.onsuccess = () => { cloudOnLocalMatchDelete(id, oud); res(); };
     r.onerror = e => rej(e.target.error);
-  });
+  }));
 }
 // Lokaal schrijven ZONDER naar de cloud te pushen (gebruikt door de cloud-listener zelf).
 function dbPutLocal(m) {
@@ -3120,6 +3121,7 @@ async function loadOwnerStatus(user) {
     try { myClubs = (await fbOnce(fbdb.ref('users/' + user.uid + '/clubs'))).val() || {}; } catch (e) { myClubs = {}; }
   } catch (e) { /* geen rechten / offline → standaard niet goedgekeurd */ }
   listenAdminRequests();
+  laadMijnSpelerLinks(user);   // niet awaiten: een bijkomend overzicht mag het opstarten niet ophouden
 }
 
 // Live meeluisteren naar openstaande aanvragen (enkel eigenaar) voor de teller.
@@ -3874,6 +3876,7 @@ function _syncFail() {
 // een bewaring tegenhouden; dit is een vangnet, geen slot.
 function cloudOnLocalMatchSave(m) {
   const r = teamRef('matches/' + m.id); if (!r || !isAdmin || !m || !m.id) return;
+  try { spelerRijenSync(m); } catch (e) {}   // het speler-object, zie onder; nooit in de weg
   if (!((m.quarters || []).length)) { _cloudMatchSchrijfVoorzichtig(r, m); return; }
   _cloudMatchSchrijf(r, m);
 }
@@ -3940,10 +3943,72 @@ function _cloudMatchSchrijf(r, m) {
     }
   } catch (e) {}
 }
-function cloudOnLocalMatchDelete(id) {
+function cloudOnLocalMatchDelete(id, oud) {
   const r = teamRef('matches/' + id); if (!r || !isAdmin || !id) return;
   try { r.remove().catch(_syncFail); } catch (e) {}
   try { const nr = notesRef(id); if (nr) nr.remove().catch(_syncFail); } catch (e) {}
+  try { spelerRijenSync(Object.assign({}, oud || { id }, { status: 'weg' })); } catch (e) {}
+}
+// ===================== HET SPELER-OBJECT: DE CARRIÈRE PER SPELER (v2.40.0) =====================
+// Tim, 28-11-2026: de cijfers van een speler horen bij de SPELER, niet bij een ploeg. Een ouder die aan
+// hem gekoppeld is moet zijn hele carrière blijven zien, in welke ploeg hij ook speelt en ook als de ouder
+// een ploeg verlaat. Zie database.rules.json (playerLinks, playerCareer) voor de vorm en de regels.
+//
+// ÉÉN RIJ PER GESPEELDE WEDSTRIJD, op het globalId van de speler: playerCareer/<globalId>/rows/<ploeg>/<wedstrijd>.
+// Het is een KOPIE van wat al in de wedstrijd staat, bijgehouden op elk toestel van een beheerder dat de
+// wedstrijd opslaat. Daarom: enkel afgesloten wedstrijden, geen tornooien (die tellen in de gewone cijfers
+// ook niet mee), en enkel de cijfers van die ene speler — geen namen van anderen, geen notities.
+//
+// STIL BIJ EEN FOUT. Staan de regels nog niet gepubliceerd, of is er geen verbinding, dan faalt elke
+// schrijfbeurt hier zonder melding en werkt de app zoals voordien: dit is een bijkomend overzicht en
+// nooit een voorwaarde om een wedstrijd te kunnen bewaren.
+const _spelerRijenGeschreven = {};   // wedstrijdId -> { globalId: json } — wat dit toestel al wegschreef
+function spelerRijen(m) {
+  const uit = {};
+  if (!m || m.status !== 'done' || m.tournamentId) return uit;
+  const mins = (typeof calcMinutes === 'function') ? calcMinutes(m) : {};
+  const opgegaan = (typeof tweedeGeelIds === 'function') ? tweedeGeelIds(m) : new Set();
+  const uitslag = !geenUitslag(m);
+  const res = uitslag ? matchResultaat(m) : '';
+  (m.players || []).forEach(p => {
+    if (!p || !p.globalId || p.absent) return;
+    let g = 0, a = 0, yc = 0, rc = 0;
+    (m.events || []).forEach(e => {
+      if ((e.type === 'goal_us' || (e.type === 'penalty_us' && e.scored)) && e.playerId === p.id) g++;
+      if (e.type === 'goal_us' && e.assistId === p.id) a++;
+      if (e.type === 'yellow_card' && e.playerId === p.id && !opgegaan.has(e.id)) yc++;
+      if (e.type === 'red_card' && e.playerId === p.id) rc++;
+    });
+    uit[p.globalId] = {
+      d: m.date || '', t: m.teamName || '', o: m.opponent || '',
+      u: uitslag ? (m.scoreUs || 0) : null, v: uitslag ? (m.scoreThem || 0) : null, r: res || '',
+      ms: (mins[p.id] && mins[p.id].ms) || 0, g, a, yc, rc, gast: p.guest ? 1 : 0,
+      k: (typeof matchKindOf === 'function') ? matchKindOf(m) : '',
+    };
+  });
+  return uit;
+}
+// Houdt de rijen van deze ene wedstrijd bij: schrijft wat nieuw of gewijzigd is, en wist wat er niet meer
+// bij hoort (een speler die uit de wedstrijd werd gehaald, de wedstrijd die verwijderd of heropend werd).
+// Enkel wat dit toestel zelf al schreef kan het wissen; een rij van een andere sessie blijft tot de
+// volgende volledige vulling (zie spelerRijenBijvullen).
+function spelerRijenSync(m, tid) {
+  if (!fbdb || !cloudReady || !isAdmin || !m || !m.id) return;
+  tid = tid || activeTeamId; if (!tid) return;
+  const nu = spelerRijen(m);
+  const voor = Object.assign({}, _spelerRijenGeschreven[m.id] || {});
+  // Een verwijderde wedstrijd: wis de rijen van iedereen die erin stond, ook als dit toestel ze niet zelf schreef.
+  if (m.status === 'weg') (m.players || []).forEach(p => { if (p && p.globalId && !(p.globalId in voor)) voor[p.globalId] = 'x'; });
+  const nieuw = {};
+  Object.keys(nu).forEach(gid => {
+    const json = JSON.stringify(nu[gid]);
+    nieuw[gid] = json;
+    if (voor[gid] !== json) fbdb.ref('playerCareer/' + gid + '/rows/' + tid + '/' + m.id).set(nu[gid]).catch(() => {});
+  });
+  Object.keys(voor).forEach(gid => {
+    if (!(gid in nu)) fbdb.ref('playerCareer/' + gid + '/rows/' + tid + '/' + m.id).remove().catch(() => {});
+  });
+  if (Object.keys(nieuw).length) _spelerRijenGeschreven[m.id] = nieuw; else delete _spelerRijenGeschreven[m.id];
 }
 function cloudOnLocalTeamsSave(arr) {
   const r = teamRef('roster'); if (!r || !isAdmin) return;
@@ -4044,6 +4109,16 @@ function mijnSpelersUitCacheZetten(teamId) { mijnSpelerIds = mijnSpelersUitCache
 // Zelfde vangnet als bij de aanwezigheidstak (zie hierboven).
 let mijnSpelerIds = [];
 function mijnSpelers() { return mijnSpelerIds.slice(); }
+// DE SPELERS WAARAAN IK GEKOPPELD BEN, ONAFHANKELIJK VAN EEN PLOEG (v2.40.0). globalId -> { t: ploegId, n: naam },
+// uit playerLinks/<eigen uid>. Zie database.rules.json. Stil leeg bij een fout of zolang de regels niet live zijn.
+let mijnSpelerLinks = {};
+async function laadMijnSpelerLinks(user) {
+  mijnSpelerLinks = {};
+  if (!user || !fbdb) return;
+  try { mijnSpelerLinks = (await fbOnce(fbdb.ref('playerLinks/' + user.uid))).val() || {}; } catch (e) { mijnSpelerLinks = {}; }
+  // Enkel hertekenen als er echt iets is om te tonen (anders flitst het startscherm voor niets).
+  if (Object.keys(mijnSpelerLinks).length && (view === 'home' || view === 'teamselect')) render();
+}
 // DE KOPPELING WORDT ONTHOUDEN OP DIT TOESTEL (Tim, 04-10-2026: "de naam van de gekoppelde speler
 // komt later" — "en ik zie toch nog die flits"). Dat was één en dezelfde zaak: de koppeling komt uit
 // de cloud, en zodra ze binnen was liet de luisteraar het hele startscherm opnieuw tekenen, want er

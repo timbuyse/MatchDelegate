@@ -9,6 +9,15 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.40.0
+
+- **Het speler-object: de carrière hoort bij de speler.** De cijfers van een speler staan nu ook op spelerniveau (`playerCareer/<globalId>`), met een koppeling per account (`playerLinks/<uid>/<globalId>`). Een ouder die aan een speler gekoppeld is, ziet zijn hele carrière over alle ploegen en seizoenen bij **Mijn spelers**, ook als de speler doorschuift of de ouder een ploeg verlaat. Meerdere accounts per speler en meerdere spelers per account kan. Nieuwe, optionele takken met eigen regels in `database.rules.json` (de regels moeten gepubliceerd zijn). Zonder die regels werkt alles zoals voordien.
+- **Ploeg verlaten.** Een kijker kan in Instellingen onder "Mijn ploegen" een ploeg zelf verlaten. Is hij aan een speler gekoppeld die nog niet apart bewaard is, dan weigert de app het en zegt waarom.
+- **Speler-object vullen.** Eenmalige knop bij App-beheer (enkel eigenaar) die de afgesloten wedstrijden en de bestaande koppelingen overzet naar het speler-object.
+- **Spelerspagina:** de rij "Ook gastspeler bij" / "Eigen ploeg" is aanklikbaar en opent zijn pagina bij die ploeg.
+
+---
+
 ## v2.38.8
 
 - **Doorgeschoven speler bleef in de bronploeg staan.** Spelers doorschuiven schreef de bronlijst rechtstreeks weg zonder "grafsteen" voor wie vertrok. Een toestel dat de speler nog in zijn cache had, zette hem bij het openen van de app terug (de app bewaart per speler wat de cloud niet kent). Nu schrijft het doorschuiven de grafsteen mee, zoals de gewone verwijderknop al deed.

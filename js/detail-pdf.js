@@ -2787,6 +2787,7 @@ views.clubsadmin = renderClubsAdmin;
 views.allusers = renderAllUsers;
 views.online = renderOnline;
 views.gebruik = renderGebruik;
+views.mijnspelers = renderMijnSpelers;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
 views.tournaments = renderTournamentList;

@@ -587,6 +587,51 @@
       }
     },
 
+    // ===================== HET SPELER-OBJECT (v2.40.0, Tim 28-11-2026) =====================
+    // Een speler zijn carrière hoort bij de SPELER en niet bij een ploeg: een ouder die aan hem gekoppeld
+    // is, moet zijn cijfers blijven zien ook als de speler doorschuift of de ouder een ploeg verlaat.
+    // Twee nieuwe, optionele takken. Bestaande gegevens veranderen niet; zonder deze regels werkt de app
+    // gewoon zoals voordien (alle schrijfbeurten hieronder falen dan stil).
+    //
+    //   playerLinks/<uid>/<globalId>            = { t: ploegId, n: naam }   WIE bij WELKE speler hoort
+    //   playerCareer/<globalId>/rows/<ploegId>/<wedstrijdId> = { … }        WAT de speler speelde
+    //
+    // De koppeling staat onder de uid en niet onder de speler: zo kan een ouder zijn eigen lijst
+    // spelers opvragen zonder lid van een ploeg te zijn, en dezelfde speler kan aan meerdere
+    // accounts hangen (twee ouders, een grootouder, een coach). Lezen: enkel de eigenaar van de
+    // koppeling zelf (en de app-eigenaar). Schrijven: een beheerder van de ploeg in `t` (of de
+    // clubbeheerder van die club, of de app-eigenaar) — de koppeling is dus altijd aan een ploeg
+    // gebonden die de schrijver echt beheert. Wat de regels NIET kunnen nagaan, is of de speler ook
+    // echt in die ploeg zit: het globalId is niet te raden, maar dit blijft een iets ruimer recht dan
+    // de koppeling per ploeg (teams/<id>/memberPlayers). Bij verwijderen telt de `t` van de oude waarde.
+    "playerLinks": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('owner').val() === auth.uid)",
+        "$gid": {
+          ".write": "auth != null && (root.child('owner').val() === auth.uid || (newData.exists() && (root.child('teams/' + newData.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + newData.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())) || (!newData.exists() && (root.child('teams/' + data.child('t').val() + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + data.child('t').val() + '/info/clubId').val() + '/admins/' + auth.uid).exists())))",
+          "t": { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "n": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "$veld": { ".validate": false }
+        }
+      }
+    },
+
+    // De carrière zelf: één rij per gespeelde wedstrijd, enkel de cijfers van DIE speler. Geen namen van
+    // andere spelers, geen notities, geen reden van afwezigheid. Lezen: wie aan dit globalId gekoppeld
+    // is (playerLinks/<eigen uid>/<globalId>) en de app-eigenaar. Schrijven: een beheerder van de ploeg
+    // waarvan de wedstrijd is (of de clubbeheerder van die club, of de app-eigenaar) — de ploeg zit in
+    // het pad, dus de regel kan ze controleren.
+    "playerCareer": {
+      "$gid": {
+        ".read": "auth != null && (root.child('owner').val() === auth.uid || root.child('playerLinks/' + auth.uid + '/' + $gid).exists())",
+        "rows": {
+          "$teamId": {
+            ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('teams/' + $teamId + '/members/' + auth.uid).val() === 'admin' || root.child('clubs/' + root.child('teams/' + $teamId + '/info/clubId').val() + '/admins/' + auth.uid).exists())"
+          }
+        }
+      }
+    },
+
     "$other": {
       ".read": false,
       ".write": false

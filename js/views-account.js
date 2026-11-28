@@ -22,6 +22,8 @@ function renderBeheer() {
       ${/* Eén ingang voor de drie gebruikersschermen; wisselen doe je met de tabbalk daarbinnen. */''}
       <button class="btn btn-dark" style="margin-top:8px" onclick="go('allusers')">${icI(IC.chart)} Gebruikers &amp; gebruik</button>
       ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" onclick="_tgvFrom='beheer';go('teruggevonden')">${icI(IC.history)} Prullenmand</button>` : ''}
+      ${cloudReady ? `<button class="btn btn-dark" style="margin-top:8px" id="btn-speler-vullen" onclick="spelerRijenBijvullen()">${icI(IC.chart)} Speler-object vullen</button>
+      <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Eenmalig, na het publiceren van de nieuwe regels: bewaart de carrière van elke speler en de koppelingen op spelerniveau.</p>` : ''}
     </div>
     <div class="sec">${icI(IC.wrench)} Onderhoud</div>
     <div class="card">
@@ -3496,15 +3498,15 @@ async function demoteMember(uid) {
 // Tim, 27-09-2026: een ouder die de cijfers van zijn kind mag volgen, zonder ploegbeheerder te
 // worden. De beheerder duidt hier aan wie bij wie hoort; de rest staat bij mijnSpelerIds in core.js.
 // Meerdere spelers kan (twee kinderen in dezelfde ploeg), vandaar vinkjes en geen keuzelijst.
-let _koppelUid = null, _koppelSel = new Set();
+let _koppelUid = null, _koppelSel = new Set(), _koppelVoor = new Set();
 function modalKoppelSpelers(uid) {
   if (!isAdmin || !activeTeamId || !fbdb) return;
   const kern = ((getTeamsV2()[0] || {}).players || []).slice()
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl'));
   if (!kern.length) { showToast('Deze ploeg heeft nog geen spelers in de kern.', 'err'); return; }
-  _koppelUid = uid; _koppelSel = new Set();
+  _koppelUid = uid; _koppelSel = new Set(); _koppelVoor = new Set();
   fbOnce(fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + uid))
-    .then(s => { const v = s.val() || {}; Object.keys(v).forEach(k => { if (v[k]) _koppelSel.add(k); }); _renderKoppelModal(kern); })
+    .then(s => { const v = s.val() || {}; Object.keys(v).forEach(k => { if (v[k]) { _koppelSel.add(k); _koppelVoor.add(k); } }); _renderKoppelModal(kern); })
     .catch(() => _renderKoppelModal(kern));   // regels nog niet live: gewoon met een lege selectie beginnen
 }
 function _renderKoppelModal(kern) {
@@ -3529,7 +3531,18 @@ async function _koppelBewaar() {
   _koppelSel.forEach(id => { data[id] = true; });
   try {
     await fbdb.ref('teams/' + activeTeamId + '/memberPlayers/' + _koppelUid).set(_koppelSel.size ? data : null);
-    _koppelUid = null; _koppelSel = new Set();
+    // OOK OP HET NIVEAU VAN DE SPELER (v2.40.0): de koppeling per ploeg hierboven verdwijnt zodra de speler
+    // doorschuift of de ouder de ploeg verlaat; deze volgt het globalId en dus de speler zelf. Meerdere
+    // accounts per speler kan (twee ouders, een grootouder, een coach) — elk account heeft zijn eigen rij.
+    // Stil bij een fout: staan de regels nog niet gepubliceerd, dan blijft enkel de koppeling per ploeg.
+    try {
+      const kern = ((getTeamsV2()[0] || {}).players || []);
+      const gidVan = id => { const p = kern.find(x => x.id === id); return p && p.globalId ? { gid: p.globalId, naam: p.name || '' } : null; };
+      const uidK = _koppelUid, tid = activeTeamId;
+      _koppelSel.forEach(id => { const g = gidVan(id); if (g) fbdb.ref('playerLinks/' + uidK + '/' + g.gid).set({ t: tid, n: g.naam }).catch(() => {}); });
+      _koppelVoor.forEach(id => { if (_koppelSel.has(id)) return; const g = gidVan(id); if (g) fbdb.ref('playerLinks/' + uidK + '/' + g.gid).remove().catch(() => {}); });
+    } catch (e) {}
+    _koppelUid = null; _koppelSel = new Set(); _koppelVoor = new Set();
     showMembersModal();
     showToast('Koppeling bewaard.', 'ok');
   } catch (e) {
@@ -3549,10 +3562,20 @@ function mijnSpelerNamen() {
 function _mijnSpelerPloeg() { return homeFilter === 'all' ? '' : homeFilter; }
 // `half`: staat naast deze tegel ook "Trainerscijfers" (een trainer die ook een kind volgt), dan nemen
 // ze samen één rij van twee halve tegels. Is er maar één, dan blijft ze over de volle breedte.
+// De tegel naar de carrière van de gekoppelde speler(s) over alle ploegen heen (v2.40.0). Verschijnt
+// wanneer er geen speler van DEZE ploeg aan hem gekoppeld is maar wel een speler in het speler-object:
+// een ouder van wie de zoon naar een andere ploeg verhuisde, of die de ploeg verliet.
+function mijnCarriereTegelHtml(half) {
+  const links = Object.values(mijnSpelerLinks || {});
+  if (!links.length || isGuest) return '';
+  const een = links.length === 1;
+  return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="go('mijnspelers')"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
+    + `<span class="tl">${esc(een ? (links[0].n || 'Mijn speler') : 'Mijn spelers')}</span><span class="tc">carrière</span></button>`;
+}
 function mijnSpelerTegelHtml(half) {
-  if (typeof heeftGekoppeldeSpeler !== 'function' || !heeftGekoppeldeSpeler()) return '';
+  if (typeof heeftGekoppeldeSpeler !== 'function' || !heeftGekoppeldeSpeler()) return mijnCarriereTegelHtml(half);
   const lijst = mijnSpelerNamen();
-  if (!lijst.length) return '';
+  if (!lijst.length) return mijnCarriereTegelHtml(half);
   const een = lijst.length === 1;
   const actie = een
     ? `openPlayerDetail('${jsq(lijst[0].naam)}','${jsq(_mijnSpelerPloeg())}','${jsq(lijst[0].id)}')`
@@ -3573,6 +3596,170 @@ function modalMijnSpelers() {
   openModal(`<h3>${icI(IC.shirt)} Mijn spelers</h3>
     <div class="place-chips">${lijst.map(x => `<span class="place-chip" onclick="closeModal();openPlayerDetail('${jsq(x.naam)}','${jsq(_mijnSpelerPloeg())}','${jsq(x.id)}')">${esc(x.naam)}</span>`).join('')}</div>
     <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+}
+// ===================== MIJN SPELERS: DE CARRIÈRE OVER ALLE PLOEGEN (v2.40.0) =====================
+// Tim, 28-11-2026: de cijfers van een speler horen bij de speler, niet bij een ploeg. Dit scherm leest
+// het speler-object (playerLinks → playerCareer, zie database.rules.json en spelerRijen in core.js) en
+// werkt dus ook voor een ouder die geen lid meer is van de ploeg waar zijn zoon speelde, of van de ploeg
+// waar hij nu speelt. Meerdere accounts per speler kan, en meerdere spelers per account ook.
+function renderMijnSpelers() {
+  if (isGuest) return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>Mijn spelers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  setTimeout(loadMijnSpelersView, 0);
+  return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.idCard)} Mijn spelers</h1></div>
+  <div class="content" id="mijnspelers-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
+}
+function _carriereSeizoen(d) { return (typeof seasonOf === 'function') ? seasonOf({ date: d }) : 'Onbekend'; }
+function carriereSpelerHtml(gid, link, rijenPerPloeg) {
+  const rijen = [];
+  Object.keys(rijenPerPloeg || {}).forEach(tid => Object.keys(rijenPerPloeg[tid] || {}).forEach(mid => rijen.push(Object.assign({ tid, mid }, rijenPerPloeg[tid][mid]))));
+  const titel = `<div class="sec">${icI(IC.idCard)} ${esc((link && link.n) || 'Speler')}</div>`;
+  if (!rijen.length) return titel + `<div class="card"><p style="margin:0;font-size:13px;color:var(--txt2)">Nog geen wedstrijden bewaard voor deze speler. Dat vult zich zodra een beheerder een wedstrijd afsluit.</p></div>`;
+  const perSeizoen = {};
+  rijen.forEach(r => { const s = _carriereSeizoen(r.d); const t = r.t || 'Ploeg'; ((perSeizoen[s] = perSeizoen[s] || {})[t] = perSeizoen[s][t] || []).push(r); });
+  const totaal = { mp: 0, g: 0, a: 0, ms: 0 };
+  let html = '';
+  Object.keys(perSeizoen).sort().reverse().forEach(s => {
+    html += `<div style="font-weight:800;margin:14px 2px 6px">Seizoen ${esc(s)}</div>`;
+    Object.keys(perSeizoen[s]).sort().forEach(t => {
+      const l = perSeizoen[s][t].slice().sort((a, b) => (b.d || '').localeCompare(a.d || ''));
+      const gesp = l.filter(r => (r.ms || 0) > 0).length;
+      const g = l.reduce((x, r) => x + (r.g || 0), 0), a = l.reduce((x, r) => x + (r.a || 0), 0), ms = l.reduce((x, r) => x + (r.ms || 0), 0);
+      const w = l.filter(r => r.r === 'W').length, gl = l.filter(r => r.r === 'G').length, v = l.filter(r => r.r === 'V').length;
+      totaal.mp += gesp; totaal.g += g; totaal.a += a; totaal.ms += ms;
+      html += `<details class="card" style="margin-bottom:8px"><summary style="cursor:pointer;display:flex;gap:8px;align-items:center"><b style="flex:1">${esc(t)}</b><span style="color:var(--txt2);font-size:13px">${gesp} gespeeld${g ? ` · ${g} ${icI(IC.ball)}` : ''}${a ? ` · ${a} ${icI(IC.assist)}` : ''}</span></summary>
+        <div style="font-size:12px;color:var(--txt2);margin:8px 0">${Math.round(ms / 60000)}' speeltijd · ${w} winst · ${gl} gelijk · ${v} verlies</div>
+        ${l.map(r => `<div class="stat-row"><span style="flex:1">${esc(fmtDateShortCarriere(r.d))} · ${esc(r.o || '—')}${r.gast ? ' <small style="color:var(--txt2)">(gast)</small>' : ''}</span><span style="font-weight:800;margin-right:8px">${r.u == null ? '—' : esc(r.u + '-' + r.v)}</span><span style="color:var(--txt2);font-size:13px">${Math.round((r.ms || 0) / 60000)}'${r.g ? ` · ${r.g} ${icI(IC.ball)}` : ''}</span></div>`).join('')}
+      </details>`;
+    });
+  });
+  return titel + `<div class="card"><div class="stat-big"><div class="stat-box"><div class="v">${totaal.mp}</div><div class="l">Gespeeld</div></div><div class="stat-box"><div class="v">${totaal.g}</div><div class="l">Doelpunten</div></div><div class="stat-box"><div class="v">${Math.round(totaal.ms / 60000)}'</div><div class="l">Speeltijd</div></div></div>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0;text-align:center">Over alle ploegen en seizoenen samen.</p></div>` + html;
+}
+function fmtDateShortCarriere(d) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : (d || ''); }
+async function loadMijnSpelersView() {
+  const el = document.getElementById('mijnspelers-content'); if (!el) return;
+  if (!fbdb || !currentUser) { el.innerHTML = `<p style="text-align:center;color:var(--txt2)">Geen verbinding.</p>`; return; }
+  try {
+    mijnSpelerLinks = (await fbOnce(fbdb.ref('playerLinks/' + currentUser.uid))).val() || {};
+  } catch (e) { /* de lijst van daarnet blijft gelden */ }
+  const gids = Object.keys(mijnSpelerLinks || {});
+  if (!gids.length) { el.innerHTML = `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Er is nog geen speler aan jouw account gekoppeld. Een beheerder doet dat bij de leden van de ploeg.</p></div>`; return; }
+  let html = '';
+  for (const gid of gids) {
+    let rijen = null;
+    try { rijen = (await fbOnce(fbdb.ref('playerCareer/' + gid + '/rows'))).val() || {}; } catch (e) { rijen = null; }
+    if (view !== 'mijnspelers') return;   // intussen weggeklikt
+    html += rijen === null
+      ? `<div class="sec">${icI(IC.idCard)} ${esc((mijnSpelerLinks[gid] || {}).n || 'Speler')}</div><div class="card"><p style="margin:0;font-size:13px;color:var(--txt2)">Deze carrière is nog niet beschikbaar. De nieuwe beveiligingsregels moeten eerst gepubliceerd worden.</p></div>`
+      : carriereSpelerHtml(gid, mijnSpelerLinks[gid], rijen);
+  }
+  el.innerHTML = html;
+}
+// ===================== EEN PLOEG VERLATEN (v2.40.0) =====================
+// Een kijker (een ouder) kan zichzelf uit een ploeg halen. De regels lieten dat al toe (`members/<uid>`:
+// "een lid mag zijn eigen lidmaatschap altijd weer verwijderen"); er was enkel nergens een knop. Beheerders
+// verlaten een ploeg niet zo: die hebben een eigen weg, en de ploeg zou anders zonder beheerder vallen.
+//
+// DE CARRIÈRE VAN ZIJN ZOON BLIJFT. Is hij aan een speler van die ploeg gekoppeld, dan moet die koppeling
+// ook als speler-object bestaan (playerLinks), anders verliest hij met de ploeg de weg naar zijn cijfers.
+// Bestaat dat niet (de regels staan nog niet live, of de eenmalige vulling is nog niet gedraaid), dan
+// weigeren we het verlaten en zeggen waarom — liever niet verlaten dan zonder het te weten kwijt zijn.
+// Volgorde: eerst wat enkel kan zolang hij lid is (memberInfo), het lidmaatschap als laatste.
+async function confirmPloegVerlaten(tid) {
+  if (!currentUser || !fbdb || !tid) return;
+  if (userTeams[tid] === 'admin') { showToast('Beheerders verlaten een ploeg niet zo. Vraag een andere beheerder of de eigenaar.', 'err'); return; }
+  const naam = teamNames[tid] || 'deze ploeg';
+  let gekoppeld = [], zonderObject = [];
+  try {
+    const mp = (await fbOnce(fbdb.ref('teams/' + tid + '/memberPlayers/' + currentUser.uid))).val() || {};
+    const rids = Object.keys(mp).filter(k => mp[k]);
+    if (rids.length) {
+      const rv = (await fbOnce(fbdb.ref('teams/' + tid + '/roster'))).val();
+      const kern = (Array.isArray(rv) ? rv : Object.values(rv || {}))[0] || {};
+      rids.forEach(rid => {
+        const p = (kern.players || []).find(x => x.id === rid);
+        if (!p) return;
+        gekoppeld.push(p.name);
+        if (!p.globalId || !mijnSpelerLinks[p.globalId]) zonderObject.push(p.name);
+      });
+    }
+  } catch (e) { showToast('Kon niet nagaan of je gekoppelde spelers hebt. Probeer opnieuw.', 'err'); return; }
+  if (zonderObject.length) {
+    openModal(`<h3>${icI(IC.warn)} Even wachten</h3>
+      <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:16px">Je bent gekoppeld aan <b>${esc(zonderObject.join(', '))}</b>, maar de carrière van ${zonderObject.length === 1 ? 'deze speler' : 'deze spelers'} is nog niet apart bewaard. Verlaat je ${esc(naam)} nu, dan raak je er de cijfers van kwijt. Vraag een beheerder om het eerst in orde te brengen.</p>
+      <button class="btn btn-gray" onclick="closeModal()">Begrepen</button>`);
+    return;
+  }
+  openModal(`<h3>${icI(IC.logout || IC.close)} ${esc(naam)} verlaten?</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:14px;margin-bottom:${gekoppeld.length ? '10' : '16'}px">Je volgt deze ploeg dan niet meer en ze verdwijnt uit je lijst. Je kan later opnieuw volgen met een uitnodigingslink.</p>
+    ${gekoppeld.length ? `<p style="text-align:center;color:var(--grn2);font-size:13px;margin-bottom:16px">${icI(IC.check)} De carrière van <b>${esc(gekoppeld.join(', '))}</b> blijft zichtbaar bij Mijn spelers.</p>` : ''}
+    <button class="btn btn-red" onclick="doPloegVerlaten('${jsq(tid)}')">${icI(IC.check)} Ja, verlaat ${esc(naam)}</button>
+    <button class="btn btn-gray" style="margin-top:8px" onclick="closeModal()">Annuleren</button>`);
+}
+async function doPloegVerlaten(tid) {
+  closeModal();
+  if (!currentUser || !fbdb || userTeams[tid] === 'admin') return;
+  const uid = currentUser.uid;
+  try {
+    try { await fbdb.ref('memberInfo/' + tid + '/' + uid).remove(); } catch (e) {}
+    await fbdb.ref('teams/' + tid + '/members/' + uid).remove();
+    fbdb.ref('users/' + uid + '/teams/' + tid).remove().catch(() => {});
+    delete userTeams[tid];
+    if (activeTeamId === tid) {
+      stopTeamListeners(); activeTeamId = null; isAdmin = false; rosterLoaded = false; rosterTeamId = null;
+      showToast('Ploeg verlaten.', 'ok');
+      await go('teamselect', undefined, true);
+    } else { showToast('Ploeg verlaten.', 'ok'); render(); }
+  } catch (e) { showToast('Verlaten mislukt, probeer opnieuw.', 'err'); }
+}
+// ===================== SPELER-OBJECT VULLEN (eenmalig, eigenaar) =====================
+// De rijen (playerCareer) en de koppelingen (playerLinks) bestaan pas vanaf v2.40.0 en worden vanaf dan
+// bijgehouden bij elke wedstrijd en elke koppeling. Dit vult het verleden aan: elke afgesloten wedstrijd van
+// elke ploeg van de club(s), en elke koppeling per ploeg (memberPlayers) die nog geen speler-object heeft.
+// Enkel de eigenaar, en enkel op zijn knop. Kan zonder gevolgen opnieuw: het schrijft telkens dezelfde rij.
+// Het schrijft enkel naar de twee nieuwe takken; wedstrijden en ploegen blijven ongemoeid.
+async function spelerRijenBijvullen() {
+  if (!isOwner || !fbdb) return;
+  const knop = document.getElementById('btn-speler-vullen');
+  const zet = t => { if (knop) { knop.disabled = true; knop.innerHTML = icI(IC.timer) + ' ' + t; } };
+  let rijen = 0, links = 0, fouten = 0, ploegen = 0;
+  try {
+    zet('Ploegen opzoeken…');
+    const clubs = (await fbOnce(fbdb.ref('clubs'))).val() || {};
+    const tids = [];
+    Object.keys(clubs).forEach(c => Object.keys((clubs[c] || {}).teams || {}).forEach(t => tids.push(t)));
+    for (const tid of tids) {
+      ploegen++;
+      zet(`Ploeg ${ploegen} van ${tids.length}…`);
+      const [mv, rv, mp] = await Promise.all([
+        fbOnce(fbdb.ref('teams/' + tid + '/matches')), fbOnce(fbdb.ref('teams/' + tid + '/roster')), fbOnce(fbdb.ref('teams/' + tid + '/memberPlayers')),
+      ]);
+      const kern = (() => { const v = rv.val(); return (Array.isArray(v) ? v : Object.values(v || {}))[0] || {}; })();
+      // Wedstrijden uit de cloud hebben dezelfde vorm als lokaal, op de arrays na die Firebase soms als object geeft.
+      const lijst = (v => Object.values(v || {}))(mv.val());
+      for (const m0 of lijst) {
+        const m = Object.assign({}, m0, {
+          players: Array.isArray(m0.players) ? m0.players : Object.values(m0.players || {}),
+          events: Array.isArray(m0.events) ? m0.events : Object.values(m0.events || {}),
+          quarters: Array.isArray(m0.quarters) ? m0.quarters : Object.values(m0.quarters || {}),
+        });
+        const nu = spelerRijen(m);
+        for (const gid of Object.keys(nu)) {
+          try { await fbdb.ref('playerCareer/' + gid + '/rows/' + tid + '/' + m.id).set(nu[gid]); rijen++; } catch (e) { fouten++; }
+        }
+      }
+      const mpv = mp.val() || {};
+      for (const uid of Object.keys(mpv)) {
+        for (const rid of Object.keys(mpv[uid] || {}).filter(k => mpv[uid][k])) {
+          const p = (kern.players || []).find(x => x.id === rid);
+          if (!p || !p.globalId) continue;
+          try { await fbdb.ref('playerLinks/' + uid + '/' + p.globalId).set({ t: tid, n: p.name || '' }); links++; } catch (e) { fouten++; }
+        }
+      }
+    }
+    showToast(fouten ? `Klaar met ${fouten} fouten (${rijen} rijen, ${links} koppelingen). Staan de nieuwe regels live?` : `Klaar: ${rijen} wedstrijdrijen en ${links} koppelingen.`, fouten ? 'err' : 'ok');
+  } catch (e) { showToast('Vullen mislukt: ' + (e && e.message ? e.message : 'onbekende fout') + '. Staan de nieuwe regels live?', 'err'); }
+  if (knop) { knop.disabled = false; knop.innerHTML = icI(IC.chart) + ' Speler-object vullen'; }
 }
 // ===================== TRAINERSCIJFERS =====================
 // Tim, 21-11-2026: een trainer ziet zijn EIGEN cijfers (wedstrijden getraind, bij welke ploegen, per
@@ -5398,6 +5585,8 @@ function renderTeamSelect() {
       <button class="hdr-gear" onclick="_settingsFrom=view;go('settings')" title="Instellingen">${icI(IC.gear)}</button>
     </div>
     <div class="ts-content">
+      ${/* De carrière van de gekoppelde speler(s), ook zonder ploeg (v2.40.0). */ ''}
+      ${(!isGuest && Object.keys(mijnSpelerLinks || {}).length) ? `<button class="btn btn-pale" style="margin-bottom:10px" onclick="go('mijnspelers')">${icI(IC.idCard)} ${Object.keys(mijnSpelerLinks).length === 1 ? esc((Object.values(mijnSpelerLinks)[0] || {}).n || 'Mijn speler') + ' — carrière' : 'Mijn spelers — carrière'}</button>` : ''}
       ${/* DE SPEELDAG BOVENAAN (Tim, 02-10-2026). Het enige scherm van de app dat over alle ploegen
             heen gaat, dus de enige plek waar dit hoort. Het blok tekent zichzelf zodra de gegevens
             binnen zijn (speeldagTeken) en blijft leeg wanneer er niets te melden valt — dan ziet dit

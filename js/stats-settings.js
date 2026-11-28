@@ -1110,6 +1110,7 @@ async function loadPlayerDetail() {
   // wedstrijden houden het oude kenmerk, en enkel globalId verbindt de twee.
   const guestElsewhere = {};   // waar hij ging helpen
   const ownElsewhere = {};     // zijn eigen ploeg — enkel zichtbaar vanaf een ploeg waar hij gast was
+  const andereKenmerk = {};    // ploegnaam -> { rid, g }: het kenmerk waarmee hij daar in de wedstrijd stond
   if (rosterId && playerDetailTeamName) {
     for (const m of all) {
       if (m.status !== 'done' || m.tournamentId || m.teamName === playerDetailTeamName) continue;
@@ -1118,10 +1119,24 @@ async function loadPlayerDetail() {
       if (!p) continue;
       const pot = p.guest ? guestElsewhere : ownElsewhere;
       pot[m.teamName] = (pot[m.teamName] || 0) + 1;
+      if (!andereKenmerk[m.teamName]) andereKenmerk[m.teamName] = { rid: p.rosterId, g: p.globalId || null };
     }
   }
   const guestEntries = Object.entries(guestElsewhere).sort((a, b) => b[1] - a[1]);
   const ownEntries = Object.entries(ownElsewhere).sort((a, b) => b[1] - a[1]);
+  // EEN WEG TERUG NAAR DIE ANDERE PLOEG (Tim, 28-11-2026). Komt je van zijn U10IP-pagina naar de pagina
+  // bij zijn vorige ploeg (U9P), dan stond U10IP hier enkel als tekst onder "Ook gastspeler bij" — de
+  // terugpijl kon terug, maar er was geen rij om naar U10IP te gaan. Nu opent elke zo'n rij zijn
+  // pagina bij die ploeg, zoals de rijen onder "Carrière". Het kenmerk waarmee hij daar nu in de kern
+  // staat (zelfde globalId) gaat voor; kennen we die kern niet, dan het kenmerk uit de wedstrijd zelf.
+  const rijAndere = (t, inhoud) => {
+    const k = andereKenmerk[t] || {};
+    const kern = getTeamsV2().find(x => x.name === t);
+    const inKern = kern && k.g ? (kern.players || []).find(r => r.globalId === k.g) : null;
+    const rid = (inKern && inKern.id) || k.rid || '';
+    const open = !!rid && magSpelerZien(rid);
+    return `<div class="stat-row"${open ? ` style="cursor:pointer" onclick="openPlayerDetailAndere('${jsq(name)}','${jsq(t)}','${jsq(rid)}')"` : ''}>${inhoud}${open ? '<span style="color:var(--txt2);margin-left:8px">›</span>' : ''}</div>`;
+  };
   // Carrière bij eerdere ploegen (na een formele overzetting via de eigenaarstool): matcht op
   // globalId, over ALLE seizoenen heen (i.t.t. guestElsewhere hierboven, dat bewust wél per
   // seizoen filtert — een overzetting hoort juist bij een seizoensovergang). Enkel wedstrijden
@@ -1221,13 +1236,14 @@ async function loadPlayerDetail() {
     ${tournamentBlock}
     ${/* Zijn eigen ploeg, en dus enkel te zien wanneer je hem opent bij een ploeg waar hij kwam
          helpen. Bewust bovenaan de drie: dat is het antwoord op "wie is deze jongen eigenlijk". */ ''}
-    ${ownEntries.length ? `<div class="sec">${icI(IC.players)} Eigen ploeg</div><div class="card">${ownEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}
+    ${ownEntries.length ? `<div class="sec">${icI(IC.players)} Eigen ploeg</div><div class="card">${ownEntries.map(([t, c]) => rijAndere(t, `<span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span>`)).join('')}
       <p style="font-size:12px;color:var(--txt2);margin:6px 0 0">Hij hoort bij ${ownEntries.length === 1 ? 'deze ploeg' : 'deze ploegen'} en kwam hier als gast meespelen.</p></div>` : ''}
-    ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => `<div class="stat-row"><span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span></div>`).join('')}</div>` : ''}
+    ${guestEntries.length ? `<div class="sec">${icI(IC.link)} Ook gastspeler bij</div><div class="card">${guestEntries.map(([t, c]) => rijAndere(t, `<span style="flex:1">${esc(t)}</span><span style="font-weight:800">${c} ${c===1?'wedstrijd':'wedstrijden'}</span>`)).join('')}</div>` : ''}
     ${/* Elke rij opent zijn VOLLEDIGE pagina bij die andere ploeg (apart van deze). Dezelfde pagina,
          dezelfde berekening: ze filtert op ploegnaam en op het kenmerk dat hij daar droeg. Heeft een
          kijker geen recht op dat kenmerk (magSpelerZien), dan blijft de rij gewoon tekst. Titel: niet
          "eerder bij", want vanaf de oude ploeg bekeken is de nieuwe ploeg de LATERE. */ ''}
+    ${(resolvedGlobalId && mijnSpelerLinks && mijnSpelerLinks[resolvedGlobalId]) ? `<button class="btn btn-pale" style="margin:10px 0" onclick="go('mijnspelers')">${icI(IC.idCard)} Volledige carrière — alle ploegen</button>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — andere ploeg</div><div class="card">${careerEntries.map(([t, c]) => {
       const open = magSpelerZien(c.rosterId || null);
       return `<div class="stat-row"${open ? ` style="cursor:pointer" onclick="openPlayerDetailAndere('${jsq(name)}','${jsq(t)}','${jsq(c.rosterId || '')}')"` : ''}><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span>${open ? '<span style="color:var(--txt2);margin-left:8px">›</span>' : ''}</div>`;
@@ -1303,6 +1319,17 @@ function renderSettings(isFirst) {
       <button class="btn btn-gray" style="margin-top:8px" onclick="cloudLogout()">Afmelden</button>
       ${isGuest ? '' : `<button class="btn btn-red" style="margin-top:8px" onclick="confirmDeleteAccount()">Account verwijderen</button>`}
     </div>` : ''}
+    ${(() => {
+      // MIJN PLOEGEN, MET EEN WEG ERUIT (v2.40.0). Enkel de ploegen die je als KIJKER volgt: een beheerder
+      // verlaat een ploeg niet zo. Zie confirmPloegVerlaten in views-account.js.
+      if (!cloudReady || isGuest || !currentUser) return '';
+      const kijk = Object.keys(userTeams || {}).filter(t => userTeams[t] === 'viewer');
+      if (!kijk.length) return '';
+      return `<div class="sec">Mijn ploegen</div><div class="card">
+        <p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Ploegen die je volgt. Verlaat je er één, dan blijft de carrière van de speler aan wie je gekoppeld bent zichtbaar bij Mijn spelers.</p>
+        ${kijk.map(t => `<div class="stat-row"><span style="flex:1">${esc(teamNames[t] || 'Ploeg')}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="confirmPloegVerlaten('${jsq(t)}')">Verlaten</button></div>`).join('')}
+      </div>`;
+    })()}
     <div class="sec">Over de app</div>
     <div class="card">
       <div class="stat-row"><span style="color:var(--txt2)">Versie</span><span style="font-weight:700">${APP_VERSION}</span></div>
