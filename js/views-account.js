@@ -52,7 +52,7 @@ let clubNaamCache = {};
 // heeft er geen"; `undefined` betekent "nog niet gevraagd" — zonder dat verschil zou de app het bij
 // elke tekening opnieuw gaan halen, en een logo is een data-URI van tientallen KB.
 let clubLogoCache = {};
-// Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Jouw ploegen te
+// Waar je vandaan kwam, zodat de terugknop je terugbrengt in plaats van je altijd op Mijn ploegen te
 // zetten (zelfde patroon als _settingsFrom en _tgvFrom — zie de projectnotities).
 let _clubBeheerFrom = 'teamselect';
 // STANDAARD DICHT, BEHALVE DE PLOEGEN (Tim, 21-11-2026: "die schermen met ploegen en trainers zijn lang,
@@ -102,8 +102,9 @@ async function loadClubBeheerView() {
       try { const v = (await fbOnce(fbdb.ref('clubs/' + clubId + '/' + pad))).val(); return (v === null || v === undefined) ? leeg : v; }
       catch (e) { return leeg; }
     };
-    const [clubNaamRuw, clubAdmins, clubTeams, clubTrainers] = await Promise.all([
+    const [clubNaamRuw, clubAdmins, clubTeams, clubTrainers, clubSpelerKoppelingen] = await Promise.all([
       leesClub('info/name', ''), leesClub('admins', {}), leesClub('teams', {}), leesClub('trainers', {}),
+      leesClub('spelerKoppelingen', {}),
     ]);
     const clubName = clubNaamRuw || 'Mijn club';
     const teamIds = Object.keys(clubTeams);
@@ -214,7 +215,7 @@ async function loadClubBeheerView() {
       <details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('ploegen') ? ' open' : ''} ontoggle="clubBeheerVouw('ploegen', this.open)"><summary>${esc(clubName)} <span style="font-weight:400;text-transform:none;color:var(--txt2)">(${rows.length} ${rows.length === 1 ? 'ploeg' : 'ploegen'})</span></summary>
       <div class="card" style="margin-top:8px">
         ${rows.length ? rows.map(t =>`<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
-          <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Jouw ploegen</span>' : ''}</div>
+          <div style="font-weight:600">${esc(t.name)}${userTeams[t.id] ? ' <span style="font-weight:400;color:var(--grn);font-size:12px">· in Mijn ploegen</span>' : ''}</div>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="openTeamFromClub('${t.id}')">Openen</button>
             <button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="toggleClubTeamMembership('${t.id}')">${userTeams[t.id] ? 'Uit mijn ploegen' : 'Bij mijn ploegen'}</button>
@@ -241,9 +242,10 @@ async function loadClubBeheerView() {
             niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een
             ploegbeheerder onder "Mensen met toegang". */ ''}
       ${clubTrainersBlokHtml(clubId, trainersPerPloeg, clubTrainers)}
-      ${/* SPELERS KOPPELEN (28-11-2026). Een account aan een speler hangen, op clubniveau en dus onafhankelijk
-            van de ploeg waarin de speler staat. Zie renderSpelerKoppel. */ ''}
-      <button class="btn btn-pale" style="margin-top:12px" onclick="_clubBeheerId='${clubId}';go('spelerkoppel')">${icI(IC.idCard)} Spelers koppelen aan accounts</button>
+      ${/* SPELERS (28-11-2026). Het zusterblok van Trainers: een account aan een speler hangen, op clubniveau en
+            dus onafhankelijk van de ploeg waarin de speler staat. Een club heeft honderden spelers, dus geen lijst
+            hier maar een samenvatting, en het koppelen zelf op een eigen scherm (renderSpelerKoppel). */ ''}
+      ${clubSpelersBlokHtml(clubId, clubSpelerKoppelingen)}
       <details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('extra') ? ' open' : ''} ontoggle="clubBeheerVouw('extra', this.open)"><summary>Extra</summary>
       <div style="margin-top:8px">
       ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
@@ -254,7 +256,7 @@ async function loadClubBeheerView() {
             een draaitabel), deze is om terug te ZETTEN. Vandaar het zinnetje eronder — zonder dat
             lijken het twee knoppen voor hetzelfde. */''}
       <button class="btn btn-pale" style="margin-top:8px" onclick="clubBackup('${clubId}')">${icI(IC.download)} Back-up van de hele club</button>
-      <p style="font-size:12px;color:var(--txt2);margin-top:6px">De Excel is om te lezen; de back-up is om terug te zetten. Allebei halen ze <b>alle</b> ploegen van de club op, ook die niet bij "Jouw ploegen" staan.</p>
+      <p style="font-size:12px;color:var(--txt2);margin-top:6px">De Excel is om te lezen; de back-up is om terug te zetten. Allebei halen ze <b>alle</b> ploegen van de club op, ook die niet bij "Mijn ploegen" staan.</p>
       </div></details>
       ${archivedRows.length ?`<div class="sec" style="margin-top:20px">Gearchiveerd (${archivedRows.length})</div>
       <div class="card">
@@ -298,7 +300,7 @@ async function openTeamFromClub(tid) {
   }
 }
 // Hybride (fase 2d): de clubbeheerder voegt zichzelf toe aan / haalt zichzelf weg uit een clubploeg
-// als ploegbeheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Jouw ploegen"; zijn
+// als ploegbeheerder (lid). Zo verschijnt de ploeg wel/niet in zijn eigen "Mijn ploegen"; zijn
 // rolgebaseerde clubtoegang blijft hoe dan ook bestaan. Enkel zijn eigen lidmaatschap (self-write).
 async function toggleClubTeamMembership(tid) {
   if (!fbdb || !currentUser) return;
@@ -2279,7 +2281,7 @@ async function clubBackup(clubId) {
       </div>
       ${mislukt.length ? `<p style="font-size:13px;color:var(--rd);margin-top:10px;text-align:left">${icI(IC.warn)} ${mislukt.length} ${mislukt.length === 1 ? 'ploeg is' : 'ploegen zijn'} niet opgehaald (leesfout of geen rechten). Probeer het straks opnieuw.</p>` : ''}
       <p style="font-size:12px;color:var(--txt2);margin-top:10px;text-align:left">Dit bestand bevat ook de <b>notities</b> bij wedstrijden en spelers, en dus namen van kinderen. Bewaar het zoals je een ledenlijst bewaart.</p>
-      <p style="font-size:12px;color:var(--txt2);margin-top:8px;text-align:left">Terugzetten doe je via <b>Instellingen → Gegevens overzetten → Bestand inlezen</b>. Een ploeg die niet bij <b>Jouw ploegen</b> staat, zet je daar eerst bij — anders kan je haar wedstrijden alleen aan een andere ploeg toewijzen.</p>
+      <p style="font-size:12px;color:var(--txt2);margin-top:8px;text-align:left">Terugzetten doe je via <b>Instellingen → Gegevens overzetten → Bestand inlezen</b>. Een ploeg die niet bij <b>Mijn ploegen</b> staat, zet je daar eerst bij — anders kan je haar wedstrijden alleen aan een andere ploeg toewijzen.</p>
       <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
   } catch (e) { meld(clubFoutTekst(e)); }
 }
@@ -4269,6 +4271,26 @@ function clubTrainersBlokHtml(clubId, perPloeg, links) {
     <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Koppel alle ploegbeheerders van de club in één keer. Voor één persoon kan het ook bij de ploeg zelf, onder "Mensen met toegang". De trainer zelf, de clubbeheerders en de eigenaar zien deze cijfers.</p>
   </div></details>`;
 }
+// SPELERS, naast TRAINERS (Tim, 28-11-2026: "kan je niet twee keer iets gelijkaardigs doen?"). Zelfde inklapbare
+// blok met een samenvatting in de kop, maar zonder de lijst: een club heeft honderden spelers. Het koppelen zelf
+// gebeurt op een eigen scherm (renderSpelerKoppel). De tellers komen uit het overzicht op clubniveau
+// (clubs/<club>/spelerKoppelingen: <globalId> -> { <uid> -> … }), dat de knop "Speler-object vullen" aanvult.
+function clubSpelersBlokHtml(clubId, koppelingen) {
+  const perSpeler = Object.values(koppelingen || {}).filter(o => o && typeof o === 'object');
+  const spelers = perSpeler.filter(o => Object.keys(o).length).length;
+  const accounts = new Set();
+  perSpeler.forEach(o => Object.keys(o).forEach(u => accounts.add(u)));
+  const kopTekst = spelers
+    ? `(${spelers} ${spelers === 1 ? 'speler' : 'spelers'} · ${accounts.size} ${accounts.size === 1 ? 'account' : 'accounts'} gekoppeld)`
+    : '(nog geen)';
+  return `<details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('spelers') ? ' open' : ''} ontoggle="clubBeheerVouw('spelers', this.open)"><summary>Spelers <span style="font-weight:400;text-transform:none;color:var(--txt2)">${kopTekst}</span></summary><div class="card" style="margin-top:8px">
+    <p style="color:var(--txt2);font-size:14px;margin:0 0 4px">${spelers
+      ? `${spelers} ${spelers === 1 ? 'speler heeft' : 'spelers hebben'} een gekoppeld account (${accounts.size} ${accounts.size === 1 ? 'account' : 'accounts'}). Een gekoppeld account ziet de carrière van zijn kind bij Mijn spelers.`
+      : 'Nog geen enkele speler is aan een account gekoppeld.'}</p>
+    <button class="btn btn-pale" style="margin-top:10px" onclick="_clubBeheerId='${jsq(clubId)}';go('spelerkoppel')">${icI(IC.idCard)} Spelers koppelen</button>
+    <p style="font-size:12px;color:var(--txt2);margin:8px 0 0">Kies een speler uit alle ploegen van de club en koppel er een of meer accounts aan, of maak een uitnodigingslink voor een ouder die nog geen account heeft. De koppeling hangt aan de speler en blijft kloppen als hij doorschuift.</p>
+  </div></details>`;
+}
 // Ontkoppelen vanuit het clubscherm.
 async function ontkoppelTrainer(clubId, uid) {
   if (!fbdb || !clubId || !uid) return;
@@ -4910,7 +4932,7 @@ function renderGuestJoin() {
 // Wat er bij álle ploegen van je club gebeurt, op één scherm. Tim, 02-10-2026: "kan er ergens een
 // scherm komen dat alle lopende wedstrijden van alle ploegen waar je toegang toe hebt samen toont?"
 //
-// TWEE PLEKKEN (Tims keuze, 02-10-2026). Op 'Jouw ploegen' staat een KLEIN kader met enkel wat er NU
+// TWEE PLEKKEN (Tims keuze, 02-10-2026). Op 'Mijn ploegen' staat een KLEIN kader met enkel wat er NU
 // loopt — hoogstens twee kaartjes van een halve breedte, want volwaardige wedstrijdrijen namen daar
 // het halve scherm in, en op een drukke ochtend zouden er acht staan. De rest zit achter een doorklik,
 // op een eigen scherm met dezelfde naam, waar de kaartjes wél de volle breedte krijgen. Dat scherm
@@ -4950,7 +4972,7 @@ let _speeldagTimer = null;
 // Staat er een datum in, dan draait het hele scherm om díé dag: het ophalen, de drie hoopjes, de
 // koppen en de lege melding.
 //
-// DE KEUZE GELDT ENKEL ZOLANG JE OP DAT SCHERM BENT. Het kadertje op 'Jouw ploegen' hoort over
+// DE KEUZE GELDT ENKEL ZOLANG JE OP DAT SCHERM BENT. Het kadertje op 'Mijn ploegen' hoort over
 // vandaag te gaan; vandaar dat renderTeamSelect dit terugzet op null.
 let _speeldagDag = null;
 
@@ -5244,7 +5266,7 @@ async function speeldagOpen(id, tid) {
   go(doel, id);
 }
 // Eén kaartje: ploeg, tegenstander, en de toestand met de stand. Twee per rij op allebei de plekken —
-// in het kadertje op 'Jouw ploegen' en op het speeldagscherm (Tim, 03-10-2026: "zet ze enkel in het
+// in het kadertje op 'Mijn ploegen' en op het speeldagscherm (Tim, 03-10-2026: "zet ze enkel in het
 // speeldagscherm op halve breedte"). Op dat scherm staan ze een maat ruimer en op een eigen vlak; dat
 // zit volledig in de klasse sd-ruim, zodat hier maar één vorm te onderhouden is.
 // Alles blijft op één regel per onderdeel, met overlopende tekst afgekapt.
@@ -5260,7 +5282,7 @@ function speeldagKaartHtml(rij) {
   // dag is voorbij — dus niemand heeft ze afgesloten. Op het scherm van die oude dag is "nu bezig" dan
   // onwaar. Bewust NIET matchNietAfgesloten uitgebreid: die sluit een lopende wedstrijd uitdrukkelijk
   // uit en wordt door de hele app gebruikt (badges, filters, lijsten). Dit is enkel de lezing van dit
-  // scherm. Op het kadertje van 'Jouw ploegen' komt dit nooit voor: daar staat enkel vandaag.
+  // scherm. Op het kadertje van 'Mijn ploegen' komt dit nooit voor: daar staat enkel vandaag.
   const blijvenStaan = m.status === 'live' && !!m.date && m.date < isoVandaag();
   const kleur = blijvenStaan ? 'var(--yl)' : m.status === 'live' ? 'var(--rd)' : af ? 'var(--txt2)'
     : nietAf ? 'var(--yl)' : m.status === 'planned' ? 'var(--orn)' : 'var(--grn)';
@@ -5580,7 +5602,7 @@ function renderLiveSpeeldag() {
   setTimeout(speeldagZoNodig, 0);
   return `<div class="hdr"><button class="back" onclick="terug('teamselect')">‹</button>
       <div style="flex:1;min-width:0">
-        ${/* Hetzelfde rode bolletje als in het kadertje op 'Jouw ploegen' (sd-live), zodat de twee
+        ${/* Hetzelfde rode bolletje als in het kadertje op 'Mijn ploegen' (sd-live), zodat de twee
              zichtbaar hetzelfde ding zijn. Een tint lichter dan var(--rd): deze kopbalk staat op een
              donkere foto, en daar zakt #dc2626 weg. */ ''}
         ${/* DE TITEL ZEGT WAT HET SCHERM BESLAAT (Tim, 02-10-2026: "op het eerste scherm staat
@@ -5600,7 +5622,11 @@ function renderLiveSpeeldag() {
 
 // ===================== TEAM SELECT VIEW =====================
 function renderTeamSelect() {
-  // Gearchiveerde ploegen (fase 2d schijf 3) niet tonen in "Jouw ploegen" — ze blijven bereikbaar
+  // "Wat is er nieuw" ook hier (v3.0): de app opent nu op dit scherm, dus wie pas in een ploeg komt zou de
+  // melding nooit zien. Eén keer per sessie proberen; de melding beslist zelf of ze getoond wordt, zie
+  // toonNieuwAlsNodig in core.js en de oudere aanroep in loadHome.
+  if (!_nieuwGetoond) { _nieuwGetoond = true; setTimeout(toonNieuwAlsNodig, 900); }
+  // Gearchiveerde ploegen (fase 2d schijf 3) niet tonen in "Mijn ploegen" — ze blijven bereikbaar
   // via Clubbeheer (sectie Gearchiveerd) en kunnen daar hersteld worden.
   const teamIds = orderedTeamIds(Object.keys(userTeams)).filter(id => !archivedTeams[id]);
   // De groene "Beheer"-knop in de kop is weg sinds v1.1.0: hij leidde naar hetzelfde scherm als de
@@ -5776,7 +5802,7 @@ function renderTeamSelect() {
             De knop staat er ALTIJD, ook zonder ploegen: dan is hij het enige wat je hier kan doen. De
             kop staat er dan niet; de lege lijst zegt zelf al wat je te doen staat. */ ''}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div class="sec" style="margin:0;flex:1;min-width:0">${teamIds.length > 0 ? 'Jouw ploegen' : ''}</div>
+        <div class="sec" style="margin:0;flex:1;min-width:0">${teamIds.length > 0 ? 'Mijn ploegen' : ''}</div>
         <button class="btn btn-gray btn-sm" style="width:auto;margin:0;padding:6px 12px;flex-shrink:0" onclick="showJoinTeamModal()">+ Ploeg volgen</button>
       </div>
       ${teamRows}
@@ -5793,7 +5819,9 @@ function renderTeamSelect() {
         const links = Object.entries(mijnSpelerLinks || {});
         if (isGuest || !links.length) return '';
         return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Mijn spelers</div>
-        <div class="card">${links.map(([gid, l]) => `<div class="stat-row" style="cursor:pointer" data-link="1" onclick="openMijnSpeler('${jsq(gid)}')"><span style="flex:1">${icI(IC.idCard)} ${esc((l && l.n) || 'Speler')}</span><span style="color:var(--txt2);font-size:13px">carrière</span><span style="color:var(--txt2);margin-left:8px">›</span></div>`).join('')}</div>`;
+        ${/* Smaller dan een ploegkaart (Tim, 28-11-2026: "versmal een beetje"): minder opvulling en geen tweede
+              pijltje — data-link zet het chevron er al achter. */ ''}
+        <div class="card" style="padding:2px 14px">${links.map(([gid, l]) => `<div class="stat-row" style="cursor:pointer;padding:9px 0;font-size:15px" data-link="1" onclick="openMijnSpeler('${jsq(gid)}')"><span style="flex:1;min-width:0">${icI(IC.idCard)} ${esc((l && l.n) || 'Speler')}</span><span style="color:var(--txt2);font-size:12px">carrière</span></div>`).join('')}</div>`;
       })()}
       ${/* Voor de eigenaar staat de ingang nu als kroontje bovenaan (zie de kopregel hierboven), dus
            hier blijft enkel het geval waarin er nog géén eigenaar is: dat is de claim, en die heeft
@@ -5860,10 +5888,10 @@ function showCreateTeamModal(clubId) {
   // enkel via zijn clubrol. Standaard aangevinkt, want in de praktijk beheert hij ze vaak zelf.
   // MAAR NIET ALS JE DEZE CLUB ZELF NIET BEHEERT (v1.41.0). Sinds de knop ook in App-beheer → Clubs
   // staat, maakt de eigenaar hier ploegen aan voor de club van iemand ANDERS. Aangevinkt laten zou
-  // elke ploeg van elke klantenclub in zijn eigen "Jouw ploegen" duwen — en bij de laatste ook nog
+  // elke ploeg van elke klantenclub in zijn eigen "Mijn ploegen" duwen — en bij de laatste ook nog
   // van actieve ploeg wisselen. Beheer je de club zelf, dan blijft alles zoals het was.
   const zelfBeheerder = !!(clubId && myClubs && myClubs[clubId]);
-  const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join"${zelfBeheerder ? ' checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Jouw ploegen")</span></label>` : '';
+  const joinRow = clubId ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer"><input type="checkbox" id="ct-join"${zelfBeheerder ? ' checked' : ''} style="width:18px;height:18px;flex-shrink:0"> Ik doe zelf het dagelijks beheer van deze ploeg <span style="color:var(--txt2)">(in "Mijn ploegen")</span></label>` : '';
   openModal(`<h3>${icI(IC.plus)} Nieuwe ploeg</h3>
     <div class="fg"><label>Naam van de ploeg</label><input id="new-team-name" type="text" placeholder="bv. U15 Rood" autofocus></div>
     <div class="fg"><label>Standaard wedstrijdvorm</label><select id="ct-mt" onchange="ctFormatChange()">${Object.keys(MATCH_TYPES).map(k => `<option value="${k}" ${k==='8v8'?'selected':''}>${k}</option>`).join('')}</select></div>

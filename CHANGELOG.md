@@ -9,6 +9,19 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v3.0.0
+
+**Het speler-object.** Een speler heeft zijn eigen carrière, los van de ploeg. Bundelt v2.40 t.e.m. v2.42:
+
+- Spelercijfers staan op spelerniveau (`playerCareer`, `playerLinks`); een gekoppeld account ziet de carrière van zijn kind over alle ploegen en seizoenen bij **Mijn spelers**, één kaartje per kind.
+- Accounts koppel je aan een speler op clubniveau (Clubbeheer → Spelers koppelen) of met een **uitnodigingslink per speler**. "Koppel aan speler" bij de ledenlijst is weg; binnen een ploeg volgt "mijn speler" uit de koppeling op spelerniveau.
+- Een kijker kan een ploeg zelf verlaten (Instellingen → Ploegen die ik volg). De app opent standaard op het ploegkeuzescherm (te wijzigen bij Instellingen → Opstarten).
+- Doorschuiven zet een grafsteen in de bronploeg, controleert zichzelf en voegt geen dubbels toe; de statistieken voegen een doorgeschoven speler samen.
+- "Jouw ploegen" heet voortaan **Mijn ploegen**; in Instellingen heet het blok om een ploeg te verlaten **Ploegen die ik volg**. Bij Clubbeheer staat onder Trainers een blok **Spelers** (samenvatting + knop Spelers koppelen), het smallere spelerskaartje staat onder Mijn ploegen.
+- Bij de eerste start na deze versie krijgt iedereen een melding "Wat is er nieuw" (maximaal drie keer, met een vinkje om ze niet meer te tonen).
+
+---
+
 ## v2.42.2
 
 - **Na het volgen van een ploeg naar het startscherm.** Wie een uitnodiging opent (voor een ploeg of voor een speler) of een code invoert, komt op het ploegkeuzescherm terecht, niet rechtstreeks in de ploeg. Een gast gaat wel rechtstreeks de ploeg in.

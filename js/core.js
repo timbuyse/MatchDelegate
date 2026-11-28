@@ -1,5 +1,5 @@
 // ===================== CONFIG =====================
-const APP_VERSION = '2.42.2'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
+const APP_VERSION = '3.0.0'; // MAJOR.MINOR.PATCH — 1.0 = uit de testfase, officieel live (23-08-2026)
 const FEEDBACK_EMAIL = 'info@matchdelegate.be';
 const MATCH_TYPES = {
   '3v3':  { field: 3,  lines: ['Doel','Verdediging','Aanval'] },
@@ -911,6 +911,25 @@ function setupDone() { return !!localStorage.getItem('voetbal_setup_done'); }
 // voor geschreven en goedgekeurd heeft. Stond dit tot v1.11 op de major alleen (1 → 2), maar dan zou
 // een verandering van dit formaat pas bij versie 2 verteld kunnen worden.
 const RELEASE_NOTES = {
+  // VERSIE 3.0 (Tim, 28-11-2026): het speler-object. De cijfers van een speler horen bij de speler en niet
+  // bij een ploeg, een ouder koppelt aan zijn kind (door een beheerder of met een uitnodigingslink) en ziet
+  // diens carrière over alle ploegen, en een ploeg verlaten kan zelf. Voor ÍEDEREEN (`ookKijkers`): een ouder
+  // is het eerste publiek van deze tekst, en een beheerder leest in het tweede punt hoe hij koppelt.
+  // De app opent sinds deze versie ook standaard op het ploegkeuzescherm; dat staat er als laatste punt bij
+  // omdat iedereen het meteen merkt. Geen `handleiding`: er is nog geen pagina die dit samen dekt.
+  '3.0': {
+    titel: 'MatchDelegate 3.0',
+    kop: 'Elke speler heeft zijn eigen carrière',
+    ookKijkers: true,
+    intro: 'Vanaf nu horen de cijfers van een speler bij de speler zelf, niet bij een ploeg. Schuift hij door naar een andere ploeg, dan neemt hij zijn wedstrijden, doelpunten en speeltijd mee.',
+    kopPunten: 'Zo werkt het',
+    punten: [
+      'Ben je gekoppeld aan een speler, bijvoorbeeld je zoon of dochter? Dan zie je zijn hele carrière, over alle ploegen en seizoenen, op het ploegkeuzescherm onder “Mijn spelers”. Elk kind heeft zijn eigen kaartje.',
+      'Gekoppeld worden kan op twee manieren: een clubbeheerder koppelt je bij Clubbeheer → Spelers koppelen, of je opent de uitnodigingslink voor die speler. Eén speler kan aan meerdere accounts hangen, bijvoorbeeld twee ouders.',
+      'Een ploeg niet meer volgen kan nu zelf: Instellingen → Ploegen die ik volg → Verlaten. De carrière van je kind blijft zichtbaar.',
+      'De app opent voortaan op het ploegkeuzescherm, met de wedstrijden van vandaag, je ploegen en je spelers. Liever rechtstreeks in je laatste ploeg? Zet dat bij Instellingen → Opstarten.',
+    ],
+  },
   // Voorstel van 29-10-2026, nog door Tim goed te keuren; het laatste punt is zijn eigen tekst. Dit is
   // de EERSTE tekst sinds 1.72 (27-09): alles uit 1.73–2.24 dat nooit aangekondigd werd, in vier
   // punten gebundeld — dit venster komt bij elke beheerder en een lange lijst wordt weggeklikt.
@@ -924,7 +943,7 @@ const RELEASE_NOTES = {
       intro: 'Je ziet nu in één oogopslag wat er vandaag bij de hele club gespeeld wordt, ook bij ploegen die je zelf niet volgt.',
       kopPunten: 'Zo werkt het',
       punten: [
-        'Op “Jouw ploegen” staat het kadertje “Vandaag in jouw club”. Wat er bezig is, zie je meteen, met de stand erbij.',
+        'Op “Mijn ploegen” staat het kadertje “Vandaag in jouw club”. Wat er bezig is, zie je meteen, met de stand erbij.',
         'Tik de regel eronder aan voor alle wedstrijden van vandaag: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
         'Bij een ploeg die je niet volgt lees je de stand en de tegenstander, maar open je de wedstrijd niet. Bij je eigen ploeg tik je er gewoon op.',
       ],
@@ -934,7 +953,7 @@ const RELEASE_NOTES = {
     intro: 'Sinds de vorige melding is er heel wat bijgekomen. Dit zijn vier dingen die je het vaakst zal merken.',
     kopPunten: 'Wat je nu kan',
     punten: [
-      'Alles van vandaag in je club. Het kadertje “Vandaag in jouw club” op “Jouw ploegen” toont wat er bezig is. Tik de regel eronder aan en je ziet alle wedstrijden van vandaag bij je hele club: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
+      'Alles van vandaag in je club. Het kadertje “Vandaag in jouw club” op “Mijn ploegen” toont wat er bezig is. Tik de regel eronder aan en je ziet alle wedstrijden van vandaag bij je hele club: wat bezig is, al gespeeld is en nog komt. Met de pijltjes bovenaan blader je naar een andere dag.',
       'Kaarten voor de trainer en geel-rood. Op het kaartenscherm staan nu ook “Trainer” en “Afgev.”, voor een kaart aan de trainer of de afgevaardigde. Een tweede gele kaart wordt vanzelf rood en staat als één geel-rood kaartje in het verslag. Bij de tegenstander heeft de app daarvoor het rugnummer nodig.',
       'Speelminuten volgens het plan. Sluit je een wedstrijd af met enkel de uitslag, dan stond iedereen op 0 minuten. Staat er een opstelling en blokduur klaar, dan staat bij “Uitslag ingeven” nu het vinkje “Speelminuten volgens het plan bewaren” standaard aan. Die minuten zijn gepland en niet gemeten, en dat staat overal bij vermeld.',
       'Fouten achteraf rechtzetten. Een verkeerde speler in de selectie? Gebruik “Speler vervangen”: tijdens de wedstrijd (onder de spelerslijst) of na de wedstrijd (in het menu onder “Selectie aanpassen”, waar je ook een speler kan toevoegen of weghalen). Posities, speeltijd, doelpunten en kaarten schuiven mee naar de andere speler. Een strafschop verkeerd ingegeven? Tik in het verslag bij “Strafschoppen” op het potloodje om er een aan te passen, te wissen of toe te voegen.',
@@ -3072,7 +3091,7 @@ async function onAuthChanged(user) {
   }
   // WAAR LANDT DE APP (Tim, 02-10-2026: "als je maar één ploeg hebt, start de app dan in het
   // ploegscherm meteen? Zou eigenlijk op het keuzescherm moeten")? Allebei, en de wedstrijden
-  // beslissen. Loopt er nú iets bij een van je ploegen, dan kom je binnen op 'Jouw ploegen' en zie je
+  // beslissen. Loopt er nú iets bij een van je ploegen, dan kom je binnen op 'Mijn ploegen' en zie je
   // het meteen staan. Is er niets aan de hand, dan ga je rechtstreeks je ploeg binnen, zoals het altijd
   // was — een afgevaardigde met één ploeg hoort bij elke start geen lijst van één rij weg te tikken.
   //
@@ -3392,7 +3411,7 @@ async function doOwnerDeleteTeam(tid) {
     closeModal();
     // Ook het eigen lidmaatschap en de lokale caches opruimen: sinds v1.1.4 verwijdert de eigenaar
     // meestal vanuit Clubbeheer, en daar gaat het vaak om een ploeg die hij zélf volgt. Zonder dit
-    // bleef ze in "Jouw ploegen" staan tot de volgende opstart ze als wees opruimde.
+    // bleef ze in "Mijn ploegen" staan tot de volgende opstart ze als wees opruimde.
     if (activeTeamId === tid) { stopTeamListeners(); isAdmin = false; rosterLoaded = false; rosterTeamId = null; }
     if ((userTeams && userTeams[tid]) || activeTeamId === tid) pruneDeadTeam(tid);
     if (view === 'allusers') loadAllUsersView();
@@ -3546,7 +3565,7 @@ async function selectTeam(teamId) {
   localStorage.setItem('voetbal_activeTeamId', teamId);
   // Sla op dat deze user tot deze ploeg hoort (dubbele index voor snelle lookup). Enkel als hij
   // effectief een rol heeft: een clubbeheerder die geen ploeglid is, mag niet als 'viewer'
-  // geregistreerd worden — anders staat de ploeg na herstart permanent als "Kijker" in Jouw ploegen.
+  // geregistreerd worden — anders staat de ploeg na herstart permanent als "Kijker" in Mijn ploegen.
   if (currentUser && userTeams[teamId]) fbdb.ref('users/' + currentUser.uid + '/teams/' + teamId).set(userTeams[teamId]);
   // Naam + e-mail registreren zodat de beheerder ziet wie vervoegd is. Enkel voor echte leden:
   // een clubbeheerder die geen ploeglid is, hoort niet als 'viewer' in memberInfo te belanden.
@@ -4135,7 +4154,7 @@ function mijnSpelersHerbereken() {
   if (!zelfde) mijnSpelersOnthoud(activeTeamId, alle);
   return !zelfde;
 }
-// Waar start de app? STANDAARD op de ploegenlijst (Jouw ploegen) — Tims keuze van 28-11-2026, voor iedereen.
+// Waar start de app? STANDAARD op de ploegenlijst (Mijn ploegen) — Tims keuze van 28-11-2026, voor iedereen.
 // Wie liever rechtstreeks in zijn laatst gekozen ploeg opent, zet dat bij Instellingen → Opstarten: dat
 // bewaren we als 'ploeg'. Zonder keuze (of bij een opslagfout) geldt de lijst. Per toestel in de opslag,
 // zoals het donkere thema.
@@ -4888,7 +4907,7 @@ async function applyCloudMatch(id, m) {
   // telkens te horen dat er iemand anders bezig is. Dat klopt ook: díé ander is de afgevaardigde die
   // het hoort te doen.
   // De melding gaat over "pas op, jullie zitten er samen in", en dat is enkel zinvol wanneer je die
-  // ploeg ook echt volgt. `userTeams` is precies de lijst achter "Jouw ploegen".
+  // ploeg ook echt volgt. `userTeams` is precies de lijst achter "Mijn ploegen".
   const eigenPloeg = !!(userTeams || {})[activeTeamId];
   if (m.status === 'live' && m.updatedBy && typeof currentUser !== 'undefined' && currentUser
       && m.updatedBy !== currentUser.uid && typeof canLive === 'function' && canLive() && eigenPloeg) {

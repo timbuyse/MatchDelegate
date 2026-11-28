@@ -1325,7 +1325,7 @@ function renderSettings(isFirst) {
       const k = startSchermKeuze();
       return `<div class="sec">Opstarten</div><div class="card">
         <p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Waar opent de app op dit toestel?</p>
-        <div class="seg" style="width:100%"><button style="flex:1;${k === 'ploeg' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploeg')">Mijn ploeg</button><button style="flex:1;${k === 'ploegen' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploegen')">Jouw ploegen</button></div>
+        <div class="seg" style="width:100%"><button style="flex:1;${k === 'ploeg' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploeg')">Direct in mijn ploeg</button><button style="flex:1;${k === 'ploegen' ? 'background:var(--grn);color:#fff' : ''}" onclick="setStartScherm('ploegen')">Mijn ploegen</button></div>
       </div>`;
     })()}
     ${(() => {
@@ -1334,7 +1334,7 @@ function renderSettings(isFirst) {
       if (!cloudReady || isGuest || !currentUser) return '';
       const kijk = Object.keys(userTeams || {}).filter(t => userTeams[t] === 'viewer');
       if (!kijk.length) return '';
-      return `<div class="sec">Mijn ploegen</div><div class="card">
+      return `<div class="sec">Ploegen die ik volg</div><div class="card">
         <p style="font-size:12px;color:var(--txt2);margin:0 0 8px">Ploegen die je volgt. Verlaat je er één, dan blijft de carrière van de speler aan wie je gekoppeld bent zichtbaar bij Mijn spelers.</p>
         ${kijk.map(t => `<div class="stat-row"><span style="flex:1">${esc(teamNames[t] || 'Ploeg')}</span><button class="btn btn-pale btn-sm" style="width:auto;margin:0" onclick="confirmPloegVerlaten('${jsq(t)}')">Verlaten</button></div>`).join('')}
       </div>`;
@@ -1491,10 +1491,10 @@ const HANDLEIDING_PAGINAS = [
       <p class="hdl-tip">Wachtwoord vergeten? Tik op <b>'Wachtwoord vergeten?'</b> en volg de instructies per e-mail.</p>
       <div class="sec">Waar je terechtkomt</div>
       {{img2}}
-      <p>Volg je meer dan één ploeg, dan land je op <b>'Jouw ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
-      <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Jouw ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account. Daar vind je ook deze <b>handleiding</b> en de knop om je <b>af te melden</b>.</p>
+      <p>Volg je meer dan één ploeg, dan land je op <b>'Mijn ploegen'</b>: je ploegen gegroepeerd per club, met achter elke ploeg of je er beheerder of kijker van bent. Tik een ploeg aan en je zit in die ploeg — het <b>ploegscherm</b>, met de tegels en de eerstvolgende wedstrijd.</p>
+      <p style="margin-top:10px">Van ploeg wisselen doe je met de knop <b>'Ploeg'</b> linksboven op het ploegscherm; die brengt je terug naar 'Mijn ploegen'. Het <b>tandwiel</b> rechtsboven staat op elk scherm en gaat naar je eigen instellingen: donkere modus, meldingen en je account. Daar vind je ook deze <b>handleiding</b> en de knop om je <b>af te melden</b>.</p>
       <div class="sec">Wat er nu loopt</div>
-      <p>Wordt er op dit moment een wedstrijd bijgehouden bij een van je ploegen, dan staat ze in een klein kader bovenaan 'Jouw ploegen' onder het rode <b>Live</b>, met de stand erbij. Tik ze aan en je zit er meteen in — ook als je op dat ogenblik in een andere ploeg zat. De stand werkt zichzelf bij zolang je op dat scherm staat.</p>
+      <p>Wordt er op dit moment een wedstrijd bijgehouden bij een van je ploegen, dan staat ze in een klein kader bovenaan 'Mijn ploegen' onder het rode <b>Live</b>, met de stand erbij. Tik ze aan en je zit er meteen in — ook als je op dat ogenblik in een andere ploeg zat. De stand werkt zichzelf bij zolang je op dat scherm staat.</p>
       <p style="margin-top:10px">Er staan er hoogstens twee in dat kader. Lopen er meer, dan staat eronder <b>'Nog 3 andere lopen'</b> — die regel brengt je naar het scherm <b>Live</b>, waar ze allemaal staan. Is er niets bezig, dan staat er ook niets: dit kader gaat enkel over wat er op dit moment gespeeld wordt.</p>
       <p class="hdl-tip">Een wedstrijd die nog moet beginnen, kan je als kijker wel zien staan maar niet openen — net als in de wedstrijdenlijst. Zodra ze begint, kan je ze volgen.</p>
     `
@@ -1503,7 +1503,7 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Rollen in de app',
     img: 'handleiding/screenshots/26_jouw_ploegen.png',
     inhoud: `
-      <p>MatchDelegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Jouw ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
+      <p>MatchDelegate is opgebouwd rond <b>clubs</b>: een club groepeert meerdere ploegen. Op <b>'Mijn ploegen'</b> staan jouw ploegen dan ook onder hun club, met achter elke ploeg welke rol je er hebt. De rollen:</p>
       <div class="hdl-rol"><b>Kijker</b><span>Een ploeg volgen en live wedstrijden bekijken</span></div>
       <div class="hdl-rol"><b>Ploegbeheerder</b><span>Beheert één ploeg: wedstrijden aanmaken en live bijhouden, spelers beheren, leden uitnodigen (ook trainer/afgevaardigde genoemd)</span></div>
       <div class="hdl-rol"><b>Clubbeheerder</b><span>Beheert een volledige club: ploegen aanmaken en archiveren, trainers uitnodigen, spelers overzetten tussen ploegen, het clublogo instellen en de ploegen aan de voetbalbond koppelen</span></div>
@@ -1522,7 +1522,7 @@ const HANDLEIDING_PAGINAS = [
     titel: 'Live — wat er nu loopt',
     img: 'handleiding/screenshots/31_live.png',
     inhoud: `
-      <p>Zodra er ergens een wedstrijd bezig is, verschijnt op <b>'Jouw ploegen'</b> een kadertje
+      <p>Zodra er ergens een wedstrijd bezig is, verschijnt op <b>'Mijn ploegen'</b> een kadertje
         <b>Live</b> met een rood bolletje. Daar staat wat er op dít moment loopt, over al je ploegen
         heen — je hoeft dus niet eerst een ploeg te kiezen om te zien of er gevoetbald wordt.</p>
       <p>Tik op een kaartje en je zit meteen in die wedstrijd.</p>
@@ -2265,17 +2265,17 @@ const HANDLEIDING_PAGINAS = [
       <p>Een <b>clubbeheerder</b> beheert alle ploegen van één club. De eigenaar stelt je aan als clubbeheerder. Alles wat over de club gaat, staat op één scherm: <b>Clubbeheer</b>.</p>
       <p>Je raakt er langs drie wegen, en ze komen alle drie op hetzelfde scherm uit:</p>
       <ul class="hdl-list">
-        <li>de <b>groene clubbalk</b> boven je ploegen op <b>'Jouw ploegen'</b> — de dagelijkse weg. Beheer je een club waarvan je zelf geen ploeg volgt, dan staat die gewoon als een eigen balk onder je ploegen, met haar naam erop;</li>
+        <li>de <b>groene clubbalk</b> boven je ploegen op <b>'Mijn ploegen'</b> — de dagelijkse weg. Beheer je een club waarvan je zelf geen ploeg volgt, dan staat die gewoon als een eigen balk onder je ploegen, met haar naam erop;</li>
         <li>vanuit een <b>ploeg</b>: op het beheerscherm van die ploeg staat onderaan <b>'&lt;club&gt; beheren'</b>, zodat je niet eerst terug moet;</li>
         <li>beheer je <b>meerdere clubs</b>, dan wissel je bovenaan het clubscherm van club zonder ergens terug te gaan.</li>
       </ul>
       <div class="sec">Wat er nu loopt bij je club</div>
-      <p>Iedereen heeft dit kader bovenaan <b>'Jouw ploegen'</b>, maar voor jou gaat het over de <b>hele club</b> in plaats van over de ploegen die je zelf volgt — ook de ploegen die je niet volgt staan erin. Er passen er twee; lopen er meer, dan brengt de regel <b>'Nog 3 andere lopen'</b> je naar het scherm <b>Live</b> met allemaal.</p>
+      <p>Iedereen heeft dit kader bovenaan <b>'Mijn ploegen'</b>, maar voor jou gaat het over de <b>hele club</b> in plaats van over de ploegen die je zelf volgt — ook de ploegen die je niet volgt staan erin. Er passen er twee; lopen er meer, dan brengt de regel <b>'Nog 3 andere lopen'</b> je naar het scherm <b>Live</b> met allemaal.</p>
       <p style="margin-top:10px">Tik een wedstrijd aan en je zit erin; de app wisselt onderweg zelf van ploeg. Zolang je kijkt, werkt de stand zichzelf bij; met <b>'Verversen'</b> haal je ze meteen op.</p>
       <p class="hdl-tip">Loopt er niets, dan staat er niets — dit gaat enkel over wat er op dit moment gespeeld wordt. Wil je weten wat er vandaag nog komt, kijk dan in de kalender van een ploeg.</p>
       <div class="sec">Ploegen beheren</div>
       <ul class="hdl-list">
-        <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Jouw ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>
+        <li><b>'Nieuwe ploeg in deze club'</b> — maak een ploeg aan binnen je club. Vink aan of je zelf het dagelijks beheer doet (dan verschijnt de ploeg ook in 'Mijn ploegen'). Dit is de enige plek waar een ploeg gemaakt wordt.</li>
         <li><b>'Openen'</b> bij een ploeg — ga naar het ploegscherm van die ploeg, met haar wedstrijden, spelers en leden. Daar zit ook de <b>naam van de ploeg</b>: tik op <b>'Beheer'</b> en dan op <b>'Naam wijzigen'</b>. Alleen jij kan dat — een ploegbeheerder ziet die knop niet.</li>
         <li><b>'Archiveren'</b> — zet een ploeg weg zonder ze te verwijderen; ze verdwijnt uit de actieve lijsten maar behoudt alle gegevens en kan hersteld worden. Dit is wat je wil bij een ploeg die niet meer speelt.</li>
         <li><b>'Verwijderen'</b> — definitief wissen. Deze knop staat grijs: enkel de maker van de app kan dat. Vraag het aan hem als het echt moet.</li>
@@ -2329,12 +2329,12 @@ const HANDLEIDING_PAGINAS = [
       <p><b>Tornooiwedstrijden staan apart</b> en tellen niet mee in de speeltijd: een tornooidag is vijf wedstrijdjes van tien minuten, en die zouden elk gemiddelde vertekenen. Je vindt het aantal tornooien terug in het Overzicht.</p>
       <p class="hdl-tip">Spelernotities en kwetsuurdetails zitten er bewust <b>niet</b> in. In de app zijn die enkel voor beheerders; in een bestand dat rondgestuurd wordt, zijn ze dat niet meer.</p>
       <div class="sec">Back-up van de hele club</div>
-      <p>Daarnaast staat er <b>'Back-up van de hele club'</b>. Dat is iets anders dan de Excel: die is om te <b>lezen</b>, de back-up is om terug te <b>zetten</b>. Ze haalt van elke ploeg van de club de spelers, de wedstrijden en de tornooien op — ook van ploegen die niet bij <b>'Jouw ploegen'</b> staan — en levert hetzelfde soort bestand als de gewone back-up bij <b>Instellingen → Gegevens overzetten</b>.</p>
-      <p>Terugzetten gaat langs diezelfde weg, met <b>'Bestand inlezen'</b>. Daar kies je per ploeg wat er terug moet. Eén ding om te weten: een ploeg die niet bij <b>'Jouw ploegen'</b> staat, geldt daar als een vreemde ploeg — je kan haar wedstrijden dan alleen aan een andere ploeg toewijzen. Zet ze dus eerst bij je ploegen (in Clubbeheer, met de knop <b>'Bij mijn ploegen'</b>), en zet daarna terug.</p>
+      <p>Daarnaast staat er <b>'Back-up van de hele club'</b>. Dat is iets anders dan de Excel: die is om te <b>lezen</b>, de back-up is om terug te <b>zetten</b>. Ze haalt van elke ploeg van de club de spelers, de wedstrijden en de tornooien op — ook van ploegen die niet bij <b>'Mijn ploegen'</b> staan — en levert hetzelfde soort bestand als de gewone back-up bij <b>Instellingen → Gegevens overzetten</b>.</p>
+      <p>Terugzetten gaat langs diezelfde weg, met <b>'Bestand inlezen'</b>. Daar kies je per ploeg wat er terug moet. Eén ding om te weten: een ploeg die niet bij <b>'Mijn ploegen'</b> staat, geldt daar als een vreemde ploeg — je kan haar wedstrijden dan alleen aan een andere ploeg toewijzen. Zet ze dus eerst bij je ploegen (in Clubbeheer, met de knop <b>'Bij mijn ploegen'</b>), en zet daarna terug.</p>
       <p class="hdl-tip">Anders dan de Excel bevat dit bestand <b>wél</b> de notities bij wedstrijden en spelers: een back-up die de helft mist, is geen back-up. Het gaat dus om gegevens over kinderen — bewaar het zoals je een ledenlijst bewaart, en stuur het niet zomaar door.</p>
       <div class="sec">Extra</div>
       <ul class="hdl-list">
-        <li><b>Clublogo</b> — stel bovenaan in Clubbeheer het clublogo in. Het verschijnt bij je club op 'Jouw ploegen', onderaan de ploegpagina en in de wedstrijd-PDF.</li>
+        <li><b>Clublogo</b> — stel bovenaan in Clubbeheer het clublogo in. Het verschijnt bij je club op 'Mijn ploegen', onderaan de ploegpagina en in de wedstrijd-PDF.</li>
       </ul>
     `
   },
@@ -2757,7 +2757,7 @@ async function tgvHerstelPloeg(i) {
       if (e.memberInfo) { try { await fbdb.ref('memberInfo/' + p.tid).set(e.memberInfo); } catch (x) {} }
       if (e.teamNotes) { try { await fbdb.ref('teamNotes/' + p.tid).set(e.teamNotes); } catch (x) {} }
       // De omgekeerde index: zonder deze regel staat de ploeg er wel, maar ziet niemand ze in
-      // "Jouw ploegen" — ook de leden niet.
+      // "Mijn ploegen" — ook de leden niet.
       for (const [uid2, rol] of Object.entries((e.team || {}).members || {})) {
         try { await fbdb.ref('users/' + uid2 + '/teams/' + p.tid).set(rol); } catch (x) {}
       }
