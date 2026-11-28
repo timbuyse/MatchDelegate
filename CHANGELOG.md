@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.38.7
+
+- **Doorgeschoven spelers tellen als één speler in de statistieken.** Een speler die naar een andere ploeg doorschuift krijgt daar een nieuw kenmerk; zijn eerdere gastwedstrijden bij die ploeg stonden daardoor los naast zijn nieuwe rij. De statistieken en het spelerdetail voegen ze nu samen op zijn blijvende `globalId`. Alleen op een kopie: de opgeslagen wedstrijden veranderen niet, en de wedstrijden van andere ploegen houden hun kenmerk.
+- **Spelers doorschuiven controleert zichzelf.** Na het schrijven leest de app beide lijsten terug; staat een speler nog bij de bronploeg of ontbreekt hij bij de doelploeg, dan volgt een duidelijke melding (en één herstelpoging) in plaats van "overgezet". Staat dezelfde persoon al in de doelploeg, dan komt er geen tweede record bij.
+
+---
+
 ## v2.38.6
 
 - **Kroontje zonder inkortingen.** De kopregel van het beginscherm is voor de eigenaar weer zoals vóór het kroontje, met het kroontje als aparte knop naast Beheer: het schildje staat weer in de Beheer-knop en de tussenruimtes zijn weer normaal. Op een zeer smalle telefoon kan de ploegnaam van de eigenaar daardoor afgekapt worden. Voor andere gebruikers verandert er niets.

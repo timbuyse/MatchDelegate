@@ -2845,10 +2845,15 @@ async function doTransferPlayer() {
     // Eén nieuw record per speler: een verse lokale id in de doelploeg, maar hetzelfde blijvende
     // globalId — dát is wat "Carrière — eerder bij" laat werken.
     const zonderGlobalId = [];
-    const nieuwe = mee.map(p => {
+    // Staat dezelfde persoon (zelfde globalId) al in de doelploeg, dan komt er geen tweede record bij:
+    // dat zou hem dubbel in de lijst zetten. Hij verdwijnt dan enkel uit de bronploeg.
+    const alInDoel = new Set((dstRoster[0].players || []).map(p => p.globalId).filter(Boolean));
+    const nieuwe = [];
+    mee.forEach(p => {
       const globalId = p.globalId || uid();
       if (!p.globalId) zonderGlobalId.push({ oudId: p.id, globalId });
-      return Object.assign({}, p, { id: uid(), globalId });
+      if (alInDoel.has(globalId)) return;
+      nieuwe.push(Object.assign({}, p, { id: uid(), globalId }));
     });
     srcRoster[0].players = (srcRoster[0].players || []).filter(p => !gekozen.includes(p.id));
     dstRoster[0].players = (dstRoster[0].players || []).concat(nieuwe);
@@ -2859,6 +2864,30 @@ async function doTransferPlayer() {
       fbdb.ref('teams/' + s.dstTeamId + '/roster').set(dstRoster),
     ]);
     try { localStorage.setItem(PT_UNDO_KEY, JSON.stringify(undo)); } catch (e) {}
+    // NALEZEN (28-11-2026). Bij Morris Van Speybroeck stond hij na het doorschuiven in de doelploeg én
+    // nog in de bronploeg, zonder dat iets dat meldde: de schrijfbeurt gaf geen fout, maar de
+    // bronlijst bleek achteraf niet bijgewerkt. Daarom lezen we beide lijsten terug en zeggen we het
+    // hardop als het niet klopt, in plaats van "overgezet" te melden over iets half.
+    // Eén herstelpoging voor de bronploeg; lukt dat niet, dan een duidelijke melding.
+    const klopt = async () => {
+      const [a, b] = await Promise.all([fbOnce(fbdb.ref('teams/' + s.srcTeamId + '/roster')), fbOnce(fbdb.ref('teams/' + s.dstTeamId + '/roster'))]);
+      const sp = (normalizeRosterArray(a.val())[0] || {}).players || [];
+      const dp = (normalizeRosterArray(b.val())[0] || {}).players || [];
+      const nogBron = sp.filter(p => gekozen.includes(p.id)).length;
+      const inDoel = new Set(dp.map(p => p.globalId));
+      const ontbreekt = mee.filter(p => !inDoel.has(p.globalId || (zonderGlobalId.find(z => z.oudId === p.id) || {}).globalId)).length;
+      return { nogBron, ontbreekt };
+    };
+    let controle = await klopt();
+    if (controle.nogBron) {
+      try { await fbdb.ref('teams/' + s.srcTeamId + '/roster').set(srcRoster); } catch (e) {}
+      controle = await klopt();
+    }
+    if (controle.nogBron || controle.ontbreekt) {
+      showToast(`Let op: ${controle.nogBron ? controle.nogBron + ' speler(s) staan nog bij de bronploeg' : ''}${controle.nogBron && controle.ontbreekt ? ' en ' : ''}${controle.ontbreekt ? controle.ontbreekt + ' ontbreken bij de doelploeg' : ''}. Controleer de spelerslijsten.`, 'err');
+      loadPlayerTransferView();
+      return;
+    }
     // Carrière-backfill: had de speler nog geen globalId, dan dragen zijn historische wedstrijden
     // bij de bronploeg het zonet gegenereerde id ook niet — en blijft "Carrière — eerder bij" bij
     // een eerste overzetting leeg. Best-effort: het globalId terugschrijven in elke wedstrijd van

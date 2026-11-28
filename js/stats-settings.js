@@ -299,8 +299,58 @@ function seasonOf(m) {
   const y = d.getFullYear(), start = d.getMonth() >= 6 ? y : y - 1;
   return `${start}/${start + 1}`;
 }
+// ÉÉN SPELER, ÉÉN RIJ — OOK NA "SPELERS DOORSCHUIVEN" (Tim, 28-11-2026). De statistieken groeperen op
+// rosterId (het kernkenmerk), maar doorschuiven geeft een speler een NIEUW kernkenmerk in de nieuwe
+// ploeg en houdt enkel zijn globalId. Morris Van Speybroeck speelde als gast bij U10IP met zijn oude
+// U9P-kenmerk; na het doorschuiven was hij bij U10IP een nieuw kenmerk, en die gastwedstrijden telden
+// niet bij zijn U10IP-rij maar stonden er los naast.
+// Deze functie geeft de wedstrijden van één ploeg (op een KOPIE, de opgeslagen wedstrijden blijven
+// ongemoeid) voor elke speler met een globalId hetzelfde rosterId: dat van zijn huidige plek in de kern
+// van die ploeg, en anders het eerste dat in haar wedstrijden voorkomt. Zonder globalId, of zonder
+// rosterId, verandert er niets. Matches van andere ploegen blijven zoals ze zijn, want de blokken
+// "Ook gastspeler bij" en "Eigen ploeg" in het spelerdetail zoeken die juist op hun oorspronkelijk kenmerk.
+// Afwezigen (NB) dragen geen globalId; die volgen via het kenmerk-naar-globalId dat de spelers van
+// dezelfde ploeg verraden.
+function rosterIdsSamenvoegen(all, teamNaam) {
+  const inScope = m => m && (!teamNaam || m.teamName === teamNaam) && (m.players || []).some(p => p && p.globalId && p.rosterId);
+  if (!(all || []).some(inScope)) return all;
+  const kernVan = m => (m.teamId && kernById(m.teamId)) || getTeamsV2().find(t => t.name === m.teamName) || null;
+  const doel = new Map();       // ploeg|globalId -> rosterId
+  const ridNaarG = new Map();   // ploeg|rosterId -> globalId
+  const sleutel = (m, x) => (m.teamName || '') + '|' + x;   // altijd op naam: niet elke wedstrijd heeft een teamId
+  const oudNaarNieuw = new Map(); // ploeg|rosterId -> canoniek rosterId
+  const volgorde = all.filter(inScope).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.createdAt || 0) - (b.createdAt || 0));
+  for (const m of volgorde) {
+    const kern = kernVan(m);
+    (kern ? (kern.players || []) : []).forEach(r => { if (r.globalId && r.id && !doel.has(sleutel(m, r.globalId))) doel.set(sleutel(m, r.globalId), r.id); });
+    for (const p of m.players) {
+      if (!p || !p.globalId || !p.rosterId) continue;
+      if (!doel.has(sleutel(m, p.globalId))) doel.set(sleutel(m, p.globalId), p.rosterId);
+      ridNaarG.set(sleutel(m, p.rosterId), p.globalId);
+    }
+  }
+  for (const [sl, g] of ridNaarG) {
+    const [ploeg, rid] = [sl.slice(0, sl.indexOf('|')), sl.slice(sl.indexOf('|') + 1)];
+    const d = doel.get(ploeg + '|' + g);
+    if (d && d !== rid) oudNaarNieuw.set(sl, d);
+  }
+  if (!oudNaarNieuw.size) return all;
+  return all.map(m => {
+    if (!m || (teamNaam && m.teamName !== teamNaam)) return m;
+    const nieuw = rid => (rid && oudNaarNieuw.get(sleutel(m, rid))) || rid;
+    const raakt = (m.players || []).some(p => p && p.rosterId && nieuw(p.rosterId) !== p.rosterId)
+      || (m.absentPlayers || []).some(a => a && typeof a === 'object' && a.rosterId && nieuw(a.rosterId) !== a.rosterId);
+    if (!raakt) return m;
+    return Object.assign({}, m, {
+      players: (m.players || []).map(p => (p && p.rosterId && nieuw(p.rosterId) !== p.rosterId) ? Object.assign({}, p, { rosterId: nieuw(p.rosterId) }) : p),
+      absentPlayers: (m.absentPlayers || []).map(a => (a && typeof a === 'object' && a.rosterId && nieuw(a.rosterId) !== a.rosterId) ? Object.assign({}, a, { rosterId: nieuw(a.rosterId) }) : a),
+    });
+  });
+}
 async function loadStats() {
-  const all = await dbAll();
+  const all0 = await dbAll();
+  // In de cloud is de actieve ploeg de enige die telt (zie statsFilter hieronder); anders alles.
+  const all = rosterIdsSamenvoegen(all0, cloudReady ? (teamNames[activeTeamId] || null) : null);
   const el = document.getElementById('stats-content');
   if (!el) return;
   const teams = [...new Set(all.map(m => m.teamName).filter(Boolean))].sort();
@@ -840,7 +890,10 @@ function playerDetailTerug() {
 }
 function setPlayerDetailSeason(v) { playerDetailSeason = v; loadPlayerDetail(); }
 async function loadPlayerDetail() {
-  const all = await dbAll();
+  // Enkel de wedstrijden van DEZE ploeg worden samengevoegd (zie rosterIdsSamenvoegen): de wedstrijden
+  // van andere ploegen houden hun oorspronkelijk kenmerk, daar steunen "Ook gastspeler bij" en de
+  // carrière op.
+  const all = rosterIdsSamenvoegen(await dbAll(), playerDetailTeamName || (cloudReady ? (teamNames[activeTeamId] || null) : null));
   const el = document.getElementById('player-detail-content');
   if (!el) return;
   const name = (playerDetailName || '').trim();
