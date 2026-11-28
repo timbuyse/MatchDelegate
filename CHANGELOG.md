@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.42.1
+
+- **Eén kind per kaartje.** Op het ploegkeuzescherm opent het kaartje van een gekoppeld kind enkel zijn eigen carrière, met zijn naam in de kop, niet die van alle gekoppelde kinderen. Hetzelfde voor de knop "Volledige carrière" op de spelerspagina en voor de tegel bij één kind. Bij meerdere kinderen toont de tegel nog steeds iedereen.
+
+---
+
 ## v2.42.0
 
 - **Uitnodigingslink per speler.** Bij Clubbeheer → Spelers koppelen kan je bij een speler een uitnodigingslink (met QR en code, 60 dagen geldig) maken. Wie ze opent volgt de ploeg van die speler en is meteen aan hem gekoppeld, ook als hij nog geen account of ploeg had. Meerdere mensen kunnen dezelfde link gebruiken. Het account legt de koppeling zelf, met de code van de uitnodiging (regels bij `playerLinks` en `spelerKoppelingen`).

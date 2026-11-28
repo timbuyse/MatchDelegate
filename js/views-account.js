@@ -3551,7 +3551,7 @@ function mijnCarriereTegelHtml(half) {
   const links = Object.values(mijnSpelerLinks || {});
   if (!links.length || isGuest) return '';
   const een = links.length === 1;
-  return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="go('mijnspelers')"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
+  return `<button class="tile tile-breed" style="${half ? 'min-width:0;line-height:1.2' : 'grid-column:1/-1'}" onclick="openMijnSpeler(${een ? `'${jsq(Object.keys(mijnSpelerLinks)[0])}'` : ''})"><span class="tile-fi ic-i" aria-hidden="true">${IC.idCard}</span>`
     + `<span class="tl">${esc(een ? (links[0].n || 'Mijn speler') : 'Mijn spelers')}</span><span class="tc">carrière</span></button>`;
 }
 function mijnSpelerTegelHtml(half) {
@@ -3584,10 +3584,16 @@ function modalMijnSpelers() {
 // het speler-object (playerLinks → playerCareer, zie database.rules.json en spelerRijen in core.js) en
 // werkt dus ook voor een ouder die geen lid meer is van de ploeg waar zijn zoon speelde, of van de ploeg
 // waar hij nu speelt. Meerdere accounts per speler kan, en meerdere spelers per account ook.
+// ÉÉN KIND PER KAARTJE (Tim, 28-11-2026): een tik op de kaart van één speler toont enkel zíjn carrière, niet die
+// van alle gekoppelde kinderen. `_mijnSpelerKeuze` is het globalId van die ene speler; zonder (de tegel bij meerdere
+// kinderen) staan ze er allemaal.
+let _mijnSpelerKeuze = null;
+function openMijnSpeler(gid) { _mijnSpelerKeuze = gid || null; go('mijnspelers'); }
 function renderMijnSpelers() {
   if (isGuest) return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>Mijn spelers</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
   setTimeout(loadMijnSpelersView, 0);
-  return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.idCard)} Mijn spelers</h1></div>
+  const een = _mijnSpelerKeuze && mijnSpelerLinks && mijnSpelerLinks[_mijnSpelerKeuze];
+  return `<div class="hdr"><button class="back" onclick="terug('home')">‹</button><h1>${icI(IC.idCard)} ${een ? esc(een.n || 'Speler') : 'Mijn spelers'}</h1></div>
   <div class="content" id="mijnspelers-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div>`;
 }
 function _carriereSeizoen(d) { return (typeof seasonOf === 'function') ? seasonOf({ date: d }) : 'Onbekend'; }
@@ -3624,7 +3630,9 @@ async function loadMijnSpelersView() {
   try {
     mijnSpelerLinks = (await fbOnce(fbdb.ref('playerLinks/' + currentUser.uid))).val() || {};
   } catch (e) { /* de lijst van daarnet blijft gelden */ }
-  const gids = Object.keys(mijnSpelerLinks || {});
+  const alle = Object.keys(mijnSpelerLinks || {});
+  // Eén gekozen speler: enkel die. Is hij (nog) niet in je lijst, dan val je terug op iedereen.
+  const gids = (_mijnSpelerKeuze && alle.includes(_mijnSpelerKeuze)) ? [_mijnSpelerKeuze] : alle;
   if (!gids.length) { el.innerHTML = `<div class="card"><p style="margin:0;font-size:14px;color:var(--txt2)">Er is nog geen speler aan jouw account gekoppeld. Een beheerder doet dat bij de leden van de ploeg.</p></div>`; return; }
   let html = '';
   for (const gid of gids) {
@@ -5780,7 +5788,7 @@ function renderTeamSelect() {
         const links = Object.entries(mijnSpelerLinks || {});
         if (isGuest || !links.length) return '';
         return `<div class="sec" style="margin-top:20px;margin-bottom:10px">Mijn spelers</div>
-        <div class="card">${links.map(([gid, l]) => `<div class="stat-row" style="cursor:pointer" data-link="1" onclick="go('mijnspelers')"><span style="flex:1">${icI(IC.idCard)} ${esc((l && l.n) || 'Speler')}</span><span style="color:var(--txt2);font-size:13px">carrière</span><span style="color:var(--txt2);margin-left:8px">›</span></div>`).join('')}</div>`;
+        <div class="card">${links.map(([gid, l]) => `<div class="stat-row" style="cursor:pointer" data-link="1" onclick="openMijnSpeler('${jsq(gid)}')"><span style="flex:1">${icI(IC.idCard)} ${esc((l && l.n) || 'Speler')}</span><span style="color:var(--txt2);font-size:13px">carrière</span><span style="color:var(--txt2);margin-left:8px">›</span></div>`).join('')}</div>`;
       })()}
       ${/* Voor de eigenaar staat de ingang nu als kroontje bovenaan (zie de kopregel hierboven), dus
            hier blijft enkel het geval waarin er nog géén eigenaar is: dat is de claim, en die heeft

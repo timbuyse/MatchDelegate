@@ -1243,7 +1243,7 @@ async function loadPlayerDetail() {
          dezelfde berekening: ze filtert op ploegnaam en op het kenmerk dat hij daar droeg. Heeft een
          kijker geen recht op dat kenmerk (magSpelerZien), dan blijft de rij gewoon tekst. Titel: niet
          "eerder bij", want vanaf de oude ploeg bekeken is de nieuwe ploeg de LATERE. */ ''}
-    ${(resolvedGlobalId && mijnSpelerLinks && mijnSpelerLinks[resolvedGlobalId]) ? `<button class="btn btn-pale" style="margin:10px 0" onclick="go('mijnspelers')">${icI(IC.idCard)} Volledige carrière — alle ploegen</button>` : ''}
+    ${(resolvedGlobalId && mijnSpelerLinks && mijnSpelerLinks[resolvedGlobalId]) ? `<button class="btn btn-pale" style="margin:10px 0" onclick="openMijnSpeler('${jsq(resolvedGlobalId)}')">${icI(IC.idCard)} Volledige carrière — alle ploegen</button>` : ''}
     ${careerEntries.length ? `<div class="sec">${icI(IC.swap)} Carrière — andere ploeg</div><div class="card">${careerEntries.map(([t, c]) => {
       const open = magSpelerZien(c.rosterId || null);
       return `<div class="stat-row"${open ? ` style="cursor:pointer" onclick="openPlayerDetailAndere('${jsq(name)}','${jsq(t)}','${jsq(c.rosterId || '')}')"` : ''}><span style="flex:1">${esc(t)}</span><span style="color:var(--txt2);font-size:13px">${c.mp} ${c.mp===1?'wedstrijd':'wedstrijden'}${c.goals?` · ${c.goals} ${icI(IC.ball)}`:''}${c.assists?` · ${c.assists} ${icI(IC.assist)}`:''}</span>${open ? '<span style="color:var(--txt2);margin-left:8px">›</span>' : ''}</div>`;
