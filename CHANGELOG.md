@@ -9,6 +9,13 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.41.0
+
+- **Spelers koppelen aan accounts, op clubniveau.** Bij Clubbeheer staat een knop "Spelers koppelen aan accounts" (eigenaar en clubbeheerder). Je kiest een speler uit alle ploegen van de club en koppelt of ontkoppelt er accounts aan, onafhankelijk van de ploeg: meerdere accounts per speler kan, en een account kan aan meerdere spelers hangen. Je kiest uit de accounts die een ploeg van de club volgen. Is het account lid van de ploeg van de speler, dan wordt ook de koppeling binnen die ploeg gelegd. Nieuw regelblok `clubs/<club>/spelerKoppelingen` (overzicht voor de beheerder); de knop "Speler-object vullen" neemt de bestaande koppelingen ook in dat overzicht op.
+- **De app opent standaard op de ploegenlijst**, voor iedereen. Wie liever rechtstreeks in zijn laatste ploeg opent, kiest "Mijn ploeg" bij Instellingen → Opstarten (per toestel).
+
+---
+
 ## v2.40.1
 
 - **Mijn spelers onder Jouw ploegen.** Op het ploegselectiescherm staat onder de ploegen een kop "Mijn spelers", met per gekoppelde speler een rij naar zijn carrière over alle ploegen. De losse knop bovenaan is weg.

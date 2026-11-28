@@ -2788,6 +2788,7 @@ views.allusers = renderAllUsers;
 views.online = renderOnline;
 views.gebruik = renderGebruik;
 views.mijnspelers = renderMijnSpelers;
+views.spelerkoppel = renderSpelerKoppel;
 views.teams = renderTeamsList;
 views.teamEdit = renderTeamEdit;
 views.tournaments = renderTournamentList;

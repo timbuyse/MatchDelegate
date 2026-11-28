@@ -241,6 +241,9 @@ async function loadClubBeheerView() {
             niet lezen, dus een naam bij het account opzoeken kan hier niet. Koppelen doe je bij een
             ploegbeheerder onder "Mensen met toegang". */ ''}
       ${clubTrainersBlokHtml(clubId, trainersPerPloeg, clubTrainers)}
+      ${/* SPELERS KOPPELEN (28-11-2026). Een account aan een speler hangen, op clubniveau en dus onafhankelijk
+            van de ploeg waarin de speler staat. Zie renderSpelerKoppel. */ ''}
+      <button class="btn btn-pale" style="margin-top:12px" onclick="_clubBeheerId='${clubId}';go('spelerkoppel')">${icI(IC.idCard)} Spelers koppelen aan accounts</button>
       <details class="stat-acc" style="margin-top:12px"${_clubBeheerOpen.has('extra') ? ' open' : ''} ontoggle="clubBeheerVouw('extra', this.open)"><summary>Extra</summary>
       <div style="margin-top:8px">
       ${isOwner ? `<button class="btn btn-pale" style="margin-bottom:8px" onclick="renameClub('${clubId}','${jsq(clubName)}')">${icI(IC.edit)} Club hernoemen</button>` : ''}
@@ -3539,8 +3542,14 @@ async function _koppelBewaar() {
       const kern = ((getTeamsV2()[0] || {}).players || []);
       const gidVan = id => { const p = kern.find(x => x.id === id); return p && p.globalId ? { gid: p.globalId, naam: p.name || '' } : null; };
       const uidK = _koppelUid, tid = activeTeamId;
-      _koppelSel.forEach(id => { const g = gidVan(id); if (g) fbdb.ref('playerLinks/' + uidK + '/' + g.gid).set({ t: tid, n: g.naam }).catch(() => {}); });
-      _koppelVoor.forEach(id => { if (_koppelSel.has(id)) return; const g = gidVan(id); if (g) fbdb.ref('playerLinks/' + uidK + '/' + g.gid).remove().catch(() => {}); });
+      // Met de spiegel op clubniveau voor het overzicht van de beheerder (zie renderSpelerKoppel).
+      const cid = activeClubId;
+      _koppelSel.forEach(id => { const g = gidVan(id); if (!g) return;
+        fbdb.ref('playerLinks/' + uidK + '/' + g.gid).set({ t: tid, n: g.naam }).catch(() => {});
+        if (cid) fbdb.ref('clubs/' + cid + '/spelerKoppelingen/' + g.gid + '/' + uidK).set({ p: g.naam, t: tid }).catch(() => {}); });
+      _koppelVoor.forEach(id => { if (_koppelSel.has(id)) return; const g = gidVan(id); if (!g) return;
+        fbdb.ref('playerLinks/' + uidK + '/' + g.gid).remove().catch(() => {});
+        if (cid) fbdb.ref('clubs/' + cid + '/spelerKoppelingen/' + g.gid + '/' + uidK).remove().catch(() => {}); });
     } catch (e) {}
     _koppelUid = null; _koppelSel = new Set(); _koppelVoor = new Set();
     showMembersModal();
@@ -3726,14 +3735,16 @@ async function spelerRijenBijvullen() {
   try {
     zet('Ploegen opzoeken…');
     const clubs = (await fbOnce(fbdb.ref('clubs'))).val() || {};
-    const tids = [];
-    Object.keys(clubs).forEach(c => Object.keys((clubs[c] || {}).teams || {}).forEach(t => tids.push(t)));
+    const tids = [], clubVan = {};
+    Object.keys(clubs).forEach(c => Object.keys((clubs[c] || {}).teams || {}).forEach(t => { tids.push(t); clubVan[t] = c; }));
     for (const tid of tids) {
       ploegen++;
       zet(`Ploeg ${ploegen} van ${tids.length}…`);
-      const [mv, rv, mp] = await Promise.all([
+      const [mv, rv, mp, miS] = await Promise.all([
         fbOnce(fbdb.ref('teams/' + tid + '/matches')), fbOnce(fbdb.ref('teams/' + tid + '/roster')), fbOnce(fbdb.ref('teams/' + tid + '/memberPlayers')),
+        fbOnce(fbdb.ref('memberInfo/' + tid)).catch(() => null),
       ]);
+      const memberInfo = (miS && miS.val()) || {};
       const kern = (() => { const v = rv.val(); return (Array.isArray(v) ? v : Object.values(v || {}))[0] || {}; })();
       // Wedstrijden uit de cloud hebben dezelfde vorm als lokaal, op de arrays na die Firebase soms als object geeft.
       const lijst = (v => Object.values(v || {}))(mv.val());
@@ -3754,12 +3765,163 @@ async function spelerRijenBijvullen() {
           const p = (kern.players || []).find(x => x.id === rid);
           if (!p || !p.globalId) continue;
           try { await fbdb.ref('playerLinks/' + uid + '/' + p.globalId).set({ t: tid, n: p.name || '' }); links++; } catch (e) { fouten++; }
+          // En de spiegel voor het overzicht van de beheerder (Spelers koppelen), zie renderSpelerKoppel.
+          try {
+            const mi = memberInfo[uid] || {}; const rec = { p: p.name || '', t: tid };
+            const accNaam = mi.name || mi.email || ''; if (accNaam) rec.a = accNaam;
+            await fbdb.ref('clubs/' + clubVan[tid] + '/spelerKoppelingen/' + p.globalId + '/' + uid).set(rec);
+          } catch (e) { fouten++; }
         }
       }
     }
     showToast(fouten ? `Klaar met ${fouten} fouten (${rijen} rijen, ${links} koppelingen). Staan de nieuwe regels live?` : `Klaar: ${rijen} wedstrijdrijen en ${links} koppelingen.`, fouten ? 'err' : 'ok');
   } catch (e) { showToast('Vullen mislukt: ' + (e && e.message ? e.message : 'onbekende fout') + '. Staan de nieuwe regels live?', 'err'); }
   if (knop) { knop.disabled = false; knop.innerHTML = icI(IC.chart) + ' Speler-object vullen'; }
+}
+// ===================== SPELERS KOPPELEN OP CLUBNIVEAU (v2.41.0) =====================
+// Tim, 28-11-2026: een account aan een speler koppelen hoort op het hoogste niveau te gebeuren, niet binnen
+// een ploeg. Eigenaar en clubbeheerder kiezen hier een speler uit ALLE ploegen van de club en daarna een of
+// meer accounts uit de mensen die een ploeg van de club volgen. Meerdere accounts per speler kan (twee
+// ouders, een grootouder), en een account kan aan meerdere spelers hangen.
+//
+// WAT ER GESCHREVEN WORDT. De koppeling zelf bij het account (playerLinks/<uid>/<globalId>, enkel door dat
+// account leesbaar) en, voor het overzicht van de beheerder, een spiegel op clubniveau
+// (clubs/<club>/spelerKoppelingen/<globalId>/<uid>) — zie database.rules.json. Is het account lid van de
+// ploeg waar de speler staat, dan wordt ook de koppeling binnen die ploeg (teams/<id>/memberPlayers) gelegd,
+// zodat de tegel en de spelerspagina binnen die ploeg blijven werken zoals voordien.
+//
+// WAT HET NIET KAN: een account zoeken dat nergens lid van is. Een clubbeheerder mag de gebruikersnodes niet
+// lezen, dus enkel wie al een ploeg van de club volgt is hier te kiezen. Een uitnodigingslink per speler
+// komt later (bewust uitgesteld).
+let _sk = null;   // { clubId, spelers: [{gid, naam, ploegen: [{tid, tnaam, rid}]}], accounts: {uid: {naam, email, ploegen: [tid]}}, koppelingen: {gid: {uid: {...}}} }
+let _skZoek = '';
+function renderSpelerKoppel() {
+  const clubIds = Object.keys(myClubs || {});
+  const clubId = (_clubBeheerId && (isOwner || myClubs[_clubBeheerId])) ? _clubBeheerId : (clubIds[0] || null);
+  if (!clubId || !(isOwner || myClubs[clubId])) return `<div class="hdr"><button class="back" onclick="terug('clubbeheer')">‹</button><h1>Spelers koppelen</h1></div><div class="content"><p style="text-align:center;color:var(--txt2)">Geen toegang.</p></div>`;
+  setTimeout(() => loadSpelerKoppel(clubId), 0);
+  return `<div class="hdr"><button class="back" onclick="terug('clubbeheer')">‹</button><h1>${icI(IC.idCard)} Spelers koppelen</h1></div>
+  <div class="content"><p style="font-size:13px;color:var(--txt2);margin:0 0 12px">Koppel een account aan een speler, onafhankelijk van de ploeg. Het account ziet dan de carrière van die speler bij <b>Mijn spelers</b>, ook als hij doorschuift. Je kiest uit de mensen die een ploeg van de club volgen.</p>
+  <div id="spelerkoppel-content"><div class="empty"><div class="ei">${IC.timer}</div><p>Laden...</p></div></div></div>`;
+}
+async function loadSpelerKoppel(clubId) {
+  const el = document.getElementById('spelerkoppel-content'); if (!el || !fbdb) return;
+  try {
+    const g = async p => (await fbOnce(fbdb.ref(p))).val();
+    const clubTeams = (await g('clubs/' + clubId + '/teams')) || {};
+    const koppelingen = (await g('clubs/' + clubId + '/spelerKoppelingen')) || {};
+    const spelers = {}, accounts = {};
+    for (const tid of Object.keys(clubTeams)) {
+      const [info, rv, members, mi] = await Promise.all([
+        g('teams/' + tid + '/info').catch(() => null), g('teams/' + tid + '/roster').catch(() => null),
+        g('teams/' + tid + '/members').catch(() => null), g('memberInfo/' + tid).catch(() => null),
+      ]);
+      if (info && info.archived) continue;   // een gearchiveerde ploeg telt hier niet mee
+      const kern = (Array.isArray(rv) ? rv : Object.values(rv || {}))[0];
+      if (!kern) continue;
+      const tnaam = kern.name || (info && info.name) || tid;
+      (kern.players || []).forEach(p => {
+        if (!p || !p.globalId) return;
+        const s = spelers[p.globalId] || (spelers[p.globalId] = { gid: p.globalId, naam: p.name || '', ploegen: [] });
+        s.ploegen.push({ tid, tnaam, rid: p.id });
+      });
+      Object.keys(members || {}).forEach(uid => {
+        const a = accounts[uid] || (accounts[uid] = { uid, naam: '', email: '', ploegen: [] });
+        const i = (mi || {})[uid] || {};
+        if (i.name && !a.naam) a.naam = i.name;
+        if (i.email && !a.email) a.email = i.email;
+        a.ploegen.push(tid);
+      });
+    }
+    _sk = { clubId, spelers: Object.values(spelers).sort((a, b) => a.naam.localeCompare(b.naam, 'nl')), accounts, koppelingen };
+    tekenSpelerKoppel();
+  } catch (e) {
+    if (el) el.innerHTML = `<div class="card"><p style="margin:0;font-size:13px;color:var(--txt2)">Kon de spelers en accounts niet laden. Probeer opnieuw.</p></div>`;
+  }
+}
+function _skAccountNaam(uid, k) {
+  const a = (_sk && _sk.accounts[uid]) || {};
+  return a.naam || (k && k.a) || a.email || ('Onbekend account #' + String(uid).slice(-4));
+}
+function tekenSpelerKoppel() {
+  const el = document.getElementById('spelerkoppel-content'); if (!el || !_sk) return;
+  const q = (_skZoek || '').trim().toLowerCase();
+  const lijst = _sk.spelers.filter(s => !q || s.naam.toLowerCase().includes(q) || s.ploegen.some(p => (p.tnaam || '').toLowerCase().includes(q)));
+  el.innerHTML = `<div class="fg" style="margin-bottom:12px"><input type="text" placeholder="Zoek een speler of ploeg…" value="${esc(_skZoek)}" oninput="_skZoek=this.value;tekenSpelerKoppelLijst()"></div><div id="sk-lijst"></div>`;
+  tekenSpelerKoppelLijst();
+}
+function tekenSpelerKoppelLijst() {
+  const el = document.getElementById('sk-lijst'); if (!el || !_sk) return;
+  const q = (_skZoek || '').trim().toLowerCase();
+  const lijst = _sk.spelers.filter(s => !q || s.naam.toLowerCase().includes(q) || s.ploegen.some(p => (p.tnaam || '').toLowerCase().includes(q)));
+  if (!lijst.length) { el.innerHTML = `<p style="text-align:center;color:var(--txt2);font-size:14px">Geen spelers gevonden.</p>`; return; }
+  el.innerHTML = `<div class="card">${lijst.map(s => {
+    const n = Object.keys(_sk.koppelingen[s.gid] || {}).length;
+    return `<div class="stat-row" style="cursor:pointer" data-link="1" onclick="skOpenSpeler('${jsq(s.gid)}')"><span style="flex:1;min-width:0">${esc(s.naam)}<small style="display:block;color:var(--txt2)">${esc(s.ploegen.map(p => p.tnaam).join(' · '))}</small></span>${n ? `<span style="color:var(--grn2);font-size:13px;font-weight:700">${n} ${n === 1 ? 'account' : 'accounts'}</span>` : ''}</div>`;
+  }).join('')}</div>`;
+}
+let _skAccountZoek = '';
+function skOpenSpeler(gid) {
+  const s = _sk && _sk.spelers.find(x => x.gid === gid); if (!s) return;
+  const kop = _sk.koppelingen[gid] || {};
+  const gekoppeld = Object.keys(kop);
+  openModal(`<h3>${icI(IC.idCard)} ${esc(s.naam)}</h3>
+    <p style="text-align:center;color:var(--txt2);font-size:12px;margin:-6px 0 12px">${esc(s.ploegen.map(p => p.tnaam).join(' · '))}</p>
+    <div class="sec" style="margin-top:0">Gekoppelde accounts</div>
+    ${gekoppeld.length ? gekoppeld.map(uid => `<div class="stat-row"><span style="flex:1;min-width:0">${esc(_skAccountNaam(uid, kop[uid]))}${(_sk.accounts[uid] || {}).email ? `<small style="display:block;color:var(--txt2)">${esc(_sk.accounts[uid].email)}</small>` : ''}</span><button class="btn btn-gray btn-sm" style="width:auto;margin:0" onclick="skOntkoppel('${jsq(gid)}','${jsq(uid)}')">Ontkoppelen</button></div>`).join('') : `<p style="color:var(--txt2);font-size:13px;margin:0 0 4px">Nog niemand.</p>`}
+    <div class="sec">Account toevoegen</div>
+    <div class="fg" style="margin-bottom:8px"><input type="text" placeholder="Zoek op naam of e-mail…" oninput="_skAccountZoek=this.value;skToonAccounts('${jsq(gid)}')"></div>
+    <div id="sk-accounts" style="max-height:34vh;overflow-y:auto"></div>
+    <button class="btn btn-gray" style="margin-top:12px" onclick="closeModal()">Sluiten</button>`);
+  _skAccountZoek = '';
+  skToonAccounts(gid);
+}
+function skToonAccounts(gid) {
+  const el = document.getElementById('sk-accounts'); if (!el || !_sk) return;
+  const kop = _sk.koppelingen[gid] || {};
+  const q = (_skAccountZoek || '').trim().toLowerCase();
+  const kandidaten = Object.values(_sk.accounts).filter(a => !kop[a.uid])
+    .filter(a => !q || (a.naam || '').toLowerCase().includes(q) || (a.email || '').toLowerCase().includes(q))
+    .sort((a, b) => (a.naam || a.email || '~').localeCompare(b.naam || b.email || '~', 'nl'));
+  // Wie geen naam en geen e-mail heeft is meestal een gast of iemand die de app nooit opende (zie de
+  // ledenlijst); die staan niet in de kijk.
+  const zichtbaar = kandidaten.filter(a => a.naam || a.email).slice(0, 60);
+  el.innerHTML = zichtbaar.length ? zichtbaar.map(a => `<div class="stat-row" style="cursor:pointer" onclick="skKoppel('${jsq(gid)}','${jsq(a.uid)}')"><span style="flex:1;min-width:0">${esc(a.naam || a.email)}${a.naam && a.email ? `<small style="display:block;color:var(--txt2)">${esc(a.email)}</small>` : ''}</span><span style="color:var(--grn2);font-weight:700">+</span></div>`).join('')
+    : `<p style="color:var(--txt2);font-size:13px;margin:0">Geen accounts gevonden.</p>`;
+}
+async function skKoppel(gid, uid) {
+  if (!_sk || !fbdb) return;
+  const s = _sk.spelers.find(x => x.gid === gid); const a = _sk.accounts[uid]; if (!s || !a) return;
+  const eerste = s.ploegen[0];
+  const accNaam = a.naam || a.email || '';
+  try {
+    await fbdb.ref('playerLinks/' + uid + '/' + gid).set({ t: eerste.tid, n: s.naam });
+  } catch (e) { showToast('Koppelen lukt nog niet. Waarschijnlijk staan de nieuwe regels nog niet live.', 'err'); return; }
+  try {
+    const rec = { p: s.naam, t: eerste.tid }; if (accNaam) rec.a = accNaam;
+    await fbdb.ref('clubs/' + _sk.clubId + '/spelerKoppelingen/' + gid + '/' + uid).set(rec);
+    (_sk.koppelingen[gid] = _sk.koppelingen[gid] || {})[uid] = rec;
+  } catch (e) { showToast('De koppeling is gelegd, maar staat nog niet in het overzicht. Staan de nieuwe regels live?', 'err'); }
+  // Binnen de ploeg(en) waar dit account lid is en de speler staat: ook daar koppelen, zodat de tegel en de
+  // spelerspagina in die ploeg werken zoals voordien. Best effort, de koppeling hierboven is de bron.
+  for (const p of s.ploegen) {
+    if (!a.ploegen.includes(p.tid)) continue;
+    try { await fbdb.ref('teams/' + p.tid + '/memberPlayers/' + uid + '/' + p.rid).set(true); } catch (e) {}
+  }
+  showToast(`${accNaam || 'Account'} is gekoppeld aan ${s.naam}.`, 'ok');
+  skOpenSpeler(gid); tekenSpelerKoppelLijst();
+}
+async function skOntkoppel(gid, uid) {
+  if (!_sk || !fbdb) return;
+  const s = _sk.spelers.find(x => x.gid === gid); if (!s) return;
+  try {
+    await fbdb.ref('playerLinks/' + uid + '/' + gid).remove();
+  } catch (e) { showToast('Ontkoppelen mislukt, probeer opnieuw.', 'err'); return; }
+  try { await fbdb.ref('clubs/' + _sk.clubId + '/spelerKoppelingen/' + gid + '/' + uid).remove(); } catch (e) {}
+  if (_sk.koppelingen[gid]) delete _sk.koppelingen[gid][uid];
+  for (const p of s.ploegen) { try { await fbdb.ref('teams/' + p.tid + '/memberPlayers/' + uid + '/' + p.rid).remove(); } catch (e) {} }
+  showToast('Ontkoppeld.', 'ok');
+  skOpenSpeler(gid); tekenSpelerKoppelLijst();
 }
 // ===================== TRAINERSCIJFERS =====================
 // Tim, 21-11-2026: een trainer ziet zijn EIGEN cijfers (wedstrijden getraind, bij welke ploegen, per

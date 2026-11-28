@@ -431,6 +431,26 @@
             ".validate": "newData.isString() && newData.val().length <= 300"
           }
         },
+
+        // WELK ACCOUNT BIJ WELKE SPELER HOORT, ALS OVERZICHT VOOR DE BEHEERDER (v2.41.0). De koppeling zelf
+        // staat bij het account (playerLinks/<uid>/<globalId>, enkel door dat account leesbaar). Daardoor kan
+        // een clubbeheerder niet zien wie al aan wie hangt. Deze tak is de spiegel daarvan, op clubniveau:
+        //   spelerKoppelingen/<globalId>/<uid> = { p: spelernaam, a: accountnaam, t: ploegId }
+        // Lezen en schrijven: de eigenaar en de clubbeheerder van DEZE club — de .read op $clubId erboven
+        // dekt het lezen al, dus enkel het schrijven staat hier. Een gewone ploegbeheerder of kijker leest en
+        // schrijft hier niets. Net als playerLinks een GORDIJN, geen slot: wat een kijker mag zien, bepaalt
+        // playerLinks (regels bij playerCareer), niet deze lijst.
+        "spelerKoppelingen": {
+          ".write": "auth != null && (root.child('owner').val() === auth.uid || root.child('clubs/' + $clubId + '/admins/' + auth.uid).exists())",
+          "$gid": {
+            "$uid": {
+              "p": { ".validate": "newData.isString() && newData.val().length <= 80" },
+              "a": { ".validate": "newData.isString() && newData.val().length <= 120" },
+              "t": { ".validate": "newData.isString() && newData.val().length <= 60" },
+              "$veld": { ".validate": false }
+            }
+          }
+        },
         "teams": {
           // De ploeg-index binnen de club mag ook door de clubbeheerder beheerd worden (fase 2d),
           // zodat hij ploegen kan aanmaken/registreren in zijn club. (Niet info of admins.)
