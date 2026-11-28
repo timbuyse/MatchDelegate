@@ -3120,7 +3120,12 @@ async function joinTeamByToken(token) {
   // EEN UITNODIGING PER SPELER (v2.42.0): naast het volgen van de ploeg ook meteen aan die speler gekoppeld.
   const uitn = snap.val() || {};
   if (uitn.gid) await spelerUitnodigingAanvaarden(teamId, token, uitn);
-  await selectTeam(teamId);
+  // NA HET VOLGEN NAAR HET STARTSCHERM, NIET IN DE PLOEG (Tim, 28-11-2026: de app opent bij iedereen op het
+  // scherm waar je je ploegen, de wedstrijden van vandaag en je spelers ziet). De nieuwe ploeg staat daar nu
+  // in de lijst. Enkel een GAST gaat wel rechtstreeks de ploeg in: die heeft dat scherm niet (zie
+  // GUEST_ALLOWED_VIEWS) en volgt één wedstrijd of ploeg via een link.
+  if (isGuest) await selectTeam(teamId);
+  else { await preloadTeamNames(); await go('teamselect', undefined, true); }
   return 'ok';
 }
 // Legt de koppeling op spelerniveau voor wie via een uitnodiging PER SPELER binnenkomt: playerLinks (het

@@ -9,6 +9,12 @@ clubmodel (rollen: eigenaar → clubbeheerder → ploegbeheerder → kijker → 
 
 ---
 
+## v2.42.2
+
+- **Na het volgen van een ploeg naar het startscherm.** Wie een uitnodiging opent (voor een ploeg of voor een speler) of een code invoert, komt op het ploegkeuzescherm terecht, niet rechtstreeks in de ploeg. Een gast gaat wel rechtstreeks de ploeg in.
+
+---
+
 ## v2.42.1
 
 - **Eén kind per kaartje.** Op het ploegkeuzescherm opent het kaartje van een gekoppeld kind enkel zijn eigen carrière, met zijn naam in de kop, niet die van alle gekoppelde kinderen. Hetzelfde voor de knop "Volledige carrière" op de spelerspagina en voor de tegel bij één kind. Bij meerdere kinderen toont de tegel nog steeds iedereen.
